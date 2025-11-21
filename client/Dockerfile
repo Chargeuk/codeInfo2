@@ -14,6 +14,9 @@ RUN npm run build --workspace client
 
 FROM node:22-slim AS runtime
 WORKDIR /app/client
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/common /app/common
 COPY --from=build /app/client/dist ./dist
 COPY --from=build /app/client/package*.json ./
 ENV PORT=5001

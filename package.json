@@ -12,6 +12,10 @@
     "format": "prettier . --write",
     "build:all": "npm run build --workspaces",
     "clean": "rimraf node_modules */node_modules",
+    "compose:up": "docker compose up -d",
+    "compose:down": "docker compose down",
+    "compose:logs": "docker compose logs -f",
+    "compose:build": "docker compose build",
     "prepare": "husky install"
   },
   "repository": {

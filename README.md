@@ -54,6 +54,14 @@ npm install
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 
+## Docker Compose
+
+- Build both images: `npm run compose:build`
+- Start stack: `npm run compose:up` (client on http://localhost:5001, server on http://localhost:5010)
+- Tail logs: `npm run compose:logs`
+- Stop stack: `npm run compose:down`
+- Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
+
 ## Environment policy
 
 - Commit `.env` files with safe defaults.

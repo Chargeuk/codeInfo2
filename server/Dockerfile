@@ -18,6 +18,9 @@ RUN npm run build --workspace server
 
 FROM node:22-slim AS runtime
 WORKDIR /app/server
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/node_modules /app/node_modules
+COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./
 ENV PORT=5010

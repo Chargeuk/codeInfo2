@@ -36,6 +36,13 @@ npm install
 - `npm run build --workspace common`
 - Exports `getAppInfo(app, version): VersionInfo`
 
+## Server
+
+- `npm run dev --workspace server` (default port 5010)
+- `npm run build --workspace server`
+- `npm run start --workspace server`
+- Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
+
 ## Environment policy
 
 - Commit `.env` files with safe defaults.

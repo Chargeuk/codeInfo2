@@ -14,3 +14,9 @@
 - Purpose: shared DTOs/utilities consumed by client and server to prove workspace linking.
 - Exports `VersionInfo` type and `getAppInfo(app, version)` helper; built with `tsc -b` to emit declarations in `dist/`.
 - Uses root lint/format configs; build output stays out of git via root ignores.
+
+## Server API (core)
+
+- Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
+- Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
+- Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.

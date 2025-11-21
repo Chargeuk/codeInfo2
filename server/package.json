@@ -1,10 +1,31 @@
 {
-  "name": "@codeinfo2/server-placeholder",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@codeinfo2/server",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
-    "lint": "echo \"placeholder server lint\"",
-    "build": "echo \"placeholder server build\"",
-    "format:check": "echo \"placeholder server format check\""
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format:check": "prettier . --check",
+    "format": "prettier . --write"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@codeinfo2/common": "^0.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
   }
 }

@@ -71,7 +71,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ### 1. Workspace & Tooling Baseline
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: a4c0c46, 0e98d67, 70b5fa4
 
 #### Overview
@@ -130,7 +130,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ### 2. Common Package Skeleton
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: ce6b662, 0991e06
 
 #### Overview
@@ -193,8 +193,8 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ### 3. Server Core (Express API)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: **in_progress**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -281,8 +281,8 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -383,8 +383,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -430,8 +430,8 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -502,8 +502,8 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 ### 7. Docker Compose Integration
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -570,8 +570,8 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -628,8 +628,8 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -671,8 +671,8 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 

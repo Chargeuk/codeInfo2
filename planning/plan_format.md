@@ -21,7 +21,7 @@ Overview of where we are now, and where we would like to be once this phase has 
 
 # Implementation Plan
 
-## Implementation Plan Instructions
+## Instructions
 This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
 This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
 1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
@@ -37,6 +37,8 @@ This should only be started once all the above sections are clear and understood
 11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
+# Tasks
 
 ### 1. Task One Title
 

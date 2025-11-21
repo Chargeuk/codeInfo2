@@ -33,7 +33,8 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - (Resolved 2025-11-21) Enable Husky and lint-staged pre-commit hooks from the outset.
 - (Resolved 2025-11-21) Client uses `REACT_APP_API_URL` at build time to target the server.
 
-## Implementation Plan Instructions
+# Implementation Plan
+## Instructions
 This list must be copied into each new plan. It instructs how a developer works through the tasks.
 1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
 2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
@@ -50,7 +51,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
 ---
-
+## Tasks
 ### 1. Workspace & Tooling Baseline
 
 - Task Status: __to_do__

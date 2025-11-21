@@ -284,7 +284,7 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

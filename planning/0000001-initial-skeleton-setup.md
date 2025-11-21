@@ -389,8 +389,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: **in_progress**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -405,32 +405,35 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 #### Subtasks
 
-1. [ ] Scaffold client with explicit command: from repo root run `npm create vite@latest client -- --template react-ts`; when prompted, accept defaults. Edit `client/package.json` to set `name` to `@codeinfo2/client`, `version` `0.0.1`, `engines.node ">=22"`.
-2. [ ] Install UI + shared deps: `npm install --workspace client @mui/material @emotion/react @emotion/styled @mui/icons-material` and ensure `@codeinfo2/common` is referenced automatically via workspace (no extra install needed once common exists).
-3. [ ] Set default dev port and env handling:
+1. [x] Scaffold client with explicit command: from repo root run `npm create vite@latest client -- --template react-ts`; when prompted, accept defaults. Edit `client/package.json` to set `name` to `@codeinfo2/client`, `version` `0.0.1`, `engines.node ">=22"`.
+2. [x] Install UI + shared deps: `npm install --workspace client @mui/material @emotion/react @emotion/styled @mui/icons-material` and ensure `@codeinfo2/common` is referenced automatically via workspace (no extra install needed once common exists).
+3. [x] Set default dev port and env handling:
    - In `client/vite.config.ts`, set `server: { port: 5001, host: true }`.
    - Add `client/.env` (committed) with `VITE_API_URL=http://localhost:5010` (Vite uses `VITE_` prefix). State that overrides go in `client/.env.local` (ignored) and production compose will point to `http://server:5010`.
-4. [ ] Implement startup fetch using hooks and common DTO:
+4. [x] Implement startup fetch using hooks and common DTO:
    - In `src/App.tsx` (or create if absent), use `useEffect` to call `${import.meta.env.VITE_API_URL}/version` with `fetch`.
    - Parse JSON into `VersionInfo` (import from `@codeinfo2/common`).
    - Show client version via `package.json` import: `import pkg from "../package.json"; const clientVersion = pkg.version;`.
    - Keep fallback UI for loading/error.
-5. [ ] Build simple MUI UI (use MUI MCP docs if needed): wrap in `<Container maxWidth="sm">`, `<Card>`, `<Typography variant="h4" gutterBottom>CodeInfo2 Versions</Typography>`, list items for client and server versions, and show `/info` call result if implemented.
-6. [ ] Update scripts in `client/package.json`: `"dev": "vite"`, `"build": "vite build"`, `"preview": "vite preview --host --port 5001"`, `"lint": "eslint . --ext .ts,.tsx"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`.
-7. [ ] Ensure TypeScript config extends root: in `client/tsconfig.json`, set `"extends": "../tsconfig.base.json"`, include `"compilerOptions": { "types": ["vite/client"], "jsx": "react-jsx" }`, `"include": ["src"]`. Add optional path alias: in `vite.config.ts`, `resolve: { alias: { '@codeinfo2/common': path.resolve(__dirname, '../common/src') } }` if needed for dev speed.
-8. [ ] Update `README.md` with client usage: `npm run dev --workspace client` (shows on http://localhost:5001), `npm run build --workspace client`, `npm run preview --workspace client -- --host --port 5001`, and env var `VITE_API_URL` description.
-9. [ ] Update `design.md` with a short section: Vite + React 19 + MUI, startup fetch to `/version`, uses `VersionInfo` DTO, relies on env `VITE_API_URL`.
-10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces` to ensure root still passes.
+5. [x] Build simple MUI UI (use MUI MCP docs if needed): wrap in `<Container maxWidth="sm">`, `<Card>`, `<Typography variant="h4" gutterBottom>CodeInfo2 Versions</Typography>`, list items for client and server versions, and show `/info` call result if implemented.
+6. [x] Update scripts in `client/package.json`: `"dev": "vite"`, `"build": "vite build"`, `"preview": "vite preview --host --port 5001"`, `"lint": "eslint . --ext .ts,.tsx"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`.
+7. [x] Ensure TypeScript config extends root: in `client/tsconfig.json`, set `"extends": "../tsconfig.base.json"`, include `"compilerOptions": { "types": ["vite/client"], "jsx": "react-jsx" }`, `"include": ["src"]`. Add optional path alias: in `vite.config.ts`, `resolve: { alias: { '@codeinfo2/common': path.resolve(__dirname, '../common/src') } }` if needed for dev speed.
+8. [x] Update `README.md` with client usage: `npm run dev --workspace client` (shows on http://localhost:5001), `npm run build --workspace client`, `npm run preview --workspace client -- --host --port 5001`, and env var `VITE_API_URL` description.
+9. [x] Update `design.md` with a short section: Vite + React 19 + MUI, startup fetch to `/version`, uses `VersionInfo` DTO, relies on env `VITE_API_URL`.
+10. [x] Run `npm run lint --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces` to ensure root still passes.
 11. [ ] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `client/.env` (committed defaults), note port 5001, and that `.env.local` is ignored.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`.
-2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001` (expect visible client version label and server version label once API responds).
+1. [x] `npm run lint --workspace client`.
+2. [x] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001` (expect visible client version label and server version label once API responds).
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Scaffolded Vite React 19 client with MUI, Node 22 engines, and lint/format scripts; env defaults stored in committed client/.env (override via .env.local).
+- App.tsx fetches `${VITE_API_URL}/version` using VersionInfo from common and shows both client/server versions with loading/error UI in MUI Card.
+- Vite config sets port 5001 and alias to common/src; tsconfig extends root base.
+- Ran client lint/build and root lint; added docs sections and projectStructure entries.
 
 ---
 

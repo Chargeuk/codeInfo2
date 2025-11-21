@@ -1,10 +1,12 @@
 node_modules
 dist
 coverage
+.git
+.gitignore
+.vscode
 .env.local
-.DS_Store
+npm-debug.log
+src/test
 playwright-report
 test-results
-npm-debug.log*
-.vscode
-*.tsbuildinfo
+Dockerfile*

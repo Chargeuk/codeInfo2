@@ -1,0 +1,19 @@
+{
+  "name": "@codeinfo2/common",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format:check": "prettier . --check",
+    "format": "prettier . --write"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

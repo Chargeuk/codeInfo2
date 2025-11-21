@@ -25,7 +25,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - (Resolved 2025-11-21) Use Debian-slim base images with multi-stage builds for both client and server.
 - (Resolved 2025-11-21) Default ports: client 5001, server 5010; both overridable via env variables and docker-compose mapping.
 - (Resolved 2025-11-21) Enable Husky and lint-staged pre-commit hooks from the outset.
-- Should the client reference server URL via environment variable at build time (e.g., `VITE_API_URL` or `REACT_APP_API_URL`)?
+- (Resolved 2025-11-21) Client uses `REACT_APP_API_URL` at build time to target the server.
 
 ## Implementation Plan Instructions
 This list must be copied into each new plan. It instructs how a developer works through the tasks.

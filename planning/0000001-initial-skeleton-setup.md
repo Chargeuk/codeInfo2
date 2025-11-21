@@ -513,8 +513,8 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 ### 7. Docker Compose Integration
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 354ecfa, 5874d90
 
 #### Overview
 
@@ -575,7 +575,9 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Added compose stack with healthchecks and npm helper scripts; updated design/README/projectStructure to document usage and structure.
+- Aligned compose builds with root context and ensured server/client Docker images include node_modules/common plus curl for health probes.
+- Fixed common export extension for NodeNext; verified compose build/up, health endpoint, and port mappings, then tore down the stack cleanly.
 
 ---
 

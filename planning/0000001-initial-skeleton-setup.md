@@ -10,6 +10,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - `common` package exports typed shared pieces (e.g., version DTO) consumed by both client and server to prove cross-package consumption.
 - Server exposes `/version` returning its `package.json` version using the shared DTO.
 - Client calls `/version` on startup, shows both server and client version values.
+- Root-level `projectStructure.md` documents directory tree with one-line descriptions and is kept current by all tasks.
 - Dockerfiles for client and server build and start successfully; images run locally.
 - `docker-compose` brings up both services (client + server) and wiring works (client can call server API endpoint via configured base URL).
 - Root scripts for linting/formatting and workspace-aware building succeed.
@@ -47,6 +48,32 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ---
 
+### 6. Project Structure Documentation
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Create and maintain `projectStructure.md` at the repo root with a live directory tree and one-line purpose for each folder/file. Keep it updated across tasks.
+
+#### Documentation Locations
+- Repository tree (local working copy).
+- `projectStructure.md` itself (kept current each task).
+
+#### Subtasks
+1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
+2. [ ] Add a short note in the file explaining it must be updated whenever files change.
+3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
+4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
+
+#### Testing
+1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
 ### 1. Workspace & Tooling Baseline
 
 - Task Status: __to_do__
@@ -68,6 +95,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 4. [ ] Set up Husky + lint-staged: add `prepare` script, run `npm run prepare`, add `.husky/pre-commit` with `npx lint-staged`; create `lint-staged.config.mjs` to run `eslint --ext .ts,.tsx` and `prettier --check` on staged files.
 5. [ ] Run `npm install` to materialize lockfile; verify root scripts execute (they should no-op on empty packages without failing).
 6. [ ] Update `README.md` and `design.md` with prerequisites (Node 22), workspace layout, and root commands (`npm install`, `npm run lint`, `npm run format:check`, `npm run build:all`).
+7. [ ] Update `projectStructure.md` to reflect new root files/configs.
 
 #### Testing
 1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
@@ -102,6 +130,7 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 6. [ ] Update `README.md` and `design.md` to describe the `common` package purpose, output location `dist/`, and example import usage in server/client.
 7. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common`.
 8. [ ] Run root `npm run lint --workspaces` after changes.
+9. [ ] Update `projectStructure.md` with new common files/outputs.
 
 #### Testing
 1. [ ] `npm run lint --workspace common`.
@@ -140,6 +169,7 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
 6. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
 7. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
 8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
+9. [ ] Update `projectStructure.md` for all server files and Dockerfile.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
@@ -177,6 +207,7 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 8. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
 9. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
 10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+11. [ ] Update `projectStructure.md` with client files (src, config, Dockerfile).
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
@@ -209,6 +240,7 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 3. [ ] Run `docker compose up --build` and verify UI shows both versions; adjust CORS if needed in server.
 4. [ ] Document compose usage in `README.md`/`design.md`: required env vars, port bindings (5001/5010), how to rebuild images, how to stop.
 5. [ ] Run `npm run lint --workspaces` after compose file added to ensure formatting rules pass (use prettier on YAML if configured).
+6. [ ] Update `projectStructure.md` with compose file and any new supporting scripts.
 
 #### Testing
 1. [ ] `docker compose build` (uses both Dockerfiles).

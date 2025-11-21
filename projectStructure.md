@@ -6,7 +6,7 @@ Root files/directories (as of initial tooling setup):
 
 - AGENTS.md — working rules for AI agents and workflow expectations.
 - README.md — overview, prerequisites, root commands, env policy.
-- design.md — design notes; now includes tooling baseline.
+- design.md — design notes; now includes tooling baseline plus mermaid architecture/flow diagrams.
 - docker-compose.yml — compose stack wiring for client/server images with healthchecks.
 - projectStructure.md — this living map.
 - package.json — npm workspaces + root scripts + lint-staged/Husky setup.

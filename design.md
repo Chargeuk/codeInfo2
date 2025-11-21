@@ -41,3 +41,39 @@
 - `docker-compose.yml` builds `codeinfo2-client` and `codeinfo2-server`, exposes ports 5001/5010, and sets `VITE_API_URL=http://server:5010` for the client container.
 - Healthchecks: server uses `/health`; client uses root `/` to ensure availability before dependencies start, with client waiting on server health.
 - Root scripts (`compose:build`, `compose:up`, `compose:down`, `compose:logs`) manage the stack for local demos and e2e setup.
+
+## Architecture diagram
+
+```mermaid
+graph TD
+  A[root package.json] --> B[client workspace]
+  A --> C[server workspace]
+  A --> D[common workspace]
+  B -->|uses| D
+  C -->|uses| D
+  B --> E[client Docker image]
+  C --> F[server Docker image]
+  E --> G[docker-compose]
+  F --> G
+```
+
+This diagram shows the three workspaces sharing the root tooling, each consuming the common package, and both producing Docker images that the compose stack orchestrates.
+
+## Version flow
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Client
+  participant Server
+  participant Common
+  User->>Client: open http://localhost:5001
+  Client->>Server: GET /version
+  Server->>Server: read package.json version
+  Server->>Common: getAppInfo("server", version)
+  Common-->>Server: VersionInfo
+  Server-->>Client: 200 VersionInfo
+  Client-->>User: renders client + server versions
+```
+
+This sequence captures the startup request path the UI uses to display client and server versions via the shared VersionInfo DTO.

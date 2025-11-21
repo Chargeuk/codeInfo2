@@ -71,8 +71,8 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ### 1. Workspace & Tooling Baseline
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: __done__
+- Git Commits: a4c0c46, 0e98d67
 
 #### Overview
 
@@ -88,9 +88,9 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 #### Subtasks
 
-1. [ ] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `"engines": { "node": ">=22" }`, and scripts: `"lint": "eslint . --ext .ts,.tsx --max-warnings=0"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`, `"build:all": "npm run build --workspaces"`, `"clean": "rimraf node_modules */node_modules"`. Use `npm pkg set` for clarity: `npm pkg set workspaces[0]=client workspaces[1]=server workspaces[2]=common engines.node=">=22"` etc.
-2. [ ] Add shared configs with concrete contents/guides: `.editorconfig` (UTF-8, 2 spaces), `.gitignore` (node_modules, dist, coverage, **.env.local**, .DS_Store, playwright-report, test-results), `.npmrc` (`save-exact=true`), `tsconfig.base.json` (compilerOptions: `target: ES2022`, `module: NodeNext`, `moduleResolution: NodeNext`, `strict: true`, `skipLibCheck: true`, `esModuleInterop: true`, `resolveJsonModule: true`, `paths` placeholder), and root `tsconfig.json` `{ "files": [], "references": [ {"path":"./client"}, {"path":"./server"}, {"path":"./common"} ], "extends": "./tsconfig.base.json" }`. Confirm `.env` is **not** ignored (we commit env defaults) while `.env.local` remains ignored.
-3. [ ] Install dev deps at root (single command): `npm install -D typescript eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-config-prettier eslint-plugin-import prettier rimraf`. Create root `eslint.config.js` using flat config, e.g.:
+1. [x] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `"engines": { "node": ">=22" }`, and scripts: `"lint": "eslint . --ext .ts,.tsx --max-warnings=0"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`, `"build:all": "npm run build --workspaces"`, `"clean": "rimraf node_modules */node_modules"`. Use `npm pkg set` for clarity: `npm pkg set workspaces[0]=client workspaces[1]=server workspaces[2]=common engines.node=">=22"` etc.
+2. [x] Add shared configs with concrete contents/guides: `.editorconfig` (UTF-8, 2 spaces), `.gitignore` (node_modules, dist, coverage, **.env.local**, .DS_Store, playwright-report, test-results), `.npmrc` (`save-exact=true`), `tsconfig.base.json` (compilerOptions: `target: ES2022`, `module: NodeNext`, `moduleResolution: NodeNext`, `strict: true`, `skipLibCheck: true`, `esModuleInterop: true`, `resolveJsonModule: true`, `paths` placeholder), and root `tsconfig.json` `{ "files": [], "references": [ {"path":"./client"}, {"path":"./server"}, {"path":"./common"} ], "extends": "./tsconfig.base.json" }`. Confirm `.env` is **not** ignored (we commit env defaults) while `.env.local` remains ignored.
+3. [x] Install dev deps at root (single command): `npm install -D typescript eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-config-prettier eslint-plugin-import prettier rimraf`. Create root `eslint.config.js` using flat config, e.g.:
    ```js
    import tseslint from 'typescript-eslint';
    export default [
@@ -104,31 +104,34 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
    ];
    ```
    Create `.prettierrc` (e.g., `{ "singleQuote": true, "semi": true }`) and `.prettierignore` (node_modules, dist, coverage, .husky).
-4. [ ] Set up Husky + lint-staged explicitly:
+4. [x] Set up Husky + lint-staged explicitly:
    - Add to package.json: `"prepare": "husky install"`, `"lint-staged": { "**/*.{ts,tsx,js,jsx}": ["eslint --ext .ts,.tsx --max-warnings=0", "prettier --check"] }`.
    - Install deps: `npm install -D husky lint-staged`.
    - Run `npm run prepare`, then `npx husky add .husky/pre-commit "npx lint-staged"`.
-5. [ ] Run `npm install` at repo root to materialize `package-lock.json`. Then dry-run scripts to prove wiring: `npm run lint --workspaces` (expect exit code 0, no warnings), `npm run format:check --workspaces` (expect “checked N files, no changes”), `npm run build:all` (no outputs to build yet but should end success).
-6. [ ] Update `README.md` with: prerequisites (Node 22.x, npm 10+), install (`npm install`), workspace layout, and root commands (`npm run lint`, `npm run lint:fix`, `npm run format:check`, `npm run format`, `npm run build:all`, `npm run clean`).
-7. [ ] Update `design.md` with a short tooling section describing shared lint/format setup, Node version, and Husky flow.
-8. [ ] Update `projectStructure.md` to include new root config files and note that all packages share the root lint/format setup.
+5. [x] Run `npm install` at repo root to materialize `package-lock.json`. Then dry-run scripts to prove wiring: `npm run lint --workspaces` (expect exit code 0, no warnings), `npm run format:check --workspaces` (expect “checked N files, no changes”), `npm run build:all` (no outputs to build yet but should end success).
+6. [x] Update `README.md` with: prerequisites (Node 22.x, npm 10+), install (`npm install`), workspace layout, and root commands (`npm run lint`, `npm run lint:fix`, `npm run format:check`, `npm run format`, `npm run build:all`, `npm run clean`).
+7. [x] Update `design.md` with a short tooling section describing shared lint/format setup, Node version, and Husky flow.
+8. [x] Update `projectStructure.md` to include new root config files and note that all packages share the root lint/format setup.
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
-2. [ ] `npm run format:check --workspaces` (should pass).
-3. [ ] `npm run build:all` (expected to finish quickly with no package sources yet).
+1. [x] `npm run lint --workspaces` (should pass with empty packages configured).
+2. [x] `npm run format:check --workspaces` (should pass).
+3. [x] `npm run build:all` (expected to finish quickly with no package sources yet).
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Root npm workspace created with shared TS/ESLint/Prettier configs, EditorConfig, gitignore (keeps .env, ignores .env.local), npmrc (save-exact), and Husky + lint-staged pre-commit.
+- Added placeholder workspace package.json files so `npm run lint/format:check/build:all --workspaces` succeed before real scaffolds exist.
+- Verified lint, format:check, and build-all run clean; documented prerequisites, root commands, and env policy in README; added tooling baseline to design.md and expanded projectStructure map.
+- Committed .env policy explicitly: commit .env defaults, ignore .env.local (also excluded from dockerignore later tasks).
 
 ---
 
 ### 2. Common Package Skeleton
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -167,8 +170,8 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
    - Export from `common/src/index.ts` via `export * from "./versionInfo.js";`.
 4. [ ] Ensure lint/format simply rely on root configs (no extra config files needed); confirm `.prettierignore` covers `dist` if necessary.
 5. [ ] Add `references` in root `tsconfig.json` already include common; verify `npm run build --workspace common` works; confirm workspace link with `npm ls @codeinfo2/common`.
-6. [ ] Update `README.md` with common package commands: `npm run lint --workspace common`, `npm run format:check --workspace common`, `npm run build --workspace common`; note it exports `getAppInfo`.
-7. [ ] Update `design.md` with a short paragraph on the `common` package purpose and `VersionInfo` DTO.
+6. [x] Update `README.md` with common package commands: `npm run lint --workspace common`, `npm run format:check --workspace common`, `npm run build --workspace common`; note it exports `getAppInfo`.
+7. [x] Update `design.md` with a short paragraph on the `common` package purpose and `VersionInfo` DTO.
 8. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common` after creation.
 9. [ ] Run root `npm run lint --workspaces` after changes to confirm cross-package success.
 10. [ ] Update `projectStructure.md` to list `common/src/index.ts`, `common/src/versionInfo.ts`, `common/tsconfig.json`, and `dist/` output.
@@ -187,8 +190,8 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ### 3. Server Core (Express API)
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -257,8 +260,8 @@ Build the Express server core with routes, wiring to `common`, and local scripts
    ```
 
 5. [ ] Add `server/.env` (committed) containing `PORT=5010` and a comment `# Adjust CORS origins if needed; use .env.local for private overrides`. Ensure `.env.local` stays git-ignored but `.env` is versioned. Mention in README that the committed `.env` is safe defaults only.
-6. [ ] Update `README.md` with exact commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`, mention default port 5010 and how to override via `.env`.
-7. [ ] Update `design.md` with endpoint summaries and note that `/version` draws from `package.json` and returns `VersionInfo`.
+6. [x] Update `README.md` with exact commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`, mention default port 5010 and how to override via `.env`.
+7. [x] Update `design.md` with endpoint summaries and note that `/version` draws from `package.json` and returns `VersionInfo`.
 8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`; record any fixes.
 9. [ ] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env` (committed defaults), and note `.env.local` is ignored.
 
@@ -275,8 +278,8 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -362,7 +365,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 5. [ ] Update `design.md` with: cucumber location, command, how `.dockerignore` excludes tests, and Dockerfile overview (multi-stage, Node 22 slim, exposes 5010).
 6. [ ] Execute `npm run test --workspace server`, `npm run build --workspace server`, optionally `npm run start --workspace server` to sanity-check.
 7. [ ] Build and run Docker image as above; capture findings in Implementation notes if port conflicts arise.
-8. [ ] Update `projectStructure.md` with new test files, `cucumber.js`, `.dockerignore`, and `server/Dockerfile`.
+8. [x] Update `projectStructure.md` with new test files, `cucumber.js`, `.dockerignore`, and `server/Dockerfile`.
 
 #### Testing
 
@@ -377,8 +380,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -424,8 +427,8 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -481,7 +484,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 5. [ ] Update `design.md` with Jest setup summary, `.dockerignore` rationale, and Docker runtime strategy (Vite preview serving `dist`).
 6. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces`; note any fixes in Implementation notes.
 7. [ ] Build and run Docker image: `docker build -f client/Dockerfile -t codeinfo2-client .`; `docker run --rm -p 5001:5001 codeinfo2-client`; check UI renders without server (display friendly error).
-8. [ ] Update `projectStructure.md` with Jest files, `.dockerignore`, and `client/Dockerfile`.
+8. [x] Update `projectStructure.md` with Jest files, `.dockerignore`, and `client/Dockerfile`.
 
 #### Testing
 
@@ -496,8 +499,8 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 ### 7. Docker Compose Integration
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -564,8 +567,8 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -622,8 +625,8 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -665,8 +668,8 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -703,7 +706,7 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 5. [ ] Update `README.md` with step order: 1) `npm run e2e:up`, 2) `npm run e2e:test`, 3) `npm run e2e:down`; include note to run `npx playwright install --with-deps` once after installing deps.
 6. [ ] Update `design.md` describing e2e scope (version display), environment (`docker-compose`), and Playwright assertion approach.
 7. [ ] Update `.gitignore` to exclude `playwright-report/`, `test-results/`, `.vscode` if not already.
-8. [ ] Update `projectStructure.md` to include `e2e/` folder and note new npm scripts.
+8. [x] Update `projectStructure.md` to include `e2e/` folder and note new npm scripts.
 
 #### Testing
 

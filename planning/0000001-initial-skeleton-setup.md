@@ -61,7 +61,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 ## Tasks
 ### 1. Workspace & Tooling Baseline
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -6,5 +6,6 @@
 - When working in React, use the MUI MCP tool for all Material UI references. For any other APIs or SDKs, consult documentation via the Context7 MCP tool so guidance stays current.
 
 ## Branching & Phase Flow
-- Create a feature branch for each story (`feature/<index>-<short-description>`) from the currently checked out loction.
+- Create a feature branch for each story (`feature/<number>-<short-description>`) from the currently checked out loction.
+- Each commit should be prefixed with DEV-[Number] - and contina a breif description consisting of 4 or 5 sentences explaining what changed and why.
 - Work only within that branch until every task in the story is complete and working.

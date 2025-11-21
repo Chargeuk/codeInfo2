@@ -162,13 +162,13 @@ Build the LM Studio configuration UI that lets users set a base URL, view connec
 
 1. [ ] Create `client/src/pages/LmStudioPage.tsx` with controlled base URL input (default from env/localStorage) and actions: “Check status” / “Refresh”.
 2. [ ] Add a data hook (e.g., `useLmStudioStatus`) in `client/src/hooks/useLmStudioStatus.ts` calling server `/lmstudio/status`; manage states (idle/loading/success/error) and reachability indicator.
-3. [ ] Render models in responsive list/table showing `displayName`, `modelKey`, `type/format`, size/arch if present; truncate long fields.
+3. [ ] Render models in responsive list/table showing `displayName`, `modelKey`, `type/format`, size/arch if present; truncate long fields. When LM Studio is reachable but returns zero models, show a clear “No models available” empty state.
 4. [ ] Add accessibility: labelled input, `aria-live` for status messages, focus management on errors, keyboard-activable refresh.
 5. [ ] Persist base URL in `localStorage` and rehydrate on mount; allow reset to default.
-6. [ ] Add client tests in `client/src/test/lmstudio.test.tsx` stubbing fetch: success with models, empty list, error/timeout; verify UI states and persistence.
+6. [ ] Add client tests in `client/src/test/lmstudio.test.tsx` stubbing fetch: success with models, empty list (assert empty-state message), error/timeout; verify UI states and persistence.
 7. [ ] Ensure routing/nav highlights LM Studio route and deep link `/lmstudio` works in dev/preview/Docker.
 8. [ ] Update `README.md` with LM Studio page usage, base URL env, and note that calls go through the server proxy.
-9. [ ] Update `design.md` with LM Studio flow (client → server proxy → SDK) and any UI notes.
+9. [ ] Update `design.md` with LM Studio flow (client → server proxy → SDK) and any UI notes (including empty-state behaviour).
 10. [ ] Update `projectStructure.md` for new pages/hooks/components and any styling files.
 11. [ ] Commands to run (in order): `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`.
 

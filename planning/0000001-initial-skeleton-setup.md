@@ -130,8 +130,8 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ### 2. Common Package Skeleton
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: ce6b662, 0991e06
 
 #### Overview
 
@@ -146,11 +146,11 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 #### Subtasks
 
-1. [ ] Create `common/package.json` with:
+1. [x] Create `common/package.json` with:
    - name `@codeinfo2/common`, `version` placeholder `0.0.1`, `type: "module"`, `main: "dist/index.js"`, `exports: { ".": "./dist/index.js" }`.
    - scripts: `"build": "tsc -b"`, `"lint": "npm run lint --workspace root"` (inherited), or set explicitly `eslint . --ext .ts,.tsx`, plus `lint:fix`, `format`, `format:check` mirroring root commands via `"npm run ... --workspace ."`.
    - `engines.node: ">=22"`.
-2. [ ] Add `common/tsconfig.json` extending `../tsconfig.base.json` with:
+2. [x] Add `common/tsconfig.json` extending `../tsconfig.base.json` with:
    ```json
    {
      "extends": "../tsconfig.base.json",
@@ -164,33 +164,36 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
      "references": []
    }
    ```
-3. [ ] Implement `common/src/versionInfo.ts`:
+3. [x] Implement `common/src/versionInfo.ts`:
    - Define `export type VersionInfo = { app: string; version: string };`
    - `export function getAppInfo(app: string, version: string): VersionInfo { return { app, version }; }`.
    - Export from `common/src/index.ts` via `export * from "./versionInfo.js";`.
-4. [ ] Ensure lint/format simply rely on root configs (no extra config files needed); confirm `.prettierignore` covers `dist` if necessary.
-5. [ ] Add `references` in root `tsconfig.json` already include common; verify `npm run build --workspace common` works; confirm workspace link with `npm ls @codeinfo2/common`.
+4. [x] Ensure lint/format simply rely on root configs (no extra config files needed); confirm `.prettierignore` covers `dist` if necessary.
+5. [x] Add `references` in root `tsconfig.json` already include common; verify `npm run build --workspace common` works; confirm workspace link with `npm ls @codeinfo2/common`.
 6. [x] Update `README.md` with common package commands: `npm run lint --workspace common`, `npm run format:check --workspace common`, `npm run build --workspace common`; note it exports `getAppInfo`.
 7. [x] Update `design.md` with a short paragraph on the `common` package purpose and `VersionInfo` DTO.
-8. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common` after creation.
-9. [ ] Run root `npm run lint --workspaces` after changes to confirm cross-package success.
-10. [ ] Update `projectStructure.md` to list `common/src/index.ts`, `common/src/versionInfo.ts`, `common/tsconfig.json`, and `dist/` output.
+8. [x] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common` after creation.
+9. [x] Run root `npm run lint --workspaces` after changes to confirm cross-package success.
+10. [x] Update `projectStructure.md` to list `common/src/index.ts`, `common/src/versionInfo.ts`, `common/tsconfig.json`, and `dist/` output.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace common`.
-2. [ ] `npm run build --workspace common` (verifies declarations emitted to `dist/`).
-3. [ ] `npm run lint --workspaces` (root) to ensure no cross-package issues.
+1. [x] `npm run lint --workspace common`.
+2. [x] `npm run build --workspace common` (verifies declarations emitted to `dist/`).
+3. [x] `npm run lint --workspaces` (root) to ensure no cross-package issues.
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Built out @codeinfo2/common with module exports, scripts, and tsconfig; added VersionInfo DTO plus getAppInfo helper.
+- Kept lint/format on root configs; ensured dist is ignored and tsbuildinfo excluded.
+- Ran npm run lint/format:check/build for common and root lint --workspaces; npm ls @codeinfo2/common shows empty until client/server depend on it.
+- Documented common commands in README, purpose in design notes, and updated projectStructure to list new files.
 
 ---
 
 ### 3. Server Core (Express API)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

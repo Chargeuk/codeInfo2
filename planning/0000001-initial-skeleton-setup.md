@@ -583,7 +583,7 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

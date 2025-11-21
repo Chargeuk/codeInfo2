@@ -62,18 +62,17 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 - Repository docs: `README.md`, `design.md` (update as we go).
 
 #### Subtasks
-1. [ ] Initialize root `package.json` with npm workspaces for `client`, `server`, `common`; add root scripts for lint, format, build, and clean.
-2. [ ] Add shared `.editorconfig`, `.gitignore`, `.npmrc` (if needed), base `tsconfig.json` with project references.
-3. [ ] Configure ESLint + Prettier at root with TypeScript rules; ensure package-level extend works (use flat config if preferred).
-4. [ ] Add root-level lint/format scripts and verify they detect issues in empty packages; wire to workspace scripts.
-5. [ ] Document workspace layout and tooling in `README.md` and `design.md`.
-6. [ ] Run full lint/format to validate baseline.
+1. [ ] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `engines.node: ">=22"`, and scripts: `lint`, `lint:fix`, `format:check`, `format`, `build:all` (runs `npm run build --workspaces`), `clean`.
+2. [ ] Add shared configs: `.editorconfig`, `.gitignore`, `.npmrc` (e.g., `save-exact=true`), `tsconfig.base.json` (paths + `references` placeholder) and root `tsconfig.json` that references package tsconfigs.
+3. [ ] Install/dev-deps at root: `typescript`, `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`, `eslint-config-prettier`, `eslint-plugin-import`, `prettier`. Create root flat config `eslint.config.js` extending TS rules; create `.prettierrc` and `.prettierignore`.
+4. [ ] Set up Husky + lint-staged: add `prepare` script, run `npm run prepare`, add `.husky/pre-commit` with `npx lint-staged`; create `lint-staged.config.mjs` to run `eslint --ext .ts,.tsx` and `prettier --check` on staged files.
+5. [ ] Run `npm install` to materialize lockfile; verify root scripts execute (they should no-op on empty packages without failing).
+6. [ ] Update `README.md` and `design.md` with prerequisites (Node 22), workspace layout, and root commands (`npm install`, `npm run lint`, `npm run format:check`, `npm run build:all`).
 
 #### Testing
-1. [ ] Prove server build works outside docker (once server exists) — placeholder for task dependency.
-2. [ ] Prove client build works outside docker (once client exists) — placeholder for task dependency.
-3. [ ] Prove CLEAN docker build works — placeholder for later tasks.
-4. [ ] Prove docker compose starts — placeholder for later tasks.
+1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
+2. [ ] `npm run format:check --workspaces` (should pass).
+3. [ ] `npm run build:all` (expected to finish quickly with no package sources yet).
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -95,20 +94,19 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 - Prettier: Context7 `/prettier/prettier`.
 
 #### Subtasks
-1. [ ] Create `common/package.json` with module/exports fields, scripts (`build`, `lint`, `test?`), and TS types.
-2. [ ] Add `common/tsconfig.json` extending root; configure output to `dist` with declarations.
-3. [ ] Implement a shared DTO (e.g., `VersionInfo` with `app` and `version`) and a simple helper (e.g., `getAppInfo()`) to export.
-4. [ ] Add per-package ESLint/Prettier configs extending root.
-5. [ ] Update root build to include `common` and ensure `npm install` generates workspace links.
-6. [ ] Update docs (README/design) to describe the `common` package purpose and usage.
-7. [ ] Run lint/build for `common` and ensure outputs are generated.
-8. [ ] Run full lint for repo.
+1. [ ] Create `common/package.json` with name `@codeinfo2/common`, type `module`, exports for `./dist/index.js`, scripts: `build` (tsc -b), `lint`, `lint:fix`, `format:check`, `format` (reuse root configs).
+2. [ ] Add `common/tsconfig.json` extending `../tsconfig.base.json`, set `outDir: dist`, `declaration: true`, `composite: true`, and `references: []` (none yet).
+3. [ ] Implement `common/src/versionInfo.ts` defining `VersionInfo { app: string; version: string; }` and `getAppInfo(app: string, version: string): VersionInfo`; export via `common/src/index.ts`.
+4. [ ] Ensure package lint/format configs extend root (may just rely on root flat config + prettier ignore paths as needed).
+5. [ ] Wire root `build:all` to build `common` (tsc project references) and confirm workspace links via `npm ls @codeinfo2/common`.
+6. [ ] Update `README.md` and `design.md` to describe the `common` package purpose, output location `dist/`, and example import usage in server/client.
+7. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common`.
+8. [ ] Run root `npm run lint --workspaces` after changes.
 
 #### Testing
-1. [ ] Prove server build works outside docker (after server links to common).
-2. [ ] Prove client build works outside docker (after client links to common).
-3. [ ] Prove CLEAN docker build works (later).
-4. [ ] Prove docker compose starts (later).
+1. [ ] `npm run lint --workspace common`.
+2. [ ] `npm run build --workspace common` (verifies declarations emitted to `dist/`).
+3. [ ] `npm run lint --workspaces` (root) to ensure no cross-package issues.
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -131,21 +129,22 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
 - Docker: Context7 `/docker/docs` — Debian-slim multi-stage patterns, Node images.
 
 #### Subtasks
-1. [ ] Scaffold `server/package.json`, `tsconfig`, and entrypoint (e.g., `src/index.ts`) using `ts-node-dev` for dev and `tsc` + `node` for prod.
-2. [ ] Wire health endpoint `/health` returning status and version from `common` utility.
-3. [ ] Add `/version` endpoint that reads `version` from `package.json` and returns `VersionInfo` DTO from `common`.
-4. [ ] Add sample API `/info` that reads from `common` package to prove shared code consumption.
-4. [ ] Configure scripts: `dev`, `build`, `start`, `lint`, `format`.
-5. [ ] Add Dockerfile (multi-stage, prod image running `node dist/index.js`), exposing chosen port.
-6. [ ] Document server usage and env vars in README/design.
-7. [ ] Run lint/build locally; ensure `common` is resolved via workspaces.
-8. [ ] Run full lint repo.
+1. [ ] Create `server/package.json` with name `@codeinfo2/server`, main `dist/index.js`, type `module`, scripts: `dev` (`ts-node-dev --respawn src/index.ts` or `tsx watch src/index.ts`), `build` (`tsc -b`), `start` (`node dist/index.js`), `lint`, `lint:fix`, `format:check`, `format`.
+2. [ ] Install dependencies: `express@5`, `cors`, `dotenv`; dev-deps: `@types/express`, `@types/node`, `ts-node-dev` or `tsx`, `typescript` (workspace), `nodemon` optional.
+3. [ ] Add `server/tsconfig.json` extending `../tsconfig.base.json`, set `rootDir: src`, `outDir: dist`, `composite: true`, `esModuleInterop: true`, `resolveJsonModule: true`, and `references` -> `{ path: "../common/tsconfig.json" }`.
+4. [ ] Implement `server/src/index.ts`: load env, set `const PORT = process.env.PORT ?? "5010"`; set up Express + CORS; routes:
+   - `GET /health` -> `{ status: "ok", uptime, timestamp }` (uses `getAppInfo` to include server version optionally).
+   - `GET /version` -> reads `package.json` version (import with `assert { type: "json" }` or `fs.readFileSync`), returns `VersionInfo` from `common` `{ app: "server", version }`.
+   - `GET /info` -> returns sample message proving `common` import (e.g., `getAppInfo("server", version)`).
+5. [ ] Add `server/.env.example` documenting `PORT=5010` and note CORS/client origin and `REACT_APP_API_URL` expectation on client side.
+6. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
+7. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
+8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
 
 #### Testing
-1. [ ] Prove server build works outside docker.
-2. [ ] Prove client build works outside docker (depends on Task 4).
-3. [ ] Prove CLEAN docker build works (server image).
-4. [ ] Prove docker compose starts.
+1. [ ] `npm run lint --workspace server`.
+2. [ ] `npm run build --workspace server` and `npm run start --workspace server` then curl `http://localhost:5010/health` and `/version`.
+3. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server` then curl `/health` and `/version`.
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -168,21 +167,21 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 - Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
 
 #### Subtasks
-1. [ ] Scaffold client with Vite React 19 TS template (or equivalent) within `client` workspace; ensure workspace install works.
-2. [ ] Integrate Material UI baseline theme; add simple page showing data from `common` and fetching `/info` from server via configurable API URL.
-3. [ ] On startup, call server `/version` endpoint and display both server version (from response DTO) and client version (from its own `package.json`).
-3. [ ] Configure scripts: `dev`, `build`, `preview`, `lint`, `format`.
-4. [ ] Ensure TypeScript path aliases align with root config; verify `common` workspace import works.
-5. [ ] Add Dockerfile (multi-stage build, serve static via `node`/`npm run preview` or `nginx`—choose simple node serve) exposing client port.
-6. [ ] Document client usage, env vars (`API_URL`), and dependency on server.
-7. [ ] Run lint/build locally; ensure MUI imports work.
-8. [ ] Run full lint repo.
+1. [ ] Scaffold `client` with Vite React TypeScript template (React 19) inside workspace: `npm create vite@latest client -- --template react-ts`; adjust `package.json` name to `@codeinfo2/client` and `engines.node >=22`.
+2. [ ] Install deps: `@mui/material`, `@emotion/react`, `@emotion/styled`, `@mui/icons-material` (if needed), and ensure `@codeinfo2/common` workspace link resolves.
+3. [ ] Set client default port to `5001` (Vite config `server.port`), add `.env.example` with `REACT_APP_API_URL=http://localhost:5010` and document override.
+4. [ ] Implement startup fetch: in `src/main.tsx` (or App), use `useEffect` to call `/version` via `REACT_APP_API_URL`; display server version and client version (read from `package.json` import or inject via `import.meta.env` fallback) using the `VersionInfo` DTO from `common`.
+5. [ ] Add simple UI with MUI (e.g., `Container`, `Card`, `Typography`) showing both versions and data from `/info` plus a shared value from `common`.
+6. [ ] Configure scripts in `client/package.json`: `dev`, `build`, `preview`, `lint`, `lint:fix`, `format:check`, `format`; ensure ESLint React plugin present via root config or add `eslint-plugin-react`.
+7. [ ] Add `client/vite.config.ts` path alias to `@codeinfo2/common` if needed; ensure TypeScript `tsconfig.json` extends root base and includes `types` for Vite.
+8. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
+9. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
+10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
 
 #### Testing
-1. [ ] Prove server build works outside docker (already handled in Task 3).
-2. [ ] Prove client build works outside docker.
-3. [ ] Prove CLEAN docker build works (client image).
-4. [ ] Prove docker compose starts.
+1. [ ] `npm run lint --workspace client`.
+2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
+3. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI shows server unreachable copy if server down.
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -202,17 +201,20 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 - Dockerfiles from Tasks 3 & 4 (for reference once created).
 
 #### Subtasks
-1. [ ] Write `docker-compose.yml` to build/use local images for client/server; set environment for API base URL and ports.
-2. [ ] Add convenience scripts in root `package.json` for `compose:up`, `compose:down`, `compose:logs`.
-3. [ ] Verify client calls server when both run via compose (adjust CORS/env as needed).
-4. [ ] Document compose usage, ports, and troubleshooting in README/design.
-5. [ ] Run full lint repo.
+1. [ ] Create `docker-compose.yml` with services:
+   - `server`: build `./server`, image `codeinfo2-server`, ports `5010:5010`, env `PORT=5010`.
+   - `client`: build `./client`, image `codeinfo2-client`, ports `5001:5001`, env `REACT_APP_API_URL=http://server:5010`.
+   - Define shared network; add healthchecks for server (`curl -f http://localhost:5010/health`) and client (`curl -f http://localhost:5001`).
+2. [ ] Add root scripts: `compose:up`, `compose:down`, `compose:logs`, `compose:build` pointing to `docker compose` commands.
+3. [ ] Run `docker compose up --build` and verify UI shows both versions; adjust CORS if needed in server.
+4. [ ] Document compose usage in `README.md`/`design.md`: required env vars, port bindings (5001/5010), how to rebuild images, how to stop.
+5. [ ] Run `npm run lint --workspaces` after compose file added to ensure formatting rules pass (use prettier on YAML if configured).
 
 #### Testing
-1. [ ] Prove server build works outside docker (from Task 3).
-2. [ ] Prove client build works outside docker (from Task 4).
-3. [ ] Prove CLEAN docker build works (both images via compose build).
-4. [ ] Prove docker compose starts and serves end-to-end.
+1. [ ] `docker compose build` (uses both Dockerfiles).
+2. [ ] `docker compose up -d` then curl `http://localhost:5010/health` and `http://localhost:5010/version`.
+3. [ ] Open `http://localhost:5001` and verify client shows server + client versions.
+4. [ ] `docker compose down` to clean up.
 
 #### Implementation notes
 - (Populate after work begins.)

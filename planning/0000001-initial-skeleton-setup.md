@@ -12,6 +12,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - Client calls `/version` on startup, shows both server and client version values.
 - Root-level `projectStructure.md` documents directory tree with one-line descriptions and is kept current by all tasks.
 - Server uses Cucumber (Gherkin) tests under `server/src/test`; client uses Jest (with @testing-library/react) under `client/src/test`; test folders are excluded from Docker build contexts via .dockerignore files.
+- `design.md` contains mermaid diagrams for overall architecture (client/server/common/workspaces/docker) and key request flow (client → server `/version` → common DTO).
 - Dockerfiles for client and server build and start successfully; images run locally.
 - `docker-compose` brings up both services (client + server) and wiring works (client can call server API endpoint via configured base URL).
 - Root scripts for linting/formatting and workspace-aware building succeed.
@@ -102,6 +103,32 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 #### Testing
 1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 9. Design Diagram Updates
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Enrich `design.md` with mermaid diagrams covering the overall architecture and the client→server `/version` flow using the shared DTO.
+
+#### Documentation Locations
+- `design.md` (add diagrams here).
+- Project plan / workspace layout for reference.
+
+#### Subtasks
+1. [ ] Add a mermaid `graph TD` diagram showing workspaces (`client`, `server`, `common`), root scripts, Docker images, and docker-compose wiring.
+2. [ ] Add a mermaid `sequenceDiagram` (or flowchart) depicting client startup fetching `/version`, server reading `package.json` version, returning `VersionInfo` from `common`, and client rendering versions.
+3. [ ] Briefly describe each diagram below it for clarity.
+4. [ ] Update `projectStructure.md` to note `design.md` now contains diagrams.
+
+#### Testing
+1. [ ] Run `npm run lint --workspaces` or `npm run format:check` if diagrams affect lint formatting.
 
 #### Implementation notes
 - (Populate after work begins.)

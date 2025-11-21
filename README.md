@@ -25,7 +25,9 @@ npm install
 - `npm run dev --workspace client` (http://localhost:5001)
 - `npm run build --workspace client`
 - `npm run preview --workspace client -- --host --port 5001`
+- `npm run test --workspace client` (Jest + @testing-library/react)
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
+- Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
 ## Root commands
 

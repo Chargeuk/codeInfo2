@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.git
+.gitignore
+.vscode
+.env.local
+npm-debug.log
+src/test
+playwright-report
+test-results
+Dockerfile*

@@ -1,1 +1,1 @@
-export * from './versionInfo.js';
+export * from './versionInfo';

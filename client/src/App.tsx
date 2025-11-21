@@ -11,7 +11,10 @@ import {
 import { useEffect, useState } from 'react';
 import pkg from '../package.json';
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:5010';
+const apiUrl =
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as ImportMeta)?.env?.VITE_API_URL) ??
+  'http://localhost:5010';
 
 function App() {
   const [serverInfo, setServerInfo] = useState<VersionInfo | null>(null);

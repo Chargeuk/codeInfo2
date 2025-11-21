@@ -354,7 +354,7 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 
 #### Documentation Locations
 - Docker/Compose: Context7 `/docker/docs` — compose usage.
-- Playwright docs (public) — scripting and assertions.
+- Playwright: Context7 `/microsoft/playwright` — scripting, assertions, CLI options.
 
 #### Subtasks
 1. [ ] Ensure `docker-compose.yml` builds and runs client/server images (depends on Task 7).

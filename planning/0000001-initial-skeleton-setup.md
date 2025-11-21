@@ -7,7 +7,9 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - npm workspaces configured with `client`, `server`, and `common` packages and working local installs.
 - React 19 client bootstrapped with Material UI, TypeScript, ESLint, Prettier, and start/build scripts that run successfully.
 - Express server skeleton with TypeScript, ESLint, Prettier, health endpoint, and start/build scripts that run successfully.
-- `common` package exports at least one typed utility/value consumed by both client and server to prove cross-package consumption.
+- `common` package exports typed shared pieces (e.g., version DTO) consumed by both client and server to prove cross-package consumption.
+- Server exposes `/version` returning its `package.json` version using the shared DTO.
+- Client calls `/version` on startup, shows both server and client version values.
 - Dockerfiles for client and server build and start successfully; images run locally.
 - `docker-compose` brings up both services (client + server) and wiring works (client can call server API endpoint via configured base URL).
 - Root scripts for linting/formatting and workspace-aware building succeed.
@@ -92,7 +94,7 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 #### Subtasks
 1. [ ] Create `common/package.json` with module/exports fields, scripts (`build`, `lint`, `test?`), and TS types.
 2. [ ] Add `common/tsconfig.json` extending root; configure output to `dist` with declarations.
-3. [ ] Implement a simple shared utility (e.g., `getAppInfo()` returning name/version) and ensure it is exported.
+3. [ ] Implement a shared DTO (e.g., `VersionInfo` with `app` and `version`) and a simple helper (e.g., `getAppInfo()`) to export.
 4. [ ] Add per-package ESLint/Prettier configs extending root.
 5. [ ] Update root build to include `common` and ensure `npm install` generates workspace links.
 6. [ ] Update docs (README/design) to describe the `common` package purpose and usage.
@@ -126,7 +128,8 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
 #### Subtasks
 1. [ ] Scaffold `server/package.json`, `tsconfig`, and entrypoint (e.g., `src/index.ts`) using `ts-node-dev` for dev and `tsc` + `node` for prod.
 2. [ ] Wire health endpoint `/health` returning status and version from `common` utility.
-3. [ ] Add sample API `/info` that reads from `common` package to prove shared code consumption.
+3. [ ] Add `/version` endpoint that reads `version` from `package.json` and returns `VersionInfo` DTO from `common`.
+4. [ ] Add sample API `/info` that reads from `common` package to prove shared code consumption.
 4. [ ] Configure scripts: `dev`, `build`, `start`, `lint`, `format`.
 5. [ ] Add Dockerfile (multi-stage, prod image running `node dist/index.js`), exposing chosen port.
 6. [ ] Document server usage and env vars in README/design.
@@ -160,6 +163,7 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 #### Subtasks
 1. [ ] Scaffold client with Vite React 19 TS template (or equivalent) within `client` workspace; ensure workspace install works.
 2. [ ] Integrate Material UI baseline theme; add simple page showing data from `common` and fetching `/info` from server via configurable API URL.
+3. [ ] On startup, call server `/version` endpoint and display both server version (from response DTO) and client version (from its own `package.json`).
 3. [ ] Configure scripts: `dev`, `build`, `preview`, `lint`, `format`.
 4. [ ] Ensure TypeScript path aliases align with root config; verify `common` workspace import works.
 5. [ ] Add Dockerfile (multi-stage build, serve static via `node`/`npm run preview` or `nginx`—choose simple node serve) exposing client port.

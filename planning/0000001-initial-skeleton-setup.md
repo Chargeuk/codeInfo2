@@ -193,8 +193,8 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ### 3. Server Core (Express API)
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: __done__
+- Git Commits: 615ec20, 3eacad6
 
 #### Overview
 
@@ -209,9 +209,9 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 #### Subtasks
 
-1. [ ] Create `server/package.json` with name `@codeinfo2/server`, `version: 0.0.1`, `type: "module"`, `main: "dist/index.js"`; scripts: `"dev": "tsx watch src/index.ts"`, `"build": "tsc -b"`, `"start": "node dist/index.js"`, `"lint": "eslint . --ext .ts"`, `"lint:fix": "eslint . --ext .ts --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`; `engines.node >=22`.
-2. [ ] Install dependencies (single command): `npm install express@5 cors dotenv`. Dev deps: `npm install -D @types/express @types/node tsx typescript` (reuses root TS but keep here for references) plus `@types/cors` if needed.
-3. [ ] Add `server/tsconfig.json` extending `../tsconfig.base.json`:
+1. [x] Create `server/package.json` with name `@codeinfo2/server`, `version: 0.0.1`, `type: "module"`, `main: "dist/index.js"`; scripts: `"dev": "tsx watch src/index.ts"`, `"build": "tsc -b"`, `"start": "node dist/index.js"`, `"lint": "eslint . --ext .ts"`, `"lint:fix": "eslint . --ext .ts --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`; `engines.node >=22`.
+2. [x] Install dependencies (single command): `npm install express@5 cors dotenv`. Dev deps: `npm install -D @types/express @types/node tsx typescript` (reuses root TS but keep here for references) plus `@types/cors` if needed.
+3. [x] Add `server/tsconfig.json` extending `../tsconfig.base.json`:
    ```json
    {
      "extends": "../tsconfig.base.json",
@@ -226,7 +226,7 @@ Build the Express server core with routes, wiring to `common`, and local scripts
      "references": [{ "path": "../common/tsconfig.json" }]
    }
    ```
-4. [ ] Implement `server/src/index.ts` with explicit snippet:
+4. [x] Implement `server/src/index.ts` with explicit snippet:
 
    ```ts
    import express from 'express';
@@ -262,27 +262,30 @@ Build the Express server core with routes, wiring to `common`, and local scripts
    app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
    ```
 
-5. [ ] Add `server/.env` (committed) containing `PORT=5010` and a comment `# Adjust CORS origins if needed; use .env.local for private overrides`. Ensure `.env.local` stays git-ignored but `.env` is versioned. Mention in README that the committed `.env` is safe defaults only.
+5. [x] Add `server/.env` (committed) containing `PORT=5010` and a comment `# Adjust CORS origins if needed; use .env.local for private overrides`. Ensure `.env.local` stays git-ignored but `.env` is versioned. Mention in README that the committed `.env` is safe defaults only.
 6. [x] Update `README.md` with exact commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`, mention default port 5010 and how to override via `.env`.
 7. [x] Update `design.md` with endpoint summaries and note that `/version` draws from `package.json` and returns `VersionInfo`.
-8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`; record any fixes.
-9. [ ] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env` (committed defaults), and note `.env.local` is ignored.
+8. [x] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`; record any fixes.
+9. [x] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env` (committed defaults), and note `.env.local` is ignored.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`.
-2. [ ] `npm run build --workspace server` then `npm run start --workspace server`; `curl http://localhost:5010/health` and `curl http://localhost:5010/version` (expect JSON containing `{ app: "server", version: "<pkg version>" }`).
+1. [x] `npm run lint --workspace server`.
+2. [x] `npm run build --workspace server` then `npm run start --workspace server`; `curl http://localhost:5010/health` and `curl http://localhost:5010/version` (expect JSON containing `{ app: "server", version: "<pkg version>" }`).
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Created server workspace package.json with express/cors/dotenv deps, scripts, and engines plus workspace link to common (version-matched).
+- Added tsconfig with project reference to common; implemented Express entrypoint using getAppInfo and JSON import attributes.
+- Committed server/.env defaults, verified lint/build, started server and curled /health and /version for expected JSON.
+- Documented server commands and endpoints in README/design and updated projectStructure accordingly.
 
 ---
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -383,8 +386,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -430,8 +433,8 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -502,8 +505,8 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 ### 7. Docker Compose Integration
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -570,8 +573,8 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -628,8 +631,8 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -671,8 +674,8 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 

@@ -70,8 +70,9 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 3. [ ] Install/dev-deps at root: `typescript`, `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`, `eslint-config-prettier`, `eslint-plugin-import`, `prettier`. Create root flat config `eslint.config.js` extending TS rules; create `.prettierrc` and `.prettierignore`.
 4. [ ] Set up Husky + lint-staged: add `prepare` script, run `npm run prepare`, add `.husky/pre-commit` with `npx lint-staged`; create `lint-staged.config.mjs` to run `eslint --ext .ts,.tsx` and `prettier --check` on staged files.
 5. [ ] Run `npm install` to materialize lockfile; verify root scripts execute (they should no-op on empty packages without failing).
-6. [ ] Update `README.md` and `design.md` with prerequisites (Node 22), workspace layout, and root commands (`npm install`, `npm run lint`, `npm run format:check`, `npm run build:all`).
-7. [ ] Update `projectStructure.md` to reflect new root files/configs.
+6. [ ] Update `README.md` with prerequisites (Node 22), workspace layout, and root commands (`npm install`, `npm run lint`, `npm run format:check`, `npm run build:all`).
+7. [ ] Update `design.md` with tooling/architecture notes for the workspace baseline.
+8. [ ] Update `projectStructure.md` to reflect new root files/configs.
 
 #### Testing
 1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
@@ -155,10 +156,11 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 3. [ ] Implement `common/src/versionInfo.ts` defining `VersionInfo { app: string; version: string; }` and `getAppInfo(app: string, version: string): VersionInfo`; export via `common/src/index.ts`.
 4. [ ] Ensure package lint/format configs extend root (may just rely on root flat config + prettier ignore paths as needed).
 5. [ ] Wire root `build:all` to build `common` (tsc project references) and confirm workspace links via `npm ls @codeinfo2/common`.
-6. [ ] Update `README.md` and `design.md` to describe the `common` package purpose, output location `dist/`, and example import usage in server/client.
-7. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common`.
-8. [ ] Run root `npm run lint --workspaces` after changes.
-9. [ ] Update `projectStructure.md` with new common files/outputs.
+6. [ ] Update `README.md` with commands relevant to `common` package usage (build/lint) and how consumers install via workspaces.
+7. [ ] Update `design.md` with purpose of `common`, how it’s shared, and reference to the VersionInfo DTO.
+8. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common`.
+9. [ ] Run root `npm run lint --workspaces` after changes.
+10. [ ] Update `projectStructure.md` with new common files/outputs.
 
 #### Testing
 1. [ ] `npm run lint --workspace common`.
@@ -193,9 +195,10 @@ Build the Express server core with routes, wiring to `common`, and local scripts
    - `GET /version` -> reads `package.json` version (import with `assert { type: "json" }` or `fs.readFileSync`), returns `VersionInfo` from `common` `{ app: "server", version }`.
    - `GET /info` -> returns sample message proving `common` import (e.g., `getAppInfo("server", version)`).
 5. [ ] Add `server/.env.example` documenting `PORT=5010` and note CORS/client origin and `REACT_APP_API_URL` expectation on client side.
-6. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
-7. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
-8. [ ] Update `projectStructure.md` for server source and config files.
+6. [ ] Update `README.md` with server commands (`npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`) and how to set `PORT`.
+7. [ ] Update `design.md` with server architecture notes and endpoint descriptions (`/health`, `/version`, `/info`) and how they use `common`.
+8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
+9. [ ] Update `projectStructure.md` for server source and config files.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
@@ -223,10 +226,11 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` config to look under `src/test`; add scripts `test` (`cucumber-js`) and `test:watch`.
 2. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, build caches, and lock/dist artifacts as needed.
 3. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
-4. [ ] Update `README.md` & `design.md` with server test commands (`npm run test --workspace server`), Docker build/run commands, and note tests excluded from image via `.dockerignore`.
-5. [ ] Run `npm run test --workspace server` (cucumber-js), `npm run build --workspace server`, optional `npm run start --workspace server` sanity.
-6. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
-7. [ ] Update `projectStructure.md` for test files, `.dockerignore`, and Dockerfile.
+4. [ ] Update `README.md` with server test command (`npm run test --workspace server`) and Docker build/run commands.
+5. [ ] Update `design.md` with testing approach (Cucumber under `src/test`), exclusion via `.dockerignore`, and runtime architecture/Docker notes.
+6. [ ] Run `npm run test --workspace server` (cucumber-js), `npm run build --workspace server`, optional `npm run start --workspace server` sanity.
+7. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
+8. [ ] Update `projectStructure.md` for test files, `.dockerignore`, and Dockerfile.
 
 #### Testing
 1. [ ] `npm run test --workspace server`.
@@ -259,9 +263,10 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 5. [ ] Add simple UI with MUI (e.g., `Container`, `Card`, `Typography`) showing both versions and data from `/info` plus a shared value from `common`.
 6. [ ] Configure scripts in `client/package.json`: `dev`, `build`, `preview`, `lint`, `lint:fix`, `format:check`, `format`; ensure ESLint React plugin present via root config or add `eslint-plugin-react`.
 7. [ ] Add `client/vite.config.ts` path alias to `@codeinfo2/common` if needed; ensure TypeScript `tsconfig.json` extends root base and includes `types` for Vite.
-8. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
-9. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-10. [ ] Update `projectStructure.md` with client source/config files.
+8. [ ] Update `README.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
+9. [ ] Update `design.md` with client architecture notes (Vite, MUI, version fetch flow) and dependency on server.
+10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+11. [ ] Update `projectStructure.md` with client source/config files.
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
@@ -289,10 +294,11 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (or `babel-jest`/`swc-jest`), create `jest.config.ts`, and an example test that renders the version UI.
 2. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, build caches.
 3. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
-4. [ ] Update `README.md`/`design.md` with client test commands (`npm run test --workspace client`), Docker build/run commands, and note tests excluded from image via `.dockerignore`.
-5. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-6. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI handles server unreachable case.
-7. [ ] Update `projectStructure.md` with client test files, `.dockerignore`, and Dockerfile.
+4. [ ] Update `README.md` with client test command (`npm run test --workspace client`) and Docker build/run commands.
+5. [ ] Update `design.md` with testing approach (Jest under `src/test`), exclusion via `.dockerignore`, and runtime serve approach.
+6. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+7. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI handles server unreachable case.
+8. [ ] Update `projectStructure.md` with client test files, `.dockerignore`, and Dockerfile.
 
 #### Testing
 1. [ ] `npm run test --workspace client` (Jest).

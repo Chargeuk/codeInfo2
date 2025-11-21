@@ -1,5 +1,7 @@
 # Design Notes
 
+For a current directory map, refer to `projectStructure.md` alongside this document.
+
 ## Tooling baseline
 
 - Node.js 22.x across all workspaces.

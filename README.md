@@ -19,6 +19,7 @@ npm install
 - `client/` — React app (Vite) [workspace]
 - `server/` — Express API [workspace]
 - `common/` — shared TypeScript package [workspace]
+- See `projectStructure.md` for the current repository map and file purposes.
 
 ## Client
 

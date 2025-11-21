@@ -72,7 +72,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 ### 1. Workspace & Tooling Baseline
 
 - Task Status: __done__
-- Git Commits: a4c0c46, 0e98d67
+- Git Commits: a4c0c46, 0e98d67, 70b5fa4
 
 #### Overview
 
@@ -130,7 +130,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ### 2. Common Package Skeleton
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -421,7 +421,7 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 8. [x] Update `README.md` with client usage: `npm run dev --workspace client` (shows on http://localhost:5001), `npm run build --workspace client`, `npm run preview --workspace client -- --host --port 5001`, and env var `VITE_API_URL` description.
 9. [x] Update `design.md` with a short section: Vite + React 19 + MUI, startup fetch to `/version`, uses `VersionInfo` DTO, relies on env `VITE_API_URL`.
 10. [x] Run `npm run lint --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces` to ensure root still passes.
-11. [ ] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `client/.env` (committed defaults), note port 5001, and that `.env.local` is ignored.
+11. [x] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `client/.env` (committed defaults), note port 5001, and that `.env.local` is ignored.
 
 #### Testing
 

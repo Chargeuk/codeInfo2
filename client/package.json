@@ -1,10 +1,41 @@
 {
-  "name": "@codeinfo2/client-placeholder",
-  "version": "0.0.0",
+  "name": "@codeinfo2/client",
   "private": true,
+  "version": "0.0.1",
+  "type": "module",
   "scripts": {
-    "lint": "echo \"placeholder client lint\"",
-    "build": "echo \"placeholder client build\"",
-    "format:check": "echo \"placeholder client format check\""
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host --port 5001",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format:check": "prettier . --check",
+    "format": "prettier . --write",
+    "typecheck": "tsc -b"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@codeinfo2/common": "^0.0.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.1",
+    "@mui/material": "^6.4.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4"
   }
 }

@@ -21,6 +21,6 @@ Root files/directories (as of initial tooling setup):
 - planning/ — story plans and templates.
   - planning/plan_format.md — template and instructions for writing story plans.
   - planning/0000001-initial-skeleton-setup.md — plan for initial skeleton story and tasks.
-- client/ — React 19 client workspace (scaffold coming in later tasks; currently placeholder package.json).
+- client/ — React 19 client workspace (Vite). Key files: `package.json`, `tsconfig.json`, `vite.config.ts`, `src/App.tsx`, `src/main.tsx`, `.env` defaults.
 - server/ — Express server workspace with `package.json`, `tsconfig.json`, `src/index.ts`, `.env` defaults; Cucumber tests under `src/test`, `cucumber.js`, Dockerfile/.dockerignore.
 - common/ — shared TypeScript package with `tsconfig.json`, `src/index.ts`, `src/versionInfo.ts`, builds to `dist/`.

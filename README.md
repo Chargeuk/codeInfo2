@@ -20,6 +20,13 @@ npm install
 - `server/` — Express API [workspace]
 - `common/` — shared TypeScript package [workspace]
 
+## Client
+
+- `npm run dev --workspace client` (http://localhost:5001)
+- `npm run build --workspace client`
+- `npm run preview --workspace client -- --host --port 5001`
+- Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
+
 ## Root commands
 
 - `npm run lint --workspaces`

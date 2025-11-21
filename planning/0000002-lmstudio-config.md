@@ -23,8 +23,8 @@ Extend the client so the existing version view becomes the Home page and add a d
 
 ### Questions
 
-- RESOLVED: Use the SDK `system.listDownloadedModels` output (all downloaded models) for the list view. citeturn0search3
-- RESOLVED: Default LM Studio base URL `http://host.docker.internal:1234`; also configurable via env (client `VITE_LMSTUDIO_URL` and server `LMSTUDIO_BASE_URL`). citeturn0search6
+- RESOLVED: Use the SDK `system.listDownloadedModels` output (all downloaded models) for the list view (https://lmstudio.ai/docs/typescript/manage-models/list-downloaded).
+- RESOLVED: Default LM Studio base URL `http://host.docker.internal:1234`; also configurable via env (client `VITE_LMSTUDIO_URL` and server `LMSTUDIO_BASE_URL`) per LM Studio local server defaults (https://lmstudio.ai/docs/developer/api).
 - RESOLVED: Server proxy will not cache results in this story; each request fetches fresh data.
 - RESOLVED: Playwright tests will assume LM Studio is running on the default URL; no mocks in this story.
 
@@ -99,9 +99,8 @@ Add an Express route that accepts a base URL, invokes the LM Studio SDK to list 
 
 #### Documentation Locations
 
-- LM Studio docs for listing models via SDK `system.listDownloadedModels`. citeturn0search3
-- Example output fields (type/modelKey/displayName/format/path/sizeBytes/architecture/maxContextLength/vision/trainedForToolUse). citeturn0search3
-- API server default port guidance (`1234`). citeturn0search6
+- LM Studio docs for listing models via SDK `system.listDownloadedModels` (includes sample output fields): https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
+- API server default port guidance (`1234`): https://lmstudio.ai/docs/developer/api.
 - Express 5 routing (Context7 `/expressjs/express`).
 - Node fetch/timeout patterns.
 
@@ -117,7 +116,7 @@ Add an Express route that accepts a base URL, invokes the LM Studio SDK to list 
    - Returns `{ status: 'ok' | 'error', models, baseUrl, error? }`; on error, include message and HTTP 502/400 as appropriate.
 5. [ ] Wire route into server app (e.g., `app.get('/lmstudio/status', handler)`), ensure CORS covers client origin, and log minimal info.
 6. [ ] Add Cucumber test with SDK mock:
-   - Create `server/src/test/support/mockLmStudioSdk.ts` exporting a stub `LMStudioClient` class with `system.listDownloadedModels(): Promise<ModelInfo[]>` returning scenario-controlled data shaped like the SDK sample (fields: `type`, `modelKey`, `displayName`, `format`, `path`, `sizeBytes`, `architecture`, optional `paramsString`, `maxContextLength`, `vision`, `trainedForToolUse`). citeturn0search3
+   - Create `server/src/test/support/mockLmStudioSdk.ts` exporting a stub `LMStudioClient` class with `system.listDownloadedModels(): Promise<ModelInfo[]>` returning scenario-controlled data shaped like the SDK sample (fields: `type`, `modelKey`, `displayName`, `format`, `path`, `sizeBytes`, `architecture`, optional `paramsString`, `maxContextLength`, `vision`, `trainedForToolUse`) from https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
    - Allow tests to inject this stub into the route via a factory parameter (DI) instead of patching imports; the production route defaults to the real SDK.
    - Use Cucumber steps + supertest against the Express app wired with the stub to verify success (list length > 0), empty list, and error/timeout responses without network access.
 7. [ ] Update README and design.md with new env (`LMSTUDIO_BASE_URL`), route description, and expected response shape.
@@ -147,7 +146,7 @@ Build the LM Studio configuration UI that lets users set a base URL, view connec
 
 #### Documentation Locations
 
-- LM Studio SDK model listing (`system.listDownloadedModels`). citeturn0search3
+- LM Studio SDK model listing (`system.listDownloadedModels`): https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
 - MUI components (via MUI MCP).
 - Testing Library/Jest patterns already in repo.
 

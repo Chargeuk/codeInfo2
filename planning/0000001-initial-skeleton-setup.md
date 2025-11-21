@@ -527,7 +527,7 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 #### Subtasks
 
-1. [ ] Create `docker-compose.yml` with explicit content:
+1. [x] Create `docker-compose.yml` with explicit content:
    ```yaml
    version: '3.9'
    services:
@@ -560,18 +560,18 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
          retries: 5
    ```
    (Both services share default network.)
-2. [ ] Add root `package.json` scripts: `"compose:up": "docker compose up -d"`, `"compose:down": "docker compose down"`, `"compose:logs": "docker compose logs -f"`, `"compose:build": "docker compose build"`.
-3. [ ] Run `docker compose up --build` once after server/client Dockerfiles exist; visit `http://localhost:5001` and confirm versions render. If CORS errors occur, update server `cors()` to allow origin `http://localhost:5001`.
-4. [ ] Document compose usage in `README.md` and `design.md`: required ports 5001/5010, env overrides (`VITE_API_URL`, `PORT`), rebuild command, stop command, and healthcheck behavior.
-5. [ ] Run `npm run lint --workspaces` (and `npm run format:check` if YAML is auto-formatted) after adding compose file.
-6. [ ] Update `projectStructure.md` to include `docker-compose.yml` and mention new root scripts.
+2. [x] Add root `package.json` scripts: `"compose:up": "docker compose up -d"`, `"compose:down": "docker compose down"`, `"compose:logs": "docker compose logs -f"`, `"compose:build": "docker compose build"`.
+3. [x] Run `docker compose up --build` once after server/client Dockerfiles exist; visit `http://localhost:5001` and confirm versions render. If CORS errors occur, update server `cors()` to allow origin `http://localhost:5001`.
+4. [x] Document compose usage in `README.md` and `design.md`: required ports 5001/5010, env overrides (`VITE_API_URL`, `PORT`), rebuild command, stop command, and healthcheck behavior.
+5. [x] Run `npm run lint --workspaces` (and `npm run format:check` if YAML is auto-formatted) after adding compose file.
+6. [x] Update `projectStructure.md` to include `docker-compose.yml` and mention new root scripts.
 
 #### Testing
 
-1. [ ] `docker compose build` (uses both Dockerfiles).
-2. [ ] `docker compose up -d` then curl `http://localhost:5010/health` and `http://localhost:5010/version`.
-3. [ ] Open `http://localhost:5001` and verify client shows server + client versions.
-4. [ ] `docker compose down` to clean up.
+1. [x] `docker compose build` (uses both Dockerfiles).
+2. [x] `docker compose up -d` then curl `http://localhost:5010/health` and `http://localhost:5010/version`.
+3. [x] Open `http://localhost:5001` and verify client shows server + client versions.
+4. [x] `docker compose down` to clean up.
 
 #### Implementation notes
 
@@ -598,7 +598,7 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 #### Subtasks
 
-1. [ ] Add mermaid `graph TD` to `design.md` with concrete nodes, e.g.:
+1. [x] Add mermaid `graph TD` to `design.md` with concrete nodes, e.g.:
    ```mermaid
    graph TD
      A[root package.json] --> B[client workspace]
@@ -611,7 +611,7 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
      E --> G[docker-compose]
      F --> G
    ```
-2. [ ] Add `sequenceDiagram` showing `/version` flow with exact steps:
+2. [x] Add `sequenceDiagram` showing `/version` flow with exact steps:
    ```mermaid
    sequenceDiagram
      participant User
@@ -626,12 +626,12 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
      Server-->>Client: 200 VersionInfo
      Client-->>User: renders client + server versions
    ```
-3. [ ] Add 2–3 sentence description under each diagram explaining what it represents and when it’s updated.
-4. [ ] Update `projectStructure.md` to mention diagrams now live in `design.md` and must be kept current.
+3. [x] Add 2–3 sentence description under each diagram explaining what it represents and when it’s updated.
+4. [x] Update `projectStructure.md` to mention diagrams now live in `design.md` and must be kept current.
 
 #### Testing
 
-1. [ ] Run `npm run lint --workspaces` or `npm run format:check` if diagrams affect lint formatting.
+1. [x] Run `npm run lint --workspaces` or `npm run format:check` if diagrams affect lint formatting.
 
 #### Implementation notes
 
@@ -657,7 +657,7 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 #### Subtasks
 
-1. [ ] Create `projectStructure.md` using a tree code block, e.g.:
+1. [x] Create `projectStructure.md` using a tree code block, e.g.:
    ```
    .
    ├─ client/      # React SPA (Vite + MUI)
@@ -669,14 +669,14 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
    └─ README.md    # how to run
    ```
    Add one-line descriptions for every root file/folder that exists after tasks (include Dockerfiles, config files, husky folder, etc.).
-2. [ ] Add a bold note near the top: "Update this file immediately whenever files are added/removed/renamed; every task that changes structure must update this doc."
-3. [ ] Update `README.md` to mention `projectStructure.md` in navigation/overview so newcomers know where to look for layout.
-4. [ ] Update `design.md` to point readers to `projectStructure.md` for directory context.
-5. [ ] Verify later tasks keep a subtask to update this document (already present); adjust if new folders appear.
+2. [x] Add a bold note near the top: "Update this file immediately whenever files are added/removed/renamed; every task that changes structure must update this doc."
+3. [x] Update `README.md` to mention `projectStructure.md` in navigation/overview so newcomers know where to look for layout.
+4. [x] Update `design.md` to point readers to `projectStructure.md` for directory context.
+5. [x] Verify later tasks keep a subtask to update this document (already present); adjust if new folders appear.
 
 #### Testing
 
-1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
+1. [x] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
 
 #### Implementation notes
 
@@ -704,8 +704,8 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 
 #### Subtasks
 
-1. [ ] Confirm `docker-compose.yml` builds and runs client/server images (from Task 7) before e2e.
-2. [ ] Add `e2e/version.spec.ts` using Playwright Test:
+1. [x] Confirm `docker-compose.yml` builds and runs client/server images (from Task 7) before e2e.
+2. [x] Add `e2e/version.spec.ts` using Playwright Test:
 
    ```ts
    import { test, expect } from '@playwright/test';
@@ -721,17 +721,17 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 
    Place it in `e2e/` folder at repo root.
 
-3. [ ] Install dev dep: `npm install -D @playwright/test`; run once `npx playwright install --with-deps` (document as pre-step).
-4. [ ] Add npm scripts at root: `"e2e:up": "docker compose up -d"`, `"e2e:test": "npx playwright test e2e/version.spec.ts"`, `"e2e:down": "docker compose down"`; optional `"e2e": "npm run e2e:up && npm run e2e:test && npm run e2e:down"`.
-5. [ ] Update `README.md` with step order: 1) `npm run e2e:up`, 2) `npm run e2e:test`, 3) `npm run e2e:down`; include note to run `npx playwright install --with-deps` once after installing deps.
-6. [ ] Update `design.md` describing e2e scope (version display), environment (`docker-compose`), and Playwright assertion approach.
-7. [ ] Update `.gitignore` to exclude `playwright-report/`, `test-results/`, `.vscode` if not already.
+3. [x] Install dev dep: `npm install -D @playwright/test`; run once `npx playwright install --with-deps` (document as pre-step).
+4. [x] Add npm scripts at root: `"e2e:up": "docker compose up -d"`, `"e2e:test": "npx playwright test e2e/version.spec.ts"`, `"e2e:down": "docker compose down"`; optional `"e2e": "npm run e2e:up && npm run e2e:test && npm run e2e:down"`.
+5. [x] Update `README.md` with step order: 1) `npm run e2e:up`, 2) `npm run e2e:test`, 3) `npm run e2e:down`; include note to run `npx playwright install --with-deps` once after installing deps.
+6. [x] Update `design.md` describing e2e scope (version display), environment (`docker-compose`), and Playwright assertion approach.
+7. [x] Update `.gitignore` to exclude `playwright-report/`, `test-results/`, `.vscode` if not already.
 8. [x] Update `projectStructure.md` to include `e2e/` folder and note new npm scripts.
 
 #### Testing
 
-1. [ ] `npm run e2e:up` then `npm run e2e:test`; confirm the test passes and reports both versions visible.
-2. [ ] `npm run e2e:down` to clean up containers.
+1. [x] `npm run e2e:up` then `npm run e2e:test`; confirm the test passes and reports both versions visible.
+2. [x] `npm run e2e:down` to clean up containers.
 
 #### Implementation notes
 

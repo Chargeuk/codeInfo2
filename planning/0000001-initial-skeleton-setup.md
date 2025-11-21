@@ -129,8 +129,9 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 #### Subtasks
 1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
 2. [ ] Add a short note in the file explaining it must be updated whenever files change.
-3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
-4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
+3. [ ] Update `README.md` to mention `projectStructure.md` for navigation (commands section).
+4. [ ] Update `design.md` to mention `projectStructure.md` for navigation (architecture/flows section).
+5. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
 
 #### Testing
 1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).

@@ -119,8 +119,9 @@ Add an Express route that accepts a base URL, invokes the LM Studio SDK to list 
 5. [ ] Wire route into server app in `server/src/index.ts` (import from `routes/lmstudio`), ensure CORS covers client origin, and log minimal info.
 6. [ ] Add Cucumber test with SDK mock:
    - Create `server/src/test/support/mockLmStudioSdk.ts` exporting a stub `LMStudioClient` class with `system.listDownloadedModels(): Promise<ModelInfo[]>` returning scenario-controlled data shaped like the SDK sample (fields: `type`, `modelKey`, `displayName`, `format`, `path`, `sizeBytes`, `architecture`, optional `paramsString`, `maxContextLength`, `vision`, `trainedForToolUse`) from https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
-   - Allow tests to inject this stub into the route via a factory parameter (DI) instead of patching imports; the production route defaults to the real SDK.
-   - Use Cucumber steps + supertest against the Express app wired with the stub to verify success (list length > 0), empty list, and error/timeout responses without network access.
+   - Provide start/stop controls in the mock (e.g., `startMock({ port, scenario })` / `stopMock()`) so Cucumber steps can declare “Given LMStudio is running on port 1234” or “Given LMStudio is not running”. Running state returns data; stopped state rejects/throws to simulate unreachable LMStudio.
+   - Allow tests to inject this mock via a factory parameter (DI) instead of patching imports; the production route defaults to the real SDK.
+   - Use Cucumber steps + supertest against the Express app wired with the mock to verify success (list length > 0), empty list, and error/timeout responses without network access.
 7. [ ] Add Cucumber feature/steps: `server/src/test/features/lmstudio.feature`, `server/src/test/steps/lmstudio.steps.ts` covering success/empty/error/timeout; steps set the mock scenario then call `/lmstudio/status` via supertest.
 8. [ ] Update README and design.md with new env (`LMSTUDIO_BASE_URL`), route description, and expected response shape.
 9. [ ] Update `projectStructure.md` with new server files/tests.

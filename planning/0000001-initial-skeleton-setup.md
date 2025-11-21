@@ -583,8 +583,8 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: f109d69, ad96368
 
 #### Overview
 
@@ -635,7 +635,9 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Added mermaid architecture graph and /version sequence diagram to design.md with supporting descriptions.
+- ProjectStructure now notes the diagrams live in design.md alongside tooling notes.
+- Ran lint to ensure doc changes didn’t impact TS lint configuration expectations.
 
 ---
 

@@ -23,7 +23,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 ## Questions
 - (Resolved 2025-11-21) Use Node.js 22.x as the baseline runtime for all packages and images.
 - (Resolved 2025-11-21) Use Debian-slim base images with multi-stage builds for both client and server.
-- Any preferred port mappings (plan: server on 4000, client on 3000, compose maps host 3000/4000)?
+- (Resolved 2025-11-21) Default ports: client 5001, server 5010; both overridable via env variables and docker-compose mapping.
 - Do we need Husky/lint-staged pre-commit hooks now, or keep tooling manual?
 - Should the client reference server URL via environment variable at build time (e.g., `VITE_API_URL` or `REACT_APP_API_URL`)?
 

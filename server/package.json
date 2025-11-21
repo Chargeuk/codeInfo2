@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format:check": "prettier . --check",
-    "format": "prettier . --write"
+    "format": "prettier . --write",
+    "test": "cucumber-js --require ts-node/register --require src/test/steps/**/*.ts src/test/features/**/*.feature --publish-quiet",
+    "test:watch": "cucumber-js --require ts-node/register --require src/test/steps/**/*.ts src/test/features/**/*.feature --watch --publish-quiet"
   },
   "engines": {
     "node": ">=22"
@@ -22,9 +24,13 @@
     "express": "^5.0.0"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "^11.0.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.9.4",
+    "@types/node-fetch": "^2.6.11",
+    "node-fetch": "^2.7.0",
+    "ts-node": "10.9.2",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   }

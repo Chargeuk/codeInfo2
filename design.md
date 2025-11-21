@@ -20,3 +20,8 @@
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
+
+## Server testing & Docker
+
+- Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.
+- Dockerfile (multi-stage, Node 22 slim) builds server from workspace; `.dockerignore` excludes tests and dev artifacts while keeping `.env` defaults. Build with `docker build -f server/Dockerfile -t codeinfo2-server .`, run with `docker run --rm -p 5010:5010 codeinfo2-server`.

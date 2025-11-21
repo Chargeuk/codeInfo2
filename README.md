@@ -41,7 +41,9 @@ npm install
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
+- `npm run test --workspace server` (Cucumber health scenario; server must be running on 5010)
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
+- Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 
 ## Environment policy
 

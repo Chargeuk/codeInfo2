@@ -87,33 +87,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ---
 
-### 8. Project Structure Documentation
-
-- Task Status: __to_do__
-- Git Commits: __to_do__
-
-#### Overview
-Create and maintain `projectStructure.md` at the repo root with a live directory tree and one-line purpose for each folder/file. Keep it updated across tasks.
-
-#### Documentation Locations
-- Repository tree (local working copy).
-- `projectStructure.md` itself (kept current each task).
-
-#### Subtasks
-1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
-2. [ ] Add a short note in the file explaining it must be updated whenever files change.
-3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
-4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
-
-#### Testing
-1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
-
-#### Implementation notes
-- (Populate after work begins.)
-
----
-
-### 9. Design Diagram Updates
+### 8. Design Diagram Updates
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -134,6 +108,32 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 #### Testing
 1. [ ] Run `npm run lint --workspaces` or `npm run format:check` if diagrams affect lint formatting.
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 9. Project Structure Documentation
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Create and maintain `projectStructure.md` at the repo root with a live directory tree and one-line purpose for each folder/file. Keep it updated across tasks.
+
+#### Documentation Locations
+- Repository tree (local working copy).
+- `projectStructure.md` itself (kept current each task).
+
+#### Subtasks
+1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
+2. [ ] Add a short note in the file explaining it must be updated whenever files change.
+3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
+4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
+
+#### Testing
+1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
 
 #### Implementation notes
 - (Populate after work begins.)

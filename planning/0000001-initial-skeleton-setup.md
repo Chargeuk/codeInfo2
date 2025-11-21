@@ -56,9 +56,10 @@ This list must be copied into each new plan. It instructs how a developer works 
 Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, and root scripts to enforce consistent tooling across client, server, and common packages.
 
 #### Documentation Locations
-- npm workspaces: Node.js docs / npm docs
-- ESLint + Prettier setup for TypeScript
-- Repository README and design notes
+- npm workspaces: Node.js/npm docs (general reference)
+- ESLint: Context7 `/eslint/eslint` — flat config/TypeScript lint setup.
+- Prettier: Context7 `/prettier/prettier` — formatter options and CLI usage.
+- Repository docs: `README.md`, `design.md` (update as we go).
 
 #### Subtasks
 1. [ ] Initialize root `package.json` with npm workspaces for `client`, `server`, `common`; add root scripts for lint, format, build, and clean.
@@ -88,8 +89,10 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 Bootstrap the `common` workspace package with TypeScript build output, ready-to-publish structure, and at least one shared helper consumed by both client and server to validate workspace linking.
 
 #### Documentation Locations
-- TypeScript project references / build configs
-- npm workspaces linking docs
+- TypeScript: Context7 `/microsoft/TypeScript` (project references, declaration emit).
+- npm workspaces: Node.js/npm docs for workspace linking.
+- ESLint: Context7 `/eslint/eslint` (package-level extend).
+- Prettier: Context7 `/prettier/prettier`.
 
 #### Subtasks
 1. [ ] Create `common/package.json` with module/exports fields, scripts (`build`, `lint`, `test?`), and TS types.
@@ -121,9 +124,11 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 Create an Express server with TypeScript, consuming the `common` package, exposing a health endpoint and an endpoint that returns shared data. Provide local run, build, lint scripts and a Dockerfile.
 
 #### Documentation Locations
-- Express + TypeScript setup
-- Dockerfile best practices (multi-stage)
-- ESLint/Prettier configs
+- Express: Context7 `/expressjs/express` — routing, middleware, app listen, handlers.
+- TypeScript basics (if needed): Context7 `/microsoft/TypeScript` — tsconfig basics.
+- ESLint: Context7 `/eslint/eslint` — lint config for TS/Node.
+- Prettier: Context7 `/prettier/prettier` — formatting.
+- Docker: Context7 `/docker/docs` — Debian-slim multi-stage patterns, Node images.
 
 #### Subtasks
 1. [ ] Scaffold `server/package.json`, `tsconfig`, and entrypoint (e.g., `src/index.ts`) using `ts-node-dev` for dev and `tsc` + `node` for prod.
@@ -156,9 +161,11 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
 Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Prettier. Consume `common` package and call server API. Provide Dockerfile and local scripts.
 
 #### Documentation Locations
-- React 19 + Vite TypeScript docs
-- Material UI (use MUI MCP tool for references)
-- Dockerfile best practices
+- React: Context7 `/reactjs/react.dev` — components, hooks, effect on startup fetch.
+- Material UI: use MUI MCP tool (per instructions) for component/theme docs (pick v7.2.0 link when needed).
+- ESLint: Context7 `/eslint/eslint` — React lint rules via plugin.
+- Prettier: Context7 `/prettier/prettier`.
+- Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
 
 #### Subtasks
 1. [ ] Scaffold client with Vite React 19 TS template (or equivalent) within `client` workspace; ensure workspace install works.
@@ -191,8 +198,8 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 Create `docker-compose.yml` wiring client and server images, managing environment variables, network, and volume needs for local dev/demo. Validate end-to-end interaction.
 
 #### Documentation Locations
-- Docker Compose docs
-- Existing Dockerfiles from Tasks 3 & 4
+- Docker/Compose: Context7 `/docker/docs` — compose services, env overrides, build contexts, healthchecks.
+- Dockerfiles from Tasks 3 & 4 (for reference once created).
 
 #### Subtasks
 1. [ ] Write `docker-compose.yml` to build/use local images for client/server; set environment for API base URL and ports.

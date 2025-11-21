@@ -239,6 +239,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 #### Documentation Locations
 - React: Context7 `/reactjs/react.dev` (for component/test references).
 - Material UI: via MUI MCP tool.
+- Jest: Context7 `/jestjs/jest` — test runner/config, matchers.
 - Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
 - Husky: Context7 `/typicode/husky` — git hooks, pre-commit setup (for lint-staged awareness).
 

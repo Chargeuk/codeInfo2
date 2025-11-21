@@ -11,6 +11,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - Server exposes `/version` returning its `package.json` version using the shared DTO.
 - Client calls `/version` on startup, shows both server and client version values.
 - Root-level `projectStructure.md` documents directory tree with one-line descriptions and is kept current by all tasks.
+- Server uses Cucumber (Gherkin) tests under `server/src/test`; client uses Jest (with @testing-library/react) under `client/src/test`; test folders are excluded from Docker build contexts via .dockerignore files.
 - Dockerfiles for client and server build and start successfully; images run locally.
 - `docker-compose` brings up both services (client + server) and wiring works (client can call server API endpoint via configured base URL).
 - Root scripts for linting/formatting and workspace-aware building succeed.
@@ -168,13 +169,16 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
 5. [ ] Add `server/.env.example` documenting `PORT=5010` and note CORS/client origin and `REACT_APP_API_URL` expectation on client side.
 6. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
 7. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
-8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
-9. [ ] Update `projectStructure.md` for all server files and Dockerfile.
+8. [ ] Add testing scaffold: create `server/src/test/features/example.feature` (Gherkin) and `server/src/test/steps/example.steps.ts`; set up `cucumber.js` config to look under `src/test`; add script `test` (`cucumber-js`) and `test:watch` if desired.
+9. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, and build caches.
+10. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
+11. [ ] Update `projectStructure.md` for all server files, Dockerfile, and test directories.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
-2. [ ] `npm run build --workspace server` and `npm run start --workspace server` then curl `http://localhost:5010/health` and `/version`.
-3. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server` then curl `/health` and `/version`.
+2. [ ] `npm run test --workspace server` (cucumber-js) to execute Gherkin features under `src/test`.
+3. [ ] `npm run build --workspace server` and `npm run start --workspace server`; curl `http://localhost:5010/health` and `/version`.
+4. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -204,15 +208,18 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 5. [ ] Add simple UI with MUI (e.g., `Container`, `Card`, `Typography`) showing both versions and data from `/info` plus a shared value from `common`.
 6. [ ] Configure scripts in `client/package.json`: `dev`, `build`, `preview`, `lint`, `lint:fix`, `format:check`, `format`; ensure ESLint React plugin present via root config or add `eslint-plugin-react`.
 7. [ ] Add `client/vite.config.ts` path alias to `@codeinfo2/common` if needed; ensure TypeScript `tsconfig.json` extends root base and includes `types` for Vite.
-8. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
-9. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
-10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-11. [ ] Update `projectStructure.md` with client files (src, config, Dockerfile).
+8. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (or `babel-jest`/`swc-jest`), create `jest.config.ts`, and an example test that renders the version UI.
+9. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, build caches.
+10. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
+11. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`, `npm run test --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
+12. [ ] Run `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+13. [ ] Update `projectStructure.md` with client files (src, config, Dockerfile, tests).
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
-2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
-3. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI shows server unreachable copy if server down.
+2. [ ] `npm run test --workspace client` (Jest) to execute tests under `src/test`.
+3. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
+4. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI shows server unreachable copy if server down.
 
 #### Implementation notes
 - (Populate after work begins.)

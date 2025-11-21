@@ -49,7 +49,7 @@ This should only be started once all the above sections are clear and understood
 ### 1. Task One Title
 
 - Task Status: The current status of the task. Use exactly one of `__to_do__`, `__in_progress__`, or `__done__`.
-- Git Commits: a comma seperated list of git hashes that hasve been commited to implement this story.
+- Git Commits: a comma separated list of git hashes that have been committed to implement this story.
 
 #### Overview
 

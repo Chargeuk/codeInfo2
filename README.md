@@ -29,6 +29,13 @@ npm install
 - `npm run build:all`
 - `npm run clean`
 
+## Common package
+
+- `npm run lint --workspace common`
+- `npm run format:check --workspace common`
+- `npm run build --workspace common`
+- Exports `getAppInfo(app, version): VersionInfo`
+
 ## Environment policy
 
 - Commit `.env` files with safe defaults.

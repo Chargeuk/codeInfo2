@@ -23,4 +23,4 @@ Root files/directories (as of initial tooling setup):
   - planning/0000001-initial-skeleton-setup.md — plan for initial skeleton story and tasks.
 - client/ — React 19 client workspace (scaffold coming in later tasks; currently placeholder package.json).
 - server/ — Express server workspace (scaffold coming in later tasks; currently placeholder package.json).
-- common/ — shared TypeScript package (scaffold coming in later tasks; currently placeholder package.json).
+- common/ — shared TypeScript package with `tsconfig.json`, `src/index.ts`, `src/versionInfo.ts`, builds to `dist/`.

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "CodeInfo2 monorepo (client, server, common)",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",

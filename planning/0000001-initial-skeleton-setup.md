@@ -49,32 +49,6 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ---
 
-### 6. Project Structure Documentation
-
-- Task Status: __to_do__
-- Git Commits: __to_do__
-
-#### Overview
-Create and maintain `projectStructure.md` at the repo root with a live directory tree and one-line purpose for each folder/file. Keep it updated across tasks.
-
-#### Documentation Locations
-- Repository tree (local working copy).
-- `projectStructure.md` itself (kept current each task).
-
-#### Subtasks
-1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
-2. [ ] Add a short note in the file explaining it must be updated whenever files change.
-3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
-4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
-
-#### Testing
-1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
-
-#### Implementation notes
-- (Populate after work begins.)
-
----
-
 ### 1. Workspace & Tooling Baseline
 
 - Task Status: __to_do__
@@ -102,6 +76,32 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
 2. [ ] `npm run format:check --workspaces` (should pass).
 3. [ ] `npm run build:all` (expected to finish quickly with no package sources yet).
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 8. Project Structure Documentation
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Create and maintain `projectStructure.md` at the repo root with a live directory tree and one-line purpose for each folder/file. Keep it updated across tasks.
+
+#### Documentation Locations
+- Repository tree (local working copy).
+- `projectStructure.md` itself (kept current each task).
+
+#### Subtasks
+1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
+2. [ ] Add a short note in the file explaining it must be updated whenever files change.
+3. [ ] Update `README.md`/`design.md` references to mention `projectStructure.md` for navigation.
+4. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
+
+#### Testing
+1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -143,20 +143,19 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ---
 
-### 3. Server Skeleton (Express)
+### 3. Server Core (Express API)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
-Create an Express server with TypeScript, consuming the `common` package, exposing a health endpoint and an endpoint that returns shared data. Provide local run, build, lint scripts and a Dockerfile.
+Build the Express server core with routes, wiring to `common`, and local scripts. No Docker or tests here—those move to the next task.
 
 #### Documentation Locations
 - Express: Context7 `/expressjs/express` — routing, middleware, app listen, handlers.
 - TypeScript basics (if needed): Context7 `/microsoft/TypeScript` — tsconfig basics.
 - ESLint: Context7 `/eslint/eslint` — lint config for TS/Node.
 - Prettier: Context7 `/prettier/prettier` — formatting.
-- Docker: Context7 `/docker/docs` — Debian-slim multi-stage patterns, Node images.
 
 #### Subtasks
 1. [ ] Create `server/package.json` with name `@codeinfo2/server`, main `dist/index.js`, type `module`, scripts: `dev` (`ts-node-dev --respawn src/index.ts` or `tsx watch src/index.ts`), `build` (`tsc -b`), `start` (`node dist/index.js`), `lint`, `lint:fix`, `format:check`, `format`.
@@ -167,38 +166,63 @@ Create an Express server with TypeScript, consuming the `common` package, exposi
    - `GET /version` -> reads `package.json` version (import with `assert { type: "json" }` or `fs.readFileSync`), returns `VersionInfo` from `common` `{ app: "server", version }`.
    - `GET /info` -> returns sample message proving `common` import (e.g., `getAppInfo("server", version)`).
 5. [ ] Add `server/.env.example` documenting `PORT=5010` and note CORS/client origin and `REACT_APP_API_URL` expectation on client side.
-6. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
-7. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
-8. [ ] Add testing scaffold: create `server/src/test/features/example.feature` (Gherkin) and `server/src/test/steps/example.steps.ts`; set up `cucumber.js` config to look under `src/test`; add script `test` (`cucumber-js`) and `test:watch` if desired.
-9. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, and build caches.
-10. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
-11. [ ] Update `projectStructure.md` for all server files, Dockerfile, and test directories.
+6. [ ] Update `README.md` & `design.md` with server run commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`; document `PORT` env, `/health`, `/version`, `/info` endpoints.
+7. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
+8. [ ] Update `projectStructure.md` for server source and config files.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
-2. [ ] `npm run test --workspace server` (cucumber-js) to execute Gherkin features under `src/test`.
-3. [ ] `npm run build --workspace server` and `npm run start --workspace server`; curl `http://localhost:5010/health` and `/version`.
-4. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
+2. [ ] `npm run build --workspace server` and `npm run start --workspace server`; curl `http://localhost:5010/health` and `/version`.
 
 #### Implementation notes
 - (Populate after work begins.)
 
 ---
 
-### 4. Client Skeleton (React 19 + MUI)
+### 4. Server Testing & Docker Packaging
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
-Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Prettier. Consume `common` package and call server API. Provide Dockerfile and local scripts.
+Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scripts.
+
+#### Documentation Locations
+- Express: Context7 `/expressjs/express` (for any route references).
+- Docker: Context7 `/docker/docs` — Debian-slim multi-stage patterns, Node images.
+- Testing: Cucumber docs (public) — step definitions and feature layout.
+
+#### Subtasks
+1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` config to look under `src/test`; add scripts `test` (`cucumber-js`) and `test:watch`.
+2. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, build caches, and lock/dist artifacts as needed.
+3. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
+4. [ ] Update `README.md` & `design.md` with server test commands (`npm run test --workspace server`), Docker build/run commands, and note tests excluded from image via `.dockerignore`.
+5. [ ] Run `npm run test --workspace server` (cucumber-js), `npm run build --workspace server`, optional `npm run start --workspace server` sanity.
+6. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
+7. [ ] Update `projectStructure.md` for test files, `.dockerignore`, and Dockerfile.
+
+#### Testing
+1. [ ] `npm run test --workspace server`.
+2. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 5. Client Skeleton (React 19 + MUI)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cross-package consumption. Wire startup fetch to show server/client versions. Tests and Docker move to next task.
 
 #### Documentation Locations
 - React: Context7 `/reactjs/react.dev` — components, hooks, effect on startup fetch.
 - Material UI: use MUI MCP tool (per instructions) for component/theme docs (pick v7.2.0 link when needed).
 - ESLint: Context7 `/eslint/eslint` — React lint rules via plugin.
 - Prettier: Context7 `/prettier/prettier`.
-- Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
 
 #### Subtasks
 1. [ ] Scaffold `client` with Vite React TypeScript template (React 19) inside workspace: `npm create vite@latest client -- --template react-ts`; adjust `package.json` name to `@codeinfo2/client` and `engines.node >=22`.
@@ -208,25 +232,51 @@ Bootstrap React 19 client (likely Vite) with Material UI, TypeScript, ESLint, Pr
 5. [ ] Add simple UI with MUI (e.g., `Container`, `Card`, `Typography`) showing both versions and data from `/info` plus a shared value from `common`.
 6. [ ] Configure scripts in `client/package.json`: `dev`, `build`, `preview`, `lint`, `lint:fix`, `format:check`, `format`; ensure ESLint React plugin present via root config or add `eslint-plugin-react`.
 7. [ ] Add `client/vite.config.ts` path alias to `@codeinfo2/common` if needed; ensure TypeScript `tsconfig.json` extends root base and includes `types` for Vite.
-8. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (or `babel-jest`/`swc-jest`), create `jest.config.ts`, and an example test that renders the version UI.
-9. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, build caches.
-10. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
-11. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`, `npm run test --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
-12. [ ] Run `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-13. [ ] Update `projectStructure.md` with client files (src, config, Dockerfile, tests).
+8. [ ] Update `README.md`/`design.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
+9. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+10. [ ] Update `projectStructure.md` with client source/config files.
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
-2. [ ] `npm run test --workspace client` (Jest) to execute tests under `src/test`.
-3. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
-4. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI shows server unreachable copy if server down.
+2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
 
 #### Implementation notes
 - (Populate after work begins.)
 
 ---
 
-### 5. Docker Compose Integration
+### 6. Client Testing & Docker Packaging
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Add Jest testing, client Dockerfile, docker ignore, and related scripts.
+
+#### Documentation Locations
+- React: Context7 `/reactjs/react.dev` (for component/test references).
+- Material UI: via MUI MCP tool.
+- Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
+
+#### Subtasks
+1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (or `babel-jest`/`swc-jest`), create `jest.config.ts`, and an example test that renders the version UI.
+2. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, build caches.
+3. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
+4. [ ] Update `README.md`/`design.md` with client test commands (`npm run test --workspace client`), Docker build/run commands, and note tests excluded from image via `.dockerignore`.
+5. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
+6. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI handles server unreachable case.
+7. [ ] Update `projectStructure.md` with client test files, `.dockerignore`, and Dockerfile.
+
+#### Testing
+1. [ ] `npm run test --workspace client` (Jest).
+2. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`; verify UI runs and shows version info (if server available).
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 7. Docker Compose Integration
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -236,7 +286,7 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 #### Documentation Locations
 - Docker/Compose: Context7 `/docker/docs` — compose services, env overrides, build contexts, healthchecks.
-- Dockerfiles from Tasks 3 & 4 (for reference once created).
+- Dockerfiles from Tasks 4 & 6 (for reference once created).
 
 #### Subtasks
 1. [ ] Create `docker-compose.yml` with services:

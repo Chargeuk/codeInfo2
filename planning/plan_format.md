@@ -113,6 +113,6 @@ task overview.
 #### Implementation notes
 
 - Details about the implementation. Include what went to plan and what did not.
-- Essential that any descisions that got made during the implementation are documented here
+- Essential that any decisions that got made during the implementation are documented here
 
 ---

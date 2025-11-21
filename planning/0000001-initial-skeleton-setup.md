@@ -439,8 +439,8 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __in_progress__
+- Git Commits: __to_do__
 
 #### Overview
 

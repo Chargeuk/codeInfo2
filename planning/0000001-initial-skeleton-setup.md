@@ -68,14 +68,30 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 - Repository docs: `README.md`, `design.md` (update as we go).
 
 #### Subtasks
-1. [ ] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `engines.node: ">=22"`, and scripts: `lint`, `lint:fix`, `format:check`, `format`, `build:all` (runs `npm run build --workspaces`), `clean`.
-2. [ ] Add shared configs: `.editorconfig`, `.gitignore`, `.npmrc` (e.g., `save-exact=true`), `tsconfig.base.json` (paths + `references` placeholder) and root `tsconfig.json` that references package tsconfigs.
-3. [ ] Install/dev-deps at root: `typescript`, `eslint`, `@typescript-eslint/parser`, `@typescript-eslint/eslint-plugin`, `eslint-config-prettier`, `eslint-plugin-import`, `prettier`. Create root flat config `eslint.config.js` extending TS rules with command examples using `eslint . --ext .ts,.tsx --max-warnings=0`. Create `.prettierrc` and `.prettierignore`; add `format:check` as `prettier . --check` and `format` as `prettier . --write`.
-4. [ ] Set up Husky + lint-staged: add `prepare` script, run `npm run prepare` (npm v10+ with Node 22), add `.husky/pre-commit` with `npx lint-staged`; create `lint-staged.config.mjs` to run `eslint --ext .ts,.tsx --max-warnings=0` and `prettier --check` on staged files.
-5. [ ] Run `npm install` to materialize lockfile; verify root scripts execute (they should no-op on empty packages without failing).
-6. [ ] Update `README.md` with prerequisites (Node 22), workspace layout, and root commands (`npm install`, `npm run lint`, `npm run format:check`, `npm run build:all`).
-7. [ ] Update `design.md` with tooling/architecture notes for the workspace baseline.
-8. [ ] Update `projectStructure.md` to reflect new root files/configs.
+1. [ ] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `"engines": { "node": ">=22" }`, and scripts: `"lint": "eslint . --ext .ts,.tsx --max-warnings=0"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`, `"build:all": "npm run build --workspaces"`, `"clean": "rimraf node_modules */node_modules"`. Use `npm pkg set` for clarity: `npm pkg set workspaces[0]=client workspaces[1]=server workspaces[2]=common engines.node=">=22"` etc.
+2. [ ] Add shared configs with concrete contents/guides: `.editorconfig` (UTF-8, 2 spaces), `.gitignore` (node_modules, dist, coverage, .env, .DS_Store, playwright-report, test-results), `.npmrc` (`save-exact=true`), `tsconfig.base.json` (compilerOptions: `target: ES2022`, `module: NodeNext`, `moduleResolution: NodeNext`, `strict: true`, `skipLibCheck: true`, `esModuleInterop: true`, `resolveJsonModule: true`, `paths` placeholder), and root `tsconfig.json` `{ "files": [], "references": [ {"path":"./client"}, {"path":"./server"}, {"path":"./common"} ], "extends": "./tsconfig.base.json" }`.
+3. [ ] Install dev deps at root (single command): `npm install -D typescript eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-config-prettier eslint-plugin-import prettier rimraf`. Create root `eslint.config.js` using flat config, e.g.:
+   ```js
+   import tseslint from "typescript-eslint";
+   export default [
+     ...tseslint.configs.recommended,
+     {
+       files: ["**/*.ts", "**/*.tsx"],
+       rules: {
+         "import/order": ["warn", { "alphabetize": { "order": "asc" } }]
+       }
+     }
+   ];
+   ```
+   Create `.prettierrc` (e.g., `{ "singleQuote": true, "semi": true }`) and `.prettierignore` (node_modules, dist, coverage, .husky).
+4. [ ] Set up Husky + lint-staged explicitly:
+   - Add to package.json: `"prepare": "husky install"`, `"lint-staged": { "**/*.{ts,tsx,js,jsx}": ["eslint --ext .ts,.tsx --max-warnings=0", "prettier --check"] }`.
+   - Install deps: `npm install -D husky lint-staged`.
+   - Run `npm run prepare`, then `npx husky add .husky/pre-commit "npx lint-staged"`.
+5. [ ] Run `npm install` at repo root to materialize `package-lock.json`. Then dry-run scripts to prove wiring: `npm run lint --workspaces` (should succeed even if packages empty), `npm run format:check --workspaces`, `npm run build:all` (expects nothing to build yet).
+6. [ ] Update `README.md` with: prerequisites (Node 22.x, npm 10+), install (`npm install`), workspace layout, and root commands (`npm run lint`, `npm run lint:fix`, `npm run format:check`, `npm run format`, `npm run build:all`, `npm run clean`).
+7. [ ] Update `design.md` with a short tooling section describing shared lint/format setup, Node version, and Husky flow.
+8. [ ] Update `projectStructure.md` to include new root config files and note that all packages share the root lint/format setup.
 
 #### Testing
 1. [ ] `npm run lint --workspaces` (should pass with empty packages configured).
@@ -102,16 +118,35 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 - Prettier: Context7 `/prettier/prettier`.
 
 #### Subtasks
-1. [ ] Create `common/package.json` with name `@codeinfo2/common`, type `module`, exports for `./dist/index.js`, scripts: `build` (tsc -b), `lint`, `lint:fix`, `format:check`, `format` (reuse root configs).
-2. [ ] Add `common/tsconfig.json` extending `../tsconfig.base.json`, set `outDir: dist`, `declaration: true`, `composite: true`, and `references: []` (none yet).
-3. [ ] Implement `common/src/versionInfo.ts` defining `VersionInfo { app: string; version: string; }` and `getAppInfo(app: string, version: string): VersionInfo`; export via `common/src/index.ts`.
-4. [ ] Ensure package lint/format configs extend root (may just rely on root flat config + prettier ignore paths as needed).
-5. [ ] Wire root `build:all` to build `common` (tsc project references) and confirm workspace links via `npm ls @codeinfo2/common`.
-6. [ ] Update `README.md` with commands relevant to `common` package usage (build/lint) and how consumers install via workspaces.
-7. [ ] Update `design.md` with purpose of `common`, how it’s shared, and reference to the VersionInfo DTO.
-8. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common`.
-9. [ ] Run root `npm run lint --workspaces` after changes.
-10. [ ] Update `projectStructure.md` with new common files/outputs.
+1. [ ] Create `common/package.json` with:
+   - name `@codeinfo2/common`, `version` placeholder `0.0.1`, `type: "module"`, `main: "dist/index.js"`, `exports: { ".": "./dist/index.js" }`.
+   - scripts: `"build": "tsc -b"`, `"lint": "npm run lint --workspace root"` (inherited), or set explicitly `eslint . --ext .ts,.tsx`, plus `lint:fix`, `format`, `format:check` mirroring root commands via `"npm run ... --workspace ."`.
+   - `engines.node: ">=22"`.
+2. [ ] Add `common/tsconfig.json` extending `../tsconfig.base.json` with:
+   ```json
+   {
+     "extends": "../tsconfig.base.json",
+     "compilerOptions": {
+       "rootDir": "src",
+       "outDir": "dist",
+       "declaration": true,
+       "composite": true
+     },
+     "include": ["src"],
+     "references": []
+   }
+   ```
+3. [ ] Implement `common/src/versionInfo.ts`:
+   - Define `export type VersionInfo = { app: string; version: string };`
+   - `export function getAppInfo(app: string, version: string): VersionInfo { return { app, version }; }`.
+   - Export from `common/src/index.ts` via `export * from "./versionInfo.js";`.
+4. [ ] Ensure lint/format simply rely on root configs (no extra config files needed); confirm `.prettierignore` covers `dist` if necessary.
+5. [ ] Add `references` in root `tsconfig.json` already include common; verify `npm run build --workspace common` works; confirm workspace link with `npm ls @codeinfo2/common`.
+6. [ ] Update `README.md` with common package commands: `npm run lint --workspace common`, `npm run format:check --workspace common`, `npm run build --workspace common`; note it exports `getAppInfo`.
+7. [ ] Update `design.md` with a short paragraph on the `common` package purpose and `VersionInfo` DTO.
+8. [ ] Run `npm run lint --workspace common`, `npm run format:check --workspace common`, and `npm run build --workspace common` after creation.
+9. [ ] Run root `npm run lint --workspaces` after changes to confirm cross-package success.
+10. [ ] Update `projectStructure.md` to list `common/src/index.ts`, `common/src/versionInfo.ts`, `common/tsconfig.json`, and `dist/` output.
 
 #### Testing
 1. [ ] `npm run lint --workspace common`.
@@ -138,18 +173,55 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 - Prettier: Context7 `/prettier/prettier` — formatting.
 
 #### Subtasks
-1. [ ] Create `server/package.json` with name `@codeinfo2/server`, main `dist/index.js`, type `module`, scripts: `dev` (`ts-node-dev --respawn src/index.ts` or `tsx watch src/index.ts`), `build` (`tsc -b`), `start` (`node dist/index.js`), `lint`, `lint:fix`, `format:check`, `format`.
-2. [ ] Install dependencies: `express@5`, `cors`, `dotenv`; dev-deps: `@types/express`, `@types/node`, `ts-node-dev` or `tsx`, `typescript` (workspace), `nodemon` optional.
-3. [ ] Add `server/tsconfig.json` extending `../tsconfig.base.json`, set `rootDir: src`, `outDir: dist`, `composite: true`, `esModuleInterop: true`, `resolveJsonModule: true`, and `references` -> `{ path: "../common/tsconfig.json" }`.
-4. [ ] Implement `server/src/index.ts`: load env, set `const PORT = process.env.PORT ?? "5010"`; set up Express + CORS; routes:
-   - `GET /health` -> `{ status: "ok", uptime, timestamp }` (uses `getAppInfo` to include server version optionally).
-   - `GET /version` -> reads `package.json` version (import with `assert { type: "json" }` or `fs.readFileSync`), returns `VersionInfo` from `common` `{ app: "server", version }`.
-   - `GET /info` -> returns sample message proving `common` import (e.g., `getAppInfo("server", version)`).
-5. [ ] Add `server/.env.example` documenting `PORT=5010` and note CORS/client origin and `REACT_APP_API_URL` expectation on client side.
-6. [ ] Update `README.md` with server commands (`npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`) and how to set `PORT`.
-7. [ ] Update `design.md` with server architecture notes and endpoint descriptions (`/health`, `/version`, `/info`) and how they use `common`.
-8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`.
-9. [ ] Update `projectStructure.md` for server source and config files.
+1. [ ] Create `server/package.json` with name `@codeinfo2/server`, `version: 0.0.1`, `type: "module"`, `main: "dist/index.js"`; scripts: `"dev": "tsx watch src/index.ts"`, `"build": "tsc -b"`, `"start": "node dist/index.js"`, `"lint": "eslint . --ext .ts"`, `"lint:fix": "eslint . --ext .ts --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`; `engines.node >=22`.
+2. [ ] Install dependencies (single command): `npm install express@5 cors dotenv`. Dev deps: `npm install -D @types/express @types/node tsx typescript` (reuses root TS but keep here for references) plus `@types/cors` if needed.
+3. [ ] Add `server/tsconfig.json` extending `../tsconfig.base.json`:
+   ```json
+   {
+     "extends": "../tsconfig.base.json",
+     "compilerOptions": {
+       "rootDir": "src",
+       "outDir": "dist",
+       "composite": true,
+       "esModuleInterop": true,
+       "resolveJsonModule": true
+     },
+     "include": ["src"],
+     "references": [{ "path": "../common/tsconfig.json" }]
+   }
+   ```
+4. [ ] Implement `server/src/index.ts` with explicit snippet:
+   ```ts
+   import express from "express";
+   import cors from "cors";
+   import { config } from "dotenv";
+   import { getAppInfo } from "@codeinfo2/common";
+   import pkg from "../package.json" assert { type: "json" };
+
+   config();
+   const app = express();
+   app.use(cors());
+   const PORT = process.env.PORT ?? "5010";
+
+   app.get("/health", (_req, res) => {
+     res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
+   });
+
+   app.get("/version", (_req, res) => {
+     res.json(getAppInfo("server", pkg.version));
+   });
+
+   app.get("/info", (_req, res) => {
+     res.json({ message: "Server using common package", info: getAppInfo("server", pkg.version) });
+   });
+
+   app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
+   ```
+5. [ ] Add `server/.env.example` with `PORT=5010` and comment `# client base URL uses REACT_APP_API_URL in client build; configure CORS origins here if needed (placeholder)`.
+6. [ ] Update `README.md` with exact commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`, mention default port 5010 and how to override via `.env`.
+7. [ ] Update `design.md` with endpoint summaries and note that `/version` draws from `package.json` and returns `VersionInfo`.
+8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`; record any fixes.
+9. [ ] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env.example`.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
@@ -174,14 +246,73 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 - Testing: Cucumber guides https://cucumber.io/docs/guides/ — Gherkin/steps/setup.
 
 #### Subtasks
-1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` (ESM) pointing to `src/test`, using `--require-module ts-node/register` (or `tsx`) and `--require src/test/steps/**/*.ts`, `--publish-quiet`; add scripts `test` (`cucumber-js`) and `test:watch`; include a minimal step definition matching the example feature.
-2. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, `npm-cache`, `dist`, `coverage`, `.vscode`, `.git`, `Dockerfile*`, build caches, and Playwright/Jest artifacts (`playwright-report`, `test-results`) even if not used here (defensive).
-3. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
-4. [ ] Update `README.md` with server test command (`npm run test --workspace server`) and Docker build/run commands (Docker first, then npm scripts).
-5. [ ] Update `design.md` with testing approach (Cucumber under `src/test` with `cucumber.js` options), exclusion via `.dockerignore`, and runtime architecture/Docker notes.
-6. [ ] Run `npm run test --workspace server` (cucumber-js), `npm run build --workspace server`, optional `npm run start --workspace server` sanity.
-7. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
-8. [ ] Update `projectStructure.md` for test files, `.dockerignore`, and Dockerfile.
+1. [ ] Add testing scaffold:
+   - Create `server/src/test/features/example.feature` with:
+     ```gherkin
+     Feature: health endpoint
+       Scenario: returns ok
+         When I call the health endpoint
+         Then I receive status ok
+     ```
+   - Create `server/src/test/steps/example.steps.ts`:
+     ```ts
+     import { Given, When, Then } from "@cucumber/cucumber";
+     import assert from "assert";
+     import fetch from "node-fetch";
+
+     let response: any;
+
+     When("I call the health endpoint", async () => {
+       const res = await fetch("http://localhost:5010/health");
+       response = { status: res.status, body: await res.json() };
+     });
+
+     Then("I receive status ok", () => {
+       assert.equal(response.status, 200);
+       assert.equal(response.body.status, "ok");
+     });
+     ```
+   - Add `cucumber.js` (ESM) at server root:
+     ```js
+     export default {
+       default: {
+         requireModule: ["tsx/register"],
+         require: ["src/test/steps/**/*.ts"],
+         paths: ["src/test/features/**/*.feature"],
+         publishQuiet: true
+       }
+     };
+     ```
+   - Add scripts to `server/package.json`: `"test": "cucumber-js"`, `"test:watch": "cucumber-js --watch"`.
+   - Install dev deps: `npm install -D @cucumber/cucumber tsx node-fetch @types/node-fetch` (node-fetch optional if using native fetch with Node 22 experimental; include for clarity).
+2. [ ] Create `server/.dockerignore` containing: `node_modules`, `dist`, `coverage`, `npm-debug.log`, `Dockerfile*`, `.dockerignore`, `.git`, `.gitignore`, `.vscode`, `.env`, `src/test`, `playwright-report`, `test-results`, `npm-cache`.
+3. [ ] Add `server/Dockerfile` multi-stage example:
+   ```Dockerfile
+   FROM node:22-slim AS deps
+   WORKDIR /app
+   COPY package*.json ../common/package*.json ./
+   COPY .. ./
+   RUN npm install --workspace server --workspace common --workspaces
+
+   FROM node:22-slim AS build
+   WORKDIR /app
+   COPY --from=deps /app .
+   RUN npm run build --workspace server
+
+   FROM node:22-slim AS runtime
+   WORKDIR /app/server
+   COPY --from=build /app/server/dist ./dist
+   COPY server/package*.json ./
+   ENV PORT=5010
+   EXPOSE 5010
+   CMD ["node", "dist/index.js"]
+   ```
+   (Keep paths adjusted as needed if build context is repo root.)
+4. [ ] Update `README.md` with commands: `npm run test --workspace server`; Docker build `docker build -f server/Dockerfile -t codeinfo2-server .`; run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `http://localhost:5010/health` and `/version`.
+5. [ ] Update `design.md` with: cucumber location, command, how `.dockerignore` excludes tests, and Dockerfile overview (multi-stage, Node 22 slim, exposes 5010).
+6. [ ] Execute `npm run test --workspace server`, `npm run build --workspace server`, optionally `npm run start --workspace server` to sanity-check.
+7. [ ] Build and run Docker image as above; capture findings in Implementation notes if port conflicts arise.
+8. [ ] Update `projectStructure.md` with new test files, `cucumber.js`, `.dockerignore`, and `server/Dockerfile`.
 
 #### Testing
 1. [ ] `npm run test --workspace server`.
@@ -207,17 +338,23 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 - Prettier: Context7 `/prettier/prettier`.
 
 #### Subtasks
-1. [ ] Scaffold `client` with Vite React TypeScript template (React 19) inside workspace: `npm create vite@latest client -- --template react-ts`; adjust `package.json` name to `@codeinfo2/client` and `engines.node >=22`.
-2. [ ] Install deps: `@mui/material`, `@emotion/react`, `@emotion/styled`, `@mui/icons-material` (if needed), and ensure `@codeinfo2/common` workspace link resolves.
-3. [ ] Set client default port to `5001` (Vite config `server.port`), add `.env.example` with `REACT_APP_API_URL=http://localhost:5010` and document override.
-4. [ ] Implement startup fetch: in `src/main.tsx` (or App), use `useEffect` to call `/version` via `REACT_APP_API_URL`; display server version and client version (read from `package.json` import or inject via `import.meta.env` fallback) using the `VersionInfo` DTO from `common`.
-5. [ ] Add simple UI with MUI (e.g., `Container`, `Card`, `Typography`) showing both versions and data from `/info` plus a shared value from `common`.
-6. [ ] Configure scripts in `client/package.json`: `dev`, `build`, `preview`, `lint`, `lint:fix`, `format:check`, `format`; ensure ESLint React plugin present via root config or add `eslint-plugin-react`.
-7. [ ] Add `client/vite.config.ts` path alias to `@codeinfo2/common` if needed; ensure TypeScript `tsconfig.json` extends root base and includes `types` for Vite.
-8. [ ] Update `README.md` with client commands (`npm run dev --workspace client`, `npm run build --workspace client`, `npm run preview --workspace client`), env var `REACT_APP_API_URL`, and port mapping.
-9. [ ] Update `design.md` with client architecture notes (Vite, MUI, version fetch flow) and dependency on server.
-10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-11. [ ] Update `projectStructure.md` with client source/config files.
+1. [ ] Scaffold client with explicit command: from repo root run `npm create vite@latest client -- --template react-ts`; when prompted, accept defaults. Edit `client/package.json` to set `name` to `@codeinfo2/client`, `version` `0.0.1`, `engines.node ">=22"`.
+2. [ ] Install UI + shared deps: `npm install --workspace client @mui/material @emotion/react @emotion/styled @mui/icons-material` and ensure `@codeinfo2/common` is referenced automatically via workspace (no extra install needed once common exists).
+3. [ ] Set default dev port and env handling:
+   - In `client/vite.config.ts`, set `server: { port: 5001, host: true }`.
+   - Add `.env.example` with `VITE_API_URL=http://localhost:5010` (Vite uses `VITE_` prefix). Document that production compose will point to `http://server:5010`.
+4. [ ] Implement startup fetch using hooks and common DTO:
+   - In `src/App.tsx` (or create if absent), use `useEffect` to call `${import.meta.env.VITE_API_URL}/version` with `fetch`.
+   - Parse JSON into `VersionInfo` (import from `@codeinfo2/common`).
+   - Show client version via `package.json` import: `import pkg from "../package.json"; const clientVersion = pkg.version;`.
+   - Keep fallback UI for loading/error.
+5. [ ] Build simple MUI UI (use MUI MCP docs if needed): wrap in `<Container maxWidth="sm">`, `<Card>`, `<Typography variant="h4" gutterBottom>CodeInfo2 Versions</Typography>`, list items for client and server versions, and show `/info` call result if implemented.
+6. [ ] Update scripts in `client/package.json`: `"dev": "vite"`, `"build": "vite build"`, `"preview": "vite preview --host --port 5001"`, `"lint": "eslint . --ext .ts,.tsx"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`.
+7. [ ] Ensure TypeScript config extends root: in `client/tsconfig.json`, set `"extends": "../tsconfig.base.json"`, include `"compilerOptions": { "types": ["vite/client"], "jsx": "react-jsx" }`, `"include": ["src"]`. Add optional path alias: in `vite.config.ts`, `resolve: { alias: { '@codeinfo2/common': path.resolve(__dirname, '../common/src') } }` if needed for dev speed.
+8. [ ] Update `README.md` with client usage: `npm run dev --workspace client` (shows on http://localhost:5001), `npm run build --workspace client`, `npm run preview --workspace client -- --host --port 5001`, and env var `VITE_API_URL` description.
+9. [ ] Update `design.md` with a short section: Vite + React 19 + MUI, startup fetch to `/version`, uses `VersionInfo` DTO, relies on env `VITE_API_URL`.
+10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces` to ensure root still passes.
+11. [ ] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `.env.example`, and note port 5001.
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
@@ -244,14 +381,45 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 - Husky: Context7 `/typicode/husky` — git hooks, pre-commit setup (for lint-staged awareness).
 
 #### Subtasks
-1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (recommended runner); create `jest.config.ts` with `preset: 'ts-jest'`, `testMatch: ['**/src/test/**/*.test.ts?(x)']`, `setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts']`, and `transform` for TS if needed; add `src/test/setupTests.ts` importing `@testing-library/jest-dom`; add an example test that renders the version UI and asserts both version labels.
-2. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, `npm-cache`, `dist`, `coverage`, `.vscode`, `.git`, `Dockerfile*`, `playwright-report`, `test-results`.
-3. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
-4. [ ] Update `README.md` with client test command (`npm run test --workspace client`) and Docker build/run commands (Docker first, then npm scripts).
-5. [ ] Update `design.md` with testing approach (Jest under `src/test`, `ts-jest` preset, setup file), exclusion via `.dockerignore`, and runtime serve approach.
-6. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, and root `npm run lint --workspaces`.
-7. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`, verify UI handles server unreachable case.
-8. [ ] Update `projectStructure.md` with client test files, `.dockerignore`, and Dockerfile.
+1. [ ] Add Jest testing scaffold under `client/src/test`:
+   - Install dev deps: `npm install -D --workspace client jest ts-jest @testing-library/react @testing-library/jest-dom @types/jest @testing-library/user-event`.
+   - Create `client/jest.config.ts`:
+     ```ts
+     import type { Config } from "jest";
+     const config: Config = {
+       preset: "ts-jest",
+       testEnvironment: "jsdom",
+       testMatch: ["**/src/test/**/*.test.(ts|tsx)"] ,
+       setupFilesAfterEnv: ["<rootDir>/src/test/setupTests.ts"],
+       moduleNameMapper: { "@codeinfo2/common": "<rootDir>/../common/src" }
+     };
+     export default config;
+     ```
+   - Create `client/src/test/setupTests.ts` with `import "@testing-library/jest-dom";`.
+   - Add sample test `client/src/test/version.test.tsx` rendering `<App />` and asserting text `Client version` and `Server version` using `screen.getByText` (mock fetch with `jest.spyOn(global, "fetch")`).
+2. [ ] Add `.dockerignore` in `client` excluding: `node_modules`, `dist`, `coverage`, `.git`, `.gitignore`, `.vscode`, `.env`, `npm-debug.log`, `src/test`, `playwright-report`, `test-results`, `Dockerfile*`.
+3. [ ] Add `client/Dockerfile` multi-stage:
+   ```Dockerfile
+   FROM node:22-slim AS build
+   WORKDIR /app
+   COPY package*.json ../common/package*.json ./
+   COPY .. ./
+   RUN npm install --workspace client --workspace common --workspaces
+   RUN npm run build --workspace client
+
+   FROM node:22-slim AS runtime
+   WORKDIR /app/client
+   COPY --from=build /app/client/dist ./dist
+   COPY client/package*.json ./
+   ENV PORT=5001
+   EXPOSE 5001
+   CMD ["npm", "run", "preview", "--", "--host", "--port", "5001"]
+   ```
+4. [ ] Update `README.md` with: `npm run test --workspace client`, note `npx jest --config jest.config.ts` alternative; Docker build/run commands as above plus reminder to set `VITE_API_URL` at build time if pointing to non-default server.
+5. [ ] Update `design.md` with Jest setup summary, `.dockerignore` rationale, and Docker runtime strategy (Vite preview serving `dist`).
+6. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces`; note any fixes in Implementation notes.
+7. [ ] Build and run Docker image: `docker build -f client/Dockerfile -t codeinfo2-client .`; `docker run --rm -p 5001:5001 codeinfo2-client`; check UI renders without server (display friendly error).
+8. [ ] Update `projectStructure.md` with Jest files, `.dockerignore`, and `client/Dockerfile`.
 
 #### Testing
 1. [ ] `npm run test --workspace client` (Jest).
@@ -275,15 +443,44 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 - Dockerfiles from Tasks 4 & 6 (for reference once created).
 
 #### Subtasks
-1. [ ] Create `docker-compose.yml` with services:
-   - `server`: build `./server`, image `codeinfo2-server`, ports `5010:5010`, env `PORT=5010`.
-   - `client`: build `./client`, image `codeinfo2-client`, ports `5001:5001`, env `REACT_APP_API_URL=http://server:5010`.
-   - Define shared network; add healthchecks for server (`curl -f http://localhost:5010/health`) and client (`curl -f http://localhost:5001`).
-2. [ ] Add root scripts: `compose:up`, `compose:down`, `compose:logs`, `compose:build` pointing to `docker compose` commands.
-3. [ ] Run `docker compose up --build` and verify UI shows both versions; adjust CORS if needed in server.
-4. [ ] Document compose usage in `README.md`/`design.md`: required env vars, port bindings (5001/5010), how to rebuild images, how to stop.
-5. [ ] Run `npm run lint --workspaces` after compose file added to ensure formatting rules pass (use prettier on YAML if configured).
-6. [ ] Update `projectStructure.md` with compose file and any new supporting scripts.
+1. [ ] Create `docker-compose.yml` with explicit content:
+   ```yaml
+   version: "3.9"
+   services:
+     server:
+       build: ./server
+       image: codeinfo2-server
+       ports:
+         - "5010:5010"
+       environment:
+         - PORT=5010
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost:5010/health"]
+         interval: 10s
+         timeout: 5s
+         retries: 5
+     client:
+       build: ./client
+       image: codeinfo2-client
+       ports:
+         - "5001:5001"
+       environment:
+         - VITE_API_URL=http://server:5010
+       depends_on:
+         server:
+           condition: service_healthy
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost:5001"]
+         interval: 10s
+         timeout: 5s
+         retries: 5
+   ```
+   (Both services share default network.)
+2. [ ] Add root `package.json` scripts: `"compose:up": "docker compose up -d"`, `"compose:down": "docker compose down"`, `"compose:logs": "docker compose logs -f"`, `"compose:build": "docker compose build"`.
+3. [ ] Run `docker compose up --build` once after server/client Dockerfiles exist; visit `http://localhost:5001` and confirm versions render. If CORS errors occur, update server `cors()` to allow origin `http://localhost:5001`.
+4. [ ] Document compose usage in `README.md` and `design.md`: required ports 5001/5010, env overrides (`VITE_API_URL`, `PORT`), rebuild command, stop command, and healthcheck behavior.
+5. [ ] Run `npm run lint --workspaces` (and `npm run format:check` if YAML is auto-formatted) after adding compose file.
+6. [ ] Update `projectStructure.md` to include `docker-compose.yml` and mention new root scripts.
 
 #### Testing
 1. [ ] `docker compose build` (uses both Dockerfiles).
@@ -310,10 +507,36 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 - Project plan / workspace layout for reference.
 
 #### Subtasks
-1. [ ] Add a mermaid `graph TD` diagram showing workspaces (`client`, `server`, `common`), root scripts, Docker images, and docker-compose wiring.
-2. [ ] Add a mermaid `sequenceDiagram` (or flowchart) depicting client startup fetching `/version`, server reading `package.json` version, returning `VersionInfo` from `common`, and client rendering versions.
-3. [ ] Briefly describe each diagram below it for clarity.
-4. [ ] Update `projectStructure.md` to note `design.md` now contains diagrams.
+1. [ ] Add mermaid `graph TD` to `design.md` with concrete nodes, e.g.:
+   ```mermaid
+   graph TD
+     A[root package.json] --> B[client workspace]
+     A --> C[server workspace]
+     A --> D[common workspace]
+     B -->|uses| D
+     C -->|uses| D
+     B --> E[client Docker image]
+     C --> F[server Docker image]
+     E --> G[docker-compose]
+     F --> G
+   ```
+2. [ ] Add `sequenceDiagram` showing `/version` flow with exact steps:
+   ```mermaid
+   sequenceDiagram
+     participant User
+     participant Client
+     participant Server
+     participant Common
+     User->>Client: open http://localhost:5001
+     Client->>Server: GET /version
+     Server->>Server: read package.json version
+     Server->>Common: getAppInfo("server", version)
+     Common-->>Server: VersionInfo
+     Server-->>Client: 200 VersionInfo
+     Client-->>User: renders client + server versions
+   ```
+3. [ ] Add 2–3 sentence description under each diagram explaining what it represents and when it’s updated.
+4. [ ] Update `projectStructure.md` to mention diagrams now live in `design.md` and must be kept current.
 
 #### Testing
 1. [ ] Run `npm run lint --workspaces` or `npm run format:check` if diagrams affect lint formatting.
@@ -336,11 +559,22 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 - `projectStructure.md` itself (kept current each task).
 
 #### Subtasks
-1. [ ] Create `projectStructure.md` with current tree and one-line descriptions for root files/folders.
-2. [ ] Add a short note in the file explaining it must be updated whenever files change.
-3. [ ] Update `README.md` to mention `projectStructure.md` for navigation (commands section).
-4. [ ] Update `design.md` to mention `projectStructure.md` for navigation (architecture/flows section).
-5. [ ] Ensure future tasks include a subtask to update this document (already added across tasks).
+1. [ ] Create `projectStructure.md` using a tree code block, e.g.:
+   ```
+   .
+   ├─ client/      # React SPA (Vite + MUI)
+   ├─ server/      # Express API
+   ├─ common/      # shared DTO/util
+   ├─ planning/    # story plans
+   ├─ design.md    # diagrams + architecture notes
+   ├─ docker-compose.yml  # stack wiring
+   └─ README.md    # how to run
+   ```
+   Add one-line descriptions for every root file/folder that exists after tasks (include Dockerfiles, config files, husky folder, etc.).
+2. [ ] Add a bold note near the top: "Update this file immediately whenever files are added/removed/renamed; every task that changes structure must update this doc."
+3. [ ] Update `README.md` to mention `projectStructure.md` in navigation/overview so newcomers know where to look for layout.
+4. [ ] Update `design.md` to point readers to `projectStructure.md` for directory context.
+5. [ ] Verify later tasks keep a subtask to update this document (already present); adjust if new folders appear.
 
 #### Testing
 1. [ ] Run `npm run lint --workspaces` to confirm no formatting issues after adding the doc (if covered by prettier, run `npm run format:check`).
@@ -365,13 +599,26 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 - Mermaid: Context7 `/mermaid-js/mermaid` — diagram syntax reference for any flow/graph updates tied to E2E notes.
 
 #### Subtasks
-1. [ ] Ensure `docker-compose.yml` builds and runs client/server images (depends on Task 7).
-2. [ ] Add `e2e/` folder with a Playwright script (e.g., `e2e/version.spec.ts`) that: starts from `http://localhost:5001`, waits for page load, asserts presence of client version text and server version text fetched from `/version`; if server is down, test fails (no skip).
-3. [ ] Add dev-deps: `@playwright/test`; add npm scripts: `e2e:up` (`docker compose up -d`), `e2e:test` (`npx playwright test e2e/version.spec.ts`), `e2e:down` (`docker compose down`); document `npx playwright install --with-deps` prerequisite.
-4. [ ] Document in `README.md` the commands/order: `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down` (Docker commands first), plus Playwright install note (`npx playwright install --with-deps` if needed).
-5. [ ] Update `design.md` to note E2E coverage scope (version flow) and that it runs against compose stack.
-6. [ ] Update `.gitignore` if Playwright artifacts (e.g., `test-results`, `playwright-report`) generated.
-7. [ ] Update `projectStructure.md` with `e2e/` and new scripts.
+1. [ ] Confirm `docker-compose.yml` builds and runs client/server images (from Task 7) before e2e.
+2. [ ] Add `e2e/version.spec.ts` using Playwright Test:
+   ```ts
+   import { test, expect } from "@playwright/test";
+
+   const baseUrl = process.env.E2E_BASE_URL ?? "http://localhost:5001";
+
+   test("shows client and server versions", async ({ page }) => {
+     await page.goto(baseUrl);
+     await expect(page.getByText(/Client version/i)).toBeVisible();
+     await expect(page.getByText(/Server version/i)).toBeVisible();
+   });
+   ```
+   Place it in `e2e/` folder at repo root.
+3. [ ] Install dev dep: `npm install -D @playwright/test`; run once `npx playwright install --with-deps` (document as pre-step).
+4. [ ] Add npm scripts at root: `"e2e:up": "docker compose up -d"`, `"e2e:test": "npx playwright test e2e/version.spec.ts"`, `"e2e:down": "docker compose down"`; optional `"e2e": "npm run e2e:up && npm run e2e:test && npm run e2e:down"`.
+5. [ ] Update `README.md` with step order: 1) `npm run e2e:up`, 2) `npm run e2e:test`, 3) `npm run e2e:down`; include note to run `npx playwright install --with-deps` once after installing deps.
+6. [ ] Update `design.md` describing e2e scope (version display), environment (`docker-compose`), and Playwright assertion approach.
+7. [ ] Update `.gitignore` to exclude `playwright-report/`, `test-results/`, `.vscode` if not already.
+8. [ ] Update `projectStructure.md` to include `e2e/` folder and note new npm scripts.
 
 #### Testing
 1. [ ] `npm run e2e:up` then `npm run e2e:test`; confirm the test passes and reports both versions visible.

@@ -389,8 +389,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __in_progress__
+- Git Commits: __to_do__
 
 #### Overview
 

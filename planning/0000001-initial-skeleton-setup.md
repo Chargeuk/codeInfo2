@@ -21,7 +21,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - Deployment to cloud providers.
 
 ## Questions
-- Confirm preferred Node.js LTS version (default plan: 20.x currently stable for Nov 2025).
+- (Resolved 2025-11-21) Use Node.js 22.x as the baseline runtime for all packages and images.
 - Should Docker images be slimmed with multi-stage builds using Alpine, or is Debian-slim acceptable?
 - Any preferred port mappings (plan: server on 4000, client on 3000, compose maps host 3000/4000)?
 - Do we need Husky/lint-staged pre-commit hooks now, or keep tooling manual?

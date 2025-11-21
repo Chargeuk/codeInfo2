@@ -71,7 +71,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ### 1. Workspace & Tooling Baseline
 
-- Task Status: **done**
+- Task Status: __done__
 - Git Commits: a4c0c46, 0e98d67, 70b5fa4
 
 #### Overview
@@ -130,7 +130,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ### 2. Common Package Skeleton
 
-- Task Status: **done**
+- Task Status: __done__
 - Git Commits: ce6b662, 0991e06
 
 #### Overview
@@ -193,7 +193,7 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ### 3. Server Core (Express API)
 
-- Task Status: **done**
+- Task Status: __done__
 - Git Commits: 615ec20, 3eacad6
 
 #### Overview
@@ -284,8 +284,8 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: __done__
+- Git Commits: 5512761, 67ad373, ab39501
 
 #### Overview
 
@@ -389,8 +389,8 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: __done__
+- Git Commits: efe4990, cc5b311, 167a2b1
 
 #### Overview
 
@@ -439,8 +439,8 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 332a4f7, e5a251d
 
 #### Overview
 
@@ -456,7 +456,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 #### Subtasks
 
-1. [ ] Add Jest testing scaffold under `client/src/test`:
+1. [x] Add Jest testing scaffold under `client/src/test`:
    - Install dev deps: `npm install -D --workspace client jest ts-jest @testing-library/react @testing-library/jest-dom @types/jest @testing-library/user-event`.
    - Create `client/jest.config.ts`:
      ```ts
@@ -472,8 +472,8 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
      ```
    - Create `client/src/test/setupTests.ts` with `import "@testing-library/jest-dom";`.
    - Add sample test `client/src/test/version.test.tsx` rendering `<App />` and asserting text `Client version` and `Server version` using `screen.getByText` (mock fetch with `jest.spyOn(global, "fetch")`).
-2. [ ] Add `.dockerignore` in `client` excluding: `node_modules`, `dist`, `coverage`, `.git`, `.gitignore`, `.vscode`, `.env.local`, `npm-debug.log`, `src/test`, `playwright-report`, `test-results`, `Dockerfile*` (keep committed `.env` available to the build context).
-3. [ ] Add `client/Dockerfile` multi-stage:
+2. [x] Add `.dockerignore` in `client` excluding: `node_modules`, `dist`, `coverage`, `.git`, `.gitignore`, `.vscode`, `.env.local`, `npm-debug.log`, `src/test`, `playwright-report`, `test-results`, `Dockerfile*` (keep committed `.env` available to the build context).
+3. [x] Add `client/Dockerfile` multi-stage:
 
    ```Dockerfile
    FROM node:22-slim AS build
@@ -492,27 +492,29 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
    CMD ["npm", "run", "preview", "--", "--host", "--port", "5001"]
    ```
 
-4. [ ] Update `README.md` with: `npm run test --workspace client`, note `npx jest --config jest.config.ts` alternative; Docker build/run commands as above plus reminder to set `VITE_API_URL` at build time if pointing to non-default server.
-5. [ ] Update `design.md` with Jest setup summary, `.dockerignore` rationale, and Docker runtime strategy (Vite preview serving `dist`).
-6. [ ] Run `npm run test --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces`; note any fixes in Implementation notes.
-7. [ ] Build and run Docker image: `docker build -f client/Dockerfile -t codeinfo2-client .`; `docker run --rm -p 5001:5001 codeinfo2-client`; check UI renders without server (display friendly error).
+4. [x] Update `README.md` with: `npm run test --workspace client`, note `npx jest --config jest.config.ts` alternative; Docker build/run commands as above plus reminder to set `VITE_API_URL` at build time if pointing to non-default server.
+5. [x] Update `design.md` with Jest setup summary, `.dockerignore` rationale, and Docker runtime strategy (Vite preview serving `dist`).
+6. [x] Run `npm run test --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces`; note any fixes in Implementation notes.
+7. [x] Build and run Docker image: `docker build -f client/Dockerfile -t codeinfo2-client .`; `docker run --rm -p 5001:5001 codeinfo2-client`; check UI renders without server (display friendly error).
 8. [x] Update `projectStructure.md` with Jest files, `.dockerignore`, and `client/Dockerfile`.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client` (Jest).
-2. [ ] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`; verify UI runs and shows version info (if server available).
+1. [x] `npm run test --workspace client` (Jest).
+2. [x] `docker build -f client/Dockerfile -t codeinfo2-client .` and run `docker run --rm -p 5001:5001 codeinfo2-client`; verify UI runs and shows version info (if server available).
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Added Jest + Testing Library (jsdom) with ts-jest ESM preset, sample version test, and setup file; guarded import.meta for test runs.
+- Created client Dockerfile/.dockerignore mirroring server with HUSKY disabled during image build; built codeinfo2-client image successfully.
+- Ran client test/build and root lint; updated README/design/projectStructure accordingly.
 
 ---
 
 ### 7. Docker Compose Integration
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -579,8 +581,8 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -637,8 +639,8 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 
@@ -680,8 +682,8 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: **to_do**
-- Git Commits: **to_do**
+- Task Status: __to_do__
+- Git Commits: __to_do__
 
 #### Overview
 

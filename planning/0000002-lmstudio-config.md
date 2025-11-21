@@ -163,8 +163,10 @@ Build the LM Studio configuration UI that lets users set a base URL, view connec
 5. [ ] Persist base URL in `localStorage` and rehydrate on mount; allow reset to default.
 6. [ ] Add client tests in `client/src/test/lmstudio.test.tsx` stubbing fetch: success with models, empty list, error/timeout; verify UI states and persistence.
 7. [ ] Ensure routing/nav highlights LM Studio route and deep link `/lmstudio` works in dev/preview/Docker.
-8. [ ] Update `projectStructure.md` for new pages/hooks/components and any styling files.
-9. [ ] Commands to run (in order): `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`.
+8. [ ] Update `README.md` with LM Studio page usage, base URL env, and note that calls go through the server proxy.
+9. [ ] Update `design.md` with LM Studio flow (client → server proxy → SDK) and any UI notes.
+10. [ ] Update `projectStructure.md` for new pages/hooks/components and any styling files.
+11. [ ] Commands to run (in order): `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`.
 
 #### Testing
 

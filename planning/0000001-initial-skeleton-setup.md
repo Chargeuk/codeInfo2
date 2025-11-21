@@ -643,8 +643,8 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: b25588c, ba4b815
 
 #### Overview
 
@@ -680,7 +680,9 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Added a concrete tree block listing root folders/files with purposes and kept detailed area notes for client/server/common/planning.
+- Linked README and design.md to the structure map so readers can find layout context quickly.
+- Ran lint after doc updates to ensure no unintended lint regressions.
 
 ---
 

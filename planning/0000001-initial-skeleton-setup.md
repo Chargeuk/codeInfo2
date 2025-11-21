@@ -688,8 +688,8 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 7aeb4fd, 39163c6
 
 #### Overview
 
@@ -735,6 +735,8 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 
 #### Implementation notes
 
-- (Populate after work begins.)
+- Added Playwright dep and version.spec covering client/server version visibility; created e2e helper scripts (up/test/down/e2e) leveraging compose.
+- Documented one-time browser install, env override, and script flow in README and design notes; projectStructure updated with e2e folder.
+- Ran `npx playwright install --with-deps` and `npm run e2e` successfully; lint ensured clean after changes.
 
 ---

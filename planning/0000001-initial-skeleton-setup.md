@@ -153,7 +153,7 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
-2. [ ] `npm run build --workspace server` and `npm run start --workspace server`; curl `http://localhost:5010/health` and `/version`.
+2. [ ] `npm run build --workspace server` then `npm run start --workspace server`; `curl http://localhost:5010/health` and `curl http://localhost:5010/version` (expect JSON containing `{ app: "server", version: "<pkg version>" }`).
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -174,7 +174,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 - Testing: Cucumber guides https://cucumber.io/docs/guides/ — Gherkin/steps/setup.
 
 #### Subtasks
-1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` (ESM) pointing to `src/test`, using `--require-module ts-node/register` (or `tsx`) and `--require src/test/steps/**/*.ts`, `--publish-quiet`; add scripts `test` (`cucumber-js`) and `test:watch`.
+1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` (ESM) pointing to `src/test`, using `--require-module ts-node/register` (or `tsx`) and `--require src/test/steps/**/*.ts`, `--publish-quiet`; add scripts `test` (`cucumber-js`) and `test:watch`; include a minimal step definition matching the example feature.
 2. [ ] Ensure `.dockerignore` in `server` excludes `src/test`, `node_modules`, `npm-cache`, `dist`, `coverage`, `.vscode`, `.git`, `Dockerfile*`, build caches, and Playwright/Jest artifacts (`playwright-report`, `test-results`) even if not used here (defensive).
 3. [ ] Add `server/Dockerfile` (Debian-slim multi-stage): stage 1 install deps + build; stage 2 copy `dist`, `package.json`, `package-lock.json`, set `ENV PORT=5010`, `EXPOSE 5010`, `CMD ["node", "dist/index.js"]`.
 4. [ ] Update `README.md` with server test command (`npm run test --workspace server`) and Docker build/run commands (Docker first, then npm scripts).
@@ -185,7 +185,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 #### Testing
 1. [ ] `npm run test --workspace server`.
-2. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` and run `docker run --rm -p 5010:5010 codeinfo2-server`; curl `/health` and `/version`.
+2. [ ] `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`; `curl http://localhost:5010/health` and `curl http://localhost:5010/version`.
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -221,7 +221,7 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
-2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001 to see versions.
+2. [ ] `npm run build --workspace client`; then `npm run preview --workspace client -- --host --port 5001` and load http://localhost:5001` (expect visible client version label and server version label once API responds).
 
 #### Implementation notes
 - (Populate after work begins.)
@@ -243,7 +243,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 - Husky: Context7 `/typicode/husky` — git hooks, pre-commit setup (for lint-staged awareness).
 
 #### Subtasks
-1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (recommended runner), create `jest.config.ts` with `preset: 'ts-jest'`, `testMatch: ['**/src/test/**/*.test.ts?(x)']`, `setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts']`; add `src/test/setupTests.ts` importing `@testing-library/jest-dom`; add an example test that renders the version UI.
+1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (recommended runner); create `jest.config.ts` with `preset: 'ts-jest'`, `testMatch: ['**/src/test/**/*.test.ts?(x)']`, `setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts']`, and `transform` for TS if needed; add `src/test/setupTests.ts` importing `@testing-library/jest-dom`; add an example test that renders the version UI and asserts both version labels.
 2. [ ] Add `.dockerignore` in `client` excluding `src/test`, `node_modules`, `npm-cache`, `dist`, `coverage`, `.vscode`, `.git`, `Dockerfile*`, `playwright-report`, `test-results`.
 3. [ ] Add `client/Dockerfile` (Debian-slim multi-stage): build with `npm run build`, runtime stage serving `dist` via `npm run preview -- --host --port 5001` or `serve -s dist`; set `EXPOSE 5001`.
 4. [ ] Update `README.md` with client test command (`npm run test --workspace client`) and Docker build/run commands (Docker first, then npm scripts).
@@ -365,7 +365,7 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 
 #### Subtasks
 1. [ ] Ensure `docker-compose.yml` builds and runs client/server images (depends on Task 7).
-2. [ ] Add `e2e/` folder with a Playwright script (e.g., `e2e/version.spec.ts`) that: starts from `http://localhost:5001`, waits for page load, asserts presence of client version text and server version text fetched from `/version`; handle server-down case as a test failure (no skip).
+2. [ ] Add `e2e/` folder with a Playwright script (e.g., `e2e/version.spec.ts`) that: starts from `http://localhost:5001`, waits for page load, asserts presence of client version text and server version text fetched from `/version`; if server is down, test fails (no skip).
 3. [ ] Add dev-deps: `@playwright/test`; add npm scripts: `e2e:up` (`docker compose up -d`), `e2e:test` (`npx playwright test e2e/version.spec.ts`), `e2e:down` (`docker compose down`); document `npx playwright install --with-deps` prerequisite.
 4. [ ] Document in `README.md` the commands/order: `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down` (Docker commands first), plus Playwright install note (`npx playwright install --with-deps` if needed).
 5. [ ] Update `design.md` to note E2E coverage scope (version flow) and that it runs against compose stack.

@@ -11,6 +11,7 @@ Current root map:
 ├─ common/              # Shared DTO/util package
 ├─ planning/            # Story plans + template
 ├─ .husky/              # Git hooks (lint-staged pre-commit)
+├─ e2e/                 # Playwright specs
 ├─ docker-compose.yml   # Compose stack wiring client/server with healthchecks
 ├─ design.md            # Design notes + mermaid diagrams
 ├─ projectStructure.md  # This living structure map
@@ -34,3 +35,4 @@ Notes by area:
 - client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI.
 - server/: Express entrypoint, env defaults, Cucumber `src/test`, `cucumber.js`, Docker assets.
 - common/: `src/index.ts` and `src/versionInfo.ts` exporting VersionInfo/getAppInfo.
+- e2e/: Playwright tests (version.spec.ts) for UI/version checks.

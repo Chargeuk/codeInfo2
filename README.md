@@ -63,6 +63,14 @@ npm install
 - Stop stack: `npm run compose:down`
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
 
+## End-to-end (Playwright)
+
+- One-time: `npx playwright install --with-deps`
+- Start stack: `npm run e2e:up`
+- Run test: `npm run e2e:test` (uses `E2E_BASE_URL` or defaults to http://localhost:5001)
+- Full flow: `npm run e2e`
+- Shut down after tests: `npm run e2e:down`
+
 ## Environment policy
 
 - Commit `.env` files with safe defaults.

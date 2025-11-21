@@ -79,3 +79,9 @@ sequenceDiagram
 ```
 
 This sequence captures the startup request path the UI uses to display client and server versions via the shared VersionInfo DTO.
+
+## End-to-end validation
+
+- Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
+- Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
+- Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.

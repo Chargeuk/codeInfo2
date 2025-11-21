@@ -1,5 +1,35 @@
 # CodeInfo2
 
-## Overview
+Monorepo for client (React 19 + MUI), server (Express), and shared common package using npm workspaces.
 
-## Running Locally With Dcoker
+## Prerequisites
+
+- Node.js 22.x and npm 10+
+- Docker 27+ and Docker Compose v2
+- Git, curl
+
+## Install
+
+```sh
+npm install
+```
+
+## Workspace layout
+
+- `client/` — React app (Vite) [workspace]
+- `server/` — Express API [workspace]
+- `common/` — shared TypeScript package [workspace]
+
+## Root commands
+
+- `npm run lint --workspaces`
+- `npm run lint:fix --workspaces`
+- `npm run format:check --workspaces`
+- `npm run format --workspaces`
+- `npm run build:all`
+- `npm run clean`
+
+## Environment policy
+
+- Commit `.env` files with safe defaults.
+- Keep secrets in `.env.local` (git-ignored) when needed.

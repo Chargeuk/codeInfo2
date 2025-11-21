@@ -1,0 +1,54 @@
+{
+  "name": "codeinfo2",
+  "version": "1.0.0",
+  "description": "CodeInfo2 monorepo (client, server, common)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format:check": "prettier . --check",
+    "format": "prettier . --write",
+    "build:all": "npm run build --workspaces",
+    "clean": "rimraf node_modules */node_modules",
+    "prepare": "husky install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chargeuk/codeInfo2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Chargeuk/codeInfo2/issues"
+  },
+  "homepage": "https://github.com/Chargeuk/codeInfo2#readme",
+  "workspaces": [
+    "client",
+    "server",
+    "common"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx}": [
+      "eslint --ext .ts,.tsx --max-warnings=0",
+      "prettier --check"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "8.47.0",
+    "@typescript-eslint/parser": "8.47.0",
+    "eslint": "9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-import": "2.32.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.2.7",
+    "prettier": "3.6.2",
+    "rimraf": "6.1.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.47.0"
+  }
+}

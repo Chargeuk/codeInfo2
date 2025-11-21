@@ -1,0 +1,10 @@
+{
+  "name": "@codeinfo2/server-placeholder",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo \"placeholder server lint\"",
+    "build": "echo \"placeholder server build\"",
+    "format:check": "echo \"placeholder server format check\""
+  }
+}

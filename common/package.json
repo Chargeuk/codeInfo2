@@ -1,0 +1,10 @@
+{
+  "name": "@codeinfo2/common-placeholder",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo \"placeholder common lint\"",
+    "build": "echo \"placeholder common build\"",
+    "format:check": "echo \"placeholder common format check\""
+  }
+}

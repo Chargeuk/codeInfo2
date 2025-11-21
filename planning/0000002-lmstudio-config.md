@@ -64,17 +64,18 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 - React Router docs (Context7 `/remix-run/react-router` via Context7 MCP).
 - Existing client structure (`client/src/App.tsx`, `client/src/main.tsx`).
 - MUI docs (use MUI MCP tool) for Tabs/Nav (e.g., `AppBar`, `Tabs`, `Link`).
+- Env defaults: `client/.env` update for `VITE_LMSTUDIO_URL` (default `http://host.docker.internal:1234`).
 
 #### Subtasks
 
-1. [ ] Install `react-router-dom` in the client workspace; verify package-lock updates.
-2. [ ] Create router entry in `client/src/main.tsx` (or `router.tsx`) with routes `/` (Home) and `/lmstudio`; wrap app with `BrowserRouter`.
-3. [ ] Extract existing version UI into `HomePage` component/file and keep behaviour identical (loading/error/version card).
-4. [ ] Create a shared layout with MUI `AppBar` + nav (Tabs or Buttons) that shows active route, supports keyboard focus, and links to Home/LM Studio.
-5. [ ] Update `client/src/App.tsx` to render routed pages via `Outlet` (or simple switch) and remove direct version-fetch side effects from the layout.
-6. [ ] Add/adjust Jest tests for routing and nav (render default home, clicking LM Studio tab changes route).
-7. [ ] Update `projectStructure.md` with new files (layout, HomePage, router).
-8. [ ] Run `npm run lint --workspace client`, `npm run test --workspace client`, and `npm run build --workspace client`; fix issues.
+1. [ ] Install routing dependency: `npm install --workspace client react-router-dom`; commit updated `package-lock.json`.
+2. [ ] Create `client/src/routes/router.tsx` (or update `client/src/main.tsx`) wiring `BrowserRouter` with routes `/` → `HomePage` and `/lmstudio` → `LmStudioPage`; export router.
+3. [ ] Extract current version UI into `client/src/pages/HomePage.tsx`; behaviour must match existing loading/error/version card.
+4. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + Tabs/Buttons; highlight active route, keyboard focusable, links to Home and LM Studio.
+5. [ ] Update `client/src/App.tsx` to render routed pages via `Outlet` (or equivalent) and remove version-fetch side effects from the layout.
+6. [ ] Add/adjust Jest tests in `client/src/test` to cover routing/nav: default renders Home, clicking LM Studio nav changes route.
+7. [ ] Update `projectStructure.md` noting new files: `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx`, `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`.
+8. [ ] Commands to run (in order): `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`; fix issues before proceeding.
 
 #### Testing
 
@@ -103,25 +104,27 @@ Add an Express route that accepts a base URL, invokes the LM Studio SDK to list 
 - API server default port guidance (`1234`): https://lmstudio.ai/docs/developer/api.
 - Express 5 routing (Context7 `/expressjs/express`).
 - Node fetch/timeout patterns.
+- Testing harness: Cucumber + supertest already configured in `server` workspace.
 
 #### Subtasks
 
-1. [ ] Add `@lmstudio/sdk` dependency to server workspace (workspace install).
+1. [ ] Install SDK: `npm install --workspace server @lmstudio/sdk`; commit updated `package-lock.json`.
 2. [ ] Define shared types in `common` (e.g., `LmStudioModel`, `LmStudioStatusResponse`) and export them.
-3. [ ] Add server env default `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env`; note `.env.local` override.
-4. [ ] Implement Express route `/lmstudio/status` that:
+3. [ ] Add server env default `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env`; note `.env.local` override (keeps git-ignored).
+4. [ ] Implement Express route `/lmstudio/status` in new file `server/src/routes/lmstudio.ts` that:
    - Validates a `baseUrl` query/body (http/https); falls back to `LMSTUDIO_BASE_URL`.
    - Creates `LMStudioClient` pointing at the base URL and calls `client.system.listDownloadedModels()` with timeout (no caching).
    - Maps SDK result to the shared DTO (id/modelKey/displayName/type/format/path/sizeBytes/architecture/etc.).
    - Returns `{ status: 'ok' | 'error', models, baseUrl, error? }`; on error, include message and HTTP 502/400 as appropriate.
-5. [ ] Wire route into server app (e.g., `app.get('/lmstudio/status', handler)`), ensure CORS covers client origin, and log minimal info.
+5. [ ] Wire route into server app in `server/src/index.ts` (import from `routes/lmstudio`), ensure CORS covers client origin, and log minimal info.
 6. [ ] Add Cucumber test with SDK mock:
    - Create `server/src/test/support/mockLmStudioSdk.ts` exporting a stub `LMStudioClient` class with `system.listDownloadedModels(): Promise<ModelInfo[]>` returning scenario-controlled data shaped like the SDK sample (fields: `type`, `modelKey`, `displayName`, `format`, `path`, `sizeBytes`, `architecture`, optional `paramsString`, `maxContextLength`, `vision`, `trainedForToolUse`) from https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
    - Allow tests to inject this stub into the route via a factory parameter (DI) instead of patching imports; the production route defaults to the real SDK.
    - Use Cucumber steps + supertest against the Express app wired with the stub to verify success (list length > 0), empty list, and error/timeout responses without network access.
-7. [ ] Update README and design.md with new env (`LMSTUDIO_BASE_URL`), route description, and expected response shape.
-8. [ ] Update `projectStructure.md` with new server files/tests.
-9. [ ] Run `npm run lint --workspace server`, `npm run test --workspace server`, and manual `curl "/lmstudio/status?baseUrl=http://host.docker.internal:1234"` (LM Studio running).
+7. [ ] Add Cucumber feature/steps: `server/src/test/features/lmstudio.feature`, `server/src/test/steps/lmstudio.steps.ts` covering success/empty/error/timeout; steps set the mock scenario then call `/lmstudio/status` via supertest.
+8. [ ] Update README and design.md with new env (`LMSTUDIO_BASE_URL`), route description, and expected response shape.
+9. [ ] Update `projectStructure.md` with new server files/tests.
+10. [ ] Commands to run (in order): `npm run lint --workspace server`, `npm run test --workspace server` (uses mock), and manual `curl "/lmstudio/status?baseUrl=http://host.docker.internal:1234"` (requires LM Studio running).
 
 #### Testing
 
@@ -149,18 +152,19 @@ Build the LM Studio configuration UI that lets users set a base URL, view connec
 - LM Studio SDK model listing (`system.listDownloadedModels`): https://lmstudio.ai/docs/typescript/manage-models/list-downloaded.
 - MUI components (via MUI MCP).
 - Testing Library/Jest patterns already in repo.
+- Env defaults: `client/.env` (add `VITE_LMSTUDIO_URL=http://host.docker.internal:1234`; keep `.env.local` ignored).
 
 #### Subtasks
 
-1. [ ] Create `LmStudioPage` with controlled base URL input (default from env/localStorage) and actions: “Check status” / “Refresh”.
-2. [ ] Implement data hook to call server `/lmstudio/status`; manage states (idle/loading/success/error) and derive reachability indicator.
+1. [ ] Create `client/src/pages/LmStudioPage.tsx` with controlled base URL input (default from env/localStorage) and actions: “Check status” / “Refresh”.
+2. [ ] Add a data hook (e.g., `useLmStudioStatus`) in `client/src/hooks/useLmStudioStatus.ts` calling server `/lmstudio/status`; manage states (idle/loading/success/error) and reachability indicator.
 3. [ ] Render models in responsive list/table showing `displayName`, `modelKey`, `type/format`, size/arch if present; truncate long fields.
 4. [ ] Add accessibility: labelled input, `aria-live` for status messages, focus management on errors, keyboard-activable refresh.
 5. [ ] Persist base URL in `localStorage` and rehydrate on mount; allow reset to default.
-6. [ ] Add client tests (Jest + Testing Library) stubbing fetch: success with models, empty list, error/timeout; verify UI states and persistence.
+6. [ ] Add client tests in `client/src/test/lmstudio.test.tsx` stubbing fetch: success with models, empty list, error/timeout; verify UI states and persistence.
 7. [ ] Ensure routing/nav highlights LM Studio route and deep link `/lmstudio` works in dev/preview/Docker.
-8. [ ] Update `projectStructure.md` for new components/hooks; add any styling files.
-9. [ ] Run `npm run lint --workspace client`, `npm run test --workspace client`, and `npm run build --workspace client`.
+8. [ ] Update `projectStructure.md` for new pages/hooks/components and any styling files.
+9. [ ] Commands to run (in order): `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`.
 
 #### Testing
 
@@ -192,11 +196,11 @@ Extend Playwright to cover navigation to the LM Studio page and verify UI states
 #### Subtasks
 
 1. [ ] Add Playwright spec `e2e/lmstudio.spec.ts` that: navigates to `/`, clicks LM Studio nav, waits for live data, asserts status indicator and at least one model row (requires LM Studio running at default URL).
-2. [ ] Add helper to skip test with clear message if LM Studio is unreachable (to aid CI/dev).
-3. [ ] Update README e2e section: prerequisite LM Studio running on `http://host.docker.internal:1234`; outline start/stop steps.
+2. [ ] Add helper inside the spec to detect unreachable LM Studio and skip with a clear message (so CI/dev failures are actionable).
+3. [ ] Update README e2e section: prerequisite LM Studio running on `http://host.docker.internal:1234`; outline how to start it and remind to set the same URL in env if changed.
 4. [ ] Update design.md with LM Studio flow (client → server proxy → LM Studio SDK) and navigation diagram; note no caching.
 5. [ ] Update projectStructure.md for new e2e spec and any new server/client files.
-6. [ ] Run `npm run e2e:test`, `npm run lint --workspaces`, `npm run build:all`; record outcomes in Implementation notes.
+6. [ ] Commands to run (in order): `npm run e2e:test`, `npm run lint --workspaces`, `npm run build:all`; record outcomes in Implementation notes.
 
 #### Testing
 

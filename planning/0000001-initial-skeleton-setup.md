@@ -64,6 +64,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 - npm workspaces: Node.js/npm docs (general reference)
 - ESLint: Context7 `/eslint/eslint` — flat config/TypeScript lint setup.
 - Prettier: Context7 `/prettier/prettier` — formatter options and CLI usage.
+- Husky: Context7 `/typicode/husky` — git hooks setup and `npm run prepare` usage.
 - Repository docs: `README.md`, `design.md` (update as we go).
 
 #### Subtasks
@@ -122,6 +123,7 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 #### Documentation Locations
 - `design.md` (add diagrams here).
+- Mermaid: Context7 `/mermaid-js/mermaid` — diagram syntax for graph/sequence.
 - Project plan / workspace layout for reference.
 
 #### Subtasks
@@ -291,6 +293,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 - React: Context7 `/reactjs/react.dev` (for component/test references).
 - Material UI: via MUI MCP tool.
 - Docker: Context7 `/docker/docs` — client multi-stage build/serve patterns.
+- Husky: Context7 `/typicode/husky` — git hooks, pre-commit setup (for lint-staged awareness).
 
 #### Subtasks
 1. [ ] Add Jest testing scaffold under `client/src/test`: install `jest`, `@testing-library/react`, `@testing-library/jest-dom`, `ts-jest` (recommended runner), create `jest.config.ts` with `preset: 'ts-jest'`, `testMatch: ['**/src/test/**/*.test.ts?(x)']`, `setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts']`; add `src/test/setupTests.ts` importing `@testing-library/jest-dom`; add an example test that renders the version UI.
@@ -356,6 +359,8 @@ Spin up the full stack via Docker Compose and run a Playwright script to validat
 #### Documentation Locations
 - Docker/Compose: Context7 `/docker/docs` — compose usage.
 - Playwright: Context7 `/microsoft/playwright` — scripting, assertions, CLI options, `npx playwright install --with-deps`.
+- Husky: Context7 `/typicode/husky` — if hooks are run before e2e scripts.
+- Mermaid: Context7 `/mermaid-js/mermaid` — diagram syntax reference for any flow/graph updates tied to E2E notes.
 
 #### Subtasks
 1. [ ] Ensure `docker-compose.yml` builds and runs client/server images (depends on Task 7).

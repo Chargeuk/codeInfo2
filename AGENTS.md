@@ -10,5 +10,5 @@
 ## Branching & Phase Flow
 
 - Create a feature branch for each story (`feature/<number>-<short-description>`) from the currently checked out loction.
-- Each commit should be prefixed with DEV-[Number] - and contina a breif description consisting of 4 or 5 sentences explaining what changed and why.
+- Each commit should be prefixed with DEV-[Number] - and contain a brief description consisting of 4 or 5 sentences explaining what changed and why.
 - Work only within that branch until every task in the story is complete and working.

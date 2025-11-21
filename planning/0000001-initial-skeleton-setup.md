@@ -222,7 +222,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 #### Documentation Locations
 - Express: Context7 `/expressjs/express` (for any route references).
 - Docker: Context7 `/docker/docs` — Debian-slim multi-stage patterns, Node images.
-- Testing: Cucumber docs (public) — step definitions and feature layout.
+- Testing: Cucumber guides https://cucumber.io/docs/guides/ — Gherkin/steps/setup.
 
 #### Subtasks
 1. [ ] Add testing scaffold: create `server/src/test/features/example.feature` and `server/src/test/steps/example.steps.ts`; add `cucumber.js` (ESM) pointing to `src/test`, using `--require-module ts-node/register` (or `tsx`) and `--require src/test/steps/**/*.ts`, `--publish-quiet`; add scripts `test` (`cucumber-js`) and `test:watch`.

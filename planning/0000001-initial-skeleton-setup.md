@@ -3,6 +3,13 @@
 ## Description
 Create the first runnable skeleton for CodeInfo2 with three TypeScript projects managed via npm workspaces: (1) a React 19 client using Material UI, (2) an Express server, and (3) a shared `common` package consumed by both. Each app must run locally with `npm` scripts and via Dockerfiles, and `docker-compose` must start the stack. Repository-wide linting and formatting (ESLint + Prettier) should be configured for consistent code quality.
 
+### Ground rules for juniors (read before any task)
+- All commands are run from the repo root unless the step explicitly says otherwise; use `npm` (not yarn/pnpm). Required tooling: Node.js 22.x, npm 10+, Docker 27+, Docker Compose v2, git CLI, curl.
+- We **commit `.env` files** with safe defaults so no `.env.example` is needed; use `.env.local` for private overrides and keep `.env.local` out of git and Docker contexts.
+- After every config or file creation, run the listed verification command and check for exit code 0 and the noted success text (e.g., lint shows no warnings). Do not continue if a command fails—fix, rerun, then proceed.
+- When a step says "create file", it means create or replace the entire file with the provided contents. When it says "append", add below existing content. Copy snippets exactly.
+- Update `projectStructure.md` at the end of each task before marking the task done. Keep status fields and Git Commit hashes current as you work.
+
 ## Acceptance Criteria
 - npm workspaces configured with `client`, `server`, and `common` packages and working local installs.
 - React 19 client bootstrapped with Material UI, TypeScript, ESLint, Prettier, and start/build scripts that run successfully.
@@ -31,7 +38,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - (Resolved 2025-11-21) Use Debian-slim base images with multi-stage builds for both client and server.
 - (Resolved 2025-11-21) Default ports: client 5001, server 5010; both overridable via env variables and docker-compose mapping.
 - (Resolved 2025-11-21) Enable Husky and lint-staged pre-commit hooks from the outset.
-- (Resolved 2025-11-21) Client uses `REACT_APP_API_URL` at build time to target the server.
+- (Resolved 2025-11-21) Client uses `VITE_API_URL` at build time to target the server (Vite prefix required).
 
 # Implementation Plan
 ## Instructions
@@ -69,7 +76,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 #### Subtasks
 1. [ ] Create root `package.json` with `"workspaces": ["client", "server", "common"]`, `"engines": { "node": ">=22" }`, and scripts: `"lint": "eslint . --ext .ts,.tsx --max-warnings=0"`, `"lint:fix": "eslint . --ext .ts,.tsx --fix"`, `"format:check": "prettier . --check"`, `"format": "prettier . --write"`, `"build:all": "npm run build --workspaces"`, `"clean": "rimraf node_modules */node_modules"`. Use `npm pkg set` for clarity: `npm pkg set workspaces[0]=client workspaces[1]=server workspaces[2]=common engines.node=">=22"` etc.
-2. [ ] Add shared configs with concrete contents/guides: `.editorconfig` (UTF-8, 2 spaces), `.gitignore` (node_modules, dist, coverage, .env, .DS_Store, playwright-report, test-results), `.npmrc` (`save-exact=true`), `tsconfig.base.json` (compilerOptions: `target: ES2022`, `module: NodeNext`, `moduleResolution: NodeNext`, `strict: true`, `skipLibCheck: true`, `esModuleInterop: true`, `resolveJsonModule: true`, `paths` placeholder), and root `tsconfig.json` `{ "files": [], "references": [ {"path":"./client"}, {"path":"./server"}, {"path":"./common"} ], "extends": "./tsconfig.base.json" }`.
+2. [ ] Add shared configs with concrete contents/guides: `.editorconfig` (UTF-8, 2 spaces), `.gitignore` (node_modules, dist, coverage, **.env.local**, .DS_Store, playwright-report, test-results), `.npmrc` (`save-exact=true`), `tsconfig.base.json` (compilerOptions: `target: ES2022`, `module: NodeNext`, `moduleResolution: NodeNext`, `strict: true`, `skipLibCheck: true`, `esModuleInterop: true`, `resolveJsonModule: true`, `paths` placeholder), and root `tsconfig.json` `{ "files": [], "references": [ {"path":"./client"}, {"path":"./server"}, {"path":"./common"} ], "extends": "./tsconfig.base.json" }`. Confirm `.env` is **not** ignored (we commit env defaults) while `.env.local` remains ignored.
 3. [ ] Install dev deps at root (single command): `npm install -D typescript eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-config-prettier eslint-plugin-import prettier rimraf`. Create root `eslint.config.js` using flat config, e.g.:
    ```js
    import tseslint from "typescript-eslint";
@@ -88,7 +95,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
    - Add to package.json: `"prepare": "husky install"`, `"lint-staged": { "**/*.{ts,tsx,js,jsx}": ["eslint --ext .ts,.tsx --max-warnings=0", "prettier --check"] }`.
    - Install deps: `npm install -D husky lint-staged`.
    - Run `npm run prepare`, then `npx husky add .husky/pre-commit "npx lint-staged"`.
-5. [ ] Run `npm install` at repo root to materialize `package-lock.json`. Then dry-run scripts to prove wiring: `npm run lint --workspaces` (should succeed even if packages empty), `npm run format:check --workspaces`, `npm run build:all` (expects nothing to build yet).
+5. [ ] Run `npm install` at repo root to materialize `package-lock.json`. Then dry-run scripts to prove wiring: `npm run lint --workspaces` (expect exit code 0, no warnings), `npm run format:check --workspaces` (expect “checked N files, no changes”), `npm run build:all` (no outputs to build yet but should end success).
 6. [ ] Update `README.md` with: prerequisites (Node 22.x, npm 10+), install (`npm install`), workspace layout, and root commands (`npm run lint`, `npm run lint:fix`, `npm run format:check`, `npm run format`, `npm run build:all`, `npm run clean`).
 7. [ ] Update `design.md` with a short tooling section describing shared lint/format setup, Node version, and Husky flow.
 8. [ ] Update `projectStructure.md` to include new root config files and note that all packages share the root lint/format setup.
@@ -217,11 +224,11 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
    app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
    ```
-5. [ ] Add `server/.env.example` with `PORT=5010` and comment `# client base URL uses REACT_APP_API_URL in client build; configure CORS origins here if needed (placeholder)`.
+5. [ ] Add `server/.env` (committed) containing `PORT=5010` and a comment `# Adjust CORS origins if needed; use .env.local for private overrides`. Ensure `.env.local` stays git-ignored but `.env` is versioned. Mention in README that the committed `.env` is safe defaults only.
 6. [ ] Update `README.md` with exact commands: `npm run dev --workspace server`, `npm run build --workspace server`, `npm run start --workspace server`, mention default port 5010 and how to override via `.env`.
 7. [ ] Update `design.md` with endpoint summaries and note that `/version` draws from `package.json` and returns `VersionInfo`.
 8. [ ] Run `npm run lint --workspace server`, `npm run build --workspace server`, then `npm run lint --workspaces`; record any fixes.
-9. [ ] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env.example`.
+9. [ ] Update `projectStructure.md` to list `server/src/index.ts`, `server/tsconfig.json`, `server/.env` (committed defaults), and note `.env.local` is ignored.
 
 #### Testing
 1. [ ] `npm run lint --workspace server`.
@@ -285,7 +292,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
      ```
    - Add scripts to `server/package.json`: `"test": "cucumber-js"`, `"test:watch": "cucumber-js --watch"`.
    - Install dev deps: `npm install -D @cucumber/cucumber tsx node-fetch @types/node-fetch` (node-fetch optional if using native fetch with Node 22 experimental; include for clarity).
-2. [ ] Create `server/.dockerignore` containing: `node_modules`, `dist`, `coverage`, `npm-debug.log`, `Dockerfile*`, `.dockerignore`, `.git`, `.gitignore`, `.vscode`, `.env`, `src/test`, `playwright-report`, `test-results`, `npm-cache`.
+2. [ ] Create `server/.dockerignore` containing: `node_modules`, `dist`, `coverage`, `npm-debug.log`, `Dockerfile*`, `.dockerignore`, `.git`, `.gitignore`, `.vscode`, `.env.local`, `src/test`, `playwright-report`, `test-results`, `npm-cache` (do **not** exclude `.env` because defaults are committed and needed for build context).
 3. [ ] Add `server/Dockerfile` multi-stage example:
    ```Dockerfile
    FROM node:22-slim AS deps
@@ -342,7 +349,7 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 2. [ ] Install UI + shared deps: `npm install --workspace client @mui/material @emotion/react @emotion/styled @mui/icons-material` and ensure `@codeinfo2/common` is referenced automatically via workspace (no extra install needed once common exists).
 3. [ ] Set default dev port and env handling:
    - In `client/vite.config.ts`, set `server: { port: 5001, host: true }`.
-   - Add `.env.example` with `VITE_API_URL=http://localhost:5010` (Vite uses `VITE_` prefix). Document that production compose will point to `http://server:5010`.
+   - Add `client/.env` (committed) with `VITE_API_URL=http://localhost:5010` (Vite uses `VITE_` prefix). State that overrides go in `client/.env.local` (ignored) and production compose will point to `http://server:5010`.
 4. [ ] Implement startup fetch using hooks and common DTO:
    - In `src/App.tsx` (or create if absent), use `useEffect` to call `${import.meta.env.VITE_API_URL}/version` with `fetch`.
    - Parse JSON into `VersionInfo` (import from `@codeinfo2/common`).
@@ -354,7 +361,7 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 8. [ ] Update `README.md` with client usage: `npm run dev --workspace client` (shows on http://localhost:5001), `npm run build --workspace client`, `npm run preview --workspace client -- --host --port 5001`, and env var `VITE_API_URL` description.
 9. [ ] Update `design.md` with a short section: Vite + React 19 + MUI, startup fetch to `/version`, uses `VersionInfo` DTO, relies on env `VITE_API_URL`.
 10. [ ] Run `npm run lint --workspace client`, `npm run build --workspace client`, then `npm run lint --workspaces` to ensure root still passes.
-11. [ ] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `.env.example`, and note port 5001.
+11. [ ] Update `projectStructure.md` to list `client/vite.config.ts`, `client/src/App.tsx`, `client/src/main.tsx`, `client/.env` (committed defaults), note port 5001, and that `.env.local` is ignored.
 
 #### Testing
 1. [ ] `npm run lint --workspace client`.
@@ -397,7 +404,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
      ```
    - Create `client/src/test/setupTests.ts` with `import "@testing-library/jest-dom";`.
    - Add sample test `client/src/test/version.test.tsx` rendering `<App />` and asserting text `Client version` and `Server version` using `screen.getByText` (mock fetch with `jest.spyOn(global, "fetch")`).
-2. [ ] Add `.dockerignore` in `client` excluding: `node_modules`, `dist`, `coverage`, `.git`, `.gitignore`, `.vscode`, `.env`, `npm-debug.log`, `src/test`, `playwright-report`, `test-results`, `Dockerfile*`.
+2. [ ] Add `.dockerignore` in `client` excluding: `node_modules`, `dist`, `coverage`, `.git`, `.gitignore`, `.vscode`, `.env.local`, `npm-debug.log`, `src/test`, `playwright-report`, `test-results`, `Dockerfile*` (keep committed `.env` available to the build context).
 3. [ ] Add `client/Dockerfile` multi-stage:
    ```Dockerfile
    FROM node:22-slim AS build

@@ -2,6 +2,7 @@
 
 ## Implementation Plan Instructions
 This is a list of steps that must be followed whilst working on a story. The first step of any plan is to copy this file to a new markdown document that starts with an index padded with zeroes starting at 1 and the title of the story. eg: ./planning/0000001-initial-skeleton-setup.md
+Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
 The Description, Acceptance Criteria & Out Of Scope sections must be fully documented to the point where a very junior, inexperienced developer who has never seen the product before would be able to read and understand what we want to do and why.
 The Questions sections should be populated by an AI at the start of the planning phase, as soon as the initial description is provided. As these questions get answered, the questions should be removed and relevent information should be added to the other sections. The Questions section must be empty before creating tasks.
 
@@ -24,7 +25,7 @@ Overview of where we are now, and where we would like to be once this phase has 
 This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
 This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
 1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
-2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `phase-[Number]/[Title]`).
+2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
 3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit & push that change, and only then begin implementation.
 4. For each task, execute every subtask sequentially: before starting a subtask, read the documentation sources listed in that task; after finishing the subtask, run the relevant linters/formatters (Python + TypeScript) and fix issues before continuing.
 5. Once a subtask is complete, mark its checkbox.

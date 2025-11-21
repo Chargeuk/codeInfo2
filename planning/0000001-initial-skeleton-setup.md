@@ -13,6 +13,7 @@ Create the first runnable skeleton for CodeInfo2 with three TypeScript projects 
 - Root-level `projectStructure.md` documents directory tree with one-line descriptions and is kept current by all tasks.
 - Server uses Cucumber (Gherkin) tests under `server/src/test`; client uses Jest (with @testing-library/react) under `client/src/test`; test folders are excluded from Docker build contexts via .dockerignore files.
 - `design.md` contains mermaid diagrams for overall architecture (client/server/common/workspaces/docker) and key request flow (client → server `/version` → common DTO).
+- End-to-end smoke tested by running the full Docker stack and executing a Playwright script to validate the version UI and API flow.
 - Dockerfiles for client and server build and start successfully; images run locally.
 - `docker-compose` brings up both services (client + server) and wiring works (client can call server API endpoint via configured base URL).
 - Root scripts for linting/formatting and workspace-aware building succeed.
@@ -337,6 +338,36 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 2. [ ] `docker compose up -d` then curl `http://localhost:5010/health` and `http://localhost:5010/version`.
 3. [ ] Open `http://localhost:5001` and verify client shows server + client versions.
 4. [ ] `docker compose down` to clean up.
+
+#### Implementation notes
+- (Populate after work begins.)
+
+---
+
+### 10. End-to-End Validation with Playwright
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Spin up the full stack via Docker Compose and run a Playwright script to validate the version UI and API flow (client displays both client/server versions from `/version`).
+
+#### Documentation Locations
+- Docker/Compose: Context7 `/docker/docs` — compose usage.
+- Playwright docs (public) — scripting and assertions.
+
+#### Subtasks
+1. [ ] Ensure `docker-compose.yml` builds and runs client/server images (depends on Task 7).
+2. [ ] Add `e2e/` folder with a Playwright script (e.g., `e2e/version.spec.ts`) that: starts from `http://localhost:5001`, waits for page load, asserts presence of client version text and server version text fetched from `/version`.
+3. [ ] Add npm scripts: `e2e:up` (`docker compose up -d`), `e2e:test` (`playwright test e2e/version.spec.ts`), `e2e:down` (`docker compose down`).
+4. [ ] Document in `README.md` the commands/order: `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down` (Docker commands first), plus Playwright install note (`npx playwright install --with-deps` if needed).
+5. [ ] Update `design.md` to note E2E coverage scope (version flow) and that it runs against compose stack.
+6. [ ] Update `.gitignore` if Playwright artifacts (e.g., `test-results`, `playwright-report`) generated.
+7. [ ] Update `projectStructure.md` with `e2e/` and new scripts.
+
+#### Testing
+1. [ ] `npm run e2e:up` then `npm run e2e:test`; confirm the test passes and reports both versions visible.
+2. [ ] `npm run e2e:down` to clean up containers.
 
 #### Implementation notes
 - (Populate after work begins.)

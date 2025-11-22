@@ -65,7 +65,7 @@ export default function LmStudioPage() {
   const models = state.status === 'success' ? state.data.models : [];
 
   return (
-    <Stack spacing={2} sx={{ mt: 1, pb: 4 }}>
+    <Stack spacing={2} sx={{ mt: 0, pb: 4 }}>
       <Typography variant="h4">LM Studio</Typography>
       <TextField
         label="LM Studio base URL"

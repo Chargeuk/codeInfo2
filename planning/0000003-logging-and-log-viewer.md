@@ -92,35 +92,69 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 ---
 
-### 2. Server Logging Pipeline & APIs
+### 2. Server Logging Infrastructure & Storage
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Implement structured logging on the server, add ingestion and query endpoints, enforce limits/redaction, and persist logs with rolling retention. Expose both paginated history via `GET /logs` and live tail via `GET /logs/stream` (SSE).
+Build the server-side logging plumbing: logger wiring, rolling in-memory store, file rotation hook, env defaults, and repository/docker ignores for the logs directory.
 
 #### Documentation Locations
 
 - Express routing/middleware patterns (Context7 `/expressjs/express`).
 - Existing server entry/routes (`server/src/index.ts`, `server/src/routes`).
 - Common LogEntry DTO from Task 1.
+- Pino docs via Context7 `/pinojs/pino` for transports/redaction.
+
+#### Subtasks
+
+1. [ ] Wire `server/src/logger.ts` into `server/src/index.ts` so request logging (pino-http) runs for all routes with correlation id and timing; keep stdout + file outputs (`./logs/server.log`).
+2. [ ] Implement `server/src/logStore.ts`: in-memory rolling store with configurable max entries/bytes, sequence ids, append/query with filters (level/source/time/text), trims oldest; include hook to also write to the pino file destination when enabled.
+3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`. Ensure directory creation as needed.
+4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; ensure note to mount `./logs:/app/logs` in compose (compose edit happens later). Add a brief note in design.md about storage + rotation defaults.
+5. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
+6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run build --workspace server`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspace server`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Server Log APIs & SSE
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GET /logs/stream` (SSE live tail) with validation, redaction, and tests.
+
+#### Documentation Locations
+
+- Express routing/middleware patterns (Context7 `/expressjs/express`).
+- Existing server entry/routes (`server/src/index.ts`, `server/src/routes`).
+- Common LogEntry DTO from Tasks 1–2.
 - Cucumber test setup under `server/src/test`; Cucumber guides https://cucumber.io/docs/guides/.
 - SSE framing: MDN Server-Sent Events / EventSource API (https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) and WHATWG HTML Living Standard – Server-sent events section (https://html.spec.whatwg.org/multipage/server-sent-events.html).
 
 #### Subtasks
 
-1. [ ] Add server logger wrapper in `server/src/logger.ts` (levelled logger, serializers, redaction list). Wire request/response logging middleware in `server/src/index.ts` using `createRequestLogger`; capture requestId/correlationId and timing; keep stdout + file outputs.
-2. [ ] Implement `server/src/logStore.ts` in-memory rolling store (configurable max entries/bytes, append/query with filters level/source/time/text, sequence ids, trim oldest) plus optional rotating file writer hook (reuse pino-roll destination from Task 1).
-3. [ ] Add routes in `server/src/routes/logs.ts`: `POST /logs` validate LogEntry (size/level/source), redact sensitive fields, add requestId, append to store, return 202/400; reuse shared DTO.
-4. [ ] In the same router, implement `GET /logs` (filtered/paginated, returns {items, lastSequence, hasMore}) and `GET /logs/stream` (SSE: set headers, heartbeat `:\n\n`, send catch-up since lastSequence, then push new entries; support filters via query). Register router in `server/src/index.ts` under `/logs`.
-5. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`. Ensure `./logs` is gitignored and in `server/.dockerignore`; plan to mount `./logs:/app/logs` in compose.
-6. [ ] Update README (server section): add `/logs` and `/logs/stream` API examples, env keys above, log file path/rotation note.
-7. [ ] Update design.md: document server logging flow (ingest → store → GET/SSE), redaction/retention notes.
-8. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/routes/logs.ts`, note `logs/` dir.
-9. [ ] Add Cucumber coverage: new feature `server/src/test/features/logs.feature` and steps `server/src/test/steps/logs.steps.ts` for valid ingestion, oversize/invalid level rejection, filtering by level/time, pagination cap, redaction check, SSE heartbeat/basic stream (use supertest + custom SSE parser). Keep existing tests passing.
-10. [ ] Run server commands in order: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`.
+1. [ ] Add routes in `server/src/routes/logs.ts`: `POST /logs` validate LogEntry (size/level/source), redact sensitive fields, add requestId, append to store, return 202/400.
+2. [ ] In the same router, implement `GET /logs` (filtered/paginated, returns {items, lastSequence, hasMore}) and `GET /logs/stream` (SSE: headers, heartbeat `:\n\n`, catch-up since lastSequence, push new entries; filters via query). Register router in `server/src/index.ts` under `/logs`.
+3. [ ] Update README (server section): add `/logs` and `/logs/stream` API examples, env keys, log file path/rotation note.
+4. [ ] Update design.md: document server logging flow (ingest → store → GET/SSE), redaction/retention notes.
+5. [ ] Update projectStructure.md: ensure `server/src/routes/logs.ts` and related files are listed.
+6. [ ] Add Cucumber coverage: feature `server/src/test/features/logs.feature` and steps `server/src/test/steps/logs.steps.ts` for valid ingestion, oversize/invalid level rejection, filtering by level/time, pagination cap, redaction check, SSE heartbeat/basic stream (use supertest + custom SSE parser). Keep existing tests passing.
+7. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`.
 
 #### Testing
 
@@ -135,7 +169,7 @@ Implement structured logging on the server, add ingestion and query endpoints, e
 
 ---
 
-### 3. Client Logging Capture & Transport
+### 4. Client Logging Capture & Transport
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -175,7 +209,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
 ---
 
-### 4. Logs Page UI & End-to-End Visibility
+### 5. Logs Page UI & End-to-End Visibility
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -188,7 +222,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 - Existing router/NavBar components (`client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`).
 - MUI components for tables/chips/progress (consult via MUI MCP tool).
-- Common LogEntry DTO and server log API contract from Tasks 1–2.
+- Common LogEntry DTO and server log API contract from Tasks 1–3.
 - SSE client usage: MDN EventSource (https://developer.mozilla.org/en-US/docs/Web/API/EventSource) for connection/retry/Last-Event-ID patterns.
 - Testing: Jest docs via Context7 `/jestjs/jest` for hook/UI tests; Playwright docs via Context7 `/microsoft/playwright` for e2e.
 - Playwright e2e setup under `e2e/`.
@@ -218,7 +252,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 ---
 
-### 5. Acceptance Review & Release Readiness
+### 6. Acceptance Review & Release Readiness
 
 - Task Status: __to_do__
 - Git Commits: __to_do__

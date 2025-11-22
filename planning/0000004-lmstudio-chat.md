@@ -71,8 +71,8 @@ Here’s the streaming approach we’ll use:
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -393,7 +393,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: __to_do__
 - Git Commits: a3f3019, 6270e34
 
 #### Overview
@@ -462,8 +462,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -588,8 +588,8 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -638,8 +638,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -687,8 +687,8 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -731,8 +731,8 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 
@@ -775,8 +775,8 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __to_do__
+- Git Commits: _to_do_
 
 #### Overview
 

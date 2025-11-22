@@ -6,6 +6,7 @@ import {
 import App from '../App';
 import HomePage from '../pages/HomePage';
 import LmStudioPage from '../pages/LmStudioPage';
+import LogsPage from '../pages/LogsPage';
 import RouterErrorBoundary from './RouterErrorBoundary';
 
 export const router = createBrowserRouter(
@@ -13,6 +14,7 @@ export const router = createBrowserRouter(
     <Route path="/" element={<App />} errorElement={<RouterErrorBoundary />}>
       <Route index element={<HomePage />} />
       <Route path="lmstudio" element={<LmStudioPage />} />
+      <Route path="logs" element={<LogsPage />} />
     </Route>,
   ),
 );

@@ -48,12 +48,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     │  ├─ logger.ts — client logger factory (console tee + queue)
 │     │  └─ transport.ts — forwarding queue placeholder
 │     ├─ hooks/
-│     │  └─ useLmStudioStatus.ts — LM Studio status/models data hook
+│     │  ├─ useLmStudioStatus.ts — LM Studio status/models data hook
+│     │  └─ useLogs.ts — log history + SSE hook with filters
 │     ├─ index.css — minimal global styles (font smoothing, margin reset)
 │     ├─ main.tsx — app entry with RouterProvider
 │     ├─ pages/
 │     │  ├─ HomePage.tsx — version card page
-│     │  └─ LmStudioPage.tsx — LM Studio config/status/models UI
+│     │  ├─ LmStudioPage.tsx — LM Studio config/status/models UI
+│     │  └─ LogsPage.tsx — log viewer with filters, live toggle, sample emitter
 │     ├─ routes/
 │     │  ├─ RouterErrorBoundary.tsx — route-level error boundary logger
 │     │  └─ router.tsx — React Router setup
@@ -61,11 +63,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │        ├─ logging/
 │        │  ├─ logger.test.ts — logger creation/global hooks coverage
 │        │  └─ transport.test.ts — client log transport queue/backoff tests
-│        ├─ logsPage.test.tsx — Logs page stub emits sample log
+│        ├─ logsPage.test.tsx — Logs page renders data, live toggle behaviour
 │        ├─ lmstudio.test.tsx — LM Studio page tests
 │        ├─ router.test.tsx — nav/router tests
 │        ├─ setupTests.ts — Jest/test setup
 │        ├─ useLmStudioStatus.test.ts — hook tests
+│        ├─ useLogs.test.ts — log fetch + SSE hook tests
 │        └─ version.test.tsx — version card test
 ├─ common/ — shared TypeScript package
 │  ├─ package.json — common workspace manifest
@@ -79,6 +82,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     └─ versionInfo.ts — VersionInfo DTO
 ├─ e2e/ — Playwright specs
 │  ├─ lmstudio.spec.ts — LM Studio UI/proxy e2e
+│  ├─ logs.spec.ts — Logs UI end-to-end sample emission
 │  └─ version.spec.ts — version display e2e
 ├─ planning/ — story plans and template
 │  ├─ 0000001-initial-skeleton-setup.md — plan for story 0000001

@@ -500,8 +500,8 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 #### Subtasks
 
-1. [ ] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; copy an existing tab pattern and point to `/logs`. Verify dev server shows the tab.
-2. [ ] Build data hook `client/src/hooks/useLogs.ts` using this scaffold; keep defaults `filters.level=[]`, `filters.source=[]`, `filters.text=''`, `limit` implicit at 200 via the server, and `live=true` by default:
+1. [x] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; copy an existing tab pattern and point to `/logs`. Verify dev server shows the tab.
+2. [x] Build data hook `client/src/hooks/useLogs.ts` using this scaffold; keep defaults `filters.level=[]`, `filters.source=[]`, `filters.text=''`, `limit` implicit at 200 via the server, and `live=true` by default:
    ```ts
    import { useEffect, useMemo, useRef, useState } from 'react';
    import { LogEntry } from '@codeinfo2/common';
@@ -561,7 +561,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
      return { logs, loading, error, refreshQuery: () => setLogs([]) };
    }
    ```
-3. [ ] Implement UI in `client/src/pages/LogsPage.tsx` with a ready layout skeleton (replace with MUI components):
+3. [x] Implement UI in `client/src/pages/LogsPage.tsx` with a ready layout skeleton (replace with MUI components):
    ```tsx
    import { Chip, Container, Stack, TextField, Switch, FormControlLabel, Button, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from '@mui/material';
    import { useState } from 'react';
@@ -603,30 +603,34 @@ Create a new “Logs” route in the client that consumes the server log API, su
    }
    ```
    On small screens, switch to stacked cards (can reuse MUI `Card` with `Stack` in sm breakpoint).
-4. [ ] Wire client logging demo: add a `Send sample log` button on Logs page that calls `createLogger('client-demo')('info','sample log',{ route: '/logs' })`; ensure it appears after refresh/stream.
-5. [ ] Update README (client UI section) with usage bullets: filters (levels/text), live toggle, refresh button, sample log button, and mention SSE auto-reconnect.
-6. [ ] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour, and add a small mermaid sketch of the Logs page data flow (filters → fetch → table/SSE) using Context7 `/mermaid-js/mermaid` for syntax reference.
-7. [ ] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, tests, and `e2e/logs.spec.ts`.
-8. [ ] Add tests with concrete guidance:
+4. [x] Wire client logging demo: add a `Send sample log` button on Logs page that calls `createLogger('client-demo')('info','sample log',{ route: '/logs' })`; ensure it appears after refresh/stream.
+5. [x] Update README (client UI section) with usage bullets: filters (levels/text), live toggle, refresh button, sample log button, and mention SSE auto-reconnect.
+6. [x] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour, and add a small mermaid sketch of the Logs page data flow (filters → fetch → table/SSE) using Context7 `/mermaid-js/mermaid` for syntax reference.
+7. [x] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, tests, and `e2e/logs.spec.ts`.
+8. [x] Add tests with concrete guidance:
    - Jest `client/src/test/logsPage.test.tsx`: mock `fetch` to return two logs; render page; expect rows; toggle live off and ensure EventSource is not constructed (mock it via `global.EventSource = jest.fn()`).
    - Hook test: mock fetch + EventSource emitting one message to ensure state updates.
    - Playwright `e2e/logs.spec.ts`: start stack, click Logs tab, click “Send sample log”, wait for row containing “sample log”, assert level chip text matches.
-9. [ ] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test`, `npm run compose:down`.
+9. [x] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test`, `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up` (confirm stack starts)
-7. [ ] `npm run e2e:test` (with stack up; expect new logs spec)
-8. [ ] `npm run compose:down`
+1. [x] `npm run lint --workspace client`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run test --workspace client`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up` (confirm stack starts)
+7. [x] `npm run e2e:test` (with stack up; expect new logs spec)
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added `/logs` route + NavBar tab and built `LogsPage` with filters (chips + search), live SSE toggle, manual refresh, responsive table/cards, and a sample emitter button.
+- Implemented `useLogs` hook (fetch + SSE, filterable, manual refresh token) with default API base fallback and error handling; added hook + page tests plus e2e coverage.
+- Sample log button now also posts directly to the server using `VITE_API_URL` (fallback localhost) and triggers a refresh so an entry appears even if streaming lags.
+- Documentation updated: README logs UI blurb, design.md Logs UI states + mermaid flow, projectStructure listing new hook/page/tests/e2e.
+- Commands executed sequentially for Task 5: lint, format:check, client tests, client build, compose build/up, e2e tests (passing after rebuild), compose down.
 
 ---
 

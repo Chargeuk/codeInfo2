@@ -72,7 +72,7 @@ Here’s the streaming approach we’ll use:
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
-- Git Commits: _to_do_
+- Git Commits: 9a6c1c7
 
 #### Overview
 
@@ -462,7 +462,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
+- Task Status: __done__
 - Git Commits: _to_do_
 
 #### Overview
@@ -580,7 +580,10 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 #### Implementation notes
 
-- Note any cancellation edge cases (stop before first token, multiple rapid stops) and logging decisions here.
+- Added AbortController to `/chat` SSE route plus disconnect guards to stop LM Studio predictions on client abort while preventing double-closes; skips `complete` frames when aborted.
+- `chatStream.ts` now treats finished responses as closed; request `aborted`/`close` events bail early and log `{reason:"client_disconnect"}`.
+- Introduced `chat_cancellation.feature/steps` with slower mock streaming to assert cancellation and no final/complete frames; updated mock to expose cancel flag.
+- Docs refreshed (README/design/projectStructure) for cancellation flow; lint/format, server/client builds, compose build/up/down, and full server Cucumber suite now pass.
 
 ---
 

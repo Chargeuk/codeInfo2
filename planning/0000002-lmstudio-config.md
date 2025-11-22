@@ -314,7 +314,7 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 
 ### 4. Server Cucumber Tests with LM Studio Mock
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

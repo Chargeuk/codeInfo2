@@ -23,6 +23,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 - Ingest runs are single-flight: server rejects new ingest requests while one is running. In-progress ingest must be abortable (server stops the job and frees the lock; UI surfaces cancellation).
 - Chroma backing store will run via the official Docker image v1.3.5, and the Node client will use `chromadb` npm package v3.1.6.
 - Default include extensions (env-overridable allowlist): ts, tsx, js, jsx, mjs, cjs, json, jsonc, md, mdx, txt, py, java, kt, kts, go, rs, rb, php, cs, cpp, cc, c, h, hpp, swift, scala, clj, cljs, edn, sh, bash, zsh, ps1, yaml, yml, toml, ini, cfg, env (non-secret defaults only), sql. Exclude (hard, even if text or listed in env): lockfiles (package-lock.json, yarn.lock, pnpm-lock.yaml), minified bundles (*.min.js), build/ and dist/ outputs, logs (*.log), vendor directories (node_modules, vendor), VCS/meta (.git), coverage/caches.
+- Server will expose an embedding-models endpoint that filters LM Studio’s downloaded models to embedding-capable ones only (via `listDownloadedModels`), used by the ingest UI; model choice is only allowed when collection is empty.
 
 ## Out Of Scope
 
@@ -112,6 +113,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 - design.md, README.md (API), projectStructure.md
 - Chroma Node client docs (chromadb 3.1.6)
 - LM Studio SDK (embedding)
+- LM Studio listDownloadedModels (embedding models filter)
 
 #### Subtasks
 
@@ -119,10 +121,12 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 2. [ ] Endpoint `POST /ingest/start` (body: path, name, description, model, dryRun?): kicks off ingest job, returns runId; rejects if another ingest running or model lock violated.
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.
-5. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
+5. [ ] Endpoint `GET /ingest/models` that filters LM Studio `listDownloadedModels` to embedding-capable models only; used by ingest UI/model lock.
+6. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 6. [ ] Cucumber feature + steps covering happy path ingest start/status/list with mocked LM Studio + Chroma (use mock clients); include model-lock violation case.
-7. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, and data flow.
-8. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Cucumber feature + steps covering `/ingest/models` filtering only embedding models.
+8. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, and data flow.
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 
 #### Testing
 
@@ -189,7 +193,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 1. [ ] Add `/ingest` route and NavBar tab (coordinate with chat branch; rebase if needed).
 2. [ ] Build form with inputs: path, display name, description, model dropdown (disabled when lock active), Start button, Dry-run toggle; surface inline errors/status.
-3. [ ] Fetch model list (embedding-capable) from server; enforce disabled select when locked; show lock banner.
+3. [ ] Fetch model list from `/ingest/models` (embedding-capable only); enforce disabled select when locked; show lock banner.
 4. [ ] Jest/RTL tests for form render, lock state, validation, disabled states, and submit payload.
 5. [ ] Update README.md/design.md/projectStructure.md for new page/route and model lock UX.
 6. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).

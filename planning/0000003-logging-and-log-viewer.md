@@ -51,7 +51,7 @@ Introduce structured logging across the monorepo so both the server and client e
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

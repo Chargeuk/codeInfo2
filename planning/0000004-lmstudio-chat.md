@@ -652,8 +652,8 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 3. [ ] In `useChatStream`, parse SSE lines split on `\n\n`, handle payloads `{type:"token"|"final"|"error"}`, and update `messages` shape `{ id, role, content, kind?: "error"|"status" }`.
 4. [ ] Add UI states: “Responding…” helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
 5. [ ] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
-5. [ ] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
-6. [ ] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
+6. [ ] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
+7. [ ] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
 7. [ ] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
 8. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
    - mocks `global.fetch` returning a ReadableStream emitting `data:{"type":"token","content":"Hi"}` then `data:{"type":"final","message":{"content":"Hi","role":"assistant"}}`

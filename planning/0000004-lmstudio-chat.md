@@ -609,31 +609,34 @@ Add the chat page route with an initial view that lists available models (from `
 
 #### Subtasks
 
-1. [ ] Add `/chat` route in `client/src/routes/router.tsx` and NavBar tab in `client/src/components/NavBar.tsx`; route element = new page.
-2. [ ] Create `client/src/hooks/useChatModel.ts` that fetches `/chat/models`, stores `models`, `selected`, `setSelected`, `status`, and returns `errorMessage`; default `selected` = first model key. Handle fetch abort on unmount.
-3. [ ] Create `client/src/pages/ChatPage.tsx` (placeholder transcript area) with inverted layout: top `Stack` holds model `Select` + message `TextField` (disabled for now), transcript box below. Focus the TextField on mount using `useRef` + `useEffect`.
-4. [ ] Add loading/empty/error UI: CircularProgress while `status="loading"`, Alert on error, “No models available” copy when list is empty; disable inputs when loading/error/empty.
-5. [ ] Update README.md (UI section) with how to reach `/chat` and how the model dropdown behaves (first model auto-selected, error states).
-6. [ ] Update design.md with a short layout description + mermaid showing data flow (ChatPage -> useChatModel -> /chat/models).
-7. [ ] Update projectStructure.md to include `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`.
-8. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.models.test.tsx` that:
+1. [x] Add `/chat` route in `client/src/routes/router.tsx` and NavBar tab in `client/src/components/NavBar.tsx`; route element = new page.
+2. [x] Create `client/src/hooks/useChatModel.ts` that fetches `/chat/models`, stores `models`, `selected`, `setSelected`, `status`, and returns `errorMessage`; default `selected` = first model key. Handle fetch abort on unmount.
+3. [x] Create `client/src/pages/ChatPage.tsx` (placeholder transcript area) with inverted layout: top `Stack` holds model `Select` + message `TextField` (disabled for now), transcript box below. Focus the TextField on mount using `useRef` + `useEffect`.
+4. [x] Add loading/empty/error UI: CircularProgress while `status="loading"`, Alert on error, “No models available” copy when list is empty; disable inputs when loading/error/empty.
+5. [x] Update README.md (UI section) with how to reach `/chat` and how the model dropdown behaves (first model auto-selected, error states).
+6. [x] Update design.md with a short layout description + mermaid showing data flow (ChatPage -> useChatModel -> /chat/models).
+7. [x] Update projectStructure.md to include `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`.
+8. [x] Tests (RTL/Jest): add `client/src/test/chatPage.models.test.tsx` that:
    - renders route via `createMemoryRouter` with path `/chat`
    - stubs fetch to return `[ { key:'m1', displayName:'Model 1', type:'gguf' } ]`
    - asserts spinner during load, dropdown shows “Model 1”, selects it by default, and error Alert appears when fetch rejects.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Note any placeholder UI decisions and how model selection state will be passed to later tasks.
+- Added `/chat` navigation and routed `ChatPage` into the main router so the chat flow lives alongside existing pages.
+- Introduced `useChatModel` hook to fetch `/chat/models`, default the selected model, expose loading/error/empty flags, and abort in-flight requests on unmount.
+- Built the initial `ChatPage` layout with top-aligned model select and disabled message field, plus loading spinner, inline error Alert with retry, and empty-state copy that disable controls appropriately.
+- Documented the new page across README/design/projectStructure (with a data-flow mermaid) and covered the models list behaviour with a dedicated RTL test.
 
 ---
 

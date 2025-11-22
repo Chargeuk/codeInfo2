@@ -34,6 +34,21 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
 - Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while content sits inside a single `Container maxWidth="lg"` with left-aligned spacing (no Vite starter centering/dark background).
 
+### Chat page (models list)
+
+- Route `/chat` surfaces the chat shell; controls sit at the top (inverted layout) with a model `<Select>` and a message `<TextField>` that is disabled until streaming work lands. The first model auto-selects when data loads.
+- `useChatModel` fetches `/chat/models`, aborts on unmount, and exposes `models`, `selected`, `status` flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render “No models available…” and keep inputs disabled.
+- Controls are disabled while loading, on errors, or when no models exist so the chat form cannot submit without a model.
+
+```mermaid
+flowchart LR
+  A[ChatPage] --> B[useChatModel hook]
+  B -->|GET /chat/models| C[Server proxy]
+  C --> D[LM Studio]
+  B --> E[models + selected state]
+  A --> E
+```
+
 ## Client testing & Docker
 
 - Jest + Testing Library under `client/src/test`; `npm run test --workspace client` (uses jsdom, ts-jest ESM preset).

@@ -91,10 +91,11 @@ Baseline plumbing for server-side chat endpoints and streaming contract to LM St
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, errors, and cancellations to existing logger/store; keep out of chat transcript.
 5. [ ] Update server env/docs placeholders if any new knobs are needed (none expected in this story) and ensure payload size guards reuse existing limits.
 6. [ ] Tests (server): add Cucumber feature(s) covering `/chat/models` success/failure, `/chat` streaming happy path (token/final), tool event redaction, cancellation handling, and error framing.
+7. [ ] Provide controllable LM Studio mocks for Cucumber: extend or add a mock SDK module that simulates `listDownloadedModels` and `model.act()` streaming events (tokens + tool callbacks) and supports cancellation signals; inject via dependency or env toggle in test bootstrap.
 7. [ ] Update README.md (server/API sections) to include `/chat/models`, streaming `/chat`, payload shapes, cancellation/stop guidance, and logging visibility (tool events redacted).
 8. [ ] Update design.md with the chat streaming flow, event mapping, tool logging redaction, and cancellation behaviour.
 9. [ ] Update projectStructure.md with new server files/routes and any test additions.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

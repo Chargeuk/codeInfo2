@@ -171,7 +171,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Overview
 
-Implement cancellation/stop behaviour end-to-end: server-side cancellation of streaming predictions, client abort handling, and UI stop/new conversation controls integration.
+Implement server-side cancellation of streaming predictions; client stop/new controls are handled in later tasks (UI tasks 6–7). This task focuses only on the server responding to aborted connections.
 
 #### Documentation Locations
 
@@ -184,25 +184,22 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 #### Subtasks
 
-1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect or Stop signal) using `OngoingPrediction.cancel()`/AbortSignal; ensure listeners are removed and response ends cleanly (update `server/src/routes/chat.ts` / stream helper).
-2. [ ] Client hook: extend `useChatStream` in `client/src/hooks/useChatStream.ts` to hold an `AbortController`, pass `signal` to fetch/stream reader, and expose `stop()` that aborts and resets in-flight state.
-3. [ ] Client UI integration (temporary): wire Stop/New conversation buttons on `client/src/pages/ChatPage.tsx` to hook methods; disable send while stopped state resolves.
-4. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation.
-5. [ ] Tests (client Jest): stop button aborts stream, disables send while active, and produces an error/stop bubble or completion state.
-6. [ ] Update README.md (both server and client sections) to describe Stop/New conversation behaviour and lack of persistence.
-7. [ ] Update design.md to capture cancellation flow, state transitions, and UX behaviour for Stop/New conversation; include a mermaid flow/sequence diagram for cancel/stop.
-8. [ ] Update projectStructure.md if new files/hooks are added for cancellation wiring.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect) using `OngoingPrediction.cancel()`/AbortSignal; ensure listeners are removed and response ends cleanly (update `server/src/routes/chat.ts` / stream helper).
+2. [ ] Detect `req.on('close')` and immediately stop emitting SSE frames, calling `cancel()` and flushing/ending the response.
+3. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation (Cucumber guide: https://cucumber.io/docs/guides/).
+4. [ ] Update README.md (server section) to describe cancellation behaviour and how aborted connections stop the stream.
+5. [ ] Update design.md to capture server-side cancellation flow and logging; include a mermaid flow/sequence diagram for cancel path.
+6. [ ] Update projectStructure.md if new server files/helpers are added for cancellation.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 

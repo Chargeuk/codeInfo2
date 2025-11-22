@@ -271,7 +271,7 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 1. [ ] Implement `/lmstudio/status` in `server/src/routes/lmstudio.ts`:
    - Accept query/body `baseUrl`? Use `req.query.baseUrl` (string | undefined). If missing, fall back to `process.env.LMSTUDIO_BASE_URL`.
    - Validate `baseUrl` with regex `^https?://` (constant `BASE_URL_REGEX`) and reject invalid with HTTP 400 JSON `{ status: 'error', baseUrl, error: 'Invalid baseUrl' }`.
-   - Create client via injected `clientFactory(baseUrl)`; set timeout using `Promise.race` with `AbortController` and `const REQUEST_TIMEOUT_MS = 4500`.
+   - Create client via injected `clientFactory(baseUrl)`; set timeout using `Promise.race` with `AbortController` and `const REQUEST_TIMEOUT_MS = 60000` (60 seconds).
    - Call `client.system.listDownloadedModels()`; do not cache.
 2. [ ] Map SDK result to DTO `LmStudioModel[]` using fields: `model.modelKey`, `model.displayName`, `model.type`, `model.format`, `model.path`, `model.sizeBytes`, `model.architecture`, `model.paramsString ?? null`, `model.maxContextLength ?? null`, `model.vision ?? false`, `model.trainedForToolUse ?? false`.
 3. [ ] Success response: HTTP 200 `{ status: 'ok', baseUrl, models }`. Empty array allowed.

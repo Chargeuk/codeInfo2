@@ -28,7 +28,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiUrl]);
 
   return (
     <Container maxWidth="sm">

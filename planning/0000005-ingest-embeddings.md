@@ -91,8 +91,11 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (ensure unit tests for discovery/chunking run)
+1. [ ] `npm run test --workspace server`
 2. [ ] `npm run build --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -127,6 +130,18 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 1. [ ] `npm run test --workspace server` (Cucumber)
 2. [ ] `npm run build --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -273,6 +288,15 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 1. [ ] `npm run test --workspace client`
 2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 

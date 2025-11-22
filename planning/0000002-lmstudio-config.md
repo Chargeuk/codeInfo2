@@ -179,7 +179,8 @@ Add Cucumber coverage for the proxy route using a start/stop-able LM Studio SDK 
 2. [ ] Allow DI into the route: the router should accept `clientFactory` so tests inject the mock; production uses real SDK.
 3. [ ] Add feature file `server/src/test/features/lmstudio.feature` with scenarios: LM Studio running with models, running with zero models, LM Studio down/unreachable.
 4. [ ] Add step definitions `server/src/test/steps/lmstudio.steps.ts` using supertest against the Express app wired to the mock; set scenario per step.
-5. [ ] Commands: `npm run test --workspace server`, `npm run lint --workspace server`.
+5. [ ] Update `projectStructure.md` to note the mock support file and new feature/steps.
+6. [ ] Commands: `npm run test --workspace server`, `npm run lint --workspace server`.
 
 #### Testing
 
@@ -244,7 +245,8 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
 2. [ ] Handle empty-model response distinctly (reachable but zero models).
 3. [ ] Export types from `common` for hook typing.
 4. [ ] Add hook unit tests (mock fetch) covering success/many, success/empty, error/timeout, refresh behaviour.
-5. [ ] Commands: `npm run lint --workspace client`, `npm run test --workspace client`.
+5. [ ] Update `projectStructure.md` to include the new hook file and tests.
+6. [ ] Commands: `npm run lint --workspace client`, `npm run test --workspace client`.
 
 #### Testing
 
@@ -278,7 +280,8 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 2. [ ] Render model list/table (displayName, modelKey, type/format, size/arch) with truncation and empty-state message when reachable but zero models.
 3. [ ] Accessibility: labelled input, `aria-live` for status, focus on error, keyboard-activable refresh.
 4. [ ] Persist base URL to `localStorage`; allow reset to default.
-5. [ ] Commands: `npm run lint --workspace client`, `npm run build --workspace client`.
+5. [ ] Update `projectStructure.md` for the new page file.
+6. [ ] Commands: `npm run lint --workspace client`, `npm run build --workspace client`.
 
 #### Testing
 
@@ -309,7 +312,8 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 1. [ ] Add `client/src/test/lmstudio.test.tsx` to cover: success (many models), success (zero models shows empty-state), error/timeout, refresh triggers refetch, base URL persistence.
 2. [ ] Mock fetch to the server proxy; ensure NavBar/routing still render page.
-3. [ ] Commands: `npm run test --workspace client`, `npm run lint --workspace client`.
+3. [ ] Update `projectStructure.md` for the new test file(s).
+4. [ ] Commands: `npm run test --workspace client`, `npm run lint --workspace client`.
 
 #### Testing
 

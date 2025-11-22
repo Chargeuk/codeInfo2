@@ -591,7 +591,7 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: _to_do_
 
 #### Overview

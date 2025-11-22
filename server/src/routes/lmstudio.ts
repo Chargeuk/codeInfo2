@@ -3,7 +3,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
-const BASE_URL_REGEX = /^https?:\/\//i;
+const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 const REQUEST_TIMEOUT_MS = 60_000;
 
 export function createLmStudioRouter({
@@ -29,7 +29,12 @@ export function createLmStudioRouter({
     }
 
     try {
-      const client = clientFactory(baseUrl);
+      const clientBaseUrl = baseUrl.startsWith('http://')
+        ? baseUrl.replace(/^http:/i, 'ws:')
+        : baseUrl.startsWith('https://')
+          ? baseUrl.replace(/^https:/i, 'wss:')
+          : baseUrl;
+      const client = clientFactory(clientBaseUrl);
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
           () => reject(new Error('Request timed out')),

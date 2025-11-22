@@ -91,7 +91,7 @@ Baseline plumbing for server-side chat endpoints and streaming contract to LM St
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, errors, and cancellations to existing logger/store; keep out of chat transcript.
 5. [ ] Update server env/docs placeholders if any new knobs are needed (none expected in this story) and ensure payload size guards reuse existing limits.
 6. [ ] Tests (server): add Cucumber feature(s) covering `/chat/models` success/failure, `/chat` streaming happy path (token/final), tool event redaction, cancellation handling, and error framing.
-7. [ ] Run server checks in order: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -130,7 +130,7 @@ Create client-side services/hooks to fetch models, post chat turns, and consume 
 3. [ ] Ensure tool events are logged (redacted content) but not rendered; integrate existing logger for start/end/error events.
 4. [ ] Enforce UI rule: send disabled during stream; stop button triggers abort; “new conversation” clears state and aborts any active stream.
 5. [ ] Tests (Jest): unit-test the stream parser, hook state transitions (send → streaming → final/error), abort path, and model fetch error handling.
-6. [ ] Run client checks in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -168,7 +168,7 @@ Add the routed Chat page with inverted layout, model dropdown, chat bubbles, sto
 4. [ ] Accessibility: labels for inputs/selects/buttons, focus return to input after send/stop/new conversation; maintain contrast for bubbles.
 5. [ ] Tests (Jest/RTL): render route, model selection updates state, send disables during stream, stop aborts stream, new conversation clears transcript, errors show as bubble.
 6. [ ] Update projectStructure.md with new files (page, components, hooks, tests) and README client section with chat usage summary and limitations (no persistence, stop/new conversation, error bubbles).
-7. [ ] Run client checks again if new files added: `npm run lint --workspace client`, `npm run test --workspace client`, `npm run build --workspace client`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -205,7 +205,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
 6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-4-*.png`.
-7. [ ] Run full suite: `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e:test` (with stack up), `npm run build:all`, `npm run compose:build`, `npm run compose:up`, then `npm run compose:down`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

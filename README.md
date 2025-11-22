@@ -28,6 +28,8 @@ npm install
 - `npm run preview --workspace client -- --host --port 5001`
 - `npm run test --workspace client` (Jest + @testing-library/react)
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
+- Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
+- **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
 ## Root commands
@@ -51,9 +53,19 @@ npm install
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
-- `npm run test --workspace server` (Cucumber health scenario; server must be running on 5010)
+- `npm run test --workspace server` (Cucumber scenarios)
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
+
+### LM Studio proxy
+
+- Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).
+- Success example:
+  ```json
+  { "status": "ok", "baseUrl": "http://host.docker.internal:1234", "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }] }
+  ```
+- Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
+- Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
 
 ## Docker Compose
 
@@ -61,13 +73,15 @@ npm install
 - Start stack: `npm run compose:up` (client on http://localhost:5001, server on http://localhost:5010)
 - Tail logs: `npm run compose:logs`
 - Stop stack: `npm run compose:down`
+- Compose loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so those files remain the single source of truth for both local and compose runs (create empty `.env.local` files to silence warnings if you don't need overrides).
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
 
 ## End-to-end (Playwright)
 
 - One-time: `npx playwright install --with-deps`
 - Start stack: `npm run e2e:up`
-- Run test: `npm run e2e:test` (uses `E2E_BASE_URL` or defaults to http://localhost:5001)
+- Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
+- LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
 - Full flow: `npm run e2e`
 - Shut down after tests: `npm run e2e:down`
 

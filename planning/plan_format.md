@@ -116,3 +116,46 @@ task overview.
 - Essential that any decisions that got made during the implementation are documented here
 
 ---
+
+### [N]. Final Task Title
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+The final task must always check against the acceptance criteria of the story. It should perform full clean builds, run the server tests, run the client tests, run the e2e tests, start up the system in docker and use playwright mcp tools to visually check everything is working as expected. screenshots proving this is done should be put into the test-results/screenshots folder. each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot. This task must also ensure that projectStructure.md & design.md is fully up to date. It must also generate a pull request comment based on all changes within the story from all tasks.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides https://cucumber.io/docs/guides/ 
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here
+
+---

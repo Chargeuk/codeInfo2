@@ -17,7 +17,7 @@
     "compose:logs": "docker compose logs -f",
     "compose:build": "docker compose build",
     "e2e:up": "npm run compose:up",
-    "e2e:test": "npx playwright test e2e/version.spec.ts",
+    "e2e:test": "npx playwright test e2e",
     "e2e:down": "npm run compose:down",
     "e2e": "npm run e2e:up && npm run e2e:test && npm run e2e:down",
     "prepare": "husky install"

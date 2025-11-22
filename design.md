@@ -32,6 +32,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.
 - Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
+- Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while content sits inside a single `Container maxWidth="lg"` with left-aligned spacing (no Vite starter centering/dark background).
 
 ## Client testing & Docker
 
@@ -55,8 +56,10 @@ graph TD
   C -->|uses| D
   B --> E[client Docker image]
   C --> F[server Docker image]
+  C --> H[LM Studio server]
   E --> G[docker-compose]
   F --> G
+  G --> H
 ```
 
 This diagram shows the three workspaces sharing the root tooling, each consuming the common package, and both producing Docker images that the compose stack orchestrates.
@@ -79,6 +82,40 @@ sequenceDiagram
 ```
 
 This sequence captures the startup request path the UI uses to display client and server versions via the shared VersionInfo DTO.
+
+## LM Studio flow
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Client
+  participant Server
+  participant LMStudio
+
+  User->>Client: navigate to LM Studio page
+  Client->>Server: GET /lmstudio/status?baseUrl=...
+  alt valid + reachable
+    Server->>LMStudio: system.listDownloadedModels()
+    LMStudio-->>Server: models[]
+    Server-->>Client: 200 {status:'ok', models}
+    Client-->>User: shows model list / empty state
+  else timeout or SDK error
+    Server-->>Client: 502 {status:'error', error}
+    Client-->>User: shows actionable error
+  else invalid baseUrl
+    Server-->>Client: 400 {status:'error', error:'Invalid baseUrl'}
+    Client-->>User: surface validation error
+  end
+```
+
+The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
+
+### LM Studio UI behaviour
+
+- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
+- Actions: `Check status` runs the proxy call with the current URL, `Refresh models` reuses the saved URL, and errors focus the input for quick edits.
+- States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
+- Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
 
 ## End-to-end validation
 

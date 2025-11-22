@@ -97,8 +97,12 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 #### Testing
 
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run build --workspace server`
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -134,8 +138,12 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Testing
 
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run build --workspace server`
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -173,8 +181,13 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 #### Testing
 
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -210,8 +223,12 @@ Add the chat page route with an initial view that lists available models (from `
 
 #### Testing
 
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace server`
 3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -247,8 +264,12 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 #### Testing
 
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace server`
 3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -282,8 +303,12 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Testing
 
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace server`
 3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -317,8 +342,12 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 #### Testing
 
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace server`
 3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -357,13 +386,14 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 #### Testing
 
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e:test`
-6. [ ] `npm run build:all`
-7. [ ] `npm run compose:build`
-8. [ ] `npm run compose:up`
-9. [ ] `npm run compose:down`
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run e2e:test`
+4. [ ] `npm run build --workspace server`
+5. [ ] `npm run build --workspace client`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

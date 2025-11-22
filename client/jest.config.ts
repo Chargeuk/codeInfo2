@@ -6,7 +6,7 @@ const config: Config = {
   testMatch: ['**/src/test/**/*.test.(ts|tsx)'],
   setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts'],
   moduleNameMapper: {
-    '@codeinfo2/common': '<rootDir>/../common/src',
+    '@codeinfo2/common': '<rootDir>/../common/dist/index.js',
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   transform: {

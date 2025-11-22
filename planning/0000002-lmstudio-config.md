@@ -383,8 +383,8 @@ Add Cucumber coverage for the proxy route using a start/stop-able LM Studio SDK 
 
 ### 5. Server Documentation Updates
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 4cb7bf1, 82dbdc1, 845b258
 
 #### Overview
 
@@ -398,16 +398,16 @@ Document the new server proxy endpoint, env vars, and test approach.
 
 #### Subtasks
 
-1. [ ] README updates (server section):
+1. [x] README updates (server section):
    - Add subsection “LM Studio proxy” under Server with description of `/lmstudio/status` request (optional `?baseUrl=` query) and response shapes for ok/error (show JSON samples for each).
    - Document env `LMSTUDIO_BASE_URL` default value and override guidance.
    - Provide copy/paste curl example: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"` and expected `status:"ok"` + `models` array outline.
-2. [ ] design.md updates:
+2. [x] design.md updates:
    - Update Architecture mermaid graph to include LM Studio node: Client → Server → LM Studio, noting server as proxy.
    - Add new sequence diagram “LM Studio Flow” placed below existing Version flow showing: User → Client → Server `/lmstudio/status` → LM Studio; branches for success with models, success empty, and error/timeout; note “no caching, fresh call per refresh”.
    - Mention timeout behaviour and error surfaces in text under the diagrams.
-3. [ ] projectStructure.md: add entries for `server/src/routes/lmstudio.ts`, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/features/lmstudio.feature`, `server/src/test/steps/lmstudio.steps.ts`, and the new docs sections.
-4. [ ] Update `docker-compose.yml`: remove inline `environment` entries for client/server and instead set `env_file` with exact block:
+3. [x] projectStructure.md: add entries for `server/src/routes/lmstudio.ts`, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/features/lmstudio.feature`, `server/src/test/steps/lmstudio.steps.ts`, and the new docs sections.
+4. [x] Update `docker-compose.yml`: remove inline `environment` entries for client/server and instead set `env_file` with exact block:
    ```yaml
    services:
      server:
@@ -420,15 +420,18 @@ Document the new server proxy endpoint, env vars, and test approach.
          - client/.env.local
    ```
    (Note: if `.env.local` is absent, create an empty file or comment/remove that line to avoid compose warnings.) Keep port mappings unchanged.
-5. [ ] Commands: `npm run lint --workspaces` (docs are linted by prettier); ensure it passes.
+5. [x] Commands: `npm run lint --workspaces` (docs are linted by prettier); ensure it passes.
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
+1. [x] `npm run lint --workspaces`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Added README LM Studio proxy subsection with sample ok/error payloads, curl example, and `LMSTUDIO_BASE_URL` override guidance; noted compose env_file usage and .env.local warning.
+- Updated design.md architecture and new LM Studio flow diagram covering success/empty/error + 60s timeout/no-cache notes.
+- Switched docker-compose to env_file blocks for client/server; projectStructure already lists the proxy/test files.
+- Commands: `npm run lint --workspaces` ✅ (fixed HomePage effect dependency to keep lint clean).
 
 ---
 
@@ -699,13 +702,13 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 
 1. [ ] README client section: add “LM Studio page” subsection describing navigation path, base URL input, refresh button, and that the client always calls the server proxy (never the LM Studio server directly). Document `VITE_LMSTUDIO_URL` default and how to override via `.env.local` or build-time env.
 2. [ ] design.md: mirror server doc changes by noting UI behaviours (loading spinner, empty-state text, error surface). Include the updated Architecture + LM Studio flow diagrams if not already present from Task 5 (reference the same diagrams to avoid duplication).
-3. [ ] projectStructure.md: list new client files `client/src/pages/LmStudioPage.tsx`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/components/NavBar.tsx`, and tests `client/src/test/useLmStudioStatus.test.ts`, `client/src/test/lmstudio.test.tsx`.
+3. [x] projectStructure.md: list new client files `client/src/pages/LmStudioPage.tsx`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/components/NavBar.tsx`, and tests `client/src/test/useLmStudioStatus.test.ts`, `client/src/test/lmstudio.test.tsx`.
 4. [ ] README/compose note: document that `docker-compose.yml` now loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so env values have a single source of truth.
-5. [ ] Commands: `npm run lint --workspaces` and `npm run format:check --workspaces` (should pass with only docs touched).
+5. [x] Commands: `npm run lint --workspaces` and `npm run format:check --workspaces` (should pass with only docs touched).
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
+1. [x] `npm run lint --workspaces`
 
 #### Implementation notes
 

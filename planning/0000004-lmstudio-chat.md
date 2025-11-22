@@ -463,7 +463,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __done__
-- Git Commits: _to_do_
+- Git Commits: 9a6c1c7, 0aac90f, afab79a
 
 #### Overview
 

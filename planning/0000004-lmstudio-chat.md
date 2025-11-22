@@ -92,7 +92,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 4. [ ] Provide LM Studio mock for Cucumber: extend `server/src/test/support/mockLmStudioSdk.ts` (or add equivalent) to stub `listDownloadedModels` success + failure toggles.
 5. [ ] Tests (server Cucumber): add `server/src/test/features/chat_models.feature` + step defs to cover success (returns list/default) and failure (LM Studio down -> 503/json error).
 6. [ ] Update README.md (server/API sections) to include `/chat/models` usage and error behaviours.
-7. [ ] Update design.md with the model fetch flow and error handling.
+7. [ ] Update design.md with the model fetch flow and error handling; add/update a mermaid diagram if flow changes. (Use mermaid docs via Context7.)
 8. [ ] Update projectStructure.md with new server route/mock/test entries.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -128,6 +128,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 - Express docs: https://expressjs.com/
 - SSE spec: https://html.spec.whatwg.org/multipage/server-sent-events.html
 - Fetch streaming/ReadableStream: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Existing server patterns and mocks from Task 1
 
 #### Subtasks
@@ -144,7 +145,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
 5. [ ] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock.
 6. [ ] Update README.md (server/API sections) to include streaming `/chat`, payload shapes, and logging visibility (tool events redacted).
-7. [ ] Update design.md with the chat streaming flow, event mapping, and tool logging redaction.
+7. [ ] Update design.md with the chat streaming flow, event mapping, and tool logging redaction; include a mermaid sequence diagram for the streaming path.
 8. [ ] Update projectStructure.md with new server route changes and test additions.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -178,6 +179,7 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 - LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
 - LM Studio JS GitHub (act callbacks): https://github.com/lmstudio-ai/lmstudio-js
 - AbortController/Fetch streaming: https://developer.mozilla.org/en-US/docs/Web/API/AbortController and https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Existing server/client streaming code from Tasks 1–2
 
 #### Subtasks
@@ -188,7 +190,7 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 4. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation.
 5. [ ] Tests (client Jest): stop button aborts stream, disables send while active, and produces an error/stop bubble or completion state.
 6. [ ] Update README.md (both server and client sections) to describe Stop/New conversation behaviour and lack of persistence.
-7. [ ] Update design.md to capture cancellation flow, state transitions, and UX behaviour for Stop/New conversation.
+7. [ ] Update design.md to capture cancellation flow, state transitions, and UX behaviour for Stop/New conversation; include a mermaid flow/sequence diagram for cancel/stop.
 8. [ ] Update projectStructure.md if new files/hooks are added for cancellation wiring.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
@@ -221,8 +223,9 @@ Add the chat page route with an initial view that lists available models (from `
 
 - MUI MCP tool: @mui/material@7.2.0 docs (llms.mui.com/material-ui/7.2.0/llms.txt)
 - React Router docs: https://reactrouter.com/
-- Existing NavBar/router patterns in `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`
 - design.md for layout/typography
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
+- Existing NavBar/router patterns in `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`
 
 #### Subtasks
 
@@ -231,7 +234,7 @@ Add the chat page route with an initial view that lists available models (from `
 3. [ ] Establish inverted layout scaffold: controls at top, transcript area below (can be placeholder for now).
 4. [ ] Place model selection state in a hook or context (e.g., `client/src/hooks/useChatModel.ts`) so later tasks can reuse it.
 5. [ ] Update README.md (UI section) describing chat page entry and model selection.
-6. [ ] Update design.md with layout and model list states.
+6. [ ] Update design.md with layout and model list states; add a simple mermaid diagram showing page structure/data flow.
 7. [ ] Update projectStructure.md with new page/component entries.
 8. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -263,8 +266,9 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 #### Documentation Locations
 
 - MUI MCP tool: @mui/material@7.2.0 docs
-- Client hooks/services from Task 4
 - design.md for bubble styles
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
+- Client hooks/services from Task 4
 
 #### Subtasks
 
@@ -272,7 +276,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 2. [ ] Add UI states: responding indicator (e.g., animated dots), disabled send while streaming, inline error bubble with retry guidance.
 3. [ ] Keep tool events hidden in transcript but ensure `createLogger` records tool lifecycle to logs.
 4. [ ] Update README.md (UI section) with chat send/receive behaviour and limitations (no persistence, stop/new conversation pending).
-5. [ ] Update design.md with chat flow/rendering states and bubble styling (role left/right, inverted stack).
+5. [ ] Update design.md with chat flow/rendering states and bubble styling (role left/right, inverted stack); include mermaid sketch of UI/data flow.
 6. [ ] Update projectStructure.md for any new components/hooks/tests.
 7. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally into one assistant bubble, errors surface as bubbles, ordering is inverted.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -304,15 +308,16 @@ Add a “New conversation” button that clears the transcript and resets state 
 #### Documentation Locations
 
 - design.md for UX states
-- Existing chat hooks/services from Tasks 4–5
 - MUI MCP tool: @mui/material@7.2.0 docs (buttons/layout)
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
+- Existing chat hooks/services from Tasks 4–5
 
 #### Subtasks
 
 1. [ ] Implement New conversation control that clears messages/state, resets streaming flags, and (decision) either retains last selected model or resets to default—document choice.
 2. [ ] Ensure any in-flight stream is aborted before clearing (leveraging cancellation hooks from Task 3) and UI re-focuses the input.
 3. [ ] Update README.md (UI section) to document New conversation behaviour.
-4. [ ] Update design.md with reset flow and UX copy.
+4. [ ] Update design.md with reset flow and UX copy; include mermaid snippet if flow changes.
 5. [ ] Update projectStructure.md if new helpers/components are added.
 6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input; verify model retention/reset behaviour matches doc.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -344,15 +349,16 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 #### Documentation Locations
 
 - design.md for UX/controls
-- Cancellation wiring from Task 3
 - MUI MCP tool: @mui/material@7.2.0 docs (buttons/status)
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
+- Cancellation wiring from Task 3
 
 #### Subtasks
 
 1. [ ] Add Stop control to the chat UI; disable send while stop is available; re-enable on completion/cancel/error.
 2. [ ] Wire Stop to client abort + server cancellation pathway; show stop/abort feedback (e.g., “Generation stopped”) in the transcript or status banner.
 3. [ ] Update README.md (UI section) with Stop behaviour and limitations.
-4. [ ] Update design.md with Stop flow/state transitions.
+4. [ ] Update design.md with Stop flow/state transitions; add mermaid illustrating stop path.
 5. [ ] Update projectStructure.md if new components/hooks are added.
 6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -385,6 +391,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 - Playwright docs: https://playwright.dev/docs/intro
 - Docker docs: https://docs.docker.com/engine/ and Compose: https://docs.docker.com/compose/
+- Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Existing README/design/projectStructure files
 
 #### Subtasks
@@ -396,7 +403,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
    - (Optional) verify Stop/New flows if time permits.
 2. [ ] Ensure server/client logging shows tool lifecycle entries (content omitted) visible in Logs page; no tool events in transcript.
 3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
-4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.
+4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes; refresh mermaid diagrams accordingly.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
 6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.

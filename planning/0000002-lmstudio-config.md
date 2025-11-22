@@ -211,7 +211,7 @@ Document the new server proxy endpoint, env vars, and test approach.
 #### Subtasks
 
 1. [ ] Update README server section: describe `/lmstudio/status`, expected response shape, `LMSTUDIO_BASE_URL`, and curl example.
-2. [ ] Update design.md with proxy flow and no-cache note.
+2. [ ] Update design.md: extend architecture mermaid diagram to include LM Studio service (client → server → LM Studio) and add a new sequence diagram showing `/lmstudio/status` call path and refresh; note no caching.
 3. [ ] Update projectStructure.md with new route, test files, mock support file.
 4. [ ] Commands: `npm run lint --workspaces`.
 
@@ -344,7 +344,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 #### Subtasks
 
 1. [ ] Update README: LM Studio page usage, `VITE_LMSTUDIO_URL`, server-proxy note, refresh button behaviour.
-2. [ ] Update design.md: client flow (client → server proxy → SDK), empty-state and refresh notes.
+2. [ ] Update design.md: client flow (client → server proxy → LM Studio), add/adjust sequence diagram for refresh + empty-state, ensure architecture diagram now shows LM Studio node and client/server arrows.
 3. [ ] Update projectStructure.md: pages/hooks/tests files.
 4. [ ] Commands: `npm run lint --workspaces`.
 

@@ -99,7 +99,39 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 ---
 
-### 2. Server – Ingest API & Chroma write
+### 2. Server – Embedding models endpoint
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Expose `/ingest/models` that lists LM Studio downloaded models filtered to embedding-capable ones. Provide Cucumber coverage.
+
+#### Documentation Locations
+
+- LM Studio listDownloadedModels (embedding models filter)
+- design.md, README.md (API), projectStructure.md
+
+#### Subtasks
+
+1. [ ] Add server route `/ingest/models` calling `listDownloadedModels` and filtering embedding models; include model metadata needed by UI.
+2. [ ] Cucumber feature + steps covering `/ingest/models` filtering only embedding models (mock LM Studio SDK response).
+3. [ ] Update README.md/design.md/projectStructure.md with the endpoint and its embedding-only filter.
+4. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+
+#### Testing
+
+1. [ ] `npm run test --workspace server` (Cucumber)
+2. [ ] `npm run build --workspace server`
+
+#### Implementation notes
+
+- Reuse in client ingest form; keep model lock rules in mind.
+
+---
+
+### 3. Server – Ingest API & Chroma write
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -113,7 +145,6 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 - design.md, README.md (API), projectStructure.md
 - Chroma Node client docs (chromadb 3.1.6)
 - LM Studio SDK (embedding)
-- LM Studio listDownloadedModels (embedding models filter)
 
 #### Subtasks
 
@@ -121,12 +152,10 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 2. [ ] Endpoint `POST /ingest/start` (body: path, name, description, model, dryRun?): kicks off ingest job, returns runId; rejects if another ingest running or model lock violated.
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.
-5. [ ] Endpoint `GET /ingest/models` that filters LM Studio `listDownloadedModels` to embedding-capable models only; used by ingest UI/model lock.
-6. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
+5. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 6. [ ] Cucumber feature + steps covering happy path ingest start/status/list using real Chroma spun up via Testcontainers (or dedicated cucumber-compose) and mocked LM Studio; include model-lock violation case.
-7. [ ] Cucumber feature + steps covering `/ingest/models` filtering only embedding models.
-8. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, testcontainers/cucumber-compose usage, and data flow.
-9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, testcontainers/cucumber-compose usage, and data flow.
+8. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 
 #### Testing
 
@@ -139,7 +168,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 ---
 
-### 3. Server – Single-flight lock, soft cancel, and cleanup
+### 4. Server – Single-flight lock, soft cancel, and cleanup
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -175,7 +204,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 ---
 
-### 4. Client – Ingest form & model lock (depends on NavBar after chat merge)
+### 5. Client – Ingest form & model lock (depends on NavBar after chat merge)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -209,7 +238,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 ---
 
-### 5. Client – Active run card and status polling
+### 6. Client – Active run card and status polling
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -244,7 +273,7 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 ---
 
-### 6. Client – Embedded folders table, details drawer, and actions
+### 7. Client – Embedded folders table, details drawer, and actions
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -279,7 +308,7 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 
 ---
 
-### 7. Final verification
+### 8. Final verification
 
 - status: __to_do__
 - Git Commits: __to_do__

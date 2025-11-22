@@ -383,7 +383,7 @@ Add Cucumber coverage for the proxy route using a start/stop-able LM Studio SDK 
 
 ### 5. Server Documentation Updates
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -63,110 +63,259 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ## Tasks (stubs to be detailed later)
 
-### 1. Ingest Foundations (stub)
+### 1. Server – Ingest discovery, chunking, and hashing
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Placeholder for defining server/API, embedding flow, and data model tasks.
+Implement server-side folder discovery respecting git-tracked-only rules, exclude lists, and text-only constraint. Add chunking with heuristic boundaries and token caps using LM Studio SDK context length, plus hashing for file/chunk diffs.
 
 #### Documentation Locations
 
-- To be filled when scoping.
+- design.md (token limits, chunking heuristics)
+- README.md (server ingest section to add)
+- projectStructure.md (new server files)
+- LM Studio SDK docs (countTokens, getContextLength)
 
 #### Subtasks
 
-1. [ ] Define subtasks and tests for ingest foundations.
+1. [ ] Create ingest service module to: locate repo root (git), list tracked files, apply excludes (hard + env), filter to text files, and compute file hashes.
+2. [ ] Add chunker that prefers class/function regex boundaries, falls back to size-based splits using `countTokens` and `getContextLength` with safety margin.
+3. [ ] Compute deterministic chunk hashes and capture metadata scaffold (root, relPath, fileHash, chunkHash, embeddedAt placeholder, model).
+4. [ ] Unit tests for discovery/excludes/text detection/chunking/hash functions.
+5. [ ] Update projectStructure.md with new server modules.
 
 #### Testing
 
-1. [ ] Define testing approach.
+1. [ ] `npm run test --workspace server` (ensure unit tests for discovery/chunking run)
+2. [ ] `npm run build --workspace server`
 
 #### Implementation notes
 
-- TBD.
+- Cucumber integration added in Task 2 when endpoints exist.
 
 ---
 
-### 2. Ingest UI (stub)
+### 2. Server – Ingest API & Chroma write
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Placeholder for UI wiring, model dropdown, folder input, and progress/error surfacing.
+Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber coverage. Ensure model lock is enforced when collection non-empty.
 
 #### Documentation Locations
 
-- To be filled when scoping.
+- design.md, README.md (API), projectStructure.md
+- Chroma Node client docs (chromadb 3.1.6)
+- LM Studio SDK (embedding)
 
 #### Subtasks
 
-1. [ ] Define subtasks and tests for UI.
+1. [ ] Add Chroma client config (Docker 1.3.5 target), shared collection init, and model-lock enforcement (lock once non-empty).
+2. [ ] Endpoint `POST /ingest/start` (body: path, name, description, model, dryRun?): kicks off ingest job, returns runId; rejects if another ingest running or model lock violated.
+3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
+4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.
+5. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt).
+6. [ ] Cucumber feature + steps covering happy path ingest start/status/list with mocked LM Studio + Chroma (use mock clients); include model-lock violation case.
+7. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, and data flow.
+8. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 
 #### Testing
 
-1. [ ] Define testing approach.
+1. [ ] `npm run test --workspace server` (Cucumber)
+2. [ ] `npm run build --workspace server`
 
 #### Implementation notes
 
-- TBD.
+- Reuse runId for log filtering; ensure dry-run skips Chroma writes.
 
 ---
 
-### 3. Ingest Maintenance (stub)
+### 3. Server – Single-flight lock, soft cancel, and cleanup
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Placeholder for re-embed/diffing, deletion by metadata, and cleanup flows.
+Enforce one ingest at a time, implement soft cancel, and purge partial embeddings for a run. Add incremental re-embed and remove endpoints.
 
 #### Documentation Locations
 
-- To be filled when scoping.
+- design.md (cancel/cleanup flow)
+- README.md (API usage)
+- projectStructure.md
 
 #### Subtasks
 
-1. [ ] Define subtasks and tests for maintenance flows.
+1. [ ] Add server-wide ingest lock with clear error on concurrent start; include lock TTL/guard.
+2. [ ] Support cancel: `POST /ingest/cancel/:runId` sets cancel flag, aborts embedding calls, stops new work, then deletes vectors tagged with runId; return status to caller.
+3. [ ] Incremental re-embed endpoint `POST /ingest/reembed/:root` to diff by file/chunk hashes and update/delete as needed.
+4. [ ] Remove endpoint `POST /ingest/remove/:root` to purge all vectors for a root and clear model lock if collection becomes empty.
+5. [ ] Cucumber features/steps for cancel, re-embed, and remove, asserting cleanup of runId-tagged vectors and lock behavior.
+6. [ ] Update README.md/design.md/projectStructure.md for cancel/re-embed/remove flows and soft-cancel semantics.
+7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 
 #### Testing
 
-1. [ ] Define testing approach.
+1. [ ] `npm run test --workspace server` (Cucumber)
+2. [ ] `npm run build --workspace server`
 
 #### Implementation notes
 
-- TBD.
+- Log cancellation outcome and cleanup success/failure; track dirty runs if purge partial.
 
 ---
 
-### [N]. Final Task (stub)
+### 4. Client – Ingest form & model lock (depends on NavBar after chat merge)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add Ingest page route/tab, form for path/name/description/model, and model lock banner. Disable model select once collection non-empty.
+
+#### Documentation Locations
+
+- design.md (GUI notes), README.md (UI), projectStructure.md
+- MUI docs via MCP (@mui/material@7.2.0)
+
+#### Subtasks
+
+1. [ ] Add `/ingest` route and NavBar tab (coordinate with chat branch; rebase if needed).
+2. [ ] Build form with inputs: path, display name, description, model dropdown (disabled when lock active), Start button, Dry-run toggle; surface inline errors/status.
+3. [ ] Fetch model list (embedding-capable) from server; enforce disabled select when locked; show lock banner.
+4. [ ] Jest/RTL tests for form render, lock state, validation, disabled states, and submit payload.
+5. [ ] Update README.md/design.md/projectStructure.md for new page/route and model lock UX.
+6. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Keep model fetch shared if chat provides a models endpoint; otherwise use ingest-specific endpoint.
+
+---
+
+### 5. Client – Active run card and status polling
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Show current ingest run status with counters, soft cancel, and link to logs. Poll status endpoint.
+
+#### Documentation Locations
+
+- design.md, README.md, projectStructure.md
+- MUI docs via MCP
+
+#### Subtasks
+
+1. [ ] Add status card that appears when a run is active: states (Scanning/Embedding/Cancelled/Completed/Error), counters (files/chunks, skipped), last error text.
+2. [ ] Hook polling to `/ingest/status/:runId`; handle transitions to completed/cancelled/error; stop polling on terminal states.
+3. [ ] Add Cancel button (soft) calling cancel endpoint; show result messages (“cancelled and cleaned” vs “cleanup pending”).
+4. [ ] Link to Logs page pre-filtered by runId (if possible); otherwise copy runId affordance.
+5. [ ] Jest/RTL tests covering state transitions, cancel flow, and polling stop.
+6. [ ] Update README.md/design.md/projectStructure.md accordingly.
+7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Consider exponential backoff on polling in error states; ensure cleanup messages align with server responses.
+
+---
+
+### 6. Client – Embedded folders table, details drawer, and actions
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Render table of embedded roots with actions (Re-embed, Remove, Details) and description hover/tooltip. Include bulk actions and empty state.
+
+#### Documentation Locations
+
+- design.md, README.md, projectStructure.md
+- MUI docs via MCP
+
+#### Subtasks
+
+1. [ ] Build table with columns: Name (with info tooltip for description), Path, Model, Status chip, Last ingest time, optional counts, row actions (Re-embed, Remove, Details), bulk select.
+2. [ ] Implement Details drawer showing name, description, path, model (locked), run history, last error, include/exclude lists used.
+3. [ ] Wire Re-embed action to server endpoint with optimistic/disable while running; Remove to purge endpoint (confirm dialog).
+4. [ ] Empty state messaging and model-lock banner persistence; ensure actions disabled when an ingest is active.
+5. [ ] Jest/RTL tests for table render, tooltip, drawer content, action handlers, bulk disable during active ingest.
+6. [ ] Update README.md/design.md/projectStructure.md for table/drawer and actions.
+7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Consider pagination if many roots; otherwise simple list is fine for this story.
+
+---
+
+### 7. Final verification
 
 - status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Placeholder for final verification once tasks are detailed.
+Cross-check acceptance criteria, run full builds/tests, and update docs. Align with chat branch merges (NavBar/router) during verification. Capture screenshots if UI changed significantly.
 
 #### Documentation Locations
 
-- To be filled when scoping.
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides https://cucumber.io/docs/guides/
+- design.md, README.md, projectStructure.md
 
 #### Subtasks
 
-1. [ ] Define final verification steps.
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with ingest endpoints/flows and any new commands
+5. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
+6. [ ] Ensure projectStructure.md is updated with added/updated files & folders
+7. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
 
 #### Testing
 
-1. [ ] Define final testing steps.
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run e2e:test` (add ingest e2e if present; otherwise smoke existing)
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
-- TBD.
+- Coordinate rebase/merge with chat branch for NavBar/router before final checks; capture any screenshots for ingest UI if needed.
 
 ---

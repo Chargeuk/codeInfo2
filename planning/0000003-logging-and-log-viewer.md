@@ -684,3 +684,37 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 - PR summary (ready to paste): Server logging API validates/redacts log entries, streams via SSE with heartbeats/replay, and persists to buffer + rotating file mount. Client logger/transport capture route/userAgent/correlation ids with retry/backoff and configurable forwarding. Logs page surfaces filters, live toggle, manual refresh, and sample emitter with responsive cards/table. Docs cover endpoints, env keys, retention, compose volume, and UI behaviours; screenshots saved under `test-results/screenshots/`. Full suite passed: lint, format, server Cucumber, client Jest, Playwright e2e, manual UI check in docker stack.
 
 ---
+
+### 7. LM Studio Logging Coverage
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Tighten logging around LM Studio interactions so both client and server emit actionable entries for key user actions and error paths, ensuring the log viewer can surface LM Studio activity end-to-end.
+
+#### Subtasks
+
+1. [ ] Client LM Studio page: in `client/src/pages/LmStudioPage.tsx` (and `client/src/hooks/useLmStudioStatus.ts` if needed) add structured logs for load, status check, refresh models, and reset base URL. Sanitize `baseUrl` by logging only `new URL(baseUrl).origin`; redact any `token/password` keys in context. Use `createLogger` so route metadata is included.
+2. [ ] Server LM Studio route (`server/src/routes/lmstudio.ts`): log inbound requests with `requestId`, chosen base URL (origin only), success with model count, and failures with error class/message. Redact credentials/query secrets; keep payload size within existing limits.
+3. [ ] Add/extend tests: client Jest in `client/src/test/lmstudio.test.tsx` to assert logs on refresh/reset; server Cucumber scenario in `server/src/test/features/lmstudio.feature` with steps in `server/src/test/steps/lmstudio.steps.ts` to confirm proxy logs success/failure with `requestId`. Adjust mocks as needed; if LM Studio isn’t available, use existing mock/skip pattern.
+4. [ ] Docs: update design.md and README logging sections to mention LM Studio action logging and base URL redaction; update projectStructure.md if new files/sections are touched.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run e2e:test`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---

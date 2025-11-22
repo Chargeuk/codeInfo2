@@ -74,11 +74,11 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 1. [ ] Install server logging deps: run `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` exporting `baseLogger` (pino with env level, redaction stub, destinations stdout + rotating file `./logs/server.log` via pino-roll, ensure dir exists) and `createRequestLogger()` (wraps pino-http, binds correlation/request id). Update `server/src/index.ts` to use `createRequestLogger` (no functional changes yet).
 2. [ ] Create client logging skeleton files: `client/src/logging/logger.ts` (builds LogEntry, tees to console), `client/src/logging/transport.ts` (queue + no-op forwarder stub), and `client/src/logging/index.ts` (exports). Do not enable network sends yet; guard with env flag placeholder.
 3. [ ] Define shared `LogEntry` DTO in `common/src/logging.ts` (level, message, timestamp, source, context, requestId/correlationId, userAgent, url/route, tags, sequence?). Add validation helpers and export via `common/src/index.ts`.
-4. [ ] Add env variables with defaults: `server/.env` add `LOG_LEVEL=info`, `LOG_BUFFER_MAX=5000`, `LOG_MAX_CLIENT_BYTES=32768`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`; `client/.env` add `VITE_LOG_LEVEL=info`, `VITE_LOG_FORWARD_ENABLED=true`, `VITE_LOG_MAX_BYTES=32768`, `VITE_LOG_STREAM_ENABLED=true`. Mention overrides in `.env.local` samples (no secrets). Document the exact keys in README.
-5. [ ] Update design.md: add shared logging schema overview, new files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`), and env knobs summary.
-6. [ ] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`), and note `logs/` directory.
-7. [ ] Add a short Logging overview line to README (pointer to upcoming detailed section in Task 5).
-8. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 5). Run repo-wide lint/format checks after schema changes.
+4. [ ] Add env variables with defaults: append the exact lines to `server/.env` (`LOG_LEVEL=info`, `LOG_BUFFER_MAX=5000`, `LOG_MAX_CLIENT_BYTES=32768`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`) and to `client/.env` (`VITE_LOG_LEVEL=info`, `VITE_LOG_FORWARD_ENABLED=true`, `VITE_LOG_MAX_BYTES=32768`, `VITE_LOG_STREAM_ENABLED=true`). Add the same keys (commented) to `server/.env.local` and `client/.env.local` as examples. Document the keys in README (server + client sections).
+5. [ ] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`).
+6. [ ] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`) and note `logs/` directory under root.
+7. [ ] Update README: add a one-line Logging overview under Server/Client intro pointing to the detailed section to be written in Task 6.
+8. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 6). Run repo-wide lint/format checks after schema changes.
 
 #### Testing
 
@@ -113,12 +113,12 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 #### Subtasks
 
-1. [ ] Wire `server/src/logger.ts` into `server/src/index.ts` so request logging (pino-http) runs for all routes with correlation id and timing; keep stdout + file outputs (`./logs/server.log`).
+1. [ ] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add the middleware before routes; ensure correlation id is attached to req/res locals.
 2. [ ] Implement `server/src/logStore.ts`: in-memory rolling store with configurable max entries/bytes, sequence ids, append/query with filters (level/source/time/text), trims oldest; include hook to also write to the pino file destination when enabled.
-3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`. Ensure directory creation as needed.
-4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; ensure note to mount `./logs:/app/logs` in compose (compose edit happens later). Add a brief note in design.md about storage + rotation defaults.
+3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; create logs directory if missing.
+4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`).
 5. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
-6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run build --workspace server`, `npm run compose:build`.
+6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
 
 #### Testing
 
@@ -155,12 +155,12 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 #### Subtasks
 
 1. [ ] Add routes in `server/src/routes/logs.ts`: `POST /logs` validate LogEntry (size/level/source), redact sensitive fields, add requestId, append to store, return 202/400.
-2. [ ] In the same router, implement `GET /logs` (filtered/paginated, returns {items, lastSequence, hasMore}) and `GET /logs/stream` (SSE: headers, heartbeat `:\n\n`, catch-up since lastSequence, push new entries; filters via query). Register router in `server/src/index.ts` under `/logs`.
-3. [ ] Update README (server section): add `/logs` and `/logs/stream` API examples, env keys, log file path/rotation note.
-4. [ ] Update design.md: document server logging flow (ingest → store → GET/SSE), redaction/retention notes.
+2. [ ] In the same router, implement `GET /logs` (filtered/paginated, returns {items, lastSequence, hasMore}) and `GET /logs/stream` (SSE). SSE checklist: set headers (`text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`), send heartbeat `:\n\n`, include `id` + `data` lines, honor `Last-Event-ID` for catch-up from logStore, apply query filters (level/source/time/text), close on `req.on('close')`. Register router in `server/src/index.ts` under `/logs`.
+3. [ ] Update README (server section): add `/logs` and `/logs/stream` API examples, env keys, log file path/rotation note, and SSE usage note.
+4. [ ] Update design.md: document server logging flow (ingest → store → GET/SSE), redaction/retention notes, and SSE heartbeat/Last-Event-ID behaviour.
 5. [ ] Update projectStructure.md: ensure `server/src/routes/logs.ts` and related files are listed.
 6. [ ] Add Cucumber coverage: feature `server/src/test/features/logs.feature` and steps `server/src/test/steps/logs.steps.ts` for valid ingestion, oversize/invalid level rejection, filtering by level/time, pagination cap, redaction check, SSE heartbeat/basic stream (use supertest + custom SSE parser). Keep existing tests passing.
-7. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`.
+7. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
 
 #### Testing
 
@@ -199,7 +199,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
 1. [ ] Implement `client/src/logging/logger.ts`: formats LogEntry with route/userAgent/correlationId; wraps console.warn/error; hooks `window.onerror`/`unhandledrejection` with throttle to avoid loops; exports `createLogger` and `installGlobalErrorHooks`.
 2. [ ] Implement `client/src/logging/transport.ts`: queue + batching/backoff + offline guard sending to `POST /logs`; respects `VITE_LOG_FORWARD_ENABLED` and `VITE_LOG_MAX_BYTES`; no network sends when `import.meta.env.MODE === 'test'`. Export a `sendLogs` function used by logger.
-3. [ ] Wire logger usage: integrate into HomePage fetch errors, LM Studio actions, router error boundary, and API hook(s). Add opt-in sample emission toggle if needed. Ensure messages redact obvious PII keys.
+3. [ ] Wire logger usage: update `client/src/pages/HomePage.tsx` fetch error handling, `client/src/pages/LmStudioPage.tsx` actions, `client/src/routes/router.tsx` error boundary, and any API hook files to call the logger. Add an opt-in sample emission toggle component on the Logs page later. Ensure messages redact obvious PII keys.
 4. [ ] Update README (client section): add logging env keys (`VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`), forwarding behaviour, and how to disable in `.env.local`.
 5. [ ] Update design.md: describe client logging behaviour (console tee, forwarding, error hooks, env toggles) and privacy notes.
 6. [ ] Update projectStructure.md: list `client/src/logging/*` and the new test files.
@@ -245,12 +245,12 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 #### Subtasks
 
-1. [ ] Add “Logs” route + NavBar tab wired to new page; ensure routing works in dev/preview/docker.
-2. [ ] Build data hook to fetch logs via `GET /logs` and (when supported) subscribe to `GET /logs/stream` SSE for live updates with reconnection/backoff; keep filters (level multi-select, source, text search, since/until) and allow disabling live updates.
-3. [ ] Implement UI (table on md+, stacked cards on sm) showing timestamp, level chip, source, message, context snippet, and correlation id; include controls for filters, refresh, auto-refresh toggle, and max rows indicator.
+1. [ ] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; ensure routing works in dev/preview/docker.
+2. [ ] Build data hook `client/src/hooks/useLogs.ts` (new) to fetch logs via `GET /logs` and (when supported) subscribe to `GET /logs/stream` SSE for live updates with reconnection/backoff; keep filters (level multi-select, source, text search, since/until) and allow disabling live updates.
+3. [ ] Implement UI in `client/src/pages/LogsPage.tsx` (table on md+, stacked cards on sm) showing timestamp, level chip, source, message, context snippet, and correlation id; include controls for filters, refresh, auto-refresh toggle, and max rows indicator.
 4. [ ] Wire client logging demo: on page load or button click, emit a sample client log and verify it appears after refresh/stream to prove end-to-end flow (behind a toggle to avoid spam).
-5. [ ] Update README (client UI section) with Logs page usage (filters, stream toggle, refresh), and design.md with UI behaviours/states.
-6. [ ] Update projectStructure.md to list new page/hook/test files and `e2e/logs.spec.ts`.
+5. [ ] Update README (client UI section) with Logs page usage (filters, stream toggle, refresh); update design.md UI behaviours/states and note location in “Client UI” section.
+6. [ ] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, logging tests, and `e2e/logs.spec.ts`.
 7. [ ] Add tests: Jest for hook/UI (`client/src/test/logsPage.test.tsx` extended for filters/refresh/SSE) and Playwright `e2e/logs.spec.ts` that triggers a client log and observes it via GET/stream.
 8. [ ] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test` (with new logs spec), `npm run compose:down`. Ensure docker compose still works.
 

@@ -518,8 +518,8 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
 
 ### 7. Client LM Studio Page UI
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 235d67c, 852870c
 
 #### Overview
 
@@ -533,16 +533,16 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 
 #### Subtasks
 
-1. [ ] Build `client/src/pages/LmStudioPage.tsx` using `useLmStudioStatus`:
+1. [x] Build `client/src/pages/LmStudioPage.tsx` using `useLmStudioStatus`:
    - Layout: wrap in MUI `Container` and `Stack`, ensure responsiveness (use `Stack` gap and `direction` that switches to column on small screens via `useMediaQuery` or MUI responsive props).
    - Base URL input: MUI `TextField` label "LM Studio base URL" (controlled), helper text showing default, `aria-describedby` for validation errors.
    - Buttons: `Check status` (calls `refresh(baseUrl)`), `Reset to default` (loads env default, saves, triggers refresh), `Refresh models` (uses current baseUrl).
    - Status area: `aria-live="polite"` typography showing loading/error/success; on error call `inputRef.current?.focus()`.
-2. [ ] Model list: use MUI `Table` on md+ screens and a `Stack`/`List` fallback on xs/sm (no horizontal scroll). Columns/fields: `displayName`, `modelKey`, `type/format`, `sizeBytes` (humanized), `architecture`. Truncate long keys with `Typography noWrap` + `title` attr. Empty state text: “No models reported by LM Studio.”
-3. [ ] Accessibility: ensure buttons have `aria-label` where needed, Tab order works, and error messages are announced (`role="status"`).
-4. [ ] Persist base URL via localStorage key from Task 6; show the currently used URL on the page.
+2. [x] Model list: use MUI `Table` on md+ screens and a `Stack`/`List` fallback on xs/sm (no horizontal scroll). Columns/fields: `displayName`, `modelKey`, `type/format`, `sizeBytes` (humanized), `architecture`. Truncate long keys with `Typography noWrap` + `title` attr. Empty state text: “No models reported by LM Studio.”
+3. [x] Accessibility: ensure buttons have `aria-label` where needed, Tab order works, and error messages are announced (`role="status"`).
+4. [x] Persist base URL via localStorage key from Task 6; show the currently used URL on the page.
 5. [x] Update `projectStructure.md` to include `client/src/pages/LmStudioPage.tsx` and note new UI elements.
-6. [ ] Commands: `npm run lint --workspace client` (exit 0), `npm run format:check --workspace client` (all formatted), `npm run build --workspace client` (Vite succeeds, no errors).
+6. [x] Commands: `npm run lint --workspace client` (exit 0), `npm run format:check --workspace client` (all formatted), `npm run build --workspace client` (Vite succeeds, no errors).
    - If `format:check` fails, run `npm run format:fix --workspace client`, then rerun `npm run format:check --workspace client`.
    - Pasteable starter (add responsive tweaks as needed):
    ```tsx
@@ -638,12 +638,14 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
-2. [ ] `npm run build --workspace client`
+1. [x] `npm run lint --workspace client`
+2. [x] `npm run build --workspace client`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Implemented LM Studio page using the hook with base URL input/reset, status messaging, and responsive layout (table on md+, stacked cards on small screens).
+- Added accessibility touches (aria-live status, focus on error) and humanized model sizes while showing the active base URL.
+- Commands run for this task: client lint, format:check, build all passing.
 
 ---
 

@@ -92,8 +92,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │  ├─ tsconfig.tsbuildinfo — TS build info cache
 │  └─ src/
 │     ├─ index.ts — Express app entry
-│     ├─ logger.ts — pino/pino-http setup with rotation
-│     ├─ logStore.ts — placeholder for in-memory log buffer
+│     ├─ logger.ts — pino/pino-http setup with rotation and env config helper
+│     ├─ logStore.ts — in-memory log buffer with sequence numbers and filters
 │     ├─ routes/
 │     │  ├─ logs.ts — placeholder for log ingestion/streaming routes
 │     │  └─ lmstudio.ts — LM Studio proxy route

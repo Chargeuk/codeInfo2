@@ -11,6 +11,11 @@ config();
 const app = express();
 app.use(cors());
 app.use(createRequestLogger());
+app.use((req, res, next) => {
+  const requestId = (req as unknown as { id?: string }).id;
+  if (requestId) res.locals.requestId = requestId;
+  next();
+});
 const PORT = process.env.PORT ?? '5010';
 const clientFactory = (baseUrl: string) => new LMStudioClient({ baseUrl });
 

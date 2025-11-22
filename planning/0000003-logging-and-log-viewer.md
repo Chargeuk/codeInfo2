@@ -189,8 +189,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
- - Task Status: __in_progress__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview
@@ -206,8 +205,8 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 #### Subtasks
 
-1. [ ] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add `app.use(createRequestLogger());` immediately after CORS/env setup. Store the generated `req.id` on `res.locals.requestId` so downstream routes can reuse it.
-2. [ ] Implement `server/src/logStore.ts` using this scaffold (trim/filters included so juniors can fill blanks):
+1. [x] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add `app.use(createRequestLogger());` immediately after CORS/env setup. Store the generated `req.id` on `res.locals.requestId` so downstream routes can reuse it.
+2. [x] Implement `server/src/logStore.ts` using this scaffold (trim/filters included so juniors can fill blanks):
    ```ts
    import { LogEntry, LogLevel } from '@codeinfo2/common';
 
@@ -237,26 +236,27 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
    export function lastSequence() { return sequence; }
    ```
    Leave hooks for file writing; add a TODO comment to forward to `baseLogger` file destination when wired.
-3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; ensure `./logs` exists. Add a helper `resolveLogConfig()` returning parsed numbers so juniors don’t parse envs ad hoc.
-4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`) including the exact volume line to paste later: `- ./logs:/app/logs`.
-5. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
-6. [ ] Run server commands in order, checking for green exit codes: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server` (Cucumber), `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (verify `/health` 200), `npm run compose:down`.
+3. [x] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; ensure `./logs` exists. Add a helper `resolveLogConfig()` returning parsed numbers so juniors don’t parse envs ad hoc.
+4. [x] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`) including the exact volume line to paste later: `- ./logs:/app/logs`.
+5. [x] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
+6. [x] Run server commands in order, checking for green exit codes: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server` (Cucumber), `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (verify `/health` 200), `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up` (confirm stack starts)
-6. [ ] `npm run compose:down`
+1. [x] `npm run lint --workspace server`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up` (confirm stack starts)
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Added shared logging DTO (`common/src/logging.ts`) and client/server logging skeletons with env-controlled forwarding and file rotation stub.
-- Server logger uses pino + pino-http with pino-roll destination awaited for rotation; added fallback to direct destination and typed module shim for pino-roll.
-- Compose stack briefly failed due to async pino-roll stream; resolved by awaiting creation and rebuilding images, confirmed healthy `compose:up`.
-- Design/structure/README updated to reflect new logging schema and env defaults; gitignore/dockerignore now exclude `logs/`.
+- Request logging middleware now attaches the generated request id to `res.locals.requestId` so downstream routes can correlate server logs and future log ingestion.
+- Implemented `logStore` as an in-memory ring buffer with sequence numbers and filter helpers, trimming by `LOG_BUFFER_MAX` and leaving a TODO hook to forward to the file logger.
+- Added `resolveLogConfig()` to centralize env parsing for levels, buffer limits, file path/rotation, and client payload caps; it also creates the log directory before pino destinations are built.
+- Documented storage/retention defaults and compose volume guidance in `design.md`, refreshed `projectStructure.md`, and tightened `server/.dockerignore` to exclude `logs/` explicitly.
+- Updated server Cucumber scripts to use the ts-node ESM loader so `.js` specifiers resolve against TS sources; reran lint, format, tests, build, and compose cycle with `/health` returning 200.
 
 ---
 

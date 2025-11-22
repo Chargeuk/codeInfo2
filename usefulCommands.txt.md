@@ -16,7 +16,7 @@ every task needs a final testing step (not subtask) to ensure the docker environ
 
 ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7.
 
-please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevent task
+please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task
 
 Execution:
 I want you to get another codex agent to implement all remaining tasks of the current story, and to get back to me with information about how this way of working went. This should be possible if you execute the following command for each task in sequence once the previous task is completed with a 30 minute timeout and adjusting the appropriate task number and story plan name for each task: codex exec -s danger-full-access "Please read Agents.md and follow it's instructions. Once done you must work through Task [Task Number & name] of planning/[current planning document].md, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask."

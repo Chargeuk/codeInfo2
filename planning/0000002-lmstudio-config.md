@@ -380,7 +380,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 ### 10. E2E Validation (Live LM Studio)
 
 - Task Status: __done__
-- Git Commits: 75c2c7a, fb0250b, bdf84ac
+- Git Commits: 75c2c7a, fb0250b, bdf84ac, 9918df1
 
 #### Overview
 
@@ -424,5 +424,6 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
 - Hardened `e2e/version.spec.ts` with a reachability guard and updated `e2e:test` to run the full suite; installed Playwright browsers locally to satisfy the new run.
 - README e2e section now calls out LM Studio prerequisites, env vars (`E2E_BASE_URL`, `E2E_API_URL`, `LMSTUDIO_BASE_URL`), and skip behaviour; projectStructure lists the new spec.
 - `npm run e2e:test` completed with both specs skipped because the client/proxy stack wasn’t running; `npm run lint --workspaces`, `npm run format:check --workspaces`, and `npm run build:all` all finish successfully after rebuilding `common/dist` and fixing NodeNext import extensions in Cucumber steps.
+- Normalized the proxy to accept http/https/ws/wss inputs by converting http(s) to ws(s) before constructing the LM Studio SDK client; rebuilt images and reran `npm run e2e:test` with the stack + live LM Studio running—both specs now pass against the real instance.
 
 ---

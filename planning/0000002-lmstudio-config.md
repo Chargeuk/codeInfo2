@@ -13,6 +13,7 @@ Extend the client so the existing version view becomes the Home page and add a d
 - Server exposes a typed endpoint to accept a base URL, invoke the SDK list call, and return status + models; includes input validation and timeout/exception handling.
 - Tests cover new server endpoint, client LM Studio page (UI + fetch states), routing, and a Playwright flow that exercises navigation with a live LM Studio instance at the default URL.
 - Docs updated (README, design.md, projectStructure.md, planning notes) to describe the new page, API shape, env defaults, and scripts; lint/build/test commands remain green.
+- UI is responsive down to phone widths (~360px): nav stays usable, LM Studio form and model list avoid horizontal scroll (table collapses to stacked rows or uses responsive layout), touch targets remain accessible.
 
 ### Out Of Scope
 
@@ -136,7 +137,7 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
    }
    ```
 4. [ ] Update `client/.env` to add `VITE_LMSTUDIO_URL=http://host.docker.internal:1234` (keep existing `VITE_API_URL`), note in file comment that overrides belong in `.env.local`.
-5. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links. Paste starter code:
+5. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links. Paste starter code (Tabs stay scrollable on small screens using `variant="scrollable"`):
    ```tsx
    import { AppBar, Tabs, Tab, Toolbar } from '@mui/material';
    import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -147,7 +148,14 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
      return (
        <AppBar position="static">
          <Toolbar sx={{ minHeight: 64 }}>
-           <Tabs value={value} aria-label="Main navigation" textColor="inherit" indicatorColor="secondary">
+           <Tabs
+             value={value}
+             aria-label="Main navigation"
+             textColor="inherit"
+             indicatorColor="secondary"
+             variant="scrollable"
+             scrollButtons={false}
+           >
              <Tab label="Home" value="/" component={RouterLink} to="/" aria-label="Home" />
              <Tab label="LM Studio" value="/lmstudio" component={RouterLink} to="/lmstudio" aria-label="LM Studio" />
            </Tabs>
@@ -504,24 +512,27 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 #### Subtasks
 
 1. [ ] Build `client/src/pages/LmStudioPage.tsx` using `useLmStudioStatus`:
-   - Layout: wrap in MUI `Container` and `Stack`.
+   - Layout: wrap in MUI `Container` and `Stack`, ensure responsiveness (use `Stack` gap and `direction` that switches to column on small screens via `useMediaQuery` or MUI responsive props).
    - Base URL input: MUI `TextField` label "LM Studio base URL" (controlled), helper text showing default, `aria-describedby` for validation errors.
    - Buttons: `Check status` (calls `refresh(baseUrl)`), `Reset to default` (loads env default, saves, triggers refresh), `Refresh models` (uses current baseUrl).
    - Status area: `aria-live="polite"` typography showing loading/error/success; on error call `inputRef.current?.focus()`.
-2. [ ] Model list: use MUI `Table` or `List` showing columns `displayName`, `modelKey`, `type/format`, `sizeBytes` (humanized), `architecture`. Truncate long keys with `Typography noWrap` + `title` attr. Empty state text: “No models reported by LM Studio.”
+2. [ ] Model list: use MUI `Table` on md+ screens and a `Stack`/`List` fallback on xs/sm (no horizontal scroll). Columns/fields: `displayName`, `modelKey`, `type/format`, `sizeBytes` (humanized), `architecture`. Truncate long keys with `Typography noWrap` + `title` attr. Empty state text: “No models reported by LM Studio.”
 3. [ ] Accessibility: ensure buttons have `aria-label` where needed, Tab order works, and error messages are announced (`role="status"`).
 4. [ ] Persist base URL via localStorage key from Task 6; show the currently used URL on the page.
 5. [ ] Update `projectStructure.md` to include `client/src/pages/LmStudioPage.tsx` and note new UI elements.
 6. [ ] Commands: `npm run lint --workspace client` (exit 0), `npm run format:check --workspace client` (all formatted), `npm run build --workspace client` (Vite succeeds, no errors).
-   - Pasteable starter:
+   - Pasteable starter (add responsive tweaks as needed):
    ```tsx
    import { useRef, useState } from 'react';
-   import { Container, Stack, TextField, Button, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
+   import { Container, Stack, TextField, Button, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, useMediaQuery } from '@mui/material';
+   import { useTheme } from '@mui/material/styles';
    import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
 
    const DEFAULT_LM_URL = import.meta.env.VITE_LMSTUDIO_URL ?? 'http://host.docker.internal:1234';
 
    export default function LmStudioPage() {
+     const theme = useTheme();
+     const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
      const inputRef = useRef<HTMLInputElement>(null);
      const { baseUrl, setBaseUrl, state, isLoading, isError, isEmpty, refresh } = useLmStudioStatus();
      const [input, setInput] = useState(baseUrl);
@@ -535,8 +546,8 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
      const statusText = state.status === 'loading' ? 'Checking…' : state.status === 'error' ? state.error : `Connected to ${state.data?.baseUrl ?? ''}`;
 
      return (
-       <Container maxWidth="md" sx={{ mt: 4 }}>
-         <Stack spacing={2}>
+       <Container maxWidth="md" sx={{ mt: 4, pb: 4 }}>
+         <Stack spacing={2} direction="column">
            <Typography variant="h4">LM Studio</Typography>
            <TextField
              label="LM Studio base URL"
@@ -547,7 +558,7 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
              aria-describedby="lmstudio-status"
              fullWidth
            />
-           <Stack direction="row" spacing={1}>
+           <Stack direction={isSmall ? 'column' : 'row'} spacing={1} alignItems={isSmall ? 'stretch' : 'center'}>
              <Button variant="contained" onClick={handleCheck} disabled={isLoading}>Check status</Button>
              <Button variant="outlined" onClick={handleReset} disabled={isLoading}>Reset to default</Button>
              <Button variant="text" onClick={() => refresh()} disabled={isLoading}>Refresh models</Button>
@@ -557,30 +568,44 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
            </Typography>
            {isEmpty && <Typography>No models reported by LM Studio.</Typography>}
            {state.status === 'success' && state.data?.models.length ? (
-             <Paper>
-               <Table size="small" aria-label="LM Studio models">
-                 <TableHead>
-                   <TableRow>
-                     <TableCell>Name</TableCell>
-                     <TableCell>Key</TableCell>
-                     <TableCell>Type/Format</TableCell>
-                     <TableCell>Architecture</TableCell>
-                     <TableCell align="right">Size (bytes)</TableCell>
-                   </TableRow>
-                 </TableHead>
-                 <TableBody>
-                   {state.data.models.map((m) => (
-                     <TableRow key={m.modelKey} role="row">
-                       <TableCell>{m.displayName}</TableCell>
-                       <TableCell><Typography noWrap title={m.modelKey}>{m.modelKey}</Typography></TableCell>
-                       <TableCell>{`${m.type}${m.format ? ` / ${m.format}` : ''}`}</TableCell>
-                       <TableCell>{m.architecture ?? '-'}</TableCell>
-                       <TableCell align="right">{m.sizeBytes ?? '-'}</TableCell>
+             isSmall ? (
+               <Stack spacing={1} role="list">
+                 {state.data.models.map((m) => (
+                   <Paper key={m.modelKey} role="listitem" sx={{ p: 2 }}>
+                     <Typography variant="subtitle1" noWrap title={m.displayName}>{m.displayName}</Typography>
+                     <Typography variant="body2" noWrap title={m.modelKey}>{m.modelKey}</Typography>
+                     <Typography variant="body2">{`${m.type}${m.format ? ` / ${m.format}` : ''}`}</Typography>
+                     <Typography variant="body2">{m.architecture ?? '-'}</Typography>
+                     <Typography variant="body2">Size: {m.sizeBytes ?? '-'} bytes</Typography>
+                   </Paper>
+                 ))}
+               </Stack>
+             ) : (
+               <Paper>
+                 <Table size="small" aria-label="LM Studio models">
+                   <TableHead>
+                     <TableRow>
+                       <TableCell>Name</TableCell>
+                       <TableCell>Key</TableCell>
+                       <TableCell>Type/Format</TableCell>
+                       <TableCell>Architecture</TableCell>
+                       <TableCell align="right">Size (bytes)</TableCell>
                      </TableRow>
-                   ))}
-                 </TableBody>
-               </Table>
-             </Paper>
+                   </TableHead>
+                   <TableBody>
+                     {state.data.models.map((m) => (
+                       <TableRow key={m.modelKey} role="row">
+                         <TableCell>{m.displayName}</TableCell>
+                         <TableCell><Typography noWrap title={m.modelKey}>{m.modelKey}</Typography></TableCell>
+                         <TableCell>{`${m.type}${m.format ? ` / ${m.format}` : ''}`}</TableCell>
+                         <TableCell>{m.architecture ?? '-'}</TableCell>
+                         <TableCell align="right">{m.sizeBytes ?? '-'}</TableCell>
+                       </TableRow>
+                     ))}
+                   </TableBody>
+                 </Table>
+               </Paper>
+             )
            ) : null}
          </Stack>
        </Container>

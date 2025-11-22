@@ -98,7 +98,7 @@ npm install
 - Env keys  
   Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
   Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
-- File + compose: logs write to `./logs/server.log`; mount persistently with `- ./logs:/app/logs` in `docker-compose.yml`.
+- File + compose: logs write to `/app/logs/server.log` (host `./logs` is mounted to `/app/logs` in `docker-compose.yml`).
 - Disable client forwarding by setting in `.env.local`:
   ```env
   VITE_LOG_FORWARD_ENABLED=false

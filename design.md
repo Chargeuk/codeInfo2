@@ -147,3 +147,25 @@ flowchart TD
 - File output writes to `LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
 - Host persistence for compose runs uses `- ./logs:/app/logs` (to be added in compose) while keeping `logs/` gitignored and excluded from the server Docker build context.
 - `LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
+
+### Server log APIs & streaming
+
+- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, and appends to the in-memory store.
+- `GET /logs` returns `{ items, lastSequence, hasMore }` sorted by sequence and filtered via `level`, `source`, `text`, `since`, `until` with a hard limit of 200 items per call.
+- `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
+- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Store
+  Client->>Server: GET /logs/stream (Last-Event-ID?)
+  Server->>Store: query(filters, sinceSequence)
+  Store-->>Server: recent entries
+  Server-->>Client: SSE heartbeat + replay
+  Client->>Server: POST /logs
+  Server->>Store: append(entry + requestId, redact)
+  Store-->>Server: new sequence
+  Server-->>Client: SSE event id:<sequence>
+```

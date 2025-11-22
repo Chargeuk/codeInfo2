@@ -95,7 +95,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     ├─ logger.ts — pino/pino-http setup with rotation and env config helper
 │     ├─ logStore.ts — in-memory log buffer with sequence numbers and filters
 │     ├─ routes/
-│     │  ├─ logs.ts — placeholder for log ingestion/streaming routes
+│     │  ├─ logs.ts — log ingestion, history, and SSE streaming routes
 │     │  └─ lmstudio.ts — LM Studio proxy route
 │     ├─ types/
 │     │  └─ pino-roll.d.ts — module shim for pino-roll until official types

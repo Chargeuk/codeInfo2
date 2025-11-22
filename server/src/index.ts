@@ -6,6 +6,7 @@ import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { createRequestLogger } from './logger.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
+import { createLogsRouter } from './routes/logs.js';
 
 config();
 const app = express();
@@ -34,6 +35,7 @@ app.get('/info', (_req, res) => {
   });
 });
 
+app.use('/logs', createLogsRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 
 app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));

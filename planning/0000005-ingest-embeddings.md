@@ -282,6 +282,10 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 - MUI docs via MCP (@mui/material@7.2.0)
 - React Router docs: https://reactrouter.com/
 - Jest docs: Context7 `/jestjs/jest`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Jest docs: Context7 `/jestjs/jest`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 

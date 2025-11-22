@@ -115,11 +115,11 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Subtasks
 
-1. [ ] Add Chroma client config (Docker 1.3.5 target), shared collection init, and model-lock enforcement (lock once non-empty).
+1. [ ] Add Chroma client config (Docker 1.3.5 target), shared vectors collection init, and model-lock enforcement (lock once non-empty). Create a small management collection (`ingest_roots`) to store per-root/run summaries (name, description, model, status, counts, lastIngestAt, runId).
 2. [ ] Endpoint `POST /ingest/start` (body: path, name, description, model, dryRun?): kicks off ingest job, returns runId; rejects if another ingest running or model lock violated.
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.
-5. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt).
+5. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 6. [ ] Cucumber feature + steps covering happy path ingest start/status/list with mocked LM Studio + Chroma (use mock clients); include model-lock violation case.
 7. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, and data flow.
 8. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
@@ -153,9 +153,9 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 #### Subtasks
 
 1. [ ] Add server-wide ingest lock with clear error on concurrent start; include lock TTL/guard.
-2. [ ] Support cancel: `POST /ingest/cancel/:runId` sets cancel flag, aborts embedding calls, stops new work, then deletes vectors tagged with runId; return status to caller.
-3. [ ] Incremental re-embed endpoint `POST /ingest/reembed/:root` to diff by file/chunk hashes and update/delete as needed.
-4. [ ] Remove endpoint `POST /ingest/remove/:root` to purge all vectors for a root and clear model lock if collection becomes empty.
+2. [ ] Support cancel: `POST /ingest/cancel/:runId` sets cancel flag, aborts embedding calls, stops new work, then deletes vectors tagged with runId and updates `ingest_roots` status; return status to caller.
+3. [ ] Incremental re-embed endpoint `POST /ingest/reembed/:root` to diff by file/chunk hashes and update/delete as needed; update `ingest_roots` record with new runId/status/counts.
+4. [ ] Remove endpoint `POST /ingest/remove/:root` to purge all vectors for a root (both vectors collection and `ingest_roots` record) and clear model lock if collection becomes empty.
 5. [ ] Cucumber features/steps for cancel, re-embed, and remove, asserting cleanup of runId-tagged vectors and lock behavior.
 6. [ ] Update README.md/design.md/projectStructure.md for cancel/re-embed/remove flows and soft-cancel semantics.
 7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).

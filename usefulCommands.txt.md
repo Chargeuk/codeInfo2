@@ -18,3 +18,5 @@ ensure the tasks that update archetecture or add flows also update design.md wit
 
 Execution:
 I want you to get another codex agent to implement all remeaining tasks of the current story, and to get back to me with information about how this way of working went. This should be possible if you execute the following command for each task in sequence once the previous task is completed with a 30 minute timeout and adjusting the appropriate task number and story plan name for each task: codex exec -s danger-full-access "Please read Agents.md and follow it's instructions. Once done you must work through Task [Task Number & name] of planning/[current planning document].md, precicely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask."
+
+please create a pr comment that summerises the changes along with bullet points

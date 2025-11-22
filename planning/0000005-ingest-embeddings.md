@@ -359,13 +359,13 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Subtasks
 
-1. [ ] Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table.
+1. [ ] Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
 2. [ ] Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
 3. [ ] Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
 4. [ ] Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
-5. [ ] Ensure Readme.md is updated with ingest endpoints/flows and any new commands
+5. [ ] Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
 6. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
-7. [ ] Ensure projectStructure.md is updated with added/updated files & folders
+7. [ ] Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
 8. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
 
 #### Testing

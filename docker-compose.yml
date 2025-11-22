@@ -6,8 +6,9 @@ services:
     image: codeinfo2-server
     ports:
       - '5010:5010'
-    environment:
-      - PORT=5010
+    env_file:
+      - server/.env
+      - server/.env.local
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
       interval: 10s
@@ -20,8 +21,9 @@ services:
     image: codeinfo2-client
     ports:
       - '5001:5001'
-    environment:
-      - VITE_API_URL=http://server:5010
+    env_file:
+      - client/.env
+      - client/.env.local
     depends_on:
       server:
         condition: service_healthy

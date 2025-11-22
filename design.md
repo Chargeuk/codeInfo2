@@ -55,8 +55,10 @@ graph TD
   C -->|uses| D
   B --> E[client Docker image]
   C --> F[server Docker image]
+  C --> H[LM Studio server]
   E --> G[docker-compose]
   F --> G
+  G --> H
 ```
 
 This diagram shows the three workspaces sharing the root tooling, each consuming the common package, and both producing Docker images that the compose stack orchestrates.
@@ -79,6 +81,33 @@ sequenceDiagram
 ```
 
 This sequence captures the startup request path the UI uses to display client and server versions via the shared VersionInfo DTO.
+
+## LM Studio flow
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Client
+  participant Server
+  participant LMStudio
+
+  User->>Client: navigate to LM Studio page
+  Client->>Server: GET /lmstudio/status?baseUrl=...
+  alt valid + reachable
+    Server->>LMStudio: system.listDownloadedModels()
+    LMStudio-->>Server: models[]
+    Server-->>Client: 200 {status:'ok', models}
+    Client-->>User: shows model list / empty state
+  else timeout or SDK error
+    Server-->>Client: 502 {status:'error', error}
+    Client-->>User: shows actionable error
+  else invalid baseUrl
+    Server-->>Client: 400 {status:'error', error:'Invalid baseUrl'}
+    Client-->>User: surface validation error
+  end
+```
+
+The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
 ## End-to-end validation
 

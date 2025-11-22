@@ -51,9 +51,19 @@ npm install
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
-- `npm run test --workspace server` (Cucumber health scenario; server must be running on 5010)
+- `npm run test --workspace server` (Cucumber scenarios)
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
+
+### LM Studio proxy
+
+- Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).
+- Success example:
+  ```json
+  { "status": "ok", "baseUrl": "http://host.docker.internal:1234", "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }] }
+  ```
+- Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
+- Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
 
 ## Docker Compose
 
@@ -61,6 +71,7 @@ npm install
 - Start stack: `npm run compose:up` (client on http://localhost:5001, server on http://localhost:5010)
 - Tail logs: `npm run compose:logs`
 - Stop stack: `npm run compose:down`
+- Compose loads env from `client/.env[.local]` and `server/.env[.local]` (create empty `.env.local` files to silence warnings if you don't need overrides).
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
 
 ## End-to-end (Playwright)

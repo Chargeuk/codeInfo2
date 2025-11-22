@@ -69,6 +69,8 @@ Here’s the streaming approach we’ll use:
 
 ### 1. Server Models Endpoint
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -112,6 +114,8 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 ---
 
 ### 2. Server Chat Streaming Endpoint
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -176,6 +180,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 ### 3. Cancellation & Stop Control
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -218,6 +224,8 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 ---
 
 ### 4. Chat Page – Models List
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -264,6 +272,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 ### 5. Chat Page – Chat Functionality
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -308,6 +318,8 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 ### 6. Chat Page – New Conversation Control
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -350,6 +362,8 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 ### 7. Chat Page – Stop Control UI
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -391,6 +405,8 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 ---
 
 ### 8. End-to-End & Documentation
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__

@@ -71,7 +71,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 #### Overview
 
-Implement server-side folder discovery respecting git-tracked-only rules, exclude lists, and text-only constraint. Add chunking with heuristic boundaries and token caps using LM Studio SDK context length, plus hashing for file/chunk diffs.
+Implement server-side folder discovery respecting git-tracked-only rules, exclude lists, and text-only constraint. Add chunking with heuristic boundaries and token caps using LM Studio SDK context length, plus hashing for file/chunk diffs. Covers AC: git-tracked text-only inputs, excludes, chunking/token cap groundwork.
 
 #### Documentation Locations
 
@@ -88,7 +88,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 4. [ ] Unit tests for discovery/excludes/text detection/chunking/hash functions.
 5. [ ] Update projectStructure.md with new server modules.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-7. [ ] Add example ingest fixture folder path (e.g., `e2e/fixtures/ingest-sample/`) and minimal contents (one small text file) to README or test notes for later tasks to reuse.
+7. [ ] Add example ingest fixture folder path (e.g., `e2e/fixtures/ingest-sample/`) with minimal contents (at least one small text file) to README or test notes for later tasks to reuse.
 
 #### Testing
 
@@ -111,7 +111,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 #### Overview
 
-Expose `/ingest/models` that lists LM Studio downloaded models filtered to embedding-capable ones. Provide Cucumber coverage.
+Expose `/ingest/models` that lists LM Studio downloaded models filtered to embedding-capable ones. Provide Cucumber coverage. Covers AC: model dropdown sourcing from embedding-only list before ingest begins.
 
 #### Documentation Locations
 
@@ -150,7 +150,7 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 #### Overview
 
-Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber coverage. Ensure model lock is enforced when collection non-empty.
+Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber coverage. Ensure model lock is enforced when collection non-empty. Covers AC: single shared collection, model lock, metadata captured per chunk, ingest start/status.
 
 #### Documentation Locations
 
@@ -169,7 +169,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 5. [ ] Cucumber feature + steps covering happy path ingest start/status using real Chroma spun up via Testcontainers (or dedicated cucumber-compose) and mocked LM Studio; include model-lock violation case.
-6. [ ] Update README.md with ingest start/status endpoints, model lock rules, testcontainers/cucumber-compose notes, and required env vars (Chroma host/port/collection, model lock env, exclude env, LM Studio host).
+6. [ ] Update README.md with ingest start/status endpoints, model lock rules, testcontainers/cucumber-compose notes, and required env vars (Chroma host/port/collection, model lock env, exclude env, LM Studio host) with example values.
 7. [ ] Update design.md with ingest flow diagrams (Mermaid), model lock, and Chroma integration.
 8. [ ] Update projectStructure.md for new server files/routes and compose additions.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -195,7 +195,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Overview
 
-Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` management collection (name, description, model, status, counts, last run). Used by the client table.
+Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` management collection (name, description, model, status, counts, last run). Used by the client table. Covers AC: list embedded roots and model lock visibility.
 
 #### Documentation Locations
 
@@ -236,7 +236,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 #### Overview
 
-Enforce one ingest at a time, implement soft cancel, and purge partial embeddings for a run. Add incremental re-embed and remove endpoints.
+Enforce one ingest at a time, implement soft cancel, and purge partial embeddings for a run. Add incremental re-embed and remove endpoints. Covers AC: single-flight ingest, cancel/cleanup, re-embed diffs, remove/purge and model unlock when empty.
 
 #### Documentation Locations
 
@@ -279,7 +279,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 #### Overview
 
-Add Ingest page route/tab, form for path/name/description/model, and model lock banner. Disable model select once collection non-empty.
+Add Ingest page route/tab, form for path/name/description/model, and model lock banner. Disable model select once collection non-empty. Covers AC: ingest page UI, model selection default/lock, name/description capture.
 
 #### Documentation Locations
 
@@ -323,7 +323,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 #### Overview
 
-Show current ingest run status with counters, soft cancel, and link to logs. Poll status endpoint.
+Show current ingest run status with counters, soft cancel, and link to logs. Poll status endpoint. Covers AC: surface progress/error states, soft cancel feedback, link to logs.
 
 #### Documentation Locations
 
@@ -364,7 +364,7 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 #### Overview
 
-Render table of embedded roots with actions (Re-embed, Remove, Details) and description hover/tooltip. Include bulk actions and empty state.
+Render table of embedded roots with actions (Re-embed, Remove, Details) and description hover/tooltip. Include bulk actions and empty state. Covers AC: remove/re-embed controls, description hover/click, model lock visibility, empty state.
 
 #### Documentation Locations
 
@@ -418,8 +418,8 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Subtasks
 
-1. [ ] Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack.
-2. [ ] Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma.
+1. [ ] Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
+2. [ ] Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or built-in overrides).
 3. [ ] Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
 4. [ ] Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
 5. [ ] Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.

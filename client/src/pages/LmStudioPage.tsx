@@ -21,8 +21,13 @@ const DEFAULT_LM_URL =
     (import.meta as ImportMeta)?.env?.VITE_LMSTUDIO_URL) ??
   'http://host.docker.internal:1234';
 
-const scrubBaseUrl = (value: string) =>
-  value.replace(/:\/\/[^@]+@/, '://[redacted]@');
+const scrubBaseUrl = (value: string) => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '[invalid-url]';
+  }
+};
 
 function humanSize(bytes?: number | null) {
   if (!bytes) return '-';

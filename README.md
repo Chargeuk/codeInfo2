@@ -103,6 +103,7 @@ npm install
   ```env
   VITE_LOG_FORWARD_ENABLED=false
   ```
+- LM Studio actions: client logs status/refresh/reset actions with redacted base URLs; server logs inbound LM Studio proxy calls (requestId, base URL origin, model count or error). Secrets in URLs are stripped before logging.
 
 ### LM Studio proxy
 

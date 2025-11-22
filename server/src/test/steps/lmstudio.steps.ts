@@ -8,7 +8,9 @@ import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import { createRequestLogger } from '../../logger.js';
 import { createLmStudioRouter } from '../../routes/lmstudio.js';
+import { createLogsRouter } from '../../routes/logs.js';
 import {
   MockLMStudioClient,
   type MockScenario,
@@ -24,6 +26,7 @@ let response: { status: number; body: LmStudioStatusResponse | null } | null =
 Before(async () => {
   const app = express();
   app.use(cors());
+  app.use(createRequestLogger());
   app.use(
     '/',
     createLmStudioRouter({
@@ -31,6 +34,7 @@ Before(async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
     }),
   );
+  app.use('/logs', createLogsRouter());
 
   await new Promise<void>((resolve) => {
     const listener = app.listen(0, () => {
@@ -100,3 +104,17 @@ Then(
     assert.equal((arr as unknown[]).length, expected);
   },
 );
+
+Then('a log entry is recorded for LM Studio with a requestId', async () => {
+  const res = await fetch(`${baseUrl}/logs?text=lmstudio`);
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as {
+    items?: { message?: string; requestId?: string }[];
+  };
+  assert(body.items && body.items.length > 0, 'expected log items');
+  const match = body.items.find((i) =>
+    i.message?.toLowerCase().includes('lmstudio'),
+  );
+  assert(match, 'expected an lmstudio log');
+  assert(match.requestId, 'expected requestId on log entry');
+});

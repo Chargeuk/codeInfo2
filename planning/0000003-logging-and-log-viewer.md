@@ -290,7 +290,7 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 
 1. [ ] Build the server (`npm run build --workspace server`)
 2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build` after ensuring logs folder exists)
+3. [ ] Perform a clean docker build (`npm run compose:build` after ensuring logs folder exists); bring stack up `npm run compose:up` (confirm) and down `npm run compose:down` after testing.
 4. [ ] README.md: add logging usage (server/client), API examples for `/logs` and `/logs/stream`, env vars, log file location/rotation, compose volume mount `./logs:/app/logs`, and new commands.
 5. [ ] design.md: add logging architecture diagram/flow (ingest -> store -> GET/SSE -> UI), GUI behaviour, redaction/retention notes.
 6. [ ] projectStructure.md: list new files (server logger/logStore/routes, client logging folder, e2e/logs.spec.ts) and note `logs/` dir.
@@ -300,14 +300,13 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 
 #### Testing
 
-1. [ ] run the client jest tests (`npm run test --workspace client`)
-2. [ ] run the server cucumber tests (`npm run test --workspace server`)
-3. [ ] restart the docker environment (`npm run compose:down && npm run compose:up` or equivalent)
-4. [ ] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
-5. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-5-<name>.png`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up` (confirm stack starts)
-8. [ ] `npm run compose:down`
+1. [ ] `npm run compose:build`
+2. [ ] `npm run compose:up` (confirm stack starts)
+3. [ ] run the client jest tests (`npm run test --workspace client`)
+4. [ ] run the server cucumber tests (`npm run test --workspace server`)
+5. [ ] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
+6. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-5-<name>.png`)
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 

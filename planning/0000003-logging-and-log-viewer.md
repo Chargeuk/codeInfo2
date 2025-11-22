@@ -183,6 +183,8 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 - Client app shell and hooks (`client/src`), especially router/pages layout.
 - Vite env handling (https://vitejs.dev/guide/env-and-mode.html) and existing `.env` defaults.
 - Testing: Jest docs via Context7 `/jestjs/jest`; Testing Library patterns already in `client/src/test`.
+- React fundamentals: https://react.dev/learn (component patterns, effects, error handling).
+- React Router docs via Context7 `/remix-run/react-router` (routing/error boundaries where touched).
 
 #### Subtasks
 
@@ -226,6 +228,8 @@ Create a new “Logs” route in the client that consumes the server log API, su
 - SSE client usage: MDN EventSource (https://developer.mozilla.org/en-US/docs/Web/API/EventSource) for connection/retry/Last-Event-ID patterns.
 - Testing: Jest docs via Context7 `/jestjs/jest` for hook/UI tests; Playwright docs via Context7 `/microsoft/playwright` for e2e.
 - Playwright e2e setup under `e2e/`.
+- React fundamentals: https://react.dev/learn (components/state/effects).
+- React Router docs via Context7 `/remix-run/react-router` (NavBar routing, route setup, loaders/error boundaries if needed).
 
 #### Subtasks
 

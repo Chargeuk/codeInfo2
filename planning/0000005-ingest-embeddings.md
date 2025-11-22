@@ -82,23 +82,25 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 #### Subtasks
 
-1. [ ] Install missing deps for this phase: `npm install --workspace server chromadb@3.1.6` and `npm install --workspace server @types/node@latest` if needed. **Do not change LM Studio SDK — @lmstudio/sdk@1.5.0 is already installed and must stay pinned.** Add env keys to `server/.env`: `CHROMA_URL=http://localhost:8000`, `INGEST_EXCLUDE=node_modules,.git,dist,build,coverage,logs,vendor,*.log,*.min.js,package-lock.json,yarn.lock,pnpm-lock.yaml`, `INGEST_INCLUDE=ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,mdx,txt,py,java,kt,kts,go,rs,rb,php,cs,cpp,cc,c,h,hpp,swift,scala,clj,cljs,edn,sh,bash,zsh,ps1,yaml,yml,toml,ini,cfg,env,sql`. Document defaults stay in code; env extends/overrides.
-2. [ ] Create `server/src/ingest/discovery.ts`: functions `findRepoRoot(startPath)`, `listGitTracked(root)` using `git ls-files -z`, fallback to `walkDir` when not a git repo, `isTextFile(path, extAllowlist, hardExcludes)` using extension allowlist and mime sniff (fallback). Apply hard excludes (always) + env excludes (extend/override). Ensure `.git` is always skipped. Return `{ root, files: Array<{ absPath, relPath, ext }> }`.
-3. [ ] Add `server/src/ingest/hashing.ts`: `hashFile(absPath)`, `hashChunk(relPath, chunkIndex, text)` using sha256; deterministic input order (root, relPath, chunkIndex, text) and encode UTF-8.
-4. [ ] Add `server/src/ingest/chunker.ts`: accept text + model token limit. Use LM Studio helpers `countTokens`/`getContextLength`. Use safety margin 0.85 * contextLength; fallback limit 2048 if limit unavailable. Boundary regexes: split on `/^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m`. If a boundary chunk exceeds limit, fallback to size-based slice of ~75% of limit tokens. Output chunks with `chunkIndex`, `text`, `tokenCount`.
-5. [ ] Add `server/src/ingest/types.ts` with shared types (`DiscoveredFile`, `Chunk`, `ChunkMeta`, `IngestRunState`). Add `server/src/ingest/config.ts` to read env include/exclude lists, token safety margin, default cap.
-6. [ ] Wire `server/src/ingest/index.ts` exporting discovery+chunking helpers for later API use; keep pure (no Express).
-7. [ ] Tests: add `server/src/ingest/__tests__/discovery.test.ts`, `chunker.test.ts`, `hashing.test.ts`. Cover git-tracked filter (mock git), hard exclude precedence, env override/extend, text detection, boundary-first splits, fallback slicing, hash determinism. Use fixtures under `server/src/ingest/__fixtures__` (small sample files).
-8. [ ] Update `projectStructure.md` with new ingest modules and fixture folder.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if failures, rerun `npm run lint:fix --workspaces` / `npm run format --workspaces` and resolve.
+1. [ ] Subtask – Install missing deps: `npm install --workspace server chromadb@3.1.6` (needed later) and `npm install --workspace server @types/node@latest` if required. **Do not change @lmstudio/sdk@1.5.0.** Add env examples in `server/.env`: `CHROMA_URL=http://localhost:8000`, `INGEST_EXCLUDE=node_modules,.git,dist,build,coverage,logs,vendor,*.log,*.min.js,package-lock.json,yarn.lock,pnpm-lock.yaml`, `INGEST_INCLUDE=ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,mdx,txt,py,java,kt,kts,go,rs,rb,php,cs,cpp,cc,c,h,hpp,swift,scala,clj,cljs,edn,sh,bash,zsh,ps1,yaml,yml,toml,ini,cfg,env,sql`. Note: env extends/overrides hardcoded defaults; mention this in README later.
+2. [ ] Subtask – Create `server/src/ingest/discovery.ts`: functions `findRepoRoot(startPath)`, `listGitTracked(root)` (`git ls-files -z`), fallback `walkDir` when not a repo, `isTextFile(path, extAllowlist, hardExcludes)` using allowlist + mime sniff fallback. Apply hard excludes (always) + env excludes (extend/override). Always skip `.git`. Return `{ root, files: Array<{ absPath, relPath, ext }> }`. Add inline example: env override `INGEST_EXCLUDE=node_modules,.git,dist,temp` should prune those.
+3. [ ] Subtask – Add `server/src/ingest/hashing.ts`: `hashFile(absPath)`, `hashChunk(relPath, chunkIndex, text)` using sha256; deterministic order (root, relPath, chunkIndex, text) and UTF-8 encoding.
+4. [ ] Subtask – Add `server/src/ingest/chunker.ts`: accept text + model token limit. Use LM Studio helpers `countTokens`/`getContextLength`; safety margin `0.85 * contextLength`, fallback limit 2048 if unavailable. Boundary regex `/^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m`; if boundary chunk exceeds limit, slice to ~75% of limit tokens. Output chunks `{ chunkIndex, text, tokenCount }`. Inputs/Outputs note: input text + limit → array of chunk objects with token counts respecting limit.
+5. [ ] Subtask – Add `server/src/ingest/types.ts` (`DiscoveredFile`, `Chunk`, `ChunkMeta`, `IngestRunState`) and `server/src/ingest/config.ts` to read env include/exclude lists, token safety margin, default cap (2048 fallback).
+6. [ ] Subtask – Wire `server/src/ingest/index.ts` exporting discovery+chunking+hashing helpers; keep pure (no Express). Document exports briefly in file header.
+7. [ ] Subtask – Tests: add `server/src/ingest/__tests__/discovery.test.ts`, `chunker.test.ts`, `hashing.test.ts`. Cover git-tracked filter (mock git), hard exclude precedence, env override/extend, text detection, boundary-first splits, fallback slicing, hash determinism. Use fixtures under `server/src/ingest/__fixtures__` (create small sample files with obvious boundaries).
+8. [ ] Subtask – Update `projectStructure.md` with new ingest modules and fixture folder.
+9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if failures, rerun `npm run lint:fix --workspaces` / `npm run format --workspaces` and resolve. Expected result: both commands exit 0.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Expected: builds succeed, tests green, compose stack starts then stops cleanly.
+
+1. [ ] `npm run build --workspace server` (should succeed)
+2. [ ] `npm run test --workspace server` (unit tests pass)
+3. [ ] `npm run compose:build` (images build)
+4. [ ] `npm run compose:up` (both services healthy; stop after verifying)
+5. [ ] `npm run compose:down` (stack stops without errors)
 
 #### Implementation notes
 
@@ -124,20 +126,22 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 #### Subtasks
 
-1. [ ] Create `server/src/routes/ingestModels.ts` exposing `GET /ingest/models`. Use LM Studio SDK `listDownloadedModels()` and filter `model.type === 'embedding' || capabilities.includes('embedding')`. Response shape: `{ models: [{ id, displayName, contextLength, format, size, filename }] }`. If the ingest collection is non-empty (hook later), include `lockedModelId` if known. Errors: 502 on SDK failure with `{ status:'error', message }`.
-2. [ ] Register route in `server/src/index.ts` (or routes barrel) under `/ingest/models`; ensure CORS matches existing config.
-3. [ ] Add Cucumber feature `server/src/test/features/ingest-models.feature` with scenarios: (a) returns only embedding models (mock SDK list with mixed types), (b) SDK failure returns 502 error payload. Implement steps in `server/src/test/steps/ingest-models.steps.ts` using SDK mock/stub.
-4. [ ] Update README.md: document request/response example for `/ingest/models` (sample JSON), note embedding-only filter, mention locked model behavior.
-5. [ ] Update design.md with a small sequence/flow for model fetch and UI dependency; include the same sample request/response for quick reference; reference model lock note.
-6. [ ] Update projectStructure.md with new route + test files.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed.
+1. [ ] Subtask – Create `server/src/routes/ingestModels.ts` exposing `GET /ingest/models`. Inputs: no body. Outputs: `{ models: [{ id, displayName, contextLength, format, size, filename }], lockedModelId?: string }`. Use LM Studio SDK `listDownloadedModels()` and filter `model.type === 'embedding' || capabilities.includes('embedding')`. On SDK failure return 502 `{ status:'error', message }`.
+2. [ ] Subtask – Register route in `server/src/index.ts` (or routes barrel) under `/ingest/models`; ensure CORS matches existing config.
+3. [ ] Subtask – Add Cucumber feature `server/src/test/features/ingest-models.feature` with scenarios: (a) returns only embedding models (mock SDK list with mixed types), (b) SDK failure returns 502 error payload. Implement steps in `server/src/test/steps/ingest-models.steps.ts` using SDK mock/stub.
+4. [ ] Subtask – Update README.md: include request/response example for `/ingest/models` (sample JSON), note embedding-only filter, mention locked model behavior.
+5. [ ] Subtask – Update design.md with a small sequence/flow for model fetch and UI dependency; include the same sample request/response for quick reference; reference model lock note.
+6. [ ] Subtask – Update `projectStructure.md` with new route + test files.
+7. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect exit 0).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succeed, Cucumber passes, compose stack starts/stops.
+
+1. [ ] `npm run build --workspace server` (success)
+2. [ ] `npm run test --workspace server` (all scenarios pass)
 3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
+4. [ ] `npm run compose:up` (healthy)
 5. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -167,7 +171,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Subtasks
 
-1. [ ] Add Chroma compose service snippet to `docker-compose.yml`:
+1. [ ] Subtask – Add Chroma compose service snippet to `docker-compose.yml` (as shown below) and env keys in `server/.env`: `CHROMA_URL=http://chroma:8000`, `INGEST_COLLECTION=ingest_vectors`, `INGEST_ROOTS_COLLECTION=ingest_roots`.
    ```yaml
    chroma:
      image: chromadb/chroma:1.3.5
@@ -176,18 +180,21 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
    volumes:
      chroma-data:
    ```
-   Add env to server `.env`: `CHROMA_URL=http://chroma:8000`, `INGEST_COLLECTION=ingest_vectors`, `INGEST_ROOTS_COLLECTION=ingest_roots`.
-2. [ ] Implement `server/src/ingest/chromaClient.ts`: singleton connecting to `CHROMA_URL`, init collections, expose helpers `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (via collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`.
-3. [ ] Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`: body `{ path, name, description, model, dryRun?: boolean }`. Validate model lock (if collection non-empty, reject with 409 `{ status:'error', code:'MODEL_LOCKED' }`). Enforce single-flight lock (defer to Task 5 for cancellation plumbing). Start async job, return `{ runId }`.
-4. [ ] Implement `GET /ingest/status/:runId` in `server/src/routes/ingestStatus.ts`: returns `{ runId, state: 'queued'|'scanning'|'embedding'|'completed'|'error'|'cancelled', counts: { files, chunks, embedded }, message?, lastError? }` reading from in-memory job state.
-5. [ ] Create ingest job orchestrator `server/src/ingest/ingestJob.ts`: uses discovery+chunker+hashing, LM Studio embedding (`model.embed()`), and Chroma upsert with metadata `{ runId, root, relPath, fileHash, chunkHash, embeddedAt, model, name, description }`. Respect `dryRun` by skipping upsert but still reporting would-be counts. Persist per-root summary into `ingest_roots` collection.
-6. [ ] Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY when lock engaged, 400 validation).
-7. [ ] Update design.md with ingest flow mermaid (start → discover → chunk → embed → upsert), show model-lock check and Chroma metadata; include the same sample request/response snippets; note dry-run path.
-8. [ ] Update projectStructure.md for new routes/modules and compose volume addition.
-9. [ ] Cucumber: feature `ingest-start.feature` using Testcontainers Chroma (or cucumber-compose) + mocked LM Studio: scenarios happy path, model-lock violation, and dry-run (no vectors written). Steps in `server/src/test/steps/ingest-start.steps.ts`.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed.
+2. [ ] Subtask – Implement `server/src/ingest/chromaClient.ts`: singleton to `CHROMA_URL`, init collections, expose `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (from collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`. Inputs/Outputs: helper functions only; no HTTP surface.
+3. [ ] Subtask – Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`. Request body `{ path, name, description, model, dryRun?: boolean }`; Response `{ runId }` on 202; Errors: 409 `{ status:'error', code:'MODEL_LOCKED' }` if locked, 429 `{ status:'error', code:'BUSY' }` if single-flight holds (lock logic later), 400 validation. Validate model lock (if collection non-empty, reject). Start async job.
+4. [ ] Subtask – Implement `GET /ingest/status/:runId` in `server/src/routes/ingestStatus.ts`: Output `{ runId, state: 'queued'|'scanning'|'embedding'|'completed'|'error'|'cancelled', counts: { files, chunks, embedded }, message?, lastError? }` from in-memory job state.
+5. [ ] Subtask – Create orchestrator `server/src/ingest/ingestJob.ts`: uses discovery+chunker+hashing, LM Studio embedding (`model.embed()`), and Chroma upsert with metadata `{ runId, root, relPath, fileHash, chunkHash, embeddedAt, model, name, description }`. Respect `dryRun` by skipping upsert but still reporting would-be counts. Persist per-root summary into `ingest_roots` collection.
+6. [ ] Subtask – Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY, 400 validation). Include example curl:
+   - `curl -X POST http://localhost:5010/ingest/start -H 'content-type: application/json' -d '{"path":"/repo","name":"repo","model":"model1"}'`
+   - `curl http://localhost:5010/ingest/status/<runId>`
+7. [ ] Subtask – Update design.md with ingest flow mermaid (start → discover → chunk → embed → upsert), model-lock check, Chroma metadata; include the same sample request/response snippets; note dry-run path.
+8. [ ] Subtask – Update `projectStructure.md` for new routes/modules and compose volume addition.
+9. [ ] Subtask – Cucumber: feature `ingest-start.feature` using Testcontainers Chroma (or cucumber-compose) + mocked LM Studio. Scenarios: happy path, model-lock violation, dry-run (no vectors written). Steps in `server/src/test/steps/ingest-start.steps.ts`.
+10. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect exit 0).
 
 #### Testing
+
+Prereqs: Chroma service available for tests that need it (Testcontainers/compose) and LM Studio mocked. Expected: builds succeed; Cucumber covers endpoints; compose stack healthy.
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
@@ -220,15 +227,17 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 #### Subtasks
 
-1. [ ] Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`: return `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` pulling from `ingest_roots` collection and collection metadata.
-2. [ ] Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
-3. [ ] Cucumber feature `ingest-roots.feature` with scenarios: after ingest run returns row; after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma and mocked LM Studio.
-4. [ ] Update README.md with payload JSON example and filter/lock note.
-5. [ ] Update design.md with short flow (UI table fetch) and model-lock visibility; include the payload example for quick reference.
-6. [ ] Update projectStructure.md for new route/test files.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed.
+1. [ ] Subtask – Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`. Output: `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` from `ingest_roots` collection and collection metadata.
+2. [ ] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
+3. [ ] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
+4. [ ] Subtask – Update README.md with payload JSON example and filter/lock note (inputs none; output sample table row).
+5. [ ] Subtask – Update design.md with short flow (UI table fetch) and model-lock visibility; include payload example.
+6. [ ] Subtask – Update `projectStructure.md` for new route/test files.
+7. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect success).
 
 #### Testing
+
+Prereqs: Chroma reachable (Testcontainers/compose) and LM Studio mocked. Expected: builds/tests/compose succeed.
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
@@ -261,18 +270,20 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 #### Subtasks
 
-1. [ ] Implement global single-flight lock in `server/src/ingest/lock.ts` with TTL safeguard (e.g., 30m) and clear on completion/error/cancel. Concurrent `POST /ingest/start` returns 429 `{ status:'error', code:'BUSY' }`.
-2. [ ] `POST /ingest/cancel/:runId` (route file `ingestCancel.ts`): set cancel flag in orchestrator, abort LM Studio calls if possible, stop enqueueing work, delete vectors tagged with `runId`, update `ingest_roots` status to `cancelled`, respond `{ status:'ok', cleanup:'complete'|'pending' }`.
-3. [ ] `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `runId`. Enforce model lock; reject if another ingest active.
-4. [ ] `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`.
-5. [ ] Update orchestrator to tag all writes with `runId` and `root` to support purge/cancel; ensure cancel cleans partial vectors.
-6. [ ] Cucumber features: `ingest-cancel.feature`, `ingest-reembed.feature`, `ingest-remove.feature` using Testcontainers Chroma + mocked LM Studio. Assertions: lock prevents concurrent start, cancel removes runId vectors, reembed updates changed file only, remove clears root and unlocks model when empty.
-7. [ ] README.md: add endpoint contract tables with request/response JSON examples for cancel/re-embed/remove; note single-flight and model lock interactions.
-8. [ ] design.md: add flow diagrams for cancel and re-embed/remove; include the same example payloads; describe unlock condition.
-9. [ ] projectStructure.md: add new route/lock modules and test features.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed.
+1. [ ] Subtask – Implement global single-flight lock in `server/src/ingest/lock.ts` with TTL safeguard (e.g., 30m) and clear on completion/error/cancel. Concurrent `POST /ingest/start` returns 429 `{ status:'error', code:'BUSY' }`.
+2. [ ] Subtask – `POST /ingest/cancel/:runId` (route `ingestCancel.ts`): set cancel flag in orchestrator, abort LM Studio calls if possible, stop enqueueing work, delete vectors tagged with `runId`, update `ingest_roots` status to `cancelled`, respond `{ status:'ok', cleanup:'complete'|'pending' }`. Curl example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`; expected log line in server log mentioning runId and cleanup status.
+3. [ ] Subtask – `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `{ runId }`. Enforce model lock; reject if another ingest active. Curl example: `curl -X POST http://localhost:5010/ingest/reembed/my-root`.
+4. [ ] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
+5. [ ] Subtask – Update orchestrator to tag all writes with `runId` and `root` to support purge/cancel; ensure cancel cleans partial vectors. Add log entries for start, cancel, cleanup result.
+6. [ ] Subtask – Cucumber features: `ingest-cancel.feature`, `ingest-reembed.feature`, `ingest-remove.feature` using Testcontainers Chroma + mocked LM Studio. Assertions: lock prevents concurrent start, cancel removes runId vectors, reembed updates changed file only, remove clears root and unlocks model when empty. Include step asserting server log contains cleanup note.
+7. [ ] Subtask – README.md: add endpoint contract tables with request/response JSON examples for cancel/re-embed/remove; note single-flight and model lock interactions; include sample curl commands above.
+8. [ ] Subtask – design.md: add flow diagrams for cancel and re-embed/remove; include same example payloads; describe unlock condition when collection empty.
+9. [ ] Subtask – projectStructure.md: add new route/lock modules and test features.
+10. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect clean).
 
 #### Testing
+
+Prereqs: Chroma reachable; LM Studio mocked; ensure no other ingest run active. Expected: builds/tests/compose succeed; cancel/re-embed/remove scenarios verified via Cucumber.
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
@@ -304,17 +315,19 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 #### Subtasks
 
-1. [ ] Add `/ingest` route and NavBar tab (sync with chat branch). Files: update `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx` to include tab.
-2. [ ] Create page shell `client/src/pages/IngestPage.tsx` with sections: form, lock banner, active run card placeholder, roots table placeholder.
-3. [ ] Form component `client/src/components/ingest/IngestForm.tsx`: fields path (required), name (required), description (optional), model select (disabled when `lockedModelId` present), dry-run toggle, start button. Validation: non-empty path/name, model required when select enabled. On submit call `/ingest/start` with JSON body.
-4. [ ] Hook `useIngestModels` (`client/src/hooks/useIngestModels.ts`) to fetch `/ingest/models`, return models + lockedModelId; cache first model as default when unlocked.
-5. [ ] Jest/RTL tests: render with unlocked vs locked state, validation errors, disabled submit when invalid, payload structure, lock banner visibility. Place under `client/src/test/ingestForm.test.tsx`.
-6. [ ] README.md: add ingest page route, brief UX (model lock banner), how to run locally.
-7. [ ] design.md: add form layout notes and lock banner mention.
-8. [ ] projectStructure.md: add new page/component/hook/test paths.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed.
+1. [ ] Subtask – Add `/ingest` route and NavBar tab (sync with chat branch). Files: update `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`.
+2. [ ] Subtask – Create `client/src/pages/IngestPage.tsx` with sections: form, lock banner, active run card placeholder, roots table placeholder.
+3. [ ] Subtask – Build `client/src/components/ingest/IngestForm.tsx`: fields path (required), name (required), description (optional), model select (disabled when `lockedModelId` present), dry-run toggle, start button. Validation states: show inline errors “Path is required”, “Name is required”, “Select a model” when applicable; disable submit until valid. Loading state: disable form when submitting. Empty state: when `lockedModelId` present, show banner text “Embedding model locked to <id>”. Submit calls `/ingest/start` JSON body `{ path, name, description?, model, dryRun }`.
+4. [ ] Subtask – Hook `useIngestModels` (`client/src/hooks/useIngestModels.ts`) to fetch `/ingest/models`, return models + lockedModelId; cache first model as default when unlocked. Outputs: `{ models, lockedModelId, isLoading, error }`.
+5. [ ] Subtask – Jest/RTL tests `client/src/test/ingestForm.test.tsx`: cover unlocked vs locked, validation errors text, disabled submit when invalid or loading, payload structure on submit, lock banner visibility.
+6. [ ] Subtask – README.md: add ingest page route, UX summary (lock banner, validation messages), how to run locally.
+7. [ ] Subtask – design.md: add form layout notes and lock banner mention; include short Inputs/Outputs snippet for `/ingest/start` call.
+8. [ ] Subtask – projectStructure.md: add new page/component/hook/test paths.
+9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect success).
 
 #### Testing
+
+Prereqs: server endpoints available or mocked; set `VITE_API_URL` to server. Expected: build/test pass; compose stack healthy.
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
@@ -345,17 +358,19 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 #### Subtasks
 
-1. [ ] Create hook `client/src/hooks/useIngestStatus.ts` polling `/ingest/status/:runId` with interval (e.g., 2s) and stop on terminal states. Accept `runId | undefined`.
-2. [ ] Component `client/src/components/ingest/ActiveRunCard.tsx`: show state badges (Scanning/Embedding/Cancelled/Completed/Error), counters {files, chunks, embedded, skipped}, lastError text, cancel button (calls `/ingest/cancel/:runId`). Display success/error toast-like inline message.
-3. [ ] Wire into `IngestPage` so when `/ingest/start` returns runId, page starts polling and shows card. Disable form/table actions while active.
-4. [ ] Add link/button to open Logs page filtered by `runId` (if query param supported) or copy runId to clipboard helper.
-5. [ ] Tests `client/src/test/ingestStatus.test.tsx`: polling stops on completed/cancelled/error, cancel button invokes endpoint and updates UI, disabled states during cancel.
-6. [ ] README.md: describe active run card, cancel behavior, and polling interval.
-7. [ ] design.md: add status/cancel flow notes or small sequence diagram.
-8. [ ] projectStructure.md: include new hook/component/test files.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+1. [ ] Subtask – Create hook `client/src/hooks/useIngestStatus.ts` polling `/ingest/status/:runId` every ~2s, stop on terminal states. Outputs: `{ status, counts, isLoading, error, cancel }`.
+2. [ ] Subtask – Component `client/src/components/ingest/ActiveRunCard.tsx`: show state badges (Scanning/Embedding/Cancelled/Completed/Error), counters {files, chunks, embedded, skipped}, lastError text. Cancel button calls `/ingest/cancel/:runId`; show inline success/error message. States: disable cancel while request in flight; show “Cancelling…” label.
+3. [ ] Subtask – Wire into `IngestPage` so when `/ingest/start` returns runId, page starts polling and shows card. Disable form/table actions while active ingest is running.
+4. [ ] Subtask – Add link/button to open Logs page filtered by `runId` (or copy runId to clipboard). Label: “View logs for this run”.
+5. [ ] Subtask – Tests `client/src/test/ingestStatus.test.tsx`: polling stops on completed/cancelled/error; cancel button invokes endpoint and updates UI; disabled states during cancel; logs link renders.
+6. [ ] Subtask – README.md: describe active run card, cancel behavior, polling interval, and states/messages.
+7. [ ] Subtask – design.md: add status/cancel flow notes or small sequence diagram; mention labels shown for each state.
+8. [ ] Subtask – projectStructure.md: include new hook/component/test files.
+9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect success).
 
 #### Testing
+
+Prereqs: server status/cancel endpoints available or mocked. Expected: build/test pass; compose stack healthy.
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
@@ -386,17 +401,19 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 
 #### Subtasks
 
-1. [ ] Create hook `client/src/hooks/useIngestRoots.ts` to call `/ingest/roots`, returning roots + lockedModelId; refetch after re-embed/remove/start completes.
-2. [ ] Component `client/src/components/ingest/RootsTable.tsx`: columns Name (tooltip with description), Path, Model, Status chip, Last ingest time, counts, row actions (Re-embed -> POST /ingest/reembed/:root, Remove -> POST /ingest/remove/:root, Details). Support bulk select disable during active ingest.
-3. [ ] Component `client/src/components/ingest/RootDetailsDrawer.tsx`: shows name, description, path, model (locked), run history (from status/roots data), last error, include/exclude lists (read from server response if provided; otherwise from env defaults summary).
-4. [ ] Empty state copy explaining model lock and first ingest guidance. Preserve lock banner from models hook.
-5. [ ] Tests `client/src/test/ingestRoots.test.tsx`: table render, tooltip, details drawer content, re-embed/remove action calls, disabled state when active ingest.
-6. [ ] README.md: document table/actions UX and how model lock affects UI.
-7. [ ] design.md: add layout notes/diagram for roots table and details drawer.
-8. [ ] projectStructure.md: add new hook/components/tests.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+1. [ ] Subtask – Create hook `client/src/hooks/useIngestRoots.ts` to call `/ingest/roots`, returning `{ roots, lockedModelId, isLoading, error, refetch }`; refetch after re-embed/remove/start completes.
+2. [ ] Subtask – Component `client/src/components/ingest/RootsTable.tsx`: columns Name (tooltip with description), Path, Model, Status chip, Last ingest time, counts, row actions (Re-embed → POST /ingest/reembed/:root, Remove → POST /ingest/remove/:root, Details). States: disable row/bulk actions during active ingest; show inline success/error text after actions; empty state text “No embedded folders yet. Start an ingest to see entries.”
+3. [ ] Subtask – Component `client/src/components/ingest/RootDetailsDrawer.tsx`: shows name, description, path, model (locked), run history (from status/roots data), last error, include/exclude lists (from server response if available; otherwise render env defaults summary). Loading skeleton while data fetching.
+4. [ ] Subtask – Empty state and lock banner: preserve lock banner; empty state copy explains model lock and first ingest guidance.
+5. [ ] Subtask – Tests `client/src/test/ingestRoots.test.tsx`: table render, tooltip, details drawer content, re-embed/remove action calls, disabled state when active ingest, empty state text, success/error messaging.
+6. [ ] Subtask – README.md: document table/actions UX, empty state copy, lock effects on actions.
+7. [ ] Subtask – design.md: add layout notes/diagram for roots table and details drawer; include expected labels/states (empty, disabled, success/error).
+8. [ ] Subtask – projectStructure.md: add new hook/components/tests.
+9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect clean).
 
 #### Testing
+
+Prereqs: server roots/re-embed/remove endpoints available or mocked. Expected: build/test pass; compose stack healthy.
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
@@ -430,17 +447,17 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Subtasks
 
-1. [ ] Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
-2. [ ] Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or built-in overrides).
-3. [ ] Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
-4. [ ] Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
-5. [ ] Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
-6. [ ] Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
-7. [ ] Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
-8. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
-9. [ ] Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
-10. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Subtask – Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
+2. [ ] Subtask – Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or overrides).
+3. [ ] Subtask – Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
+4. [ ] Subtask – Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
+5. [ ] Subtask – Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
+6. [ ] Subtask – Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
+7. [ ] Subtask – Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
+8. [ ] Subtask – Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
+9. [ ] Subtask – Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
+10. [ ] Subtask – Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
+11. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

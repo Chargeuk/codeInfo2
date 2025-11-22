@@ -123,9 +123,9 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.
 5. [ ] Endpoint `GET /ingest/models` that filters LM Studio `listDownloadedModels` to embedding-capable models only; used by ingest UI/model lock.
 6. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
-6. [ ] Cucumber feature + steps covering happy path ingest start/status/list with mocked LM Studio + Chroma (use mock clients); include model-lock violation case.
+6. [ ] Cucumber feature + steps covering happy path ingest start/status/list using real Chroma spun up via Testcontainers (or dedicated cucumber-compose) and mocked LM Studio; include model-lock violation case.
 7. [ ] Cucumber feature + steps covering `/ingest/models` filtering only embedding models.
-8. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, and data flow.
+8. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, testcontainers/cucumber-compose usage, and data flow.
 9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 
 #### Testing
@@ -160,7 +160,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 2. [ ] Support cancel: `POST /ingest/cancel/:runId` sets cancel flag, aborts embedding calls, stops new work, then deletes vectors tagged with runId and updates `ingest_roots` status; return status to caller.
 3. [ ] Incremental re-embed endpoint `POST /ingest/reembed/:root` to diff by file/chunk hashes and update/delete as needed; update `ingest_roots` record with new runId/status/counts.
 4. [ ] Remove endpoint `POST /ingest/remove/:root` to purge all vectors for a root (both vectors collection and `ingest_roots` record) and clear model lock if collection becomes empty.
-5. [ ] Cucumber features/steps for cancel, re-embed, and remove, asserting cleanup of runId-tagged vectors and lock behavior.
+5. [ ] Cucumber features/steps for cancel, re-embed, and remove, asserting cleanup of runId-tagged vectors and lock behavior against real Chroma via Testcontainers/cucumber-compose.
 6. [ ] Update README.md/design.md/projectStructure.md for cancel/re-embed/remove flows and soft-cancel semantics.
 7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
 

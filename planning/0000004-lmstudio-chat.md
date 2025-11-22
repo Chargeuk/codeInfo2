@@ -274,11 +274,12 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 1. [ ] Connect the input on `/chat` page to the chat service/hook: on submit, call streaming API with selected model and append a user bubble, then stream assistant tokens into a single assistant bubble (inverted order: newest just under input).
 2. [ ] Add UI states: responding indicator (e.g., animated dots), disabled send while streaming, inline error bubble with retry guidance.
 3. [ ] Keep tool events hidden in transcript but ensure `createLogger` records tool lifecycle to logs.
-4. [ ] Update README.md (UI section) with chat send/receive behaviour and limitations (no persistence, stop/new conversation pending).
-5. [ ] Update design.md with chat flow/rendering states and bubble styling (role left/right, inverted stack); include mermaid sketch of UI/data flow.
-6. [ ] Update projectStructure.md for any new components/hooks/tests.
-7. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally into one assistant bubble, errors surface as bubbles, ordering is inverted.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [ ] Add `useEffect` cleanup in the chat hook to abort the stream on unmount/route change (e.g., navigating Home/LM Studio) so the server sees `req.close` immediately.
+5. [ ] Update README.md (UI section) with chat send/receive behaviour and limitations (no persistence, stop/new conversation pending).
+6. [ ] Update design.md with chat flow/rendering states and bubble styling (role left/right, inverted stack); include mermaid sketch of UI/data flow.
+7. [ ] Update projectStructure.md for any new components/hooks/tests.
+8. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally into one assistant bubble, errors surface as bubbles, ordering is inverted; unmount aborts the stream.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

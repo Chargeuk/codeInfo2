@@ -86,17 +86,16 @@ Baseline plumbing for server-side chat endpoints and streaming contract to LM St
 #### Subtasks
 
 1. [ ] Add GET `/chat/models` on the server: fetch model list from LM Studio SDK, return names/ids; default model is the first entry. Handle LM Studio unreachability with clear errors.
-2. [ ] Add POST `/chat` streaming endpoint (single-step): accepts `{ model, messages: [...], options? }`; invokes `model.act()` with a registered dummy tool (no-op) and streams via `text/event-stream` using async iteration. Emit events: `token`, `final`, `tool-request`, `tool-result`, `complete`, `error` (tool events redacted content). Respect abort/cancel on client disconnect.
-3. [ ] Wire cancellation: call `OngoingPrediction.cancel()` (or AbortSignal) when client closes connection; ensure server stops emitting and cleans listeners.
-4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, errors, and cancellations to existing logger/store; keep out of chat transcript.
-5. [ ] Update server env/docs placeholders if any new knobs are needed (none expected in this story) and ensure payload size guards reuse existing limits.
-6. [ ] Tests (server): add Cucumber feature(s) covering `/chat/models` success/failure, `/chat` streaming happy path (token/final), tool event redaction, cancellation handling, and error framing.
-7. [ ] Provide controllable LM Studio mocks for Cucumber: extend or add a mock SDK module that simulates `listDownloadedModels` and `model.act()` streaming events (tokens + tool callbacks) and supports cancellation signals; inject via dependency or env toggle in test bootstrap.
+2. [ ] Add POST `/chat` streaming endpoint (single-step): accepts `{ model, messages: [...], options? }`; invokes `model.act()` with a registered dummy tool (no-op) and streams via `text/event-stream` using async iteration. Emit events: `token`, `final`, `tool-request`, `tool-result`, `complete`, `error` (tool events redacted content).
+3. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep out of chat transcript.
+4. [ ] Update server env/docs placeholders if any new knobs are needed (none expected in this story) and ensure payload size guards reuse existing limits.
+5. [ ] Tests (server): add Cucumber feature(s) covering `/chat/models` success/failure, `/chat` streaming happy path (token/final), tool event redaction, and error framing.
+6. [ ] Provide controllable LM Studio mocks for Cucumber: extend or add a mock SDK module that simulates `listDownloadedModels` and `model.act()` streaming events (tokens + tool callbacks) and supports cancellation signals; inject via dependency or env toggle in test bootstrap.
    - Mock shape guidance: `model.act()` should return an object that is both a Promise (resolving to the final ChatMessage) and an async iterable yielding events in order: `{ type: 'token', content: 'Hello', roundIndex: 0 }`, optional tool events `{ type: 'tool-request', callId, name, argsFragment, roundIndex }`, `{ type: 'tool-result', callId, result, roundIndex }`, and final `{ type: 'final', message: { role: 'assistant', content: 'Hello world', roundIndex: 0 } }`. Support cancellation by short-circuiting iteration when `cancel()` is called.
-7. [ ] Update README.md (server/API sections) to include `/chat/models`, streaming `/chat`, payload shapes, cancellation/stop guidance, and logging visibility (tool events redacted).
-8. [ ] Update design.md with the chat streaming flow, event mapping, tool logging redaction, and cancellation behaviour.
+7. [ ] Update README.md (server/API sections) to include `/chat/models`, streaming `/chat`, payload shapes, and logging visibility (tool events redacted).
+8. [ ] Update design.md with the chat streaming flow, event mapping, and tool logging redaction.
 9. [ ] Update projectStructure.md with new server files/routes and any test additions.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -111,14 +110,55 @@ Baseline plumbing for server-side chat endpoints and streaming contract to LM St
 
 ---
 
-### 2. Client Chat Hooks & Services
+### 2. Cancellation & Stop Control
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Create client-side services/hooks to fetch models, post chat turns, and consume the streaming response with cancellation. Ensure logging captures tool events (redacted) and errors, while maintaining the “disable while streaming” rule.
+Implement cancellation/stop behaviour end-to-end: server-side cancellation of streaming predictions, client abort handling, and UI stop/new conversation controls integration.
+
+#### Documentation Locations
+
+- LM Studio JS API docs: https://lmstudio.ai/docs/typescript
+- ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- Existing server/client streaming code from Task 1
+- Fetch streaming/ReadableStream MDN
+
+#### Subtasks
+
+1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect or Stop signal) using `OngoingPrediction.cancel()`/AbortSignal; ensure cleanup of listeners.
+2. [ ] Client: add stop control wiring using AbortController to cancel in-flight fetch/stream; propagate stop to server via abort; re-enable input after cancel.
+3. [ ] Client: ensure “New conversation” also aborts active stream before clearing state.
+4. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation.
+5. [ ] Tests (client Jest): stop button aborts stream, disables send while active, and produces an error/stop bubble or completion state.
+6. [ ] Update README.md (both server and client sections) to describe Stop/New conversation behaviour and lack of persistence.
+7. [ ] Update design.md to capture cancellation flow, state transitions, and UX behaviour for Stop/New conversation.
+8. [ ] Update projectStructure.md if new files/hooks are added for cancellation wiring.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- Note any cancellation edge cases (stop before first token, multiple rapid stops) and logging decisions here.
+
+---
+
+### 3. Client Chat Hooks & Services
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Create client-side services/hooks to fetch models, post chat turns, and consume the streaming response. Ensure logging captures tool events (redacted) and errors, while maintaining the “disable while streaming” rule.
 
 #### Documentation Locations
 
@@ -131,11 +171,11 @@ Create client-side services/hooks to fetch models, post chat turns, and consume 
 #### Subtasks
 
 1. [ ] Add a client API module for `/chat/models` and streaming `/chat` POST using `fetch` + `ReadableStream`; parse server SSE-style lines into structured events.
-2. [ ] Build a `useChatStream` hook managing messages state, in-flight flag, stop handler (AbortController), error bubble creation, and appending streamed tokens into the current assistant message.
+2. [ ] Build a `useChatStream` hook managing messages state, in-flight flag, error bubble creation, and appending streamed tokens into the current assistant message.
 3. [ ] Ensure tool events are logged (redacted content) but not rendered; integrate existing logger for start/end/error events.
-4. [ ] Enforce UI rule: send disabled during stream; stop button triggers abort; “new conversation” clears state and aborts any active stream.
-5. [ ] Tests (Jest): unit-test the stream parser, hook state transitions (send → streaming → final/error), abort path, and model fetch error handling.
-6. [ ] Update README.md (client chat usage and limitations) with streaming POST, stop/new conversation, and no persistence notes.
+4. [ ] Enforce UI rule: send disabled during stream; “new conversation” clears state.
+5. [ ] Tests (Jest): unit-test the stream parser, hook state transitions (send → streaming → final/error), and model fetch error handling.
+6. [ ] Update README.md (client chat usage and limitations) with streaming POST, no persistence notes.
 7. [ ] Update design.md with client-side chat flow, state machine (idle/streaming/error), and tool logging visibility (hidden in transcript, logged only).
 8. [ ] Update projectStructure.md with new client services/hooks/tests.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
@@ -149,11 +189,11 @@ Create client-side services/hooks to fetch models, post chat turns, and consume 
 
 #### Implementation notes
 
-- Capture edge cases (empty model list, network drop mid-stream, cancel before first token) here.
+- Capture edge cases (empty model list, network drop mid-stream) here.
 
 ---
 
-### 3. Chat Page UI & Routing
+### 4. Chat Page UI & Routing
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -192,7 +232,7 @@ Add the routed Chat page with inverted layout, model dropdown, chat bubbles, sto
 
 ---
 
-### 4. End-to-End & Documentation
+### 5. End-to-End & Documentation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -214,7 +254,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
-6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-4-*.png`.
+6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-5-*.png`.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing

@@ -31,7 +31,7 @@ export default function HomePage() {
   }, [apiUrl]);
 
   return (
-    <Box sx={{ mt: 4, maxWidth: 540, mx: 'auto' }}>
+    <Box sx={{ mt: 0, maxWidth: 540, width: '100%' }}>
       <Card>
         <CardContent>
           <Typography variant="h4" gutterBottom>

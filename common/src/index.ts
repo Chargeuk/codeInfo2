@@ -3,3 +3,4 @@ export * from './api.js';
 export * from './lmstudio.js';
 export * from './logging.js';
 export * from './fixtures/mockModels.js';
+export * from './fixtures/chatStream.js';

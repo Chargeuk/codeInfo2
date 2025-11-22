@@ -1,14 +1,20 @@
 import type { LmStudioModel } from '@codeinfo2/common';
-import { mockModels } from '@codeinfo2/common';
+import {
+  chatSseEventsFixture,
+  mockModels,
+  chatErrorEventFixture,
+} from '@codeinfo2/common';
 
 export type MockScenario =
   | 'many'
   | 'empty'
   | 'timeout'
   | 'chat-fixture'
-  | 'chat-error';
+  | 'chat-error'
+  | 'chat-stream';
 
 let scenario: MockScenario = 'many';
+let lastPrediction: { cancelled: boolean } | null = null;
 
 export function startMock({ scenario: next }: { scenario: MockScenario }) {
   scenario = next;
@@ -16,6 +22,31 @@ export function startMock({ scenario: next }: { scenario: MockScenario }) {
 
 export function stopMock() {
   scenario = 'many';
+  lastPrediction = null;
+}
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function createPrediction(events: unknown[]) {
+  const state = { cancelled: false };
+  lastPrediction = state;
+
+  return {
+    cancel: () => {
+      state.cancelled = true;
+    },
+    async *[Symbol.asyncIterator]() {
+      for (const event of events) {
+        if (state.cancelled) return;
+        await delay(5);
+        yield event;
+      }
+    },
+  };
+}
+
+export function getLastPredictionState() {
+  return lastPrediction;
 }
 
 export class MockLMStudioClient {
@@ -72,4 +103,20 @@ export class MockLMStudioClient {
       ];
     },
   };
+
+  getModel = () => ({
+    act: async () => {
+      if (scenario === 'chat-error') {
+        throw new Error('lmstudio unavailable');
+      }
+      const events =
+        scenario === 'chat-fixture' || scenario === 'chat-stream'
+          ? chatSseEventsFixture
+          : [
+              ...chatSseEventsFixture,
+              { ...chatErrorEventFixture, roundIndex: 0 },
+            ];
+      return createPrediction(events);
+    },
+  });
 }

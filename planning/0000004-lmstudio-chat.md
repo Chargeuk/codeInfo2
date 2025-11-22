@@ -413,15 +413,15 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Subtasks
 
-1. [ ] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration.
+1. [x] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration.
    - **LM Studio event shapes (from `.act()`):**
      - `onPredictionFragment` yields `{ type: 'predictionFragment', content: string, roundIndex: number }` — map to SSE `{ type: 'token', content, roundIndex }`.
      - `onMessage` yields final `ChatMessage` `{ role: 'assistant'|'tool'|'user'|'system', content: string|object, roundIndex: number }` — map to SSE `{ type: 'final', message, roundIndex }`.
      - Tool callbacks: `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` → emit SSE `{ type: 'tool-request', callId, name, argsFragment?, roundIndex }` (omit/blank content); `onToolCallResult` → `{ type: 'tool-result', callId, result, roundIndex }`.
      - When iteration ends, send `{ type: 'complete' }`; on errors, send `{ type: 'error', message }`.
    - **SSE frames:** `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`; start stream with heartbeat `:\n\n`.
-2. [ ] Nail down and reuse canonical `/chat` fixtures: request body = `{ "model": "llama-3", "messages": [ { "role": "user", "content": "hello" } ] }`; happy-path SSE frames = token `data:{"type":"token","content":"Hi","roundIndex":0}\n\n`, final `data:{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}\n\n`, complete `data:{"type":"complete"}\n\n`; error SSE = `data:{"type":"error","message":"lmstudio unavailable"}\n\n`. Use these fixtures consistently in Cucumber steps, mock SDK responses, and client RTL tests.
-3. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial heartbeat, JSON-stringify safely, and close on completion/error or request `close`; ensure `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`. Provide a scaffold:
+2. [x] Nail down and reuse canonical `/chat` fixtures: request body = `{ "model": "llama-3", "messages": [ { "role": "user", "content": "hello" } ] }`; happy-path SSE frames = token `data:{"type":"token","content":"Hi","roundIndex":0}\n\n`, final `data:{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}\n\n`, complete `data:{"type":"complete"}\n\n`; error SSE = `data:{"type":"error","message":"lmstudio unavailable"}\n\n`. Use these fixtures consistently in Cucumber steps, mock SDK responses, and client RTL tests.
+3. [x] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial heartbeat, JSON-stringify safely, and close on completion/error or request `close`; ensure `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`. Provide a scaffold:
    ```ts
    export function startStream(res) {
      res.setHeader('Content-Type', 'text/event-stream');
@@ -432,26 +432,29 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
    export const writeEvent = (res, payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
    export const endStream = (res) => res.end();
    ```
-4. [ ] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
-5. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
-6. [ ] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock and the canonical fixtures above.
-7. [ ] Update README.md (server/API sections) to include streaming `/chat`, payload shapes, and logging visibility (tool events redacted).
-8. [ ] Update design.md with the chat streaming flow, event mapping, and tool logging redaction; include a mermaid sequence diagram for the streaming path.
-9. [ ] Update projectStructure.md with new server route changes and test additions.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
+5. [x] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
+6. [x] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock and the canonical fixtures above.
+7. [x] Update README.md (server/API sections) to include streaming `/chat`, payload shapes, and logging visibility (tool events redacted).
+8. [x] Update design.md with the chat streaming flow, event mapping, and tool logging redaction; include a mermaid sequence diagram for the streaming path.
+9. [x] Update projectStructure.md with new server route changes and test additions.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Document streaming payload shapes and tool redaction choices here during implementation.
+- Added `server/src/routes/chat.ts` streaming SSE endpoint using LM Studio `.act()` with a noop tool, heartbeat start, and metadata-only tool events; payloads capped by `LOG_MAX_CLIENT_BYTES`.
+- New `server/src/chatStream.ts` helper centralizes SSE start/write/end safeguards; reused by the route tests.
+- Canonical chat fixtures live in `common/src/fixtures/chatStream.ts` (request, token/final/complete, error) and feed the mock LM Studio client + Cucumber steps.
+- Cucumber `chat_stream.feature/steps` parse the SSE stream and assert token/final/complete ordering and error framing; compose/lint/build scripts all pass post-changes.
 
 ---
 

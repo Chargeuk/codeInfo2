@@ -122,6 +122,13 @@ npm install
 - The chat UI selects the first item by default when no model is chosen; callers should treat an empty array as “no models available”.
 - Logging: start/success/failure log entries include the base URL origin and model count on success; errors log the sanitized origin only.
 
+### Chat streaming
+
+- Endpoint: `POST /chat` (uses `LMSTUDIO_BASE_URL`). Body: `{ "model": "<key>", "messages": [ { "role": "user", "content": "hello" } ] }` (see `@codeinfo2/common chatRequestFixture`).
+- Response streams `text/event-stream` frames: token `{"type":"token","content":"Hi","roundIndex":0}`, tool lifecycle `{"type":"tool-request|tool-result", ...}` (arguments/results redacted in logs), final message `{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}`, `{"type":"complete"}` on finish, `{"type":"error","message":"lmstudio unavailable"}` on failure.
+- Example: `curl -N -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"model":"llama-3","messages":[{"role":"user","content":"hello"}]}'`.
+- Logging: server records start/complete/error plus tool lifecycle metadata (name/callId only, no args/results) with the base URL origin and model; payloads respect `LOG_MAX_CLIENT_BYTES`.
+
 ## Docker Compose
 
 - Build both images: `npm run compose:build`

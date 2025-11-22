@@ -77,6 +77,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │  └─ src/
 │     ├─ fixtures/ — shared LM Studio model fixtures
 │     │  └─ mockModels.ts — shared fixture for LM Studio models list
+│     │  └─ chatStream.ts � canonical chat request/SSE fixtures
 │     ├─ api.ts — fetch helpers (server version, LM Studio)
 │     ├─ index.ts — barrel exports
 │     ├─ lmstudio.ts — LM Studio DTOs/types
@@ -105,7 +106,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     ├─ index.ts — Express app entry
 │     ├─ logger.ts — pino/pino-http setup with rotation and env config helper
 │     ├─ logStore.ts — in-memory log buffer with sequence numbers and filters
+│     ├─ chatStream.ts � SSE helper for chat streaming
 │     ├─ routes/
+│     │  ├─ chat.ts � POST /chat streaming SSE via LM Studio act()
 │     │  ├─ chatModels.ts — LM Studio chat models list endpoint
 │     │  ├─ logs.ts — log ingestion, history, and SSE streaming routes
 │     │  └─ lmstudio.ts — LM Studio proxy route
@@ -113,10 +116,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     │  └─ pino-roll.d.ts — module shim for pino-roll until official types
 │     └─ test/
 │        ├─ features/
+│        │  ├─ chat_stream.feature � streaming /chat SSE Cucumber coverage
 │        │  ├─ chat_models.feature — Cucumber coverage for chat model list endpoint
 │        │  ├─ example.feature — sample feature
 │        │  └─ lmstudio.feature — LM Studio proxy scenarios
 │        ├─ steps/
+│        │  ├─ chat_stream.steps.ts � step defs for chat streaming
 │        │  ├─ chat_models.steps.ts — step defs for chat_models.feature
 │        │  ├─ example.steps.ts — step defs for example.feature
 │        │  └─ lmstudio.steps.ts — step defs for LM Studio feature

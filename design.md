@@ -140,6 +140,30 @@ sequenceDiagram
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
 
+## Chat streaming endpoint
+
+- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.getModel(model).act()` with a registered `noop` tool and `allowParallelToolExecution: false`. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
+- Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and upcoming client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
+- Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs and transcript frames.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant LM as LM Studio
+  Client->>Server: POST /chat {model,messages}
+  Server->>LM: model.act(messages, tools=[noop])
+  LM-->>Server: predictionFragment(content)
+  Server-->>Client: SSE {type:"token", content}
+  LM-->>Server: toolCallRequest*/Result
+  Server-->>Client: SSE tool-request/result (metadata only)
+  LM-->>Server: message(final)
+  Server-->>Client: SSE {type:"final"} then {type:"complete"}
+  alt LM Studio error
+    Server-->>Client: SSE {type:"error", message}
+  end
+```
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.

@@ -61,7 +61,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 - Existing design.md and projectStructure.md for current patterns.
 - Common package structure (`common/src`) for shared types.
 - Env guidance in root README and workspace `.env` files.
-- Pino docs via Context7 `/pinojs/pino` (server logger choice) for transports/redaction/child loggers.
+- Pino docs via Context7 `/pinojs/pino`; pino-http (https://github.com/pinojs/pino-http); pino-roll (https://github.com/mcollina/pino-roll).
 
 #### Decisions (locked in)
 
@@ -106,7 +106,7 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 - Express routing/middleware patterns (Context7 `/expressjs/express`).
 - Existing server entry/routes (`server/src/index.ts`, `server/src/routes`).
 - Common LogEntry DTO from Task 1.
-- Pino docs via Context7 `/pinojs/pino` for transports/redaction.
+- Pino docs via Context7 `/pinojs/pino`; pino-http (https://github.com/pinojs/pino-http); pino-roll (https://github.com/mcollina/pino-roll).
 
 #### Subtasks
 
@@ -181,7 +181,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 #### Documentation Locations
 
 - Client app shell and hooks (`client/src`), especially router/pages layout.
-- Vite env handling and existing `.env` defaults.
+- Vite env handling (https://vitejs.dev/guide/env-and-mode.html) and existing `.env` defaults.
 - Testing: Jest docs via Context7 `/jestjs/jest`; Testing Library patterns already in `client/src/test`.
 
 #### Subtasks

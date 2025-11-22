@@ -161,6 +161,7 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 8. [ ] Update `projectStructure.md` with new files: `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx` (placeholder), `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`.
 9. [ ] Commands (run in order and expect success):
    - `npm run lint --workspace client` → exit 0, no warnings.
+   - `npm run format:check --workspace client` → reports all files formatted.
    - `npm run test --workspace client` → Jest green, e.g., `Tests: 1 passed` for router test.
    - `npm run build --workspace client` → Vite build completes, dist emitted, no errors.
 
@@ -238,7 +239,7 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
    ```
 5. [ ] Wire router in `server/src/index.ts`: import `createLmStudioRouter`, call it with a factory `(baseUrl) => new LMStudioClient({ baseUrl })` (actual logic filled in Task 3), and mount: `app.use('/', createLmStudioRouter({ clientFactory }));`. Ensure existing CORS stays enabled.
 6. [ ] Update `projectStructure.md` to mention new files `common/src/lmstudio.ts`, `common/src/api.ts`, `server/src/routes/lmstudio.ts`, and the new env var line in `server/.env`.
-7. [ ] Commands (expect success): `npm run lint --workspace server`, `npm run build --workspace server`.
+7. [ ] Commands (expect success): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run build --workspace server`.
 
 #### Testing
 
@@ -278,7 +279,7 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 4. [ ] Error handling: for validation → 400 as above; for timeout or SDK errors → 502 `{ status: 'error', baseUrl, error: '<message>' }`. Log with `console.warn` including baseUrl and message (no stack trace to avoid noise).
 5. [ ] Keep CORS middleware unchanged; no additional headers required.
 6. [ ] Update `projectStructure.md` noting `/lmstudio/status` route and mapping behaviour.
-7. [ ] Commands (expect pass except tests): `npm run lint --workspace server`, `npm run test --workspace server` (will be red until Task 4 adds tests), `npm run build --workspace server`.
+7. [ ] Commands (expect pass except tests): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run test --workspace server` (will be red until Task 4 adds tests), `npm run build --workspace server`.
 
 #### Testing
 
@@ -343,7 +344,7 @@ Add Cucumber coverage for the proxy route using a start/stop-able LM Studio SDK 
    - Call `fetchLmStudioStatus({ serverBaseUrl: baseUrlUnderTest })` from `@codeinfo2/common` to hit the real HTTP endpoint.
    - Assert status code via response shape (no supertest); after each, close the server and `stopMock()`.
 5. [ ] Update `projectStructure.md` to list mock support file and new feature/steps under server tests.
-6. [ ] Commands: `npm run test --workspace server` (should pass now), `npm run lint --workspace server`.
+6. [ ] Commands: `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run test --workspace server` (should pass now).
 
 #### Testing
 
@@ -472,7 +473,7 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
 2. [ ] Hook tests in `client/src/test/useLmStudioStatus.test.ts`: mock `global.fetch` to return JSON for scenarios many, empty, error (HTTP 502), and network rejection. Assert state transitions and that refresh updates stored baseUrl. Clear/reset localStorage between tests.
 3. [ ] Ensure types imported from `@codeinfo2/common` (LmStudioStatusResponse, LmStudioStatusOk) are used for inference.
 4. [ ] Update `projectStructure.md` to list the new hook file and test file.
-5. [ ] Commands (expect clean): `npm run lint --workspace client` → exit 0; `npm run test --workspace client` → all hook tests green.
+5. [ ] Commands (expect clean): `npm run lint --workspace client` → exit 0; `npm run format:check --workspace client` → formatted; `npm run test --workspace client` → all hook tests green.
 
 #### Testing
 
@@ -511,7 +512,7 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 3. [ ] Accessibility: ensure buttons have `aria-label` where needed, Tab order works, and error messages are announced (`role="status"`).
 4. [ ] Persist base URL via localStorage key from Task 6; show the currently used URL on the page.
 5. [ ] Update `projectStructure.md` to include `client/src/pages/LmStudioPage.tsx` and note new UI elements.
-6. [ ] Commands: `npm run lint --workspace client` (exit 0), `npm run build --workspace client` (Vite succeeds, no errors).
+6. [ ] Commands: `npm run lint --workspace client` (exit 0), `npm run format:check --workspace client` (all formatted), `npm run build --workspace client` (Vite succeeds, no errors).
    - Pasteable starter:
    ```tsx
    import { useRef, useState } from 'react';
@@ -620,9 +621,9 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
    - Error response (`status: 'error'`) shows error text and focuses the input.
    - `Refresh models` button triggers second helper call (count calls), `Check status` uses new base URL and persists to localStorage.
    - Routing still works when rendered under `MemoryRouter` with NavBar.
-2. [ ] Mock common helper instead of global fetch to keep tests aligned with shared code; reset between tests; use `await screen.findByText` to wait for async rendering.
+2. [ ] Mock common helper instead of global fetch to keep tests aligned with shared code; reset between tests; use `await screen.findByText` to wait for async rendering. Run `npm run format:check --workspace client` after tests.
 3. [ ] Update `projectStructure.md` to list the new test file(s).
-4. [ ] Commands: `npm run test --workspace client`, `npm run lint --workspace client`.
+4. [ ] Commands: `npm run lint --workspace client`, `npm run format:check --workspace client`, `npm run test --workspace client`.
 
 #### Testing
 
@@ -656,7 +657,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 2. [ ] design.md: mirror server doc changes by noting UI behaviours (loading spinner, empty-state text, error surface). Include the updated Architecture + LM Studio flow diagrams if not already present from Task 5 (reference the same diagrams to avoid duplication).
 3. [ ] projectStructure.md: list new client files `client/src/pages/LmStudioPage.tsx`, `client/src/hooks/useLmStudioStatus.ts`, `client/src/components/NavBar.tsx`, and tests `client/src/test/useLmStudioStatus.test.ts`, `client/src/test/lmstudio.test.tsx`.
 4. [ ] README/compose note: document that `docker-compose.yml` now loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so env values have a single source of truth.
-5. [ ] Commands: `npm run lint --workspaces` (should pass with only docs touched).
+5. [ ] Commands: `npm run lint --workspaces` and `npm run format:check --workspaces` (should pass with only docs touched).
 
 #### Testing
 
@@ -700,7 +701,7 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
    Add guard: before assertions, call the shared helper via `page.request.get` (or a small inline fetch) to `${process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234'}/v1/models`; if response not ok, call `test.skip('LM Studio not reachable')`.
 2. [ ] Update README e2e section: prerequisite to start LM Studio locally on default port (include sample command or link), mention skip behaviour if unreachable, and that tests hit live data.
 3. [ ] Update projectStructure.md to list `e2e/lmstudio.spec.ts`.
-4. [ ] Commands: `npm run e2e:test`, `npm run lint --workspaces`, `npm run build:all`; record pass/fail in Implementation notes.
+4. [ ] Commands: `npm run e2e:test`, `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build:all`; record pass/fail in Implementation notes.
 
 #### Testing
 

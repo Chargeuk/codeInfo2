@@ -10,9 +10,9 @@ some of the tasks look quite big, could they be split up without loosing any inf
 
 It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool or an explicit web address.
 
-some tasks do not have a command at the end to fix linting and prettier (format)
+some tasks do not have a final subtask to fix linting and prettier (format)
 
-every task needs a final testing step (not subtask) to ensure the docker environment can compose, and confirm that everything runs well, followed by a step to tear it down.
+every task needs a final testing step (not subtask) to ensure the docker environment can compose, and confirm that everything runs well, followed by a step to tear it down.nNote the build and run tasks should not be a subtask, but be part of the Testing section of the task.
 
 ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7.
 

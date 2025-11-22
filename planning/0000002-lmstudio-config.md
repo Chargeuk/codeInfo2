@@ -53,8 +53,8 @@ Extend the client so the existing version view becomes the Home page and add a d
 
 ### 1. Router & Home Page Split
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 793743a, 6c00f00
 
 #### Overview
 
@@ -69,8 +69,8 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 
 #### Subtasks
 
-1. [ ] Install routing dependency with exact command `npm install --workspace client react-router-dom` (from repo root). Expect `package-lock.json` and `client/package.json` to change.
-2. [ ] Add `client/src/routes/router.tsx` exporting a router (copy/paste starter):
+1. [x] Install routing dependency with exact command `npm install --workspace client react-router-dom` (from repo root). Expect `package-lock.json` and `client/package.json` to change.
+2. [x] Add `client/src/routes/router.tsx` exporting a router (copy/paste starter):
    ```tsx
    import { createBrowserRouter, createRoutesFromElements, Route } from 'react-router-dom';
    import App from '../App';
@@ -87,7 +87,7 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
    export default router;
    ```
    Update `client/src/main.tsx` to wrap `<RouterProvider router={router} />` instead of rendering `<App />` directly.
-3. [ ] Extract existing version-fetch UI into `client/src/pages/HomePage.tsx` (move logic from current `App.tsx`). Use the common helper for version fetch; starter code to paste:
+3. [x] Extract existing version-fetch UI into `client/src/pages/HomePage.tsx` (move logic from current `App.tsx`). Use the common helper for version fetch; starter code to paste:
    ```tsx
    import { useEffect, useState } from 'react';
    import { Card, CardContent, Container, Typography } from '@mui/material';
@@ -136,8 +136,8 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
      );
    }
    ```
-4. [ ] Update `client/.env` to add `VITE_LMSTUDIO_URL=http://host.docker.internal:1234` (keep existing `VITE_API_URL`), note in file comment that overrides belong in `.env.local`.
-5. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links. Paste starter code (Tabs stay scrollable on small screens using `variant="scrollable"`):
+4. [x] Update `client/.env` to add `VITE_LMSTUDIO_URL=http://host.docker.internal:1234` (keep existing `VITE_API_URL`), note in file comment that overrides belong in `.env.local`.
+5. [x] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links. Paste starter code (Tabs stay scrollable on small screens using `variant="scrollable"`):
    ```tsx
    import { AppBar, Tabs, Tab, Toolbar } from '@mui/material';
    import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -164,10 +164,10 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
      );
    }
    ```
-6. [ ] Update `client/src/App.tsx`: render `<NavBar />` and an `<Outlet />`; remove version-fetch side effects from this file (they now live in HomePage). Keep a top-level `<Container>` wrapper if desired.
-7. [ ] Add/adjust Jest tests (new file `client/src/test/router.test.tsx`): using `MemoryRouter initialEntries={['/']}` render router + NavBar; assert Home renders by default (`Client version` text present). Simulate clicking LM Studio tab and assert the URL changes to `/lmstudio` and placeholder heading like `LM Studio` is visible. Use Testing Library `userEvent`.
-8. [ ] Update `projectStructure.md` with new files: `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx` (placeholder), `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`.
-9. [ ] Commands (run in order and expect success):
+6. [x] Update `client/src/App.tsx`: render `<NavBar />` and an `<Outlet />`; remove version-fetch side effects from this file (they now live in HomePage). Keep a top-level `<Container>` wrapper if desired.
+7. [x] Add/adjust Jest tests (new file `client/src/test/router.test.tsx`): using `MemoryRouter initialEntries={['/']}` render router + NavBar; assert Home renders by default (`Client version` text present). Simulate clicking LM Studio tab and assert the URL changes to `/lmstudio` and placeholder heading like `LM Studio` is visible. Use Testing Library `userEvent`.
+8. [x] Update `projectStructure.md` with new files: `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx` (placeholder), `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`.
+9. [x] Commands (run in order and expect success):
    - `npm run lint --workspace client` → exit 0, no warnings.
    - `npm run format:check --workspace client` → reports all files formatted.
    - `npm run test --workspace client` → Jest green, e.g., `Tests: 1 passed` for router test.
@@ -176,13 +176,16 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace client`
+1. [x] `npm run lint --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace client`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Added React Router shell with `client/src/routes/router.tsx`, `NavBar`, and `HomePage`/`LmStudioPage`, moving version fetch into the Home page and keeping App as a layout with `<Outlet />`.
+- Introduced `common/src/api.ts` + export wiring for `fetchServerVersion` so the client can use a shared helper; added `VITE_LMSTUDIO_URL` default in `client/.env`.
+- Updated Jest setup for Request/fetch/TextEncoder polyfills and adjusted scripts/tests to run on Windows (node invocation and MemoryRouter coverage), plus import ordering fixes to satisfy lint.
+- Project structure doc now lists new router/pages/components; router test asserts nav + tab switching; all client lint/format/test/build commands now pass.
 
 ---
 

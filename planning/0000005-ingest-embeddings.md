@@ -88,7 +88,6 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 4. [ ] Unit tests for discovery/excludes/text detection/chunking/hash functions.
 5. [ ] Update projectStructure.md with new server modules.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-7. [ ] Add example ingest fixture folder path (e.g., `e2e/fixtures/ingest-sample/`) with minimal contents (at least one small text file) to README or test notes for later tasks to reuse.
 
 #### Testing
 
@@ -287,9 +286,6 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 - React Router docs: https://reactrouter.com/
 - Jest docs: Context7 `/jestjs/jest`
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
-- Jest docs: Context7 `/jestjs/jest`
-- Mermaid docs: Context7 `/mermaid-js/mermaid`
-- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -428,7 +424,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 8. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
 9. [ ] Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
 10. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

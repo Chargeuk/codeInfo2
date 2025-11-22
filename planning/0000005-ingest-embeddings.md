@@ -621,9 +621,47 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 1. [ ] Subtask – Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
 2. [ ] Subtask – Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or overrides).
 3. [ ] Subtask – Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
+   Playwright snippet starter:
+   ```ts
+   test('ingest happy path', async ({ page }) => {
+     await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:5001/ingest');
+     await page.fill('input[name="path"]', '/fixtures/repo');
+     await page.fill('input[name="name"]', 'fixtures');
+     await page.click('text=Start ingest');
+     await expect(page.getByText('Embedding model locked')).toBeVisible();
+     await expect(page.getByText('Completed')).toBeVisible({ timeout: 120000 });
+     await expect(page.getByRole('row', { name: /fixtures/ })).toBeVisible();
+   });
+   ```
 4. [ ] Subtask – Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
+   ```ts
+   test('cancel ingest', async ({ page }) => {
+     await page.goto(BASE);
+     await page.click('text=Start ingest');
+     await page.click('text=Cancel');
+     await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 60000 });
+     await expect(page.getByRole('row', { name: /fixtures/ })).not.toBeVisible();
+   });
+   ```
 5. [ ] Subtask – Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
+   ```ts
+   test('re-embed updates timestamps', async ({ page }) => {
+     await page.goto(BASE);
+     await page.click('text=Re-embed');
+     await expect(page.getByText('Completed')).toBeVisible({ timeout: 120000 });
+     const ts = await page.getByRole('row', { name: /fixtures/ }).getByTestId('last-ingest');
+     expect(ts).not.toBeNull();
+   });
+   ```
 6. [ ] Subtask – Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
+   ```ts
+   test('remove unlocks model', async ({ page }) => {
+     await page.goto(BASE);
+     await page.click('text=Remove');
+     await expect(page.getByText('No embedded folders yet')).toBeVisible();
+     await expect(page.getByText('Embedding model locked')).not.toBeVisible();
+   });
+   ```
 7. [ ] Subtask – Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
 8. [ ] Subtask – Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
 9. [ ] Subtask – Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)

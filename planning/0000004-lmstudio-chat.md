@@ -71,8 +71,8 @@ Here’s the streaming approach we’ll use:
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -379,6 +379,11 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 6. [x] `npm run compose:down`
 
 #### Implementation notes
+- Added /chat/models route with sanitized base URL, start/success/failure logging, and 503 fallback when LM Studio is unreachable.
+- Shared chat model fixture lives in common and feeds the LM Studio mock for Cucumber coverage.
+- New chat_models feature/steps validate success and failure; reran server tests, server/client builds, and compose build/up/down successfully.
+- Updated README, design mermaid flow, and projectStructure to document the endpoint and fixtures.
+- Switched server test scripts to cross-env for cross-platform env vars; validated npm test on Windows.
 
 - Note any retry/backoff choices or timeouts applied to LM Studio model listing.
 
@@ -388,8 +393,8 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -454,8 +459,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -580,8 +585,8 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -630,8 +635,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -679,8 +684,8 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -723,8 +728,8 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 
@@ -767,8 +772,8 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: a2700a3, e0baab4, 605296b
 
 #### Overview
 

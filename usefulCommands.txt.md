@@ -4,7 +4,7 @@ Please read Agents.md and follow it's instructions. Give me an overview of the p
 Tasks:
 do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
-in various tasks you have a single subtask to update multiple markdown documents. this is ambiguous. please seperate these out to seperate subtasks and be explicit about what needs updating
+in various tasks you have a single subtask to update multiple markdown documents. this is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating
 
 some of the tasks look quite big, could they be split up without loosing any information?
 

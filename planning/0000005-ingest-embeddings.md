@@ -87,6 +87,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 3. [ ] Compute deterministic chunk hashes and capture metadata scaffold (root, relPath, fileHash, chunkHash, embeddedAt placeholder, model).
 4. [ ] Unit tests for discovery/excludes/text detection/chunking/hash functions.
 5. [ ] Update projectStructure.md with new server modules.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -118,7 +119,7 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 1. [ ] Add server route `/ingest/models` calling `listDownloadedModels` and filtering embedding models; include model metadata needed by UI.
 2. [ ] Cucumber feature + steps covering `/ingest/models` filtering only embedding models (mock LM Studio SDK response).
 3. [ ] Update README.md/design.md/projectStructure.md with the endpoint and its embedding-only filter.
-4. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -154,7 +155,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 4. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 5. [ ] Cucumber feature + steps covering happy path ingest start/status using real Chroma spun up via Testcontainers (or dedicated cucumber-compose) and mocked LM Studio; include model-lock violation case.
 6. [ ] Update README.md/design.md/projectStructure.md with new endpoints, collection/model lock rules, testcontainers/cucumber-compose usage, and data flow.
-7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -186,7 +187,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 2. [ ] Ensure response reflects model lock state (e.g., include locked model name or flag if helpful to UI).
 3. [ ] Cucumber feature + steps using real Chroma/Testcontainers covering listing after an ingest run and after remove (empty list).
 4. [ ] Update README.md/design.md/projectStructure.md with the endpoint and payload shape.
-5. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -222,7 +223,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 4. [ ] Remove endpoint `POST /ingest/remove/:root` to purge all vectors for a root (both vectors collection and `ingest_roots` record) and clear model lock if collection becomes empty.
 5. [ ] Cucumber features/steps for cancel, re-embed, and remove, asserting cleanup of runId-tagged vectors and lock behavior against real Chroma via Testcontainers/cucumber-compose.
 6. [ ] Update README.md/design.md/projectStructure.md for cancel/re-embed/remove flows and soft-cancel semantics.
-7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -256,7 +257,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 3. [ ] Fetch model list from `/ingest/models` (embedding-capable only); enforce disabled select when locked; show lock banner.
 4. [ ] Jest/RTL tests for form render, lock state, validation, disabled states, and submit payload.
 5. [ ] Update README.md/design.md/projectStructure.md for new page/route and model lock UX.
-6. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -291,7 +292,7 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 4. [ ] Link to Logs page pre-filtered by runId (if possible); otherwise copy runId affordance.
 5. [ ] Jest/RTL tests covering state transitions, cancel flow, and polling stop.
 6. [ ] Update README.md/design.md/projectStructure.md accordingly.
-7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -326,7 +327,7 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 4. [ ] Empty state messaging and model-lock banner persistence; ensure actions disabled when an ingest is active.
 5. [ ] Jest/RTL tests for table render, tooltip, drawer content, action handlers, bulk disable during active ingest.
 6. [ ] Update README.md/design.md/projectStructure.md for table/drawer and actions.
-7. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -367,6 +368,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 6. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
 7. [ ] Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
 8. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

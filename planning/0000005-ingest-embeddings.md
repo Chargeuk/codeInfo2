@@ -117,7 +117,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Subtasks
 
-1. [ ] Add Chroma client config (Docker 1.3.5 target), shared vectors collection init, and model-lock enforcement (lock once non-empty). Create a small management collection (`ingest_roots`) to store per-root/run summaries (name, description, model, status, counts, lastIngestAt, runId).
+1. [ ] Add Chroma client config (Docker 1.3.5 target), shared vectors collection init, and model-lock enforcement (lock once non-empty). Create a small management collection (`ingest_roots`) to store per-root/run summaries (name, description, model, status, counts, lastIngestAt, runId). Add Chroma service to `docker-compose.yml` (image 1.3.5) and ensure server points to it via env.
 2. [ ] Endpoint `POST /ingest/start` (body: path, name, description, model, dryRun?): kicks off ingest job, returns runId; rejects if another ingest running or model lock violated.
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Endpoint `GET /ingest/roots` listing embedded roots with metadata, last run, counts, model.

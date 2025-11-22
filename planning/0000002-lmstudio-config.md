@@ -270,7 +270,7 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
 
 ### 3. Server SDK Proxy Implementation
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

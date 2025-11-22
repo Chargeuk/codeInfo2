@@ -191,8 +191,8 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 
 ### 2. Server Types & Env Wiring
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 17eb0cd, 4aaaa9d
 
 #### Overview
 
@@ -206,8 +206,8 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
 
 #### Subtasks
 
-1. [ ] Install LM Studio SDK from repo root: `npm install --workspace server @lmstudio/sdk` (expect `package-lock.json` and `server/package.json` to change).
-2. [ ] Add shared API helpers and types in `common`:
+1. [x] Install LM Studio SDK from repo root: `npm install --workspace server @lmstudio/sdk` (expect `package-lock.json` and `server/package.json` to change).
+2. [x] Add shared API helpers and types in `common`:
    - Types in `common/src/lmstudio.ts` exported via `common/src/index.ts`:
      - `LmStudioModel`, `LmStudioStatusOk`, `LmStudioStatusError`, `LmStudioStatusResponse` (same shapes as earlier).
    - New helper in `common/src/api.ts` (exported via index):
@@ -231,8 +231,8 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
      }
      ```
    Ensure barrel exports so both helpers are available to client UI and server tests.
-3. [ ] Append `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env` (keep comment above if present). `.env` is committed; `.env.local` stays ignored.
-4. [ ] Create `server/src/routes/lmstudio.ts` with stub router factory (copy/paste skeleton):
+3. [x] Append `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env` (keep comment above if present). `.env` is committed; `.env.local` stays ignored.
+4. [x] Create `server/src/routes/lmstudio.ts` with stub router factory (copy/paste skeleton):
    ```ts
    import { Router } from 'express';
    import type { LMStudioClient } from '@lmstudio/sdk';
@@ -249,19 +249,22 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
      return router;
    }
    ```
-5. [ ] Wire router in `server/src/index.ts`: import `createLmStudioRouter`, call it with a factory `(baseUrl) => new LMStudioClient({ baseUrl })` (actual logic filled in Task 3), and mount: `app.use('/', createLmStudioRouter({ clientFactory }));`. Ensure existing CORS stays enabled.
-6. [ ] Update `projectStructure.md` to mention new files `common/src/lmstudio.ts`, `common/src/api.ts`, `server/src/routes/lmstudio.ts`, and the new env var line in `server/.env`.
-7. [ ] Commands (expect success): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run build --workspace server`.
+5. [x] Wire router in `server/src/index.ts`: import `createLmStudioRouter`, call it with a factory `(baseUrl) => new LMStudioClient({ baseUrl })` (actual logic filled in Task 3), and mount: `app.use('/', createLmStudioRouter({ clientFactory }));`. Ensure existing CORS stays enabled.
+6. [x] Update `projectStructure.md` to mention new files `common/src/lmstudio.ts`, `common/src/api.ts`, `server/src/routes/lmstudio.ts`, and the new env var line in `server/.env`.
+7. [x] Commands (expect success): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run build --workspace server`.
    - If `format:check` fails, run `npm run format:fix --workspace server`, then rerun `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run build --workspace server`
+1. [x] `npm run lint --workspace server`
+2. [x] `npm run build --workspace server`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Installed `@lmstudio/sdk`, added `LMSTUDIO_BASE_URL` to `server/.env`, and registered the stub LM Studio router (with factory) in `server/src/index.ts`.
+- Added shared LM Studio DTOs (`LmStudioModel` and status variants) plus `fetchLmStudioStatus` and typed `fetchServerVersion` in `common`, exporting via the barrel.
+- Pointed client Jest config at the built common dist to satisfy NodeNext `.js` imports and ran a common build + client tests to confirm resolution.
+- Updated projectStructure to reflect new common/server files; server lint/format:check/build all pass.
 
 ---
 

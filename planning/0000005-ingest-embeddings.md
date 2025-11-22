@@ -119,6 +119,7 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 - LM Studio listDownloadedModels: https://lmstudio.ai/docs/typescript/manage-models/list-downloaded (filter to embedding models)
 - design.md (API notes), README.md (API), projectStructure.md (routes/files)
 - Express docs (routing patterns): https://expressjs.com/ or Context7 `/expressjs/express`
+- Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
 
@@ -154,14 +155,13 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Documentation Locations
 
-- design.md (roots listing flow), README.md (API), projectStructure.md
-- Chroma client docs (metadata queries): https://www.npmjs.com/package/chromadb
-- Docker Compose reference for service addresses: https://docs.docker.com/compose/
+- design.md, README.md, projectStructure.md
 - Chroma Node client: https://www.npmjs.com/package/chromadb (v3.1.6) and API docs
-- LM Studio embedding: https://lmstudio.ai/docs/typescript/embedding
-- LM Studio tokenization/context length: https://lmstudio.ai/docs/typescript/tokenization and https://lmstudio.ai/docs/typescript/model-info/get-context-length
+- LM Studio embedding/tokenization/context length: https://lmstudio.ai/docs/typescript/embedding , https://lmstudio.ai/docs/typescript/tokenization , https://lmstudio.ai/docs/typescript/model-info/get-context-length
 - Docker Compose reference for Chroma service: https://docs.docker.com/compose/
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
 
@@ -200,7 +200,10 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 #### Documentation Locations
 
-- design.md, README.md (API), projectStructure.md
+- design.md (roots listing flow), README.md (API), projectStructure.md
+- Chroma client docs (metadata queries): https://www.npmjs.com/package/chromadb
+- Docker Compose reference for service addresses: https://docs.docker.com/compose/
+- Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
 
@@ -242,6 +245,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 - projectStructure.md
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
 - LM Studio embedding/tokenization: https://lmstudio.ai/docs/typescript/embedding and https://lmstudio.ai/docs/typescript/tokenization
+- Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
 
@@ -284,6 +288,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 - MUI docs via MCP (@mui/material@7.2.0)
 - React Router docs: https://reactrouter.com/
 - LM Studio models endpoint (/ingest/models) from Task 2
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -324,6 +329,8 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 - design.md, README.md, projectStructure.md
 - MUI docs via MCP (@mui/material@7.2.0)
 - React Router docs: https://reactrouter.com/
+- Jest docs: Context7 `/jestjs/jest`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 

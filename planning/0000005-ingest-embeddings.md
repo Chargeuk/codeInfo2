@@ -78,6 +78,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 - LM Studio SDK tokenization/context length: https://lmstudio.ai/docs/typescript/tokenization and https://lmstudio.ai/docs/typescript/model-info/get-context-length
 - LM Studio embedding: https://lmstudio.ai/docs/typescript/embedding
 - Git tracked-files reference: https://git-scm.com/docs/git-ls-files
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -116,6 +117,7 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 - LM Studio listDownloadedModels: https://lmstudio.ai/docs/typescript/manage-models/list-downloaded (filter to embedding models)
 - Express docs (routing patterns): https://expressjs.com/ or Context7 `/expressjs/express`
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -156,6 +158,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 - Docker Compose reference for Chroma service: https://docs.docker.com/compose/
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -197,6 +200,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 - Chroma client docs (metadata queries): https://www.npmjs.com/package/chromadb
 - Docker Compose reference for service addresses: https://docs.docker.com/compose/
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -236,6 +240,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
 - LM Studio embedding/tokenization: https://lmstudio.ai/docs/typescript/embedding and https://lmstudio.ai/docs/typescript/tokenization
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 

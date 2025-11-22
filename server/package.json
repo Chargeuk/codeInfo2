@@ -11,8 +11,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format:check": "prettier . --check",
     "format": "prettier . --write",
-    "test": "cucumber-js --require ts-node/register --require src/test/steps/**/*.ts src/test/features/**/*.feature --publish-quiet",
-    "test:watch": "cucumber-js --require ts-node/register --require src/test/steps/**/*.ts src/test/features/**/*.feature --watch --publish-quiet"
+    "test": "cucumber-js src/test/features/**/*.feature --import ts-node/register --import src/test/steps/**/*.ts --tags \"not @skip\"",
+    "test:watch": "cucumber-js src/test/features/**/*.feature --import ts-node/register --import src/test/steps/**/*.ts --tags \"not @skip\" --watch"
   },
   "engines": {
     "node": ">=22"

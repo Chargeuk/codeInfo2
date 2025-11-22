@@ -587,12 +587,12 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 ---
 
-### 4. Chat Page – Models List
+### 4. Chat Page - Models List
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: _to_do_
+- Task Status: __done__
+- Git Commits: d0dc74a, 83b3540
 
 #### Overview
 

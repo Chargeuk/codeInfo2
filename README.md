@@ -24,6 +24,11 @@ npm install
 ## Client
 
 - Logging: client uses shared `LogEntry` schema with console tee + forwarding toggle (full details coming in the dedicated Logging section from Task 6).
+- Client logging env (set in `client/.env`, override in `.env.local`):
+  ```env
+  VITE_LOG_FORWARD_ENABLED=false
+  ```
+  Tests force-disable network sends when `MODE === 'test'`.
 - `npm run dev --workspace client` (http://localhost:5001)
 - `npm run build --workspace client`
 - `npm run preview --workspace client -- --host --port 5001`

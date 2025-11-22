@@ -1,13 +1,15 @@
 import { fetchServerVersion, VersionInfo } from '@codeinfo2/common';
 import { Box, Card, CardContent, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import pkg from '../../package.json';
+import { createLogger } from '../logging';
 
 export default function HomePage() {
   const [serverVersion, setServerVersion] = useState<VersionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const clientVersion = pkg.version;
+  const logger = useMemo(() => createLogger('client-home'), []);
   const apiUrl =
     (typeof import.meta !== 'undefined' &&
       (import.meta as ImportMeta)?.env?.VITE_API_URL) ??
@@ -20,7 +22,11 @@ export default function HomePage() {
         const data = await fetchServerVersion(apiUrl);
         if (!cancelled) setServerVersion(data);
       } catch (err) {
-        if (!cancelled) setError((err as Error).message);
+        const message = (err as Error).message ?? String(err);
+        if (!cancelled) {
+          setError(message);
+          logger('error', 'version fetch failed', { error: message });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -28,7 +34,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [apiUrl]);
+  }, [apiUrl, logger]);
 
   return (
     <Box sx={{ mt: 0, maxWidth: 540, width: '100%' }}>

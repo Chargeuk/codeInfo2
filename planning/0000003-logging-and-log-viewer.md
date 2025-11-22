@@ -347,7 +347,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
 #### Subtasks
 
-1. [ ] Implement `client/src/logging/logger.ts` using this starter:
+1. [x] Implement `client/src/logging/logger.ts` using this starter:
    ```ts
    import { LogEntry, LogLevel } from '@codeinfo2/common';
    import { sendLogs } from './transport';
@@ -389,7 +389,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
      };
    }
    ```
-2. [ ] Implement `client/src/logging/transport.ts` with batching/backoff scaffold (use these exact defaults: `MAX_BATCH = 10`, `BACKOFF = [500, 1000, 2000, 4000]` ms, `VITE_LOG_MAX_BYTES` cap 32768):
+2. [x] Implement `client/src/logging/transport.ts` with batching/backoff scaffold (use these exact defaults: `MAX_BATCH = 10`, `BACKOFF = [500, 1000, 2000, 4000]` ms, `VITE_LOG_MAX_BYTES` cap 32768):
    ```ts
    import { LogEntry } from '@codeinfo2/common';
 
@@ -434,40 +434,44 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
    export function _getQueue() { return queue; } // for tests
    ```
-3. [ ] Wire logger usage with concrete hooks:
+3. [x] Wire logger usage with concrete hooks:
    - `client/src/main.tsx`: call `installGlobalErrorHooks();` once.
    - `client/src/pages/HomePage.tsx`: in the fetch catch, `logger('error', 'version fetch failed', { error });`.
    - `client/src/pages/LmStudioPage.tsx`: log start/success/failure of status/model refresh; include `baseUrl` in context with obvious secrets removed.
    - `client/src/routes/router.tsx`: in error boundary component, log the error object and route.
    - Add a simple opt-in sample emitter on Logs page later (Task 5) guarded by a toggle `Send sample log`.
-4. [ ] Update README (client section) with a small block showing env keys, how to disable forwarding via `.env.local`, and a short example:
+4. [x] Update README (client section) with a small block showing env keys, how to disable forwarding via `.env.local`, and a short example:
    ```env
    VITE_LOG_FORWARD_ENABLED=false
    ```
    Mention that tests force-disable network sends (`MODE === 'test'`).
-5. [ ] Update design.md: describe client logging flow (console tee → queue → POST /logs with backoff), env toggles, and privacy note (redact obvious PII in context before logging).
-6. [ ] Update projectStructure.md: list `client/src/logging/logger.ts`, `client/src/logging/transport.ts`, `client/src/logging/index.ts`, and new tests under `client/src/test/logging/`.
-7. [ ] Add Jest/Testing Library tests with ready-to-use shapes:
+5. [x] Update design.md: describe client logging flow (console tee → queue → POST /logs with backoff), env toggles, and privacy note (redact obvious PII in context before logging).
+6. [x] Update projectStructure.md: list `client/src/logging/logger.ts`, `client/src/logging/transport.ts`, `client/src/logging/index.ts`, and new tests under `client/src/test/logging/`.
+7. [x] Add Jest/Testing Library tests with ready-to-use shapes:
    - `client/src/test/logging/logger.test.ts`: mock `sendLogs`, call logger, assert it receives a LogEntry with timestamp/source/route; simulate `window.onerror` and ensure throttling works.
    - `client/src/test/logging/transport.test.ts`: mock `fetch`, push entries, await `flushQueue`, assert POST body length ≤ max bytes, retry/backoff puts entries back when fetch rejects.
    - `client/src/test/logsPage.test.tsx`: render a minimal Logs page stub that calls `createLogger` and ensures sendLogs was invoked (mocked) when a button is clicked.
    Remember to add any new test helpers to projectStructure.
-8. [ ] Run client commands in order (stop if any fail): `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`.
+8. [x] Run client commands in order (stop if any fail): `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
+1. [x] `npm run lint --workspace client`
 
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up` (confirm stack starts)
-7. [ ] `npm run compose:down`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run test --workspace client`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up` (confirm stack starts)
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added client-side logger with route/userAgent/correlation metadata, console tee, and global error/rejection hooks throttled to 1s.
+- Transport now batches (10) with exponential-ish backoff, size limits, offline short-circuit, and process.env fallback so tests can inject env; queue helpers exposed for assertions.
+- Wired logging across app: global hooks in `main.tsx`, Home/LM Studio pages log failures/state transitions, router error boundary logs route-level errors with sanitized base URLs.
+- Updated docs (README, design, projectStructure) to cover client logging env toggles, flow, new files/tests.
+- Added Jest coverage for logger, transport, and Logs page stub using the shared queue to assert emitted entries; client command chain (lint/format/test/build/compose up/down) executed successfully.
 
 ---
 

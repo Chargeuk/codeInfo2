@@ -6,10 +6,11 @@ import {
 import App from '../App';
 import HomePage from '../pages/HomePage';
 import LmStudioPage from '../pages/LmStudioPage';
+import RouterErrorBoundary from './RouterErrorBoundary';
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
-    <Route path="/" element={<App />}>
+    <Route path="/" element={<App />} errorElement={<RouterErrorBoundary />}>
       <Route index element={<HomePage />} />
       <Route path="lmstudio" element={<LmStudioPage />} />
     </Route>,

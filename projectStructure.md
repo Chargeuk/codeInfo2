@@ -55,8 +55,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     │  ├─ HomePage.tsx — version card page
 │     │  └─ LmStudioPage.tsx — LM Studio config/status/models UI
 │     ├─ routes/
+│     │  ├─ RouterErrorBoundary.tsx — route-level error boundary logger
 │     │  └─ router.tsx — React Router setup
 │     └─ test/
+│        ├─ logging/
+│        │  ├─ logger.test.ts — logger creation/global hooks coverage
+│        │  └─ transport.test.ts — client log transport queue/backoff tests
+│        ├─ logsPage.test.tsx — Logs page stub emits sample log
 │        ├─ lmstudio.test.tsx — LM Studio page tests
 │        ├─ router.test.tsx — nav/router tests
 │        ├─ setupTests.ts — Jest/test setup

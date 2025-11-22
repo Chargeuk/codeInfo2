@@ -73,7 +73,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 #### Subtasks
 
-1. [ ] Install server logging deps with a single command: `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` using the starter below (safe to copy/paste and tweak levels/paths):
+1. [x] Install server logging deps with a single command: `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` using the starter below (safe to copy/paste and tweak levels/paths):
    ```ts
    import fs from 'node:fs';
    import path from 'node:path';
@@ -96,7 +96,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
    }
    ```
    Update `server/src/index.ts` to `app.use(createRequestLogger());` right after env/config setup so every route logs; no other behaviour changes yet.
-2. [ ] Create client logging skeleton files with concrete stubs:
+2. [x] Create client logging skeleton files with concrete stubs:
    - `client/src/logging/logger.ts`:
      ```ts
      import { LogEntry } from '@codeinfo2/common';
@@ -124,7 +124,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
      export function getQueuedLogs() { return queue; }
      ```
    - `client/src/logging/index.ts` re-export the above. Keep forwarding disabled in tests via the env flag.
-3. [ ] Define shared `LogEntry` DTO in `common/src/logging.ts` (copy/paste starter):
+3. [x] Define shared `LogEntry` DTO in `common/src/logging.ts` (copy/paste starter):
    ```ts
    export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
    export type LogEntry = {
@@ -148,7 +148,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
    }
    ```
    Export from `common/src/index.ts` and add a tiny unit test later (Task 4) to guard the validator.
-4. [ ] Add env variables with explicit text blocks (append verbatim):
+4. [x] Add env variables with explicit text blocks (append verbatim):
    - `server/.env`
      ```
      LOG_LEVEL=info
@@ -165,23 +165,23 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
      VITE_LOG_STREAM_ENABLED=true
      ```
    Mirror these as commented examples in `server/.env.local` and `client/.env.local` so juniors know where to override.
-5. [ ] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`). Include a one-sentence privacy note about redacting auth headers/password fields. Add a mermaid snippet showing client/server/common log flow; use Context7 `/mermaid-js/mermaid` if needed.
-6. [ ] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`) and note `logs/` directory under root.
-7. [ ] Update README: add a one-line Logging overview under Server/Client intro pointing to the detailed section to be written in Task 6.
-8. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 6). After finishing the above, run repo-wide checks in this order and expect **all pass**: `npm run lint --workspaces` (no warnings), `npm run format:check --workspaces` (“checked … files”), `npm run build:all` (succeeds), `npm run compose:build` then `npm run compose:up` (client 5001 + server 5010 healthy), `npm run compose:down`.
+5. [x] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`). Include a one-sentence privacy note about redacting auth headers/password fields. Add a mermaid snippet showing client/server/common log flow; use Context7 `/mermaid-js/mermaid` if needed.
+6. [x] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`) and note `logs/` directory under root.
+7. [x] Update README: add a one-line Logging overview under Server/Client intro pointing to the detailed section to be written in Task 6.
+8. [x] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 6). After finishing the above, run repo-wide checks in this order and expect **all pass**: `npm run lint --workspaces` (no warnings), `npm run format:check --workspaces` (“checked … files”), `npm run build:all` (succeeds), `npm run compose:build` then `npm run compose:up` (client 5001 + server 5010 healthy), `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build:all`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up` (confirm stack starts)
-6. [ ] `npm run compose:down`
+1. [x] `npm run lint --workspaces`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run build:all`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up` (confirm stack starts)
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Remember to mount `./logs:/app/logs` in docker-compose during Task 6.
 
 ---
 
@@ -252,7 +252,10 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 #### Implementation notes
 
-- 
+- Added shared logging DTO (`common/src/logging.ts`) and client/server logging skeletons with env-controlled forwarding and file rotation stub.
+- Server logger uses pino + pino-http with pino-roll destination awaited for rotation; added fallback to direct destination and typed module shim for pino-roll.
+- Compose stack briefly failed due to async pino-roll stream; resolved by awaiting creation and rebuilding images, confirmed healthy `compose:up`.
+- Design/structure/README updated to reflect new logging schema and env defaults; gitignore/dockerignore now exclude `logs/`.
 
 ---
 

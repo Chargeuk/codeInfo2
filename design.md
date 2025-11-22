@@ -122,3 +122,21 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
+
+## Logging schema (shared)
+
+- Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
+- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
+- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
+- Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
+
+```mermaid
+flowchart TD
+  A[Client logger] -->|POST /logs (later)| B[Server logger]
+  B --> C[In-memory log buffer]
+  B --> D[Rotating file ./logs/server.log]
+  C --> E[SSE /logs/stream]
+  C --> F[GET /logs]
+  E --> G[Logs page]
+  F --> G
+```

@@ -4,11 +4,13 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { createRequestLogger } from './logger.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 
 config();
 const app = express();
 app.use(cors());
+app.use(createRequestLogger());
 const PORT = process.env.PORT ?? '5010';
 const clientFactory = (baseUrl: string) => new LMStudioClient({ baseUrl });
 

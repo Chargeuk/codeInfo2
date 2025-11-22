@@ -23,6 +23,7 @@ npm install
 
 ## Client
 
+- Logging: client uses shared `LogEntry` schema with console tee + forwarding toggle (full details coming in the dedicated Logging section from Task 6).
 - `npm run dev --workspace client` (http://localhost:5001)
 - `npm run build --workspace client`
 - `npm run preview --workspace client -- --host --port 5001`
@@ -50,6 +51,7 @@ npm install
 
 ## Server
 
+- Logging: structured pino logger using shared schema; log file at `./logs/server.log` with rotation (expanded in the Logging section added in Task 6).
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`

@@ -28,6 +28,7 @@ npm install
 - `npm run preview --workspace client -- --host --port 5001`
 - `npm run test --workspace client` (Jest + @testing-library/react)
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
+- **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
 ## Root commands
@@ -71,7 +72,7 @@ npm install
 - Start stack: `npm run compose:up` (client on http://localhost:5001, server on http://localhost:5010)
 - Tail logs: `npm run compose:logs`
 - Stop stack: `npm run compose:down`
-- Compose loads env from `client/.env[.local]` and `server/.env[.local]` (create empty `.env.local` files to silence warnings if you don't need overrides).
+- Compose loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so those files remain the single source of truth for both local and compose runs (create empty `.env.local` files to silence warnings if you don't need overrides).
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
 
 ## End-to-end (Playwright)

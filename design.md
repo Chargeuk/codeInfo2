@@ -109,6 +109,13 @@ sequenceDiagram
 
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
+### LM Studio UI behaviour
+
+- Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
+- Actions: `Check status` runs the proxy call with the current URL, `Refresh models` reuses the saved URL, and errors focus the input for quick edits.
+- States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
+- Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.

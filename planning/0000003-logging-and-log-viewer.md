@@ -584,7 +584,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
    On small screens, switch to stacked cards (can reuse MUI `Card` with `Stack` in sm breakpoint).
 4. [ ] Wire client logging demo: add a `Send sample log` button on Logs page that calls `createLogger('client-demo')('info','sample log',{ route: '/logs' })`; ensure it appears after refresh/stream.
 5. [ ] Update README (client UI section) with usage bullets: filters (levels/text), live toggle, refresh button, sample log button, and mention SSE auto-reconnect.
-6. [ ] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour.
+6. [ ] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour, and add a small mermaid sketch of the Logs page data flow (filters → fetch → table/SSE) using Context7 `/mermaid-js/mermaid` for syntax reference.
 7. [ ] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, tests, and `e2e/logs.spec.ts`.
 8. [ ] Add tests with concrete guidance:
    - Jest `client/src/test/logsPage.test.tsx`: mock `fetch` to return two logs; render page; expect rows; toggle live off and ensure EventSource is not constructed (mock it via `global.EventSource = jest.fn()`).

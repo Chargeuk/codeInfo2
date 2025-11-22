@@ -437,7 +437,7 @@ Document the new server proxy endpoint, env vars, and test approach.
 
 ### 6. Client Data Hook for LM Studio
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

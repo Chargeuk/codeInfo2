@@ -85,6 +85,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 1. [ ] `npm run lint --workspaces`
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run build:all`
+4. [ ] `npm run compose:build`
 
 #### Implementation notes
 
@@ -115,7 +116,7 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`. Ensure directory creation as needed.
 4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; ensure note to mount `./logs:/app/logs` in compose (compose edit happens later). Add a brief note in design.md about storage + rotation defaults.
 5. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
-6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run build --workspace server`.
+6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run build --workspace server`, `npm run compose:build`.
 
 #### Testing
 
@@ -195,7 +196,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 5. [ ] Update design.md: describe client logging behaviour (console tee, forwarding, error hooks, env toggles) and privacy notes.
 6. [ ] Update projectStructure.md: list `client/src/logging/*` and the new test files.
 7. [ ] Add Jest/Testing Library tests: `client/src/test/logging/logger.test.ts`, `client/src/test/logging/transport.test.ts`, `client/src/test/logsPage.test.tsx` (smoke that triggers a forwarded log with mocked fetch). Ensure projectStructure lists these files.
-8. [ ] Run client commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`.
+8. [ ] Run client commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`.
 
 #### Testing
 
@@ -240,7 +241,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 5. [ ] Update README (client UI section) with Logs page usage (filters, stream toggle, refresh), and design.md with UI behaviours/states.
 6. [ ] Update projectStructure.md to list new page/hook/test files and `e2e/logs.spec.ts`.
 7. [ ] Add tests: Jest for hook/UI (`client/src/test/logsPage.test.tsx` extended for filters/refresh/SSE) and Playwright `e2e/logs.spec.ts` that triggers a client log and observes it via GET/stream.
-8. [ ] Run commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, bring up stack and `npm run e2e:test` (with new logs spec). Ensure docker compose still works.
+8. [ ] Run commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, bring up stack and `npm run e2e:test` (with new logs spec). Ensure docker compose still works.
 
 #### Testing
 

@@ -359,13 +359,14 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with ingest endpoints/flows and any new commands
-5. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
-6. [ ] Ensure projectStructure.md is updated with added/updated files & folders
-7. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
+1. [ ] Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table.
+2. [ ] Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
+3. [ ] Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
+4. [ ] Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
+5. [ ] Ensure Readme.md is updated with ingest endpoints/flows and any new commands
+6. [ ] Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
+7. [ ] Ensure projectStructure.md is updated with added/updated files & folders
+8. [ ] Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
 
 #### Testing
 
@@ -375,7 +376,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 4. [ ] `npm run build --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
-7. [ ] `npm run e2e:test` (add ingest e2e if present; otherwise smoke existing)
+7. [ ] `npm run e2e:test` (including new ingest e2e cases)
 8. [ ] `npm run compose:down`
 
 #### Implementation notes

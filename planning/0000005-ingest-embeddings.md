@@ -156,7 +156,6 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 - Docker Compose reference for Chroma service: https://docs.docker.com/compose/
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
 - Cucumber guides: https://cucumber.io/docs/guides/
-- Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
 
@@ -278,8 +277,6 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 - MUI docs via MCP (@mui/material@7.2.0)
 - React Router docs: https://reactrouter.com/
 - Jest docs: Context7 `/jestjs/jest`
-- Jest docs: Context7 `/jestjs/jest`
-- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -319,7 +316,6 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 - MUI docs via MCP (@mui/material@7.2.0)
 - React Router docs: https://reactrouter.com/
-- Jest docs: Context7 `/jestjs/jest`
 - Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks

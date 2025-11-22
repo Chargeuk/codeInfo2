@@ -644,8 +644,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: _to_do_
+ - Task Status: __in_progress__
+ - Git Commits: _to_do_
 
 #### Overview
 

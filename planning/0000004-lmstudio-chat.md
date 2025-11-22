@@ -237,7 +237,7 @@ Add the chat page route with an initial view that lists available models (from `
 5. [ ] Update README.md (UI section) describing chat page entry and model selection.
 6. [ ] Update design.md with layout and model list states; add a simple mermaid diagram showing page structure/data flow.
 7. [ ] Update projectStructure.md with new page/component entries.
-8. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
+8. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure (Jest docs Context7 `/jestjs/jest`).
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -322,7 +322,7 @@ Add a “New conversation” button that clears the transcript and resets state 
 3. [ ] Update README.md (UI section) to document New conversation behaviour.
 4. [ ] Update design.md with reset flow and UX copy; include mermaid snippet if flow changes.
 5. [ ] Update projectStructure.md if new helpers/components are added.
-6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input; verify model retention/reset behaviour matches doc.
+6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input; verify model retention/reset behaviour matches doc (Jest docs Context7 `/jestjs/jest`).
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -364,7 +364,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 3. [ ] Update README.md (UI section) with Stop behaviour and limitations.
 4. [ ] Update design.md with Stop flow/state transitions; add mermaid illustrating stop path.
 5. [ ] Update projectStructure.md if new components/hooks are added.
-6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send.
+6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send (Jest docs Context7 `/jestjs/jest`).
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing

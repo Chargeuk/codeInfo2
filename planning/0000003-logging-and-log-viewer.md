@@ -71,14 +71,102 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 #### Subtasks
 
-1. [ ] Install server logging deps: run `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` exporting `baseLogger` (pino with env level, redaction stub, destinations stdout + rotating file `./logs/server.log` via pino-roll, ensure dir exists) and `createRequestLogger()` (wraps pino-http, binds correlation/request id). Update `server/src/index.ts` to use `createRequestLogger` (no functional changes yet).
-2. [ ] Create client logging skeleton files: `client/src/logging/logger.ts` (builds LogEntry, tees to console), `client/src/logging/transport.ts` (queue + no-op forwarder stub), and `client/src/logging/index.ts` (exports). Do not enable network sends yet; guard with env flag placeholder.
-3. [ ] Define shared `LogEntry` DTO in `common/src/logging.ts` (level, message, timestamp, source, context, requestId/correlationId, userAgent, url/route, tags, sequence?). Add validation helpers and export via `common/src/index.ts`.
-4. [ ] Add env variables with defaults: append the exact lines to `server/.env` (`LOG_LEVEL=info`, `LOG_BUFFER_MAX=5000`, `LOG_MAX_CLIENT_BYTES=32768`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`) and to `client/.env` (`VITE_LOG_LEVEL=info`, `VITE_LOG_FORWARD_ENABLED=true`, `VITE_LOG_MAX_BYTES=32768`, `VITE_LOG_STREAM_ENABLED=true`). Add the same keys (commented) to `server/.env.local` and `client/.env.local` as examples. Document the keys in README (server + client sections).
-5. [ ] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`).
+1. [ ] Install server logging deps with a single command: `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` using the starter below (safe to copy/paste and tweak levels/paths):
+   ```ts
+   import fs from 'node:fs';
+   import path from 'node:path';
+   import pino from 'pino';
+   import pinoHttp from 'pino-http';
+   import pinoRoll from 'pino-roll';
+
+   const logFilePath = process.env.LOG_FILE_PATH || './logs/server.log';
+   const logDir = path.dirname(logFilePath);
+   fs.mkdirSync(logDir, { recursive: true });
+
+   const destination = process.env.LOG_FILE_ROTATE === 'false'
+     ? pino.destination(logFilePath)
+     : pinoRoll({ file: logFilePath, frequency: 'daily', mkdir: true });
+
+   export const baseLogger = pino({ level: process.env.LOG_LEVEL || 'info', redact: ['req.headers.authorization', 'body.password'] }, destination);
+
+   export function createRequestLogger() {
+     return pinoHttp({ logger: baseLogger, genReqId: () => crypto.randomUUID?.() || Date.now().toString() });
+   }
+   ```
+   Update `server/src/index.ts` to `app.use(createRequestLogger());` right after env/config setup so every route logs; no other behaviour changes yet.
+2. [ ] Create client logging skeleton files with concrete stubs:
+   - `client/src/logging/logger.ts`:
+     ```ts
+     import { LogEntry } from '@codeinfo2/common';
+     import { sendLogs } from './transport';
+
+     export function createLogger(source = 'client'): (entry: Omit<LogEntry, 'timestamp' | 'source'>) => void {
+       return (entry) => {
+         const full: LogEntry = { timestamp: new Date().toISOString(), source, ...entry };
+         // tee to console for dev ergonomics
+         // eslint-disable-next-line no-console
+         console[entry.level === 'error' ? 'error' : 'log'](full);
+         sendLogs([full]);
+       };
+     }
+     ```
+   - `client/src/logging/transport.ts` (no network yet, just queue placeholder):
+     ```ts
+     import { LogEntry } from '@codeinfo2/common';
+     const queue: LogEntry[] = [];
+     export function sendLogs(entries: LogEntry[]) {
+       if (import.meta.env.VITE_LOG_FORWARD_ENABLED === 'false') return;
+       queue.push(...entries);
+       // network POST /logs will be added in Task 4
+     }
+     export function getQueuedLogs() { return queue; }
+     ```
+   - `client/src/logging/index.ts` re-export the above. Keep forwarding disabled in tests via the env flag.
+3. [ ] Define shared `LogEntry` DTO in `common/src/logging.ts` (copy/paste starter):
+   ```ts
+   export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
+   export type LogEntry = {
+     level: LogLevel;
+     message: string;
+     timestamp: string; // ISO string
+     source: 'server' | 'client';
+     requestId?: string;
+     correlationId?: string;
+     userAgent?: string;
+     url?: string;
+     route?: string;
+     tags?: string[];
+     context?: Record<string, unknown>;
+     sequence?: number;
+   };
+
+   export function isLogEntry(value: unknown): value is LogEntry {
+     const v = value as Partial<LogEntry>;
+     return !!v && ['error','warn','info','debug'].includes(v.level as string) && typeof v.message === 'string';
+   }
+   ```
+   Export from `common/src/index.ts` and add a tiny unit test later (Task 4) to guard the validator.
+4. [ ] Add env variables with explicit text blocks (append verbatim):
+   - `server/.env`
+     ```
+     LOG_LEVEL=info
+     LOG_BUFFER_MAX=5000
+     LOG_MAX_CLIENT_BYTES=32768
+     LOG_FILE_PATH=./logs/server.log
+     LOG_FILE_ROTATE=true
+     ```
+   - `client/.env`
+     ```
+     VITE_LOG_LEVEL=info
+     VITE_LOG_FORWARD_ENABLED=true
+     VITE_LOG_MAX_BYTES=32768
+     VITE_LOG_STREAM_ENABLED=true
+     ```
+   Mirror these as commented examples in `server/.env.local` and `client/.env.local` so juniors know where to override.
+5. [ ] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`). Include a one-sentence privacy note about redacting auth headers/password fields. Add a mermaid snippet showing client/server/common log flow; use Context7 `/mermaid-js/mermaid` if needed.
 6. [ ] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`) and note `logs/` directory under root.
 7. [ ] Update README: add a one-line Logging overview under Server/Client intro pointing to the detailed section to be written in Task 6.
-8. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 6). Run repo-wide lint/format checks after schema changes.
+8. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; note in plan to mount `./logs:/app/logs` in compose (actual compose edit in Task 6). After finishing the above, run repo-wide checks in this order and expect **all pass**: `npm run lint --workspaces` (no warnings), `npm run format:check --workspaces` (“checked … files”), `npm run build:all` (succeeds), `npm run compose:build` then `npm run compose:up` (client 5001 + server 5010 healthy), `npm run compose:down`.
 
 #### Testing
 
@@ -113,12 +201,41 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 #### Subtasks
 
-1. [ ] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add the middleware before routes; ensure correlation id is attached to req/res locals.
-2. [ ] Implement `server/src/logStore.ts`: in-memory rolling store with configurable max entries/bytes, sequence ids, append/query with filters (level/source/time/text), trims oldest; include hook to also write to the pino file destination when enabled.
-3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; create logs directory if missing.
-4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`).
+1. [ ] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add `app.use(createRequestLogger());` immediately after CORS/env setup. Store the generated `req.id` on `res.locals.requestId` so downstream routes can reuse it.
+2. [ ] Implement `server/src/logStore.ts` using this scaffold (trim/filters included so juniors can fill blanks):
+   ```ts
+   import { LogEntry, LogLevel } from '@codeinfo2/common';
+
+   type Filters = { level?: LogLevel[]; source?: string[]; text?: string; since?: number; until?: number };
+
+   const maxEntries = Number(process.env.LOG_BUFFER_MAX || 5000);
+   const store: LogEntry[] = [];
+   let sequence = 0;
+
+   export function append(entry: LogEntry): LogEntry {
+     const enriched = { ...entry, sequence: ++sequence };
+     store.push(enriched);
+     if (store.length > maxEntries) store.shift();
+     return enriched;
+   }
+
+   export function query(filters: Filters, limit = 200) {
+     return store
+       .filter((e) => !filters.level || filters.level.includes(e.level))
+       .filter((e) => !filters.source || filters.source.includes(e.source))
+       .filter((e) => !filters.text || `${e.message} ${JSON.stringify(e.context ?? {})}`.toLowerCase().includes(filters.text.toLowerCase()))
+       .filter((e) => !filters.since || new Date(e.timestamp).getTime() >= filters.since)
+       .filter((e) => !filters.until || new Date(e.timestamp).getTime() <= filters.until)
+       .slice(-limit);
+   }
+
+   export function lastSequence() { return sequence; }
+   ```
+   Leave hooks for file writing; add a TODO comment to forward to `baseLogger` file destination when wired.
+3. [ ] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; ensure `./logs` exists. Add a helper `resolveLogConfig()` returning parsed numbers so juniors don’t parse envs ad hoc.
+4. [ ] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`) including the exact volume line to paste later: `- ./logs:/app/logs`.
 5. [ ] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
-6. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
+6. [ ] Run server commands in order, checking for green exit codes: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server` (Cucumber), `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (verify `/health` 200), `npm run compose:down`.
 
 #### Testing
 
@@ -154,12 +271,29 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 
 #### Subtasks
 
-1. [ ] Add routes in `server/src/routes/logs.ts`: `POST /logs` validate LogEntry (size/level/source), redact sensitive fields, add requestId, append to store, return 202/400.
-2. [ ] In the same router, implement `GET /logs` (filtered/paginated, returns {items, lastSequence, hasMore}) and `GET /logs/stream` (SSE). SSE checklist: set headers (`text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`), send heartbeat `:\n\n`, include `id` + `data` lines, honor `Last-Event-ID` for catch-up from logStore, apply query filters (level/source/time/text), close on `req.on('close')`. Register router in `server/src/index.ts` under `/logs`.
-3. [ ] Update README (server section): add `/logs` and `/logs/stream` API examples, env keys, log file path/rotation note, and SSE usage note.
-4. [ ] Update design.md: document server logging flow (ingest → store → GET/SSE), redaction/retention notes, and SSE heartbeat/Last-Event-ID behaviour.
+1. [ ] Add routes in `server/src/routes/logs.ts` using concrete handlers:
+   - `POST /logs` flow: parse body, `if (!isLogEntry(body)) return res.status(400).json({ error: 'invalid log entry' });` enforce `JSON.stringify(body).length <= LOG_MAX_CLIENT_BYTES`; whitelist levels `error|warn|info|debug`; redact `authorization`, `password`, `token` keys from headers/context before storing; attach `requestId` from `res.locals`; call `append` and respond 202 `{ status: 'accepted', sequence }`.
+   - Provide example curl in README later:
+     ```sh
+     curl -X POST http://localhost:5010/logs \
+       -H 'content-type: application/json' \
+       -d '{"level":"info","message":"hello","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
+     ```
+2. [ ] In the same router, implement `GET /logs` and `GET /logs/stream` with explicit SSE framing:
+   - `GET /logs` query params: `level=info,warn`, `source=client,server`, `text=error`, `since=unixMs`, `until=unixMs`, `limit` (cap at 200). Response `{ items, lastSequence, hasMore }` sorted ascending by sequence.
+   - `GET /logs/stream`: set headers `text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`; send initial heartbeat `:\n\n`; honor `Last-Event-ID` (or `?sinceSequence=`) to replay missed items via `query`; emit events as:
+     ```
+     id: <sequence>\n
+     data: {"level":"info","message":"..."}\n\n
+     ```
+     send heartbeat every 15s `:\n\n`; close on `req.on('close')` and remove listeners.
+   - Register router in `server/src/index.ts` under `/logs`.
+3. [ ] Update README (server section): include request/response samples for `/logs` and `/logs/stream`, list env keys, note log file path/rotation, and mention SSE heartbeat + `Last-Event-ID` usage (`curl -N http://localhost:5010/logs/stream`).
+4. [ ] Update design.md: document server logging flow (ingest → logStore → GET/SSE), redaction/retention defaults, SSE behaviours (heartbeat every 15s, replay via Last-Event-ID), and limits (200 items, 32KB payload). Add a mermaid sequence diagram for SSE (client -> server -> stream); use Context7 `/mermaid-js/mermaid` for syntax reference.
 5. [ ] Update projectStructure.md: ensure `server/src/routes/logs.ts` and related files are listed.
-6. [ ] Add Cucumber coverage: feature `server/src/test/features/logs.feature` and steps `server/src/test/steps/logs.steps.ts` for valid ingestion, oversize/invalid level rejection, filtering by level/time, pagination cap, redaction check, SSE heartbeat/basic stream (use supertest + custom SSE parser). Keep existing tests passing.
+6. [ ] Add Cucumber coverage with explicit starting points:
+   - Feature `server/src/test/features/logs.feature` containing scenarios: valid ingestion → 202; invalid level → 400; oversize payload → 400; GET with `level=error` returns only errors; SSE heartbeat + one event (use mock store inject or append first); redaction hides `password` field.
+   - Steps `server/src/test/steps/logs.steps.ts` reuse supertest against app; for SSE parsing, use a simple line buffer helper provided inline (ok to copy from test file header).
 7. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
 
 #### Testing
@@ -194,17 +328,116 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 - Testing: Jest docs via Context7 `/jestjs/jest`; Testing Library patterns already in `client/src/test`.
 - React fundamentals: https://react.dev/learn (component patterns, effects, error handling).
 - React Router docs via Context7 `/remix-run/react-router` (routing/error boundaries where touched).
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (for any new sequence/flow charts added to design.md).
 
 #### Subtasks
 
-1. [ ] Implement `client/src/logging/logger.ts`: formats LogEntry with route/userAgent/correlationId; wraps console.warn/error; hooks `window.onerror`/`unhandledrejection` with throttle to avoid loops; exports `createLogger` and `installGlobalErrorHooks`.
-2. [ ] Implement `client/src/logging/transport.ts`: queue + batching/backoff + offline guard sending to `POST /logs`; respects `VITE_LOG_FORWARD_ENABLED` and `VITE_LOG_MAX_BYTES`; no network sends when `import.meta.env.MODE === 'test'`. Export a `sendLogs` function used by logger.
-3. [ ] Wire logger usage: update `client/src/pages/HomePage.tsx` fetch error handling, `client/src/pages/LmStudioPage.tsx` actions, `client/src/routes/router.tsx` error boundary, and any API hook files to call the logger. Add an opt-in sample emission toggle component on the Logs page later. Ensure messages redact obvious PII keys.
-4. [ ] Update README (client section): add logging env keys (`VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`), forwarding behaviour, and how to disable in `.env.local`.
-5. [ ] Update design.md: describe client logging behaviour (console tee, forwarding, error hooks, env toggles) and privacy notes.
-6. [ ] Update projectStructure.md: list `client/src/logging/*` and the new test files.
-7. [ ] Add Jest/Testing Library tests: `client/src/test/logging/logger.test.ts`, `client/src/test/logging/transport.test.ts`, `client/src/test/logsPage.test.tsx` (smoke that triggers a forwarded log with mocked fetch). Ensure projectStructure lists these files.
-8. [ ] Run client commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`.
+1. [ ] Implement `client/src/logging/logger.ts` using this starter:
+   ```ts
+   import { LogEntry, LogLevel } from '@codeinfo2/common';
+   import { sendLogs } from './transport';
+
+   const levels: LogLevel[] = ['error', 'warn', 'info', 'debug'];
+
+   export function createLogger(source = 'client', routeProvider = () => window.location.pathname) {
+     return (level: LogLevel, message: string, context: Record<string, unknown> = {}) => {
+       if (!levels.includes(level)) level = 'info';
+       const entry: LogEntry = {
+         level,
+         message,
+         timestamp: new Date().toISOString(),
+         source,
+         route: routeProvider(),
+         userAgent: navigator.userAgent,
+         correlationId: crypto.randomUUID?.(),
+         context,
+       };
+       // console tee for dev
+       // eslint-disable-next-line no-console
+       console[level === 'error' ? 'error' : 'log'](entry);
+       sendLogs([entry]);
+     };
+   }
+
+   export function installGlobalErrorHooks(log = createLogger('client-global')) {
+     let lastError = 0;
+     const minGap = 1000;
+     window.onerror = (msg, url, line, col, err) => {
+       if (Date.now() - lastError < minGap) return;
+       lastError = Date.now();
+       log('error', 'window.onerror', { msg, url, line, col, error: String(err) });
+     };
+     window.onunhandledrejection = (event) => {
+       if (Date.now() - lastError < minGap) return;
+       lastError = Date.now();
+       log('error', 'unhandledrejection', { reason: String(event.reason) });
+     };
+   }
+   ```
+2. [ ] Implement `client/src/logging/transport.ts` with batching/backoff scaffold:
+   ```ts
+   import { LogEntry } from '@codeinfo2/common';
+
+   const queue: LogEntry[] = [];
+   const MAX_BATCH = 10;
+   const BACKOFF = [500, 1000, 2000, 4000];
+   let backoffIndex = 0;
+   let inFlight = false;
+
+   export async function flushQueue() {
+     if (inFlight || queue.length === 0) return;
+     if (import.meta.env.MODE === 'test') { queue.length = 0; return; }
+     if (import.meta.env.VITE_LOG_FORWARD_ENABLED === 'false') { queue.length = 0; return; }
+     if (!navigator.onLine) return;
+     const batch = queue.splice(0, MAX_BATCH);
+     inFlight = true;
+     try {
+       const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/logs`, {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify(batch),
+       });
+       if (!res.ok) throw new Error(`status ${res.status}`);
+       backoffIndex = 0;
+     } catch (err) {
+       // put back and retry later
+       queue.unshift(...batch);
+       const delay = BACKOFF[Math.min(backoffIndex++, BACKOFF.length - 1)];
+       setTimeout(flushQueue, delay);
+     } finally {
+       inFlight = false;
+     }
+   }
+
+   export function sendLogs(entries: LogEntry[]) {
+     const maxBytes = Number(import.meta.env.VITE_LOG_MAX_BYTES || 32768);
+     entries.forEach((e) => {
+       if (JSON.stringify(e).length <= maxBytes) queue.push(e);
+     });
+     void flushQueue();
+   }
+
+   export function _getQueue() { return queue; } // for tests
+   ```
+3. [ ] Wire logger usage with concrete hooks:
+   - `client/src/main.tsx`: call `installGlobalErrorHooks();` once.
+   - `client/src/pages/HomePage.tsx`: in the fetch catch, `logger('error', 'version fetch failed', { error });`.
+   - `client/src/pages/LmStudioPage.tsx`: log start/success/failure of status/model refresh; include `baseUrl` in context with obvious secrets removed.
+   - `client/src/routes/router.tsx`: in error boundary component, log the error object and route.
+   - Add a simple opt-in sample emitter on Logs page later (Task 5) guarded by a toggle `Send sample log`.
+4. [ ] Update README (client section) with a small block showing env keys, how to disable forwarding via `.env.local`, and a short example:
+   ```env
+   VITE_LOG_FORWARD_ENABLED=false
+   ```
+   Mention that tests force-disable network sends (`MODE === 'test'`).
+5. [ ] Update design.md: describe client logging flow (console tee → queue → POST /logs with backoff), env toggles, and privacy note (redact obvious PII in context before logging).
+6. [ ] Update projectStructure.md: list `client/src/logging/logger.ts`, `client/src/logging/transport.ts`, `client/src/logging/index.ts`, and new tests under `client/src/test/logging/`.
+7. [ ] Add Jest/Testing Library tests with ready-to-use shapes:
+   - `client/src/test/logging/logger.test.ts`: mock `sendLogs`, call logger, assert it receives a LogEntry with timestamp/source/route; simulate `window.onerror` and ensure throttling works.
+   - `client/src/test/logging/transport.test.ts`: mock `fetch`, push entries, await `flushQueue`, assert POST body length ≤ max bytes, retry/backoff puts entries back when fetch rejects.
+   - `client/src/test/logsPage.test.tsx`: render a minimal Logs page stub that calls `createLogger` and ensures sendLogs was invoked (mocked) when a button is clicked.
+   Remember to add any new test helpers to projectStructure.
+8. [ ] Run client commands in order (stop if any fail): `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`.
 
 #### Testing
 
@@ -242,17 +475,122 @@ Create a new “Logs” route in the client that consumes the server log API, su
 - Playwright e2e setup under `e2e/`.
 - React fundamentals: https://react.dev/learn (components/state/effects).
 - React Router docs via Context7 `/remix-run/react-router` (NavBar routing, route setup, loaders/error boundaries if needed).
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (for Logs UI + stream flow diagrams in design.md).
 
 #### Subtasks
 
-1. [ ] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; ensure routing works in dev/preview/docker.
-2. [ ] Build data hook `client/src/hooks/useLogs.ts` (new) to fetch logs via `GET /logs` and (when supported) subscribe to `GET /logs/stream` SSE for live updates with reconnection/backoff; keep filters (level multi-select, source, text search, since/until) and allow disabling live updates.
-3. [ ] Implement UI in `client/src/pages/LogsPage.tsx` (table on md+, stacked cards on sm) showing timestamp, level chip, source, message, context snippet, and correlation id; include controls for filters, refresh, auto-refresh toggle, and max rows indicator.
-4. [ ] Wire client logging demo: on page load or button click, emit a sample client log and verify it appears after refresh/stream to prove end-to-end flow (behind a toggle to avoid spam).
-5. [ ] Update README (client UI section) with Logs page usage (filters, stream toggle, refresh); update design.md UI behaviours/states and note location in “Client UI” section.
-6. [ ] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, logging tests, and `e2e/logs.spec.ts`.
-7. [ ] Add tests: Jest for hook/UI (`client/src/test/logsPage.test.tsx` extended for filters/refresh/SSE) and Playwright `e2e/logs.spec.ts` that triggers a client log and observes it via GET/stream.
-8. [ ] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test` (with new logs spec), `npm run compose:down`. Ensure docker compose still works.
+1. [ ] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; copy an existing tab pattern and point to `/logs`. Verify dev server shows the tab.
+2. [ ] Build data hook `client/src/hooks/useLogs.ts` using this scaffold:
+   ```ts
+   import { useEffect, useMemo, useRef, useState } from 'react';
+   import { LogEntry } from '@codeinfo2/common';
+
+   type Filters = { level: string[]; source: string[]; text: string; since?: number; until?: number };
+
+   export function useLogs(filters: Filters, live = true) {
+     const [logs, setLogs] = useState<LogEntry[]>([]);
+     const [loading, setLoading] = useState(false);
+     const [error, setError] = useState<string | null>(null);
+     const lastSequence = useRef<number | undefined>(undefined);
+
+     const query = useMemo(() => {
+       const params = new URLSearchParams();
+       if (filters.level.length) params.set('level', filters.level.join(','));
+       if (filters.source.length) params.set('source', filters.source.join(','));
+       if (filters.text) params.set('text', filters.text);
+       if (filters.since) params.set('since', String(filters.since));
+       if (filters.until) params.set('until', String(filters.until));
+       if (lastSequence.current) params.set('sinceSequence', String(lastSequence.current));
+       return params.toString();
+     }, [filters.level, filters.source, filters.text, filters.since, filters.until]);
+
+     useEffect(() => {
+       let cancelled = false;
+       async function load() {
+         setLoading(true); setError(null);
+         try {
+           const res = await fetch(`/logs?${query}`);
+           if (!res.ok) throw new Error(`status ${res.status}`);
+           const body = await res.json();
+           if (cancelled) return;
+           setLogs(body.items);
+           lastSequence.current = body.lastSequence;
+         } catch (e) {
+           if (!cancelled) setError(String(e));
+         } finally {
+           if (!cancelled) setLoading(false);
+         }
+       }
+       void load();
+       return () => { cancelled = true; };
+     }, [query]);
+
+     useEffect(() => {
+       if (!live) return;
+       const es = new EventSource(`/logs/stream?${query}`);
+       es.onmessage = (evt) => {
+         const parsed = JSON.parse(evt.data) as LogEntry;
+         lastSequence.current = parsed.sequence ?? lastSequence.current;
+         setLogs((prev) => [...prev.slice(-199), parsed]);
+       };
+       es.onerror = () => { es.close(); };
+       return () => es.close();
+     }, [query, live]);
+
+     return { logs, loading, error, refreshQuery: () => setLogs([]) };
+   }
+   ```
+3. [ ] Implement UI in `client/src/pages/LogsPage.tsx` with a ready layout skeleton (replace with MUI components):
+   ```tsx
+   import { Chip, Container, Stack, TextField, Switch, FormControlLabel, Button, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from '@mui/material';
+   import { useState } from 'react';
+   import { useLogs } from '../hooks/useLogs';
+
+   export default function LogsPage() {
+     const [text, setText] = useState('');
+     const [live, setLive] = useState(true);
+     const { logs, loading, error } = useLogs({ level: [], source: [], text }, live);
+
+     return (
+       <Container maxWidth="lg">
+         <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+           <TextField label="Search text" value={text} onChange={(e) => setText(e.target.value)} size="small" />
+           <FormControlLabel control={<Switch checked={live} onChange={(e) => setLive(e.target.checked)} />} label="Live" />
+           <Button onClick={() => window.location.reload()}>Refresh</Button>
+         </Stack>
+         {loading && <CircularProgress />} {error && <div role="alert">{error}</div>}
+         <Table size="small">
+           <TableHead>
+             <TableRow>
+               <TableCell>Time</TableCell><TableCell>Level</TableCell><TableCell>Source</TableCell><TableCell>Message</TableCell><TableCell>Context</TableCell>
+             </TableRow>
+           </TableHead>
+           <TableBody>
+             {logs.map((log) => (
+               <TableRow key={log.sequence ?? log.timestamp}>
+                 <TableCell>{log.timestamp}</TableCell>
+                 <TableCell><Chip label={log.level} color={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'primary'} /></TableCell>
+                 <TableCell>{log.source}</TableCell>
+                 <TableCell>{log.message}</TableCell>
+                 <TableCell>{log.context ? JSON.stringify(log.context) : ''}</TableCell>
+               </TableRow>
+             ))}
+           </TableBody>
+         </Table>
+       </Container>
+     );
+   }
+   ```
+   On small screens, switch to stacked cards (can reuse MUI `Card` with `Stack` in sm breakpoint).
+4. [ ] Wire client logging demo: add a `Send sample log` button on Logs page that calls `createLogger('client-demo')('info','sample log',{ route: '/logs' })`; ensure it appears after refresh/stream.
+5. [ ] Update README (client UI section) with usage bullets: filters (levels/text), live toggle, refresh button, sample log button, and mention SSE auto-reconnect.
+6. [ ] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour.
+7. [ ] Update projectStructure.md to list new page `client/src/pages/LogsPage.tsx`, hook `client/src/hooks/useLogs.ts`, tests, and `e2e/logs.spec.ts`.
+8. [ ] Add tests with concrete guidance:
+   - Jest `client/src/test/logsPage.test.tsx`: mock `fetch` to return two logs; render page; expect rows; toggle live off and ensure EventSource is not constructed (mock it via `global.EventSource = jest.fn()`).
+   - Hook test: mock fetch + EventSource emitting one message to ensure state updates.
+   - Playwright `e2e/logs.spec.ts`: start stack, click Logs tab, click “Send sample log”, wait for row containing “sample log”, assert level chip text matches.
+9. [ ] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test`, `npm run compose:down`.
 
 #### Testing
 
@@ -288,15 +626,18 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 
 #### Subtasks
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build` after ensuring logs folder exists); bring stack up `npm run compose:up` (confirm) and down `npm run compose:down` after testing.
-4. [ ] README.md: add logging usage (server/client), API examples for `/logs` and `/logs/stream`, env vars, log file location/rotation, compose volume mount `./logs:/app/logs`, and new commands.
-5. [ ] design.md: add logging architecture diagram/flow (ingest -> store -> GET/SSE -> UI), GUI behaviour, redaction/retention notes.
-6. [ ] projectStructure.md: list new files (server logger/logStore/routes, client logging folder, e2e/logs.spec.ts) and note `logs/` dir.
-7. [ ] Git ignores + compose: add `logs/` to root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with volume `./logs:/app/logs`; ensure `.env.local` guidance unchanged.
-8. [ ] Create PR-ready summary of all changes (server/client logging, UI, tests, env) and include log viewer screenshots in `test-results/screenshots/0000003-6-*.png`.
-9. [ ] Run repo-wide lint/format checks: `npm run lint --workspaces` then `npm run format:check --workspaces`; fix before final verification.
+1. [ ] Build the server (`npm run build --workspace server`). If it fails, capture error in Implementation notes before fixing.
+2. [ ] Build the client (`npm run build --workspace client`).
+3. [ ] Perform a clean docker build (`npm run compose:build`) after ensuring a local `./logs` folder exists. Bring stack up `npm run compose:up`, confirm client at http://localhost:5001 and server `/health` 200, then `npm run compose:down`.
+4. [ ] README.md: add a “Logging” section with:
+   - `/logs` POST/GET examples (curl) and `/logs/stream` SSE example (`curl -N http://localhost:5010/logs/stream`).
+   - Env keys for both apps, log file path/rotation, compose volume line `- ./logs:/app/logs`.
+   - How to disable client forwarding (`VITE_LOG_FORWARD_ENABLED=false`).
+5. [ ] design.md: include a mermaid sequence (ingest -> logStore -> GET/SSE -> UI), describe GUI states, redaction rules, retention defaults, SSE heartbeat/replay. Use Context7 `/mermaid-js/mermaid` as reference for syntax while updating diagrams.
+6. [ ] projectStructure.md: list all new files (server logger/logStore/routes, client logging folder, Logs page/hook, e2e/logs.spec.ts) and note `logs/` dir.
+7. [ ] Git ignores + compose: ensure `logs/` present in root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with `- ./logs:/app/logs`; leave `.env.local` guidance unchanged.
+8. [ ] Create PR-ready summary covering server logging, client logging, UI, tests, env changes; save 2–3 screenshots of the Logs page to `test-results/screenshots/0000003-6-*.png` (e.g., `...-list.png`, `...-filters.png`).
+9. [ ] Run repo-wide checks in order: `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e:test` (stack up), then `npm run compose:down`.
 
 #### Testing
 

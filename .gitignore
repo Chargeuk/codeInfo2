@@ -8,3 +8,4 @@ test-results
 npm-debug.log*
 .vscode
 *.tsbuildinfo
+logs/

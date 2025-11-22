@@ -14,11 +14,20 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import useLmStudioStatus from '../hooks/useLmStudioStatus';
+import { createLogger } from '../logging';
 
 const DEFAULT_LM_URL =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta)?.env?.VITE_LMSTUDIO_URL) ??
   'http://host.docker.internal:1234';
+
+const scrubBaseUrl = (value: string) => {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '[invalid-url]';
+  }
+};
 
 function humanSize(bytes?: number | null) {
   if (!bytes) return '-';
@@ -35,9 +44,11 @@ export default function LmStudioPage() {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const inputRef = useRef<HTMLInputElement>(null);
+  const logger = useMemo(() => createLogger('client-lmstudio'), []);
   const { baseUrl, state, isLoading, isError, isEmpty, refresh } =
     useLmStudioStatus();
   const [input, setInput] = useState(baseUrl);
+  const lastResult = useRef<string | null>(null);
 
   useEffect(() => {
     if (isError) {
@@ -56,11 +67,47 @@ export default function LmStudioPage() {
     return 'Idle';
   }, [state]);
 
-  const handleCheck = () => refresh(input);
+  const logRefreshStart = (targetBase: string, reason: string) =>
+    logger('info', 'lmstudio refresh start', {
+      baseUrl: scrubBaseUrl(targetBase),
+      reason,
+    });
+
+  const handleCheck = () => {
+    logRefreshStart(input, 'check');
+    void refresh(input);
+  };
   const handleReset = () => {
     setInput(DEFAULT_LM_URL);
-    refresh(DEFAULT_LM_URL);
+    logRefreshStart(DEFAULT_LM_URL, 'reset');
+    void refresh(DEFAULT_LM_URL);
   };
+  const handleRefresh = () => {
+    logRefreshStart(baseUrl, 'refresh');
+    void refresh();
+  };
+
+  useEffect(() => {
+    if (state.status === 'success') {
+      const key = `success:${state.data.baseUrl}:${state.data.models.length}`;
+      if (lastResult.current !== key) {
+        logger('info', 'lmstudio refresh success', {
+          baseUrl: scrubBaseUrl(state.data.baseUrl),
+          models: state.data.models.length,
+        });
+        lastResult.current = key;
+      }
+    } else if (state.status === 'error') {
+      const key = `error:${state.error}`;
+      if (lastResult.current !== key) {
+        logger('error', 'lmstudio refresh failed', {
+          baseUrl: scrubBaseUrl(baseUrl),
+          error: state.error,
+        });
+        lastResult.current = key;
+      }
+    }
+  }, [state, baseUrl, logger]);
 
   const models = state.status === 'success' ? state.data.models : [];
 
@@ -87,7 +134,7 @@ export default function LmStudioPage() {
         <Button variant="outlined" onClick={handleReset} disabled={isLoading}>
           Reset to default
         </Button>
-        <Button variant="text" onClick={() => refresh()} disabled={isLoading}>
+        <Button variant="text" onClick={handleRefresh} disabled={isLoading}>
           Refresh models
         </Button>
       </Stack>

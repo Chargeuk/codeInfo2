@@ -9,6 +9,8 @@ services:
     env_file:
       - server/.env
       - server/.env.local
+    volumes:
+      - ./logs:/app/logs
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
       interval: 10s

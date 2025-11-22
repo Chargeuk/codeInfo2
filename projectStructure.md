@@ -13,6 +13,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 ├─ .prettierrc — Prettier settings
 ├─ AGENTS.md — agent workflow rules
 ├─ README.md — repo overview and commands
+├─ logs/ — runtime server log output (gitignored, host-mounted)
 ├─ design.md — design notes and diagrams
 ├─ docker-compose.yml — compose stack for client/server
 ├─ eslint.config.js — root ESLint flat config
@@ -42,20 +43,32 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     ├─ assets/react.svg — React logo asset
 │     ├─ components/
 │     │  └─ NavBar.tsx — top navigation AppBar/Tabs
+│     ├─ logging/
+│     │  ├─ index.ts — logging exports
+│     │  ├─ logger.ts — client logger factory (console tee + queue)
+│     │  └─ transport.ts — forwarding queue placeholder
 │     ├─ hooks/
-│     │  └─ useLmStudioStatus.ts — LM Studio status/models data hook
+│     │  ├─ useLmStudioStatus.ts — LM Studio status/models data hook
+│     │  └─ useLogs.ts — log history + SSE hook with filters
 │     ├─ index.css — minimal global styles (font smoothing, margin reset)
 │     ├─ main.tsx — app entry with RouterProvider
 │     ├─ pages/
 │     │  ├─ HomePage.tsx — version card page
-│     │  └─ LmStudioPage.tsx — LM Studio config/status/models UI
+│     │  ├─ LmStudioPage.tsx — LM Studio config/status/models UI
+│     │  └─ LogsPage.tsx — log viewer with filters, live toggle, sample emitter
 │     ├─ routes/
+│     │  ├─ RouterErrorBoundary.tsx — route-level error boundary logger
 │     │  └─ router.tsx — React Router setup
 │     └─ test/
+│        ├─ logging/
+│        │  ├─ logger.test.ts — logger creation/global hooks coverage
+│        │  └─ transport.test.ts — client log transport queue/backoff tests
+│        ├─ logsPage.test.tsx — Logs page renders data, live toggle behaviour
 │        ├─ lmstudio.test.tsx — LM Studio page tests
 │        ├─ router.test.tsx — nav/router tests
 │        ├─ setupTests.ts — Jest/test setup
 │        ├─ useLmStudioStatus.test.ts — hook tests
+│        ├─ useLogs.test.ts — log fetch + SSE hook tests
 │        └─ version.test.tsx — version card test
 ├─ common/ — shared TypeScript package
 │  ├─ package.json — common workspace manifest
@@ -65,13 +78,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     ├─ api.ts — fetch helpers (server version, LM Studio)
 │     ├─ index.ts — barrel exports
 │     ├─ lmstudio.ts — LM Studio DTOs/types
+│     ├─ logging.ts — LogEntry/LogLevel DTO + isLogEntry guard
 │     └─ versionInfo.ts — VersionInfo DTO
 ├─ e2e/ — Playwright specs
 │  ├─ lmstudio.spec.ts — LM Studio UI/proxy e2e
+│  ├─ logs.spec.ts — Logs UI end-to-end sample emission
 │  └─ version.spec.ts — version display e2e
 ├─ planning/ — story plans and template
 │  ├─ 0000001-initial-skeleton-setup.md — plan for story 0000001
-│  ├─ 0000002-lmstudio-config.md — plan for story 0000002 (current)
+│  ├─ 0000002-lmstudio-config.md — plan for story 0000002
+│  ├─ 0000003-logging-and-log-viewer.md — plan for story 0000003 (current)
 │  └─ plan_format.md — planning template/instructions
 ├─ server/ — Express API
 │  ├─ .dockerignore — server docker build ignores
@@ -85,8 +101,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │  ├─ tsconfig.tsbuildinfo — TS build info cache
 │  └─ src/
 │     ├─ index.ts — Express app entry
+│     ├─ logger.ts — pino/pino-http setup with rotation and env config helper
+│     ├─ logStore.ts — in-memory log buffer with sequence numbers and filters
 │     ├─ routes/
+│     │  ├─ logs.ts — log ingestion, history, and SSE streaming routes
 │     │  └─ lmstudio.ts — LM Studio proxy route
+│     ├─ types/
+│     │  └─ pino-roll.d.ts — module shim for pino-roll until official types
 │     └─ test/
 │        ├─ features/
 │        │  ├─ example.feature — sample feature

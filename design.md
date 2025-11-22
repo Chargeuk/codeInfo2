@@ -122,3 +122,92 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
+
+## Logging schema (shared)
+
+- Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
+- Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
+- Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
+- Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
+
+```mermaid
+flowchart TD
+  A[Client logger] -->|POST /logs (later)| B[Server logger]
+  B --> C[In-memory log buffer]
+  B --> D[Rotating file ./logs/server.log]
+  C --> E[SSE /logs/stream]
+  C --> F[GET /logs]
+  E --> G[Logs page]
+  F --> G
+```
+
+### Logging storage & retention
+
+- In-memory log buffer in `server/src/logStore.ts` caps entries using `LOG_BUFFER_MAX` (default 5000), assigns monotonic `sequence` numbers, and trims oldest-first to keep memory bounded.
+- File output writes to `LOG_FILE_PATH` (default `./logs/server.log`) with rotation controlled by `LOG_FILE_ROTATE` (`true` = daily via pino-roll); the directory is created on startup so hosts can bind-mount it.
+- Host persistence for compose runs uses `- ./logs:/app/logs` (to be added in compose) while keeping `logs/` gitignored and excluded from the server Docker build context.
+- `LOG_MAX_CLIENT_BYTES` will guard incoming log payload sizes when the ingestion endpoint is added, preventing oversized client submissions.
+
+### Server log APIs & streaming
+
+- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, and appends to the in-memory store.
+- `GET /logs` returns `{ items, lastSequence, hasMore }` sorted by sequence and filtered via `level`, `source`, `text`, `since`, `until` with a hard limit of 200 items per call.
+- `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
+- Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
+
+```mermaid
+sequenceDiagram
+  participant Client as Client app
+  participant Server as Server /logs routes
+  participant Store as In-memory logStore
+  participant UI as Logs UI
+  Client->>Server: POST /logs (validate + redact auth/password/token)
+  Server->>Store: append(entry) -> sequence++
+  UI->>Server: GET /logs?filters
+  Server->>Store: query(filters, limit 200)
+  Store-->>Server: filtered items
+  Server-->>UI: items + lastSequence
+  UI->>Server: EventSource /logs/stream (Last-Event-ID?)
+  Server->>Store: replay since sequence
+  Store-->>Server: missed entries
+  Server-->>UI: SSE events + 15s heartbeats
+```
+
+### Client logging flow & hooks
+
+- `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
+- The transport queues entries, enforces `VITE_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${VITE_API_URL}/logs` unless forwarding is disabled (`VITE_LOG_FORWARD_ENABLED=false`), the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
+- Context should avoid PII; URLs with embedded credentials are redacted before logging. Forwarding can be opt-out via `.env.local` while keeping console output for local debugging.
+- LM Studio: client logs status/refresh/reset actions with `baseUrl` reduced to `URL.origin` and errors included; server logs LM Studio proxy requests (requestId, base URL origin, model count or error) and forwards them into the log buffer/streams, keeping credentials/token/password fields redacted.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Store
+  Client->>Server: GET /logs/stream (Last-Event-ID?)
+  Server->>Store: query(filters, sinceSequence)
+  Store-->>Server: recent entries
+  Server-->>Client: SSE heartbeat + replay
+  Client->>Server: POST /logs
+  Server->>Store: append(entry + requestId, redact)
+  Store-->>Server: new sequence
+  Server-->>Client: SSE event id:<sequence>
+```
+
+### Logs page UI
+
+- Controls: free-text filter, clickable chips for levels (`error|warn|info|debug`) and sources (`server|client`), live toggle (SSE on/off), manual refresh, and a “Send sample log” button that emits an example entry via `createLogger('client-logs')`.
+- States: loading shows CircularProgress with text; errors surface in an Alert; empty state reads “No logs yet. Emit one with ‘Send sample log’.” SSE auto-reconnects with 15s heartbeats and replays missed entries using `Last-Event-ID` so the UI stays in sync when live mode is on.
+- Layout: table on md+ screens with chips per level/source and monospace context column; stacked outlined cards on small screens to avoid horizontal scroll.
+- Live behaviour: when Live is on, EventSource streams `/logs/stream` with auto-reconnect; turning it off keeps the last fetched snapshot. Refresh clears cached data and re-fetches `/logs` with current filters.
+
+```mermaid
+flowchart LR
+  F[Filter controls] --> Q[useLogs fetch /logs?query]
+  Q --> U[Table/Card render]
+  U -->|Live on| S[EventSource /logs/stream]
+  S --> U
+  B[Send sample log] --> L[createLogger -> POST /logs]
+  L --> S
+```

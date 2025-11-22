@@ -18,3 +18,9 @@ Feature: LM Studio status
     When I GET "/lmstudio/status"
     Then the response status code is 502
     And the JSON field "status" equals "error"
+
+  Scenario: LM Studio logging includes request id
+    Given LM Studio scenario "many"
+    When I GET "/lmstudio/status"
+    Then the response status code is 200
+    And a log entry is recorded for LM Studio with a requestId

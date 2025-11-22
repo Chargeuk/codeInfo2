@@ -4,11 +4,19 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { createRequestLogger } from './logger.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
+import { createLogsRouter } from './routes/logs.js';
 
 config();
 const app = express();
 app.use(cors());
+app.use(createRequestLogger());
+app.use((req, res, next) => {
+  const requestId = (req as unknown as { id?: string }).id;
+  if (requestId) res.locals.requestId = requestId;
+  next();
+});
 const PORT = process.env.PORT ?? '5010';
 const clientFactory = (baseUrl: string) => new LMStudioClient({ baseUrl });
 
@@ -27,6 +35,7 @@ app.get('/info', (_req, res) => {
   });
 });
 
+app.use('/logs', createLogsRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 
 app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));

@@ -3,7 +3,11 @@ import { Link as RouterLink, useLocation } from 'react-router-dom';
 
 export default function NavBar() {
   const { pathname } = useLocation();
-  const value = pathname.startsWith('/lmstudio') ? '/lmstudio' : '/';
+  const value = pathname.startsWith('/lmstudio')
+    ? '/lmstudio'
+    : pathname.startsWith('/logs')
+      ? '/logs'
+      : '/';
   return (
     <AppBar position="static">
       <Toolbar sx={{ minHeight: 64 }}>
@@ -28,6 +32,13 @@ export default function NavBar() {
             component={RouterLink}
             to="/lmstudio"
             aria-label="LM Studio"
+          />
+          <Tab
+            label="Logs"
+            value="/logs"
+            component={RouterLink}
+            to="/logs"
+            aria-label="Logs"
           />
         </Tabs>
       </Toolbar>

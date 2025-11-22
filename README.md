@@ -23,12 +23,19 @@ npm install
 
 ## Client
 
+- Logging: client uses shared `LogEntry` schema with console tee + forwarding toggle (full details coming in the dedicated Logging section from Task 6).
+- Client logging env (set in `client/.env`, override in `.env.local`):
+  ```env
+  VITE_LOG_FORWARD_ENABLED=false
+  ```
+  Tests force-disable network sends when `MODE === 'test'`.
 - `npm run dev --workspace client` (http://localhost:5001)
 - `npm run build --workspace client`
 - `npm run preview --workspace client -- --host --port 5001`
 - `npm run test --workspace client` (Jest + @testing-library/react)
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
+- **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end.
 - **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
@@ -50,12 +57,53 @@ npm install
 
 ## Server
 
+- Logging: structured pino logger using shared schema; log file at `./logs/server.log` with rotation (expanded in the Logging section added in Task 6).
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
 - `npm run test --workspace server` (Cucumber scenarios)
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
+
+### Logging endpoints
+
+- Env: `LOG_LEVEL`, `LOG_BUFFER_MAX` (default 5000), `LOG_MAX_CLIENT_BYTES` (default 32768), `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (`true` for daily rotation). Files write to `./logs` (gitignored/bind-mount later).
+- POST `/logs` accepts a single log entry (32KB cap) and returns 202 with the stored sequence number:
+  ```sh
+  curl -X POST http://localhost:5010/logs \
+    -H 'content-type: application/json' \
+    -d '{"level":"info","message":"hello","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
+  ```
+- GET `/logs` supports `level`, `source`, `text`, `since`, `until`, `limit` (max 200) and responds `{ items, lastSequence, hasMore }`:
+  ```sh
+  curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
+  ```
+- GET `/logs/stream` provides an SSE feed with heartbeats every 15s; resume with `Last-Event-ID` or `?sinceSequence=`. Example: `curl -N http://localhost:5010/logs/stream`.
+
+## Logging
+
+- Quick API calls:
+  ```sh
+  # POST one entry
+  curl -X POST http://localhost:5010/logs \
+    -H 'content-type: application/json' \
+    -d '{"level":"info","message":"demo","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
+
+  # GET filtered history
+  curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
+
+  # Stream live with SSE + heartbeats
+  curl -N http://localhost:5010/logs/stream
+  ```
+- Env keys  
+  Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
+  Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
+- File + compose: logs write to `./logs/server.log`; mount persistently with `- ./logs:/app/logs` in `docker-compose.yml`.
+- Disable client forwarding by setting in `.env.local`:
+  ```env
+  VITE_LOG_FORWARD_ENABLED=false
+  ```
+- LM Studio actions: client logs status/refresh/reset actions with redacted base URLs; server logs inbound LM Studio proxy calls (requestId, base URL origin, model count or error). Secrets in URLs are stripped before logging.
 
 ### LM Studio proxy
 

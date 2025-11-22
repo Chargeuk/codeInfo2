@@ -12,6 +12,12 @@ const mockFetch = jest.fn<
   Parameters<FetchLmStudioStatus>
 >();
 const mockFetchServerVersion = jest.fn().mockResolvedValue({ version: 'test' });
+const logQueue: unknown[] = [];
+
+await jest.unstable_mockModule('../logging/transport', async () => ({
+  __esModule: true,
+  sendLogs: (entries: unknown[]) => logQueue.push(...entries),
+}));
 
 await jest.unstable_mockModule('@codeinfo2/common', async () => ({
   __esModule: true,
@@ -138,5 +144,27 @@ describe('LM Studio page', () => {
     expect(localStorage.getItem('lmstudio.baseUrl')).toBe(
       'http://example.com:9999',
     );
+  });
+
+  it('emits client logs for LM Studio actions', async () => {
+    logQueue.length = 0;
+    mockFetch.mockResolvedValue(okResponse);
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/lmstudio'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /check status/i }),
+    );
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /refresh models/i }),
+    );
+
+    expect(logQueue.length).toBeGreaterThan(0);
+    const messages = logQueue.map((e) => (e as { message?: string }).message);
+    expect(messages.some((m) => m?.includes('lmstudio refresh'))).toBe(true);
   });
 });

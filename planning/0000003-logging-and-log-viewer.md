@@ -374,7 +374,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
      };
    }
    ```
-2. [ ] Implement `client/src/logging/transport.ts` with batching/backoff scaffold:
+2. [ ] Implement `client/src/logging/transport.ts` with batching/backoff scaffold (use these exact defaults: `MAX_BATCH = 10`, `BACKOFF = [500, 1000, 2000, 4000]` ms, `VITE_LOG_MAX_BYTES` cap 32768):
    ```ts
    import { LogEntry } from '@codeinfo2/common';
 
@@ -480,7 +480,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 #### Subtasks
 
 1. [ ] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; copy an existing tab pattern and point to `/logs`. Verify dev server shows the tab.
-2. [ ] Build data hook `client/src/hooks/useLogs.ts` using this scaffold:
+2. [ ] Build data hook `client/src/hooks/useLogs.ts` using this scaffold; keep defaults `filters.level=[]`, `filters.source=[]`, `filters.text=''`, `limit` implicit at 200 via the server, and `live=true` by default:
    ```ts
    import { useEffect, useMemo, useRef, useState } from 'react';
    import { LogEntry } from '@codeinfo2/common';

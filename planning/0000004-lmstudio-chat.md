@@ -78,10 +78,10 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 #### Documentation Locations
 
-- LM Studio JS API docs: https://lmstudio.ai/docs/typescript
-- LM Studio agent ACT docs: https://lmstudio.ai/docs/typescript/agent/act
-- LM Studio JS GitHub: https://github.com/lmstudio-ai/lmstudio-js
-- Express patterns: Context7 `/expressjs/express`
+- LM Studio JS API: https://lmstudio.ai/docs/typescript
+- LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio JS GitHub (event shapes/examples): https://github.com/lmstudio-ai/lmstudio-js
+- Express docs: https://expressjs.com/
 - Existing design.md, README.md, projectStructure.md
 
 #### Subtasks
@@ -122,11 +122,13 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Documentation Locations
 
-- LM Studio JS API docs: https://lmstudio.ai/docs/typescript
-- LM Studio agent ACT docs: https://lmstudio.ai/docs/typescript/agent/act
-- LM Studio JS GitHub (message/event shapes): https://github.com/lmstudio-ai/lmstudio-js (inspect agent `.act()` examples and callbacks)
+- LM Studio JS API: https://lmstudio.ai/docs/typescript
+- LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio JS GitHub (message/event shapes): https://github.com/lmstudio-ai/lmstudio-js
+- Express docs: https://expressjs.com/
+- SSE spec: https://html.spec.whatwg.org/multipage/server-sent-events.html
+- Fetch streaming/ReadableStream: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
 - Existing server patterns and mocks from Task 1
-- Fetch streaming/ReadableStream MDN
 
 #### Subtasks
 
@@ -172,10 +174,11 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 #### Documentation Locations
 
-- LM Studio JS API docs: https://lmstudio.ai/docs/typescript
-- ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio JS API: https://lmstudio.ai/docs/typescript
+- LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio JS GitHub (act callbacks): https://github.com/lmstudio-ai/lmstudio-js
+- AbortController/Fetch streaming: https://developer.mozilla.org/en-US/docs/Web/API/AbortController and https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
 - Existing server/client streaming code from Tasks 1–2
-- Fetch streaming/ReadableStream MDN
 
 #### Subtasks
 
@@ -216,7 +219,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 #### Documentation Locations
 
-- MUI components (use MUI MCP tool): lists, selects, loading states
+- MUI MCP tool: @mui/material@7.2.0 docs (llms.mui.com/material-ui/7.2.0/llms.txt)
+- React Router docs: https://reactrouter.com/
 - Existing NavBar/router patterns in `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`
 - design.md for layout/typography
 
@@ -258,7 +262,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 #### Documentation Locations
 
-- MUI components for text input/buttons
+- MUI MCP tool: @mui/material@7.2.0 docs
 - Client hooks/services from Task 4
 - design.md for bubble styles
 
@@ -301,6 +305,7 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 - design.md for UX states
 - Existing chat hooks/services from Tasks 4–5
+- MUI MCP tool: @mui/material@7.2.0 docs (buttons/layout)
 
 #### Subtasks
 
@@ -340,6 +345,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 - design.md for UX/controls
 - Cancellation wiring from Task 3
+- MUI MCP tool: @mui/material@7.2.0 docs (buttons/status)
 
 #### Subtasks
 
@@ -377,8 +383,8 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 #### Documentation Locations
 
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Playwright docs: https://playwright.dev/docs/intro
+- Docker docs: https://docs.docker.com/engine/ and Compose: https://docs.docker.com/compose/
 - Existing README/design/projectStructure files
 
 #### Subtasks

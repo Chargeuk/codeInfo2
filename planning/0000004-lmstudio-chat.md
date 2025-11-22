@@ -314,8 +314,8 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Subtasks
 
-1. [ ] Implement New conversation control that clears messages/state, resets streaming flags, and (decision) either retains last selected model or resets to default—document choice.
-2. [ ] Ensure any in-flight stream is aborted before clearing (leveraging cancellation hooks from Task 3) and UI re-focuses the input.
+1. [ ] Implement New conversation control that first aborts any in-flight stream via the chat hook AbortController (same path as Stop), then clears messages/state, resets streaming flags, and (decision) either retains last selected model or resets to default—document choice.
+2. [ ] Ensure abort resolves/`req.close` fires server-side before clearing, then re-focus the input.
 3. [ ] Update README.md (UI section) to document New conversation behaviour.
 4. [ ] Update design.md with reset flow and UX copy; include mermaid snippet if flow changes.
 5. [ ] Update projectStructure.md if new helpers/components are added.

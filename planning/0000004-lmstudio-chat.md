@@ -123,7 +123,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 #### Documentation Locations
 
 - LM Studio JS API docs: https://lmstudio.ai/docs/typescript
-- ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio agent ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio JS GitHub (message/event shapes): https://github.com/lmstudio-ai/lmstudio-js (inspect agent `.act()` examples and callbacks)
 - Existing server patterns and mocks from Task 1
 - Fetch streaming/ReadableStream MDN
 

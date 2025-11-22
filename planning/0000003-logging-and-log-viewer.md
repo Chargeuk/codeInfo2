@@ -638,8 +638,8 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: e8b568c, 8d510d6
 
 #### Overview
 

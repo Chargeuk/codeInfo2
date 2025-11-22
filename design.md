@@ -155,6 +155,24 @@ flowchart TD
 - `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
 - Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
 
+```mermaid
+sequenceDiagram
+  participant Client as Client app
+  participant Server as Server /logs routes
+  participant Store as In-memory logStore
+  participant UI as Logs UI
+  Client->>Server: POST /logs (validate + redact auth/password/token)
+  Server->>Store: append(entry) -> sequence++
+  UI->>Server: GET /logs?filters
+  Server->>Store: query(filters, limit 200)
+  Store-->>Server: filtered items
+  Server-->>UI: items + lastSequence
+  UI->>Server: EventSource /logs/stream (Last-Event-ID?)
+  Server->>Store: replay since sequence
+  Store-->>Server: missed entries
+  Server-->>UI: SSE events + 15s heartbeats
+```
+
 ### Client logging flow & hooks
 
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
@@ -179,7 +197,7 @@ sequenceDiagram
 ### Logs page UI
 
 - Controls: free-text filter, clickable chips for levels (`error|warn|info|debug`) and sources (`server|client`), live toggle (SSE on/off), manual refresh, and a “Send sample log” button that emits an example entry via `createLogger('client-logs')`.
-- States: loading shows CircularProgress with text; errors surface in an Alert; empty state reads “No logs yet. Emit one with ‘Send sample log’.”
+- States: loading shows CircularProgress with text; errors surface in an Alert; empty state reads “No logs yet. Emit one with ‘Send sample log’.” SSE auto-reconnects with 15s heartbeats and replays missed entries using `Last-Event-ID` so the UI stays in sync when live mode is on.
 - Layout: table on md+ screens with chips per level/source and monospace context column; stacked outlined cards on small screens to avoid horizontal scroll.
 - Live behaviour: when Live is on, EventSource streams `/logs/stream` with auto-reconnect; turning it off keeps the last fetched snapshot. Refresh clears cached data and re-fetches `/logs` with current filters.
 

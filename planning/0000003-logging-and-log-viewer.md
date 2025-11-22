@@ -653,31 +653,34 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 
 #### Subtasks
 
-1. [ ] Build the server (`npm run build --workspace server`). If it fails, capture error in Implementation notes before fixing.
-2. [ ] Build the client (`npm run build --workspace client`).
-3. [ ] Perform a clean docker build (`npm run compose:build`) after ensuring a local `./logs` folder exists. Bring stack up `npm run compose:up`, confirm client at http://localhost:5001 and server `/health` 200, then `npm run compose:down`.
-4. [ ] README.md: add a “Logging” section with:
+1. [x] Build the server (`npm run build --workspace server`). If it fails, capture error in Implementation notes before fixing.
+2. [x] Build the client (`npm run build --workspace client`).
+3. [x] Perform a clean docker build (`npm run compose:build`) after ensuring a local `./logs` folder exists. Bring stack up `npm run compose:up`, confirm client at http://localhost:5001 and server `/health` 200, then `npm run compose:down`.
+4. [x] README.md: add a “Logging” section with:
    - `/logs` POST/GET examples (curl) and `/logs/stream` SSE example (`curl -N http://localhost:5010/logs/stream`).
    - Env keys for both apps, log file path/rotation, compose volume line `- ./logs:/app/logs`.
    - How to disable client forwarding (`VITE_LOG_FORWARD_ENABLED=false`).
-5. [ ] design.md: include a mermaid sequence (ingest -> logStore -> GET/SSE -> UI), describe GUI states, redaction rules, retention defaults, SSE heartbeat/replay. Use Context7 `/mermaid-js/mermaid` as reference for syntax while updating diagrams.
-6. [ ] projectStructure.md: list all new files (server logger/logStore/routes, client logging folder, Logs page/hook, e2e/logs.spec.ts) and note `logs/` dir.
-7. [ ] Git ignores + compose: ensure `logs/` present in root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with `- ./logs:/app/logs`; leave `.env.local` guidance unchanged.
-8. [ ] Create PR-ready summary covering server logging, client logging, UI, tests, env changes; save 2–3 screenshots of the Logs page to `test-results/screenshots/0000003-6-*.png` (e.g., `...-list.png`, `...-filters.png`).
-9. [ ] Run repo-wide checks in order: `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e:test` (stack up), then `npm run compose:down`.
+5. [x] design.md: include a mermaid sequence (ingest -> logStore -> GET/SSE -> UI), describe GUI states, redaction rules, retention defaults, SSE heartbeat/replay. Use Context7 `/mermaid-js/mermaid` as reference for syntax while updating diagrams.
+6. [x] projectStructure.md: list all new files (server logger/logStore/routes, client logging folder, Logs page/hook, e2e/logs.spec.ts) and note `logs/` dir.
+7. [x] Git ignores + compose: ensure `logs/` present in root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with `- ./logs:/app/logs`; leave `.env.local` guidance unchanged.
+8. [x] Create PR-ready summary covering server logging, client logging, UI, tests, env changes; save 2–3 screenshots of the Logs page to `test-results/screenshots/0000003-6-*.png` (e.g., `...-list.png`, `...-filters.png`).
+9. [x] Run repo-wide checks in order: `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e:test` (stack up), then `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run compose:build`
-2. [ ] `npm run compose:up` (confirm stack starts)
-3. [ ] run the client jest tests (`npm run test --workspace client`)
-4. [ ] run the server cucumber tests (`npm run test --workspace server`)
-5. [ ] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
-6. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-6-<name>.png`)
-7. [ ] `npm run compose:down`
+1. [x] `npm run compose:build`
+2. [x] `npm run compose:up` (confirm stack starts)
+3. [x] run the client jest tests (`npm run test --workspace client`)
+4. [x] run the server cucumber tests (`npm run test --workspace server`)
+5. [x] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
+6. [x] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-6-<name>.png`)
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Server and client builds are clean; Vite still reports the existing bundle-size advisory but no errors. Compose build/up/down confirmed healthy with `/health` 200 and UI reachable.
+- Documentation tightened: README now has a dedicated Logging section with curl examples, env toggles, and compose volume line; design.md adds an end-to-end ingest→store→GET/SSE→UI sequence with clarified GUI states, redaction, retention, and heartbeat/replay notes. Docker compose mounts `./logs:/app/logs`.
+- Screenshots captured via Playwright MCP while the stack was up: `test-results/screenshots/0000003-6-list.png` (populated table) and `test-results/screenshots/0000003-6-filters.png` (filters/empty view). Sample log button triggered before capture.
+- PR summary (ready to paste): Server logging API validates/redacts log entries, streams via SSE with heartbeats/replay, and persists to buffer + rotating file mount. Client logger/transport capture route/userAgent/correlation ids with retry/backoff and configurable forwarding. Logs page surfaces filters, live toggle, manual refresh, and sample emitter with responsive cards/table. Docs cover endpoints, env keys, retention, compose volume, and UI behaviours; screenshots saved under `test-results/screenshots/`. Full suite passed: lint, format, server Cucumber, client Jest, Playwright e2e, manual UI check in docker stack.
 
 ---

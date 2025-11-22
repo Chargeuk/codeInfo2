@@ -80,6 +80,30 @@ npm install
   ```
 - GET `/logs/stream` provides an SSE feed with heartbeats every 15s; resume with `Last-Event-ID` or `?sinceSequence=`. Example: `curl -N http://localhost:5010/logs/stream`.
 
+## Logging
+
+- Quick API calls:
+  ```sh
+  # POST one entry
+  curl -X POST http://localhost:5010/logs \
+    -H 'content-type: application/json' \
+    -d '{"level":"info","message":"demo","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
+
+  # GET filtered history
+  curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
+
+  # Stream live with SSE + heartbeats
+  curl -N http://localhost:5010/logs/stream
+  ```
+- Env keys  
+  Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
+  Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
+- File + compose: logs write to `./logs/server.log`; mount persistently with `- ./logs:/app/logs` in `docker-compose.yml`.
+- Disable client forwarding by setting in `.env.local`:
+  ```env
+  VITE_LOG_FORWARD_ENABLED=false
+  ```
+
 ### LM Studio proxy
 
 - Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).

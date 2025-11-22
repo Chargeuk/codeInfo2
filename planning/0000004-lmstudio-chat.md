@@ -93,7 +93,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 5. [ ] Update README.md (server/API sections) to include `/chat/models` usage and error behaviours.
 6. [ ] Update design.md with the model fetch flow and error handling.
 7. [ ] Update projectStructure.md with new server route/mock/test entries.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -132,7 +132,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 4. [ ] Update README.md (server/API sections) to include streaming `/chat`, payload shapes, and logging visibility (tool events redacted).
 5. [ ] Update design.md with the chat streaming flow, event mapping, and tool logging redaction.
 6. [ ] Update projectStructure.md with new server route changes and test additions.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -173,7 +173,7 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 6. [ ] Update README.md (both server and client sections) to describe Stop/New conversation behaviour and lack of persistence.
 7. [ ] Update design.md to capture cancellation flow, state transitions, and UX behaviour for Stop/New conversation.
 8. [ ] Update projectStructure.md if new files/hooks are added for cancellation wiring.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -212,7 +212,7 @@ Add the chat page route with an initial view that lists available models (from `
 5. [ ] Update design.md with layout and model list states.
 6. [ ] Update projectStructure.md with new page/component entries.
 7. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -250,7 +250,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 5. [ ] Update design.md with chat flow/rendering states and bubble styling.
 6. [ ] Update projectStructure.md for any new components/hooks/tests.
 7. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally, errors surface as bubbles, ordering is inverted.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -286,7 +286,7 @@ Add a “New conversation” button that clears the transcript and resets state 
 4. [ ] Update design.md with reset flow and UX copy.
 5. [ ] Update projectStructure.md if new helpers/components are added.
 6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -322,7 +322,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 4. [ ] Update design.md with Stop flow/state transitions.
 5. [ ] Update projectStructure.md if new components/hooks are added.
 6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -363,7 +363,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
 6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

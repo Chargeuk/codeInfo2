@@ -86,6 +86,8 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run build:all`
 4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up` (confirm stack starts)
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -123,6 +125,9 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 1. [ ] `npm run lint --workspace server`
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run build --workspace server`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up` (confirm stack starts)
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -163,6 +168,9 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run build --workspace server`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up` (confirm stack starts)
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -205,6 +213,9 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace client`
 4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up` (confirm stack starts)
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -250,6 +261,9 @@ Create a new “Logs” route in the client that consumes the server log API, su
 3. [ ] `npm run test --workspace client`
 4. [ ] `npm run build --workspace client`
 5. [ ] `npm run e2e:test` (with stack up; expect new logs spec)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up` (confirm stack starts)
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -291,6 +305,9 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 3. [ ] restart the docker environment (`npm run compose:down && npm run compose:up` or equivalent)
 4. [ ] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
 5. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-5-<name>.png`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up` (confirm stack starts)
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

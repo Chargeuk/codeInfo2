@@ -357,7 +357,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 #### Subtasks
 
 1. [ ] Add Stop control to the chat UI; disable send while stop is available; re-enable on completion/cancel/error.
-2. [ ] Wire Stop to client abort + server cancellation pathway; show stop/abort feedback (e.g., “Generation stopped”) in the transcript or status banner.
+2. [ ] Wire Stop to client abort (AbortController) on the streaming fetch; aborting will trigger server-side `req.close` cancellation from Task 3. Show stop/abort feedback (e.g., “Generation stopped”) in the transcript or status banner.
 3. [ ] Update README.md (UI section) with Stop behaviour and limitations.
 4. [ ] Update design.md with Stop flow/state transitions; add mermaid illustrating stop path.
 5. [ ] Update projectStructure.md if new components/hooks are added.

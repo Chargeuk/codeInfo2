@@ -295,7 +295,7 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 5. [ ] design.md: add logging architecture diagram/flow (ingest -> store -> GET/SSE -> UI), GUI behaviour, redaction/retention notes.
 6. [ ] projectStructure.md: list new files (server logger/logStore/routes, client logging folder, e2e/logs.spec.ts) and note `logs/` dir.
 7. [ ] Git ignores + compose: add `logs/` to root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with volume `./logs:/app/logs`; ensure `.env.local` guidance unchanged.
-8. [ ] Create PR-ready summary of all changes (server/client logging, UI, tests, env) and include log viewer screenshots in `test-results/screenshots/0000003-5-*.png`.
+8. [ ] Create PR-ready summary of all changes (server/client logging, UI, tests, env) and include log viewer screenshots in `test-results/screenshots/0000003-6-*.png`.
 9. [ ] Run repo-wide lint/format checks: `npm run lint --workspaces` then `npm run format:check --workspaces`; fix before final verification.
 
 #### Testing
@@ -305,7 +305,7 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 3. [ ] run the client jest tests (`npm run test --workspace client`)
 4. [ ] run the server cucumber tests (`npm run test --workspace server`)
 5. [ ] run the e2e tests (`npm run e2e:test` with stack up; includes new logs spec)
-6. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-5-<name>.png`)
+6. [ ] use the playwright mcp tool to manually check the application, saving screenshots to ./test-results/screenshots/ (name `0000003-6-<name>.png`)
 7. [ ] `npm run compose:down`
 
 #### Implementation notes

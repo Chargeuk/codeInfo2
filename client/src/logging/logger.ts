@@ -1,3 +1,4 @@
+/* eslint no-console: "warn" */
 import { LogEntry, LogLevel } from '@codeinfo2/common';
 import { sendLogs } from './transport';
 
@@ -24,6 +25,7 @@ export function createLogger(
       context,
     };
     // tee to console for dev ergonomics
+    // eslint-disable-next-line no-console
     console[resolvedLevel === 'error' ? 'error' : 'log'](entry);
     sendLogs([entry]);
   };

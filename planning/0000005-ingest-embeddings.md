@@ -91,8 +91,8 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
@@ -128,8 +128,8 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (Cucumber)
-2. [ ] `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
@@ -178,8 +178,11 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (Cucumber)
-2. [ ] `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -212,7 +215,11 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (Cucumber)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 2. [ ] `npm run build --workspace server`
 
 #### Implementation notes
@@ -250,8 +257,11 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (Cucumber)
-2. [ ] `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -286,8 +296,8 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
@@ -332,8 +342,11 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -369,8 +382,11 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
 
 #### Implementation notes
 

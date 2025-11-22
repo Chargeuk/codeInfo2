@@ -31,6 +31,16 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 - Multi-tenant Chroma collections or separate DB instances per repo.
 - Advanced chunking heuristics (AST-level per-language) beyond basic class/function boundary detection and size fallback.
 
+## GUI Notes (current intent)
+
+- New Ingest form: fields for Folder path (required), Display name (required), Description (optional), Model dropdown (selectable only when collection empty), Start ingest button, optional Dry-run toggle, inline status/error text.
+- Active run card: shows current state (“Scanning…/Embedding…/Cancelled/Completed”), counters, soft Cancel button, and a link to view logs filtered by runId.
+- Embedded folders table: columns for Name, Path, Model, Status chip, Last ingest time, counts (files/chunks optional). Actions per row: Re-embed (incremental), Remove (purge), View details. Bulk actions for selected rows.
+- Description display: info/tooltip icon next to Name in the table; description also shown in the Details drawer opened from View details.
+- Details drawer: shows name, description, path, model (locked), run history with timestamps/results, last error, and the include/exclude lists applied for that root.
+- Model lock banner: once collection non-empty, show “Embedding model locked to <model>” near the form; model dropdown disabled thereafter.
+- Empty state: guidance that model choice is locked after first ingest; prompt to set name/description when adding the first folder.
+
 ## Questions
 
 - Abort semantics: prefer soft cancel (graceful stop) — cancel flag halts new work, abort in-flight embedding calls, then purge all vectors tagged to the current runId; surface “cancelled and cleaned” or “cancelled; cleanup pending” in UI if purge is partial.

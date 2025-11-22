@@ -691,7 +691,7 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 ### 9. Client Documentation Updates
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: 75c2c7a, fb0250b
 
 #### Overview

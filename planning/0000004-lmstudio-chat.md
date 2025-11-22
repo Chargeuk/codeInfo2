@@ -388,11 +388,11 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 1. [ ] `npm run test --workspace server`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e:test`
-4. [ ] `npm run build --workspace server`
-5. [ ] `npm run build --workspace client`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run e2e:test`
 8. [ ] `npm run compose:down`
 
 #### Implementation notes

@@ -88,6 +88,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 4. [ ] Unit tests for discovery/excludes/text detection/chunking/hash functions.
 5. [ ] Update projectStructure.md with new server modules.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add example ingest fixture folder path (e.g., `e2e/fixtures/ingest-sample/`) and minimal contents (one small text file) to README or test notes for later tasks to reuse.
 
 #### Testing
 
@@ -168,8 +169,8 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 3. [ ] Endpoint `GET /ingest/status/:runId` for polling current run (state, counts, last error).
 4. [ ] Wire ingest job to use chunker, embed via LM Studio SDK, and upsert vectors with metadata (runId, root, relPath, hashes, model, embeddedAt, name, description). Upsert/patch `ingest_roots` record with status and counts.
 5. [ ] Cucumber feature + steps covering happy path ingest start/status using real Chroma spun up via Testcontainers (or dedicated cucumber-compose) and mocked LM Studio; include model-lock violation case.
-6. [ ] Update README.md with ingest start/status endpoints, model lock rules, and testcontainers/cucumber-compose notes.
-7. [ ] Update design.md with ingest flow diagrams, model lock, and Chroma integration.
+6. [ ] Update README.md with ingest start/status endpoints, model lock rules, testcontainers/cucumber-compose notes, and required env vars (Chroma host/port/collection, model lock env, exclude env, LM Studio host).
+7. [ ] Update design.md with ingest flow diagrams (Mermaid), model lock, and Chroma integration.
 8. [ ] Update projectStructure.md for new server files/routes and compose additions.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 

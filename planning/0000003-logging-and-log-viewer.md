@@ -264,8 +264,8 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 06d2d75
 
 #### Overview
 
@@ -281,7 +281,7 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 
 #### Subtasks
 
-1. [ ] Add routes in `server/src/routes/logs.ts` using concrete handlers:
+1. [x] Add routes in `server/src/routes/logs.ts` using concrete handlers:
    - `POST /logs` flow: parse body, `if (!isLogEntry(body)) return res.status(400).json({ error: 'invalid log entry' });` enforce `JSON.stringify(body).length <= LOG_MAX_CLIENT_BYTES`; whitelist levels `error|warn|info|debug`; redact `authorization`, `password`, `token` keys from headers/context before storing; attach `requestId` from `res.locals`; call `append` and respond 202 `{ status: 'accepted', sequence }`.
    - Provide example curl in README later:
      ```sh
@@ -289,7 +289,7 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
        -H 'content-type: application/json' \
        -d '{"level":"info","message":"hello","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
      ```
-2. [ ] In the same router, implement `GET /logs` and `GET /logs/stream` with explicit SSE framing:
+2. [x] In the same router, implement `GET /logs` and `GET /logs/stream` with explicit SSE framing:
    - `GET /logs` query params: `level=info,warn`, `source=client,server`, `text=error`, `since=unixMs`, `until=unixMs`, `limit` (cap at 200). Response `{ items, lastSequence, hasMore }` sorted ascending by sequence.
    - `GET /logs/stream`: set headers `text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`; send initial heartbeat `:\n\n`; honor `Last-Event-ID` (or `?sinceSequence=`) to replay missed items via `query`; emit events as:
      ```
@@ -298,27 +298,30 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
      ```
      send heartbeat every 15s `:\n\n`; close on `req.on('close')` and remove listeners.
    - Register router in `server/src/index.ts` under `/logs`.
-3. [ ] Update README (server section): include request/response samples for `/logs` and `/logs/stream`, list env keys, note log file path/rotation, and mention SSE heartbeat + `Last-Event-ID` usage (`curl -N http://localhost:5010/logs/stream`).
-4. [ ] Update design.md: document server logging flow (ingest → logStore → GET/SSE), redaction/retention defaults, SSE behaviours (heartbeat every 15s, replay via Last-Event-ID), and limits (200 items, 32KB payload). Add a mermaid sequence diagram for SSE (client -> server -> stream); use Context7 `/mermaid-js/mermaid` for syntax reference.
-5. [ ] Update projectStructure.md: ensure `server/src/routes/logs.ts` and related files are listed.
-6. [ ] Add Cucumber coverage with explicit starting points:
+3. [x] Update README (server section): include request/response samples for `/logs` and `/logs/stream`, list env keys, note log file path/rotation, and mention SSE heartbeat + `Last-Event-ID` usage (`curl -N http://localhost:5010/logs/stream`).
+4. [x] Update design.md: document server logging flow (ingest → logStore → GET/SSE), redaction/retention defaults, SSE behaviours (heartbeat every 15s, replay via Last-Event-ID), and limits (200 items, 32KB payload). Add a mermaid sequence diagram for SSE (client -> server -> stream); use Context7 `/mermaid-js/mermaid` for syntax reference.
+5. [x] Update projectStructure.md: ensure `server/src/routes/logs.ts` and related files are listed.
+6. [x] Add Cucumber coverage with explicit starting points:
    - Feature `server/src/test/features/logs.feature` containing scenarios: valid ingestion → 202; invalid level → 400; oversize payload → 400; GET with `level=error` returns only errors; SSE heartbeat + one event (use mock store inject or append first); redaction hides `password` field.
    - Steps `server/src/test/steps/logs.steps.ts` reuse supertest against app; for SSE parsing, use a simple line buffer helper provided inline (ok to copy from test file header).
-7. [ ] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
+7. [x] Run server commands: `npm run lint --workspace server`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run build --workspace server`, `npm run compose:build`, `npm run compose:up` (confirm stack starts), `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run build --workspace server`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up` (confirm stack starts)
-7. [ ] `npm run compose:down`
+1. [x] `npm run lint --workspace server`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run build --workspace server`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up` (confirm stack starts)
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added POST/GET/SSE logging routes with validation, redaction of sensitive fields, requestId propagation, SSE heartbeats/replay, and routing registered under `/logs`.
+- Extended the in-memory log store with since-sequence filtering, an append event emitter + subscription helper, and a reset helper for isolated tests.
+- Documented the new endpoints, limits, and streaming flow across README, design.md (sequence diagram), and projectStructure.
+- Added Cucumber coverage for ingestion/validation/filtering/SSE/redaction, tuned the server test script to load the workspace tsconfig, and handled payload-too-large errors to return 400; reran lint/format/test/build/compose up/down successfully.
 
 ---
 

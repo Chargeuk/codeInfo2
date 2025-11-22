@@ -86,13 +86,83 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
    export default router;
    ```
    Update `client/src/main.tsx` to wrap `<RouterProvider router={router} />` instead of rendering `<App />` directly.
-3. [ ] Extract existing version-fetch UI into `client/src/pages/HomePage.tsx` (move logic from current `App.tsx` unchanged: loading, error, success states showing client/server version card). Switch the fetch to use the new common helper `fetchServerVersion` (see Task 2) instead of ad-hoc `fetch` to keep client/server tests aligned. Keep imports from `@codeinfo2/common` and `package.json` the same.
+3. [ ] Extract existing version-fetch UI into `client/src/pages/HomePage.tsx` (move logic from current `App.tsx`). Use the common helper for version fetch; starter code to paste:
+   ```tsx
+   import { useEffect, useState } from 'react';
+   import { Card, CardContent, Container, Typography } from '@mui/material';
+   import { fetchServerVersion, VersionInfo } from '@codeinfo2/common';
+   import pkg from '../../package.json';
+
+   export default function HomePage() {
+     const [serverVersion, setServerVersion] = useState<VersionInfo | null>(null);
+     const [error, setError] = useState<string | null>(null);
+     const [loading, setLoading] = useState(true);
+     const clientVersion = pkg.version;
+
+     useEffect(() => {
+       let cancelled = false;
+       (async () => {
+         try {
+           const data = await fetchServerVersion(import.meta.env.VITE_API_URL);
+           if (!cancelled) setServerVersion(data);
+         } catch (err) {
+           if (!cancelled) setError((err as Error).message);
+         } finally {
+           if (!cancelled) setLoading(false);
+         }
+       })();
+       return () => {
+         cancelled = true;
+       };
+     }, []);
+
+     return (
+       <Container maxWidth="sm">
+         <Card sx={{ mt: 4 }}>
+           <CardContent>
+             <Typography variant="h4" gutterBottom>CodeInfo2 Versions</Typography>
+             {loading && <Typography>Loading…</Typography>}
+             {error && <Typography color="error">{error}</Typography>}
+             {!loading && !error && (
+               <>
+                 <Typography>Client version: {clientVersion}</Typography>
+                 <Typography>Server version: {serverVersion?.version}</Typography>
+               </>
+             )}
+           </CardContent>
+         </Card>
+       </Container>
+     );
+   }
+   ```
 4. [ ] Update `client/.env` to add `VITE_LMSTUDIO_URL=http://host.docker.internal:1234` (keep existing `VITE_API_URL`), note in file comment that overrides belong in `.env.local`.
-5. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links: use `component={RouterLink}` to `/` and `/lmstudio`, derive active tab from `useLocation().pathname` (treat `/` as index). Include keyboard focusability and aria labels.
+5. [ ] Create `client/src/components/NavBar.tsx` using MUI `AppBar` + `Tabs` + `Tab` with React Router links. Paste starter code:
+   ```tsx
+   import { AppBar, Tabs, Tab, Toolbar } from '@mui/material';
+   import { Link as RouterLink, useLocation } from 'react-router-dom';
+
+   export default function NavBar() {
+     const { pathname } = useLocation();
+     const value = pathname.startsWith('/lmstudio') ? '/lmstudio' : '/';
+     return (
+       <AppBar position="static">
+         <Toolbar sx={{ minHeight: 64 }}>
+           <Tabs value={value} aria-label="Main navigation" textColor="inherit" indicatorColor="secondary">
+             <Tab label="Home" value="/" component={RouterLink} to="/" aria-label="Home" />
+             <Tab label="LM Studio" value="/lmstudio" component={RouterLink} to="/lmstudio" aria-label="LM Studio" />
+           </Tabs>
+         </Toolbar>
+       </AppBar>
+     );
+   }
+   ```
 6. [ ] Update `client/src/App.tsx`: render `<NavBar />` and an `<Outlet />`; remove version-fetch side effects from this file (they now live in HomePage). Keep a top-level `<Container>` wrapper if desired.
 7. [ ] Add/adjust Jest tests (new file `client/src/test/router.test.tsx`): using `MemoryRouter initialEntries={['/']}` render router + NavBar; assert Home renders by default (`Client version` text present). Simulate clicking LM Studio tab and assert the URL changes to `/lmstudio` and placeholder heading like `LM Studio` is visible. Use Testing Library `userEvent`.
 8. [ ] Update `projectStructure.md` with new files: `client/src/pages/HomePage.tsx`, `client/src/pages/LmStudioPage.tsx` (placeholder), `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`.
-9. [ ] Commands (run in order and expect success): `npm run lint --workspace client` (0 warnings), `npm run test --workspace client` (router test passes), `npm run build --workspace client` (Vite build succeeds).
+9. [ ] Commands (run in order and expect success):
+   - `npm run lint --workspace client` → exit 0, no warnings.
+   - `npm run test --workspace client` → Jest green, e.g., `Tests: 1 passed` for router test.
+   - `npm run build --workspace client` → Vite build completes, dist emitted, no errors.
 
 #### Testing
 
@@ -138,10 +208,12 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
        const url = new URL('/lmstudio/status', serverBaseUrl);
        if (lmBaseUrl) url.searchParams.set('baseUrl', lmBaseUrl);
        const res = await fetchImpl(url.toString());
+       if (!res.ok) throw new Error(`lmstudio status failed: ${res.status}`);
        return res.json();
-     }
+      }
      export async function fetchServerVersion(serverBaseUrl: string, fetchImpl = globalThis.fetch) {
        const res = await fetchImpl(new URL('/version', serverBaseUrl).toString());
+       if (!res.ok) throw new Error(`version failed: ${res.status}`);
        return res.json();
      }
      ```
@@ -198,8 +270,8 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 
 1. [ ] Implement `/lmstudio/status` in `server/src/routes/lmstudio.ts`:
    - Accept query/body `baseUrl`? Use `req.query.baseUrl` (string | undefined). If missing, fall back to `process.env.LMSTUDIO_BASE_URL`.
-   - Validate `baseUrl` with regex `^https?://` and reject invalid with HTTP 400 JSON `{ status: 'error', baseUrl, error: 'Invalid baseUrl' }`.
-   - Create client via injected `clientFactory(baseUrl)`; set timeout using `Promise.race` with `AbortController` ~4000–5000ms.
+   - Validate `baseUrl` with regex `^https?://` (constant `BASE_URL_REGEX`) and reject invalid with HTTP 400 JSON `{ status: 'error', baseUrl, error: 'Invalid baseUrl' }`.
+   - Create client via injected `clientFactory(baseUrl)`; set timeout using `Promise.race` with `AbortController` and `const REQUEST_TIMEOUT_MS = 4500`.
    - Call `client.system.listDownloadedModels()`; do not cache.
 2. [ ] Map SDK result to DTO `LmStudioModel[]` using fields: `model.modelKey`, `model.displayName`, `model.type`, `model.format`, `model.path`, `model.sizeBytes`, `model.architecture`, `model.paramsString ?? null`, `model.maxContextLength ?? null`, `model.vision ?? false`, `model.trainedForToolUse ?? false`.
 3. [ ] Success response: HTTP 200 `{ status: 'ok', baseUrl, models }`. Empty array allowed.
@@ -310,7 +382,19 @@ Document the new server proxy endpoint, env vars, and test approach.
    - Add new sequence diagram “LM Studio Flow” placed below existing Version flow showing: User → Client → Server `/lmstudio/status` → LM Studio; branches for success with models, success empty, and error/timeout; note “no caching, fresh call per refresh”.
    - Mention timeout behaviour and error surfaces in text under the diagrams.
 3. [ ] projectStructure.md: add entries for `server/src/routes/lmstudio.ts`, `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/features/lmstudio.feature`, `server/src/test/steps/lmstudio.steps.ts`, and the new docs sections.
-4. [ ] Update `docker-compose.yml`: remove inline `environment` entries for client/server and instead set `env_file` to use the workspace files (`server/.env`, `server/.env.local` if present; `client/.env`, `client/.env.local` if present) so there is a single source of truth. Keep port mappings the same.
+4. [ ] Update `docker-compose.yml`: remove inline `environment` entries for client/server and instead set `env_file` with exact block:
+   ```yaml
+   services:
+     server:
+       env_file:
+         - server/.env
+         - server/.env.local
+     client:
+       env_file:
+         - client/.env
+         - client/.env.local
+   ```
+   (Note: if `.env.local` is absent, create an empty file or remove that line.) Keep port mappings unchanged.
 5. [ ] Commands: `npm run lint --workspaces` (docs are linted by prettier); ensure it passes.
 
 #### Testing
@@ -345,10 +429,50 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
    - State shape: `{ status: 'idle' | 'loading' | 'success' | 'error'; data?: LmStudioStatusOk; error?: string; baseUrl: string }` plus booleans `isLoading`, `isError`, `isEmpty` (when success and models.length === 0).
    - Expose `refresh(nextBaseUrl?: string)` that updates base URL, writes to localStorage, flips to loading, and calls `fetchLmStudioStatus({ serverBaseUrl: import.meta.env.VITE_API_URL, lmBaseUrl: baseUrl })` imported from `@codeinfo2/common`.
    - Handle network/timeout errors by setting `status: 'error'` and `error` message.
+   - Pasteable starter:
+   ```ts
+   import { useCallback, useMemo, useState } from 'react';
+   import { fetchLmStudioStatus, LmStudioStatusOk, LmStudioStatusResponse } from '@codeinfo2/common';
+
+   const LS_KEY = 'lmstudio.baseUrl';
+   const DEFAULT_LM_URL = 'http://host.docker.internal:1234';
+
+   export function useLmStudioStatus() {
+     const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_KEY) : null;
+     const initialBaseUrl = stored ?? import.meta.env.VITE_LMSTUDIO_URL ?? DEFAULT_LM_URL;
+     const [baseUrl, setBaseUrl] = useState(initialBaseUrl);
+     const [state, setState] = useState<{ status: 'idle' | 'loading' | 'success' | 'error'; data?: LmStudioStatusOk; error?: string }>({ status: 'idle' });
+
+     const refresh = useCallback(async (nextBaseUrl?: string) => {
+       const targetBase = nextBaseUrl ?? baseUrl;
+       setBaseUrl(targetBase);
+       if (typeof localStorage !== 'undefined') localStorage.setItem(LS_KEY, targetBase);
+       setState({ status: 'loading' });
+       try {
+         const res: LmStudioStatusResponse = await fetchLmStudioStatus({ serverBaseUrl: import.meta.env.VITE_API_URL, lmBaseUrl: targetBase });
+         if (res.status === 'ok') {
+           setState({ status: 'success', data: res });
+         } else {
+           setState({ status: 'error', error: res.error });
+         }
+       } catch (err) {
+         setState({ status: 'error', error: (err as Error).message });
+       }
+     }, [baseUrl]);
+
+     const flags = useMemo(() => ({
+       isLoading: state.status === 'loading',
+       isError: state.status === 'error',
+       isEmpty: state.status === 'success' && state.data?.models.length === 0,
+     }), [state]);
+
+     return { baseUrl, setBaseUrl, state, ...flags, refresh };
+   }
+   ```
 2. [ ] Hook tests in `client/src/test/useLmStudioStatus.test.ts`: mock `global.fetch` to return JSON for scenarios many, empty, error (HTTP 502), and network rejection. Assert state transitions and that refresh updates stored baseUrl. Clear/reset localStorage between tests.
 3. [ ] Ensure types imported from `@codeinfo2/common` (LmStudioStatusResponse, LmStudioStatusOk) are used for inference.
 4. [ ] Update `projectStructure.md` to list the new hook file and test file.
-5. [ ] Commands: `npm run lint --workspace client`, `npm run test --workspace client`.
+5. [ ] Commands (expect clean): `npm run lint --workspace client` → exit 0; `npm run test --workspace client` → all hook tests green.
 
 #### Testing
 
@@ -387,7 +511,81 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 3. [ ] Accessibility: ensure buttons have `aria-label` where needed, Tab order works, and error messages are announced (`role="status"`).
 4. [ ] Persist base URL via localStorage key from Task 6; show the currently used URL on the page.
 5. [ ] Update `projectStructure.md` to include `client/src/pages/LmStudioPage.tsx` and note new UI elements.
-6. [ ] Commands: `npm run lint --workspace client`, `npm run build --workspace client` (expect success).
+6. [ ] Commands: `npm run lint --workspace client` (exit 0), `npm run build --workspace client` (Vite succeeds, no errors).
+   - Pasteable starter:
+   ```tsx
+   import { useRef, useState } from 'react';
+   import { Container, Stack, TextField, Button, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from '@mui/material';
+   import { useLmStudioStatus } from '../hooks/useLmStudioStatus';
+
+   const DEFAULT_LM_URL = import.meta.env.VITE_LMSTUDIO_URL ?? 'http://host.docker.internal:1234';
+
+   export default function LmStudioPage() {
+     const inputRef = useRef<HTMLInputElement>(null);
+     const { baseUrl, setBaseUrl, state, isLoading, isError, isEmpty, refresh } = useLmStudioStatus();
+     const [input, setInput] = useState(baseUrl);
+
+     const handleCheck = () => refresh(input);
+     const handleReset = () => {
+       setInput(DEFAULT_LM_URL);
+       refresh(DEFAULT_LM_URL);
+     };
+
+     const statusText = state.status === 'loading' ? 'Checking…' : state.status === 'error' ? state.error : `Connected to ${state.data?.baseUrl ?? ''}`;
+
+     return (
+       <Container maxWidth="md" sx={{ mt: 4 }}>
+         <Stack spacing={2}>
+           <Typography variant="h4">LM Studio</Typography>
+           <TextField
+             label="LM Studio base URL"
+             value={input}
+             inputRef={inputRef}
+             onChange={(e) => setInput(e.target.value)}
+             helperText={`Default: ${DEFAULT_LM_URL}`}
+             aria-describedby="lmstudio-status"
+             fullWidth
+           />
+           <Stack direction="row" spacing={1}>
+             <Button variant="contained" onClick={handleCheck} disabled={isLoading}>Check status</Button>
+             <Button variant="outlined" onClick={handleReset} disabled={isLoading}>Reset to default</Button>
+             <Button variant="text" onClick={() => refresh()} disabled={isLoading}>Refresh models</Button>
+           </Stack>
+           <Typography id="lmstudio-status" aria-live="polite" color={isError ? 'error' : 'text.primary'} role="status">
+             {statusText}
+           </Typography>
+           {isEmpty && <Typography>No models reported by LM Studio.</Typography>}
+           {state.status === 'success' && state.data?.models.length ? (
+             <Paper>
+               <Table size="small" aria-label="LM Studio models">
+                 <TableHead>
+                   <TableRow>
+                     <TableCell>Name</TableCell>
+                     <TableCell>Key</TableCell>
+                     <TableCell>Type/Format</TableCell>
+                     <TableCell>Architecture</TableCell>
+                     <TableCell align="right">Size (bytes)</TableCell>
+                   </TableRow>
+                 </TableHead>
+                 <TableBody>
+                   {state.data.models.map((m) => (
+                     <TableRow key={m.modelKey} role="row">
+                       <TableCell>{m.displayName}</TableCell>
+                       <TableCell><Typography noWrap title={m.modelKey}>{m.modelKey}</Typography></TableCell>
+                       <TableCell>{`${m.type}${m.format ? ` / ${m.format}` : ''}`}</TableCell>
+                       <TableCell>{m.architecture ?? '-'}</TableCell>
+                       <TableCell align="right">{m.sizeBytes ?? '-'}</TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
+               </Table>
+             </Paper>
+           ) : null}
+         </Stack>
+       </Container>
+     );
+   }
+   ```
 
 #### Testing
 

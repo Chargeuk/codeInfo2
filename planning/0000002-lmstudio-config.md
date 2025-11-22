@@ -651,8 +651,8 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 
 ### 8. Client LM Studio Tests
 
-- Task Status: __to_do__
-- Git Commits: 75c2c7a, fb0250b
+- Task Status: __done__
+- Git Commits: 75c2c7a, fb0250b, b30240b
 
 #### Overview
 
@@ -665,15 +665,15 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 #### Subtasks
 
-1. [ ] Add `client/src/test/lmstudio.test.tsx` covering:
+1. [x] Add `client/src/test/lmstudio.test.tsx` covering:
    - Renders LM Studio page and calls the hook using mocked `fetchLmStudioStatus` (jest mock of common helper) returning models array; assert table rows > 0.
    - Empty response (`models: []`) shows empty-state message.
    - Error response (`status: 'error'`) shows error text and focuses the input.
    - `Refresh models` button triggers second helper call (count calls), `Check status` uses new base URL and persists to localStorage.
    - Routing still works when rendered under `MemoryRouter` with NavBar.
-2. [ ] Mock common helper instead of global fetch to keep tests aligned with shared code; reset between tests; use `await screen.findByText` to wait for async rendering. Run `npm run format:check --workspace client` after tests.
-3. [ ] Update `projectStructure.md` to list the new test file(s).
-4. [ ] Commands: `npm run lint --workspace client`, `npm run format:check --workspace client`, `npm run test --workspace client`.
+2. [x] Mock common helper instead of global fetch to keep tests aligned with shared code; reset between tests; use `await screen.findByText` to wait for async rendering. Run `npm run format:check --workspace client` after tests.
+3. [x] Update `projectStructure.md` to list the new test file(s).
+4. [x] Commands: `npm run lint --workspace client`, `npm run format:check --workspace client`, `npm run test --workspace client`.
    - If `format:check` fails, run `npm run format:fix --workspace client`, then rerun `npm run format:check --workspace client`.
 
 #### Testing
@@ -683,7 +683,9 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 #### Implementation notes
 
-- To be filled during execution.
+- Added `client/src/test/lmstudio.test.tsx` using `jest.unstable_mockModule` with a minimal `@codeinfo2/common` stub so the ESM client uses a mocked `fetchLmStudioStatus` without global fetch overrides; also stubbed `fetchServerVersion` to keep the Home route stable when the router renders.
+- Covered success + refresh, empty list, server error focus handling, and base URL persistence/navigation using Testing Library interactions with async `findBy`/`waitFor`.
+- Commands run for this task: `npm run lint --workspace client`, `npm run format:check --workspace client`, and `npm run test --workspace client` (all green after formatting fix).
 
 ---
 

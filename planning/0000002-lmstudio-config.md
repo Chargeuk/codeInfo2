@@ -270,8 +270,8 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
 
 ### 3. Server SDK Proxy Implementation
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: cb45762, acc2c2e
 
 #### Overview
 
@@ -285,27 +285,30 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 
 #### Subtasks
 
-1. [ ] Implement `/lmstudio/status` in `server/src/routes/lmstudio.ts`:
+1. [x] Implement `/lmstudio/status` in `server/src/routes/lmstudio.ts`:
    - Accept query/body `baseUrl`? Use `req.query.baseUrl` (string | undefined). If missing, fall back to `process.env.LMSTUDIO_BASE_URL`.
    - Validate `baseUrl` with regex `^https?://` (constant `BASE_URL_REGEX`) and reject invalid with HTTP 400 JSON `{ status: 'error', baseUrl, error: 'Invalid baseUrl' }`.
    - Create client via injected `clientFactory(baseUrl)`; set timeout using `Promise.race` with `AbortController` and `const REQUEST_TIMEOUT_MS = 60000` (60 seconds).
    - Call `client.system.listDownloadedModels()`; do not cache.
-2. [ ] Map SDK result to DTO `LmStudioModel[]` using fields: `model.modelKey`, `model.displayName`, `model.type`, `model.format`, `model.path`, `model.sizeBytes`, `model.architecture`, `model.paramsString ?? null`, `model.maxContextLength ?? null`, `model.vision ?? false`, `model.trainedForToolUse ?? false`.
-3. [ ] Success response: HTTP 200 `{ status: 'ok', baseUrl, models }`. Empty array allowed.
-4. [ ] Error handling: for validation → 400 as above; for timeout or SDK errors → 502 `{ status: 'error', baseUrl, error: '<message>' }`. Log with `console.warn` including baseUrl and message (no stack trace to avoid noise).
-5. [ ] Keep CORS middleware unchanged; no additional headers required.
-6. [ ] Update `projectStructure.md` noting `/lmstudio/status` route and mapping behaviour.
-7. [ ] Commands (expect pass except tests): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run test --workspace server` (will be red until Task 4 adds tests), `npm run build --workspace server`.
+2. [x] Map SDK result to DTO `LmStudioModel[]` using fields: `model.modelKey`, `model.displayName`, `model.type`, `model.format`, `model.path`, `model.sizeBytes`, `model.architecture`, `model.paramsString ?? null`, `model.maxContextLength ?? null`, `model.vision ?? false`, `model.trainedForToolUse ?? false`.
+3. [x] Success response: HTTP 200 `{ status: 'ok', baseUrl, models }`. Empty array allowed.
+4. [x] Error handling: for validation → 400 as above; for timeout or SDK errors → 502 `{ status: 'error', baseUrl, error: '<message>' }`. Log with `console.warn` including baseUrl and message (no stack trace to avoid noise).
+5. [x] Keep CORS middleware unchanged; no additional headers required.
+6. [x] Update `projectStructure.md` noting `/lmstudio/status` route and mapping behaviour.
+7. [x] Commands (expect pass except tests): `npm run lint --workspace server`, `npm run format:check --workspace server`, `npm run test --workspace server` (will be red until Task 4 adds tests), `npm run build --workspace server`.
    - If `format:check` fails, run `npm run format:fix --workspace server`, then rerun `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run build --workspace server`
+1. [x] `npm run lint --workspace server`
+2. [x] `npm run build --workspace server`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Implemented `/lmstudio/status` with baseUrl validation, LM Studio SDK call, 60s timeout guard, and DTO mapping (safe defaults for optional fields).
+- Errors now return 400 for invalid URLs and 502 for SDK/timeout failures with console.warn logging; CORS left unchanged.
+- Added server-level `.prettierignore` to keep build artifacts out of format checks and updated projectStructure to describe the route.
+- Commands: lint/format:check/build ✅; `npm run test --workspace server` failed because the health scenario expects the server running (not started during the run).
 
 ---
 

@@ -437,8 +437,8 @@ Document the new server proxy endpoint, env vars, and test approach.
 
 ### 6. Client Data Hook for LM Studio
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 75c2c7a, fb0250b
 
 #### Overview
 
@@ -451,7 +451,7 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
 
 #### Subtasks
 
-1. [ ] Implement `client/src/hooks/useLmStudioStatus.ts` using the common helper:
+1. [x] Implement `client/src/hooks/useLmStudioStatus.ts` using the common helper:
    - Local storage key: `lmstudio.baseUrl`.
    - Default base URL resolution order: `localStorage` value → `import.meta.env.VITE_LMSTUDIO_URL` → `'http://host.docker.internal:1234'`.
    - State shape: `{ status: 'idle' | 'loading' | 'success' | 'error'; data?: LmStudioStatusOk; error?: string; baseUrl: string }` plus booleans `isLoading`, `isError`, `isEmpty` (when success and models.length === 0).
@@ -497,26 +497,28 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
      return { baseUrl, setBaseUrl, state, ...flags, refresh };
    }
    ```
-2. [ ] Hook tests in `client/src/test/useLmStudioStatus.test.ts`: mock `global.fetch` to return JSON for scenarios many, empty, error (HTTP 502), and network rejection. Assert state transitions and that refresh updates stored baseUrl. Clear/reset localStorage between tests.
-3. [ ] Ensure types imported from `@codeinfo2/common` (LmStudioStatusResponse, LmStudioStatusOk) are used for inference.
-4. [ ] Update `projectStructure.md` to list the new hook file and test file.
-5. [ ] Commands (expect clean): `npm run lint --workspace client` → exit 0; `npm run format:check --workspace client` → formatted; `npm run test --workspace client` → all hook tests green.
+2. [x] Hook tests in `client/src/test/useLmStudioStatus.test.ts`: mock `global.fetch` to return JSON for scenarios many, empty, error (HTTP 502), and network rejection. Assert state transitions and that refresh updates stored baseUrl. Clear/reset localStorage between tests.
+3. [x] Ensure types imported from `@codeinfo2/common` (LmStudioStatusResponse, LmStudioStatusOk) are used for inference.
+4. [x] Update `projectStructure.md` to list the new hook file and test file.
+5. [x] Commands (expect clean): `npm run lint --workspace client` → exit 0; `npm run format:check --workspace client` → formatted; `npm run test --workspace client` → all hook tests green.
    - If `format:check` fails, run `npm run format:fix --workspace client`, then rerun `npm run format:check --workspace client`.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run lint --workspace client`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run lint --workspace client`
 
 #### Implementation notes
 
-- To be filled during execution.
+- Built `useLmStudioStatus` hook with localStorage persistence, guarded import.meta envs, and state flags; falls back to localhost server base when env absent.
+- Added Jest hook tests mocking `global.fetch` for success, empty, error (502), and network rejection, plus persistence assertions; uses common DTO types for inference.
+- Updated projectStructure with hook/test entries; ran client lint/format:check/test after changes (all green).
 
 ---
 
 ### 7. Client LM Studio Page UI
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview
@@ -648,7 +650,7 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 ### 8. Client LM Studio Tests
 
 - Task Status: __to_do__
-- Git Commits: __to_do__
+- Git Commits: 75c2c7a, fb0250b
 
 #### Overview
 
@@ -674,8 +676,8 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run lint --workspace client`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run lint --workspace client`
 
 #### Implementation notes
 
@@ -686,7 +688,7 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 ### 9. Client Documentation Updates
 
 - Task Status: __to_do__
-- Git Commits: __to_do__
+- Git Commits: 75c2c7a, fb0250b
 
 #### Overview
 
@@ -719,7 +721,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 ### 10. E2E Validation (Live LM Studio)
 
 - Task Status: __to_do__
-- Git Commits: __to_do__
+- Git Commits: 75c2c7a, fb0250b
 
 #### Overview
 

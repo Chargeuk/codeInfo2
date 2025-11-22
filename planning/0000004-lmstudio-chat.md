@@ -81,7 +81,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 - LM Studio JS API: https://lmstudio.ai/docs/typescript
 - LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
 - LM Studio JS GitHub (event shapes/examples): https://github.com/lmstudio-ai/lmstudio-js
-- Express docs: https://expressjs.com/
+- Express docs: https://expressjs.com/ and Context7 `/expressjs/express`
 - Existing design.md, README.md, projectStructure.md
 
 #### Subtasks
@@ -125,7 +125,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 - LM Studio JS API: https://lmstudio.ai/docs/typescript
 - LM Studio agent ACT: https://lmstudio.ai/docs/typescript/agent/act
 - LM Studio JS GitHub (message/event shapes): https://github.com/lmstudio-ai/lmstudio-js
-- Express docs: https://expressjs.com/
+- Express docs: https://expressjs.com/ and Context7 `/expressjs/express`
 - SSE spec: https://html.spec.whatwg.org/multipage/server-sent-events.html
 - Fetch streaming/ReadableStream: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)

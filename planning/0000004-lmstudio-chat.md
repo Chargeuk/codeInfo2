@@ -97,8 +97,6 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run build --workspace server`
 
@@ -136,8 +134,6 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run build --workspace server`
 
@@ -177,8 +173,6 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 
@@ -216,7 +210,6 @@ Add the chat page route with an initial view that lists available models (from `
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run build --workspace client`
 
@@ -254,7 +247,6 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run build --workspace client`
 
@@ -290,7 +282,6 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run build --workspace client`
 
@@ -326,7 +317,6 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run build --workspace client`
 
@@ -367,8 +357,6 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e:test`

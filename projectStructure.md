@@ -33,7 +33,7 @@ Notes by area:
 
 - planning/: `plan_format.md` (template) and `0000001-initial-skeleton-setup.md` (active story plan).
 - planning/: `plan_format.md` (template) and story plans `0000001-initial-skeleton-setup.md`, `0000002-lmstudio-config.md`.
-- client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI, `src/components/NavBar.tsx`, `src/routes/router.tsx`, pages `src/pages/HomePage.tsx` and `src/pages/LmStudioPage.tsx`, hook `src/hooks/useLmStudioStatus.ts`, tests incl. `src/test/router.test.tsx` and `src/test/useLmStudioStatus.test.ts`.
+- client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI, `src/components/NavBar.tsx`, `src/routes/router.tsx`, pages `src/pages/HomePage.tsx` and `src/pages/LmStudioPage.tsx`, hook `src/hooks/useLmStudioStatus.ts`, tests incl. `src/test/router.test.tsx`, `src/test/useLmStudioStatus.test.ts`, and `src/test/lmstudio.test.tsx`.
 - server/: Express entrypoint, env defaults (including `LMSTUDIO_BASE_URL`), Cucumber `src/test`, `cucumber.js`, Docker assets, LM Studio `/lmstudio/status` router in `src/routes/lmstudio.ts` (validation + timeout mapping), and tests `src/test/features/lmstudio.feature`, steps `src/test/steps/lmstudio.steps.ts`, mock SDK `src/test/support/mockLmStudioSdk.ts`.
 - common/: `src/index.ts`, `src/versionInfo.ts`, and shared helpers/types in `src/api.ts` and `src/lmstudio.ts`.
 - e2e/: Playwright tests (version.spec.ts) for UI/version checks.

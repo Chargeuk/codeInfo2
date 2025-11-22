@@ -133,15 +133,6 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -220,7 +211,6 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
-2. [ ] `npm run build --workspace server`
 
 #### Implementation notes
 
@@ -298,12 +288,6 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run compose:down`
@@ -432,8 +416,10 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 4. [ ] `npm run build --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
-7. [ ] `npm run e2e:test` (including new ingest e2e cases)
 8. [ ] `npm run compose:down`
+6. [ ] `npm run e2e:up`
+7. [ ] `npm run e2e:test` (including new ingest e2e cases)
+8. [ ] `npm run e2e:down`
 
 #### Implementation notes
 

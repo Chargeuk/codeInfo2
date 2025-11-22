@@ -1,4 +1,13 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+# Husky v9+ friendly hook: avoid npx PATH issues (e.g., SourceTree embedded Git).
 
-npx lint-staged
+# Ensure Node is available.
+if ! command -v node >/dev/null 2>&1; then
+  echo "husky (pre-commit): node is not on PATH; aborting." >&2
+  exit 127
+fi
+
+# Prefer local binaries (lint-staged) without relying on npx.
+export PATH="$PWD/node_modules/.bin:$PATH"
+
+lint-staged

@@ -393,8 +393,8 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
-- Git Commits: a2700a3, e0baab4, 605296b
+- Task Status: __in_progress__
+- Git Commits: _to_be_filled_
 
 #### Overview
 

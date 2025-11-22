@@ -353,7 +353,11 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 #### Subtasks
 
-1. [ ] Add/extend Playwright spec to exercise chat flow: load chat page, pick model, send prompt, see streamed response, use Stop, start New conversation, verify transcript reset.
+1. [ ] Add/extend Playwright spec to exercise chat flow:
+   - Load chat page, wait for models dropdown to populate, assert at least one option, and change selection.
+   - Send first prompt, stream response into assistant bubble, confirm completion.
+   - Send follow-up prompt in same session and assert a second assistant response appears in order.
+   - (Optional) verify Stop/New flows if time permits.
 2. [ ] Ensure server/client logging shows tool lifecycle entries (content omitted) visible in Logs page; no tool events in transcript.
 3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.

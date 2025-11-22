@@ -188,74 +188,31 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 ---
 
-### 4. Client Chat Hooks & Services
+### 4. Chat Page – Models List
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Create client-side services/hooks to fetch models, post chat turns, and consume the streaming response. Ensure logging captures tool events (redacted) and errors, while maintaining the “disable while streaming” rule.
+Add the chat page route with an initial view that lists available models (from `/chat/models`), allows selection, and sets the default model for the session. Layout establishes the inverted page structure with input area placeholder but no send/stream yet.
 
 #### Documentation Locations
 
-- LM Studio JS API docs: https://lmstudio.ai/docs/typescript
-- ACT docs: https://lmstudio.ai/docs/typescript/agent/act
-- Existing client logging/util patterns in `client/src/logging/*`
-- React Router docs: Context7 `/remix-run/react-router`
-- Fetch streaming/ReadableStream MDN
-
-#### Subtasks
-
-1. [ ] Add a client API module for `/chat/models` and streaming `/chat` POST using `fetch` + `ReadableStream`; parse server SSE-style lines into structured events.
-2. [ ] Build a `useChatStream` hook managing messages state, in-flight flag, error bubble creation, and appending streamed tokens into the current assistant message.
-3. [ ] Ensure tool events are logged (redacted content) but not rendered; integrate existing logger for start/end/error events.
-4. [ ] Enforce UI rule: send disabled during stream; “new conversation” clears state.
-5. [ ] Tests (Jest): unit-test the stream parser, hook state transitions (send → streaming → final/error), and model fetch error handling.
-6. [ ] Update README.md (client chat usage and limitations) with streaming POST, no persistence notes.
-7. [ ] Update design.md with client-side chat flow, state machine (idle/streaming/error), and tool logging visibility (hidden in transcript, logged only).
-8. [ ] Update projectStructure.md with new client services/hooks/tests.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-
-#### Testing
-
-1. [ ] `npm run lint --workspace client`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run build --workspace client`
-
-#### Implementation notes
-
-- Capture edge cases (empty model list, network drop mid-stream) here.
-
----
-
-### 5. Chat Page UI & Routing
-
-- Task Status: __to_do__
-- Git Commits: __to_do__
-
-#### Overview
-
-Add the routed Chat page with inverted layout, model dropdown, chat bubbles, stop/new conversation controls, and inline error bubbles. Keep messages chronological downward with input at the top. Use MUI components per existing design language.
-
-#### Documentation Locations
-
-- MUI components (use MUI MCP tool): lists, cards, chips, text fields, buttons, selects
+- MUI components (use MUI MCP tool): lists, selects, loading states
 - Existing NavBar/router patterns in `client/src/components/NavBar.tsx`, `client/src/routes/router.tsx`
-- Design/typography choices in design.md
+- design.md for layout/typography
 
 #### Subtasks
 
-1. [ ] Add `/chat` route and NavBar tab; ensure default page load focuses the input.
-2. [ ] Implement layout: top section with model dropdown, multiline input, Send and Stop buttons, New conversation button; transcript below with role-based bubbles (LLM left, user right), inverted flow (newest just under input), and loading indicator during streaming.
-3. [ ] Render error states as bubbles; show in-flight “responding” indicator; keep stop/send disabled states consistent with hook.
-4. [ ] Accessibility: labels for inputs/selects/buttons, focus return to input after send/stop/new conversation; maintain contrast for bubbles.
-5. [ ] Tests (Jest/RTL): render route, model selection updates state, send disables during stream, stop aborts stream, new conversation clears transcript, errors show as bubble.
-6. [ ] Update README.md (UI section) describing chat page layout, controls (Send/Stop/New conversation), and inverted transcript.
-7. [ ] Update design.md with UI states (responding, error bubble), layout notes, and accessibility decisions.
-8. [ ] Update projectStructure.md with new page/components/hooks/tests entries.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+1. [ ] Add `/chat` route and NavBar tab; ensure default page load focuses the model selector/input area.
+2. [ ] Render model list/dropdown sourced from `/chat/models`, defaulting to the first model; show loading/empty/error states.
+3. [ ] Establish inverted layout scaffold: controls at top, transcript area below (can be placeholder for now).
+4. [ ] Update README.md (UI section) describing chat page entry and model selection.
+5. [ ] Update design.md with layout and model list states.
+6. [ ] Update projectStructure.md with new page/component entries.
+7. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -265,11 +222,121 @@ Add the routed Chat page with inverted layout, model dropdown, chat bubbles, sto
 
 #### Implementation notes
 
-- Note any UI trade-offs (e.g., scrollbar behavior, bubble width) and mobile responsiveness decisions.
+- Note any placeholder UI decisions and how model selection state will be passed to later tasks.
 
 ---
 
-### 6. End-to-End & Documentation
+### 5. Chat Page – Chat Functionality
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement chat send/receive on the chat page: connect input to streaming POST `/chat`, render bubbles with inverted order, and show inline error bubbles. New conversation and stop controls are added in later tasks.
+
+#### Documentation Locations
+
+- MUI components for text input/buttons
+- Client hooks/services from Task 4
+- design.md for bubble styles
+
+#### Subtasks
+
+1. [ ] Wire send action to use chat hooks/services to stream responses; append assistant/user bubbles with inverted ordering (newest just under input).
+2. [ ] Render streaming state (responding indicator) and error bubbles; maintain disabled send while streaming.
+3. [ ] Ensure tool events remain hidden in transcript but are logged.
+4. [ ] Update README.md (UI section) with chat send/receive behaviour and limitations (no persistence, stop/new conversation pending).
+5. [ ] Update design.md with chat flow/rendering states and bubble styling.
+6. [ ] Update projectStructure.md for any new components/hooks/tests.
+7. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally, errors surface as bubbles, ordering is inverted.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Capture any decisions on scroll behavior and bubble width here.
+
+---
+
+### 6. Chat Page – New Conversation Control
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add a “New conversation” button that clears the transcript and resets state to a fresh session without reload; ensure it aborts any active stream.
+
+#### Documentation Locations
+
+- design.md for UX states
+- Existing chat hooks/services from Tasks 4–5
+
+#### Subtasks
+
+1. [ ] Implement New conversation control that clears messages/state and resets selected model/inputs as appropriate.
+2. [ ] Ensure any in-flight stream is aborted before clearing (leveraging cancellation hooks from Task 3).
+3. [ ] Update README.md (UI section) to document New conversation behaviour.
+4. [ ] Update design.md with reset flow and UX copy.
+5. [ ] Update projectStructure.md if new helpers/components are added.
+6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Note any state reset nuances (model selection retained or reset to default?).
+
+---
+
+### 7. Chat Page – Stop Control UI
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add a Stop/Cancel button on the chat page that halts an in-progress response, coordinating with server cancellation and client abort handling.
+
+#### Documentation Locations
+
+- design.md for UX/controls
+- Cancellation wiring from Task 3
+
+#### Subtasks
+
+1. [ ] Add Stop control to the chat UI; disable send while stop is available; re-enable on completion/cancel/error.
+2. [ ] Wire Stop to client abort + server cancellation pathway; show stop/abort feedback in the transcript or status.
+3. [ ] Update README.md (UI section) with Stop behaviour and limitations.
+4. [ ] Update design.md with Stop flow/state transitions.
+5. [ ] Update projectStructure.md if new components/hooks are added.
+6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run lint --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace client`
+
+#### Implementation notes
+
+- Capture UX decisions for showing a “stopped” marker vs. error bubble.
+
+---
+
+### 8. End-to-End & Documentation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -291,7 +358,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
-6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-6-*.png`.
+6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing

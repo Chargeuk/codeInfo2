@@ -129,8 +129,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Subtasks
 
-1. [ ] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration emitting events `{type:'token'|'tool-request'|'tool-result'|'final'|'complete'|'error', ...}`.
-2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames and handle heartbeats/JSON stringify; ensure response closes on completion/error.
+1. [ ] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration emitting events `{type:'token'|'tool-request'|'tool-result'|'final'|'complete'|'error', ...}`; example SSE frame: `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`.
+2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial `:\n\n` heartbeat, and handle JSON stringify; ensure response closes on completion/error and on request `close`.
 3. [ ] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
 5. [ ] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock.
@@ -172,9 +172,9 @@ Implement cancellation/stop behaviour end-to-end: server-side cancellation of st
 
 #### Subtasks
 
-1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect or Stop signal) using `OngoingPrediction.cancel()`/AbortSignal; ensure listeners are removed and response ends cleanly.
-2. [ ] Client hook: extend `useChatStream` (or equivalent) to hold an `AbortController`, pass `signal` to fetch/stream reader, and expose `stop()` that aborts and resets in-flight state.
-3. [ ] Client UI integration (temporary): wire Stop/New conversation buttons to hook methods; disable send while stopped state resolves.
+1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect or Stop signal) using `OngoingPrediction.cancel()`/AbortSignal; ensure listeners are removed and response ends cleanly (update `server/src/routes/chat.ts` / stream helper).
+2. [ ] Client hook: extend `useChatStream` in `client/src/hooks/useChatStream.ts` to hold an `AbortController`, pass `signal` to fetch/stream reader, and expose `stop()` that aborts and resets in-flight state.
+3. [ ] Client UI integration (temporary): wire Stop/New conversation buttons on `client/src/pages/ChatPage.tsx` to hook methods; disable send while stopped state resolves.
 4. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation.
 5. [ ] Tests (client Jest): stop button aborts stream, disables send while active, and produces an error/stop bubble or completion state.
 6. [ ] Update README.md (both server and client sections) to describe Stop/New conversation behaviour and lack of persistence.
@@ -219,11 +219,11 @@ Add the chat page route with an initial view that lists available models (from `
 2. [ ] Render model list/dropdown sourced from `/chat/models`, defaulting to the first model; show loading/empty/error states.
 3. [ ] Establish inverted layout scaffold: controls at top, transcript area below (can be placeholder for now).
 4. [ ] Place model selection state in a hook or context (e.g., `client/src/hooks/useChatModel.ts`) so later tasks can reuse it.
-4. [ ] Update README.md (UI section) describing chat page entry and model selection.
-5. [ ] Update design.md with layout and model list states.
-6. [ ] Update projectStructure.md with new page/component entries.
-7. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Update README.md (UI section) describing chat page entry and model selection.
+6. [ ] Update design.md with layout and model list states.
+7. [ ] Update projectStructure.md with new page/component entries.
+8. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

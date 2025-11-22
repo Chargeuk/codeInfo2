@@ -661,31 +661,35 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 #### Subtasks
 
-1. [ ] Create `client/src/hooks/useChatStream.ts` exporting `{ send(message), stop(), status, messages }`; implement streaming fetch to `/chat` with SSE parsing, accumulating assistant tokens into a single bubble per turn. Abort on unmount.
-2. [ ] Extend `ChatPage.tsx` to wire TextField (`data-testid="chat-input"`) + Send button (`data-testid="chat-send"`) to `useChatStream`; append user bubble immediately, stream assistant tokens into one assistant bubble, render newest messages nearest the controls (invert list before map).
-3. [ ] In `useChatStream`, parse SSE lines split on `\n\n`, handle payloads `{type:"token"|"final"|"error"}`, and update `messages` shape `{ id, role, content, kind?: "error"|"status" }`.
-4. [ ] Add UI states: “Responding…” helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
-5. [ ] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
-6. [ ] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
-7. [ ] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
-7. [ ] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
-8. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
+1. [x] Create `client/src/hooks/useChatStream.ts` exporting `{ send(message), stop(), status, messages }`; implement streaming fetch to `/chat` with SSE parsing, accumulating assistant tokens into a single bubble per turn. Abort on unmount.
+2. [x] Extend `ChatPage.tsx` to wire TextField (`data-testid="chat-input"`) + Send button (`data-testid="chat-send"`) to `useChatStream`; append user bubble immediately, stream assistant tokens into one assistant bubble, render newest messages nearest the controls (invert list before map).
+3. [x] In `useChatStream`, parse SSE lines split on `\n\n`, handle payloads `{type:"token"|"final"|"error"}`, and update `messages` shape `{ id, role, content, kind?: "error"|"status" }`.
+4. [x] Add UI states: “Responding…” helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
+5. [x] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
+6. [x] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
+7. [x] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
+7. [x] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
+8. [x] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
    - mocks `global.fetch` returning a ReadableStream emitting `data:{"type":"token","content":"Hi"}` then `data:{"type":"final","message":{"content":"Hi","role":"assistant"}}`
    - asserts Send is disabled while streaming, assistant bubble shows combined “Hi”, error path shows error bubble, and `unmount` calls `abort` on the controller.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Capture any decisions on scroll behavior and bubble width here.
+- Added `useChatStream` hook to POST `/chat`, parse SSE `token/final/error` frames, accumulate tokens into a single assistant bubble, and log tool events via `createLogger('client-chat')`; guards abort on unmount/stop and surfaces inline error bubbles with retry guidance.
+- ChatPage now wires the model select and message form to the hook, renders newest-first bubbles (user right/assistant left/error in error palette), disables send during streaming or empty input, and shows a lightweight "Responding..." helper.
+- Client README/design/projectStructure refreshed for streaming behaviour, bubble styling, and the new hook/test entries; design adds a mermaid send/stream flow.
+- Added RTL coverage `chatPage.stream.test.tsx` for streaming success, error bubble surfacing, and abort-on-unmount; fetch streams are simulated with `ReadableStream` from `node:stream/web` and AbortController is mocked for cancellation assertions.
+- Full lint, format, client test suite, workspace builds, and compose build/up/down executed successfully after the changes.
 
 ---
 

@@ -36,17 +36,34 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ### Chat page (models list)
 
-- Route `/chat` surfaces the chat shell; controls sit at the top (inverted layout) with a model `<Select>` and a message `<TextField>` that is disabled until streaming work lands. The first model auto-selects when data loads.
-- `useChatModel` fetches `/chat/models`, aborts on unmount, and exposes `models`, `selected`, `status` flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render “No models available…” and keep inputs disabled.
+- Route `/chat` surfaces the chat shell; controls sit at the top (inverted layout) with a model `<Select>` and a message `<TextField>`. The first model auto-selects when data loads.
+- `useChatModel` fetches `/chat/models`, aborts on unmount, and exposes `models`, `selected`, `status` flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No models available." and keep inputs disabled.
 - Controls are disabled while loading, on errors, or when no models exist so the chat form cannot submit without a model.
 
+### Chat page (streaming UI)
+
+- Message input and Send button feed into `useChatStream(model)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`) into a single assistant bubble per turn.
+- Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
+- Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
+- Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
+
 ```mermaid
-flowchart LR
-  A[ChatPage] --> B[useChatModel hook]
-  B -->|GET /chat/models| C[Server proxy]
-  C --> D[LM Studio]
-  B --> E[models + selected state]
-  A --> E
+sequenceDiagram
+  participant User
+  participant ChatPage
+  participant Hook as useChatStream
+  participant Server
+
+  User->>ChatPage: type prompt, click Send
+  ChatPage->>Hook: send(message, model)
+  Hook->>Server: POST /chat {model,messages}
+  Server-->>Hook: SSE token/final/error frames
+  Hook-->>ChatPage: update assistant bubble, status=sending
+  alt error
+    Hook-->>ChatPage: append error bubble, status=idle
+  end
+  Hook-->>Server: abort() on unmount/stop
+  ChatPage-->>User: shows newest-first bubbles near controls
 ```
 
 ## Client testing & Docker
@@ -278,3 +295,4 @@ flowchart LR
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
 ```
+

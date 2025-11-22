@@ -25,3 +25,9 @@ export type LmStudioStatusError = {
 };
 
 export type LmStudioStatusResponse = LmStudioStatusOk | LmStudioStatusError;
+
+export type ChatModelInfo = {
+  key: string;
+  displayName: string;
+  type: string;
+};

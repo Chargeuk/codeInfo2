@@ -110,6 +110,29 @@ sequenceDiagram
 
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
+### Chat models endpoint
+
+- `GET /chat/models` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
+- Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
+- Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
+
+```mermaid
+sequenceDiagram
+  participant Client as Chat page
+  participant Server
+  participant LMStudio
+
+  Client->>Server: GET /chat/models
+  alt LM Studio reachable
+    Server->>LMStudio: system.listDownloadedModels()
+    LMStudio-->>Server: models[]
+    Server-->>Client: 200 [{key,displayName,type}]
+  else LM Studio down/invalid
+    Server-->>Client: 503 {error:"lmstudio unavailable"}
+  end
+```
+
 ### LM Studio UI behaviour
 
 - Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.

@@ -88,16 +88,16 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 #### Subtasks
 
-1. [ ] Create `server/src/routes/chatModels.ts` exposing GET `/chat/models`: call `lmstudio.listDownloadedModels()`, map to `{ key, displayName, type }`, default to first entry when client requests no model; return 503 on LM Studio unreachable with `{ error }` body.
-2. [ ] Register the router in `server/src/index.ts` under `/chat`; ensure CORS/JSON body middleware already present and keep typings aligned with existing router pattern.
-3. [ ] Logging: emit start/success/failure log entries (no PII) with base URL reduced to `origin`; include model count on success.
-4. [ ] Document the exact `/chat/models` contract here and reuse it everywhere: 200 response body = `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]`; 503 body = `{ "error": "lmstudio unavailable" }`. Create a shared fixture `mockModels` with that single entry for both the mock SDK and client RTL tests.
-5. [ ] Provide LM Studio mock for Cucumber: extend `server/src/test/support/mockLmStudioSdk.ts` (or add equivalent) to stub `listDownloadedModels` success + failure toggles using the `mockModels` fixture; export helpers to flip failure mode.
-6. [ ] Tests (server Cucumber): add `server/src/test/features/chat_models.feature` + step defs to cover success (returns list/default) and failure (LM Studio down -> 503/json error) using the fixture payloads above.
-7. [ ] Update README.md (server/API sections) to include `/chat/models` usage and error behaviours.
-8. [ ] Update design.md with the model fetch flow and error handling; add/update a mermaid diagram if flow changes. (Use mermaid docs via Context7.)
-9. [ ] Update projectStructure.md with new server route/mock/test entries.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Create `server/src/routes/chatModels.ts` exposing GET `/chat/models`: call `lmstudio.listDownloadedModels()`, map to `{ key, displayName, type }`, default to first entry when client requests no model; return 503 on LM Studio unreachable with `{ error }` body.
+2. [x] Register the router in `server/src/index.ts` under `/chat`; ensure CORS/JSON body middleware already present and keep typings aligned with existing router pattern.
+3. [x] Logging: emit start/success/failure log entries (no PII) with base URL reduced to `origin`; include model count on success.
+4. [x] Document the exact `/chat/models` contract here and reuse it everywhere: 200 response body = `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]`; 503 body = `{ "error": "lmstudio unavailable" }`. Create a shared fixture `mockModels` with that single entry for both the mock SDK and client RTL tests.
+5. [x] Provide LM Studio mock for Cucumber: extend `server/src/test/support/mockLmStudioSdk.ts` (or add equivalent) to stub `listDownloadedModels` success + failure toggles using the `mockModels` fixture; export helpers to flip failure mode.
+6. [x] Tests (server Cucumber): add `server/src/test/features/chat_models.feature` + step defs to cover success (returns list/default) and failure (LM Studio down -> 503/json error) using the fixture payloads above.
+7. [x] Update README.md (server/API sections) to include `/chat/models` usage and error behaviours.
+8. [x] Update design.md with the model fetch flow and error handling; add/update a mermaid diagram if flow changes. (Use mermaid docs via Context7.)
+9. [x] Update projectStructure.md with new server route/mock/test entries.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 **Implementation scaffolds (for juniors)**
 - Hook idea `client/src/hooks/useChatStream.ts`:
@@ -371,12 +371,12 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 

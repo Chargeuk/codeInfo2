@@ -75,6 +75,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │  ├─ tsconfig.json — TS config for common
 │  ├─ tsconfig.tsbuildinfo — TS build info cache
 │  └─ src/
+│     ├─ fixtures/ — shared LM Studio model fixtures
+│     │  └─ mockModels.ts — shared fixture for LM Studio models list
 │     ├─ api.ts — fetch helpers (server version, LM Studio)
 │     ├─ index.ts — barrel exports
 │     ├─ lmstudio.ts — LM Studio DTOs/types
@@ -104,15 +106,18 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     ├─ logger.ts — pino/pino-http setup with rotation and env config helper
 │     ├─ logStore.ts — in-memory log buffer with sequence numbers and filters
 │     ├─ routes/
+│     │  ├─ chatModels.ts — LM Studio chat models list endpoint
 │     │  ├─ logs.ts — log ingestion, history, and SSE streaming routes
 │     │  └─ lmstudio.ts — LM Studio proxy route
 │     ├─ types/
 │     │  └─ pino-roll.d.ts — module shim for pino-roll until official types
 │     └─ test/
 │        ├─ features/
+│        │  ├─ chat_models.feature — Cucumber coverage for chat model list endpoint
 │        │  ├─ example.feature — sample feature
 │        │  └─ lmstudio.feature — LM Studio proxy scenarios
 │        ├─ steps/
+│        │  ├─ chat_models.steps.ts — step defs for chat_models.feature
 │        │  ├─ example.steps.ts — step defs for example.feature
 │        │  └─ lmstudio.steps.ts — step defs for LM Studio feature
 │        └─ support/

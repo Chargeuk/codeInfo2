@@ -115,6 +115,13 @@ npm install
 - Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
 - Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
 
+### Chat models (LM Studio)
+
+- Endpoint: `GET /chat/models` (uses `LMSTUDIO_BASE_URL`; no query parameters). Returns `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]` shaped items.
+- Failure: if LM Studio is unreachable/invalid, responds `503 { "error": "lmstudio unavailable" }`.
+- The chat UI selects the first item by default when no model is chosen; callers should treat an empty array as “no models available”.
+- Logging: start/success/failure log entries include the base URL origin and model count on success; errors log the sanitized origin only.
+
 ## Docker Compose
 
 - Build both images: `npm run compose:build`

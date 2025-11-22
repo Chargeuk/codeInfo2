@@ -1,4 +1,12 @@
-export type MockScenario = 'many' | 'empty' | 'timeout';
+import type { LmStudioModel } from '@codeinfo2/common';
+import { mockModels } from '@codeinfo2/common';
+
+export type MockScenario =
+  | 'many'
+  | 'empty'
+  | 'timeout'
+  | 'chat-fixture'
+  | 'chat-error';
 
 let scenario: MockScenario = 'many';
 
@@ -16,6 +24,19 @@ export class MockLMStudioClient {
       if (scenario === 'timeout') {
         await new Promise((_, rej) =>
           setTimeout(() => rej(new Error('timeout')), 2000),
+        );
+      }
+      if (scenario === 'chat-error') {
+        throw new Error('lmstudio unavailable');
+      }
+      if (scenario === 'chat-fixture') {
+        return mockModels.map(
+          (model) =>
+            ({
+              modelKey: model.key,
+              displayName: model.displayName,
+              type: model.type,
+            }) satisfies Partial<LmStudioModel>,
         );
       }
       if (scenario === 'empty') {

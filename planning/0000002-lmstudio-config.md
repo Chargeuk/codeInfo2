@@ -432,7 +432,7 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
 ### 11. GUI Layout Fix
 
 - Task Status: __done__
-- Git Commits: f1d2277, 0261e01, b8c4493, bc383bc
+- Git Commits: f1d2277, 0261e01, b8c4493, bc383bc, 959544b
 #### Overview
 
 Fix the LM Studio page layout so it starts at the top of the viewport and fills the available width appropriately. Address leftover Vite starter CSS (body flex centering, dark background) and constrain the AppBar/Containers using MUI-recommended patterns (CssBaseline, top-level AppBar, single content container) to restore standard alignment and spacing.
@@ -471,6 +471,7 @@ Fix the LM Studio page layout so it starts at the top of the viewport and fills 
 - Updated README and design notes to document the layout reset; added empty `client/.env.local` and `server/.env.local` so compose env_file loads cleanly.
 - Removed the unused `client/src/App.css` now that layout relies entirely on MUI components and `sx` spacing; captured fresh Home and LM Studio screenshots under `test-results/screenshots` for visual verification (ignored by git).
 - Adjusted LM Studio page stack to `mt: 0` so top spacing is defined by the parent Container only, keeping consistent offsets with Home.
+- Unified Home page spacing by setting its Box to `mt: 0` and `width: '100%'`, relying on the parent Container for vertical offset while keeping a max width for the card.
 - Commands run in order: lint ✅, format:check (fixed Prettier on LmStudioPage) ✅, client tests ✅ after rebuilding `common/dist` and reinstalling workspace deps, client build ✅, `compose:build` ✅, `e2e:up/test/down` ✅ (both specs passed against the compose stack), manual layout check via code + e2e load confirmed top-aligned content and full-width AppBar.
 
 ---

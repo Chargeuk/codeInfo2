@@ -222,6 +222,7 @@ Add the chat page route with an initial view that lists available models (from `
 #### Documentation Locations
 
 - MUI MCP tool: @mui/material@7.2.0 docs (llms.mui.com/material-ui/7.2.0/llms.txt)
+- React 19 docs: https://react.dev/
 - React Router docs: https://reactrouter.com/
 - design.md for layout/typography
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
@@ -266,6 +267,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 #### Documentation Locations
 
 - MUI MCP tool: @mui/material@7.2.0 docs
+- React 19 docs: https://react.dev/
 - design.md for bubble styles
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Client hooks/services from Task 4
@@ -309,6 +311,7 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 - design.md for UX states
 - MUI MCP tool: @mui/material@7.2.0 docs (buttons/layout)
+- React 19 docs: https://react.dev/
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Existing chat hooks/services from Tasks 4–5
 
@@ -350,6 +353,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 - design.md for UX/controls
 - MUI MCP tool: @mui/material@7.2.0 docs (buttons/status)
+- React 19 docs: https://react.dev/
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
 - Cancellation wiring from Task 3
 
@@ -392,6 +396,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 - Playwright docs: https://playwright.dev/docs/intro
 - Docker docs: https://docs.docker.com/engine/ and Compose: https://docs.docker.com/compose/
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
+- React 19 docs: https://react.dev/
 - Existing README/design/projectStructure files
 
 #### Subtasks

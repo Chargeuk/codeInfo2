@@ -49,6 +49,8 @@ Introduce structured logging across the monorepo so both the server and client e
 
 ### 1. Logging Architecture & Shared Schema
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -185,6 +187,8 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 ### 2. Server Logging Infrastructure & Storage
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -254,6 +258,8 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 ### 3. Server Log APIs & SSE
 
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
@@ -313,6 +319,8 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 ---
 
 ### 4. Client Logging Capture & Transport
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -457,6 +465,8 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 ---
 
 ### 5. Logs Page UI & End-to-End Visibility
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -610,6 +620,8 @@ Create a new “Logs” route in the client that consumes the server log API, su
 ---
 
 ### 6. Acceptance Review & Release Readiness
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
 - Git Commits: __to_do__

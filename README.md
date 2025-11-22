@@ -128,6 +128,7 @@ npm install
 - Response streams `text/event-stream` frames: token `{"type":"token","content":"Hi","roundIndex":0}`, tool lifecycle `{"type":"tool-request|tool-result", ...}` (arguments/results redacted in logs), final message `{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}`, `{"type":"complete"}` on finish, `{"type":"error","message":"lmstudio unavailable"}` on failure.
 - Example: `curl -N -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"model":"llama-3","messages":[{"role":"user","content":"hello"}]}'`.
 - Logging: server records start/complete/error plus tool lifecycle metadata (name/callId only, no args/results) with the base URL origin and model; payloads respect `LOG_MAX_CLIENT_BYTES`.
+- Cancellation: if the client disconnects/aborts, the server calls `cancel()` on the LM Studio prediction via an `AbortController`, stops streaming immediately, and logs `{ reason: "client_disconnect" }`.
 
 ## Docker Compose
 

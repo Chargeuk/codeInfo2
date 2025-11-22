@@ -1,6 +1,11 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
-import { endStream, startStream, writeEvent } from '../chatStream.js';
+import {
+  endStream,
+  isStreamClosed,
+  startStream,
+  writeEvent,
+} from '../chatStream.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
@@ -100,6 +105,17 @@ export function createChatRouter({
   router.post('/', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
     const { model, messages } = req.body ?? {};
+    const controller = new AbortController();
+    let ended = false;
+    let completed = false;
+    let ongoing: (AsyncIterable<unknown> & { cancel?: () => void }) | null =
+      null;
+
+    const endIfOpen = () => {
+      if (ended || isStreamClosed(res)) return;
+      ended = true;
+      endStream(res);
+    };
 
     if (typeof model !== 'string' || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'invalid request' });
@@ -144,12 +160,40 @@ export function createChatRouter({
 
     startStream(res);
 
+    // Abort server-side streaming as soon as the client goes away so LM Studio stops work.
+    const handleDisconnect = (reason: 'close' | 'aborted') => {
+      if (completed) return;
+      if (reason === 'close' && !controller.signal.aborted) return;
+      controller.abort();
+      ongoing?.cancel?.();
+      append({
+        level: 'info',
+        message: 'chat stream cancelled',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: { baseUrl: safeBase, model, reason: 'client_disconnect' },
+      });
+      baseLogger.info(
+        { requestId, baseUrl: safeBase, model, reason: 'client_disconnect' },
+        'chat stream cancelled',
+      );
+      endIfOpen();
+    };
+
+    req.on('close', () => handleDisconnect('close'));
+    req.on('aborted', () => handleDisconnect('aborted'));
+    res.on('close', handleDisconnect);
+    controller.signal.addEventListener('abort', () => {
+      ongoing?.cancel?.();
+    });
+
     try {
       const client = clientFactory(
         toWebSocketUrl(baseUrl),
       ) as unknown as ClientWithModel;
       const modelClient = client.getModel(model);
-      const ongoing = await modelClient.act({
+      const prediction = (await modelClient.act({
         messages,
         tools: [
           {
@@ -159,9 +203,18 @@ export function createChatRouter({
           },
         ],
         allowParallelToolExecution: false,
-      });
+        signal: controller.signal,
+      })) as AsyncIterable<unknown> & { cancel?: () => void };
+      ongoing = prediction;
 
-      for await (const rawEvent of ongoing as AsyncIterable<unknown>) {
+      for await (const rawEvent of prediction) {
+        if (req.aborted) {
+          controller.abort();
+          break;
+        }
+        if (controller.signal.aborted) {
+          break;
+        }
         const event = rawEvent as Record<string, unknown> | null | undefined;
         const eventType =
           typeof event?.type === 'string' ? event.type : undefined;
@@ -203,6 +256,10 @@ export function createChatRouter({
         }
       }
 
+      if (controller.signal.aborted || req.aborted) {
+        return;
+      }
+      completed = true;
       writeEvent(res, { type: 'complete' });
 
       append({
@@ -234,7 +291,10 @@ export function createChatRouter({
         'chat stream failed',
       );
     } finally {
-      endStream(res);
+      if (controller.signal.aborted) {
+        ongoing?.cancel?.();
+      }
+      endIfOpen();
     }
   });
 

@@ -462,7 +462,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: _to_do_
 
 #### Overview
@@ -480,15 +480,15 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 #### Subtasks
 
-1. [ ] Server: in `server/src/routes/chat.ts` wire an `AbortController` passed into `lmstudio.act` and call `ongoing.cancel?.()` on abort; reuse `chatStream` helper to end the SSE. Comment the handler so juniors know why it runs.
-2. [ ] Add `req.on('close')` + `req.on('aborted')` to stop emitting, call `controller.abort()`, invoke `cancel()`, and `endStream(res)`; guard against double-end.
-3. [ ] Add a tiny helper (if missing) in `server/src/chatStream.ts` to no-op when res.finished; export it and use it from the route.
-4. [ ] Tests (Cucumber): create `server/src/test/features/chat_cancellation.feature` and steps in `server/src/test/steps/chat_cancellation.steps.ts` using the LM Studio mock to emit slow tokens; abort the HTTP request and assert the mock `cancelled` flag is set and no further SSE frames arrive.
-5. [ ] Logging: ensure cancellation logs an info entry with `{reason:"client_disconnect"}`; add assertion in steps to read server log buffer if feasible.
-6. [ ] Update README.md (server section) with a short “Cancellation” subsection under `/chat` explaining client disconnects stop generation immediately.
-7. [ ] Update design.md with a mermaid flow for the cancel path and a note that `req.close` triggers `cancel()`.
-8. [ ] Update projectStructure.md to list the new feature/steps files if added.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
+1. [x] Server: in `server/src/routes/chat.ts` wire an `AbortController` passed into `lmstudio.act` and call `ongoing.cancel?.()` on abort; reuse `chatStream` helper to end the SSE. Comment the handler so juniors know why it runs.
+2. [x] Add `req.on('close')` + `req.on('aborted')` to stop emitting, call `controller.abort()`, invoke `cancel()`, and `endStream(res)`; guard against double-end.
+3. [x] Add a tiny helper (if missing) in `server/src/chatStream.ts` to no-op when res.finished; export it and use it from the route.
+4. [x] Tests (Cucumber): create `server/src/test/features/chat_cancellation.feature` and steps in `server/src/test/steps/chat_cancellation.steps.ts` using the LM Studio mock to emit slow tokens; abort the HTTP request and assert the mock `cancelled` flag is set and no further SSE frames arrive.
+5. [x] Logging: ensure cancellation logs an info entry with `{reason:"client_disconnect"}`; add assertion in steps to read server log buffer if feasible.
+6. [x] Update README.md (server section) with a short “Cancellation” subsection under `/chat` explaining client disconnects stop generation immediately.
+7. [x] Update design.md with a mermaid flow for the cancel path and a note that `req.close` triggers `cancel()`.
+8. [x] Update projectStructure.md to list the new feature/steps files if added.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 **Implementation scaffolds (for juniors)**
 - Playwright snippet extension target for chat (can live in `e2e/chat.spec.ts`):
@@ -571,12 +571,12 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -820,3 +820,4 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 - Record e2e findings, screenshot names, and any flakiness mitigations here.
 
 ---
+

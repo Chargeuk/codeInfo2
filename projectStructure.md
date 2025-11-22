@@ -116,16 +116,18 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 │     │  └─ pino-roll.d.ts — module shim for pino-roll until official types
 │     └─ test/
 │        ├─ features/
-│        │  ├─ chat_stream.feature � streaming /chat SSE Cucumber coverage
-│        │  ├─ chat_models.feature — Cucumber coverage for chat model list endpoint
-│        │  ├─ example.feature — sample feature
-│        │  └─ lmstudio.feature — LM Studio proxy scenarios
-│        ├─ steps/
-│        │  ├─ chat_stream.steps.ts � step defs for chat streaming
-│        │  ├─ chat_models.steps.ts — step defs for chat_models.feature
-│        │  ├─ example.steps.ts — step defs for example.feature
-│        │  └─ lmstudio.steps.ts — step defs for LM Studio feature
-│        └─ support/
+        - chat_stream.feature - streaming /chat SSE Cucumber coverage
+        - chat_cancellation.feature - Cucumber coverage for aborting chat streams
+        - chat_models.feature - Cucumber coverage for chat model list endpoint
+        - example.feature - sample feature
+        - lmstudio.feature - LM Studio proxy scenarios
+steps/
+        - chat_stream.steps.ts - step defs for chat_stream.feature
+        - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
+        - chat_models.steps.ts - step defs for chat_models.feature
+        - example.steps.ts - step defs for example.feature
+        - lmstudio.steps.ts - step defs for LM Studio feature
+support/
 │           └─ mockLmStudioSdk.ts — controllable LM Studio SDK mock
 ├─ .husky/ — git hooks managed by Husky
 │  ├─ pre-commit — runs lint-staged

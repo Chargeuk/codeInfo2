@@ -38,7 +38,7 @@ function createPrediction(events: unknown[]) {
     async *[Symbol.asyncIterator]() {
       for (const event of events) {
         if (state.cancelled) return;
-        await delay(5);
+        await delay(20);
         yield event;
       }
     },

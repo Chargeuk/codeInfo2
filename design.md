@@ -145,6 +145,7 @@ sequenceDiagram
 - `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.getModel(model).act()` with a registered `noop` tool and `allowParallelToolExecution: false`. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
 - Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and upcoming client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
 - Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs and transcript frames.
+- Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
 
 ```mermaid
 sequenceDiagram
@@ -161,6 +162,10 @@ sequenceDiagram
   Server-->>Client: SSE {type:"final"} then {type:"complete"}
   alt LM Studio error
     Server-->>Client: SSE {type:"error", message}
+  end
+  alt Client disconnects
+    Server->>LM: cancel prediction via AbortController/ongoing.cancel()
+    Server-->>Client: SSE stream ends without final/complete
   end
 ```
 

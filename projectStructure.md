@@ -32,7 +32,8 @@ Current root map:
 Notes by area:
 
 - planning/: `plan_format.md` (template) and `0000001-initial-skeleton-setup.md` (active story plan).
-- client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI.
+- planning/: `plan_format.md` (template) and story plans `0000001-initial-skeleton-setup.md`, `0000002-lmstudio-config.md`.
+- client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI, `src/components/NavBar.tsx`, `src/routes/router.tsx`, pages `src/pages/HomePage.tsx` and `src/pages/LmStudioPage.tsx`, tests incl. `src/test/router.test.tsx`.
 - server/: Express entrypoint, env defaults, Cucumber `src/test`, `cucumber.js`, Docker assets.
-- common/: `src/index.ts` and `src/versionInfo.ts` exporting VersionInfo/getAppInfo.
+- common/: `src/index.ts`, `src/versionInfo.ts`, and shared helpers in `src/api.ts`.
 - e2e/: Playwright tests (version.spec.ts) for UI/version checks.

@@ -1,1 +1,2 @@
-export * from './versionInfo.js';
+export * from './versionInfo';
+export * from './api';

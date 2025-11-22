@@ -12,7 +12,7 @@
     "format:check": "prettier . --check",
     "format": "prettier . --write",
     "typecheck": "tsc -b",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.ts"
+    "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --config jest.config.ts"
   },
   "engines": {
     "node": ">=22"
@@ -24,7 +24,8 @@
     "@mui/icons-material": "^6.4.1",
     "@mui/material": "^6.4.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "7.9.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

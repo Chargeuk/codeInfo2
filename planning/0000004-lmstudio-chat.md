@@ -98,6 +98,276 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 8. [ ] Update projectStructure.md with new server route/mock/test entries.
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
+**Implementation scaffolds (for juniors)**
+- Hook idea `client/src/hooks/useChatStream.ts`:
+  ```ts
+  import { useEffect, useRef, useState } from 'react';
+
+  export function useChatStream(model: string | undefined) {
+    const controllerRef = useRef<AbortController | null>(null);
+    const [messages, setMessages] = useState([]);
+    const [status, setStatus] = useState<'idle'|'sending'|'error'>('idle');
+
+    const send = async (text: string) => {
+      if (!model) return;
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      setStatus('sending');
+      setMessages(prev => [...prev, { role: 'user', content: text }]);
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model, messages: [...messages, { role: 'user', content: text }] }),
+        signal: controller.signal,
+      });
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let assistant = '';
+      while (reader) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        buffer.split('\n\n').forEach(line => {
+          if (line.startsWith('data:')) {
+            const payload = JSON.parse(line.slice(5).trim());
+            if (payload.type === 'token') assistant += payload.content;
+            if (payload.type === 'final') assistant = payload.message.content;
+            if (payload.type === 'error') setStatus('error');
+          }
+        });
+        setMessages(prev => [...prev.filter(m => m.role !== 'assistant-temp'), { role: 'assistant-temp', content: assistant }]);
+      }
+      setMessages(prev => [...prev.filter(m => m.role !== 'assistant-temp'), { role: 'assistant', content: assistant }]);
+      setStatus('idle');
+    };
+
+    useEffect(() => () => controllerRef.current?.abort(), []);
+
+    return { send, messages, status, stop: () => controllerRef.current?.abort() };
+  }
+  ```
+- Bubble rendering (inverted order: newest near top controls):
+  ```tsx
+  <Stack spacing={1} sx={{ flexDirection: 'column' }}>
+    {[...messages].reverse().map((m, idx) => (
+      <Box key={idx} sx={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+        <Paper sx={{ p: 1.5, bgcolor: m.role === 'user' ? 'primary.main' : 'background.paper', color: m.role === 'user' ? 'primary.contrastText' : 'text.primary' }}>
+          <Typography variant="body2">{m.content}</Typography>
+        </Paper>
+      </Box>
+    ))}
+  </Stack>
+  ```
+- Error bubble example: push `{ role: 'assistant', content: 'Error: ...', error: true }` and style with `color="error.main"`.
+
+**Commands (copy/paste)**
+- Focused client test: `npm run test --workspace client -- chat`
+- Manual streaming check: open `/chat`, select model, type “hello”, observe token streaming.
+
+**Implementation scaffolds (for juniors)**
+- Files to create/update:
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/hooks/useChatModel.ts`
+  - Add route/tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`
+- Hook idea `useChatModel.ts`:
+  ```ts
+  import { useEffect, useState } from 'react';
+
+  export function useChatModel() {
+    const [models, setModels] = useState([]);
+    const [selected, setSelected] = useState<string | undefined>();
+    const [status, setStatus] = useState<'idle'|'loading'|'error'>('idle');
+
+    useEffect(() => {
+      let cancelled = false;
+      setStatus('loading');
+      fetch(`${import.meta.env.VITE_API_URL}/chat/models`)
+        .then(r => r.json())
+        .then(data => { if (!cancelled) { setModels(data); setSelected(data[0]?.key); setStatus('idle'); } })
+        .catch(() => !cancelled && setStatus('error'));
+      return () => { cancelled = true; };
+    }, []);
+
+    return { models, selected, setSelected, status };
+  }
+  ```
+- Layout suggestion for `ChatPage.tsx` (inverted):
+  ```tsx
+  return (
+    <Container maxWidth="lg">
+      <Stack spacing={2} sx={{ pt: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="flex-start">
+          <FormControl sx={{ minWidth: 240 }}>
+            <InputLabel id="chat-model-label">Model</InputLabel>
+            <Select ...>
+              {models.map(m => <MenuItem key={m.key} value={m.key}>{m.displayName}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField fullWidth label="Message" placeholder="Type your prompt" disabled />
+        </Stack>
+        <Paper variant="outlined" sx={{ minHeight: 320, p: 2 }}>
+          <Typography color="text.secondary">Transcript will appear here...</Typography>
+        </Paper>
+      </Stack>
+    </Container>
+  );
+  ```
+- State/error cues: show `CircularProgress` for loading; `Alert` for errors; `Typography` for empty state when models=[].
+
+**Commands (copy/paste)**
+- Run client tests only: `npm run test --workspace client -- ChatPage`
+- Manual UI check: `npm run dev --workspace client` then open `http://localhost:5001/chat`
+
+**Implementation scaffolds (for juniors)**
+- Route file: `server/src/routes/chat.ts`
+  ```ts
+  import { Router } from 'express';
+  import { logger } from '../logger';
+  import { startStream, writeEvent, endStream } from '../chatStream';
+
+  const router = Router();
+
+  router.post('/', async (req, res) => {
+    const { model, messages } = req.body;
+    startStream(res);
+    try {
+      const ongoing = await lmstudio.getModel(model).act({
+        messages,
+        tools: [{
+          name: 'noop',
+          description: 'does nothing',
+          execute: async () => ({ result: 'noop' }),
+        }],
+        allowParallelToolExecution: false,
+      });
+
+      for await (const event of ongoing) {
+        if (event.type === 'predictionFragment') {
+          writeEvent(res, { type: 'token', content: event.content, roundIndex: event.roundIndex });
+        }
+        if (event.type === 'message') {
+          writeEvent(res, { type: 'final', message: event.message, roundIndex: event.roundIndex });
+        }
+      }
+      writeEvent(res, { type: 'complete' });
+      endStream(res);
+    } catch (err: any) {
+      logger.error({ err }, 'chat stream error');
+      writeEvent(res, { type: 'error', message: err?.message ?? 'unknown error' });
+      endStream(res);
+    }
+  });
+
+  export default router;
+  ```
+- Stream helper skeleton `server/src/chatStream.ts`:
+  ```ts
+  import { Response } from 'express';
+
+  export function startStream(res: Response) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.write(':\n\n');
+  }
+
+  export const writeEvent = (res: Response, payload: unknown) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  export const endStream = (res: Response) => res.end();
+  ```
+- Tool event mapping hint:
+  ```ts
+  if (event.type === 'toolCallRequestStart') {
+    writeEvent(res, { type: 'tool-request', callId: event.callId, roundIndex: event.roundIndex });
+  }
+  ```
+- Cucumber step outline for streaming:
+  ```ts
+  When('I start a chat stream', async () => {
+    res = await fetch(`${baseUrl}/chat`, { method: 'POST', body: JSON.stringify(body), headers });
+    chunks = await collectSse(res);
+  });
+  Then('I see a token event', () => {
+    assert.ok(chunks.find(c => c.type === 'token'));
+  });
+  ```
+
+**SSE payload examples**
+- Happy path:
+  - `data: {"type":"token","content":"Hello","roundIndex":0}`
+  - `data: {"type":"final","message":{"role":"assistant","content":"Hello"},"roundIndex":0}`
+  - `data: {"type":"complete"}`
+- Error path: `data: {"type":"error","message":"lmstudio unavailable"}` then stream ends.
+
+**Commands (copy/paste)**
+- Run single feature: `npm run test --workspace server -- --name "chat stream"`
+- Manual curl (replace payload):
+  ```sh
+  curl -N -X POST http://localhost:5010/chat \
+    -H 'content-type: application/json' \
+    -d '{"model":"llama","messages":[{"role":"user","content":"hello"}]}'
+  ```
+
+**Implementation scaffolds (for juniors)**
+- Suggested file: `server/src/routes/chatModels.ts`
+  ```ts
+  import { Router } from 'express';
+  import { lmstudio } from '../lmstudioClient'; // adjust import to actual helper
+  import { logger } from '../logger';
+
+  const router = Router();
+
+  router.get('/models', async (_req, res) => {
+    try {
+      const models = await lmstudio.listDownloadedModels();
+      logger.info({ models: models.length }, 'chat models fetched');
+      res.json(models.map(m => ({ key: m.modelKey, displayName: m.displayName, type: m.type })));
+    } catch (err: any) {
+      logger.error({ err }, 'chat models failed');
+      res.status(503).json({ error: err?.message ?? 'lmstudio unavailable' });
+    }
+  });
+
+  export default router;
+  ```
+- Register in `server/src/index.ts`:
+  ```ts
+  import chatModelsRouter from './routes/chatModels.js';
+  app.use('/chat', chatModelsRouter);
+  ```
+- Cucumber step stub (for `chat_models.feature`):
+  ```ts
+  When('I request chat models', async () => {
+    const res = await fetch(`${baseUrl}/chat/models`);
+    response = { status: res.status, body: await res.json() };
+  });
+  Then('I receive at least {int} models', (min) => {
+    assert.ok(response.body.length >= min);
+  });
+  ```
+- Mock toggle idea in `server/src/test/support/mockLmStudioSdk.ts`:
+  ```ts
+  let failModels = false;
+  export const setModelsFail = (val: boolean) => { failModels = val; };
+  export const lmstudio = {
+    listDownloadedModels: async () => {
+      if (failModels) throw new Error('lmstudio down');
+      return [{ modelKey: 'llama', displayName: 'Llama', type: 'gguf' }];
+    },
+  };
+  ```
+
+**Commands (copy/paste)**
+- Run single feature: `npm run test --workspace server -- --name "chat models"`
+- Start server for manual curl with mock enabled (if needed): `npm run dev --workspace server`
+- Manual check: `curl http://localhost:5010/chat/models`
+
 #### Testing
 
 1. [ ] `npm run test --workspace server`
@@ -200,13 +470,94 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 #### Subtasks
 
-1. [ ] Server: add cancellation handling to `/chat` stream (abort on client disconnect) using `OngoingPrediction.cancel()`/AbortSignal; ensure listeners are removed and response ends cleanly (update `server/src/routes/chat.ts` / stream helper).
-2. [ ] Detect `req.on('close')` and immediately stop emitting SSE frames, calling `cancel()` and flushing/ending the response.
-3. [ ] Tests (server Cucumber): scenario for cancellation mid-stream (client disconnect) ensuring server stops emitting and logs cancellation (Cucumber guide: https://cucumber.io/docs/guides/).
-4. [ ] Update README.md (server section) to describe cancellation behaviour and how aborted connections stop the stream.
-5. [ ] Update design.md to capture server-side cancellation flow and logging; include a mermaid flow/sequence diagram for cancel path.
-6. [ ] Update projectStructure.md if new server files/helpers are added for cancellation.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Server: in `server/src/routes/chat.ts` wire an `AbortController` passed into `lmstudio.act` and call `ongoing.cancel?.()` on abort; reuse `chatStream` helper to end the SSE. Comment the handler so juniors know why it runs.
+2. [ ] Add `req.on('close')` + `req.on('aborted')` to stop emitting, call `controller.abort()`, invoke `cancel()`, and `endStream(res)`; guard against double-end.
+3. [ ] Add a tiny helper (if missing) in `server/src/chatStream.ts` to no-op when res.finished; export it and use it from the route.
+4. [ ] Tests (Cucumber): create `server/src/test/features/chat_cancellation.feature` and steps in `server/src/test/steps/chat_cancellation.steps.ts` using the LM Studio mock to emit slow tokens; abort the HTTP request and assert the mock `cancelled` flag is set and no further SSE frames arrive.
+5. [ ] Logging: ensure cancellation logs an info entry with `{reason:"client_disconnect"}`; add assertion in steps to read server log buffer if feasible.
+6. [ ] Update README.md (server section) with a short “Cancellation” subsection under `/chat` explaining client disconnects stop generation immediately.
+7. [ ] Update design.md with a mermaid flow for the cancel path and a note that `req.close` triggers `cancel()`.
+8. [ ] Update projectStructure.md to list the new feature/steps files if added.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
+
+**Implementation scaffolds (for juniors)**
+- Playwright snippet extension target for chat (can live in `e2e/chat.spec.ts`):
+  ```ts
+  test('chat streams', async ({ page }) => {
+    await page.goto(baseUrl + '/chat');
+    await page.getByLabel('Model').selectOption({ index: 0 });
+    await page.getByLabel('Message').fill('Hello');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByText(/responding/i)).toBeVisible();
+    await expect(page.getByText(/Hello/)).toBeVisible({ timeout: 20000 });
+  });
+  ```
+- Screenshot reminder: run Playwright with `--output test-results` and save files to `test-results/screenshots/0000004-8-*.png`.
+
+**Commands (copy/paste)**
+- Run only chat e2e: `E2E_BASE_URL=http://localhost:5001 npx playwright test e2e/chat.spec.ts`
+- Save screenshots from UI manually if needed: in Playwright test add `await page.screenshot({ path: 'test-results/screenshots/0000004-8-normal.png', fullPage: true });`
+
+**Implementation scaffolds (for juniors)**
+- Stop button near send:
+  ```tsx
+  <Button variant="text" color="secondary" onClick={stop} disabled={status !== 'sending'}>Stop</Button>
+  ```
+- Client abort wiring: `stop` should call `controllerRef.current?.abort(); setStatus('idle'); push a "stopped" bubble if desired.`
+- UI feedback idea: add a chip `Stopped` next to last assistant bubble when stop is triggered.
+- Test idea: mock fetch stream promise that never resolves, trigger stop, assert `abort` called and UI re-enables send.
+
+**Commands (copy/paste)**
+- Client test focus: `npm run test --workspace client -- stop`
+
+**Implementation scaffolds (for juniors)**
+- Add button near controls:
+  ```tsx
+  <Button variant="outlined" onClick={handleNew} disabled={status === 'sending'}>New conversation</Button>
+  ```
+- Handler logic:
+  ```ts
+  const handleNew = () => {
+    stop(); // calls AbortController
+    setMessages([]);
+    setStatus('idle');
+    inputRef.current?.focus();
+    // choice: keep current model selected (document this)
+  };
+  ```
+- Test idea (RTL): render page, add two messages, click New, expect transcript empty and input focused (`expect(input).toHaveFocus()`).
+
+**Commands (copy/paste)**
+- Client test filter: `npm run test --workspace client -- new conversation`
+
+**Implementation scaffolds (for juniors)**
+- In `server/src/routes/chat.ts` add cancellation handling:
+  ```ts
+  router.post('/', async (req, res) => {
+    const controller = new AbortController();
+    req.on('close', () => {
+      controller.abort();
+      ongoing?.cancel?.();
+      endStream(res);
+      logger.info('chat stream aborted by client');
+    });
+    // pass controller.signal into lmstudio.act if supported
+  });
+  ```
+- Ensure `OngoingPrediction.cancel()` is called inside `req.on('close')` and in catch blocks.
+- Add Cucumber step idea for cancellation:
+  ```ts
+  When('I cancel the chat stream', async () => {
+    controller = new AbortController();
+    const res = await fetch(url, { method: 'POST', body, headers, signal: controller.signal });
+    controller.abort();
+    await collect(res); // should finish quickly
+  });
+  Then('the server stops sending events', () => { /* assert stream ended */ });
+  ```
+
+**Commands (copy/paste)**
+- Manual abort test: open a second terminal and run `curl -N ...` to start the stream, then `Ctrl+C` to ensure server logs show cancellation.
 
 #### Testing
 
@@ -245,15 +596,18 @@ Add the chat page route with an initial view that lists available models (from `
 
 #### Subtasks
 
-1. [ ] Add `/chat` route and NavBar tab; ensure default page load focuses the model selector/input area.
-2. [ ] Render model list/dropdown sourced from `/chat/models`, defaulting to the first model; show loading/empty/error states.
-3. [ ] Establish inverted layout scaffold: controls at top, transcript area below (can be placeholder for now).
-4. [ ] Place model selection state in a hook or context (e.g., `client/src/hooks/useChatModel.ts`) so later tasks can reuse it.
-5. [ ] Update README.md (UI section) describing chat page entry and model selection.
-6. [ ] Update design.md with layout and model list states; add a simple mermaid diagram showing page structure/data flow.
-7. [ ] Update projectStructure.md with new page/component entries.
-8. [ ] Tests (Jest/RTL): route renders, models fetched/displayed, default selection applies, error state shown on fetch failure (Jest docs Context7 `/jestjs/jest`).
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Add `/chat` route in `client/src/routes/router.tsx` and NavBar tab in `client/src/components/NavBar.tsx`; route element = new page.
+2. [ ] Create `client/src/hooks/useChatModel.ts` that fetches `/chat/models`, stores `models`, `selected`, `setSelected`, `status`, and returns `errorMessage`; default `selected` = first model key. Handle fetch abort on unmount.
+3. [ ] Create `client/src/pages/ChatPage.tsx` (placeholder transcript area) with inverted layout: top `Stack` holds model `Select` + message `TextField` (disabled for now), transcript box below. Focus the TextField on mount using `useRef` + `useEffect`.
+4. [ ] Add loading/empty/error UI: CircularProgress while `status="loading"`, Alert on error, “No models available” copy when list is empty; disable inputs when loading/error/empty.
+5. [ ] Update README.md (UI section) with how to reach `/chat` and how the model dropdown behaves (first model auto-selected, error states).
+6. [ ] Update design.md with a short layout description + mermaid showing data flow (ChatPage -> useChatModel -> /chat/models).
+7. [ ] Update projectStructure.md to include `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`.
+8. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.models.test.tsx` that:
+   - renders route via `createMemoryRouter` with path `/chat`
+   - stubs fetch to return `[ { key:'m1', displayName:'Model 1', type:'gguf' } ]`
+   - asserts spinner during load, dropdown shows “Model 1”, selects it by default, and error Alert appears when fetch rejects.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
@@ -291,15 +645,18 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 #### Subtasks
 
-1. [ ] Connect the input on `/chat` page to the chat service/hook: on submit, call streaming API with selected model and append a user bubble, then stream assistant tokens into a single assistant bubble (inverted order: newest just under input).
-2. [ ] Add UI states: responding indicator (e.g., animated dots), disabled send while streaming, inline error bubble with retry guidance.
-3. [ ] Keep tool events hidden in transcript but ensure `createLogger` records tool lifecycle to logs.
-4. [ ] Add `useEffect` cleanup in the chat hook to abort the stream on unmount/route change (e.g., navigating Home/LM Studio) so the server sees `req.close` immediately.
-5. [ ] Update README.md (UI section) with chat send/receive behaviour and limitations (no persistence, stop/new conversation pending).
-6. [ ] Update design.md with chat flow/rendering states and bubble styling (role left/right, inverted stack); include mermaid sketch of UI/data flow.
-7. [ ] Update projectStructure.md for any new components/hooks/tests.
-8. [ ] Tests (Jest/RTL): send triggers streaming call, tokens render incrementally into one assistant bubble, errors surface as bubbles, ordering is inverted; unmount aborts the stream.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Create `client/src/hooks/useChatStream.ts` exporting `{ send(message), stop(), status, messages }`; implement streaming fetch to `/chat` with SSE parsing, accumulating assistant tokens into a single bubble per turn. Abort on unmount.
+2. [ ] Extend `ChatPage.tsx` to wire TextField (`data-testid="chat-input"`) + Send button (`data-testid="chat-send"`) to `useChatStream`; append user bubble immediately, stream assistant tokens into one assistant bubble, render newest messages nearest the controls (invert list before map).
+3. [ ] In `useChatStream`, parse SSE lines split on `\n\n`, handle payloads `{type:"token"|"final"|"error"}`, and update `messages` shape `{ id, role, content, kind?: "error"|"status" }`.
+4. [ ] Add UI states: “Responding…” helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
+5. [ ] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
+5. [ ] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
+6. [ ] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
+7. [ ] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
+8. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
+   - mocks `global.fetch` returning a ReadableStream emitting `data:{"type":"token","content":"Hi"}` then `data:{"type":"final","message":{"content":"Hi","role":"assistant"}}`
+   - asserts Send is disabled while streaming, assistant bubble shows combined “Hi”, error path shows error bubble, and `unmount` calls `abort` on the controller.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
@@ -337,13 +694,13 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Subtasks
 
-1. [ ] Implement New conversation control that first aborts any in-flight stream via the chat hook AbortController (same path as Stop), then clears messages/state, resets streaming flags, and (decision) either retains last selected model or resets to default—document choice.
-2. [ ] Ensure abort resolves/`req.close` fires server-side before clearing, then re-focus the input.
-3. [ ] Update README.md (UI section) to document New conversation behaviour.
-4. [ ] Update design.md with reset flow and UX copy; include mermaid snippet if flow changes.
-5. [ ] Update projectStructure.md if new helpers/components are added.
-6. [ ] Tests (Jest/RTL): button clears transcript, aborts active stream, and re-focuses input; verify model retention/reset behaviour matches doc (Jest docs Context7 `/jestjs/jest`).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Add “New conversation” button to `ChatPage.tsx`; handler must call `stop()` from `useChatStream`, clear `messages`, reset `status` to `idle`, and keep the currently selected model (document this choice in README/design).
+2. [ ] Ensure the handler calls `await stop()` (if stop returns void, call then clear) before clearing state, then focuses the TextField (`data-testid="chat-input"`).
+3. [ ] Update README.md (UI section) to state that New conversation clears transcript, keeps model, and aborts in-flight responses.
+4. [ ] Update design.md with the reset flow and copy shown to users.
+5. [ ] Update projectStructure.md if any helper/component files were added.
+6. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.newConversation.test.tsx` verifying stop is called, transcript empties, status resets, input regains focus, and selected model value persists in the Select.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
@@ -381,13 +738,13 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 #### Subtasks
 
-1. [ ] Add Stop control to the chat UI; disable send while stop is available; re-enable on completion/cancel/error.
-2. [ ] Wire Stop to client abort (AbortController) on the streaming fetch; aborting will trigger server-side `req.close` cancellation from Task 3. Show stop/abort feedback (e.g., “Generation stopped”) in the transcript or status banner.
-3. [ ] Update README.md (UI section) with Stop behaviour and limitations.
-4. [ ] Update design.md with Stop flow/state transitions; add mermaid illustrating stop path.
-5. [ ] Update projectStructure.md if new components/hooks are added.
-6. [ ] Tests (Jest/RTL): stop button aborts stream, prevents further tokens, shows stopped state, and re-enables send (Jest docs Context7 `/jestjs/jest`).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [ ] Add “Stop” button near Send/New in `ChatPage.tsx`; show it only while `status==="sending"`; disable Send while Stop is visible.
+2. [ ] Wire Stop to `useChatStream.stop()` which aborts fetch/AbortController; when called, append a status bubble `{role:'assistant', kind:'status', content:'Generation stopped'}` and set `status` back to `idle`.
+3. [ ] Update README.md (UI section) describing Stop behaviour (cancels in-flight generation, may truncate response).
+4. [ ] Update design.md with stop-state flow and mermaid snippet for stop path.
+5. [ ] Update projectStructure.md if any new helper/component/test file was added.
+6. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.stop.test.tsx` mocking a streaming fetch that never resolves; clicking Stop should call `stop`, cancel controller, prevent further tokens, show “stopped” indicator, and re-enable Send (assert `send` button disabled->enabled).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 

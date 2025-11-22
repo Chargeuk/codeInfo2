@@ -129,8 +129,14 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 #### Subtasks
 
-1. [ ] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration emitting events `{type:'token'|'tool-request'|'tool-result'|'final'|'complete'|'error', ...}`; example SSE frame: `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`.
-2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial `:\n\n` heartbeat, and handle JSON stringify; ensure response closes on completion/error and on request `close`.
+1. [ ] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration.
+   - **LM Studio event shapes (from `.act()`):**
+     - `onPredictionFragment` yields `{ type: 'predictionFragment', content: string, roundIndex: number }` — map to SSE `{ type: 'token', content, roundIndex }`.
+     - `onMessage` yields final `ChatMessage` `{ role: 'assistant'|'tool'|'user'|'system', content: string|object, roundIndex: number }` — map to SSE `{ type: 'final', message, roundIndex }`.
+     - Tool callbacks: `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` → emit SSE `{ type: 'tool-request', callId, name, argsFragment?, roundIndex }` (omit/blank content); `onToolCallResult` → `{ type: 'tool-result', callId, result, roundIndex }`.
+     - When iteration ends, send `{ type: 'complete' }`; on errors, send `{ type: 'error', message }`.
+   - **SSE frames:** `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`; start stream with heartbeat `:\n\n`.
+2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial heartbeat, JSON-stringify safely, and close on completion/error or request `close`; ensure `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`.
 3. [ ] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
 5. [ ] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock.

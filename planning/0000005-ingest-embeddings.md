@@ -243,6 +243,8 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 #### Documentation Locations
 
 - Chroma Node client: https://www.npmjs.com/package/chromadb (v3.1.6) and API docs
+- Context7 `/websites/trychroma` (Chroma official docs via MCP)
+- https://docs.trychroma.com/docs/run-chroma/persistent-client?lang=typescript
 - LM Studio embedding/tokenization/context length: https://lmstudio.ai/docs/typescript/embedding , https://lmstudio.ai/docs/typescript/tokenization , https://lmstudio.ai/docs/typescript/model-info/get-context-length
 - Docker Compose reference for Chroma service: https://docs.docker.com/compose/
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
@@ -327,6 +329,8 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 #### Documentation Locations
 
 - Chroma client docs (metadata queries): https://www.npmjs.com/package/chromadb
+- Context7 `/websites/trychroma` (Chroma official docs via MCP)
+- https://docs.trychroma.com/docs/run-chroma/persistent-client?lang=typescript
 - Docker Compose reference for service addresses: https://docs.docker.com/compose/
 - Express docs (routing patterns): https://expressjs.com/ or Context7 `/expressjs/express`
 - Cucumber guides: https://cucumber.io/docs/guides/
@@ -385,6 +389,9 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 #### Documentation Locations
 
 - Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
+- Chroma Node client: https://www.npmjs.com/package/chromadb (v3.1.6) and API docs
+- Context7 `/websites/trychroma` (Chroma official docs via MCP)
+- https://docs.trychroma.com/docs/run-chroma/persistent-client?lang=typescript
 - LM Studio embedding/tokenization: https://lmstudio.ai/docs/typescript/embedding and https://lmstudio.ai/docs/typescript/tokenization
 - Express docs (routing patterns): https://expressjs.com/ or Context7 `/expressjs/express`
 - Cucumber guides: https://cucumber.io/docs/guides/

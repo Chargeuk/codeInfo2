@@ -281,6 +281,7 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 6. [ ] projectStructure.md: list new files (server logger/logStore/routes, client logging folder, e2e/logs.spec.ts) and note `logs/` dir.
 7. [ ] Git ignores + compose: add `logs/` to root `.gitignore` and `server/.dockerignore`; update `docker-compose.yml` with volume `./logs:/app/logs`; ensure `.env.local` guidance unchanged.
 8. [ ] Create PR-ready summary of all changes (server/client logging, UI, tests, env) and include log viewer screenshots in `test-results/screenshots/0000003-5-*.png`.
+9. [ ] Run repo-wide lint/format checks: `npm run lint --workspaces` then `npm run format:check --workspaces`; fix before final verification.
 
 #### Testing
 

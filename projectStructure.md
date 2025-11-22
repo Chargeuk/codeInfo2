@@ -36,4 +36,4 @@ Notes by area:
 - client/: Vite config, App/main entrypoints, env defaults, Jest setup, Docker assets, MUI UI, `src/components/NavBar.tsx`, `src/routes/router.tsx`, pages `src/pages/HomePage.tsx` and `src/pages/LmStudioPage.tsx`, hook `src/hooks/useLmStudioStatus.ts`, tests incl. `src/test/router.test.tsx`, `src/test/useLmStudioStatus.test.ts`, and `src/test/lmstudio.test.tsx`.
 - server/: Express entrypoint, env defaults (including `LMSTUDIO_BASE_URL`), Cucumber `src/test`, `cucumber.js`, Docker assets, LM Studio `/lmstudio/status` router in `src/routes/lmstudio.ts` (validation + timeout mapping), and tests `src/test/features/lmstudio.feature`, steps `src/test/steps/lmstudio.steps.ts`, mock SDK `src/test/support/mockLmStudioSdk.ts`.
 - common/: `src/index.ts`, `src/versionInfo.ts`, and shared helpers/types in `src/api.ts` and `src/lmstudio.ts`.
-- e2e/: Playwright tests (version.spec.ts) for UI/version checks.
+- e2e/: Playwright tests (version.spec.ts for versions, lmstudio.spec.ts for LM Studio UI/proxy checks).

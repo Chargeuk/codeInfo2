@@ -79,7 +79,8 @@ npm install
 
 - One-time: `npx playwright install --with-deps`
 - Start stack: `npm run e2e:up`
-- Run test: `npm run e2e:test` (uses `E2E_BASE_URL` or defaults to http://localhost:5001)
+- Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
+- LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
 - Full flow: `npm run e2e`
 - Shut down after tests: `npm run e2e:down`
 

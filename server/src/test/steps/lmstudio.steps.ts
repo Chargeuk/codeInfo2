@@ -8,13 +8,13 @@ import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
-import { createLmStudioRouter } from '../../routes/lmstudio.ts';
+import { createLmStudioRouter } from '../../routes/lmstudio.js';
 import {
   MockLMStudioClient,
   type MockScenario,
   startMock,
   stopMock,
-} from '../support/mockLmStudioSdk.ts';
+} from '../support/mockLmStudioSdk.js';
 
 let server: Server | null = null;
 let baseUrl = '';

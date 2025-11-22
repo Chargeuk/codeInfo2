@@ -108,7 +108,7 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
 
 1. [ ] Install SDK: `npm install --workspace server @lmstudio/sdk`; commit `package-lock.json`.
 2. [ ] Add shared types in `common` (e.g., `LmStudioModel`, `LmStudioStatusResponse`) and export from `common/src/index.ts`.
-3. [ ] Add `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env`; remind `.env.local` remains ignored.
+3. [ ] Add `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` to `server/.env` (open the file and append the line); remind `.env.local` remains ignored.
 4. [ ] Create `server/src/routes/lmstudio.ts` with an exported factory `createLmStudioRouter({ clientFactory })` placeholder wiring (no logic yet).
 5. [ ] Update `server/src/index.ts` to mount the router (stub) and ensure CORS still allows client origin.
 6. [ ] Update `projectStructure.md` to include new server route file and env entry.
@@ -211,7 +211,7 @@ Document the new server proxy endpoint, env vars, and test approach.
 #### Subtasks
 
 1. [ ] Update README server section: describe `/lmstudio/status`, expected response shape, `LMSTUDIO_BASE_URL`, and curl example.
-2. [ ] Update design.md: extend architecture mermaid diagram to include LM Studio service (client → server → LM Studio) and add a new sequence diagram showing `/lmstudio/status` call path and refresh; note no caching.
+2. [ ] Update design.md: replace the current Architecture mermaid diagram with one that includes LM Studio (client → server → LM Studio) and add a new “LM Studio Flow” sequence diagram beneath the existing “Version flow,” showing `/lmstudio/status`, refresh, and empty-state path; note no caching.
 3. [ ] Update projectStructure.md with new route, test files, mock support file.
 4. [ ] Commands: `npm run lint --workspaces`.
 
@@ -344,7 +344,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 #### Subtasks
 
 1. [ ] Update README: LM Studio page usage, `VITE_LMSTUDIO_URL`, server-proxy note, refresh button behaviour.
-2. [ ] Update design.md: client flow (client → server proxy → LM Studio), add/adjust sequence diagram for refresh + empty-state, ensure architecture diagram now shows LM Studio node and client/server arrows.
+2. [ ] Update design.md: replace Architecture diagram to include LM Studio node, and add a new “LM Studio Flow” sequence diagram under “Version flow” showing refresh + empty-state; ensure arrows reflect client → server proxy → LM Studio.
 3. [ ] Update projectStructure.md: pages/hooks/tests files.
 4. [ ] Commands: `npm run lint --workspaces`.
 

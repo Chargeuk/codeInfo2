@@ -62,7 +62,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
-## Tasks (stubs to be detailed later)
+## Tasks
 
 ### 1. Server – Ingest discovery, chunking, and hashing
 

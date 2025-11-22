@@ -53,7 +53,7 @@ Extend the client so the existing version view becomes the Home page and add a d
 
 ### 1. Router & Home Page Split
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

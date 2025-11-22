@@ -72,7 +72,7 @@ Here’s the streaming approach we’ll use:
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
 - Task Status: __to_do__
-- Git Commits: 9a6c1c7
+- Git Commits: 9a6c1c7, 0aac90f
 
 #### Overview
 

@@ -1,6 +1,5 @@
 import {
   Button,
-  Container,
   Paper,
   Stack,
   Table,
@@ -66,110 +65,102 @@ export default function LmStudioPage() {
   const models = state.status === 'success' ? state.data.models : [];
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, pb: 4 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4">LM Studio</Typography>
-        <TextField
-          label="LM Studio base URL"
-          value={input}
-          inputRef={inputRef}
-          onChange={(e) => setInput(e.target.value)}
-          helperText={`Default: ${DEFAULT_LM_URL}`}
-          aria-describedby="lmstudio-status"
-          fullWidth
-        />
-        <Stack
-          direction={isSmall ? 'column' : 'row'}
-          spacing={1}
-          alignItems={isSmall ? 'stretch' : 'center'}
-        >
-          <Button
-            variant="contained"
-            onClick={handleCheck}
-            disabled={isLoading}
-          >
-            Check status
-          </Button>
-          <Button variant="outlined" onClick={handleReset} disabled={isLoading}>
-            Reset to default
-          </Button>
-          <Button variant="text" onClick={() => refresh()} disabled={isLoading}>
-            Refresh models
-          </Button>
-        </Stack>
-        <Typography
-          id="lmstudio-status"
-          aria-live="polite"
-          color={isError ? 'error' : 'text.primary'}
-          role="status"
-        >
-          {statusText}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Using base URL:{' '}
-          {state.status === 'success' ? state.data.baseUrl : baseUrl}
-        </Typography>
-        {isEmpty && <Typography>No models reported by LM Studio.</Typography>}
-        {models.length > 0 &&
-          (isSmall ? (
-            <Stack spacing={1} role="list">
-              {models.map((m) => (
-                <Paper key={m.modelKey} role="listitem" sx={{ p: 2 }}>
-                  <Typography variant="subtitle1" noWrap title={m.displayName}>
-                    {m.displayName}
-                  </Typography>
-                  <Typography variant="body2" noWrap title={m.modelKey}>
-                    {m.modelKey}
-                  </Typography>
-                  <Typography variant="body2">
-                    {m.type}
-                    {m.format ? ` / ${m.format}` : ''}
-                  </Typography>
-                  <Typography variant="body2">
-                    {m.architecture ?? '-'}
-                  </Typography>
-                  <Typography variant="body2">
-                    Size: {humanSize(m.sizeBytes)}
-                  </Typography>
-                </Paper>
-              ))}
-            </Stack>
-          ) : (
-            <Paper>
-              <Table size="small" aria-label="LM Studio models">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Key</TableCell>
-                    <TableCell>Type/Format</TableCell>
-                    <TableCell>Architecture</TableCell>
-                    <TableCell align="right">Size</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {models.map((m) => (
-                    <TableRow key={m.modelKey}>
-                      <TableCell>{m.displayName}</TableCell>
-                      <TableCell>
-                        <Typography noWrap title={m.modelKey}>
-                          {m.modelKey}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {m.type}
-                        {m.format ? ` / ${m.format}` : ''}
-                      </TableCell>
-                      <TableCell>{m.architecture ?? '-'}</TableCell>
-                      <TableCell align="right">
-                        {humanSize(m.sizeBytes)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          ))}
+    <Stack spacing={2} sx={{ mt: 1, pb: 4 }}>
+      <Typography variant="h4">LM Studio</Typography>
+      <TextField
+        label="LM Studio base URL"
+        value={input}
+        inputRef={inputRef}
+        onChange={(e) => setInput(e.target.value)}
+        helperText={`Default: ${DEFAULT_LM_URL}`}
+        aria-describedby="lmstudio-status"
+        fullWidth
+      />
+      <Stack
+        direction={isSmall ? 'column' : 'row'}
+        spacing={1}
+        alignItems={isSmall ? 'stretch' : 'center'}
+      >
+        <Button variant="contained" onClick={handleCheck} disabled={isLoading}>
+          Check status
+        </Button>
+        <Button variant="outlined" onClick={handleReset} disabled={isLoading}>
+          Reset to default
+        </Button>
+        <Button variant="text" onClick={() => refresh()} disabled={isLoading}>
+          Refresh models
+        </Button>
       </Stack>
-    </Container>
+      <Typography
+        id="lmstudio-status"
+        aria-live="polite"
+        color={isError ? 'error' : 'text.primary'}
+        role="status"
+      >
+        {statusText}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Using base URL:{' '}
+        {state.status === 'success' ? state.data.baseUrl : baseUrl}
+      </Typography>
+      {isEmpty && <Typography>No models reported by LM Studio.</Typography>}
+      {models.length > 0 &&
+        (isSmall ? (
+          <Stack spacing={1} role="list">
+            {models.map((m) => (
+              <Paper key={m.modelKey} role="listitem" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" noWrap title={m.displayName}>
+                  {m.displayName}
+                </Typography>
+                <Typography variant="body2" noWrap title={m.modelKey}>
+                  {m.modelKey}
+                </Typography>
+                <Typography variant="body2">
+                  {m.type}
+                  {m.format ? ` / ${m.format}` : ''}
+                </Typography>
+                <Typography variant="body2">{m.architecture ?? '-'}</Typography>
+                <Typography variant="body2">
+                  Size: {humanSize(m.sizeBytes)}
+                </Typography>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Paper>
+            <Table size="small" aria-label="LM Studio models">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Key</TableCell>
+                  <TableCell>Type/Format</TableCell>
+                  <TableCell>Architecture</TableCell>
+                  <TableCell align="right">Size</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {models.map((m) => (
+                  <TableRow key={m.modelKey}>
+                    <TableCell>{m.displayName}</TableCell>
+                    <TableCell>
+                      <Typography noWrap title={m.modelKey}>
+                        {m.modelKey}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {m.type}
+                      {m.format ? ` / ${m.format}` : ''}
+                    </TableCell>
+                    <TableCell>{m.architecture ?? '-'}</TableCell>
+                    <TableCell align="right">
+                      {humanSize(m.sizeBytes)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        ))}
+    </Stack>
   );
 }

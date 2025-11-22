@@ -1,5 +1,5 @@
 import { fetchServerVersion, VersionInfo } from '@codeinfo2/common';
-import { Card, CardContent, Container, Typography } from '@mui/material';
+import { Box, Card, CardContent, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import pkg from '../../package.json';
 
@@ -31,8 +31,8 @@ export default function HomePage() {
   }, [apiUrl]);
 
   return (
-    <Container maxWidth="sm">
-      <Card sx={{ mt: 4 }}>
+    <Box sx={{ mt: 4, maxWidth: 540, mx: 'auto' }}>
+      <Card>
         <CardContent>
           <Typography variant="h4" gutterBottom>
             CodeInfo2 Versions
@@ -47,6 +47,6 @@ export default function HomePage() {
           )}
         </CardContent>
       </Card>
-    </Container>
+    </Box>
   );
 }

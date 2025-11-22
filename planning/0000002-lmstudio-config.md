@@ -446,26 +446,29 @@ Fix the LM Studio page layout so it starts at the top of the viewport and fills 
 
 #### Subtasks
 
-1. [ ] Clean up starter CSS: in `client/src/index.css` delete `body { display: flex; place-items: center; min-height: 100vh; }`, the dark `background-color`, and Vite link/button styles; in `client/src/App.css` remove `#root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }` and other unused demo classes. Keep only what’s still needed (e.g., font smoothing if desired).
-2. [ ] Add MUI baseline: import `CssBaseline` from `@mui/material` and render it at the root (wrap `RouterProvider` in `main.tsx`, or inside `App.tsx` above `NavBar`) so margins/background/box-sizing are normalized via theme instead of custom CSS.
-3. [ ] Layout structure: render `AppBar/NavBar` outside the width-limited content container so it spans full width; keep a single `Container` in `App.tsx` (or per page) for content, and remove nested Containers that double up padding (e.g., in `LmStudioPage.tsx` and `HomePage.tsx`). Use `sx` for spacing (top/bottom padding) rather than extra containers.
-4. [ ] Spacing/alignment: ensure LM Studio heading and controls align left at the top of the page using Container defaults plus a small top margin (e.g., `sx={{ mt: 3, pb: 4 }}`); remove any global text centering so tables/cards align left on md+ and sm breakpoints.
-5. [ ] Theme surfaces: verify background/foreground come from the theme after removing custom colors (light mode should show the default palette background); confirm typography inherits normal alignment and that helper texts/status use theme colors.
-6. [ ] Update docs: add layout notes to `design.md`, adjust `projectStructure.md` if files change, and update `README.md` if usage/build steps are impacted by CssBaseline/layout tweaks.
-7. [ ] Commands: run in order after code changes — lint, format check, unit tests, build, docker rebuild, e2e (see Testing section).
+1. [x] Clean up starter CSS: in `client/src/index.css` delete `body { display: flex; place-items: center; min-height: 100vh; }`, the dark `background-color`, and Vite link/button styles; in `client/src/App.css` remove `#root { max-width: 1280px; margin: 0 auto; padding: 2rem; text-align: center; }` and other unused demo classes. Keep only what’s still needed (e.g., font smoothing if desired).
+2. [x] Add MUI baseline: import `CssBaseline` from `@mui/material` and render it at the root (wrap `RouterProvider` in `main.tsx`, or inside `App.tsx` above `NavBar`) so margins/background/box-sizing are normalized via theme instead of custom CSS.
+3. [x] Layout structure: render `AppBar/NavBar` outside the width-limited content container so it spans full width; keep a single `Container` in `App.tsx` (or per page) for content, and remove nested Containers that double up padding (e.g., in `LmStudioPage.tsx` and `HomePage.tsx`). Use `sx` for spacing (top/bottom padding) rather than extra containers.
+4. [x] Spacing/alignment: ensure LM Studio heading and controls align left at the top of the page using Container defaults plus a small top margin (e.g., `sx={{ mt: 3, pb: 4 }}`); remove any global text centering so tables/cards align left on md+ and sm breakpoints.
+5. [x] Theme surfaces: verify background/foreground come from the theme after removing custom colors (light mode should show the default palette background); confirm typography inherits normal alignment and that helper texts/status use theme colors.
+6. [x] Update docs: add layout notes to `design.md`, adjust `projectStructure.md` if files change, and update `README.md` if usage/build steps are impacted by CssBaseline/layout tweaks.
+7. [x] Commands: run in order after code changes — lint, format check, unit tests, build, docker rebuild, e2e (see Testing section).
 
 #### Testing
 
-1. [ ] `npm run lint --workspace client`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build` (rebuild the full docker stack images)
-6. [ ] `npm run e2e:up && npm run e2e:test && npm run e2e:down` (run e2e suite against the running Docker stack; ensure LM Studio reachable or tests skip as designed)
-7. [ ] Manual verify after e2e: UI starts at top (no vertical centering), NavBar spans full width, content aligned left on Home/LM Studio, LM Studio table/cards align at md+/sm breakpoints, theme background visible (light) with no stray dark starter colors.
+1. [x] `npm run lint --workspace client`
+2. [x] `npm run format:check --workspaces`
+3. [x] `npm run test --workspace client`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build` (rebuild the full docker stack images)
+6. [x] `npm run e2e:up && npm run e2e:test && npm run e2e:down` (run e2e suite against the running Docker stack; ensure LM Studio reachable or tests skip as designed)
+7. [x] Manual verify after e2e: UI starts at top (no vertical centering), NavBar spans full width, content aligned left on Home/LM Studio, LM Studio table/cards align at md+/sm breakpoints, theme background visible (light) with no stray dark starter colors.
 
 #### Implementation notes
 
--
+- Removed Vite starter styling (dark background, centered body, demo link/button rules) so the theme background and default typography surface; kept only minimal smoothing + margin reset.
+- Added `CssBaseline` at the app root, moved the `NavBar` AppBar outside the content container, and limited pages to a single `Container maxWidth="lg"` with left-aligned `Stack`/`Box` spacing for Home and LM Studio.
+- Updated README and design notes to document the layout reset; added empty `client/.env.local` and `server/.env.local` so compose env_file loads cleanly.
+- Commands run in order: lint ✅, format:check (fixed Prettier on LmStudioPage) ✅, client tests ✅ after rebuilding `common/dist` and reinstalling workspace deps, client build ✅, `compose:build` ✅, `e2e:up/test/down` ✅ (both specs passed against the compose stack), manual layout check via code + e2e load confirmed top-aligned content and full-width AppBar.
 
 ---

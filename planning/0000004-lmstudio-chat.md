@@ -140,7 +140,17 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
      - Tool callbacks: `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` → emit SSE `{ type: 'tool-request', callId, name, argsFragment?, roundIndex }` (omit/blank content); `onToolCallResult` → `{ type: 'tool-result', callId, result, roundIndex }`.
      - When iteration ends, send `{ type: 'complete' }`; on errors, send `{ type: 'error', message }`.
    - **SSE frames:** `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`; start stream with heartbeat `:\n\n`.
-2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial heartbeat, JSON-stringify safely, and close on completion/error or request `close`; ensure `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`.
+2. [ ] Add a small stream helper (e.g., `server/src/chatStream.ts`) to format SSE frames, send initial heartbeat, JSON-stringify safely, and close on completion/error or request `close`; ensure `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`. Provide a scaffold:
+   ```ts
+   export function startStream(res) {
+     res.setHeader('Content-Type', 'text/event-stream');
+     res.setHeader('Cache-Control', 'no-cache');
+     res.setHeader('Connection', 'keep-alive');
+     res.write(':\n\n');
+   }
+   export const writeEvent = (res, payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+   export const endStream = (res) => res.end();
+   ```
 3. [ ] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
 4. [ ] Logging: log tool lifecycle events (content omitted), stream start/end, and errors to existing logger/store; keep tool details out of transcript.
 5. [ ] Tests (server Cucumber): add `server/src/test/features/chat_stream.feature` + steps covering token/final happy path, tool redaction, and error framing using the LM Studio mock.

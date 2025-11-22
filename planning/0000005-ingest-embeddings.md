@@ -78,7 +78,9 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 - design.md (token limits, chunking heuristics)
 - README.md (server ingest section to add)
 - projectStructure.md (new server files)
-- LM Studio SDK docs (countTokens, getContextLength)
+- LM Studio SDK tokenization/context length: https://lmstudio.ai/docs/typescript/tokenization and https://lmstudio.ai/docs/typescript/model-info/get-context-length
+- LM Studio embedding: https://lmstudio.ai/docs/typescript/embedding
+- Git tracked-files reference (for discovery logic): https://git-scm.com/docs/git-ls-files
 
 #### Subtasks
 
@@ -114,8 +116,9 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 #### Documentation Locations
 
-- LM Studio listDownloadedModels (embedding models filter)
-- design.md, README.md (API), projectStructure.md
+- LM Studio listDownloadedModels: https://lmstudio.ai/docs/typescript/manage-models/list-downloaded (filter to embedding models)
+- design.md (API notes), README.md (API), projectStructure.md (routes/files)
+- Express docs (routing patterns): https://expressjs.com/ or Context7 `/expressjs/express`
 
 #### Subtasks
 
@@ -151,9 +154,14 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Documentation Locations
 
-- design.md, README.md (API), projectStructure.md
-- Chroma Node client docs (chromadb 3.1.6)
-- LM Studio SDK (embedding)
+- design.md (roots listing flow), README.md (API), projectStructure.md
+- Chroma client docs (metadata queries): https://www.npmjs.com/package/chromadb
+- Docker Compose reference for service addresses: https://docs.docker.com/compose/
+- Chroma Node client: https://www.npmjs.com/package/chromadb (v3.1.6) and API docs
+- LM Studio embedding: https://lmstudio.ai/docs/typescript/embedding
+- LM Studio tokenization/context length: https://lmstudio.ai/docs/typescript/tokenization and https://lmstudio.ai/docs/typescript/model-info/get-context-length
+- Docker Compose reference for Chroma service: https://docs.docker.com/compose/
+- Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
 
 #### Subtasks
 
@@ -232,6 +240,8 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 - design.md (cancel/cleanup flow)
 - README.md (API usage)
 - projectStructure.md
+- Testcontainers for Node (Chroma in tests): https://node.testcontainers.org/
+- LM Studio embedding/tokenization: https://lmstudio.ai/docs/typescript/embedding and https://lmstudio.ai/docs/typescript/tokenization
 
 #### Subtasks
 
@@ -272,6 +282,8 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 - design.md (GUI notes), README.md (UI), projectStructure.md
 - MUI docs via MCP (@mui/material@7.2.0)
+- React Router docs: https://reactrouter.com/
+- LM Studio models endpoint (/ingest/models) from Task 2
 
 #### Subtasks
 
@@ -310,7 +322,8 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 #### Documentation Locations
 
 - design.md, README.md, projectStructure.md
-- MUI docs via MCP
+- MUI docs via MCP (@mui/material@7.2.0)
+- React Router docs: https://reactrouter.com/
 
 #### Subtasks
 
@@ -350,7 +363,8 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 #### Documentation Locations
 
 - design.md, README.md, projectStructure.md
-- MUI docs via MCP
+- MUI docs via MCP (@mui/material@7.2.0)
+- React Router docs: https://reactrouter.com/
 
 #### Subtasks
 

@@ -430,7 +430,7 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
 
 ### 11. GUI Layout Fix
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

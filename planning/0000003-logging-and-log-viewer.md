@@ -252,7 +252,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 5. [ ] Update README (client UI section) with Logs page usage (filters, stream toggle, refresh), and design.md with UI behaviours/states.
 6. [ ] Update projectStructure.md to list new page/hook/test files and `e2e/logs.spec.ts`.
 7. [ ] Add tests: Jest for hook/UI (`client/src/test/logsPage.test.tsx` extended for filters/refresh/SSE) and Playwright `e2e/logs.spec.ts` that triggers a client log and observes it via GET/stream.
-8. [ ] Run commands: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, bring up stack and `npm run e2e:test` (with new logs spec). Ensure docker compose still works.
+8. [ ] Run commands in order: `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run e2e:test` (with new logs spec), `npm run compose:down`. Ensure docker compose still works.
 
 #### Testing
 
@@ -260,9 +260,9 @@ Create a new “Logs” route in the client that consumes the server log API, su
 2. [ ] `npm run format:check --workspaces`
 3. [ ] `npm run test --workspace client`
 4. [ ] `npm run build --workspace client`
-5. [ ] `npm run e2e:test` (with stack up; expect new logs spec)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up` (confirm stack starts)
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up` (confirm stack starts)
+7. [ ] `npm run e2e:test` (with stack up; expect new logs spec)
 8. [ ] `npm run compose:down`
 
 #### Implementation notes

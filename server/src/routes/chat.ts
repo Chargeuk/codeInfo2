@@ -1,4 +1,4 @@
-import type { LMStudioClient } from '@lmstudio/sdk';
+import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -10,17 +10,6 @@ import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
-type ChatModelClient = {
-  act: (
-    args: unknown,
-  ) =>
-    | Promise<AsyncIterable<unknown> | AsyncIterableIterator<unknown>>
-    | AsyncIterable<unknown>
-    | AsyncIterableIterator<unknown>;
-};
-type ClientWithModel = {
-  getModel: (key: string) => ChatModelClient;
-};
 
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 
@@ -38,61 +27,6 @@ const toWebSocketUrl = (value: string) => {
   return value;
 };
 
-function mapEvent(event: Record<string, unknown> | null | undefined) {
-  const record = (event ?? {}) as Record<string, unknown>;
-  const type = typeof record.type === 'string' ? record.type : undefined;
-  const roundIndex =
-    typeof record.roundIndex === 'number' ? record.roundIndex : undefined;
-  const callId = typeof record.callId === 'string' ? record.callId : undefined;
-  const name = typeof record.name === 'string' ? record.name : undefined;
-
-  switch (type) {
-    case 'predictionFragment':
-      return {
-        type: 'token',
-        content: (event as { content?: string }).content,
-        roundIndex,
-      };
-    case 'message':
-      return {
-        type: 'final',
-        message: (event as { message?: unknown }).message,
-        roundIndex,
-      };
-    case 'token':
-    case 'final':
-    case 'complete':
-    case 'error':
-    case 'tool-request':
-    case 'tool-result':
-      return {
-        ...record,
-        type,
-        roundIndex,
-      };
-    case 'toolCallRequestStart':
-    case 'toolCallNameReceived':
-    case 'toolCallArgumentFragmentGenerated':
-    case 'toolCallRequestEnd':
-      return {
-        type: 'tool-request',
-        callId,
-        name,
-        roundIndex,
-        stage: type,
-      };
-    case 'toolCallResult':
-      return {
-        type: 'tool-result',
-        callId,
-        roundIndex,
-        stage: type,
-      };
-    default:
-      return null;
-  }
-}
-
 export function createChatRouter({
   clientFactory,
 }: {
@@ -108,8 +42,7 @@ export function createChatRouter({
     const controller = new AbortController();
     let ended = false;
     let completed = false;
-    let ongoing: (AsyncIterable<unknown> & { cancel?: () => void }) | null =
-      null;
+    let cancelled = false;
 
     const endIfOpen = () => {
       if (ended || isStreamClosed(res)) return;
@@ -165,7 +98,7 @@ export function createChatRouter({
       if (completed) return;
       if (reason === 'close' && !controller.signal.aborted) return;
       controller.abort();
-      ongoing?.cancel?.();
+      cancelled = true;
       append({
         level: 'info',
         message: 'chat stream cancelled',
@@ -185,78 +118,171 @@ export function createChatRouter({
     req.on('aborted', () => handleDisconnect('aborted'));
     res.on('close', handleDisconnect);
     controller.signal.addEventListener('abort', () => {
-      ongoing?.cancel?.();
+      // LM Studio SDK 1.5 does not expose abort on act; keep local flag to stop writes.
+      cancelled = true;
     });
 
     try {
-      const client = clientFactory(
-        toWebSocketUrl(baseUrl),
-      ) as unknown as ClientWithModel;
-      const modelClient = client.getModel(model);
-      const prediction = (await modelClient.act({
-        messages,
-        tools: [
-          {
-            name: 'noop',
-            description: 'does nothing',
-            execute: async () => ({ result: 'noop' }),
+      const client = clientFactory(toWebSocketUrl(baseUrl));
+      const modelClient = await client.llm.model(model);
+      let currentRound = 0;
+      const tools = [
+        {
+          name: 'noop',
+          description: 'does nothing',
+          implementation: async () => ({ result: 'noop' }),
+        },
+      ] as Array<unknown>;
+      const writeIfOpen = (payload: unknown) => {
+        if (cancelled || isStreamClosed(res)) return;
+        writeEvent(res, payload);
+      };
+      const logToolEvent = (
+        eventType: string,
+        callId?: string | number,
+        name?: string,
+        roundIndex?: number,
+      ) => {
+        append({
+          level: 'info',
+          message: 'chat tool event',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            baseUrl: safeBase,
+            model,
+            type: eventType,
+            callId,
+            name,
+            roundIndex,
           },
-        ],
-        allowParallelToolExecution: false,
-        signal: controller.signal,
-      })) as AsyncIterable<unknown> & { cancel?: () => void };
-      ongoing = prediction;
-
-      for await (const rawEvent of prediction) {
-        if (req.aborted) {
-          controller.abort();
-          break;
-        }
-        if (controller.signal.aborted) {
-          break;
-        }
-        const event = rawEvent as Record<string, unknown> | null | undefined;
-        const eventType =
-          typeof event?.type === 'string' ? event.type : undefined;
-        const callId =
-          typeof event?.callId === 'string' ? event.callId : undefined;
-        const toolName =
-          typeof event?.name === 'string' ? event.name : undefined;
-
-        if (eventType?.startsWith('toolCall')) {
-          append({
-            level: 'info',
-            message: 'chat tool event',
-            timestamp: new Date().toISOString(),
-            source: 'server',
+        });
+        baseLogger.info(
+          {
             requestId,
-            context: {
-              baseUrl: safeBase,
-              model,
-              type: eventType,
-              callId,
-              name: toolName,
-            },
-          });
-          baseLogger.info(
-            {
-              requestId,
-              baseUrl: safeBase,
-              model,
-              type: eventType,
-              callId,
-              name: toolName,
-            },
-            'chat tool event',
-          );
-        }
-        const mapped = mapEvent(event);
-        if (mapped) {
-          writeEvent(res, mapped);
-        }
-      }
+            baseUrl: safeBase,
+            model,
+            type: eventType,
+            callId,
+            name,
+            roundIndex,
+          },
+          'chat tool event',
+        );
+      };
 
-      if (controller.signal.aborted || req.aborted) {
+      const actOptions: Record<string, unknown> = {
+        allowParallelToolExecution: false,
+        // Extra field used by mocks; ignored by real SDK.
+        signal: controller.signal,
+        onRoundStart: (roundIndex: number) => {
+          currentRound = roundIndex;
+        },
+        onPredictionFragment: (fragment: {
+          content?: string;
+          roundIndex?: number;
+        }) => {
+          writeIfOpen({
+            type: 'token',
+            content: fragment.content,
+            roundIndex: fragment.roundIndex ?? currentRound,
+          });
+        },
+        onMessage: (message: unknown) => {
+          writeIfOpen({
+            type: 'final',
+            message,
+            roundIndex: currentRound,
+          });
+        },
+        onToolCallRequestStart: (roundIndex: number, callId: number) => {
+          logToolEvent('toolCallRequestStart', callId, undefined, roundIndex);
+          writeIfOpen({
+            type: 'tool-request',
+            callId,
+            roundIndex,
+            stage: 'toolCallRequestStart',
+          });
+        },
+        onToolCallRequestNameReceived: (
+          roundIndex: number,
+          callId: number,
+          name: string,
+        ) => {
+          logToolEvent('toolCallRequestNameReceived', callId, name, roundIndex);
+          writeIfOpen({
+            type: 'tool-request',
+            callId,
+            name,
+            roundIndex,
+            stage: 'toolCallRequestNameReceived',
+          });
+        },
+        onToolCallRequestArgumentFragmentGenerated: (
+          roundIndex: number,
+          callId: number,
+          content: string,
+        ) => {
+          logToolEvent(
+            'toolCallRequestArgumentFragmentGenerated',
+            callId,
+            undefined,
+            roundIndex,
+          );
+          writeIfOpen({
+            type: 'tool-request',
+            callId,
+            roundIndex,
+            stage: 'toolCallRequestArgumentFragmentGenerated',
+            content,
+          });
+        },
+        onToolCallRequestEnd: (roundIndex: number, callId: number) => {
+          logToolEvent('toolCallRequestEnd', callId, undefined, roundIndex);
+          writeIfOpen({
+            type: 'tool-request',
+            callId,
+            roundIndex,
+            stage: 'toolCallRequestEnd',
+          });
+        },
+        onToolCallRequestFailure: (
+          roundIndex: number,
+          callId: number,
+          error: Error,
+        ) => {
+          logToolEvent('toolCallRequestFailure', callId, undefined, roundIndex);
+          writeIfOpen({
+            type: 'error',
+            message: (error as { message?: string }).message,
+            roundIndex,
+          });
+        },
+        onToolCallResult: (
+          roundIndex: number,
+          callId: number,
+          info: unknown,
+        ) => {
+          logToolEvent('toolCallResult', callId, undefined, roundIndex);
+          writeIfOpen({
+            type: 'tool-result',
+            callId,
+            roundIndex,
+            result: info,
+          });
+        },
+      };
+
+      const prediction = modelClient.act(
+        { messages },
+        tools as unknown as Array<never>,
+        actOptions as LLMActionOpts,
+      );
+
+      await prediction;
+
+      if (cancelled || req.aborted) {
         return;
       }
       completed = true;
@@ -291,9 +317,6 @@ export function createChatRouter({
         'chat stream failed',
       );
     } finally {
-      if (controller.signal.aborted) {
-        ongoing?.cancel?.();
-      }
       endIfOpen();
     }
   });

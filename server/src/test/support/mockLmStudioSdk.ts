@@ -37,12 +37,106 @@ function createPrediction(events: unknown[]) {
     cancel: () => {
       state.cancelled = true;
     },
-    async *[Symbol.asyncIterator]() {
+    async run(opts?: {
+      onRoundStart?: (roundIndex: number) => void;
+      onPredictionFragment?: (fragment: unknown) => void;
+      onMessage?: (message: unknown) => void;
+      onToolCallRequestStart?: (roundIndex: number, callId: string) => void;
+      onToolCallRequestNameReceived?: (
+        roundIndex: number,
+        callId: string,
+        name: string,
+      ) => void;
+      onToolCallRequestArgumentFragmentGenerated?: (
+        roundIndex: number,
+        callId: string,
+        content: string,
+      ) => void;
+      onToolCallRequestEnd?: (roundIndex: number, callId: string) => void;
+      onToolCallRequestFailure?: (
+        roundIndex: number,
+        callId: string,
+        error: Error,
+      ) => void;
+      onToolCallResult?: (
+        roundIndex: number,
+        callId: string,
+        info: unknown,
+      ) => void;
+      signal?: AbortSignal;
+    }) {
+      let currentRound = 0;
+      const listener = () => {
+        state.cancelled = true;
+      };
+      opts?.signal?.addEventListener('abort', listener);
+
       for (const event of events) {
-        if (state.cancelled) return;
+        if (state.cancelled) break;
         await delay(20);
-        yield event;
+        const record = event as { type?: string; roundIndex?: number };
+        const roundIndex =
+          typeof record.roundIndex === 'number'
+            ? record.roundIndex
+            : currentRound;
+        switch (record.type) {
+          case 'token':
+          case 'predictionFragment':
+            opts?.onPredictionFragment?.({ ...record, roundIndex });
+            break;
+          case 'final':
+          case 'message':
+            opts?.onMessage?.({ ...(event as object), roundIndex });
+            break;
+          case 'toolCallRequestStart':
+            opts?.onToolCallRequestStart?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+            );
+            break;
+          case 'toolCallRequestNameReceived':
+            opts?.onToolCallRequestNameReceived?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+              (event as { name?: string }).name ?? 'tool',
+            );
+            break;
+          case 'toolCallRequestArgumentFragmentGenerated':
+            opts?.onToolCallRequestArgumentFragmentGenerated?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+              (event as { content?: string }).content ?? '',
+            );
+            break;
+          case 'toolCallRequestEnd':
+            opts?.onToolCallRequestEnd?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+            );
+            break;
+          case 'toolCallResult':
+            opts?.onToolCallResult?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+              event,
+            );
+            break;
+          case 'error':
+            opts?.onToolCallRequestFailure?.(
+              roundIndex,
+              (event as { callId?: string }).callId ?? 'call-1',
+              new Error((event as { message?: string }).message ?? 'error'),
+            );
+            break;
+          default:
+            break;
+        }
+        opts?.onRoundStart?.(roundIndex);
+        currentRound = roundIndex;
       }
+
+      opts?.signal?.removeEventListener('abort', listener);
+      return { rounds: events.length, totalExecutionTimeSeconds: 0 };
     },
   };
 }
@@ -106,21 +200,66 @@ export class MockLMStudioClient {
     },
   };
 
-  getModel = () => ({
-    act: async () => {
-      if (scenario === 'chat-error') {
-        throw new Error('lmstudio unavailable');
-      }
-      const events =
-        scenario === 'chat-fixture' || scenario === 'chat-stream'
-          ? chatSseEventsFixture
-          : scenario === 'chat-tools'
-            ? chatToolEventsFixture
-            : [
-                ...chatSseEventsFixture,
-                { ...chatErrorEventFixture, roundIndex: 0 },
-              ];
-      return createPrediction(events);
+  llm = {
+    model: async (name: string) => {
+      void name;
+      return {
+        act: async (_chat: unknown, _tools: unknown, opts?: unknown) => {
+          if (scenario === 'chat-error') {
+            throw new Error('lmstudio unavailable');
+          }
+          const events =
+            scenario === 'chat-fixture' || scenario === 'chat-stream'
+              ? chatSseEventsFixture
+              : scenario === 'chat-tools'
+                ? chatToolEventsFixture
+                : [
+                    ...chatSseEventsFixture,
+                    { ...chatErrorEventFixture, roundIndex: 0 },
+                  ];
+          const prediction = createPrediction(events);
+          await prediction.run(
+            opts as {
+              onRoundStart?: (roundIndex: number) => void;
+              onPredictionFragment?: (fragment: unknown) => void;
+              onMessage?: (message: unknown) => void;
+              onToolCallRequestStart?: (
+                roundIndex: number,
+                callId: string,
+              ) => void;
+              onToolCallRequestNameReceived?: (
+                roundIndex: number,
+                callId: string,
+                name: string,
+              ) => void;
+              onToolCallRequestArgumentFragmentGenerated?: (
+                roundIndex: number,
+                callId: string,
+                content: string,
+              ) => void;
+              onToolCallRequestEnd?: (
+                roundIndex: number,
+                callId: string,
+              ) => void;
+              onToolCallRequestFailure?: (
+                roundIndex: number,
+                callId: string,
+                error: Error,
+              ) => void;
+              onToolCallResult?: (
+                roundIndex: number,
+                callId: string,
+                info: unknown,
+              ) => void;
+              signal?: AbortSignal;
+            },
+          );
+          return { rounds: events.length, totalExecutionTimeSeconds: 0 };
+        },
+        cancel: () => {
+          /* noop: cancel handled by prediction */
+        },
+      };
     },
-  });
+  };
 }

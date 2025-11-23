@@ -34,6 +34,39 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
 - Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while content sits inside a single `Container maxWidth="lg"` with left-aligned spacing (no Vite starter centering/dark background).
 
+### Chat page (models list)
+
+- Route `/chat` surfaces the chat shell; controls sit at the top (inverted layout) with a model `<Select>` and a message `<TextField>`. The first model auto-selects when data loads.
+- `useChatModel` fetches `/chat/models`, aborts on unmount, and exposes `models`, `selected`, `status` flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No models available." and keep inputs disabled.
+- Controls are disabled while loading, on errors, or when no models exist so the chat form cannot submit without a model.
+
+### Chat page (streaming UI)
+
+- Message input and Send button feed into `useChatStream(model)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`) into a single assistant bubble per turn.
+- Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
+- Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
+- Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
+- **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant ChatPage
+  participant Hook as useChatStream
+  participant Server
+
+  User->>ChatPage: type prompt, click Send
+  ChatPage->>Hook: send(message, model)
+  Hook->>Server: POST /chat {model,messages}
+  Server-->>Hook: SSE token/final/error frames
+  Hook-->>ChatPage: update assistant bubble, status=sending
+  alt error
+    Hook-->>ChatPage: append error bubble, status=idle
+  end
+  Hook-->>Server: abort() on unmount/stop
+  ChatPage-->>User: shows newest-first bubbles near controls
+```
+
 ## Client testing & Docker
 
 - Jest + Testing Library under `client/src/test`; `npm run test --workspace client` (uses jsdom, ts-jest ESM preset).
@@ -110,6 +143,29 @@ sequenceDiagram
 
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
+### Chat models endpoint
+
+- `GET /chat/models` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
+- Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
+- Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
+
+```mermaid
+sequenceDiagram
+  participant Client as Chat page
+  participant Server
+  participant LMStudio
+
+  Client->>Server: GET /chat/models
+  alt LM Studio reachable
+    Server->>LMStudio: system.listDownloadedModels()
+    LMStudio-->>Server: models[]
+    Server-->>Client: 200 [{key,displayName,type}]
+  else LM Studio down/invalid
+    Server-->>Client: 503 {error:"lmstudio unavailable"}
+  end
+```
+
 ### LM Studio UI behaviour
 
 - Base URL field defaults to `http://host.docker.internal:1234` (or `VITE_LMSTUDIO_URL`) and persists to localStorage; reset restores the default.
@@ -117,9 +173,67 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
 
+## Chat streaming endpoint
+
+- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
+- If a streamed assistant message contains `<think>...</think>`, the client extracts the think content and renders it in a collapsible “Thought process” section within the assistant bubble; the main reply remains visible.
+- Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
+- Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
+- Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
+- UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
+- Model filtering: `/chat/models` maps LM Studio `listDownloadedModels` and filters out embeddings/vectors so only chat-capable LLMs appear in the dropdown; empty state copy reflects "No chat-capable models".
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant LM as LM Studio
+  participant Logs as Log store
+  Client->>Server: POST /chat {model,messages}
+  Server->>LM: model.act(messages, tools=[noop])
+  LM-->>Server: predictionFragment(content)
+  Server-->>Client: SSE {type:"token", content}
+  LM-->>Server: toolCallRequest*/Result
+  Server-->>Logs: append chat tool event (metadata only)
+  Server-->>Client: SSE tool-request/result (metadata only)
+  LM-->>Server: message(final)
+  Server-->>Client: SSE {type:"final"} then {type:"complete"}
+  alt LM Studio error
+    Server-->>Client: SSE {type:"error", message}
+  end
+    alt Client disconnects
+      Server->>LM: cancel prediction via AbortController/ongoing.cancel()
+      Server-->>Client: SSE stream ends without final/complete
+    end
+  ```
+
+### Stop control
+
+- ChatPage shows a **Stop** button only while `status === "sending"`; it calls `stop({ showStatusBubble: true })` in `useChatStream`, which aborts the fetch `AbortController`, sets status back to `idle`, and appends a status bubble reading "Generation stopped" (responses may truncate).
+- Aborting bubbles through to the server via the closed HTTP stream, triggering the LM Studio `OngoingPrediction.cancel()` path described above and logging `{ reason: "client_disconnect" }`.
+- Send remains disabled while streaming; once stop fires, Send re-enables and focus returns to the message field for a follow-up prompt.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Chat as ChatPage
+  participant Hook as useChatStream
+  participant Server
+  participant LM as LM Studio
+
+  User->>Chat: click Stop
+  Chat->>Hook: stop(showStatusBubble=true)
+  Hook->>Hook: AbortController.abort()
+  Hook-->>Chat: status bubble "Generation stopped"; status=idle
+  Hook-->>Server: HTTP stream closes/aborts
+  Server->>LM: cancel ongoing prediction
+  Server-->>Server: log {reason:"client_disconnect"}
+```
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
+- Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
 
@@ -211,3 +325,4 @@ flowchart LR
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
 ```
+

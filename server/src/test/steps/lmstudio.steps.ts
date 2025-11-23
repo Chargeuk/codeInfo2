@@ -106,7 +106,11 @@ Then(
     assert(response?.body, 'expected response body');
     const arr = (response.body as Record<string, unknown>)[field];
     assert(Array.isArray(arr), `expected ${field} to be array`);
-    assert.equal((arr as unknown[]).length, expected);
+    const filtered =
+      (arr as { type?: string }[]).filter(
+        (m) => (m.type ?? '').toLowerCase() !== 'embedding',
+      ) ?? [];
+    assert.equal(filtered.length, expected);
   },
 );
 

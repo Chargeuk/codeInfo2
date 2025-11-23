@@ -16,6 +16,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
 â”œâ”€ docker-compose.yml â€” compose stack for client/server
+â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config
 â”œâ”€ package-lock.json â€” workspace lockfile
 â”œâ”€ package.json â€” root package/workspaces/scripts
@@ -101,10 +102,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ logging.ts â€” LogEntry/LogLevel DTO + isLogEntry guard
 â”‚     â””â”€ versionInfo.ts â€” VersionInfo DTO
 â”œâ”€ e2e/ â€” Playwright specs
+â”‚  â”œâ”€ fixtures/
+â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
+â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e
+â”‚  â””â”€ ingest.spec.ts — ingest flows (happy path, cancel, re-embed, remove) with skip when models unavailable
 â”œâ”€ planning/ â€” story plans and template
 â”‚  â”œâ”€ 0000001-initial-skeleton-setup.md â€” plan for story 0000001
 â”‚  â”œâ”€ 0000002-lmstudio-config.md â€” plan for story 0000002

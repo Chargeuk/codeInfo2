@@ -668,9 +668,9 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Subtasks
 
-1. [ ] Subtask – Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
-2. [ ] Subtask – Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or overrides).
-3. [ ] Subtask – Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
+1. [x] Subtask – Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
+2. [x] Subtask – Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or overrides).
+3. [x] Subtask – Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
    Playwright snippet starter:
    ```ts
    test('ingest happy path', async ({ page }) => {
@@ -683,7 +683,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      await expect(page.getByRole('row', { name: /fixtures/ })).toBeVisible();
    });
    ```
-4. [ ] Subtask – Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
+4. [x] Subtask – Add Playwright e2e: cancel in-progress ingest, verify UI shows cancelled/cleanup state, no partial entries remain.
    ```ts
    test('cancel ingest', async ({ page }) => {
      await page.goto(BASE);
@@ -693,7 +693,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      await expect(page.getByRole('row', { name: /fixtures/ })).not.toBeVisible();
    });
    ```
-5. [ ] Subtask – Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
+5. [x] Subtask – Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
    ```ts
    test('re-embed updates timestamps', async ({ page }) => {
      await page.goto(BASE);
@@ -703,7 +703,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      expect(ts).not.toBeNull();
    });
    ```
-6. [ ] Subtask – Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
+6. [x] Subtask – Add Playwright e2e: remove embedded root, verify table clears and model lock resets when collection empty.
    ```ts
    test('remove unlocks model', async ({ page }) => {
      await page.goto(BASE);
@@ -712,11 +712,11 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      await expect(page.getByText('Embedding model locked')).not.toBeVisible();
    });
    ```
-7. [ ] Subtask – Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
-8. [ ] Subtask – Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
-9. [ ] Subtask – Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
-10. [ ] Subtask – Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
-11. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Subtask – Ensure Readme.md is updated with ingest endpoints/flows, e2e compose usage, and any new commands
+8. [x] Subtask – Ensure Design.md is updated with ingest flows/diagrams and model-lock notes
+9. [x] Subtask – Ensure projectStructure.md is updated with added/updated files & folders (including e2e compose file)
+10. [x] Subtask – Create a PR-ready summary of changes (include ingest endpoints, UI, model lock, cancel/re-embed/remove)
+11. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -734,5 +734,6 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 #### Implementation notes
 
 - Coordinate rebase/merge with chat branch for NavBar/router before final checks; capture any screenshots for ingest UI if needed.
+- PR summary draft: Added ingest roots UI (table/details/actions), implemented ingest e2e compose stack + Playwright ingest flows (happy/cancel/re-embed/remove with model-lock awareness), updated docs (README/design/projectStructure) and scripts for isolated e2e runs.
 
 ---

@@ -42,7 +42,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ App.tsx â€” app shell with CssBaseline/NavBar/Container
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
-â”‚     â”‚  â””â”€ NavBar.tsx â€” top navigation AppBar/Tabs
+â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
+â”‚     â”‚  â””â”€ ingest/
+â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
 â”‚     â”œâ”€ logging/
 â”‚     â”‚  â”œâ”€ index.ts â€” logging exports
 |     |  |- logger.ts ? client logger factory (console tee + queue)
@@ -51,11 +53,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
+|     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select and placeholder transcript
+|     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
 |     |  - LogsPage.tsx ? log viewer with filters, live toggle, sample emitter
@@ -68,6 +72,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
+|     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests

@@ -249,6 +249,13 @@ sequenceDiagram
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
 
+### Ingest page UI (client)
+
+- Layout: top lock banner + refresh button, ingest form card, active run card placeholder, and embedded roots table placeholder.
+- Form fields: folder path (required), display name (required), optional description, embedding model select (disabled when `lockedModelId` exists), dry-run toggle, submit button. Inline errors show “Path is required”, “Name is required”, “Select a model”.
+- Locked model: info banner “Embedding model locked to <id>” appears when the shared collection already has a model; select stays disabled in that state.
+- Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
+
 ## Chat streaming endpoint
 
 - `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.

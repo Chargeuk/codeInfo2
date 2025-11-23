@@ -507,9 +507,9 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 #### Subtasks
 
-1. [ ] Subtask – Add `/ingest` route and NavBar tab (sync with chat branch). Files: update `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`.
-2. [ ] Subtask – Create `client/src/pages/IngestPage.tsx` with sections: form, lock banner, active run card placeholder, roots table placeholder.
-3. [ ] Subtask – Build `client/src/components/ingest/IngestForm.tsx`: fields path (required), name (required), description (optional), model select (disabled when `lockedModelId` present), dry-run toggle, start button. Validation states: show inline errors “Path is required”, “Name is required”, “Select a model” when applicable; disable submit until valid. Loading state: disable form when submitting. Empty state: when `lockedModelId` present, show banner text “Embedding model locked to <id>”. Submit calls `/ingest/start` JSON body `{ path, name, description?, model, dryRun }`.
+1. [x] Subtask – Add `/ingest` route and NavBar tab (sync with chat branch). Files: update `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`.
+2. [x] Subtask – Create `client/src/pages/IngestPage.tsx` with sections: form, lock banner, active run card placeholder, roots table placeholder.
+3. [x] Subtask – Build `client/src/components/ingest/IngestForm.tsx`: fields path (required), name (required), description (optional), model select (disabled when `lockedModelId` present), dry-run toggle, start button. Validation states: show inline errors “Path is required”, “Name is required”, “Select a model” when applicable; disable submit until valid. Loading state: disable form when submitting. Empty state: when `lockedModelId` present, show banner text “Embedding model locked to <id>”. Submit calls `/ingest/start` JSON body `{ path, name, description?, model, dryRun }`.
    Prop sketch to guide typing:
    ```ts
    type IngestFormProps = {
@@ -518,17 +518,17 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
      onStarted: (runId: string) => void;
    };
    ```
-4. [ ] Subtask – Hook `useIngestModels` (`client/src/hooks/useIngestModels.ts`) to fetch `/ingest/models`, return models + lockedModelId; cache first model as default when unlocked. Outputs: `{ models, lockedModelId, isLoading, error }`.
+4. [x] Subtask – Hook `useIngestModels` (`client/src/hooks/useIngestModels.ts`) to fetch `/ingest/models`, return models + lockedModelId; cache first model as default when unlocked. Outputs: `{ models, lockedModelId, isLoading, error }`.
    Return type sketch:
    ```ts
    type Model = { id: string; displayName: string; contextLength?: number };
    type UseIngestModelsResult = { models: Model[]; lockedModelId?: string; isLoading: boolean; error?: string };
    ```
-5. [ ] Subtask – Jest/RTL tests `client/src/test/ingestForm.test.tsx`: cover unlocked vs locked, validation errors text, disabled submit when invalid or loading, payload structure on submit, lock banner visibility.
-6. [ ] Subtask – README.md: add ingest page route, UX summary (lock banner, validation messages), how to run locally.
-7. [ ] Subtask – design.md: add form layout notes and lock banner mention; include short Inputs/Outputs snippet for `/ingest/start` call.
-8. [ ] Subtask – projectStructure.md: add new page/component/hook/test paths.
-9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect success).
+5. [x] Subtask – Jest/RTL tests `client/src/test/ingestForm.test.tsx`: cover unlocked vs locked, validation errors text, disabled submit when invalid or loading, payload structure on submit, lock banner visibility.
+6. [x] Subtask – README.md: add ingest page route, UX summary (lock banner, validation messages), how to run locally.
+7. [x] Subtask – design.md: add form layout notes and lock banner mention; include short Inputs/Outputs snippet for `/ingest/start` call.
+8. [x] Subtask – projectStructure.md: add new page/component/hook/test paths.
+9. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect success).
 
 #### Testing
 
@@ -537,8 +537,11 @@ Prereqs: server endpoints available or mocked; set `VITE_API_URL` to server. Exp
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 

@@ -46,6 +46,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
+â”‚     â”‚     â”œâ”€ RootsTable.tsx — embedded roots table with bulk/row actions and lock chip
+â”‚     â”‚     â””â”€ RootDetailsDrawer.tsx — drawer showing root metadata, counts, include/exclude lists
 â”‚     â”œâ”€ logging/
 â”‚     â”‚  â”œâ”€ index.ts â€” logging exports
 |     |  |- logger.ts ? client logger factory (console tee + queue)
@@ -55,6 +57,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
+|     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
@@ -76,6 +79,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
+|     |     |- ingestRoots.test.tsx ? roots table + details drawer + actions coverage
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests

@@ -1,6 +1,5 @@
 import {
   Alert,
-  Box,
   Button,
   CircularProgress,
   Container,
@@ -11,7 +10,10 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import IngestForm from '../components/ingest/IngestForm';
+import RootDetailsDrawer from '../components/ingest/RootDetailsDrawer';
+import RootsTable from '../components/ingest/RootsTable';
 import useIngestModels from '../hooks/useIngestModels';
+import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
 
 export default function IngestPage() {
@@ -25,6 +27,15 @@ export default function IngestPage() {
     refresh,
   } = useIngestModels();
   const [activeRunId, setActiveRunId] = useState<string | undefined>();
+  const {
+    roots,
+    lockedModelId: rootsLockedModelId,
+    isLoading: rootsLoading,
+    isError: rootsIsError,
+    error: rootsError,
+    refetch: refetchRoots,
+  } = useIngestRoots();
+  const [detailRoot, setDetailRoot] = useState<IngestRoot | undefined>();
   const status = useIngestStatus(activeRunId);
 
   const isRunActive = useMemo(
@@ -44,8 +55,12 @@ export default function IngestPage() {
       ['completed', 'cancelled', 'error'].includes(status.status)
     ) {
       // run finished; no extra action needed yet
+      void refetchRoots();
+      void refresh();
     }
-  }, [activeRunId, status.status]);
+  }, [activeRunId, status.status, refetchRoots, refresh]);
+
+  const locked = lockedModelId ?? rootsLockedModelId;
 
   return (
     <Container sx={{ py: 3 }}>
@@ -62,11 +77,14 @@ export default function IngestPage() {
         </Stack>
 
         {isError && error ? <Alert severity="error">{error}</Alert> : null}
+        {rootsIsError && rootsError ? (
+          <Alert severity="error">{rootsError}</Alert>
+        ) : null}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          {lockedModelId ? (
+          {locked ? (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Embedding model locked to {lockedModelId}
+              Embedding model locked to {locked}
             </Alert>
           ) : null}
 
@@ -79,7 +97,7 @@ export default function IngestPage() {
 
           <IngestForm
             models={models}
-            lockedModelId={lockedModelId}
+            lockedModelId={locked}
             defaultModelId={defaultModelId}
             onStarted={(runId) => setActiveRunId(runId)}
             disabled={isRunActive}
@@ -112,15 +130,25 @@ export default function IngestPage() {
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Embedded folders
-          </Typography>
-          <Box>
-            <Typography color="text.secondary">
-              Roots table placeholder.
-            </Typography>
-          </Box>
+          <RootsTable
+            roots={roots}
+            lockedModelId={locked}
+            isLoading={rootsLoading}
+            error={rootsError}
+            disabled={isRunActive}
+            onRefresh={refetchRoots}
+            onRunStarted={(runId) => setActiveRunId(runId)}
+            onShowDetails={(root) => setDetailRoot(root)}
+            onRefreshModels={refresh}
+          />
         </Paper>
+
+        <RootDetailsDrawer
+          root={detailRoot}
+          lockedModelId={locked}
+          open={Boolean(detailRoot)}
+          onClose={() => setDetailRoot(undefined)}
+        />
       </Stack>
     </Container>
   );

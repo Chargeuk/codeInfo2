@@ -617,20 +617,20 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 
 #### Subtasks
 
-1. [ ] Subtask – Create hook `client/src/hooks/useIngestRoots.ts` to call `/ingest/roots`, returning `{ roots, lockedModelId, isLoading, error, refetch }`; refetch after re-embed/remove/start completes.
+1. [x] Subtask – Create hook `client/src/hooks/useIngestRoots.ts` to call `/ingest/roots`, returning `{ roots, lockedModelId, isLoading, error, refetch }`; refetch after re-embed/remove/start completes.
    Return type sketch:
    ```ts
    type IngestRoot = { name: string; description?: string; path: string; model: string; status: string; lastIngestAt?: string; counts?: { files?: number; chunks?: number } };
    type UseIngestRootsResult = { roots: IngestRoot[]; lockedModelId?: string; isLoading: boolean; error?: string; refetch: () => Promise<void> };
    ```
-2. [ ] Subtask – Component `client/src/components/ingest/RootsTable.tsx`: columns Name (tooltip with description), Path, Model, Status chip, Last ingest time, counts, row actions (Re-embed → POST /ingest/reembed/:root, Remove → POST /ingest/remove/:root, Details). States: disable row/bulk actions during active ingest; show inline success/error text after actions; empty state text “No embedded folders yet. Start an ingest to see entries.”
-3. [ ] Subtask – Component `client/src/components/ingest/RootDetailsDrawer.tsx`: shows name, description, path, model (locked), run history (from status/roots data), last error, include/exclude lists (from server response if available; otherwise render env defaults summary). Loading skeleton while data fetching.
-4. [ ] Subtask – Empty state and lock banner: preserve lock banner; empty state copy explains model lock and first ingest guidance.
-5. [ ] Subtask – Tests `client/src/test/ingestRoots.test.tsx`: table render, tooltip, details drawer content, re-embed/remove action calls, disabled state when active ingest, empty state text, success/error messaging.
-6. [ ] Subtask – README.md: document table/actions UX, empty state copy, lock effects on actions.
-7. [ ] Subtask – design.md: add layout notes/diagram for roots table and details drawer; include expected labels/states (empty, disabled, success/error).
-8. [ ] Subtask – projectStructure.md: add new hook/components/tests.
-9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect clean).
+2. [x] Subtask – Component `client/src/components/ingest/RootsTable.tsx`: columns Name (tooltip with description), Path, Model, Status chip, Last ingest time, counts, row actions (Re-embed → POST /ingest/reembed/:root, Remove → POST /ingest/remove/:root, Details). States: disable row/bulk actions during active ingest; show inline success/error text after actions; empty state text “No embedded folders yet. Start an ingest to see entries.”
+3. [x] Subtask – Component `client/src/components/ingest/RootDetailsDrawer.tsx`: shows name, description, path, model (locked), run history (from status/roots data), last error, include/exclude lists (from server response if available; otherwise render env defaults summary). Loading skeleton while data fetching.
+4. [x] Subtask – Empty state and lock banner: preserve lock banner; empty state copy explains model lock and first ingest guidance.
+5. [x] Subtask – Tests `client/src/test/ingestRoots.test.tsx`: table render, tooltip, details drawer content, re-embed/remove action calls, disabled state when active ingest, empty state text, success/error messaging.
+6. [x] Subtask – README.md: document table/actions UX, empty state copy, lock effects on actions.
+7. [x] Subtask – design.md: add layout notes/diagram for roots table and details drawer; include expected labels/states (empty, disabled, success/error).
+8. [x] Subtask – projectStructure.md: add new hook/components/tests.
+9. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect clean).
 
 #### Testing
 

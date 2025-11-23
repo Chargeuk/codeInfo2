@@ -141,6 +141,20 @@ sequenceDiagram
   end
 ```
 
+### Ingest models fetch
+
+- Endpoint: `GET /ingest/models` (server proxy to LM Studio). Returns embedding-only models plus optional `lockedModelId` when the shared collection is locked.
+- Response example:
+```json
+{
+  "models": [
+    {"id":"embed-1","displayName":"all-MiniLM","contextLength":2048,"format":"gguf","size":145000000,"filename":"all-mini.gguf"}
+  ],
+  "lockedModelId": null
+}
+```
+- Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
+
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
 ### Chat models endpoint

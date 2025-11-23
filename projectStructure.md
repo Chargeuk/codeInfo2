@@ -116,6 +116,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
+â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -123,6 +124,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ __tests__/chunker.test.ts â€” chunking behaviour and slicing coverage
 â”‚     â”‚  â”œâ”€ __tests__/discovery.test.ts â€” discovery include/exclude and git-tracked coverage
 â”‚     â”‚  â”œâ”€ __tests__/hashing.test.ts â€” deterministic hashing coverage
+â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
 â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
 â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
@@ -138,12 +140,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - chat_models.feature - Cucumber coverage for chat model list endpoint
         - example.feature - sample feature
         - lmstudio.feature - LM Studio proxy scenarios
+        - ingest-models.feature - embedding models endpoint scenarios
 steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
         - example.steps.ts - step defs for example.feature
         - lmstudio.steps.ts - step defs for LM Studio feature
+        - ingest-models.steps.ts - step defs for ingest models endpoint
 support/
 â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
 â”œâ”€ .husky/ â€” git hooks managed by Husky

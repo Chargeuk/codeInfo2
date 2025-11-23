@@ -83,6 +83,26 @@ npm install
   ```
 - GET `/logs/stream` provides an SSE feed with heartbeats every 15s; resume with `Last-Event-ID` or `?sinceSequence=`. Example: `curl -N http://localhost:5010/logs/stream`.
 
+### Ingest embedding models
+
+- GET `/ingest/models` returns embedding-capable LM Studio models plus the current lock (if any):
+  ```json
+  {
+    "models": [
+      {
+        "id": "embed-1",
+        "displayName": "all-MiniLM",
+        "contextLength": 2048,
+        "format": "gguf",
+        "size": 145000000,
+        "filename": "all-mini.gguf"
+      }
+    ],
+    "lockedModelId": null
+  }
+  ```
+- Filters to `type === "embedding"` or capabilities including `embedding`; returns 502 `{status:"error", message}` if LM Studio is unavailable.
+
 ## Logging
 
 - Quick API calls:

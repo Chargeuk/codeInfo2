@@ -179,7 +179,7 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 
 #### Subtasks
 
-1. [ ] Subtask – Create `server/src/routes/ingestModels.ts` exposing `GET /ingest/models`. Inputs: no body. Outputs: `{ models: [{ id, displayName, contextLength, format, size, filename }], lockedModelId?: string }`. Use LM Studio SDK `listDownloadedModels()` and filter `model.type === 'embedding' || capabilities.includes('embedding')`. On SDK failure return 502 `{ status:'error', message }`.
+1. [x] Subtask – Create `server/src/routes/ingestModels.ts` exposing `GET /ingest/models`. Inputs: no body. Outputs: `{ models: [{ id, displayName, contextLength, format, size, filename }], lockedModelId?: string }`. Use LM Studio SDK `listDownloadedModels()` and filter `model.type === 'embedding' || capabilities.includes('embedding')`. On SDK failure return 502 `{ status:'error', message }`.
    Handler skeleton:
    ```ts
    router.get('/ingest/models', async (req, res) => {
@@ -199,9 +199,9 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
      }
    });
    ```
-2. [ ] Subtask – Register route in `server/src/index.ts` (or routes barrel) under `/ingest/models`; ensure CORS matches existing config.
-3. [ ] Subtask – Add Cucumber feature `server/src/test/features/ingest-models.feature` with scenarios: (a) returns only embedding models (mock SDK list with mixed types), (b) SDK failure returns 502 error payload. Implement steps in `server/src/test/steps/ingest-models.steps.ts` using SDK mock/stub.
-4. [ ] Subtask – Update README.md: include request/response example for `/ingest/models` (sample JSON), note embedding-only filter, mention locked model behavior.
+2. [x] Subtask – Register route in `server/src/index.ts` (or routes barrel) under `/ingest/models`; ensure CORS matches existing config.
+3. [x] Subtask – Add Cucumber feature `server/src/test/features/ingest-models.feature` with scenarios: (a) returns only embedding models (mock SDK list with mixed types), (b) SDK failure returns 502 error payload. Implement steps in `server/src/test/steps/ingest-models.steps.ts` using SDK mock/stub.
+4. [x] Subtask – Update README.md: include request/response example for `/ingest/models` (sample JSON), note embedding-only filter, mention locked model behavior.
    JSON example to insert:
    ```json
    {
@@ -211,19 +211,19 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
      "lockedModelId": null
    }
    ```
-5. [ ] Subtask – Update design.md with a small sequence/flow for model fetch and UI dependency; include the same sample request/response for quick reference; reference model lock note.
-6. [ ] Subtask – Update `projectStructure.md` with new route + test files.
-7. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect exit 0).
+5. [x] Subtask – Update design.md with a small sequence/flow for model fetch and UI dependency; include the same sample request/response for quick reference; reference model lock note.
+6. [x] Subtask – Update `projectStructure.md` with new route + test files.
+7. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix as needed (expect exit 0).
 
 #### Testing
 
 Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succeed, Cucumber passes, compose stack starts/stops.
 
-1. [ ] `npm run build --workspace server` (success)
-2. [ ] `npm run test --workspace server` (all scenarios pass)
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up` (healthy)
-5. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server` (success)
+2. [x] `npm run test --workspace server` (all scenarios pass)
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up` (healthy)
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 

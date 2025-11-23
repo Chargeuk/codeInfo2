@@ -414,7 +414,7 @@ Prereqs: Chroma reachable (Testcontainers/compose) and LM Studio mocked. Expecte
 
 ### 5. Server – Single-flight lock, soft cancel, and cleanup
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

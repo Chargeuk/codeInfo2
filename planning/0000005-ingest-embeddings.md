@@ -233,7 +233,7 @@ Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succ
 
 ### 3. Server – Ingest API & Chroma write
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -840,53 +840,6 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 ---
 
-### 10. Filter chat models to LLM-only
-
-_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
-
-- Task Status: __in_progress__
-- Git Commits: _to_do_
-
-#### Overview
-
-Update the LM Studio models endpoint and client selection so only LLM-capable models are shown for chat (exclude embeddings/other types). Current dropdown can surface embedding models (from `listDownloadedModels`/`listLoadedModels`), leading to failures when chosen.
-
-#### Documentation Locations
-
-- LM Studio model listing docs (types for `listLoadedModels` / `listDownloadedModels`) from SDK 1.5.0
-- Existing routes/hooks: `server/src/routes/chatModels.ts`, `client/src/hooks/useChatModel.ts`
-- Tests: `server/src/test/features/chat_models.feature`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.stream.test.tsx`
-- Docs: README.md, design.md, projectStructure.md
-
-#### Subtasks
-
-1. [x] Update `server/src/routes/chatModels.ts` to filter out non-LLM entries (e.g., type/architecture/vision flags). Keep a clear allowlist (LLM types) and exclude embeddings.
-2. [x] Add a unit/Cucumber step in `chat_models.feature` verifying embeddings are excluded and at least one LLM remains.
-3. [ ] Update the client hook `useChatModel.ts` to handle an empty post-filtered list with a distinct “No chat-capable models” state.
-4. [x] Update `client/src/pages/ChatPage.tsx` copy/empty-state to reflect “No chat-capable models available” when filtered out.
-5. [x] Update README.md and design.md to note that the chat dropdown shows only LLM-capable models and embeddings are hidden.
-6. [ ] Update projectStructure.md if any files are added/renamed.
-7. [x] Add/extend RTL test(s) (e.g., `chatPage.models.test.tsx`) to confirm embedding models are excluded from the dropdown.
-8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
-
-#### Testing
-
-1. [x] `npm run test --workspace server`
-2. [x] `npm run test --workspace client`
-3. [x] `npm run build --workspace server`
-4. [x] `npm run build --workspace client`
-5. [x] `npm run compose:build`
-6. [x] `npm run compose:up`
-7. [ ] `npm run e2e:test`
-8. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Implemented server-side filter (type not embedding/vector) so `/chat/models` emits only chat-capable LLMs; mock LM Studio now includes an embedding to prove filtering.
-- Client empty/error copy now says “No chat-capable models…”; RTL test ensures embedding entries are not shown in the dropdown.
-- E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtasks 3/6 and e2e test checkbox remain open.
-
----
 ### 9. LM Studio 1.5 SDK compatibility (chat streaming)
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
@@ -940,5 +893,53 @@ Fix the server chat integration to match the LM Studio TypeScript SDK 1.5.0 API 
 - Updated the mock SDK to expose `llm.model().act` with callback-driven streaming, cancellation flagging, and tool event coverage so Cucumber/RTL remain aligned.
 - Added Playwright chat spec guards for error bubbles plus a mock mode (default) to provide stable streaming when LM Studio isn’t available; tightened assertions to fail on `data-kind="error"`.
 - Documentation refreshed (README/design) for the new LM Studio call shape; lint/format and full test/build/compose/e2e chain executed.
+
+---
+
+### 10. Filter chat models to LLM-only
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
+- Task Status: __in_progress__
+- Git Commits: _to_do_
+
+#### Overview
+
+Update the LM Studio models endpoint and client selection so only LLM-capable models are shown for chat (exclude embeddings/other types). Current dropdown can surface embedding models (from `listDownloadedModels`/`listLoadedModels`), leading to failures when chosen.
+
+#### Documentation Locations
+
+- LM Studio model listing docs (types for `listLoadedModels` / `listDownloadedModels`) from SDK 1.5.0
+- Existing routes/hooks: `server/src/routes/chatModels.ts`, `client/src/hooks/useChatModel.ts`
+- Tests: `server/src/test/features/chat_models.feature`, `client/src/test/chatPage.models.test.tsx`, `client/src/test/chatPage.stream.test.tsx`
+- Docs: README.md, design.md, projectStructure.md
+
+#### Subtasks
+
+1. [x] Update `server/src/routes/chatModels.ts` to filter out non-LLM entries (e.g., type/architecture/vision flags). Keep a clear allowlist (LLM types) and exclude embeddings.
+2. [x] Add a unit/Cucumber step in `chat_models.feature` verifying embeddings are excluded and at least one LLM remains.
+3. [ ] Update the client hook `useChatModel.ts` to handle an empty post-filtered list with a distinct “No chat-capable models” state.
+4. [x] Update `client/src/pages/ChatPage.tsx` copy/empty-state to reflect “No chat-capable models available” when filtered out.
+5. [x] Update README.md and design.md to note that the chat dropdown shows only LLM-capable models and embeddings are hidden.
+6. [ ] Update projectStructure.md if any files are added/renamed.
+7. [x] Add/extend RTL test(s) (e.g., `chatPage.models.test.tsx`) to confirm embedding models are excluded from the dropdown.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
+
+#### Testing
+
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [ ] `npm run e2e:test`
+8. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Implemented server-side filter (type not embedding/vector) so `/chat/models` emits only chat-capable LLMs; mock LM Studio now includes an embedding to prove filtering.
+- Client empty/error copy now says “No chat-capable models…”; RTL test ensures embedding entries are not shown in the dropdown.
+- E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtasks 3/6 and e2e test checkbox remain open.
 
 ---

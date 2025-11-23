@@ -82,8 +82,8 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 #### Subtasks
 
-1. [ ] Subtask – Install missing deps: `npm install --workspace server chromadb@3.1.6` (needed later) and `npm install --workspace server @types/node@latest` if required. **Do not change @lmstudio/sdk@1.5.0.** Add env examples in `server/.env`: `CHROMA_URL=http://localhost:8000`, `INGEST_EXCLUDE=node_modules,.git,dist,build,coverage,logs,vendor,*.log,*.min.js,package-lock.json,yarn.lock,pnpm-lock.yaml`, `INGEST_INCLUDE=ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,mdx,txt,py,java,kt,kts,go,rs,rb,php,cs,cpp,cc,c,h,hpp,swift,scala,clj,cljs,edn,sh,bash,zsh,ps1,yaml,yml,toml,ini,cfg,env,sql`. Note: env extends/overrides hardcoded defaults; mention this in README later.
-2. [ ] Subtask – Create `server/src/ingest/discovery.ts`: functions `findRepoRoot(startPath)`, `listGitTracked(root)` (`git ls-files -z`), fallback `walkDir` when not a repo, `isTextFile(path, extAllowlist, hardExcludes)` using allowlist + mime sniff fallback. Apply hard excludes (always) + env excludes (extend/override). Always skip `.git`. Return `{ root, files: Array<{ absPath, relPath, ext }> }`. Add inline example: env override `INGEST_EXCLUDE=node_modules,.git,dist,temp` should prune those.
+1. [x] Subtask – Install missing deps: `npm install --workspace server chromadb@3.1.6` (needed later) and `npm install --workspace server @types/node@latest` if required. **Do not change @lmstudio/sdk@1.5.0.** Add env examples in `server/.env`: `CHROMA_URL=http://localhost:8000`, `INGEST_EXCLUDE=node_modules,.git,dist,build,coverage,logs,vendor,*.log,*.min.js,package-lock.json,yarn.lock,pnpm-lock.yaml`, `INGEST_INCLUDE=ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,mdx,txt,py,java,kt,kts,go,rs,rb,php,cs,cpp,cc,c,h,hpp,swift,scala,clj,cljs,edn,sh,bash,zsh,ps1,yaml,yml,toml,ini,cfg,env,sql`. Note: env extends/overrides hardcoded defaults; mention this in README later.
+2. [x] Subtask – Create `server/src/ingest/discovery.ts`: functions `findRepoRoot(startPath)`, `listGitTracked(root)` (`git ls-files -z`), fallback `walkDir` when not a repo, `isTextFile(path, extAllowlist, hardExcludes)` using allowlist + mime sniff fallback. Apply hard excludes (always) + env excludes (extend/override). Always skip `.git`. Return `{ root, files: Array<{ absPath, relPath, ext }> }`. Add inline example: env override `INGEST_EXCLUDE=node_modules,.git,dist,temp` should prune those.
    Starter skeleton:
    ```ts
    // server/src/ingest/discovery.ts
@@ -101,8 +101,8 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
      // TODO pick git vs walkDir, filter with cfg.includes/excludes + isTextFile
    }
    ```
-3. [ ] Subtask – Add `server/src/ingest/hashing.ts`: `hashFile(absPath)`, `hashChunk(relPath, chunkIndex, text)` using sha256; deterministic order (root, relPath, chunkIndex, text) and UTF-8 encoding.
-4. [ ] Subtask – Add `server/src/ingest/chunker.ts`: accept text + model token limit. Use LM Studio helpers `countTokens`/`getContextLength`; safety margin `0.85 * contextLength`, fallback limit 2048 if unavailable. Boundary regex `/^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m`; if boundary chunk exceeds limit, slice to ~75% of limit tokens. Output chunks `{ chunkIndex, text, tokenCount }`. Inputs/Outputs note: input text + limit → array of chunk objects with token counts respecting limit.
+3. [x] Subtask – Add `server/src/ingest/hashing.ts`: `hashFile(absPath)`, `hashChunk(relPath, chunkIndex, text)` using sha256; deterministic order (root, relPath, chunkIndex, text) and UTF-8 encoding.
+4. [x] Subtask – Add `server/src/ingest/chunker.ts`: accept text + model token limit. Use LM Studio helpers `countTokens`/`getContextLength`; safety margin `0.85 * contextLength`, fallback limit 2048 if unavailable. Boundary regex `/^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m`; if boundary chunk exceeds limit, slice to ~75% of limit tokens. Output chunks `{ chunkIndex, text, tokenCount }`. Inputs/Outputs note: input text + limit → array of chunk objects with token counts respecting limit.
    Starter skeleton:
    ```ts
    // server/src/ingest/chunker.ts
@@ -113,14 +113,14 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
      // TODO split by boundary regex, enforce limits, fallback slice
    }
    ```
-5. [ ] Subtask – Add `server/src/ingest/types.ts` (`DiscoveredFile`, `Chunk`, `ChunkMeta`, `IngestRunState`) and `server/src/ingest/config.ts` to read env include/exclude lists, token safety margin, default cap (2048 fallback).
+5. [x] Subtask – Add `server/src/ingest/types.ts` (`DiscoveredFile`, `Chunk`, `ChunkMeta`, `IngestRunState`) and `server/src/ingest/config.ts` to read env include/exclude lists, token safety margin, default cap (2048 fallback).
    Env merge example to include in `config.ts`:
    ```ts
    const defaultExcludes = ['node_modules', '.git', 'dist', 'build', 'coverage', 'logs', 'vendor'];
    const envExcludes = process.env.INGEST_EXCLUDE?.split(',').filter(Boolean) ?? [];
    export const excludes = Array.from(new Set([...defaultExcludes, ...envExcludes]));
    ```
-6. [ ] Subtask – Wire `server/src/ingest/index.ts` exporting discovery+chunking+hashing helpers; keep pure (no Express). Document exports briefly in file header.
+6. [x] Subtask – Wire `server/src/ingest/index.ts` exporting discovery+chunking+hashing helpers; keep pure (no Express). Document exports briefly in file header.
    Minimal barrel:
    ```ts
    export * from './discovery';

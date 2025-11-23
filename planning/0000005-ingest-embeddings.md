@@ -588,11 +588,11 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 Prereqs: server status/cancel endpoints available or mocked. Expected: build/test pass; compose stack healthy.
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 

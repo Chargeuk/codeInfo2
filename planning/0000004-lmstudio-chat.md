@@ -714,26 +714,29 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Subtasks
 
-1. [ ] Add “New conversation” button to `ChatPage.tsx`; handler must call `stop()` from `useChatStream`, clear `messages`, reset `status` to `idle`, and keep the currently selected model (document this choice in README/design).
-2. [ ] Ensure the handler calls `await stop()` (if stop returns void, call then clear) before clearing state, then focuses the TextField (`data-testid="chat-input"`).
-3. [ ] Update README.md (UI section) to state that New conversation clears transcript, keeps model, and aborts in-flight responses.
-4. [ ] Update design.md with the reset flow and copy shown to users.
-5. [ ] Update projectStructure.md if any helper/component files were added.
-6. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.newConversation.test.tsx` verifying stop is called, transcript empties, status resets, input regains focus, and selected model value persists in the Select.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
+1. [x] Add “New conversation” button to `ChatPage.tsx`; handler must call `stop()` from `useChatStream`, clear `messages`, reset `status` to `idle`, and keep the currently selected model (document this choice in README/design).
+2. [x] Ensure the handler calls `await stop()` (if stop returns void, call then clear) before clearing state, then focuses the TextField (`data-testid="chat-input"`).
+3. [x] Update README.md (UI section) to state that New conversation clears transcript, keeps model, and aborts in-flight responses.
+4. [x] Update design.md with the reset flow and copy shown to users.
+5. [x] Update projectStructure.md if any helper/component files were added.
+6. [x] Tests (RTL/Jest): add `client/src/test/chatPage.newConversation.test.tsx` verifying stop is called, transcript empties, status resets, input regains focus, and selected model value persists in the Select.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Note any state reset nuances (model selection retained or reset to default?).
+- Added a visible “New conversation” button beside Send; it calls `stop()` then a new `reset` helper to clear transcript state, keep the current model selection, reset status to idle, clear the input, and refocus the message field.
+- `useChatStream` now exposes `reset` to wipe messages while keeping the abort logic in `stop`, so the page handler can abort in-flight streams before clearing.
+- Updated README/design to describe the reset behaviour (model retained, input refocused, transcript cleared) and documented the new Jest spec in projectStructure.
+- Added `chatPage.newConversation.test.tsx` covering aborting a hanging stream, clearing bubbles, retaining the selected model label, and restoring input focus; lint/format rerun plus client build/test, server build, and compose build/up/down verified.
 
 ---
 

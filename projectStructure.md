@@ -65,6 +65,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |  |- logger.test.ts ? logger creation/global hooks coverage
 |     |     |  - transport.test.ts ? client log transport queue/backoff tests
 |     |     |- chatPage.models.test.tsx ? chat page models list states
+|     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests

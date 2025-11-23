@@ -28,7 +28,7 @@ export default function ChatPage() {
     isEmpty,
     refresh,
   } = useChatModel();
-  const { messages, status, send, stop } = useChatStream(selected);
+  const { messages, status, send, stop, reset } = useChatStream(selected);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [input, setInput] = useState('');
   const controlsDisabled = isLoading || isError || isEmpty || !selected;
@@ -56,6 +56,13 @@ export default function ChatPage() {
     if (!trimmed || controlsDisabled) return;
     void send(trimmed);
     setInput('');
+  };
+
+  const handleNewConversation = () => {
+    stop();
+    reset();
+    setInput('');
+    inputRef.current?.focus();
   };
 
   return (
@@ -124,6 +131,15 @@ export default function ChatPage() {
               disabled={controlsDisabled || isSending || !input.trim()}
             >
               Send
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              color="secondary"
+              onClick={handleNewConversation}
+              disabled={isLoading}
+            >
+              New conversation
             </Button>
           </Stack>
         </form>

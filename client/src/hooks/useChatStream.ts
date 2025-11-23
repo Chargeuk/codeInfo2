@@ -63,6 +63,11 @@ export function useChatStream(model?: string) {
     setStatus('idle');
   }, []);
 
+  const reset = useCallback(() => {
+    updateMessages(() => []);
+    setStatus('idle');
+  }, [updateMessages]);
+
   const handleErrorBubble = useCallback(
     (message: string) => {
       updateMessages((prev) => [
@@ -220,6 +225,7 @@ export function useChatStream(model?: string) {
     status,
     send,
     stop,
+    reset,
   };
 }
 

@@ -28,14 +28,18 @@ class InMemoryCollection {
 
   async add(payload: {
     ids: string[];
-    documents: string[];
-    embeddings: number[][];
-    metadatas: Record<string, unknown>[];
+    documents?: string[];
+    embeddings?: number[][];
+    metadatas?: Record<string, unknown>[];
   }) {
+    const documents = payload.documents ?? payload.ids.map(() => '');
+    const embeddings = payload.embeddings ?? payload.ids.map(() => []);
+    const metadatas = payload.metadatas ?? payload.ids.map(() => ({}));
+
     this.ids.push(...payload.ids);
-    this.documents.push(...payload.documents);
-    this.embeddings.push(...payload.embeddings);
-    this.metadatas.push(...payload.metadatas);
+    this.documents.push(...documents);
+    this.embeddings.push(...embeddings);
+    this.metadatas.push(...metadatas);
   }
 
   async count() {
@@ -44,6 +48,69 @@ class InMemoryCollection {
 
   async modify({ metadata }: { metadata?: Record<string, unknown> }) {
     this.metadata = metadata;
+  }
+
+  async get({
+    where,
+    include,
+    limit,
+  }: {
+    where?: Record<string, unknown>;
+    include?: string[];
+    limit?: number;
+  } = {}) {
+    const shouldInclude = (field: string) =>
+      !include || include.includes(field);
+    const matchesWhere = (idx: number) => {
+      if (!where) return true;
+      return Object.entries(where).every(([key, value]) => {
+        const meta = this.metadatas[idx] ?? {};
+        return (meta as Record<string, unknown>)[key] === value;
+      });
+    };
+
+    const filteredIndices: number[] = [];
+    for (let i = 0; i < this.ids.length; i += 1) {
+      if (matchesWhere(i)) filteredIndices.push(i);
+      if (limit && filteredIndices.length >= limit) break;
+    }
+
+    return {
+      ids: shouldInclude('ids') ? filteredIndices.map((i) => this.ids[i]) : [],
+      metadatas: shouldInclude('metadatas')
+        ? filteredIndices.map((i) => this.metadatas[i])
+        : [],
+      documents: shouldInclude('documents')
+        ? filteredIndices.map((i) => this.documents[i])
+        : [],
+      embeddings: shouldInclude('embeddings')
+        ? filteredIndices.map((i) => this.embeddings[i])
+        : [],
+    };
+  }
+
+  async delete({ where }: { where?: Record<string, unknown> } = {}) {
+    if (!where || Object.keys(where).length === 0) {
+      this.ids = [];
+      this.documents = [];
+      this.embeddings = [];
+      this.metadatas = [];
+      return;
+    }
+
+    const keep: number[] = [];
+    for (let i = 0; i < this.ids.length; i += 1) {
+      const meta = this.metadatas[i] ?? {};
+      const matches = Object.entries(where).every(
+        ([key, value]) => (meta as Record<string, unknown>)[key] === value,
+      );
+      if (!matches) keep.push(i);
+    }
+
+    this.ids = keep.map((i) => this.ids[i]);
+    this.documents = keep.map((i) => this.documents[i]);
+    this.embeddings = keep.map((i) => this.embeddings[i]);
+    this.metadatas = keep.map((i) => this.metadatas[i]);
   }
 }
 
@@ -112,6 +179,14 @@ export async function setLockedModel(modelId: string): Promise<void> {
 export async function clearLockedModel(): Promise<void> {
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
   await col.modify({ metadata: { lockedModelId: null } });
+}
+
+export async function clearRootsCollection(where?: Record<string, unknown>) {
+  const col = await getRootsCollection();
+  const collection = col as unknown as {
+    delete: (opts?: { where?: Record<string, unknown> }) => Promise<void>;
+  };
+  await collection.delete(where ? { where } : {});
 }
 
 export async function collectionIsEmpty(): Promise<boolean> {

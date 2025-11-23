@@ -184,6 +184,30 @@ sequenceDiagram
 ```
 
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
+
+### Ingest roots listing
+
+- Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
+- Response shape:
+  ```json
+  {
+    "roots": [
+      {
+        "runId": "abc",
+        "name": "docs",
+        "description": "project docs",
+        "path": "/repo/docs",
+        "model": "embed-1",
+        "status": "completed",
+        "lastIngestAt": "2025-01-01T12:00:00.000Z",
+        "counts": {"files":3,"chunks":12,"embedded":12},
+        "lastError": null
+      }
+    ],
+    "lockedModelId": "embed-1"
+  }
+  ```
+- Sorting happens server-side so the client can render the newest ingest first; empty collections return `roots: []` with `lockedModelId` unchanged.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
 
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.

@@ -117,6 +117,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
+â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -141,6 +142,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - example.feature - sample feature
         - lmstudio.feature - LM Studio proxy scenarios
         - ingest-models.feature - embedding models endpoint scenarios
+        - ingest-roots.feature - ingest roots listing endpoint scenarios
 steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
@@ -148,6 +150,7 @@ steps/
         - example.steps.ts - step defs for example.feature
         - lmstudio.steps.ts - step defs for LM Studio feature
         - ingest-models.steps.ts - step defs for ingest models endpoint
+        - ingest-roots.steps.ts - step defs for ingest roots endpoint
 support/
 â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
 â”œâ”€ .husky/ â€” git hooks managed by Husky

@@ -118,6 +118,29 @@ npm install
   ```
 - Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
 
+### Ingest roots listing
+
+- GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order along with the current model lock:
+  ```json
+  {
+    "roots": [
+      {
+        "runId": "a1",
+        "name": "repo",
+        "description": "project",
+        "path": "/repo",
+        "model": "embed-1",
+        "status": "completed",
+        "lastIngestAt": "2025-01-01T12:00:00.000Z",
+        "counts": {"files": 3, "chunks": 12, "embedded": 12},
+        "lastError": null
+      }
+    ],
+    "lockedModelId": "embed-1"
+  }
+  ```
+
+
 ## Logging
 
 - Quick API calls:

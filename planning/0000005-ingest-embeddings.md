@@ -234,7 +234,7 @@ Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succ
 ### 3. Server – Ingest API & Chroma write
 
 - Task Status: __done__
-- Git Commits: 294a264, a2a4465, bfe385e, <pending latest>
+- Git Commits: 294a264, 586da8a
 
 #### Overview
 

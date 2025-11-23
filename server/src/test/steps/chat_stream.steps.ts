@@ -9,6 +9,7 @@ import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
 import {
@@ -24,6 +25,7 @@ let events: unknown[] = [];
 let statusCode: number | null = null;
 
 Before(async () => {
+  resetStore();
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
   const app = express();
   app.use(cors());
@@ -56,6 +58,7 @@ Before(async () => {
 
 After(() => {
   stopMock();
+  resetStore();
   if (server) {
     server.close();
     server = null;
@@ -126,3 +129,14 @@ Then(
     assert(error, `expected error event ${message}`);
   },
 );
+
+Then('the streamed events include tool request and result events', () => {
+  const types = events.map((event) => (event as { type?: string }).type);
+  assert(types.includes('tool-request'), 'tool-request event missing');
+  assert(types.includes('tool-result'), 'tool-result event missing');
+});
+
+Then('tool events are logged to the log store', () => {
+  const toolLogs = query({ text: 'chat tool event' });
+  assert(toolLogs.length > 0, 'expected tool events in log store');
+});

@@ -11,3 +11,11 @@ Feature: chat streaming endpoint
     When I POST to the chat endpoint with the chat request fixture
     Then the chat stream status code is 200
     And the streamed events include an error event "lmstudio unavailable"
+
+  Scenario: tool events are streamed and logged
+    Given chat stream scenario "chat-tools"
+    When I POST to the chat endpoint with the chat request fixture
+    Then the chat stream status code is 200
+    And the streamed events include token, final, and complete in order
+    And the streamed events include tool request and result events
+    And tool events are logged to the log store

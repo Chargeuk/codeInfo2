@@ -176,20 +176,23 @@ sequenceDiagram
 ## Chat streaming endpoint
 
 - `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.getModel(model).act()` with a registered `noop` tool and `allowParallelToolExecution: false`. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
-- Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and upcoming client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
-- Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs and transcript frames.
+- Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
+- Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
 - Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
+- UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
 
 ```mermaid
 sequenceDiagram
   participant Client
   participant Server
   participant LM as LM Studio
+  participant Logs as Log store
   Client->>Server: POST /chat {model,messages}
   Server->>LM: model.act(messages, tools=[noop])
   LM-->>Server: predictionFragment(content)
   Server-->>Client: SSE {type:"token", content}
   LM-->>Server: toolCallRequest*/Result
+  Server-->>Logs: append chat tool event (metadata only)
   Server-->>Client: SSE tool-request/result (metadata only)
   LM-->>Server: message(final)
   Server-->>Client: SSE {type:"final"} then {type:"complete"}
@@ -228,6 +231,7 @@ sequenceDiagram
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
+- Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
 

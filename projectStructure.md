@@ -89,6 +89,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ logging.ts â€” LogEntry/LogLevel DTO + isLogEntry guard
 â”‚     â””â”€ versionInfo.ts â€” VersionInfo DTO
 â”œâ”€ e2e/ â€” Playwright specs
+â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e

@@ -179,4 +179,54 @@ describe('Chat page streaming', () => {
       global.AbortController = OriginalAbortController;
     }
   });
+
+  it('logs tool events without rendering them as bubbles', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"tool-request","callId":"c1","name":"noop"}\n\n',
+          'data: {"type":"tool-result","callId":"c1","stage":"toolCallResult"}\n\n',
+          'data: {"type":"token","content":"Hi"}\n\n',
+          'data: {"type":"final","message":{"content":"Hi there","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    try {
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      expect(await screen.findByText('Hi there')).toBeInTheDocument();
+
+      const bubbles = screen.getAllByTestId('chat-bubble');
+      expect(bubbles.length).toBe(2);
+      expect(
+        logSpy.mock.calls.some(
+          ([entry]) =>
+            entry &&
+            typeof entry === 'object' &&
+            (entry as { message?: string }).message === 'chat tool event',
+        ),
+      ).toBe(true);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });

@@ -1,6 +1,7 @@
 import type { LmStudioModel } from '@codeinfo2/common';
 import {
   chatSseEventsFixture,
+  chatToolEventsFixture,
   mockModels,
   chatErrorEventFixture,
 } from '@codeinfo2/common';
@@ -11,7 +12,8 @@ export type MockScenario =
   | 'timeout'
   | 'chat-fixture'
   | 'chat-error'
-  | 'chat-stream';
+  | 'chat-stream'
+  | 'chat-tools';
 
 let scenario: MockScenario = 'many';
 let lastPrediction: { cancelled: boolean } | null = null;
@@ -112,10 +114,12 @@ export class MockLMStudioClient {
       const events =
         scenario === 'chat-fixture' || scenario === 'chat-stream'
           ? chatSseEventsFixture
-          : [
-              ...chatSseEventsFixture,
-              { ...chatErrorEventFixture, roundIndex: 0 },
-            ];
+          : scenario === 'chat-tools'
+            ? chatToolEventsFixture
+            : [
+                ...chatSseEventsFixture,
+                { ...chatErrorEventFixture, roundIndex: 0 },
+              ];
       return createPrediction(events);
     },
   });

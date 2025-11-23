@@ -805,31 +805,36 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 #### Subtasks
 
-1. [ ] Add/extend Playwright spec to exercise chat flow:
+1. [x] Add/extend Playwright spec to exercise chat flow:
    - Load chat page, wait for models dropdown to populate, assert at least one option, and change selection.
    - Send first prompt, stream response into assistant bubble, confirm completion.
    - Send follow-up prompt in same session and assert a second assistant response appears in order.
    - (Optional) verify Stop/New flows if time permits.
-2. [ ] Ensure server/client logging shows tool lifecycle entries (content omitted) visible in Logs page; no tool events in transcript.
-3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
-4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes; refresh mermaid diagrams accordingly.
-5. [ ] Update projectStructure.md with new files/dirs added in this story.
-6. [ ] Save 2â€“3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [x] Ensure server/client logging shows tool lifecycle entries (content omitted) visible in Logs page; no tool events in transcript.
+3. [x] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
+4. [x] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes; refresh mermaid diagrams accordingly.
+5. [x] Update projectStructure.md with new files/dirs added in this story.
+6. [x] Save 2â€“3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run e2e:test`
-8. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run e2e:test`
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Record e2e findings, screenshot names, and any flakiness mitigations here.
+- Added Playwright `e2e/chat.spec.ts` that waits for `/chat/models`, drives two streamed turns, and skips cleanly when models are unavailable.
+- Extended server Cucumber coverage with a tool-event scenario using new `chatToolEventsFixture`, mock mode `chat-tools`, and log store assertions so tool lifecycle metadata surfaces on the Logs page.
+- Added chat bubble test ids plus RTL coverage to confirm tool events are logged (console logger) but never rendered in the transcript.
+- Captured mocked screenshots (`0000004-8-normal.png`, `0000004-8-streaming.png`, `0000004-8-error.png`) in `test-results/screenshots/` via Playwright with stubbed `/chat` endpoints.
+- Updated README, design.md, and projectStructure.md for streaming flows, tool logging visibility, chat e2e spec, and new assets.
+- Ran full test/build chain: common build for new fixtures, server/client tests, workspace builds, compose build/up, e2e (all specs), and compose down.
 
 ---

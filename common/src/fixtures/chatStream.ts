@@ -13,6 +13,23 @@ export const chatSseEventsFixture = [
   { type: 'complete' },
 ];
 
+export const chatToolEventsFixture = [
+  { type: 'predictionFragment', content: 'Tool call', roundIndex: 0 },
+  {
+    type: 'toolCallRequestStart',
+    callId: 'call-1',
+    name: 'noop',
+    roundIndex: 0,
+  },
+  { type: 'toolCallResult', callId: 'call-1', roundIndex: 0 },
+  {
+    type: 'message',
+    message: { role: 'assistant', content: 'Tool run complete' },
+    roundIndex: 0,
+  },
+  { type: 'complete' },
+];
+
 export const chatErrorEventFixture = {
   type: 'error',
   message: 'lmstudio unavailable',

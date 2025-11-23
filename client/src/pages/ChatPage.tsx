@@ -221,6 +221,9 @@ export default function ChatPage() {
                     >
                       <Paper
                         variant="outlined"
+                        data-testid="chat-bubble"
+                        data-role={message.role}
+                        data-kind={message.kind ?? 'normal'}
                         sx={{
                           p: 1.5,
                           bgcolor: isErrorBubble

@@ -159,41 +159,6 @@ Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Exp
 
 - Cucumber integration added in Task 2 when endpoints exist.
 
----
-
-### 10. Server – ingest start/roots fixes (body parsing & Chroma metadata)
-
-- status: **to_do**
-- Git Commits: **to_do**
-
-#### Overview
-
-Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/ingest/start` returns 400) and Chroma rejects `metadata.lockedModelId: null`, causing `/ingest/roots` 502s. Adjust middleware and metadata handling so ingest requests and roots listing succeed in e2e without muting the default embedding warning.
-
-#### Documentation Locations
-
-- Express JSON middleware: https://expressjs.com/en/api.html#express.json
-- Chroma collections metadata rules: https://docs.trychroma.com/api-reference#collections
-
-#### Subtasks
-
-1. [ ] Add `express.json()` middleware in `server/src/index.ts` before route registration so `/ingest/start` receives parsed bodies.
-2. [ ] Change Chroma collection initialization to avoid `lockedModelId: null`; omit the key until set, and adjust `getLockedModel/setLockedModel/clearLockedModel` to handle undefined/empty string safely.
-3. [ ] Add a small cleanup/reset step for e2e to drop existing Chroma collections or volume so stale metadata doesn’t persist (document command in README/design or e2e notes).
-4. [ ] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
-5. [ ] Rerun `npm run e2e:up && npm run e2e:test && npm run e2e:down` to confirm ingest flows pass; leave the DefaultEmbeddingFunction warning untouched.
-
-#### Testing
-
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run e2e:up && npm run e2e:test && npm run e2e:down`
-
-#### Implementation notes
-
--
-
----
 
 ### 2. Server – Embedding models endpoint
 
@@ -770,5 +735,39 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 - Coordinate rebase/merge with chat branch for NavBar/router before final checks; capture any screenshots for ingest UI if needed.
 - PR summary draft: Added ingest roots UI (table/details/actions), implemented ingest e2e compose stack + Playwright ingest flows (happy/cancel/re-embed/remove with model-lock awareness), updated docs (README/design/projectStructure) and scripts for isolated e2e runs.
 - E2E status: `npm run e2e:test` currently fails because the client stays disabled when LM Studio models are unavailable in the e2e stack (model select + ingest start disabled). All other build/test/compose steps are green; e2e stack brings up fine and tears down cleanly.
+
+---
+
+### 10. Server – ingest start/roots fixes (body parsing & Chroma metadata)
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/ingest/start` returns 400) and Chroma rejects `metadata.lockedModelId: null`, causing `/ingest/roots` 502s. Adjust middleware and metadata handling so ingest requests and roots listing succeed in e2e without muting the default embedding warning.
+
+#### Documentation Locations
+
+- Express JSON middleware: https://expressjs.com/en/api.html#express.json
+- Chroma collections metadata rules: https://docs.trychroma.com/api-reference#collections
+
+#### Subtasks
+
+1. [ ] Add `express.json()` middleware in `server/src/index.ts` before route registration so `/ingest/start` receives parsed bodies.
+2. [ ] Change Chroma collection initialization to avoid `lockedModelId: null`; omit the key until set, and adjust `getLockedModel/setLockedModel/clearLockedModel` to handle undefined/empty string safely.
+3. [ ] Add a small cleanup/reset step for e2e to drop existing Chroma collections or volume so stale metadata doesn’t persist (document command in README/design or e2e notes).
+4. [ ] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
+5. [ ] Rerun `npm run e2e:up && npm run e2e:test && npm run e2e:down` to confirm ingest flows pass; leave the DefaultEmbeddingFunction warning untouched.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run e2e:up && npm run e2e:test && npm run e2e:down`
+
+#### Implementation notes
+
+-
 
 ---

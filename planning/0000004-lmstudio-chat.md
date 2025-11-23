@@ -788,7 +788,7 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: _to_do_
 
 #### Overview

@@ -602,7 +602,7 @@ Prereqs: server status/cancel endpoints available or mocked. Expected: build/tes
 
 ### 8. Client – Embedded folders table, details drawer, and actions
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

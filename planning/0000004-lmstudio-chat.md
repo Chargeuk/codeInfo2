@@ -945,7 +945,7 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 ---
 ### 11. Fix LM Studio chat tool definition
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

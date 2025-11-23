@@ -761,13 +761,13 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 5. [x] Add Cucumber coverage for Chroma metadata: create `server/src/test/features/ingest-roots-metadata.feature` and steps `server/src/test/steps/ingest-roots-metadata.steps.ts` that start with a clean Chroma volume, hit `/ingest/roots`, and assert 200 with `roots: []` and `lockedModelId` null/undefined (guards against 502 from `lockedModelId: null` metadata); reuse existing testcontainer setup/LM Studio mock.
 6. [x] Ensure ingest start uses the same ws/wss conversion helper (`toWebSocketUrl`) as chat/models routes when constructing LM Studio clients.
 7. [x] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
-8. [ ] Rerun `npm run e2e:up && npm run e2e:test && npm run e2e:down` to confirm ingest flows pass; leave the DefaultEmbeddingFunction warning untouched.
+8. [ ] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
 
 #### Testing
 
 1. [x] `npm run test --workspace server`
 2. [x] `npm run build --workspace server`
-3. [ ] `npm run e2e:up && npm run e2e:test && npm run e2e:down`
+3. [ ] `npm run e2e`
 
 #### Implementation notes
 

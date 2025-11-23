@@ -33,14 +33,9 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function toChatHistory(input: unknown) {
   try {
-    if (
-      input &&
-      typeof (input as { toChatHistory?: () => unknown }).toChatHistory ===
-        'function'
-    ) {
-      const history = (
-        input as { toChatHistory: () => unknown }
-      ).toChatHistory();
+    const candidate = input as { toChatHistory?: () => unknown };
+    if (candidate && typeof candidate.toChatHistory === 'function') {
+      const history = candidate.toChatHistory();
       if (Array.isArray(history)) {
         return history as Array<{ role?: string; content?: string }>;
       }

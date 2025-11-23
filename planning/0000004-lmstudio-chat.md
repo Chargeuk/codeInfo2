@@ -839,3 +839,56 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 - Ran full test/build chain: common build for new fixtures, server/client tests, workspace builds, compose build/up, e2e (all specs), and compose down.
 
 ---
+
+### 9. LM Studio 1.5 SDK compatibility (chat streaming)
+
+_(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
+
+- Task Status: __in_progress__
+- Git Commits: _to_do_
+
+#### Overview
+
+Fix the server chat integration to match the LM Studio TypeScript SDK 1.5.0 API (current docker runtime). The live stack throws `client.getModel is not a function` when calling `/chat` with real LM Studio, so we need to align client creation and method calls with the documented `act` flow and keep tests/mocks in sync.
+
+#### Documentation Locations
+
+- LM Studio ACT docs (SDK 1.5.0): https://lmstudio.ai/docs/typescript/agent/act
+- Existing server chat route and mock SDK: `server/src/routes/chat.ts`, `server/src/test/support/mockLmStudioSdk.ts`
+- Existing fixtures: `common/src/fixtures/chatStream.ts`
+- Current plan/design: design.md, README.md, projectStructure.md
+
+#### Subtasks
+
+1. [ ] In `server/src/routes/chat.ts`, replace `client.getModel(model)` with:
+   ```ts
+   const modelClient = await client.llm.model(model);
+   const prediction = await modelClient.act({ messages, tools, signal, allowParallelToolExecution: false });
+   ```
+   Keep AbortController wiring, logging, and streaming loop the same.
+2. [ ] Ensure the LM Studio client is constructed with the websocket base URL: `new LMStudioClient({ baseUrl: toWebSocketUrl(process.env.LMSTUDIO_BASE_URL) })`.
+3. [ ] Update the mock SDK at `server/src/test/support/mockLmStudioSdk.ts` to expose `llm.model(name)` returning an object with `act(...)` and `cancel`, keeping all existing scenarios (chat-fixture, chat-stream, chat-error, chat-tools, timeout, many).
+4. [ ] If any request/response shapes change, adjust shared fixtures in `common/src/fixtures/chatStream.ts` (model keys/types) and keep tool args/results redacted in logs.
+5. [ ] Update any Cucumber step helpers that touch the mock to use `llm.model(...)` but leave feature assertions unchanged.
+6. [ ] Update README.md and design.md to describe the corrected LM Studio call (`client.llm.model().act()`) and any new error text.
+7. [ ] Update projectStructure.md if files were added/renamed.
+8. [ ] Update Playwright chat e2e to fail when an assistant bubble has `data-kind="error"` (e.g., assert first assistant bubble has `data-kind="normal"` and zero error bubbles).
+9. [ ] Add or extend Cucumber coverage to exercise the new path (happy path + tool events) and update client RTL/e2e only if payload shapes changed.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run e2e:test`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Capture the exact SDK methods used (namespaces, model retrieval, act signature) and any compatibility shims needed for tests.
+
+---

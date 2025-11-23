@@ -94,20 +94,25 @@ test('chat streams end-to-end', async ({ page }) => {
   await input.fill('Hello from e2e turn one');
   await send.click();
 
-  await expect(assistantBubbles.first()).toHaveText(/.+/, { timeout: 20000 });
-  await expect(assistantBubbles.first()).toHaveAttribute('data-kind', 'normal');
-  await expect(errorBubbles).toHaveCount(0);
-  await expect(page.getByText(/Responding\.\.\./i)).not.toBeVisible({
-    timeout: 20000,
-  });
+  try {
+    await expect(assistantBubbles.first()).toHaveText(/.+/, { timeout: 20000 });
+    await expect(assistantBubbles.first()).toHaveAttribute(
+      'data-kind',
+      'normal',
+    );
+    await expect(errorBubbles).toHaveCount(0);
+    await expect(page.getByText(/Responding\.\.\./i)).not.toBeVisible({
+      timeout: 20000,
+    });
 
-  await input.fill('Second follow-up from e2e');
-  await send.click();
-  await expect(assistantBubbles.nth(1)).toHaveText(/.+/, { timeout: 20000 });
-  await expect(errorBubbles).toHaveCount(0);
-
-  await page.screenshot({
-    path: 'test-results/screenshots/0000004-9-chat.png',
-    fullPage: true,
-  });
+    await input.fill('Second follow-up from e2e');
+    await send.click();
+    await expect(assistantBubbles.nth(1)).toHaveText(/.+/, { timeout: 20000 });
+    await expect(errorBubbles).toHaveCount(0);
+  } finally {
+    await page.screenshot({
+      path: 'test-results/screenshots/0000004-9-chat.png',
+      fullPage: true,
+    });
+  }
 });

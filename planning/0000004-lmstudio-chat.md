@@ -943,6 +943,49 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 - E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtask 6 (projectStructure.md) remains open if structure changes occur later.
 
 ---
+
+### 12. Render LM Studio <think> content as collapsible bubble section
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Some LM Studio responses include `<think>` tags. We need to surface the main assistant reply normally while putting the `<think>` content into a collapsible section within the same assistant bubble so users can optionally expand it.
+
+#### Documentation Locations
+
+- LM Studio chat output format (inspect existing SSE payloads) and ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- Client chat stream hook: `client/src/hooks/useChatStream.ts`
+- Chat bubble render: `client/src/pages/ChatPage.tsx`
+- Tests: `client/src/test/chatPage.stream.test.tsx`, `e2e/chat.spec.ts`
+- Styles/components: MUI docs (@mui/material@7.2.0 via MCP)
+
+#### Subtasks
+
+1. [ ] Update `useChatStream.ts` to detect `<think>...</think>` segments in final/accumulated assistant content and split into `{visibleText, thinkText}`; keep streaming tokens intact and preserve existing tool logging.
+2. [ ] Extend chat message shape to carry optional `think` text without breaking existing renders or tests.
+3. [ ] Update `ChatPage.tsx` assistant bubble UI to show a collapsible/accordion section titled “Thought process” when `think` content exists; default collapsed; ensure keyboard accessibility and test ids for toggle and body.
+4. [ ] Add RTL tests (e.g., `chatPage.stream.test.tsx`) covering: no think → no toggle; with think → visible main reply plus collapsed toggle; expanding reveals think text and can collapse again.
+5. [ ] Update Playwright `e2e/chat.spec.ts` to assert the “Thought process” toggle is hidden when the model response has no think block and (if feasible via mock route) visible when provided.
+6. [ ] Refresh README.md and design.md to document the collapsible `<think>` handling and any accessibility notes; update projectStructure.md if files change.
+7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`; capture new screenshots if UI changes.
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] `npx playwright test e2e/chat.spec.ts`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (to be filled after implementation)
+
+---
 ### 11. Fix LM Studio chat tool definition
 
 - Task Status: __done__

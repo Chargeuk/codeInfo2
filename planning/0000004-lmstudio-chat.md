@@ -945,8 +945,8 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 ---
 ### 11. Fix LM Studio chat tool definition
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: edd7084, f0f3b66
 
 #### Overview
 
@@ -986,5 +986,6 @@ LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against r
 - Rewired `/chat` to register the noop tool with the SDK `tool()` helper (empty parameters) so LM Studio accepts it; removed unsafe casts and kept the existing callback-based streaming.
 - Tightened the mock LM Studio SDK to validate incoming tools and throw if `type` is missing, ensuring tests fail if we regress to an invalid tool shape.
 - Documentation now explicitly states the noop tool uses `tool()`; no project structure changes were required.
+- Full lint, format, server/client tests, builds, compose cycle, and the real LM Studio chat e2e now pass without error bubbles.
 
 ---

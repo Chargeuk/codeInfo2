@@ -89,7 +89,40 @@ class InMemoryCollection {
     };
   }
 
-  async delete({ where }: { where?: Record<string, unknown> } = {}) {
+  async delete({
+    where,
+    ids,
+  }: {
+    where?: Record<string, unknown>;
+    ids?: string[];
+  } = {}) {
+    if ((ids && ids.length) || (where && Object.keys(where).length)) {
+      const matchByWhere = (idx: number) => {
+        if (!where) return false;
+        const meta = this.metadatas[idx] ?? {};
+        return Object.entries(where).every(
+          ([key, value]) => (meta as Record<string, unknown>)[key] === value,
+        );
+      };
+
+      const matchById = (idx: number) => {
+        if (!ids || !ids.length) return false;
+        return ids.includes(this.ids[idx]);
+      };
+
+      const keep: number[] = [];
+      for (let i = 0; i < this.ids.length; i += 1) {
+        const matches = matchById(i) || matchByWhere(i);
+        if (!matches) keep.push(i);
+      }
+
+      this.ids = keep.map((i) => this.ids[i]);
+      this.documents = keep.map((i) => this.documents[i]);
+      this.embeddings = keep.map((i) => this.embeddings[i]);
+      this.metadatas = keep.map((i) => this.metadatas[i]);
+      return;
+    }
+
     if (!where || Object.keys(where).length === 0) {
       this.ids = [];
       this.documents = [];
@@ -97,20 +130,6 @@ class InMemoryCollection {
       this.metadatas = [];
       return;
     }
-
-    const keep: number[] = [];
-    for (let i = 0; i < this.ids.length; i += 1) {
-      const meta = this.metadatas[i] ?? {};
-      const matches = Object.entries(where).every(
-        ([key, value]) => (meta as Record<string, unknown>)[key] === value,
-      );
-      if (!matches) keep.push(i);
-    }
-
-    this.ids = keep.map((i) => this.ids[i]);
-    this.documents = keep.map((i) => this.documents[i]);
-    this.embeddings = keep.map((i) => this.embeddings[i]);
-    this.metadatas = keep.map((i) => this.metadatas[i]);
   }
 }
 
@@ -184,9 +203,51 @@ export async function clearLockedModel(): Promise<void> {
 export async function clearRootsCollection(where?: Record<string, unknown>) {
   const col = await getRootsCollection();
   const collection = col as unknown as {
-    delete: (opts?: { where?: Record<string, unknown> }) => Promise<void>;
+    delete: (opts?: {
+      where?: Record<string, unknown>;
+      ids?: string[];
+    }) => Promise<void>;
   };
   await collection.delete(where ? { where } : {});
+}
+
+export async function clearVectorsCollection(where?: Record<string, unknown>) {
+  const col = await getVectorsCollection();
+  const collection = col as unknown as {
+    delete: (opts?: {
+      where?: Record<string, unknown>;
+      ids?: string[];
+    }) => Promise<void>;
+  };
+  await collection.delete(where ? { where } : {});
+}
+
+export async function deleteVectors(where: {
+  where?: Record<string, unknown>;
+  ids?: string[];
+}) {
+  const col = await getVectorsCollection();
+  const collection = col as unknown as {
+    delete: (opts?: {
+      where?: Record<string, unknown>;
+      ids?: string[];
+    }) => Promise<void>;
+  };
+  await collection.delete(where);
+}
+
+export async function deleteRoots(where: {
+  where?: Record<string, unknown>;
+  ids?: string[];
+}) {
+  const col = await getRootsCollection();
+  const collection = col as unknown as {
+    delete: (opts?: {
+      where?: Record<string, unknown>;
+      ids?: string[];
+    }) => Promise<void>;
+  };
+  await collection.delete(where);
 }
 
 export async function collectionIsEmpty(): Promise<boolean> {

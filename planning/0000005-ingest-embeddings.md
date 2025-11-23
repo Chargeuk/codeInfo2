@@ -434,8 +434,8 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 #### Subtasks
 
-1. [ ] Subtask – Implement global single-flight lock in `server/src/ingest/lock.ts` with TTL safeguard (e.g., 30m) and clear on completion/error/cancel. Concurrent `POST /ingest/start` returns 429 `{ status:'error', code:'BUSY' }`.
-2. [ ] Subtask – `POST /ingest/cancel/:runId` (route `ingestCancel.ts`): set cancel flag in orchestrator, abort LM Studio calls if possible, stop enqueueing work, delete vectors tagged with `runId`, update `ingest_roots` status to `cancelled`, respond `{ status:'ok', cleanup:'complete'|'pending' }`. Curl example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`; expected log line in server log mentioning runId and cleanup status.
+1. [x] Subtask – Implement global single-flight lock in `server/src/ingest/lock.ts` with TTL safeguard (e.g., 30m) and clear on completion/error/cancel. Concurrent `POST /ingest/start` returns 429 `{ status:'error', code:'BUSY' }`.
+2. [x] Subtask – `POST /ingest/cancel/:runId` (route `ingestCancel.ts`): set cancel flag in orchestrator, abort LM Studio calls if possible, stop enqueueing work, delete vectors tagged with `runId`, update `ingest_roots` status to `cancelled`, respond `{ status:'ok', cleanup:'complete'|'pending' }`. Curl example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`; expected log line in server log mentioning runId and cleanup status.
    Handler skeleton:
    ```ts
    router.post('/ingest/cancel/:runId', async (req, res) => {
@@ -443,7 +443,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
      res.json({ status: 'ok', cleanup: result.cleanupState });
    });
    ```
-3. [ ] Subtask – `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `{ runId }`. Enforce model lock; reject if another ingest active. Curl example: `curl -X POST http://localhost:5010/ingest/reembed/my-root`.
+3. [x] Subtask – `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `{ runId }`. Enforce model lock; reject if another ingest active. Curl example: `curl -X POST http://localhost:5010/ingest/reembed/my-root`.
    ```ts
    router.post('/ingest/reembed/:root', async (req, res) => {
      if (lock.isHeld()) return res.status(429).json({ status:'error', code:'BUSY' });
@@ -456,19 +456,19 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
      await vectors.delete({ where: { repo: root } });
      await vectors.query({ queryTexts: ["updated"], where: { repo: root }, nResults: 10 });
      ```
-4. [ ] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
+4. [x] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
    ```ts
    router.post('/ingest/remove/:root', async (req, res) => {
      const unlocked = await orchestrator.removeRoot(req.params.root);
      res.json({ status: 'ok', unlocked });
    });
    ```
-5. [ ] Subtask – Update orchestrator to tag all writes with `runId` and `root` to support purge/cancel; ensure cancel cleans partial vectors. Add log entries for start, cancel, cleanup result.
-6. [ ] Subtask – Cucumber features: `ingest-cancel.feature`, `ingest-reembed.feature`, `ingest-remove.feature` using Testcontainers Chroma + mocked LM Studio. Assertions: lock prevents concurrent start, cancel removes runId vectors, reembed updates changed file only, remove clears root and unlocks model when empty. Include step asserting server log contains cleanup note.
-7. [ ] Subtask – README.md: add endpoint contract tables with request/response JSON examples for cancel/re-embed/remove; note single-flight and model lock interactions; include sample curl commands above.
-8. [ ] Subtask – design.md: add flow diagrams for cancel and re-embed/remove; include same example payloads; describe unlock condition when collection empty.
-9. [ ] Subtask – projectStructure.md: add new route/lock modules and test features.
-10. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect clean).
+5. [x] Subtask – Update orchestrator to tag all writes with `runId` and `root` to support purge/cancel; ensure cancel cleans partial vectors. Add log entries for start, cancel, cleanup result.
+6. [x] Subtask – Cucumber features: `ingest-cancel.feature`, `ingest-reembed.feature`, `ingest-remove.feature` using Testcontainers Chroma + mocked LM Studio. Assertions: lock prevents concurrent start, cancel removes runId vectors, reembed updates changed file only, remove clears root and unlocks model when empty. Include step asserting server log contains cleanup note.
+7. [x] Subtask – README.md: add endpoint contract tables with request/response JSON examples for cancel/re-embed/remove; note single-flight and model lock interactions; include sample curl commands above.
+8. [x] Subtask – design.md: add flow diagrams for cancel and re-embed/remove; include same example payloads; describe unlock condition when collection empty.
+9. [x] Subtask – projectStructure.md: add new route/lock modules and test features.
+10. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect clean).
 
 #### Testing
 
@@ -483,6 +483,9 @@ Prereqs: Chroma reachable; LM Studio mocked; ensure no other ingest run active. 
 #### Implementation notes
 
 - Log cancellation outcome and cleanup success/failure; track dirty runs if purge partial.
+- Added TTL single-flight lock with cancel-aware release, cancel/re-embed/remove routes, and orchestrator support (cancel flag, vector/root purge, lock reset on empty).
+- Extended Chroma in-memory stub with get/delete filtering, vectors clearing helper, and ensured roots are written for cancel/re-embed flows.
+- New Cucumber coverage for cancel/re-embed/remove using LM Studio mock + in-memory Chroma; steps now reset vectors/lock per scenario and poll roots where needed.
 
 ---
 

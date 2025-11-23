@@ -118,6 +118,13 @@ npm install
   ```
 - Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
 
+### Ingest cancel / re-embed / remove
+
+- POST `/ingest/cancel/{runId}` cancels the active ingest run, purges any partial vectors tagged with the runId, updates the roots entry to `cancelled`, and responds `{ "status": "ok", "cleanup": "complete" }`. Example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`.
+- POST `/ingest/reembed/{root}` re-runs ingest for the stored root path (deletes existing vectors/metadata for that root first). Respects the existing model lock and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
+- POST `/ingest/remove/{root}` deletes vectors and root metadata for the given root; if the vectors collection becomes empty, the locked model is cleared. Responds `{ status: 'ok', unlocked: boolean }`.
+- Single-flight: concurrent ingest/re-embed/remove requests return `429 {code:'BUSY'}` while a run is active. Cancel is allowed to break an active run; the lock is released after cancellation completes.
+
 ### Ingest roots listing
 
 - GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order along with the current model lock:

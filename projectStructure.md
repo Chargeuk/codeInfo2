@@ -118,6 +118,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
 â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
+â”‚     â”‚  â”œâ”€ ingestCancel.ts — POST /ingest/cancel/:runId cancels active ingest and cleans vectors
+â”‚     â”‚  â”œâ”€ ingestReembed.ts — POST /ingest/reembed/:root re-runs ingest for a stored root
+â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -126,6 +129,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ __tests__/discovery.test.ts â€” discovery include/exclude and git-tracked coverage
 â”‚     â”‚  â”œâ”€ __tests__/hashing.test.ts â€” deterministic hashing coverage
 â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
+â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL
 â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
 â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
@@ -143,6 +147,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - lmstudio.feature - LM Studio proxy scenarios
         - ingest-models.feature - embedding models endpoint scenarios
         - ingest-roots.feature - ingest roots listing endpoint scenarios
+        - ingest-cancel.feature - cancel active ingest scenarios
+        - ingest-reembed.feature - re-embed scenarios
+        - ingest-remove.feature - remove root scenarios
 steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
@@ -151,6 +158,7 @@ steps/
         - lmstudio.steps.ts - step defs for LM Studio feature
         - ingest-models.steps.ts - step defs for ingest models endpoint
         - ingest-roots.steps.ts - step defs for ingest roots endpoint
+        - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
 support/
 â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
 â”œâ”€ .husky/ â€” git hooks managed by Husky

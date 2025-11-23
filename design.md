@@ -208,6 +208,13 @@ sequenceDiagram
   }
   ```
 - Sorting happens server-side so the client can render the newest ingest first; empty collections return `roots: []` with `lockedModelId` unchanged.
+
+### Ingest cancel / re-embed / remove flows
+
+- Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
+- Re-embed: `POST /ingest/reembed/:root` deletes existing vectors/metadata for the root, then starts a new ingest using the stored model/name/description. Returns `202 {runId}` or `404` if the root is unknown; respects the existing model lock and single-flight guard.
+- Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
+- Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
 
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.

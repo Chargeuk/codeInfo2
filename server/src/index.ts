@@ -5,6 +5,8 @@ import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { createRequestLogger } from './logger.js';
+import { createChatRouter } from './routes/chat.js';
+import { createChatModelsRouter } from './routes/chatModels.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
 
@@ -36,6 +38,8 @@ app.get('/info', (_req, res) => {
 });
 
 app.use('/logs', createLogsRouter());
+app.use('/chat', createChatRouter({ clientFactory }));
+app.use('/chat', createChatModelsRouter({ clientFactory }));
 app.use('/', createLmStudioRouter({ clientFactory }));
 
 app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));

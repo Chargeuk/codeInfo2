@@ -36,6 +36,9 @@ npm install
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end.
+- **Chat page:** open `/chat` to chat with LM Studio via the server `/chat` streaming proxy. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is streaming. Messages render newest-first near the controls with distinct user/assistant bubbles, streaming tokens accumulate into a single assistant bubble, and failures surface as inline error bubbles with retry guidance. Tool lifecycle events stay out of the transcript but are logged to the server log store so the Logs page can surface them. A **Stop** button appears while streaming to cancel generation (responses may truncate) and adds a status bubble; a **New conversation** button aborts any in-flight response, clears the transcript, keeps the currently selected model, and refocuses the input. Chat history is in-memory only; reloading or leaving the page resets the conversation.
+- Assistant replies that include `<think>...</think>` render the visible reply normally and tuck the think content into a collapsible “Thought process” section inside the same bubble.
+- Server chat proxy uses LM Studio SDK 1.5 via `client.llm.model(<key>).act(...)` with a noop tool built using the SDK `tool()` helper (no parameters) and AbortController so cancellation works; it now builds a `Chat.from(messages)` history so the model sees the full conversation per request. LM Studio base URL comes from `LMSTUDIO_BASE_URL` and is converted to ws/wss for the SDK.
 - **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
 
@@ -115,6 +118,24 @@ npm install
 - Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
 - Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
 
+### Chat models (LM Studio)
+
+- Endpoint: `GET /chat/models` (uses `LMSTUDIO_BASE_URL`; no query parameters). Returns `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]` shaped items.
+- Failure: if LM Studio is unreachable/invalid, responds `503 { "error": "lmstudio unavailable" }`.
+- The chat UI selects the first item by default when no model is chosen; callers should treat an empty array as “no models available”.
+- Logging: start/success/failure log entries include the base URL origin and model count on success; errors log the sanitized origin only.
+
+### Chat streaming
+
+- Endpoint: `POST /chat` (uses `LMSTUDIO_BASE_URL`). Body: `{ "model": "<key>", "messages": [ { "role": "user", "content": "hello" } ] }` (see `@codeinfo2/common chatRequestFixture`).
+- Response streams `text/event-stream` frames: token `{"type":"token","content":"Hi","roundIndex":0}`, tool lifecycle `{"type":"tool-request|tool-result", ...}` (arguments/results redacted in logs), final message `{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}`, `{"type":"complete"}` on finish, `{"type":"error","message":"lmstudio unavailable"}` on failure.
+- The noop tool is constructed with the LM Studio SDK `tool()` helper (empty `parameters`) so the SDK accepts it as a function tool; invalid tool shapes previously triggered `Unhandled type: undefined`.
+- Example: `curl -N -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"model":"llama-3","messages":[{"role":"user","content":"hello"}]}'`.
+- Logging: server records start/complete/error plus tool lifecycle metadata (name/callId only, no args/results) with the base URL origin and model; payloads respect `LOG_MAX_CLIENT_BYTES`.
+- Tool lifecycle entries are pushed into the server log buffer (visible on `/logs`/Logs page) but are not rendered in the chat transcript; the client still logs the metadata for observability.
+- Cancellation: if the client disconnects/aborts, the server calls `cancel()` on the LM Studio prediction via an `AbortController`, stops streaming immediately, and logs `{ reason: "client_disconnect" }`.
+- Persistence: chat sessions are ephemeral; navigating away or using **New conversation** resets the transcript while keeping the selected model.
+
 ## Docker Compose
 
 - Build both images: `npm run compose:build`
@@ -130,6 +151,7 @@ npm install
 - Start stack: `npm run e2e:up`
 - Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
 - LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
+- Chat spec (`e2e/chat.spec.ts`) covers model selection plus a two-turn streaming conversation; it skips automatically if `/chat/models` is unreachable or empty.
 - Full flow: `npm run e2e`
 - Shut down after tests: `npm run e2e:down`
 

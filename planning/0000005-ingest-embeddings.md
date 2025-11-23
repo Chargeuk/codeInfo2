@@ -548,7 +548,7 @@ Prereqs: server endpoints available or mocked; set `VITE_API_URL` to server. Exp
 
 ### 7. Client – Active run card and status polling
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

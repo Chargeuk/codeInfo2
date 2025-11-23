@@ -66,8 +66,8 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ### 1. Server – Ingest discovery, chunking, and hashing
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 336c678, 4fa3092, __to_update_with_latest__
 
 #### Overview
 
@@ -129,7 +129,7 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
    export * from './config';
    export * from './types';
    ```
-7. [ ] Subtask – Tests: add `server/src/ingest/__tests__/discovery.test.ts`, `chunker.test.ts`, `hashing.test.ts`. Cover git-tracked filter (mock git), hard exclude precedence, env override/extend, text detection, boundary-first splits, fallback slicing, hash determinism. Use fixtures under `server/src/ingest/__fixtures__` (create small sample files with obvious boundaries).
+7. [x] Subtask – Tests: add `server/src/ingest/__tests__/discovery.test.ts`, `chunker.test.ts`, `hashing.test.ts`. Cover git-tracked filter (mock git), hard exclude precedence, env override/extend, text detection, boundary-first splits, fallback slicing, hash determinism. Use fixtures under `server/src/ingest/__fixtures__` (create small sample files with obvious boundaries).
    Test skeleton example:
    ```ts
    describe('discoverFiles', () => {
@@ -142,18 +142,18 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
      });
    });
    ```
-8. [ ] Subtask – Update `projectStructure.md` with new ingest modules and fixture folder.
-9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if failures, rerun `npm run lint:fix --workspaces` / `npm run format --workspaces` and resolve. Expected result: both commands exit 0.
+8. [x] Subtask – Update `projectStructure.md` with new ingest modules and fixture folder.
+9. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if failures, rerun `npm run lint:fix --workspaces` / `npm run format --workspaces` and resolve. Expected result: both commands exit 0.
 
 #### Testing
 
 Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Expected: builds succeed, tests green, compose stack starts then stops cleanly.
 
-1. [ ] `npm run build --workspace server` (should succeed)
-2. [ ] `npm run test --workspace server` (unit tests pass)
-3. [ ] `npm run compose:build` (images build)
-4. [ ] `npm run compose:up` (both services healthy; stop after verifying)
-5. [ ] `npm run compose:down` (stack stops without errors)
+1. [x] `npm run build --workspace server` (should succeed)
+2. [x] `npm run test --workspace server` (unit tests pass)
+3. [x] `npm run compose:build` (images build)
+4. [x] `npm run compose:up` (both services healthy; stop after verifying)
+5. [x] `npm run compose:down` (stack stops without errors)
 
 #### Implementation notes
 

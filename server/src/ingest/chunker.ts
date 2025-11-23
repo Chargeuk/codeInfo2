@@ -46,16 +46,15 @@ async function sliceToFit(
   let remaining = text;
   while (remaining.length > 0) {
     let candidate = remaining;
-    const tokens = await count(model, candidate);
-    if (tokens <= maxTokens) {
-      slices.push(candidate);
-      break;
+    let tokens = await count(model, candidate);
+    while (tokens > maxTokens && candidate.length > 1) {
+      const ratio = Math.max(0.3, maxTokens / Math.max(tokens, 1));
+      const cut = Math.max(1, Math.floor(candidate.length * ratio));
+      candidate = candidate.slice(0, cut);
+      tokens = await count(model, candidate);
     }
-    const ratio = Math.max(0.5, (maxTokens * 0.75) / tokens);
-    const cut = Math.max(1, Math.floor(candidate.length * ratio));
-    candidate = candidate.slice(0, cut);
     slices.push(candidate);
-    remaining = remaining.slice(cut);
+    remaining = remaining.slice(candidate.length);
   }
   return slices.filter(Boolean);
 }

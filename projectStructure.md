@@ -118,6 +118,17 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
+â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
+â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
+â”‚     â”‚  â”œâ”€ __tests__/chunker.test.ts â€” chunking behaviour and slicing coverage
+â”‚     â”‚  â”œâ”€ __tests__/discovery.test.ts â€” discovery include/exclude and git-tracked coverage
+â”‚     â”‚  â”œâ”€ __tests__/hashing.test.ts â€” deterministic hashing coverage
+â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
+â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
+â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
+â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
+â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
+â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/

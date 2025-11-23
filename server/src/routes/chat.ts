@@ -175,7 +175,10 @@ export function createChatRouter({
         );
       };
 
-      const actOptions: Partial<LLMActionOpts> & { signal?: AbortSignal } = {
+      const actOptions: LLMActionOpts & { signal?: AbortSignal } & Record<
+          string,
+          unknown
+        > = {
         allowParallelToolExecution: false,
         // Extra field used by mocks; ignored by real SDK.
         signal: controller.signal,
@@ -192,14 +195,16 @@ export function createChatRouter({
             roundIndex: fragment.roundIndex ?? currentRound,
           });
         },
-        onMessage: (message: { role?: string; content?: string }) => {
+        onMessage: (message) => {
+          const msg = message as { role?: unknown; content?: unknown };
           if (
-            typeof message?.role === 'string' &&
-            typeof message?.content === 'string'
+            msg &&
+            typeof msg.role === 'string' &&
+            typeof msg.content === 'string'
           ) {
             chat.append(
-              message.role as 'assistant' | 'user' | 'system',
-              message.content,
+              msg.role as 'assistant' | 'user' | 'system',
+              msg.content,
             );
           }
           writeIfOpen({

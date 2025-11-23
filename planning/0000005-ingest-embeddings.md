@@ -67,7 +67,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 ### 1. Server – Ingest discovery, chunking, and hashing
 
 - Task Status: __done__
-- Git Commits: 336c678, 4fa3092, __to_update_with_latest__
+- Git Commits: 336c678, 4fa3092, dbf0795
 
 #### Overview
 

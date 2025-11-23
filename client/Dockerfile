@@ -1,6 +1,10 @@
 FROM node:22-slim AS build
 WORKDIR /app
 ENV HUSKY=0
+ARG VITE_API_URL
+ARG VITE_LMSTUDIO_URL
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_LMSTUDIO_URL=${VITE_LMSTUDIO_URL}
 COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/

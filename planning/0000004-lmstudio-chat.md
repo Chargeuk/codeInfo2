@@ -947,7 +947,7 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 ### 12. Render LM Studio <think> content as collapsible bubble section
 
 - Task Status: __done__
-- Git Commits: 848554c
+- Git Commits: 848554c, 43071db
 
 #### Overview
 

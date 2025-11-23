@@ -757,8 +757,10 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 1. [ ] Add `express.json()` middleware in `server/src/index.ts` before route registration so `/ingest/start` receives parsed bodies.
 2. [ ] Change Chroma collection initialization to avoid `lockedModelId: null`; omit the key until set, and adjust `getLockedModel/setLockedModel/clearLockedModel` to handle undefined/empty string safely.
 3. [ ] Add a small cleanup/reset step for e2e to drop existing Chroma collections or volume so stale metadata doesn’t persist (document command in README/design or e2e notes).
-4. [ ] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
-5. [ ] Rerun `npm run e2e:up && npm run e2e:test && npm run e2e:down` to confirm ingest flows pass; leave the DefaultEmbeddingFunction warning untouched.
+4. [ ] Add Cucumber coverage for body parsing: create `server/src/test/features/ingest-start-body.feature` and steps `server/src/test/steps/ingest-start-body.steps.ts` that spin up the app with LM Studio mock + Chroma testcontainer, POST `/ingest/start` with JSON `{path:'/fixtures/repo',name:'repo',model:'embed-1',dryRun:true}`, and assert 202 + `runId` present (guards against 400 VALIDATION when body isn’t parsed).
+5. [ ] Add Cucumber coverage for Chroma metadata: create `server/src/test/features/ingest-roots-metadata.feature` and steps `server/src/test/steps/ingest-roots-metadata.steps.ts` that start with a clean Chroma volume, hit `/ingest/roots`, and assert 200 with `roots: []` and `lockedModelId` null/undefined (guards against 502 from `lockedModelId: null` metadata); reuse existing testcontainer setup/LM Studio mock.
+6. [ ] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
+7. [ ] Rerun `npm run e2e:up && npm run e2e:test && npm run e2e:down` to confirm ingest flows pass; leave the DefaultEmbeddingFunction warning untouched.
 
 #### Testing
 

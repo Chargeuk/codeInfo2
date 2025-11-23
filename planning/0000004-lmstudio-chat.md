@@ -900,8 +900,8 @@ Fix the server chat integration to match the LM Studio TypeScript SDK 1.5.0 API 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: _to_do_
+ - Task Status: __in_progress__
+- Git Commits: ab6ce70, dc06840
 
 #### Overview
 

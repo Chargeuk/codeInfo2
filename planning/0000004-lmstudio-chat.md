@@ -744,7 +744,7 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: _to_do_
 
 #### Overview

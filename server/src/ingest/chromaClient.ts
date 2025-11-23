@@ -152,15 +152,12 @@ export async function getVectorsCollection(): Promise<Collection> {
   if (!c) {
     const existing = memoryCollections.get(COLLECTION_VECTORS);
     if (existing) return existing as unknown as Collection;
-    const created = new InMemoryCollection(COLLECTION_VECTORS, {
-      lockedModelId: null,
-    });
+    const created = new InMemoryCollection(COLLECTION_VECTORS);
     memoryCollections.set(COLLECTION_VECTORS, created);
     return created as unknown as Collection;
   }
   vectorsCollection = await c.getOrCreateCollection({
     name: COLLECTION_VECTORS,
-    metadata: { lockedModelId: null },
   });
   return vectorsCollection;
 }
@@ -185,7 +182,7 @@ export async function getLockedModel(): Promise<string | null> {
   const col = await getVectorsCollection();
   const metadata = (col as { metadata?: Record<string, unknown> }).metadata;
   if (metadata && typeof metadata.lockedModelId === 'string') {
-    return metadata.lockedModelId;
+    return metadata.lockedModelId || null;
   }
   return null;
 }
@@ -197,7 +194,7 @@ export async function setLockedModel(modelId: string): Promise<void> {
 
 export async function clearLockedModel(): Promise<void> {
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
-  await col.modify({ metadata: { lockedModelId: null } });
+  await col.modify({ metadata: {} });
 }
 
 export async function clearRootsCollection(where?: Record<string, unknown>) {

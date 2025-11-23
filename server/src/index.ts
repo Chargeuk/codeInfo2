@@ -19,6 +19,7 @@ import { createLogsRouter } from './routes/logs.js';
 config();
 const app = express();
 app.use(cors());
+app.use(express.json());
 app.use(createRequestLogger());
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;

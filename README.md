@@ -47,6 +47,7 @@ npm install
 ### End-to-end (Playwright)
 
 - Primary stack: `npm run e2e` uses the dedicated `docker-compose.e2e.yml` (isolated Chroma volume, fixture mount at `/fixtures`) with ports client 6001 / server 6010 / chroma 8800. Individual steps: `npm run compose:e2e:build`, `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down`.
+- Reset the e2e Chroma volume if metadata becomes corrupted (e.g., after schema tweaks): `docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v`.
 - Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`.
 
 ## Root commands

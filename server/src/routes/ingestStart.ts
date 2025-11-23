@@ -17,6 +17,11 @@ export function createIngestStartRouter({
     }
 
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const wsBaseUrl = baseUrl.startsWith('http://')
+      ? baseUrl.replace(/^http:/i, 'ws:')
+      : baseUrl.startsWith('https://')
+        ? baseUrl.replace(/^https:/i, 'wss:')
+        : baseUrl;
 
     try {
       const locked = await getLockedModel();
@@ -33,7 +38,7 @@ export function createIngestStartRouter({
       }
       const runId = await startIngest(
         { path, name, description, model, dryRun },
-        { lmClientFactory: clientFactory, baseUrl },
+        { lmClientFactory: clientFactory, baseUrl: wsBaseUrl },
       );
       return res.status(202).json({ runId });
     } catch (err) {

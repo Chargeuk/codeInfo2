@@ -209,3 +209,7 @@ support/
   - server/src/ingest/ingestJob.ts — ingest orchestrator, status tracking, embedding flow
   - server/src/test/features/ingest-start.feature — ingest start/status scenarios
   - server/src/test/steps/ingest-start.steps.ts — step defs for ingest start/status
+  - server/src/test/features/ingest-start-body.feature — ingest start accepts JSON body
+  - server/src/test/features/ingest-roots-metadata.feature — roots endpoint ok without null metadata
+  - server/src/test/steps/ingest-start-body.steps.ts — step defs for JSON body ingest start
+  - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata

@@ -491,8 +491,8 @@ Prereqs: Chroma reachable; LM Studio mocked; ensure no other ingest run active. 
 
 ### 6. Client – Ingest form & model lock (depends on NavBar after chat merge)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 17373ae
 
 #### Overview
 

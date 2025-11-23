@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: 'e2e',
   reporter: 'list',
   use: {
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    screenshot: 'on',
+    trace: 'on',
     video: 'off',
   },
 });

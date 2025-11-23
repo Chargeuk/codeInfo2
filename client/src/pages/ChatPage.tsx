@@ -28,11 +28,14 @@ export default function ChatPage() {
     isEmpty,
     refresh,
   } = useChatModel();
-  const { messages, status, send, stop, reset } = useChatStream(selected);
+  const { messages, status, isStreaming, send, stop, reset } =
+    useChatStream(selected);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const lastSentRef = useRef('');
   const [input, setInput] = useState('');
   const controlsDisabled = isLoading || isError || isEmpty || !selected;
-  const isSending = status === 'sending';
+  const isSending = isStreaming || status === 'sending';
+  const showStop = isSending;
 
   const orderedMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
@@ -54,14 +57,22 @@ export default function ChatPage() {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || controlsDisabled) return;
+    lastSentRef.current = trimmed;
     void send(trimmed);
     setInput('');
+  };
+
+  const handleStop = () => {
+    stop({ showStatusBubble: true });
+    setInput(lastSentRef.current);
+    inputRef.current?.focus();
   };
 
   const handleNewConversation = () => {
     stop();
     reset();
     setInput('');
+    lastSentRef.current = '';
     inputRef.current?.focus();
   };
 
@@ -132,6 +143,17 @@ export default function ChatPage() {
             >
               Send
             </Button>
+            {showStop && (
+              <Button
+                type="button"
+                variant="outlined"
+                color="warning"
+                onClick={handleStop}
+                data-testid="chat-stop"
+              >
+                Stop
+              </Button>
+            )}
             <Button
               type="button"
               variant="outlined"
@@ -182,6 +204,8 @@ export default function ChatPage() {
                 const alignSelf =
                   message.role === 'user' ? 'flex-end' : 'flex-start';
                 const isErrorBubble = message.kind === 'error';
+                const isStatusBubble = message.kind === 'status';
+                const isUser = message.role === 'user';
                 return (
                   <Stack
                     key={message.id}
@@ -201,15 +225,23 @@ export default function ChatPage() {
                           p: 1.5,
                           bgcolor: isErrorBubble
                             ? 'error.light'
-                            : message.role === 'user'
-                              ? 'primary.main'
-                              : 'background.paper',
+                            : isStatusBubble
+                              ? 'info.light'
+                              : isUser
+                                ? 'primary.main'
+                                : 'background.paper',
                           color: isErrorBubble
                             ? 'error.contrastText'
-                            : message.role === 'user'
-                              ? 'primary.contrastText'
-                              : 'text.primary',
-                          borderColor: isErrorBubble ? 'error.main' : undefined,
+                            : isStatusBubble
+                              ? 'info.dark'
+                              : isUser
+                                ? 'primary.contrastText'
+                                : 'text.primary',
+                          borderColor: isErrorBubble
+                            ? 'error.main'
+                            : isStatusBubble
+                              ? 'info.main'
+                              : undefined,
                         }}
                       >
                         <Typography variant="body2">

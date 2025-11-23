@@ -196,10 +196,33 @@ sequenceDiagram
   alt LM Studio error
     Server-->>Client: SSE {type:"error", message}
   end
-  alt Client disconnects
-    Server->>LM: cancel prediction via AbortController/ongoing.cancel()
-    Server-->>Client: SSE stream ends without final/complete
-  end
+    alt Client disconnects
+      Server->>LM: cancel prediction via AbortController/ongoing.cancel()
+      Server-->>Client: SSE stream ends without final/complete
+    end
+  ```
+
+### Stop control
+
+- ChatPage shows a **Stop** button only while `status === "sending"`; it calls `stop({ showStatusBubble: true })` in `useChatStream`, which aborts the fetch `AbortController`, sets status back to `idle`, and appends a status bubble reading "Generation stopped" (responses may truncate).
+- Aborting bubbles through to the server via the closed HTTP stream, triggering the LM Studio `OngoingPrediction.cancel()` path described above and logging `{ reason: "client_disconnect" }`.
+- Send remains disabled while streaming; once stop fires, Send re-enables and focus returns to the message field for a follow-up prompt.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Chat as ChatPage
+  participant Hook as useChatStream
+  participant Server
+  participant LM as LM Studio
+
+  User->>Chat: click Stop
+  Chat->>Hook: stop(showStatusBubble=true)
+  Hook->>Hook: AbortController.abort()
+  Hook-->>Chat: status bubble "Generation stopped"; status=idle
+  Hook-->>Server: HTTP stream closes/aborts
+  Server->>LM: cancel ongoing prediction
+  Server-->>Server: log {reason:"client_disconnect"}
 ```
 
 ## End-to-end validation

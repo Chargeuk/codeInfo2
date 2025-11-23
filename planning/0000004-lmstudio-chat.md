@@ -1,12 +1,12 @@
-# Story 0000004 – LM Studio Chat UI
+﻿# Story 0000004 â€“ LM Studio Chat UI
 
 ## Description
 
-Add a new client page that lets a user chat with an LLM running in LM Studio using the existing LM Studio JS API, via a server POST/streaming proxy. The chat session is ephemeral: each visit starts a fresh conversation, and no history is stored or retrieved from the server. The UI should invert the usual layout: input and model selector sit at the top, while older messages appear lower on the page. Chat bubbles must distinguish roles (LLM on the left, user on the right) and show streaming/complete responses. The chat loop should be structured so that future stories can plug in multiple tools via the LM Studio agent ACT pattern; for this story, wire a no-op dummy tool to prove the loop is tool-capable without performing actions. Users can carry on a full conversation during a session, but navigating away (or pressing a “New conversation” button) resets to a fresh, empty conversation.
+Add a new client page that lets a user chat with an LLM running in LM Studio using the existing LM Studio JS API, via a server POST/streaming proxy. The chat session is ephemeral: each visit starts a fresh conversation, and no history is stored or retrieved from the server. The UI should invert the usual layout: input and model selector sit at the top, while older messages appear lower on the page. Chat bubbles must distinguish roles (LLM on the left, user on the right) and show streaming/complete responses. The chat loop should be structured so that future stories can plug in multiple tools via the LM Studio agent ACT pattern; for this story, wire a no-op dummy tool to prove the loop is tool-capable without performing actions. Users can carry on a full conversation during a session, but navigating away (or pressing a â€œNew conversationâ€ button) resets to a fresh, empty conversation.
 
-Here’s the streaming approach we’ll use:
+Hereâ€™s the streaming approach weâ€™ll use:
 
-- **Server proxy:** Add a `/chat` POST that accepts the selected model + user message and immediately starts a streaming response. We’ll call `model.act()` from `@lmstudio/sdk`; it returns an `OngoingPrediction` that is both a Promise and an async iterable, so we can `for await` each event/token as it arrives.
+- **Server proxy:** Add a `/chat` POST that accepts the selected model + user message and immediately starts a streaming response. Weâ€™ll call `model.act()` from `@lmstudio/sdk`; it returns an `OngoingPrediction` that is both a Promise and an async iterable, so we can `for await` each event/token as it arrives.
   - Use a single-step POST that returns `text/event-stream` directly (simplest path); client will consume via `fetch` + `ReadableStream` instead of a GET/EventSource pair.
 - **Transport to client:** The server will keep the HTTP connection open and emit Server-Sent Events (`text/event-stream`) with small payloads: `data: { type: "token" | "tool" | "final", content }`. This lets us surface multiple tool-response cycles that `.act()` may produce before the final answer.
 - **Client consumption:** The chat page opens an `EventSource` (or fetch with `ReadableStream`) right after the POST is accepted, rendering each `token` chunk into the LLM bubble. When a `final` event arrives, we mark the turn complete and re-enable the send button.
@@ -14,8 +14,8 @@ Here’s the streaming approach we’ll use:
 - **Model list + default:** Dropdown populated from LM Studio model list; first entry is selected by default for the session.
 - **Dummy tool hook:** Register a no-op tool in the `.act()` call so the stream can include tool phases; client just displays the tool stage metadata.
 - **Event mapping (from `.act()` callbacks):**
-  - `onPredictionFragment` → emit `token` events shaped `data: { type: "token", content, roundIndex }` for incremental text.
-  - `onMessage` → emit `final` events with the full `ChatMessage` (`role`, `content`, `roundIndex`) and mark the turn done.
+  - `onPredictionFragment` â†’ emit `token` events shaped `data: { type: "token", content, roundIndex }` for incremental text.
+  - `onMessage` â†’ emit `final` events with the full `ChatMessage` (`role`, `content`, `roundIndex`) and mark the turn done.
   - Tool lifecycle: map `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` to `tool-request` events carrying `callId`, `roundIndex`, `name`, and argument fragments; map `onToolCallResult` to `tool-result` with `result` payload; default execution is sequential (`allowParallelToolExecution` false).
   - Optional completion/heartbeat: when the async iterable ends, send a terminating `data: { type: "complete" }` or close the SSE stream; errors emit `data: { type: "error", message }` and close the connection so the client can re-enable input.
   - Tool events stay out of the chat transcript for now but must still be logged (content omitted/redacted) so operators can see tool activity via the Logs page.
@@ -23,17 +23,17 @@ Here’s the streaming approach we’ll use:
 ### Acceptance Criteria
 
 - A new routed page (e.g., `/chat`) accessible from the NavBar provides a chat interface to LM Studio models via the LM Studio JS API through a server proxy.
-- Model selection is available at the top of the page via a dropdown populated from LM Studio’s model list; the first model in the list becomes the default selection.
+- Model selection is available at the top of the page via a dropdown populated from LM Studioâ€™s model list; the first model in the list becomes the default selection.
   - Model list is served from a new dedicated server endpoint `/chat/models` (decoupled from `/lmstudio/status`).
 - Input box sits at the top of the page; messages render in chronological order downward, with newest just under the input. Chat bubbles: LLM on the left, user on the right, visually distinct.
 - Chat loop supports the LM Studio ACT/agent pattern with a registered dummy tool; hooks are structured so multiple tools can be added later without restructuring the page. Dummy tool is invoked/no-op to validate plumbing.
-- Messages stream/render incrementally from the server proxy (or show a visible “responding” state) until completion; errors are surfaced inline with retry guidance. Server uses LM Studio `.act()` to support multiple tool-capable responses per request.
+- Messages stream/render incrementally from the server proxy (or show a visible â€œrespondingâ€ state) until completion; errors are surfaced inline with retry guidance. Server uses LM Studio `.act()` to support multiple tool-capable responses per request.
 - Sending is disabled while a response is in flight to prevent concurrent requests.
 - No temperature/max-tokens controls in this story.
 - No persistence: navigating away and back resets the conversation; page copy or banner states this limitation.
-- “New conversation” control clears transcript/state and starts a fresh session without reload.
+- â€œNew conversationâ€ control clears transcript/state and starts a fresh session without reload.
 - Basic accessibility: input labelled, dropdown labelled, bubbles readable with sufficient contrast, focus management keeps cursor in the input after send/response.
-- A “Stop generating” control is available to cancel the in-flight stream when possible; cancellation re-enables the input.
+- A â€œStop generatingâ€ control is available to cancel the in-flight stream when possible; cancellation re-enables the input.
 - Errors surface as chat bubbles within the transcript (not just banners/toasts).
 
 ### Out Of Scope
@@ -59,8 +59,8 @@ Here’s the streaming approach we’ll use:
 7. Once a test is complete, mark its checkbox.
 8. After tests pass, perform every documentation update listed for the task.
 9. Once a document is updated, mark its checkbox.
-10. When all subtasks, tests, documentation updates, and verification commands are complete, consider the task finished and follow points 11–13 below.
-11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
+10. When all subtasks, tests, documentation updates, and verification commands are complete, consider the task finished and follow points 11â€“13 below.
+11. As soon as a taskâ€™s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
@@ -167,7 +167,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 **Commands (copy/paste)**
 - Focused client test: `npm run test --workspace client -- chat`
-- Manual streaming check: open `/chat`, select model, type “hello”, observe token streaming.
+- Manual streaming check: open `/chat`, select model, type â€œhelloâ€, observe token streaming.
 
 **Implementation scaffolds (for juniors)**
 - Files to create/update:
@@ -415,9 +415,9 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 1. [x] Implement POST `/chat` in `server/src/routes/chat.ts`: accept `{ model, messages }`, call `lmstudio.getModel(model).act()` with dummy tool registration, stream SSE (`text/event-stream`) via async iteration.
    - **LM Studio event shapes (from `.act()`):**
-     - `onPredictionFragment` yields `{ type: 'predictionFragment', content: string, roundIndex: number }` — map to SSE `{ type: 'token', content, roundIndex }`.
-     - `onMessage` yields final `ChatMessage` `{ role: 'assistant'|'tool'|'user'|'system', content: string|object, roundIndex: number }` — map to SSE `{ type: 'final', message, roundIndex }`.
-     - Tool callbacks: `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` → emit SSE `{ type: 'tool-request', callId, name, argsFragment?, roundIndex }` (omit/blank content); `onToolCallResult` → `{ type: 'tool-result', callId, result, roundIndex }`.
+     - `onPredictionFragment` yields `{ type: 'predictionFragment', content: string, roundIndex: number }` â€” map to SSE `{ type: 'token', content, roundIndex }`.
+     - `onMessage` yields final `ChatMessage` `{ role: 'assistant'|'tool'|'user'|'system', content: string|object, roundIndex: number }` â€” map to SSE `{ type: 'final', message, roundIndex }`.
+     - Tool callbacks: `onToolCallRequestStart/NameReceived/ArgumentFragmentGenerated/End` â†’ emit SSE `{ type: 'tool-request', callId, name, argsFragment?, roundIndex }` (omit/blank content); `onToolCallResult` â†’ `{ type: 'tool-result', callId, result, roundIndex }`.
      - When iteration ends, send `{ type: 'complete' }`; on errors, send `{ type: 'error', message }`.
    - **SSE frames:** `data: {"type":"token","content":"Hello","roundIndex":0}\n\n`; start stream with heartbeat `:\n\n`.
 2. [x] Nail down and reuse canonical `/chat` fixtures: request body = `{ "model": "llama-3", "messages": [ { "role": "user", "content": "hello" } ] }`; happy-path SSE frames = token `data:{"type":"token","content":"Hi","roundIndex":0}\n\n`, final `data:{"type":"final","message":{"role":"assistant","content":"Hi"},"roundIndex":0}\n\n`, complete `data:{"type":"complete"}\n\n`; error SSE = `data:{"type":"error","message":"lmstudio unavailable"}\n\n`. Use these fixtures consistently in Cucumber steps, mock SDK responses, and client RTL tests.
@@ -467,7 +467,7 @@ _(Reminder: tick each subtask/test checkbox as soon as you complete it before mo
 
 #### Overview
 
-Implement server-side cancellation of streaming predictions; client stop/new controls are handled in later tasks (UI tasks 6–7). This task focuses only on the server responding to aborted connections.
+Implement server-side cancellation of streaming predictions; client stop/new controls are handled in later tasks (UI tasks 6â€“7). This task focuses only on the server responding to aborted connections.
 
 #### Documentation Locations
 
@@ -476,7 +476,7 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 - LM Studio JS GitHub (act callbacks): https://github.com/lmstudio-ai/lmstudio-js
 - AbortController/Fetch streaming: https://developer.mozilla.org/en-US/docs/Web/API/AbortController and https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
-- Existing server/client streaming code from Tasks 1–2
+- Existing server/client streaming code from Tasks 1â€“2
 
 #### Subtasks
 
@@ -485,7 +485,7 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 3. [x] Add a tiny helper (if missing) in `server/src/chatStream.ts` to no-op when res.finished; export it and use it from the route.
 4. [x] Tests (Cucumber): create `server/src/test/features/chat_cancellation.feature` and steps in `server/src/test/steps/chat_cancellation.steps.ts` using the LM Studio mock to emit slow tokens; abort the HTTP request and assert the mock `cancelled` flag is set and no further SSE frames arrive.
 5. [x] Logging: ensure cancellation logs an info entry with `{reason:"client_disconnect"}`; add assertion in steps to read server log buffer if feasible.
-6. [x] Update README.md (server section) with a short “Cancellation” subsection under `/chat` explaining client disconnects stop generation immediately.
+6. [x] Update README.md (server section) with a short â€œCancellationâ€ subsection under `/chat` explaining client disconnects stop generation immediately.
 7. [x] Update design.md with a mermaid flow for the cancel path and a note that `req.close` triggers `cancel()`.
 8. [x] Update projectStructure.md to list the new feature/steps files if added.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
@@ -612,14 +612,14 @@ Add the chat page route with an initial view that lists available models (from `
 1. [x] Add `/chat` route in `client/src/routes/router.tsx` and NavBar tab in `client/src/components/NavBar.tsx`; route element = new page.
 2. [x] Create `client/src/hooks/useChatModel.ts` that fetches `/chat/models`, stores `models`, `selected`, `setSelected`, `status`, and returns `errorMessage`; default `selected` = first model key. Handle fetch abort on unmount.
 3. [x] Create `client/src/pages/ChatPage.tsx` (placeholder transcript area) with inverted layout: top `Stack` holds model `Select` + message `TextField` (disabled for now), transcript box below. Focus the TextField on mount using `useRef` + `useEffect`.
-4. [x] Add loading/empty/error UI: CircularProgress while `status="loading"`, Alert on error, “No models available” copy when list is empty; disable inputs when loading/error/empty.
+4. [x] Add loading/empty/error UI: CircularProgress while `status="loading"`, Alert on error, â€œNo models availableâ€ copy when list is empty; disable inputs when loading/error/empty.
 5. [x] Update README.md (UI section) with how to reach `/chat` and how the model dropdown behaves (first model auto-selected, error states).
 6. [x] Update design.md with a short layout description + mermaid showing data flow (ChatPage -> useChatModel -> /chat/models).
 7. [x] Update projectStructure.md to include `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatModel.ts`.
 8. [x] Tests (RTL/Jest): add `client/src/test/chatPage.models.test.tsx` that:
    - renders route via `createMemoryRouter` with path `/chat`
    - stubs fetch to return `[ { key:'m1', displayName:'Model 1', type:'gguf' } ]`
-   - asserts spinner during load, dropdown shows “Model 1”, selects it by default, and error Alert appears when fetch rejects.
+   - asserts spinner during load, dropdown shows â€œModel 1â€, selects it by default, and error Alert appears when fetch rejects.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
@@ -640,7 +640,7 @@ Add the chat page route with an initial view that lists available models (from `
 
 ---
 
-### 5. Chat Page – Chat Functionality
+### 5. Chat Page â€“ Chat Functionality
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
@@ -664,14 +664,14 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 1. [x] Create `client/src/hooks/useChatStream.ts` exporting `{ send(message), stop(), status, messages }`; implement streaming fetch to `/chat` with SSE parsing, accumulating assistant tokens into a single bubble per turn. Abort on unmount.
 2. [x] Extend `ChatPage.tsx` to wire TextField (`data-testid="chat-input"`) + Send button (`data-testid="chat-send"`) to `useChatStream`; append user bubble immediately, stream assistant tokens into one assistant bubble, render newest messages nearest the controls (invert list before map).
 3. [x] In `useChatStream`, parse SSE lines split on `\n\n`, handle payloads `{type:"token"|"final"|"error"}`, and update `messages` shape `{ id, role, content, kind?: "error"|"status" }`.
-4. [x] Add UI states: “Responding…” helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
+4. [x] Add UI states: â€œRespondingâ€¦â€ helper text, disable Send while `status==="sending"`, show inline error bubble (`kind: "error"`) on failures with retry hint, keep tool events out of transcript.
 5. [x] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
 6. [x] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
 7. [x] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
 7. [x] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
 8. [x] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
    - mocks `global.fetch` returning a ReadableStream emitting `data:{"type":"token","content":"Hi"}` then `data:{"type":"final","message":{"content":"Hi","role":"assistant"}}`
-   - asserts Send is disabled while streaming, assistant bubble shows combined “Hi”, error path shows error bubble, and `unmount` calls `abort` on the controller.
+   - asserts Send is disabled while streaming, assistant bubble shows combined â€œHiâ€, error path shows error bubble, and `unmount` calls `abort` on the controller.
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
@@ -693,7 +693,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 ---
 
-### 6. Chat Page – New Conversation Control
+### 6. Chat Page â€“ New Conversation Control
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
@@ -702,7 +702,7 @@ _(Reminder: tick each subtask/test checkbox as soon as you complete it before mo
 
 #### Overview
 
-Add a “New conversation” button that clears the transcript and resets state to a fresh session without reload; ensure it aborts any active stream.
+Add a â€œNew conversationâ€ button that clears the transcript and resets state to a fresh session without reload; ensure it aborts any active stream.
 
 #### Documentation Locations
 
@@ -710,11 +710,11 @@ Add a “New conversation” button that clears the transcript and resets state 
 - MUI MCP tool: @mui/material@7.2.0 docs (buttons/layout)
 - React 19 docs: https://react.dev/
 - Mermaid docs: https://mermaid.js.org/ (Context7 `/mermaid-js/mermaid`)
-- Existing chat hooks/services from Tasks 4–5
+- Existing chat hooks/services from Tasks 4â€“5
 
 #### Subtasks
 
-1. [x] Add “New conversation” button to `ChatPage.tsx`; handler must call `stop()` from `useChatStream`, clear `messages`, reset `status` to `idle`, and keep the currently selected model (document this choice in README/design).
+1. [x] Add â€œNew conversationâ€ button to `ChatPage.tsx`; handler must call `stop()` from `useChatStream`, clear `messages`, reset `status` to `idle`, and keep the currently selected model (document this choice in README/design).
 2. [x] Ensure the handler calls `await stop()` (if stop returns void, call then clear) before clearing state, then focuses the TextField (`data-testid="chat-input"`).
 3. [x] Update README.md (UI section) to state that New conversation clears transcript, keeps model, and aborts in-flight responses.
 4. [x] Update design.md with the reset flow and copy shown to users.
@@ -733,14 +733,14 @@ Add a “New conversation” button that clears the transcript and resets state 
 
 #### Implementation notes
 
-- Added a visible “New conversation” button beside Send; it calls `stop()` then a new `reset` helper to clear transcript state, keep the current model selection, reset status to idle, clear the input, and refocus the message field.
+- Added a visible â€œNew conversationâ€ button beside Send; it calls `stop()` then a new `reset` helper to clear transcript state, keep the current model selection, reset status to idle, clear the input, and refocus the message field.
 - `useChatStream` now exposes `reset` to wipe messages while keeping the abort logic in `stop`, so the page handler can abort in-flight streams before clearing.
 - Updated README/design to describe the reset behaviour (model retained, input refocused, transcript cleared) and documented the new Jest spec in projectStructure.
 - Added `chatPage.newConversation.test.tsx` covering aborting a hanging stream, clearing bubbles, retaining the selected model label, and restoring input focus; lint/format rerun plus client build/test, server build, and compose build/up/down verified.
 
 ---
 
-### 7. Chat Page – Stop Control UI
+### 7. Chat Page â€“ Stop Control UI
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
@@ -761,26 +761,26 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 #### Subtasks
 
-1. [ ] Add “Stop” button near Send/New in `ChatPage.tsx`; show it only while `status==="sending"`; disable Send while Stop is visible.
-2. [ ] Wire Stop to `useChatStream.stop()` which aborts fetch/AbortController; when called, append a status bubble `{role:'assistant', kind:'status', content:'Generation stopped'}` and set `status` back to `idle`.
-3. [ ] Update README.md (UI section) describing Stop behaviour (cancels in-flight generation, may truncate response).
-4. [ ] Update design.md with stop-state flow and mermaid snippet for stop path.
-5. [ ] Update projectStructure.md if any new helper/component/test file was added.
-6. [ ] Tests (RTL/Jest): add `client/src/test/chatPage.stop.test.tsx` mocking a streaming fetch that never resolves; clicking Stop should call `stop`, cancel controller, prevent further tokens, show “stopped” indicator, and re-enable Send (assert `send` button disabled->enabled).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
+1. [x] Add â€œStopâ€ button near Send/New in `ChatPage.tsx`; show it only while `status==="sending"`; disable Send while Stop is visible.
+2. [x] Wire Stop to `useChatStream.stop()` which aborts fetch/AbortController; when called, append a status bubble `{role:'assistant', kind:'status', content:'Generation stopped'}` and set `status` back to `idle`.
+3. [x] Update README.md (UI section) describing Stop behaviour (cancels in-flight generation, may truncate response).
+4. [x] Update design.md with stop-state flow and mermaid snippet for stop path.
+5. [x] Update projectStructure.md if any new helper/component/test file was added.
+6. [x] Tests (RTL/Jest): add `client/src/test/chatPage.stop.test.tsx` mocking a streaming fetch that never resolves; clicking Stop should call `stop`, cancel controller, prevent further tokens, show â€œstoppedâ€ indicator, and re-enable Send (assert `send` button disabled->enabled).
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Capture UX decisions for showing a “stopped” marker vs. error bubble.
+- Stabilised `stop()` (status ref) so the cleanup effect no longer cancels active streams; stop now restores the last prompt into the input so Send re-enables after cancelling, and the status bubble still records the interruption.
 
 ---
 
@@ -814,7 +814,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 3. [ ] Update README with new endpoints (`/chat/models`, streaming `/chat`), usage notes, and limitations (no persistence, stop/new conversation).
 4. [ ] Update design.md with the streaming flow, event mapping, UI states (responding, error bubble), and tool logging notes; refresh mermaid diagrams accordingly.
 5. [ ] Update projectStructure.md with new files/dirs added in this story.
-6. [ ] Save 2–3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
+6. [ ] Save 2â€“3 screenshots of the Chat page (normal, streaming, error/stop) to `test-results/screenshots/0000004-8-*.png`.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
@@ -833,4 +833,3 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 - Record e2e findings, screenshot names, and any flakiness mitigations here.
 
 ---
-

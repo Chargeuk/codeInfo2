@@ -43,8 +43,14 @@ export function useChatStream(model?: string) {
   const logger = useRef(createLogger('client-chat')).current;
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
+  const statusRef = useRef<Status>('idle');
+  const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const updateMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
@@ -57,14 +63,31 @@ export function useChatStream(model?: string) {
     [],
   );
 
-  const stop = useCallback(() => {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setStatus('idle');
-  }, []);
+  const stop = useCallback(
+    (options?: { showStatusBubble?: boolean }) => {
+      const wasSending = statusRef.current === 'sending';
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+      if (options?.showStatusBubble && wasSending) {
+        updateMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: 'assistant',
+            content: 'Generation stopped',
+            kind: 'status',
+          },
+        ]);
+      }
+      setIsStreaming(false);
+      setStatus('idle');
+    },
+    [updateMessages],
+  );
 
   const reset = useCallback(() => {
     updateMessages(() => []);
+    setIsStreaming(false);
     setStatus('idle');
   }, [updateMessages]);
 
@@ -105,6 +128,7 @@ export function useChatStream(model?: string) {
       stop();
       const controller = new AbortController();
       controllerRef.current = controller;
+      setIsStreaming(true);
       setStatus('sending');
 
       const userMessage: ChatMessage = {
@@ -185,16 +209,16 @@ export function useChatStream(model?: string) {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
+                setIsStreaming(false);
+                setStatus('idle');
+              } else if (event.type === 'complete') {
+                setIsStreaming(false);
                 setStatus('idle');
               }
             } catch {
               continue;
             }
           }
-        }
-
-        if (!controller.signal.aborted) {
-          setStatus('idle');
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
@@ -203,6 +227,7 @@ export function useChatStream(model?: string) {
         handleErrorBubble(
           (err as Error)?.message ?? 'Chat failed. Please try again.',
         );
+        setIsStreaming(false);
         setStatus('idle');
       } finally {
         if (controllerRef.current === controller) {
@@ -215,14 +240,16 @@ export function useChatStream(model?: string) {
 
   useEffect(
     () => () => {
-      stop();
+      controllerRef.current?.abort();
+      controllerRef.current = null;
     },
-    [stop],
+    [],
   );
 
   return {
     messages,
     status,
+    isStreaming,
     send,
     stop,
     reset,

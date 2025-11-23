@@ -155,6 +155,37 @@ sequenceDiagram
 ```
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
 
+### Ingest start/status flow
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant FS as File System
+  participant LM as LM Studio
+  participant Chroma
+
+  Client->>Server: POST /ingest/start {path,name,model,dryRun?}
+  Server->>Chroma: check collectionIsEmpty + lockedModelId
+  alt locked mismatch
+    Server-->>Client: 409 MODEL_LOCKED
+  else busy
+    Server-->>Client: 429 BUSY
+  else
+    Server-->>Client: 202 {runId}
+    Server->>FS: discover files
+    Server->>LM: embed chunks (skip when dryRun)
+    Server->>Chroma: add vectors + metadata (runId, root, relPath, hashes, model)
+    Server->>Chroma: set lockedModelId if empty before
+    Server-->>Client: status queued→scanning→embedding→completed
+  end
+  Client->>Server: GET /ingest/status/{runId}
+  Server-->>Client: {state, counts, message, lastError?}
+```
+
+- Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
+- Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
+
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
 ### Chat models endpoint

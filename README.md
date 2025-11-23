@@ -103,6 +103,21 @@ npm install
   ```
 - Filters to `type === "embedding"` or capabilities including `embedding`; returns 502 `{status:"error", message}` if LM Studio is unavailable.
 
+### Ingest start/status
+
+- POST `/ingest/start` starts an ingest job. Body:
+  ```json
+  {"path":"/repo","name":"repo","description":"optional","model":"embed-1","dryRun":false}
+  ```
+  Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED"}` if collection locked to another model; `429 {"status":"error","code":"BUSY"}` if an ingest is already running; `400` on validation errors.
+- GET `/ingest/status/{runId}` returns current state:
+  ```json
+  {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
+  {"runId":"r1","state":"completed","counts":{"files":3,"chunks":12,"embedded":12}}
+  {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
+  ```
+- Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
+
 ## Logging
 
 - Quick API calls:

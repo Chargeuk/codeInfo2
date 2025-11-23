@@ -175,3 +175,9 @@ support/
 
 
 
+- Added ingest routes/tests:
+  - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId
+  - server/src/ingest/chromaClient.ts — Chroma client helpers and lock metadata
+  - server/src/ingest/ingestJob.ts — ingest orchestrator, status tracking, embedding flow
+  - server/src/test/features/ingest-start.feature — ingest start/status scenarios
+  - server/src/test/steps/ingest-start.steps.ts — step defs for ingest start/status

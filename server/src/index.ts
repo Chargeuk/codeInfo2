@@ -8,6 +8,7 @@ import { createRequestLogger } from './logger.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
 import { createIngestModelsRouter } from './routes/ingestModels.js';
+import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
 
@@ -41,6 +42,7 @@ app.get('/info', (_req, res) => {
 app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
 app.use('/chat', createChatModelsRouter({ clientFactory }));
+app.use('/', createIngestStartRouter({ clientFactory }));
 app.use('/', createIngestModelsRouter({ clientFactory }));
 app.use('/', createLmStudioRouter({ clientFactory }));
 

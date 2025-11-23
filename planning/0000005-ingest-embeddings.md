@@ -233,8 +233,8 @@ Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succ
 
 ### 3. Server – Ingest API & Chroma write
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 294a264, a2a4465, bfe385e, <pending latest>
 
 #### Overview
 
@@ -282,7 +282,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
        where: { repo: "my-repo" },
      });
      ```
-3. [ ] Subtask – Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`. Request body `{ path, name, description, model, dryRun?: boolean }`; Response `{ runId }` on 202; Errors: 409 `{ status:'error', code:'MODEL_LOCKED' }` if locked, 429 `{ status:'error', code:'BUSY' }` if single-flight holds (lock logic later), 400 validation. Validate model lock (if collection non-empty, reject). Start async job.
+3. [x] Subtask – Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`. Request body `{ path, name, description, model, dryRun?: boolean }`; Response `{ runId }` on 202; Errors: 409 `{ status:'error', code:'MODEL_LOCKED' }` if locked, 429 `{ status:'error', code:'BUSY' }` if single-flight holds (lock logic later), 400 validation. Validate model lock (if collection non-empty, reject). Start async job.
    Handler skeleton:
    ```ts
    router.post('/ingest/start', async (req, res) => {
@@ -294,7 +294,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
      res.status(202).json({ runId });
    });
    ```
-4. [ ] Subtask – Implement `GET /ingest/status/:runId` in `server/src/routes/ingestStatus.ts`: Output `{ runId, state: 'queued'|'scanning'|'embedding'|'completed'|'error'|'cancelled', counts: { files, chunks, embedded }, message?, lastError? }` from in-memory job state.
+4. [x] Subtask – Implement `GET /ingest/status/:runId` in `server/src/routes/ingestStatus.ts`: Output `{ runId, state: 'queued'|'scanning'|'embedding'|'completed'|'error'|'cancelled', counts: { files, chunks, embedded }, message?, lastError? }` from in-memory job state.
    Skeleton:
    ```ts
    router.get('/ingest/status/:runId', (req, res) => {
@@ -303,7 +303,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
      res.json(status);
    });
    ```
-5. [ ] Subtask – Create orchestrator `server/src/ingest/ingestJob.ts`: uses discovery+chunker+hashing, LM Studio embedding (`model.embed()`), and Chroma upsert with metadata `{ runId, root, relPath, fileHash, chunkHash, embeddedAt, model, name, description }`. Respect `dryRun` by skipping upsert but still reporting would-be counts. Persist per-root summary into `ingest_roots` collection.
+5. [x] Subtask – Create orchestrator `server/src/ingest/ingestJob.ts`: uses discovery+chunker+hashing, LM Studio embedding (`model.embed()`), and Chroma upsert with metadata `{ runId, root, relPath, fileHash, chunkHash, embeddedAt, model, name, description }`. Respect `dryRun` by skipping upsert but still reporting would-be counts. Persist per-root summary into `ingest_roots` collection.
    - Chroma metadata filter shape (Context7 `/websites/trychroma`):
      ```ts
      await vectors.add({
@@ -315,7 +315,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
      // later queries can scope by repo/runId
      await vectors.query({ queryTexts: ["foo"], where: { repo: root }, nResults: 10 });
      ```
-6. [ ] Subtask – Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY, 400 validation). Include example curl:
+6. [x] Subtask – Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY, 400 validation). Include example curl:
    - `curl -X POST http://localhost:5010/ingest/start -H 'content-type: application/json' -d '{"path":"/repo","name":"repo","model":"model1"}'`
    - `curl http://localhost:5010/ingest/status/<runId>`
    Add status response examples:
@@ -325,20 +325,20 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
    {"runId":"r1","state":"cancelled","counts":{"files":1,"chunks":4,"embedded":2},"lastError":null}
    {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
    ```
-7. [ ] Subtask – Update design.md with ingest flow mermaid (start → discover → chunk → embed → upsert), model-lock check, Chroma metadata; include the same sample request/response snippets; note dry-run path.
-8. [ ] Subtask – Update `projectStructure.md` for new routes/modules and compose volume addition.
-9. [ ] Subtask – Cucumber: feature `ingest-start.feature` using Testcontainers Chroma (or cucumber-compose) + mocked LM Studio. Scenarios: happy path, model-lock violation, dry-run (no vectors written). Steps in `server/src/test/steps/ingest-start.steps.ts`.
-10. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect exit 0).
+7. [x] Subtask – Update design.md with ingest flow mermaid (start → discover → chunk → embed → upsert), model-lock check, Chroma metadata; include the same sample request/response snippets; note dry-run path.
+8. [x] Subtask – Update `projectStructure.md` for new routes/modules and compose volume addition.
+9. [x] Subtask – Cucumber: feature `ingest-start.feature` using Testcontainers Chroma (or cucumber-compose) + mocked LM Studio. Scenarios: happy path, model-lock violation, dry-run (no vectors written). Steps in `server/src/test/steps/ingest-start.steps.ts`.
+10. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect exit 0).
 
 #### Testing
 
 Prereqs: Chroma service available for tests that need it (Testcontainers/compose) and LM Studio mocked. Expected: builds succeed; Cucumber covers endpoints; compose stack healthy.
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 

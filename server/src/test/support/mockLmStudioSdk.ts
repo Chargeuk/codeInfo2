@@ -243,6 +243,22 @@ export class MockLMStudioClient {
     },
   };
 
+  embedding = {
+    model: async (key: string) => {
+      const modelKey = key;
+      return {
+        async embed(text: string) {
+          const len = Math.max(1, Math.min(8, text.length));
+          const embedding = Array.from(
+            { length: 3 },
+            (_, i) => (len + i) * 0.1,
+          );
+          return { modelKey, embedding };
+        },
+      };
+    },
+  };
+
   llm = {
     model: async (name: string) => {
       void name;

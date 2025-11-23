@@ -844,8 +844,8 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Git Commits: _to_do_
+- Task Status: __done__
+- Git Commits: 04821ef, 3f12c59
 
 #### Overview
 

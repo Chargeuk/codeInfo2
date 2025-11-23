@@ -777,7 +777,7 @@ Replace the in-memory Chroma mock in ingest Cucumber suites with real Chroma via
 #### Subtasks
 
 1. [ ] Add a compose file at `server/src/test/compose/docker-compose.chroma.yml` defining a Chroma service (v1.3.5) on an internal port; expose env for host/port.
-2. [ ] Wire Cucumber hooks to start/stop the compose stack via Testcontainers (or docker-compose CLI) before/after ingest scenarios; set `CHROMA_URL` to the running service URL.
+2. [ ] Wire Cucumber `BeforeAll`/`AfterAll` hooks to start/stop the Chroma container (via Testcontainers or docker-compose) for the ingest suite, and wipe the DB before each scenario (e.g., drop collections or recreate container) so runs stay isolated.
 3. [ ] Update ingest step defs (start/roots/manage/body/metadata) to remove `CHROMA_URL='mock:'` and use the real service.
 4. [ ] Adjust mock LM Studio usage only (keep LM Studio mocked); ensure LM Studio mock remains intact.
 5. [ ] Update projectStructure.md to list the compose file; document the new testcontainer flow in design.md/README (brief note).

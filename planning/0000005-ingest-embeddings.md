@@ -264,6 +264,24 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
      chroma-data:
    ```
 2. [ ] Subtask – Implement `server/src/ingest/chromaClient.ts`: singleton to `CHROMA_URL`, init collections, expose `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (from collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`. Inputs/Outputs: helper functions only; no HTTP surface.
+   - Chroma TS client reference (Context7 `/websites/trychroma`):
+     ```ts
+     import { ChromaClient } from "chromadb";
+
+     const client = new ChromaClient({ path: process.env.CHROMA_URL ?? "http://localhost:8000" });
+     const vectors = await client.getOrCreateCollection({ name: "ingest_vectors" });
+     await vectors.add({
+       ids: ["id1"],
+       documents: ["doc"],
+       embeddings: [embedding],
+       metadatas: [{ repo: "my-repo" }],
+     });
+     const results = await vectors.query({
+       queryTexts: ["search text"],
+       nResults: 5,
+       where: { repo: "my-repo" },
+     });
+     ```
 3. [ ] Subtask – Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`. Request body `{ path, name, description, model, dryRun?: boolean }`; Response `{ runId }` on 202; Errors: 409 `{ status:'error', code:'MODEL_LOCKED' }` if locked, 429 `{ status:'error', code:'BUSY' }` if single-flight holds (lock logic later), 400 validation. Validate model lock (if collection non-empty, reject). Start async job.
    Handler skeleton:
    ```ts
@@ -286,6 +304,17 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
    });
    ```
 5. [ ] Subtask – Create orchestrator `server/src/ingest/ingestJob.ts`: uses discovery+chunker+hashing, LM Studio embedding (`model.embed()`), and Chroma upsert with metadata `{ runId, root, relPath, fileHash, chunkHash, embeddedAt, model, name, description }`. Respect `dryRun` by skipping upsert but still reporting would-be counts. Persist per-root summary into `ingest_roots` collection.
+   - Chroma metadata filter shape (Context7 `/websites/trychroma`):
+     ```ts
+     await vectors.add({
+       ids,
+       documents,
+       embeddings,
+       metadatas: metadatas.map(m => ({ ...m, repo: root, runId })),
+     });
+     // later queries can scope by repo/runId
+     await vectors.query({ queryTexts: ["foo"], where: { repo: root }, nResults: 10 });
+     ```
 6. [ ] Subtask – Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY, 400 validation). Include example curl:
    - `curl -X POST http://localhost:5010/ingest/start -H 'content-type: application/json' -d '{"path":"/repo","name":"repo","model":"model1"}'`
    - `curl http://localhost:5010/ingest/status/<runId>`
@@ -354,6 +383,10 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
      "lockedModelId":"embed-1"
    }
    ```
+   - Chroma metadata query example (Context7 `/websites/trychroma`):
+     ```ts
+     const rows = await rootsCollection.get({ where: { repo: { "$in": ["docs", "api"] } } });
+     ```
 2. [ ] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
 3. [ ] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
 4. [ ] Subtask – Update README.md with payload JSON example and filter/lock note (inputs none; output sample table row).
@@ -416,6 +449,11 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
      res.status(202).json({ runId });
    });
    ```
+   - Chroma delete/query helpers (Context7 `/websites/trychroma`):
+     ```ts
+     await vectors.delete({ where: { repo: root } });
+     await vectors.query({ queryTexts: ["updated"], where: { repo: root }, nResults: 10 });
+     ```
 4. [ ] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
    ```ts
    router.post('/ingest/remove/:root', async (req, res) => {

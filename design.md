@@ -180,6 +180,7 @@ sequenceDiagram
 - Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
 - Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
 - UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
+- Model filtering: `/chat/models` maps LM Studio `listDownloadedModels` and filters out embeddings/vectors so only chat-capable LLMs appear in the dropdown; empty state copy reflects "No chat-capable models".
 
 ```mermaid
 sequenceDiagram

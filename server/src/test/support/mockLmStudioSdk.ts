@@ -196,6 +196,13 @@ export class MockLMStudioClient {
           vision: true,
           trainedForToolUse: true,
         },
+        {
+          modelKey: 'embed-1',
+          displayName: 'Embedding Model',
+          type: 'embedding',
+          format: 'gguf',
+          path: '/models/embed-1.gguf',
+        },
       ];
     },
   };

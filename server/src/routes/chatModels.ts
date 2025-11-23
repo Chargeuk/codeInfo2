@@ -27,6 +27,10 @@ export function createChatModelsRouter({
   clientFactory: ClientFactory;
 }) {
   const router = Router();
+  const isChatModel = (model: { type?: string; architecture?: string }) => {
+    const kind = (model.type ?? '').toLowerCase();
+    return kind !== 'embedding' && kind !== 'vector';
+  };
 
   router.get('/models', async (_req, res) => {
     const requestId = res.locals.requestId as string | undefined;
@@ -61,11 +65,13 @@ export function createChatModelsRouter({
     try {
       const client = clientFactory(toWebSocketUrl(baseUrl));
       const models = await client.system.listDownloadedModels();
-      const mapped: ChatModelInfo[] = models.map((model) => ({
-        key: model.modelKey,
-        displayName: model.displayName,
-        type: model.type,
-      }));
+      const mapped: ChatModelInfo[] = models
+        .filter(isChatModel)
+        .map((model) => ({
+          key: model.modelKey,
+          displayName: model.displayName,
+          type: model.type,
+        }));
 
       append({
         level: 'info',

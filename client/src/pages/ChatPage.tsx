@@ -100,7 +100,9 @@ export default function ChatPage() {
           </Alert>
         )}
         {!isLoading && !isError && isEmpty && (
-          <Alert severity="info">No models available from LM Studio.</Alert>
+          <Alert severity="info">
+            No chat-capable models available from LM Studio.
+          </Alert>
         )}
         <form onSubmit={handleSubmit}>
           <Stack
@@ -190,7 +192,8 @@ export default function ChatPage() {
           )}
           {!isLoading && !isError && isEmpty && (
             <Typography color="text.secondary">
-              No models available. Add a model in LM Studio, then retry.
+              No chat-capable models available. Add a supported LLM in LM
+              Studio, then retry.
             </Typography>
           )}
           {!isLoading && !isError && !isEmpty && (

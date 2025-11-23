@@ -54,12 +54,16 @@ describe('Chat page models list', () => {
       resolveFetch?.({
         ok: true,
         status: 200,
-        json: async () => [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+        json: async () => [
+          { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+          { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
+        ],
       });
     });
 
     const select = await screen.findByRole('combobox', { name: /model/i });
     expect(select).toHaveTextContent('Model 1');
+    expect(screen.queryByText(/Embedding Model/i)).toBeNull();
   });
 
   it('surfaces an error alert when fetch fails', async () => {

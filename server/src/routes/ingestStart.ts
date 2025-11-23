@@ -2,6 +2,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { collectionIsEmpty, getLockedModel } from '../ingest/chromaClient.js';
 import { getStatus, isBusy, startIngest } from '../ingest/ingestJob.js';
+import { toWebSocketUrl } from './lmstudioUrl.js';
 
 export function createIngestStartRouter({
   clientFactory,
@@ -17,11 +18,7 @@ export function createIngestStartRouter({
     }
 
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
-    const wsBaseUrl = baseUrl.startsWith('http://')
-      ? baseUrl.replace(/^http:/i, 'ws:')
-      : baseUrl.startsWith('https://')
-        ? baseUrl.replace(/^https:/i, 'wss:')
-        : baseUrl;
+    const wsBaseUrl = toWebSocketUrl(baseUrl);
 
     try {
       const locked = await getLockedModel();

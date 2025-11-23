@@ -72,7 +72,7 @@ test.describe.serial('Ingest flows', () => {
     await page.getByTestId('start-ingest').click();
 
     await waitForCompletion(page);
-    await expect(page.getByText(/Completed/i)).toBeVisible({
+    await expect(page.getByText(/Completed/i).first()).toBeVisible({
       timeout: 120_000,
     });
     await expect(

@@ -3,24 +3,9 @@ import { Router } from 'express';
 import { getLockedModel } from '../ingest/modelLock.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
-const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
-
-const scrubBaseUrl = (value: string) => {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return '[invalid-url]';
-  }
-};
-
-const toWebSocketUrl = (value: string) => {
-  if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
-  if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
-  return value;
-};
-
 const mapModel = (model: {
   modelKey?: string;
   displayName?: string;

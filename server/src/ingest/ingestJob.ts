@@ -78,6 +78,18 @@ async function processRun(runId: string, input: IngestJobInput) {
     });
     const { files, root } = await discoverFiles(startPath, resolveConfig());
     jobInputs.set(runId, { ...input, root });
+    if (files.length === 0) {
+      const errorMsg = `No eligible files found in ${startPath}`;
+      jobs.set(runId, {
+        runId,
+        state: 'error',
+        counts: { files: 0, chunks: 0, embedded: 0 },
+        message: errorMsg,
+        lastError: errorMsg,
+      });
+      ingestLock.release(runId);
+      return;
+    }
     const counts = { files: files.length, chunks: 0, embedded: 0 };
     jobs.set(runId, {
       ...status,
@@ -171,6 +183,7 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     await roots.add({
       ids: [runId],
+      embeddings: [[0]],
       metadatas: [
         {
           runId,

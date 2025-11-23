@@ -32,7 +32,7 @@ export function createIngestRootsRouter() {
       };
 
       const raw = await (collection as unknown as CollectionGetter).get({
-        include: ['metadatas', 'ids'],
+        include: ['metadatas'],
         limit: 1000,
       });
       const metadatas = Array.isArray(raw?.metadatas) ? raw.metadatas : [];

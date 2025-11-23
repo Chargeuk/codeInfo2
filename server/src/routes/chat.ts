@@ -175,7 +175,7 @@ export function createChatRouter({
         );
       };
 
-      const actOptions: Record<string, unknown> = {
+      const actOptions: Partial<LLMActionOpts> & { signal?: AbortSignal } = {
         allowParallelToolExecution: false,
         // Extra field used by mocks; ignored by real SDK.
         signal: controller.signal,

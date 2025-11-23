@@ -765,6 +765,33 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 9. [ ] Add guards so ingest skips `add` calls when zero files/chunks are discovered, returning a clear error like “No eligible files found in <path>” instead of relying on Chroma errors.
 10. [ ] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
 
+### 11. Cucumber – move ingest tests to Testcontainers
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Replace the in-memory Chroma mock in ingest Cucumber suites with real Chroma via Testcontainers, using a dedicated docker-compose file under `server/src/test/compose` so we can extend services later. This will surface real Chroma validation (e.g., metadata-only adds) during BDD runs.
+
+#### Subtasks
+
+1. [ ] Add a compose file at `server/src/test/compose/docker-compose.chroma.yml` defining a Chroma service (v1.3.5) on an internal port; expose env for host/port.
+2. [ ] Wire Cucumber hooks to start/stop the compose stack via Testcontainers (or docker-compose CLI) before/after ingest scenarios; set `CHROMA_URL` to the running service URL.
+3. [ ] Update ingest step defs (start/roots/manage/body/metadata) to remove `CHROMA_URL='mock:'` and use the real service.
+4. [ ] Adjust mock LM Studio usage only (keep LM Studio mocked); ensure LM Studio mock remains intact.
+5. [ ] Update projectStructure.md to list the compose file; document the new testcontainer flow in design.md/README (brief note).
+6. [ ] Run `npm run test --workspace server` to verify Cucumber passes against real Chroma.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- Keep the compose file minimal (Chroma only) and internal to tests; no host port publish unless required by the Testcontainers client.
+
+
 #### Testing
 
 1. [x] `npm run test --workspace server`

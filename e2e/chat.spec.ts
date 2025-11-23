@@ -1,4 +1,5 @@
-﻿import { expect, test } from '@playwright/test';
+import { mkdirSync } from 'fs';
+import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 type ChatModel = { key: string; displayName: string; type?: string };
@@ -65,6 +66,8 @@ test('chat streams end-to-end', async ({ page }) => {
     test.skip('No LM Studio models reported by /chat/models');
   }
 
+  mkdirSync('test-results/screenshots', { recursive: true });
+
   const alternateModel = models[1] ?? models[0];
 
   await page.goto(`${baseUrl}/chat`);
@@ -102,4 +105,9 @@ test('chat streams end-to-end', async ({ page }) => {
   await send.click();
   await expect(assistantBubbles.nth(1)).toHaveText(/.+/, { timeout: 20000 });
   await expect(errorBubbles).toHaveCount(0);
+
+  await page.screenshot({
+    path: 'test-results/screenshots/0000004-9-chat.png',
+    fullPage: true,
+  });
 });

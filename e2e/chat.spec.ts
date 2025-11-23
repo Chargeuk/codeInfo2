@@ -44,7 +44,7 @@ test('chat streams end-to-end', async ({ page }) => {
         contentType: 'text/event-stream',
         body: [
           'data: {"type":"token","content":"Hi"}\n\n',
-          'data: {"type":"final","message":{"content":"Hi there","role":"assistant"}}\n\n',
+          'data: {"type":"final","message":{"content":"Hi there <think>mock trace</think>","role":"assistant"}}\n\n',
           'data: {"type":"complete"}\n\n',
         ].join(''),
       });
@@ -90,6 +90,8 @@ test('chat streams end-to-end', async ({ page }) => {
   const errorBubbles = page.locator(
     '[data-testid="chat-bubble"][data-kind="error"]',
   );
+  const thinkToggle = page.locator('[data-testid="think-toggle"]');
+  const thinkContent = page.locator('[data-testid="think-content"]');
 
   await input.fill('Hello from e2e turn one');
   await send.click();
@@ -104,6 +106,12 @@ test('chat streams end-to-end', async ({ page }) => {
     await expect(page.getByText(/Responding\.\.\./i)).not.toBeVisible({
       timeout: 20000,
     });
+
+    if (useMockChat) {
+      await expect(thinkToggle).toBeVisible();
+      await thinkToggle.first().click();
+      await expect(thinkContent.first()).toHaveText(/mock trace/i);
+    }
 
     await input.fill('Second follow-up from e2e');
     await send.click();

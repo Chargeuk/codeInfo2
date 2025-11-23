@@ -6,6 +6,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
   kind?: 'error' | 'status';
+  think?: string;
 };
 
 type Status = 'idle' | 'sending';
@@ -106,6 +107,16 @@ export function useChatStream(model?: string) {
     [updateMessages],
   );
 
+  const extractThink = (text: string) => {
+    const match = text.match(/<think>([\s\S]*?)<\/think>/i);
+    if (!match) {
+      return { visible: text.trim(), think: undefined };
+    }
+    const think = match[1]?.trim() ?? '';
+    const visible = text.replace(match[0], '').trim();
+    return { visible, think: think.length ? think : undefined };
+  };
+
   const handleToolEvent = useCallback(
     (event: Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }>) => {
       logger('info', 'chat tool event', {
@@ -146,6 +157,7 @@ export function useChatStream(model?: string) {
 
       const assistantId = makeId();
       let assistantContent = '';
+      let assistantThink: string | undefined;
 
       updateMessages((prev) => [
         ...prev,
@@ -173,9 +185,13 @@ export function useChatStream(model?: string) {
 
         const flushAssistant = (content: string) => {
           assistantContent = content;
+          const { visible, think } = extractThink(content);
+          assistantThink = think;
           updateMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantId ? { ...msg, content } : msg,
+              msg.id === assistantId
+                ? { ...msg, content: visible, think: assistantThink }
+                : msg,
             ),
           );
         };

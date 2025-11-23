@@ -12,6 +12,8 @@ import {
   TextField,
   Typography,
   Box,
+  Collapse,
+  Button as MuiButton,
 } from '@mui/material';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import useChatModel from '../hooks/useChatModel';
@@ -33,6 +35,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
+  const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const controlsDisabled = isLoading || isError || isEmpty || !selected;
   const isSending = isStreaming || status === 'sending';
   const showStop = isSending;
@@ -74,6 +77,11 @@ export default function ChatPage() {
     setInput('');
     lastSentRef.current = '';
     inputRef.current?.focus();
+    setThinkOpen({});
+  };
+
+  const toggleThink = (id: string) => {
+    setThinkOpen((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -253,6 +261,51 @@ export default function ChatPage() {
                         <Typography variant="body2">
                           {message.content || ' '}
                         </Typography>
+                        {message.think && (
+                          <Box mt={1}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              gap={0.5}
+                            >
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Thought process
+                              </Typography>
+                              <MuiButton
+                                size="small"
+                                variant="text"
+                                onClick={() => toggleThink(message.id)}
+                                data-testid="think-toggle"
+                                aria-label="Toggle thought process"
+                                aria-expanded={!!thinkOpen[message.id]}
+                                sx={{
+                                  textTransform: 'none',
+                                  minWidth: 0,
+                                  p: 0,
+                                }}
+                              >
+                                {thinkOpen[message.id] ? 'Hide' : 'Show'}
+                              </MuiButton>
+                            </Stack>
+                            <Collapse
+                              in={!!thinkOpen[message.id]}
+                              timeout="auto"
+                              unmountOnExit
+                            >
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                data-testid="think-content"
+                                sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}
+                              >
+                                {message.think}
+                              </Typography>
+                            </Collapse>
+                          </Box>
+                        )}
                       </Paper>
                     </Box>
                   </Stack>

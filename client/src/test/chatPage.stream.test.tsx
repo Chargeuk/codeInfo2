@@ -85,6 +85,44 @@ describe('Chat page streaming', () => {
     expect(await screen.findByText('Hi')).toBeInTheDocument();
   });
 
+  it('renders <think> content as a collapsible section', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"final","message":{"content":"Visible reply <think>internal chain</think>","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    expect(await screen.findByText('Visible reply')).toBeInTheDocument();
+    const toggle = screen.getByTestId('think-toggle');
+    expect(toggle).toBeInTheDocument();
+    expect(screen.queryByTestId('think-content')).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(await screen.findByTestId('think-content')).toHaveTextContent(
+      'internal chain',
+    );
+  });
+
   it('shows an inline error bubble when the stream errors', async () => {
     mockFetch
       .mockResolvedValueOnce({

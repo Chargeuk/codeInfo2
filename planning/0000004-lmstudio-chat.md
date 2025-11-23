@@ -946,8 +946,8 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 
 ### 12. Render LM Studio <think> content as collapsible bubble section
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 848554c
 
 #### Overview
 
@@ -963,27 +963,29 @@ Some LM Studio responses include `<think>` tags. We need to surface the main ass
 
 #### Subtasks
 
-1. [ ] Update `useChatStream.ts` to detect `<think>...</think>` segments in final/accumulated assistant content and split into `{visibleText, thinkText}`; keep streaming tokens intact and preserve existing tool logging.
-2. [ ] Extend chat message shape to carry optional `think` text without breaking existing renders or tests.
-3. [ ] Update `ChatPage.tsx` assistant bubble UI to show a collapsible/accordion section titled “Thought process” when `think` content exists; default collapsed; ensure keyboard accessibility and test ids for toggle and body.
-4. [ ] Add RTL tests (e.g., `chatPage.stream.test.tsx`) covering: no think → no toggle; with think → visible main reply plus collapsed toggle; expanding reveals think text and can collapse again.
-5. [ ] Update Playwright `e2e/chat.spec.ts` to assert the “Thought process” toggle is hidden when the model response has no think block and (if feasible via mock route) visible when provided.
-6. [ ] Refresh README.md and design.md to document the collapsible `<think>` handling and any accessibility notes; update projectStructure.md if files change.
-7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`; capture new screenshots if UI changes.
+1. [x] Update `useChatStream.ts` to detect `<think>...</think>` segments in final/accumulated assistant content and split into `{visibleText, thinkText}`; keep streaming tokens intact and preserve existing tool logging.
+2. [x] Extend chat message shape to carry optional `think` text without breaking existing renders or tests.
+3. [x] Update `ChatPage.tsx` assistant bubble UI to show a collapsible/accordion section titled “Thought process” when `think` content exists; default collapsed; ensure keyboard accessibility and test ids for toggle and body.
+4. [x] Add RTL tests (e.g., `chatPage.stream.test.tsx`) covering: no think → no toggle; with think → visible main reply plus collapsed toggle; expanding reveals think text and can collapse again.
+5. [x] Update Playwright `e2e/chat.spec.ts` to assert the “Thought process” toggle is hidden when the model response has no think block and (if feasible via mock route) visible when provided.
+6. [x] Refresh README.md and design.md to document the collapsible `<think>` handling and any accessibility notes; update projectStructure.md if files change.
+7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`; capture new screenshots if UI changes.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npx playwright test e2e/chat.spec.ts`
-7. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace client`
+2. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npx playwright test e2e/chat.spec.ts`
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (to be filled after implementation)
+- Added `<think>` extraction in `useChatStream`, storing think text separately while keeping visible content clean; bubbles now carry optional `think`.
+- Chat bubbles render a “Thought process” toggle that expands/collapses the think text; toggles reset on new conversation.
+- RTL and Playwright tests cover think rendering; docs updated to describe the collapsible behaviour. Full lint/format/tests/build/compose/e2e cycle executed successfully.
 
 ---
 ### 11. Fix LM Studio chat tool definition

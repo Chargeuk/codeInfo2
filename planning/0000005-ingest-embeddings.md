@@ -650,7 +650,7 @@ Prereqs: server roots/re-embed/remove endpoints available or mocked. Expected: b
 
 ### 9. Final verification
 
-- status: __to_do__
+- status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

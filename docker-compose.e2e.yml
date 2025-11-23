@@ -6,12 +6,6 @@ services:
     image: codeinfo2-server-e2e
     ports:
       - '6010:5010'
-    environment:
-      - LMSTUDIO_BASE_URL=${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234}
-      - PORT=5010
-      - CHROMA_URL=http://chroma-e2e:8000
-      - INGEST_COLLECTION=ingest_vectors_e2e
-      - INGEST_ROOTS_COLLECTION=ingest_roots_e2e
     env_file:
       - server/.env.e2e
     volumes:

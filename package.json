@@ -20,7 +20,7 @@
   "compose:e2e:up": "docker compose -f docker-compose.e2e.yml up -d",
   "compose:e2e:down": "docker compose -f docker-compose.e2e.yml down -v",
   "e2e:up": "npm run compose:e2e:up",
-  "e2e:test": "cross-env E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e",
+  "e2e:test": "E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e",
   "e2e:down": "npm run compose:e2e:down",
   "e2e": "npm run compose:e2e:build && npm run e2e:up && npm run e2e:test && npm run e2e:down",
     "prepare": "husky install"

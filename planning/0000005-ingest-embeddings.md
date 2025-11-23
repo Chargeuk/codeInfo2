@@ -720,20 +720,21 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-6. [ ] `npm run e2e:up`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+6. [x] `npm run e2e:up`
 7. [ ] `npm run e2e:test` (including new ingest e2e cases)
-8. [ ] `npm run e2e:down`
+8. [x] `npm run e2e:down`
 
 #### Implementation notes
 
 - Coordinate rebase/merge with chat branch for NavBar/router before final checks; capture any screenshots for ingest UI if needed.
 - PR summary draft: Added ingest roots UI (table/details/actions), implemented ingest e2e compose stack + Playwright ingest flows (happy/cancel/re-embed/remove with model-lock awareness), updated docs (README/design/projectStructure) and scripts for isolated e2e runs.
+- E2E status: `npm run e2e:test` currently fails because the client stays disabled when LM Studio models are unavailable in the e2e stack (model select + ingest start disabled). All other build/test/compose steps are green; e2e stack brings up fine and tears down cleanly.
 
 ---

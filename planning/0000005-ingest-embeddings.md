@@ -254,7 +254,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
 
 #### Subtasks
 
-1. [ ] Subtask – Add Chroma compose service snippet to `docker-compose.yml` (as shown below) and env keys in `server/.env`: `CHROMA_URL=http://chroma:8000`, `INGEST_COLLECTION=ingest_vectors`, `INGEST_ROOTS_COLLECTION=ingest_roots`.
+1. [x] Subtask – Add Chroma compose service snippet to `docker-compose.yml` (as shown below) and env keys in `server/.env`: `CHROMA_URL=http://chroma:8000`, `INGEST_COLLECTION=ingest_vectors`, `INGEST_ROOTS_COLLECTION=ingest_roots`.
    ```yaml
    chroma:
      image: chromadb/chroma:1.3.5
@@ -263,7 +263,7 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
    volumes:
      chroma-data:
    ```
-2. [ ] Subtask – Implement `server/src/ingest/chromaClient.ts`: singleton to `CHROMA_URL`, init collections, expose `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (from collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`. Inputs/Outputs: helper functions only; no HTTP surface.
+2. [x] Subtask – Implement `server/src/ingest/chromaClient.ts`: singleton to `CHROMA_URL`, init collections, expose `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (from collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`. Inputs/Outputs: helper functions only; no HTTP surface.
    - Chroma TS client reference (Context7 `/websites/trychroma`):
      ```ts
      import { ChromaClient } from "chromadb";

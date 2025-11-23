@@ -6,7 +6,7 @@ type ChatModel = { key: string; displayName: string; type?: string };
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
-const useRealChat = process.env.E2E_USE_REAL_CHAT === 'true';
+const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -27,7 +27,7 @@ test('chat streams end-to-end', async ({ page }) => {
     { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
   ];
 
-  if (!useRealChat) {
+  if (useMockChat) {
     await page.route('**/chat/models', (route) =>
       route.fulfill({
         status: 200,

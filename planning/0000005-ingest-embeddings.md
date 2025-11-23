@@ -761,7 +761,7 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 5. [x] Add Cucumber coverage for Chroma metadata: create `server/src/test/features/ingest-roots-metadata.feature` and steps `server/src/test/steps/ingest-roots-metadata.steps.ts` that start with a clean Chroma volume, hit `/ingest/roots`, and assert 200 with `roots: []` and `lockedModelId` null/undefined (guards against 502 from `lockedModelId: null` metadata); reuse existing testcontainer setup/LM Studio mock.
 6. [x] Ensure ingest start uses the same ws/wss conversion helper (`toWebSocketUrl`) as chat/models routes when constructing LM Studio clients.
 7. [x] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
-8. [ ] Update ingest roots write to satisfy Chroma’s requirement (no metadata-only add): either include minimal `documents` when adding roots or skip the add when payload is empty; ensure `vectors.add` is only called when we have embeddings.
+8. [ ] Update ingest roots write to satisfy Chroma’s requirement (no metadata-only add): supply a minimal placeholder embedding per root (e.g., `embeddings: [[0]]`, omit `documents`) with the existing `metadatas`, so Chroma doesn’t try to embed documents; ensure `vectors.add` is only called when we have embeddings.
 9. [ ] Add guards so ingest skips `add` calls when zero files/chunks are discovered, returning a clear error like “No eligible files found in <path>” instead of relying on Chroma errors.
 10. [ ] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
 

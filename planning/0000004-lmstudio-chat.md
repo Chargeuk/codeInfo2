@@ -1037,7 +1037,7 @@ Some LM Studio responses include `<think>` tags. We need to surface the main ass
 
 ### 13. Use LM Studio Chat API with Chat history object
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

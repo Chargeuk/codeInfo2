@@ -697,8 +697,8 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
-- Git Commits: _to_do_
+- Task Status: __done__
+- Git Commits: 57c5df8, dcc31e4
 
 #### Overview
 

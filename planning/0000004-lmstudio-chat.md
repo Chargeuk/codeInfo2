@@ -71,7 +71,7 @@ Here’s the streaming approach we’ll use:
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: 9a6c1c7, 0aac90f
 
 #### Overview
@@ -644,8 +644,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
- - Task Status: __in_progress__
- - Git Commits: _to_do_
+ - Task Status: __done__
+ - Git Commits: 0f44c15, 0d97057
 
 #### Overview
 

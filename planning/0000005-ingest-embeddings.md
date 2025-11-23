@@ -534,9 +534,6 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 
 Prereqs: server endpoints available or mocked; set `VITE_API_URL` to server. Expected: build/test pass; compose stack healthy.
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run compose:build`
 1. [x] `npm run build --workspace client`
 2. [x] `npm run test --workspace client`
 3. [x] `npm run compose:build`

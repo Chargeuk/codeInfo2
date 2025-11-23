@@ -163,7 +163,7 @@ Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Exp
 
 ### 2. Server – Embedding models endpoint
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

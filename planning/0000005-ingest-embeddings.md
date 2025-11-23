@@ -563,7 +563,7 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 
 #### Subtasks
 
-1. [ ] Subtask – Create hook `client/src/hooks/useIngestStatus.ts` polling `/ingest/status/:runId` every ~2s, stop on terminal states. Outputs: `{ status, counts, isLoading, error, cancel }`.
+1. [x] Subtask – Create hook `client/src/hooks/useIngestStatus.ts` polling `/ingest/status/:runId` every ~2s, stop on terminal states. Outputs: `{ status, counts, isLoading, error, cancel }`.
    Return type sketch:
    ```ts
    type IngestCounts = { files: number; chunks: number; embedded: number; skipped?: number };
@@ -575,14 +575,14 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
      cancel: () => Promise<void>;
    };
    ```
-2. [ ] Subtask – Component `client/src/components/ingest/ActiveRunCard.tsx`: show state badges (Scanning/Embedding/Cancelled/Completed/Error), counters {files, chunks, embedded, skipped}, lastError text. Cancel button calls `/ingest/cancel/:runId`; show inline success/error message. States: disable cancel while request in flight; show “Cancelling…” label.
-3. [ ] Subtask – Wire into `IngestPage` so when `/ingest/start` returns runId, page starts polling and shows card. Disable form/table actions while active ingest is running.
-4. [ ] Subtask – Add link/button to open Logs page filtered by `runId` (or copy runId to clipboard). Label: “View logs for this run”.
-5. [ ] Subtask – Tests `client/src/test/ingestStatus.test.tsx`: polling stops on completed/cancelled/error; cancel button invokes endpoint and updates UI; disabled states during cancel; logs link renders.
-6. [ ] Subtask – README.md: describe active run card, cancel behavior, polling interval, and states/messages.
-7. [ ] Subtask – design.md: add status/cancel flow notes or small sequence diagram; mention labels shown for each state.
-8. [ ] Subtask – projectStructure.md: include new hook/component/test files.
-9. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect success).
+2. [x] Subtask – Component `client/src/components/ingest/ActiveRunCard.tsx`: show state badges (Scanning/Embedding/Cancelled/Completed/Error), counters {files, chunks, embedded, skipped}, lastError text. Cancel button calls `/ingest/cancel/:runId`; show inline success/error message. States: disable cancel while request in flight; show “Cancelling…” label.
+3. [x] Subtask – Wire into `IngestPage` so when `/ingest/start` returns runId, page starts polling and shows card. Disable form/table actions while active ingest is running.
+4. [x] Subtask – Add link/button to open Logs page filtered by `runId` (or copy runId to clipboard). Label: “View logs for this run”.
+5. [x] Subtask – Tests `client/src/test/ingestStatus.test.tsx`: polling stops on completed/cancelled/error; cancel button invokes endpoint and updates UI; disabled states during cancel; logs link renders.
+6. [x] Subtask – README.md: describe active run card, cancel behavior, polling interval, and states/messages.
+7. [x] Subtask – design.md: add status/cancel flow notes or small sequence diagram; mention labels shown for each state.
+8. [x] Subtask – projectStructure.md: include new hook/component/test files.
+9. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (expect success).
 
 #### Testing
 

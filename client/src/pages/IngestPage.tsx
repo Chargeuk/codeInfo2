@@ -8,9 +8,11 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import IngestForm from '../components/ingest/IngestForm';
 import useIngestModels from '../hooks/useIngestModels';
+import useIngestStatus from '../hooks/useIngestStatus';
 
 export default function IngestPage() {
   const {
@@ -23,6 +25,27 @@ export default function IngestPage() {
     refresh,
   } = useIngestModels();
   const [activeRunId, setActiveRunId] = useState<string | undefined>();
+  const status = useIngestStatus(activeRunId);
+
+  const isRunActive = useMemo(
+    () =>
+      Boolean(
+        activeRunId &&
+          status.status &&
+          !['completed', 'cancelled', 'error'].includes(status.status),
+      ),
+    [activeRunId, status.status],
+  );
+
+  useEffect(() => {
+    if (!activeRunId) return;
+    if (
+      status.status &&
+      ['completed', 'cancelled', 'error'].includes(status.status)
+    ) {
+      // run finished; no extra action needed yet
+    }
+  }, [activeRunId, status.status]);
 
   return (
     <Container sx={{ py: 3 }}>
@@ -59,21 +82,32 @@ export default function IngestPage() {
             lockedModelId={lockedModelId}
             defaultModelId={defaultModelId}
             onStarted={(runId) => setActiveRunId(runId)}
+            disabled={isRunActive}
           />
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Active ingest
-          </Typography>
           {activeRunId ? (
-            <Typography color="text.secondary">
-              Run ID: {activeRunId}
-            </Typography>
+            <ActiveRunCard
+              runId={activeRunId}
+              status={status.status}
+              counts={status.counts}
+              lastError={status.lastError ?? undefined}
+              message={status.message ?? undefined}
+              isLoading={status.isLoading}
+              isCancelling={status.isCancelling}
+              error={status.error}
+              onCancel={status.cancel}
+            />
           ) : (
-            <Typography color="text.secondary">
-              Active run card placeholder.
-            </Typography>
+            <Stack spacing={1}>
+              <Typography variant="h6" gutterBottom>
+                Active ingest
+              </Typography>
+              <Typography color="text.secondary">
+                No active ingest. Start a run to see status here.
+              </Typography>
+            </Stack>
           )}
         </Paper>
 

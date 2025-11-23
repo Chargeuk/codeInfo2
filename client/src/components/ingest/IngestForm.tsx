@@ -28,6 +28,7 @@ export type IngestFormProps = {
   lockedModelId?: string;
   defaultModelId?: string;
   onStarted: (runId: string) => void;
+  disabled?: boolean;
 };
 
 export default function IngestForm({
@@ -35,6 +36,7 @@ export default function IngestForm({
   lockedModelId,
   defaultModelId,
   onStarted,
+  disabled = false,
 }: IngestFormProps) {
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
@@ -46,6 +48,7 @@ export default function IngestForm({
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isFormDisabled = disabled || isSubmitting;
 
   const modelOptions = useMemo(() => {
     const list = [...models];
@@ -146,7 +149,7 @@ export default function IngestForm({
           onBlur={(e) => updateFieldError('path', e.target.value)}
           required
           fullWidth
-          disabled={isSubmitting}
+          disabled={isFormDisabled}
           error={Boolean(errors.path)}
           helperText={errors.path}
         />
@@ -162,7 +165,7 @@ export default function IngestForm({
           onBlur={(e) => updateFieldError('name', e.target.value)}
           required
           fullWidth
-          disabled={isSubmitting}
+          disabled={isFormDisabled}
           error={Boolean(errors.name)}
           helperText={errors.name}
         />
@@ -173,7 +176,7 @@ export default function IngestForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           fullWidth
-          disabled={isSubmitting}
+          disabled={isFormDisabled}
           multiline
           minRows={2}
         />
@@ -192,7 +195,9 @@ export default function IngestForm({
           required
           fullWidth
           disabled={
-            Boolean(lockedModelId) || isSubmitting || modelOptions.length === 0
+            Boolean(lockedModelId) ||
+            isFormDisabled ||
+            modelOptions.length === 0
           }
           error={Boolean(errors.model)}
           helperText={errors.model}
@@ -209,7 +214,7 @@ export default function IngestForm({
             <Switch
               checked={dryRun}
               onChange={(e) => setDryRun(e.target.checked)}
-              disabled={isSubmitting}
+              disabled={isFormDisabled}
               name="dryRun"
               color="primary"
             />
@@ -227,7 +232,7 @@ export default function IngestForm({
           <Button
             type="submit"
             variant="contained"
-            disabled={!isValid || isSubmitting}
+            disabled={!isValid || isFormDisabled}
             data-testid="start-ingest"
           >
             {isSubmitting ? 'Starting…' : 'Start ingest'}

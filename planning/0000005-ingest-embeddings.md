@@ -348,8 +348,8 @@ Prereqs: Chroma service available for tests that need it (Testcontainers/compose
 
 ### 4. Server – Ingest roots listing
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: d191b1d
 
 #### Overview
 
@@ -367,7 +367,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 #### Subtasks
 
-1. [ ] Subtask – Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`. Output: `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` from `ingest_roots` collection and collection metadata.
+1. [x] Subtask – Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`. Output: `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` from `ingest_roots` collection and collection metadata.
    Handler skeleton + sample response:
    ```ts
    router.get('/ingest/roots', async (_req, res) => {
@@ -387,26 +387,28 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
      ```ts
      const rows = await rootsCollection.get({ where: { repo: { "$in": ["docs", "api"] } } });
      ```
-2. [ ] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
-3. [ ] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
-4. [ ] Subtask – Update README.md with payload JSON example and filter/lock note (inputs none; output sample table row).
-5. [ ] Subtask – Update design.md with short flow (UI table fetch) and model-lock visibility; include payload example.
-6. [ ] Subtask – Update `projectStructure.md` for new route/test files.
-7. [ ] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect success).
+2. [x] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
+3. [x] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
+4. [x] Subtask – Update README.md with payload JSON example and filter/lock note (inputs none; output sample table row).
+5. [x] Subtask – Update design.md with short flow (UI table fetch) and model-lock visibility; include payload example.
+6. [x] Subtask – Update `projectStructure.md` for new route/test files.
+7. [x] Subtask – Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix if needed (expect success).
 
 #### Testing
 
 Prereqs: Chroma reachable (Testcontainers/compose) and LM Studio mocked. Expected: builds/tests/compose succeed.
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Consider pagination later; simple list is fine for this story.
+- Added `/ingest/roots` route returning sorted root metadata with locked model id and resilient in-memory Chroma stub support (add/get/delete).
+- Created Cucumber coverage for roots listing with mock LM Studio + in-memory Chroma, and ensured ingest orchestrator populates roots metadata even without documents/embeddings arrays.
+- Updated README/design/projectStructure with the new endpoint contract and file map; validated lint/format, server build/tests, and compose up/down.
 
 ---
 

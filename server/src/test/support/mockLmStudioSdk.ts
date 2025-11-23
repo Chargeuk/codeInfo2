@@ -211,7 +211,17 @@ export class MockLMStudioClient {
     model: async (name: string) => {
       void name;
       return {
-        act: async (_chat: unknown, _tools: unknown, opts?: unknown) => {
+        act: async (_chat: unknown, tools: unknown, opts?: unknown) => {
+          if (Array.isArray(tools)) {
+            const missingType = tools.find(
+              (toolDef) =>
+                !toolDef ||
+                typeof (toolDef as { type?: string }).type !== 'string',
+            );
+            if (missingType) {
+              throw new Error('Unhandled type: undefined');
+            }
+          }
           if (scenario === 'chat-error') {
             throw new Error('lmstudio unavailable');
           }

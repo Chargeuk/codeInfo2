@@ -962,27 +962,29 @@ LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against r
 
 #### Subtasks
 
-1. [ ] Replace the current noop tool in `server/src/routes/chat.ts` with a properly constructed SDK tool (e.g., import `tool` from `@lmstudio/sdk`, use an empty `z.object({})` schema, set `type: "function"`, and keep the no-op implementation). Pass this tool array directly to `modelClient.act` without `as unknown` casts, keeping existing callbacks, abort handling, and logging intact.
-2. [ ] Update `server/src/test/support/mockLmStudioSdk.ts` so the mock `llm.model().act` accepts the new tool shape, validates the `type`/schema presence, and continues to emit the same prediction/tool events used by tests.
-3. [ ] Adjust chat stream Cucumber steps/fixtures (e.g., `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`) if the tool metadata shape changes, ensuring the happy-path stream delivers token/final/complete without emitting `error` frames for valid LLM models.
-4. [ ] Extend or add a server-side regression test that hits `/chat` with a real-style tool definition to assert no `Unhandled type` error is emitted (can stub the mock SDK to throw when the tool is missing `type` to prove the guard).
-5. [ ] Update `e2e/chat.spec.ts` (real LM Studio path) to assert the first assistant bubble stays in `data-kind="normal"` and contains no error text, keeping screenshot-on-failure behaviour.
-6. [ ] Refresh README.md and design.md to note the correct LM Studio `model.act` tool wiring (SDK `tool()` helper), and update projectStructure.md if any files change.
-7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts` against real LM Studio, then `npm run compose:down`; capture/retain the failing screenshot names per convention if any test fails.
+1. [x] Replace the current noop tool in `server/src/routes/chat.ts` with a properly constructed SDK tool (e.g., import `tool` from `@lmstudio/sdk`, use an empty `z.object({})` schema, set `type: "function"`, and keep the no-op implementation). Pass this tool array directly to `modelClient.act` without `as unknown` casts, keeping existing callbacks, abort handling, and logging intact.
+2. [x] Update `server/src/test/support/mockLmStudioSdk.ts` so the mock `llm.model().act` accepts the new tool shape, validates the `type`/schema presence, and continues to emit the same prediction/tool events used by tests.
+3. [x] Adjust chat stream Cucumber steps/fixtures (e.g., `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`) if the tool metadata shape changes, ensuring the happy-path stream delivers token/final/complete without emitting `error` frames for valid LLM models.
+4. [x] Extend or add a server-side regression test that hits `/chat` with a real-style tool definition to assert no `Unhandled type` error is emitted (can stub the mock SDK to throw when the tool is missing `type` to prove the guard).
+5. [x] Update `e2e/chat.spec.ts` (real LM Studio path) to assert the first assistant bubble stays in `data-kind="normal"` and contains no error text, keeping screenshot-on-failure behaviour.
+6. [x] Refresh README.md and design.md to note the correct LM Studio `model.act` tool wiring (SDK `tool()` helper), and update projectStructure.md if any files change.
+7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts` against real LM Studio, then `npm run compose:down`; capture/retain the failing screenshot names per convention if any test fails.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] `npx playwright test e2e/chat.spec.ts`
-7. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npx playwright test e2e/chat.spec.ts`
+7. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (to be filled after implementation)
+- Rewired `/chat` to register the noop tool with the SDK `tool()` helper (empty parameters) so LM Studio accepts it; removed unsafe casts and kept the existing callback-based streaming.
+- Tightened the mock LM Studio SDK to validate incoming tools and throw if `type` is missing, ensuring tests fail if we regress to an invalid tool shape.
+- Documentation now explicitly states the noop tool uses `tool()`; no project structure changes were required.
 
 ---

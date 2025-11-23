@@ -1,4 +1,5 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
+import { tool } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -127,12 +128,13 @@ export function createChatRouter({
       const modelClient = await client.llm.model(model);
       let currentRound = 0;
       const tools = [
-        {
+        tool({
           name: 'noop',
           description: 'does nothing',
-          implementation: async () => ({ result: 'noop' }),
-        },
-      ] as Array<unknown>;
+          parameters: {},
+          implementation: async () => ({ content: 'noop' }),
+        }),
+      ];
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;
         writeEvent(res, payload);
@@ -276,7 +278,7 @@ export function createChatRouter({
 
       const prediction = modelClient.act(
         { messages },
-        tools as unknown as Array<never>,
+        tools,
         actOptions as LLMActionOpts,
       );
 

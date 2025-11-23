@@ -348,7 +348,7 @@ Prereqs: Chroma service available for tests that need it (Testcontainers/compose
 
 ### 4. Server – Ingest roots listing
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

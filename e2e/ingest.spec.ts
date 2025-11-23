@@ -33,7 +33,9 @@ async function checkPrereqs() {
 }
 
 const waitForCompletion = async (page: Parameters<typeof test>[0]['page']) => {
-  await expect(page.getByText(/Active ingest/i)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /Active ingest/i }),
+  ).toBeVisible();
   await expect
     .poll(
       async () => {

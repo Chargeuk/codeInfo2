@@ -1,5 +1,5 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
-import { tool } from '@lmstudio/sdk';
+import { Chat, tool } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -135,6 +135,7 @@ export function createChatRouter({
           implementation: async () => ({ content: 'noop' }),
         }),
       ];
+      const chat = Chat.from(messages);
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;
         writeEvent(res, payload);
@@ -191,7 +192,16 @@ export function createChatRouter({
             roundIndex: fragment.roundIndex ?? currentRound,
           });
         },
-        onMessage: (message: unknown) => {
+        onMessage: (message: { role?: string; content?: string }) => {
+          if (
+            typeof message?.role === 'string' &&
+            typeof message?.content === 'string'
+          ) {
+            chat.append(
+              message.role as 'assistant' | 'user' | 'system',
+              message.content,
+            );
+          }
           writeIfOpen({
             type: 'final',
             message,
@@ -277,7 +287,7 @@ export function createChatRouter({
       };
 
       const prediction = modelClient.act(
-        { messages },
+        chat,
         tools,
         actOptions as LLMActionOpts,
       );

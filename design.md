@@ -175,7 +175,7 @@ sequenceDiagram
 
 ## Chat streaming endpoint
 
-- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
+- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
 - If a streamed assistant message contains `<think>...</think>`, the client extracts the think content and renders it in a collapsible “Thought process” section within the assistant bubble; the main reply remains visible.
 - Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
 - Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).

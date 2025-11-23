@@ -17,6 +17,7 @@ import {
   type MockScenario,
   startMock,
   stopMock,
+  getLastChatHistory,
 } from '../support/mockLmStudioSdk.js';
 
 let server: Server | null = null;
@@ -139,4 +140,33 @@ Then('the streamed events include tool request and result events', () => {
 Then('tool events are logged to the log store', () => {
   const toolLogs = query({ text: 'chat tool event' });
   assert(toolLogs.length > 0, 'expected tool events in log store');
+});
+
+When(
+  'I POST to the chat endpoint with a two-message chat history',
+  async () => {
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'model-1',
+        messages: [
+          { role: 'user', content: 'First question' },
+          { role: 'assistant', content: 'First answer' },
+        ],
+      }),
+    });
+    statusCode = res.status;
+    // drain stream to let handlers run
+    const reader = res.body?.getReader();
+    if (!reader) return;
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+  },
+);
+
+Then('the LM Studio chat history length is {int}', (expected: number) => {
+  assert.strictEqual(getLastChatHistory().length, expected);
 });

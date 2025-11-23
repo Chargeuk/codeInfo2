@@ -1037,8 +1037,8 @@ Some LM Studio responses include `<think>` tags. We need to surface the main ass
 
 ### 13. Use LM Studio Chat API with Chat history object
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: d9f42a1, 43071db, 8ba7c04
 
 #### Overview
 
@@ -1055,27 +1055,29 @@ The model sometimes ignores user questions because we send a raw messages array 
 
 #### Subtasks
 
-1. [ ] Update `/chat` route to build a `Chat` history (using LM Studio SDK helper or equivalent shape) from incoming messages, append the new user turn, and pass that `Chat` object into `model.act` so LM Studio receives full context each request.
-2. [ ] Ensure assistant turns from the streaming response are appended to the same history before returning (mirroring the docs example) to keep multi-turn context aligned server-side.
-3. [ ] Keep noop tool registration unchanged but verify the `act` call signature matches the Chat Loop example; remove any unused fields (e.g., extra `signal` in opts) if not supported.
-4. [ ] Extend server tests (Cucumber) to assert that consecutive `/chat` calls include prior turns (e.g., second call sees first assistant reply) and still stream tokens/final/complete.
-5. [ ] Adjust client hook/tests only if payload shapes change; otherwise confirm existing client flow remains compatible.
-6. [ ] Update README.md and design.md to note we now build and maintain chat history on the server per LM Studio guidance; update projectStructure.md if files change.
-7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`.
+1. [x] Update `/chat` route to build a `Chat` history (using LM Studio SDK helper or equivalent shape) from incoming messages, append the new user turn, and pass that `Chat` object into `model.act` so LM Studio receives full context each request.
+2. [x] Ensure assistant turns from the streaming response are appended to the same history before returning (mirroring the docs example) to keep multi-turn context aligned server-side.
+3. [x] Keep noop tool registration unchanged but verify the `act` call signature matches the Chat Loop example; remove any unused fields (e.g., extra `signal` in opts) if not supported.
+4. [x] Extend server tests (Cucumber) to assert that consecutive `/chat` calls include prior turns (e.g., second call sees first assistant reply) and still stream tokens/final/complete.
+5. [x] Adjust client hook/tests only if payload shapes change; otherwise confirm existing client flow remains compatible.
+6. [x] Update README.md and design.md to note we now build and maintain chat history on the server per LM Studio guidance; update projectStructure.md if files change.
+7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npx playwright test e2e/chat.spec.ts`
-8. [ ] `npm run compose:down`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npx playwright test e2e/chat.spec.ts`
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (to be filled after implementation)
+- `/chat` now creates a LM Studio `Chat.from(messages)` before `act` and appends streamed assistant messages into that history to mirror the documented Chat Loop flow.
+- Mock SDK captures incoming chat history (including Chat instances) so Cucumber can assert history length; added a history scenario to `chat_stream.feature`.
+- Documentation updated (README, design) to state the server now builds chat history per request; full lint/format/test/build/compose/e2e run completed successfully.
 
 ---

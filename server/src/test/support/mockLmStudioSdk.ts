@@ -17,6 +17,7 @@ export type MockScenario =
 
 let scenario: MockScenario = 'many';
 let lastPrediction: { cancelled: boolean } | null = null;
+let lastChatHistory: Array<{ role?: string; content?: string }> = [];
 
 export function startMock({ scenario: next }: { scenario: MockScenario }) {
   scenario = next;
@@ -25,9 +26,49 @@ export function startMock({ scenario: next }: { scenario: MockScenario }) {
 export function stopMock() {
   scenario = 'many';
   lastPrediction = null;
+  lastChatHistory = [];
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function toChatHistory(input: unknown) {
+  try {
+    if (
+      input &&
+      typeof (input as { toChatHistory?: () => unknown }).toChatHistory ===
+        'function'
+    ) {
+      const history = (
+        input as { toChatHistory: () => unknown }
+      ).toChatHistory();
+      if (Array.isArray(history)) {
+        return history as Array<{ role?: string; content?: string }>;
+      }
+    }
+    if (Array.isArray(input)) {
+      return input as Array<{ role?: string; content?: string }>;
+    }
+    if (
+      input &&
+      typeof input === 'object' &&
+      (input as { data?: unknown }).data &&
+      Array.isArray((input as { data: { messages?: unknown } }).data?.messages)
+    ) {
+      return (
+        input as {
+          data: { messages: Array<{ role?: string; content?: string }> };
+        }
+      ).data.messages;
+    }
+  } catch {
+    // ignore extraction errors
+  }
+  return [];
+}
+
+export function getLastChatHistory() {
+  return lastChatHistory;
+}
 
 function createPrediction(events: unknown[]) {
   const state = { cancelled: false };
@@ -211,7 +252,8 @@ export class MockLMStudioClient {
     model: async (name: string) => {
       void name;
       return {
-        act: async (_chat: unknown, tools: unknown, opts?: unknown) => {
+        act: async (chat: unknown, tools: unknown, opts?: unknown) => {
+          lastChatHistory = toChatHistory(chat);
           if (Array.isArray(tools)) {
             const missingType = tools.find(
               (toolDef) =>

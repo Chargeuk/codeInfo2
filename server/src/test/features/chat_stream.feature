@@ -19,3 +19,8 @@ Feature: chat streaming endpoint
     And the streamed events include token, final, and complete in order
     And the streamed events include tool request and result events
     And tool events are logged to the log store
+
+  Scenario: chat history is passed to LM Studio
+    Given chat stream scenario "chat-fixture"
+    When I POST to the chat endpoint with a two-message chat history
+    Then the LM Studio chat history length is 2

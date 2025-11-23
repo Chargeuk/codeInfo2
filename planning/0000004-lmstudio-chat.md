@@ -943,6 +943,52 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 - E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtask 6 (projectStructure.md) remains open if structure changes occur later.
 
 ---
+### 11. Fix LM Studio chat tool definition
+
+- Task Status: __done__
+- Git Commits: edd7084, f0f3b66
+
+#### Overview
+
+LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against real models (see `test-results/screenshots/0000004-9-chat.png`). The current noop tool passed to `model.act` is a plain object without the required tool shape, so the SDK rejects it before streaming. We need to build the tool using the SDK helper, align the mock, and ensure e2e runs against real LM Studio succeed.
+
+#### Documentation Locations
+
+- LM Studio ACT docs: https://lmstudio.ai/docs/typescript/agent/act
+- LM Studio SDK tool helpers/types in `node_modules/@lmstudio/sdk/dist/index.d.ts` (Tool, FunctionTool, `tool()` factory)
+- Server chat route: `server/src/routes/chat.ts`
+- LM Studio mock: `server/src/test/support/mockLmStudioSdk.ts`
+- Streaming fixtures/tests: `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`, `e2e/chat.spec.ts`
+
+#### Subtasks
+
+1. [x] Replace the current noop tool in `server/src/routes/chat.ts` with a properly constructed SDK tool (e.g., import `tool` from `@lmstudio/sdk`, use an empty `z.object({})` schema, set `type: "function"`, and keep the no-op implementation). Pass this tool array directly to `modelClient.act` without `as unknown` casts, keeping existing callbacks, abort handling, and logging intact.
+2. [x] Update `server/src/test/support/mockLmStudioSdk.ts` so the mock `llm.model().act` accepts the new tool shape, validates the `type`/schema presence, and continues to emit the same prediction/tool events used by tests.
+3. [x] Adjust chat stream Cucumber steps/fixtures (e.g., `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`) if the tool metadata shape changes, ensuring the happy-path stream delivers token/final/complete without emitting `error` frames for valid LLM models.
+4. [x] Extend or add a server-side regression test that hits `/chat` with a real-style tool definition to assert no `Unhandled type` error is emitted (can stub the mock SDK to throw when the tool is missing `type` to prove the guard).
+5. [x] Update `e2e/chat.spec.ts` (real LM Studio path) to assert the first assistant bubble stays in `data-kind="normal"` and contains no error text, keeping screenshot-on-failure behaviour.
+6. [x] Refresh README.md and design.md to note the correct LM Studio `model.act` tool wiring (SDK `tool()` helper), and update projectStructure.md if any files change.
+7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts` against real LM Studio, then `npm run compose:down`; capture/retain the failing screenshot names per convention if any test fails.
+
+#### Testing
+
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+3. [x] `npm run build --workspace client`
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] `npx playwright test e2e/chat.spec.ts`
+7. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- Rewired `/chat` to register the noop tool with the SDK `tool()` helper (empty parameters) so LM Studio accepts it; removed unsafe casts and kept the existing callback-based streaming.
+- Tightened the mock LM Studio SDK to validate incoming tools and throw if `type` is missing, ensuring tests fail if we regress to an invalid tool shape.
+- Documentation now explicitly states the noop tool uses `tool()`; no project structure changes were required.
+- Full lint, format, server/client tests, builds, compose cycle, and the real LM Studio chat e2e now pass without error bubbles.
+
+---
 
 ### 12. Render LM Studio <think> content as collapsible bubble section
 
@@ -1031,51 +1077,5 @@ The model sometimes ignores user questions because we send a raw messages array 
 #### Implementation notes
 
 - (to be filled after implementation)
-
----
-### 11. Fix LM Studio chat tool definition
-
-- Task Status: __done__
-- Git Commits: edd7084, f0f3b66
-
-#### Overview
-
-LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against real models (see `test-results/screenshots/0000004-9-chat.png`). The current noop tool passed to `model.act` is a plain object without the required tool shape, so the SDK rejects it before streaming. We need to build the tool using the SDK helper, align the mock, and ensure e2e runs against real LM Studio succeed.
-
-#### Documentation Locations
-
-- LM Studio ACT docs: https://lmstudio.ai/docs/typescript/agent/act
-- LM Studio SDK tool helpers/types in `node_modules/@lmstudio/sdk/dist/index.d.ts` (Tool, FunctionTool, `tool()` factory)
-- Server chat route: `server/src/routes/chat.ts`
-- LM Studio mock: `server/src/test/support/mockLmStudioSdk.ts`
-- Streaming fixtures/tests: `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`, `e2e/chat.spec.ts`
-
-#### Subtasks
-
-1. [x] Replace the current noop tool in `server/src/routes/chat.ts` with a properly constructed SDK tool (e.g., import `tool` from `@lmstudio/sdk`, use an empty `z.object({})` schema, set `type: "function"`, and keep the no-op implementation). Pass this tool array directly to `modelClient.act` without `as unknown` casts, keeping existing callbacks, abort handling, and logging intact.
-2. [x] Update `server/src/test/support/mockLmStudioSdk.ts` so the mock `llm.model().act` accepts the new tool shape, validates the `type`/schema presence, and continues to emit the same prediction/tool events used by tests.
-3. [x] Adjust chat stream Cucumber steps/fixtures (e.g., `common/src/fixtures/chatStream.ts`, `server/src/test/features/chat_stream.feature`) if the tool metadata shape changes, ensuring the happy-path stream delivers token/final/complete without emitting `error` frames for valid LLM models.
-4. [x] Extend or add a server-side regression test that hits `/chat` with a real-style tool definition to assert no `Unhandled type` error is emitted (can stub the mock SDK to throw when the tool is missing `type` to prove the guard).
-5. [x] Update `e2e/chat.spec.ts` (real LM Studio path) to assert the first assistant bubble stays in `data-kind="normal"` and contains no error text, keeping screenshot-on-failure behaviour.
-6. [x] Refresh README.md and design.md to note the correct LM Studio `model.act` tool wiring (SDK `tool()` helper), and update projectStructure.md if any files change.
-7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts` against real LM Studio, then `npm run compose:down`; capture/retain the failing screenshot names per convention if any test fails.
-
-#### Testing
-
-1. [x] `npm run test --workspace server`
-2. [x] `npm run test --workspace client`
-3. [x] `npm run build --workspace server`
-3. [x] `npm run build --workspace client`
-4. [x] `npm run compose:build`
-5. [x] `npm run compose:up`
-6. [x] `npx playwright test e2e/chat.spec.ts`
-7. [x] `npm run compose:down`
-
-#### Implementation notes
-
-- Rewired `/chat` to register the noop tool with the SDK `tool()` helper (empty parameters) so LM Studio accepts it; removed unsafe casts and kept the existing callback-based streaming.
-- Tightened the mock LM Studio SDK to validate incoming tools and throw if `type` is missing, ensuring tests fail if we regress to an invalid tool shape.
-- Documentation now explicitly states the noop tool uses `tool()`; no project structure changes were required.
-- Full lint, format, server/client tests, builds, compose cycle, and the real LM Studio chat e2e now pass without error bubbles.
 
 ---

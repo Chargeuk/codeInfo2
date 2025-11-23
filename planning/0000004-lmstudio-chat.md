@@ -988,6 +988,51 @@ Some LM Studio responses include `<think>` tags. We need to surface the main ass
 - RTL and Playwright tests cover think rendering; docs updated to describe the collapsible behaviour. Full lint/format/tests/build/compose/e2e cycle executed successfully.
 
 ---
+
+### 13. Use LM Studio Chat API with Chat history object
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+The model sometimes ignores user questions because we send a raw messages array without server-side chat state. Align our implementation with the LM Studio “Chat Loop” pattern by constructing a `Chat` (or equivalent) object and appending each turn so the model always sees the full conversation and any system guidance.
+
+#### Documentation Locations
+
+- LM Studio ACT “Chat Loop with Create File Tool” example: https://lmstudio.ai/docs/typescript/agent/act#example-chat-loop-with-create-file-tool
+- LM Studio SDK types: `node_modules/@lmstudio/sdk/dist/index.d.ts` (`Chat`, `ChatMessageInput`, `LLMModel.act`)
+- Server route: `server/src/routes/chat.ts`
+- Client chat stream hook: `client/src/hooks/useChatStream.ts`
+- Shared fixtures: `common/src/fixtures/chatStream.ts`
+- Tests: server Cucumber chat_stream.feature, client RTL chatPage.stream.test.tsx, e2e/chat.spec.ts
+
+#### Subtasks
+
+1. [ ] Update `/chat` route to build a `Chat` history (using LM Studio SDK helper or equivalent shape) from incoming messages, append the new user turn, and pass that `Chat` object into `model.act` so LM Studio receives full context each request.
+2. [ ] Ensure assistant turns from the streaming response are appended to the same history before returning (mirroring the docs example) to keep multi-turn context aligned server-side.
+3. [ ] Keep noop tool registration unchanged but verify the `act` call signature matches the Chat Loop example; remove any unused fields (e.g., extra `signal` in opts) if not supported.
+4. [ ] Extend server tests (Cucumber) to assert that consecutive `/chat` calls include prior turns (e.g., second call sees first assistant reply) and still stream tokens/final/complete.
+5. [ ] Adjust client hook/tests only if payload shapes change; otherwise confirm existing client flow remains compatible.
+6. [ ] Update README.md and design.md to note we now build and maintain chat history on the server per LM Studio guidance; update projectStructure.md if files change.
+7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npx playwright test e2e/chat.spec.ts`, `npm run compose:down`.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npx playwright test e2e/chat.spec.ts`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (to be filled after implementation)
+
+---
 ### 11. Fix LM Studio chat tool definition
 
 - Task Status: __done__

@@ -971,7 +971,7 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 
 #### Overview
 
-Emit structured log entries to the server log store for ingest lifecycle events so they appear on the Logs page: on start, on successful completion, and on error (including the "No eligible files" path). Include runId, path/root, model, counts (files/chunks/embedded), state, and error message when applicable.
+Emit structured log entries to the server log store for ingest lifecycle events so they appear on the Logs page: on start, on successful completion, and on error (including the "No eligible files" path). Cover all ingest flows: initial ingest, cancel, re-embed, remove, and detection/no-op flows when embeddings are already up-to-date. Include runId, operation, path/root, model, counts (files/chunks/embedded/removed/skipped), state, and error message when applicable.
 
 #### Documentation Locations
 
@@ -982,14 +982,17 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 #### Subtasks
 
 1. [ ] Emit structured log entries (use the existing server logger/logStore so they appear on the Logs page) at:
-   - **info**: ingest start — fields: runId, path (startPath), model, name/description, state=start
-   - **info**: ingest completed — runId, root, model, files, chunks, embedded, state=completed
-   - **error**: ingest failed/no eligible files — runId, path/root, model, counts, message/lastError, state=error
+   - **info**: ingest start — fields: runId, operation (start|reembed|remove|cancel), path/root, model, name/description, state=start
+   - **info**: ingest completed — runId, operation, root, model, counts (files, chunks, embedded, removed, skipped if present), state=completed
+   - **info**: detection/no-op — when re-embed finds no changes, log state=skipped/noop with counts
+   - **error**: ingest failed/no eligible files/embedding failure/Chroma add failure — runId, operation, path/root, model, counts, message/lastError, state=error
    Keep payloads small and consistent with existing log schema; do not log at debug.
 2. [ ] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting:
-   - start emits an info log with runId and state=start
+   - start emits an info log with runId and state=start for both initial ingest and re-embed
    - the "no eligible files" path emits an error log with runId and the message
    - a successful ingest emits an info log with state=completed and counts
+   - a re-embed that finds no changes emits state=skipped/noop
+   - a remove emits state=completed with removed count and unlock flag if applicable
    Use API calls to `/logs?text=<runId>` to assert visibility.
 3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
@@ -1010,3 +1013,89 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 - Keep payloads small and redaction rules consistent with existing logging.
 
 ---
+
+### 16. Server – Batch flush embeddings to Chroma
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add batching so ingest flushes to Chroma after a configurable number of files instead of buffering all embeddings in memory. Default batch size 20 files, settable via `server/.env` (e.g., `INGEST_FLUSH_EVERY=20`). Preserve existing ingest behaviour otherwise.
+
+#### Documentation Locations
+
+- Chroma client add API: https://docs.trychroma.com/api-reference
+- Existing ingest orchestrator: `server/src/ingest/ingestJob.ts`
+- Env handling pattern: `server/src/ingest/config.ts`
+- Cucumber patterns: `server/src/test/features/*.feature`, `server/src/test/steps/*.steps.ts`
+
+#### Subtasks
+
+1. [ ] Add `INGEST_FLUSH_EVERY` to `server/.env` with default 20; parse in `config.ts` with sane min/max (e.g., min 1, default 20).
+2. [ ] Update `ingestJob` to accumulate embeddings/documents/metadata per file and call `vectors.add` whenever the file counter hits the flush threshold; clear buffers after each flush. Ensure final remainder flushes. Keep counts accurate and locked-model logic intact.
+3. [ ] Ensure dry-run path still skips Chroma writes but respects batching logic for counts.
+4. [ ] Add Cucumber feature `server/src/test/features/ingest-batch-flush.feature` with steps under `server/src/test/steps/ingest-batch-flush.steps.ts` that:
+   - set `INGEST_FLUSH_EVERY=1` via env for the scenario;
+   - start an ingest over at least 3 files;
+   - assert vectors collection receives multiple `add` calls or, alternatively, that embeddings count matches files while memory is not accumulated (e.g., via spy/mock on Chroma add in the in-memory client or counter in test double);
+   - ensure final remainder flush occurs.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+6. [ ] Run server tests `npm run test --workspace server` (will start Testcontainers) to cover the new feature.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+6. [ ] `npm run e2e` (ensure ingest still passes with default batching)
+
+#### Implementation notes
+
+- Prefer minimal change to orchestrator: keep per-chunk embedding generation as-is; only change when we call `vectors.add` and buffer clearing.
+- Consider logging a single batch summary per flush at debug/info if helpful, but stay within current logging scope.
+- Ensure batching works with cancel/re-embed/remove flows (partial batches still need cleanup on cancel).
+
+### 17. Server – Dry-run safety & collection cleanup
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (avoid dimension pollution), and automatically delete the vectors collection when it becomes empty to clear stale dimensions. Use Chroma `deleteCollection` when count drops to zero.
+
+#### Documentation Locations
+
+- Chroma delete collections: https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections
+- Existing ingest orchestrator: `server/src/ingest/ingestJob.ts`
+- Chroma client wrapper: `server/src/ingest/chromaClient.ts`
+- Cucumber patterns: `server/src/test/features/*.feature`, `server/src/test/steps/*.steps.ts`
+
+#### Subtasks (implementation)
+
+1. [ ] Ensure dry-run still generates embeddings (including batching from Task 16) so token counts stay accurate, but **never** calls `vectors.add` or writes to Chroma; counts/logging reflect would-be embeddings.
+2. [ ] After deletes (cancel/remove/cleanup) and at end of ingest, if `ingest_vectors` count is zero, call `client.deleteCollection({ name })` to drop the collection so future runs start clean.
+3. [ ] Keep `ingest_roots` handling unchanged; only vectors collection is deleted on empty. Ensure model-lock metadata is cleared or recalculated when collection recreates.
+
+#### Subtasks (tests)
+
+1. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
+2. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
+3. [ ] Run `npm run test --workspace server` to cover new scenarios.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run compose:down`
+6. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- Avoid placeholder embeddings during dry-run; still compute and report counts/messages.
+- After collection delete, ensure `getOrCreateCollection` reuses the embedding function so the first real write sets the correct dimension.

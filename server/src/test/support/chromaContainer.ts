@@ -99,6 +99,9 @@ Before(async () => {
 });
 
 AfterAll(async () => {
+  console.log(
+    `[chroma-compose] AfterAll invoked pid=${process.pid} stopping=${stopping} env=${environment ? 'set' : 'null'}`,
+  );
   if (stopping) return;
   stopping = true;
   if (!environment) return;

@@ -901,11 +901,17 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
 
 #### Subtasks
 
-1. [ ] Update LM Studio mock client factory to validate protocol and throw the same message the real SDK produces when given `http://` (expected: “baseUrl must have protocol ws or wss”).
-2. [ ] Add a Cucumber feature (e.g., `ingest-lmstudio-protocol.feature`) with scenarios for `/ingest/start` and `/ingest/reembed/:root` when `LMSTUDIO_BASE_URL` is `http://...`; expect 500 with the validation message.
-3. [ ] Wire step definitions to set `process.env.LMSTUDIO_BASE_URL` to an http URL, invoke the endpoints, and assert the error payload matches the real SDK text.
-4. [ ] Keep happy-path scenarios unchanged and ensure mocks still pass for valid ws/wss URLs.
-5. [ ] Run `npm run test --workspace server` to confirm the new scenarios pass alongside existing suites.
+1. [ ] **Mock validation** – File: `server/src/test/support/mockLmStudioSdk.ts`. Add a guard in the mock client factory so when it receives a base URL that does not start with `ws://` or `wss://`, it throws the same error string as the real SDK: `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: <url>`.
+2. [ ] **Feature file** – Create `server/src/test/features/ingest-lmstudio-protocol.feature` with two scenarios:
+   - `/ingest/start` with `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` returns HTTP 500 and the message above.
+   - `/ingest/reembed/:root` (use a dummy root like `/fixtures/repo`) with the same http base URL also returns HTTP 500 with the same message.
+3. [ ] **Step definitions** – Add `server/src/test/steps/ingest-lmstudio-protocol.steps.ts` that:
+   - Sets `process.env.LMSTUDIO_BASE_URL` to the http URL in a Before hook (reset to default ws URL in After).
+   - Starts the app with existing LM Studio mock/Testcontainers hooks (reuse current setup; no new containers).
+   - Calls the endpoints via supertest and asserts status 500 and exact error message matches the real SDK string.
+4. [ ] **Happy-path safety check** – Add a small positive assertion in the same steps file that when `LMSTUDIO_BASE_URL` is `ws://host.docker.internal:1234` the mock still works (e.g., GET `/ingest/models` returns 200). This keeps existing behaviour intact.
+5. [ ] **Docs in steps** – Comment in the steps file that Docker/Testcontainers will start because the server tests do so; remind how to run the suite: `npm run test --workspace server`.
+6. [ ] **Tests** – Run `npm run test --workspace server` (will start Docker for Chroma). Ensure the new feature appears in the output and passes.
 
 #### Testing
 

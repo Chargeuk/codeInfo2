@@ -945,12 +945,18 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
    - (c) empty repo (git returns empty) results in no files and propagates the "No eligible files" error from `/ingest/start`.
    Include setup/teardown in hooks; keep all tests inside `server/src/test` per repo convention.
 4. [ ] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
-5. [ ] Run `npm run test --workspace server` (Cucumber suite) and `npm run lint --workspaces`.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run lint --workspaces`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
+7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 
@@ -985,12 +991,18 @@ Emit structured log entries to the server log store for ingest lifecycle events 
    - the "no eligible files" path emits an error log with runId and the message
    - a successful ingest emits an info log with state=completed and counts
    Use API calls to `/logs?text=<runId>` to assert visibility.
-3. [ ] Run `npm run test --workspace server` and `npm run lint --workspaces`.
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run lint --workspaces`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
+7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 

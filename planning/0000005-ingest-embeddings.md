@@ -1093,14 +1093,16 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 
 #### Subtasks (implementation)
 
-1. [ ] Ensure dry-run still generates embeddings (including batching from Task 16) so token counts stay accurate, but **never** calls `vectors.add` or writes to Chroma; counts/logging reflect would-be embeddings.
-2. [ ] After deletes (cancel/remove/cleanup) and at end of ingest, if `ingest_vectors` count is zero, call `client.deleteCollection({ name })` to drop the collection so future runs start clean.
-3. [ ] Keep `ingest_roots` handling unchanged; only vectors collection is deleted on empty. Ensure model-lock metadata is cleared or recalculated when collection recreates.
-4. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
-5. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
-6. [ ] Remove mock Chroma support so all tests hit the docker test Chroma: delete `mock:` URL handling in `chromaClient`, stop overriding `CHROMA_URL` to mock values in step files (e.g., ingest-logging), and ensure all Cucumber hooks rely on `chromaContainer.ts` to bring up the compose Chroma service.
-7. [ ] Move ingest unit tests from `server/src/ingest/__tests__` into `server/src/test/unit` (e.g., chunker/discovery/hashing) and adjust imports/test runner globs so unit tests remain fast and isolated from Cucumber; ensure `npm run test --workspace server` still runs both the unit and Cucumber suites.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+1. [ ] **Dry-run write guard** — `server/src/ingest/ingestJob.ts`: keep calling `embedText` even when `dryRun` so dimensions are real, but gate batching so `vectors.add` never runs when `dryRun === true`; still increment `counts.files/chunks` and set `counts.embedded` to the would‑be chunk total; result state stays `completed` for dry runs.
+2. [ ] **Drop empty vectors + clear lock** — `server/src/ingest/chromaClient.ts`: add `deleteVectorsCollectionIfEmpty()` that uses `count()` then `client.deleteCollection({ name: COLLECTION_VECTORS })` when zero, clears caches and calls `clearLockedModel()`. Invoke it after `deleteVectors` in `cancelRun`, after `removeRoot` deletes, after final flush when `counts.embedded === 0`, and after re-embed pre-deletes if the collection empties.
+3. [ ] **Lock reset on drop** — ensure the helper above clears the vectors metadata lock and that the next real write (in `flushBatch`) re-sets it via existing `setLockedModel(model)`.
+4. [ ] **Remove mock Chroma path** — delete the `mock:` URL / `InMemoryCollection` fallback in `chromaClient.ts`; update any CHROMA_URL overrides in step files (e.g., `server/src/test/steps/ingest-logging.steps.ts`) to rely on the compose hook instead.
+5. [ ] **Standardize ingest Cucumber on compose Chroma** — import `../support/chromaContainer.js` in ingest step files that currently don’t (e.g., ingest-start, ingest-logging, ingest-batch-flush, new features) and drop manual CHROMA_URL tweaks.
+6. [ ] **Explicit delete helper** — add/export `deleteVectorsCollection()` in `chromaClient.ts` (wrapper around `client.deleteCollection`) and clear cached client/collection refs after deletion so subsequent calls recreate correctly.
+7. [ ] **New Cucumber coverage** — add `server/src/test/features/ingest-dryrun-no-write.feature` (+ steps) to assert dry-run leaves vectors absent (count 0 / collection missing) while status shows embedded count of would‑be chunks; add `ingest-empty-drop-collection.feature` (+ steps) to ingest normally, remove/cancel to empty, verify collection deletion, then re-ingest and assert dimension matches new embeddings.
+8. [ ] **Relocate unit tests + scripts** — move `server/src/ingest/__tests__/*.test.ts` to `server/src/test/unit/*.test.ts`; update `server/package.json` test commands to run `node --test src/test/unit/**/*.test.ts` before Cucumber so unit + BDD both run.
+9. [ ] **Test command scope** — ensure `npm run test --workspace server` continues to run both the relocated unit tests and all Cucumber suites; document this in the script update (ordering: unit first, then Cucumber). `npm run build --workspace server` remains the TypeScript build only.
+10. [ ] **Lint/format** — run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -1115,11 +1117,11 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 
 #### Implementation notes
 
-- Avoid placeholder embeddings during dry-run; still compute and report counts/messages.
-- After collection delete, ensure `getOrCreateCollection` reuses the embedding function so the first real write sets the correct dimension.
+- Avoid placeholder embeddings during dry-run; still compute/report counts/messages and keep state `completed`.
+- After a collection delete, the next `getOrCreateCollection` call must recreate with the correct embedding function and fresh dimension before the first real add.
 
-**Files to touch**: `server/src/ingest/ingestJob.ts` (dry-run path skips vectors.add but still generates embeddings/batches), `server/src/ingest/chromaClient.ts` (add deleteCollection when vectors count is zero; re-lock logic), possibly `server/src/ingest/lock.ts` if lock state needs reset, new features `server/src/test/features/ingest-dryrun-no-write.feature` and `.../ingest-empty-drop-collection.feature`, steps `server/src/test/steps/ingest-dryrun-no-write.steps.ts` and `.../ingest-empty-drop-collection.steps.ts` (reuse `chromaContainer` + LM Studio mock hooks).
+**Files to touch**: `server/src/ingest/ingestJob.ts`, `server/src/ingest/chromaClient.ts`, `server/src/test/support/chromaContainer.ts` (only if cache reset needed), `server/src/test/steps/ingest-logging.steps.ts`, `server/src/test/steps/ingest-start.steps.ts`, `server/src/test/steps/ingest-batch-flush.steps.ts`, new feature + step files for dry-run / empty-drop, `server/package.json` (test script), moved unit tests under `server/src/test/unit`.
 
 **Step boilerplate imports**: `import '../support/chromaContainer.js'; import '../support/mockLmStudioSdk.js';`.
 
-**Assertions to spell out in steps**: dry-run scenario leaves vectors collection count at 0 and no dimension set; delete-collection scenario ingests once (sets dimension), removes/cancels to empty, verifies collection gone or recreated on next ingest with correct dimension; ensure model lock cleared when collection deleted. Mention Docker/Testcontainers requirement before running server tests.
+**Assertions to spell out in steps**: dry-run leaves vectors collection absent/empty (count 0) yet status embedded equals would‑be chunks; delete-collection flow ingests → deletes to empty → confirms collection deletion and lock cleared → re-ingests with correct dimension and no stale-lock errors. Mention Docker/Testcontainers requirement before running server tests.

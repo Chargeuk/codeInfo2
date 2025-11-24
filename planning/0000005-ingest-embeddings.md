@@ -1098,9 +1098,9 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 3. [ ] Keep `ingest_roots` handling unchanged; only vectors collection is deleted on empty. Ensure model-lock metadata is cleared or recalculated when collection recreates.
 4. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
 5. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
-7. [ ] Remove mock Chroma support so all tests hit the docker test Chroma: delete `mock:` URL handling in `chromaClient`, stop overriding `CHROMA_URL` to mock values in step files (e.g., ingest-logging), and ensure all Cucumber hooks rely on `chromaContainer.ts` to bring up the compose Chroma service.
-8. [ ] Move ingest unit tests from `server/src/ingest/__tests__` into `server/src/test/unit` (e.g., chunker/discovery/hashing) and adjust imports/test runner globs so unit tests remain fast and isolated from Cucumber; ensure `npm run test --workspace server` still runs both the unit and Cucumber suites.
+6. [ ] Remove mock Chroma support so all tests hit the docker test Chroma: delete `mock:` URL handling in `chromaClient`, stop overriding `CHROMA_URL` to mock values in step files (e.g., ingest-logging), and ensure all Cucumber hooks rely on `chromaContainer.ts` to bring up the compose Chroma service.
+7. [ ] Move ingest unit tests from `server/src/ingest/__tests__` into `server/src/test/unit` (e.g., chunker/discovery/hashing) and adjust imports/test runner globs so unit tests remain fast and isolated from Cucumber; ensure `npm run test --workspace server` still runs both the unit and Cucumber suites.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 

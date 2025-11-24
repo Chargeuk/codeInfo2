@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import path from 'path';
 import { AfterAll, Before, setDefaultTimeout } from '@cucumber/cucumber';
 import {
@@ -17,6 +18,14 @@ let stopping = false;
 setDefaultTimeout(120_000);
 
 async function ensureContainer() {
+  console.log(
+    `[chroma-compose] ensureContainer invoked pid=${process.pid} env=${
+      environment ? 'set' : 'null'
+    } envPromise=${envPromise ? 'set' : 'null'}`,
+  );
+  console.log(
+    `[chroma-compose] current CHROMA_URL=${process.env.CHROMA_URL ?? 'unset'}`,
+  );
   if (environment) return environment;
   if (envPromise) return envPromise;
 
@@ -27,26 +36,58 @@ async function ensureContainer() {
   );
 
   const start = async () => {
+    const startedAt = Date.now();
+    console.log(
+      `[chroma-compose] compose up starting (project will be auto-named) composeFile=${composeFile} cwd=${composePath}`,
+    );
+
     const env = await new DockerComposeEnvironment(composePath, composeFile)
-      .withWaitStrategy('chroma', Wait.forHttp('/api/v1/heartbeat', 8000))
+      .withWaitStrategy('chroma', Wait.forHealthCheck())
       .withStartupTimeout(120_000)
       .up();
 
-    const chroma = env.getContainer('chroma');
-    const host = chroma.getHost();
-    const port = chroma.getMappedPort(8000) || 8100;
-    process.env.CHROMA_URL = `http://${host}:${port}`;
-    console.log(`[chroma-compose] started at ${process.env.CHROMA_URL}`);
-    console.log('[chroma-compose] compose project up');
+    console.log(
+      `[chroma-compose] compose up resolved in ${Date.now() - startedAt}ms`,
+    );
+
+    try {
+      const ps = execSync(
+        "docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | head",
+        { stdio: 'pipe' },
+      )
+        .toString()
+        .trim();
+      console.log('[chroma-compose] docker ps after up:\n' + ps);
+    } catch (err) {
+      console.error('[chroma-compose] docker ps after up failed', err);
+    }
+
+    // Set CHROMA_URL directly to the mapped host:port (compose binds 8100->8000)
+    process.env.CHROMA_URL = 'http://host.docker.internal:8100';
+    console.log(`[chroma-compose] CHROMA_URL set to ${process.env.CHROMA_URL}`);
 
     environment = env;
     return env;
   };
 
-  envPromise = start().catch((err) => {
-    envPromise = null;
-    throw err;
-  });
+  envPromise = start()
+    .then((env) => {
+      console.log('[chroma-compose] envPromise fulfilled');
+      return env;
+    })
+    .catch((err) => {
+      console.error('[chroma-compose] compose start failed', err);
+      envPromise = null;
+      throw err;
+    });
+
+  envPromise
+    .then(() =>
+      console.log('[chroma-compose] compose start promise resolved (cached)'),
+    )
+    .catch(() => {
+      /* already logged above */
+    });
 
   return envPromise;
 }
@@ -61,7 +102,9 @@ AfterAll(async () => {
   if (stopping) return;
   stopping = true;
   if (!environment) return;
+  console.log('[chroma-compose] AfterAll stopping environment');
   await environment.down();
+  console.log('[chroma-compose] AfterAll environment stopped');
   environment = null;
   envPromise = null;
 });

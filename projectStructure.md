@@ -167,9 +167,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-cancel.feature - cancel active ingest scenarios
         - ingest-reembed.feature - re-embed scenarios
         - ingest-remove.feature - remove root scenarios
-    compose/
-        - docker-compose.chroma.yml — minimal Chroma service for manual ingest BDD debugging
-    steps/
+steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
@@ -178,8 +176,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-models.steps.ts - step defs for ingest models endpoint
         - ingest-roots.steps.ts - step defs for ingest roots endpoint
         - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
-    support/
-        - chromaContainer.ts — Testcontainers hooks for Chroma (ingest BDD)
+support/
 â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged

@@ -72,7 +72,7 @@ npm install
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
-- `npm run test --workspace server` (Cucumber scenarios; ingest tests start a real Chroma via Testcontainers—Docker must be running)
+- `npm run test --workspace server` (Cucumber scenarios)
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 
@@ -170,13 +170,7 @@ npm install
 
   # Stream live with SSE + heartbeats
   curl -N http://localhost:5010/logs/stream
-```
-
-### Ingest BDD (Chroma via Testcontainers)
-
-- Cucumber ingest scenarios spin up `chromadb/chroma:1.3.5` automatically using Testcontainers; the hook injects `CHROMA_URL` for each scenario and wipes collections between runs.
-- Ensure Docker is available before running: `npm run test --workspace server`.
-- Manual debug against a fixed container: `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (tear down with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
+  ```
 - Env keys  
   Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
   Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`

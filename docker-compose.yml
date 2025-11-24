@@ -23,6 +23,10 @@ services:
     build:
       context: .
       dockerfile: client/Dockerfile
+      args:
+        # These are baked into the Vite bundle at build time; fall back to the local defaults if not provided.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5010}
+        VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
     image: codeinfo2-client
     ports:
       - '5001:5001'

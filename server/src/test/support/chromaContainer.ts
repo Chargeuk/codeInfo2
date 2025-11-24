@@ -34,9 +34,10 @@ async function ensureContainer() {
 
     const chroma = env.getContainer('chroma');
     const host = chroma.getHost();
-    const port = chroma.getMappedPort(8000) || 18080;
+    const port = chroma.getMappedPort(8000) || 8100;
     process.env.CHROMA_URL = `http://${host}:${port}`;
     console.log(`[chroma-compose] started at ${process.env.CHROMA_URL}`);
+    console.log('[chroma-compose] compose project up');
 
     environment = env;
     return env;

@@ -1,6 +1,7 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { isBusy, reembed } from '../ingest/ingestJob.js';
+import { toWebSocketUrl } from './lmstudioUrl.js';
 
 export function createIngestReembedRouter({
   clientFactory,
@@ -14,7 +15,7 @@ export function createIngestReembedRouter({
       return res.status(429).json({ status: 'error', code: 'BUSY' });
     }
     const { root } = req.params;
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const baseUrl = toWebSocketUrl(process.env.LMSTUDIO_BASE_URL ?? '');
     try {
       const runId = await reembed(root, {
         lmClientFactory: clientFactory,

@@ -1047,7 +1047,6 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
    - assert vectors collection receives multiple `add` calls or, alternatively, that embeddings count matches files while memory is not accumulated (e.g., via spy/mock on Chroma add in the in-memory client or counter in test double);
    - ensure final remainder flush occurs.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
-6. [ ] Run server tests `npm run test --workspace server` (will start Testcontainers) to cover the new feature.
 
 **Files to touch**: `server/.env` (add `INGEST_FLUSH_EVERY=20`), `server/src/ingest/config.ts` (parse with min 1 default 20), `server/src/ingest/ingestJob.ts` (batch buffers + flush), optional helper in `ingest/chromaClient.ts` only if batching needs support. Tests: `server/src/test/features/ingest-batch-flush.feature`, steps in `server/src/test/steps/ingest-batch-flush.steps.ts` (reuse `chromaContainer` + LM Studio mock hooks).
 
@@ -1093,12 +1092,9 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 1. [ ] Ensure dry-run still generates embeddings (including batching from Task 16) so token counts stay accurate, but **never** calls `vectors.add` or writes to Chroma; counts/logging reflect would-be embeddings.
 2. [ ] After deletes (cancel/remove/cleanup) and at end of ingest, if `ingest_vectors` count is zero, call `client.deleteCollection({ name })` to drop the collection so future runs start clean.
 3. [ ] Keep `ingest_roots` handling unchanged; only vectors collection is deleted on empty. Ensure model-lock metadata is cleared or recalculated when collection recreates.
-
-#### Subtasks (tests)
-
-1. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
-2. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
-3. [ ] Run `npm run test --workspace server` to cover new scenarios.
+4. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
+5. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 

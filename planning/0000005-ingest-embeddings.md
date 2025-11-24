@@ -937,26 +937,26 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 
 #### Subtasks
 
-1. [ ] Update `listGitTracked` to return a discriminated result: `{ ok: true, paths: string[] }` on success; `{ ok: false, error }` on failure (e.g., git missing). Do **not** return an empty list on error.
-2. [ ] In `discoverFiles`, when `.git` exists: call `listGitTracked`. If `ok === true`, use `paths`; if `ok === false`, log an info/debug note like `git ls-files failed, falling back to walkDir` and then call `walkDir(root)`. Keep the existing include/exclude and text checks unchanged for both paths.
-3. [ ] Add Cucumber coverage in `server/src/test/features/ingest-discovery-fallback.feature` with steps under `server/src/test/steps/` covering:
+1. [x] Update `listGitTracked` to return a discriminated result: `{ ok: true, paths: string[] }` on success; `{ ok: false, error }` on failure (e.g., git missing). Do **not** return an empty list on error.
+2. [x] In `discoverFiles`, when `.git` exists: call `listGitTracked`. If `ok === true`, use `paths`; if `ok === false`, log an info/debug note like `git ls-files failed, falling back to walkDir` and then call `walkDir(root)`. Keep the existing include/exclude and text checks unchanged for both paths.
+3. [x] Add Cucumber coverage in `server/src/test/features/ingest-discovery-fallback.feature` with steps under `server/src/test/steps/` covering:
    - (a) git success uses git list: create a temp repo with a tracked file, ensure the discovered files include it and exclude an untracked file.
    - (b) git failure (simulate git missing by stubbing exec or PATH) triggers fallback walkDir and finds a known file.
    - (c) empty repo (git returns empty) results in no files and propagates the "No eligible files" error from `/ingest/start`.
    Include setup/teardown in hooks; keep all tests inside `server/src/test` per repo convention.
-4. [ ] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+4. [x] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 

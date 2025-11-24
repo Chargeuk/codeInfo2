@@ -2,6 +2,7 @@ import { execFile as execFileCb } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
+import { baseLogger } from '../logger.js';
 import { resolveConfig } from './config.js';
 import { IngestConfig, DiscoveredFile } from './types.js';
 
@@ -29,12 +30,25 @@ export async function findRepoRoot(startPath: string): Promise<string> {
   }
 }
 
-export async function listGitTracked(root: string): Promise<string[]> {
+export type GitTrackedResult =
+  | { ok: true; paths: string[] }
+  | { ok: false; error: Error };
+
+export async function listGitTracked(root: string): Promise<GitTrackedResult> {
+  const testPaths = process.env.INGEST_TEST_GIT_PATHS;
+  if (testPaths) {
+    const paths = testPaths
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return { ok: true, paths };
+  }
   try {
     const { stdout } = await execFile('git', ['-C', root, 'ls-files', '-z']);
-    return stdout.split('\0').filter(Boolean);
-  } catch {
-    return [];
+    return { ok: true, paths: stdout.split('\0').filter(Boolean) };
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    return { ok: false, error: err };
   }
 }
 
@@ -99,7 +113,24 @@ export async function discoverFiles(
   const hasGit = await pathExists(path.join(repoRoot, '.git'));
   const root = hasGit ? repoRoot : path.resolve(startPath);
 
-  const relPaths = hasGit ? await listGitTracked(root) : await walkDir(root);
+  let relPaths: string[] = [];
+  if (hasGit) {
+    const gitResult = await listGitTracked(root);
+    if (gitResult.ok) {
+      relPaths = gitResult.paths;
+    } else {
+      baseLogger.info(
+        {
+          root,
+          error: gitResult.error?.message ?? String(gitResult.error),
+        },
+        'git ls-files failed, falling back to walkDir',
+      );
+      relPaths = await walkDir(root);
+    }
+  } else {
+    relPaths = await walkDir(root);
+  }
   const files: DiscoveredFile[] = [];
 
   for (const relPath of relPaths) {

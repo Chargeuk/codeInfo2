@@ -64,3 +64,14 @@ test('git repo uses tracked files only', async () => {
   assert.equal(files.length, 1);
   assert.equal(files[0].relPath, 'tracked.ts');
 });
+
+test('falls back to walkDir when git ls-files fails', async () => {
+  const repo = tmpDir;
+  await fs.mkdir(path.join(repo, '.git'));
+  await fs.writeFile(path.join(repo, 'fallback.ts'), 'export const f = 1;');
+  process.env.INGEST_INCLUDE = 'ts';
+
+  const { files } = await discoverFiles(repo);
+  assert.equal(files.length, 1);
+  assert.equal(files[0].relPath, 'fallback.ts');
+});

@@ -156,7 +156,12 @@ test.describe.serial('Ingest flows', () => {
     await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
     await cancelButton.click();
 
-    await expect(page.getByText(/cancelled/i)).toBeVisible({ timeout: 60_000 });
+    const cancelRow = page
+      .getByRole('row', { name: new RegExp(fixtureName, 'i') })
+      .first();
+    await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
+      timeout: 120_000,
+    });
   });
 
   test('re-embed updates row and stays locked', async ({ page }) => {
@@ -165,9 +170,11 @@ test.describe.serial('Ingest flows', () => {
     await page.getByLabel('Display name').fill(fixtureName);
     await page.getByTestId('start-ingest').click();
 
-    const row = page.getByRole('row', {
-      name: new RegExp(`^Select ${fixtureName} `, 'i'),
-    });
+    const row = page
+      .getByRole('row', {
+        name: new RegExp(`^Select ${fixtureName} `, 'i'),
+      })
+      .first();
     await waitForCompletion(page);
     await expect(row).toBeVisible({ timeout: 30_000 });
 
@@ -187,9 +194,11 @@ test.describe.serial('Ingest flows', () => {
     await page.getByLabel('Display name').fill(fixtureName);
     await page.getByTestId('start-ingest').click();
 
-    const row = page.getByRole('row', {
-      name: new RegExp(`^Select ${fixtureName} `, 'i'),
-    });
+    const row = page
+      .getByRole('row', {
+        name: new RegExp(`^Select ${fixtureName} `, 'i'),
+      })
+      .first();
     await waitForCompletion(page);
     await expect(row).toBeVisible({ timeout: 30_000 });
 

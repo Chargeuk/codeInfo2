@@ -886,7 +886,7 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 
 ### 13. Server – LM Studio ws/wss validation in Cucumber
 
-- status: __to_do__
+- status: __in_progress__
 - Git Commits: **to_do**
 
 #### Overview

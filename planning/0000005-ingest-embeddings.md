@@ -1099,6 +1099,7 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 4. [ ] Add Cucumber feature `server/src/test/features/ingest-dryrun-no-write.feature` with steps verifying dry-run leaves vectors collection empty (count 0) and no dimension set.
 5. [ ] Add Cucumber feature `server/src/test/features/ingest-empty-drop-collection.feature` with steps that ingest, then remove/cancel to empty vectors, assert `deleteCollection` happens (collection missing afterward), then rerun ingest and confirm dimension matches real embeddings.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+7. [ ] Remove mock Chroma support so all tests hit the docker test Chroma: delete `mock:` URL handling in `chromaClient`, stop overriding `CHROMA_URL` to mock values in step files (e.g., ingest-logging), and ensure all Cucumber hooks rely on `chromaContainer.ts` to bring up the compose Chroma service.
 
 #### Testing
 

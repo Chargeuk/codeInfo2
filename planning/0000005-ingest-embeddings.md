@@ -807,6 +807,7 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 8. [x] projectStructure.md: list `server/src/test/compose/docker-compose.chroma.yml` and `server/src/test/support/chromaContainer.ts`.
 9. [x] Add a “setup/commands” note (hooks file or README) with exact commands for juniors: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server` (starts Testcontainers; Docker required), `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`, `npm run e2e`; mention `INGEST_COLLECTION`/`INGEST_ROOTS_COLLECTION` defaults come from `.env` and no test-only embedding envs are needed.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+11. [x] Add the missing Cucumber step definition for `Given the ingest roots test server is running with mock chroma and lmstudio` so ingest-roots-metadata.feature executes without undefined steps.
 
 #### Testing
 

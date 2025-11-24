@@ -84,6 +84,14 @@ Given(
   },
 );
 
+// Alias used in feature text
+Given(
+  'the ingest roots test server is running with mock chroma and lmstudio',
+  () => {
+    assert.ok(server, 'server should be running');
+  },
+);
+
 Given('ingest roots chroma stores are empty', async () => {
   await clearLockedModel();
   await clearRootsCollection();

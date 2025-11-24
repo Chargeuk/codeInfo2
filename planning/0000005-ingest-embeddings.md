@@ -937,9 +937,13 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 
 #### Subtasks
 
-1. [ ] Update `listGitTracked` to surface failure (throw or `{ ok:false }`) instead of silently returning empty.
-2. [ ] In `discoverFiles`, when git is present but `listGitTracked` fails, fall back to `walkDir(root)` while keeping include/exclude + text checks; log an info/debug note on fallback.
-3. [ ] Add Cucumber coverage in `server/src/test/features/ingest-discovery-fallback.feature` with steps under `server/src/test/steps/` covering: (a) git success uses git list; (b) git failure (git missing) falls back to walkDir and finds files; (c) real empty git repo returns no files and surfaces the existing "No eligible files" message. Keep all tests inside `server/src/test` per repo convention.
+1. [ ] Update `listGitTracked` to return a discriminated result: `{ ok: true, paths: string[] }` on success; `{ ok: false, error }` on failure (e.g., git missing). Do **not** return an empty list on error.
+2. [ ] In `discoverFiles`, when `.git` exists: call `listGitTracked`. If `ok === true`, use `paths`; if `ok === false`, log an info/debug note like `git ls-files failed, falling back to walkDir` and then call `walkDir(root)`. Keep the existing include/exclude and text checks unchanged for both paths.
+3. [ ] Add Cucumber coverage in `server/src/test/features/ingest-discovery-fallback.feature` with steps under `server/src/test/steps/` covering:
+   - (a) git success uses git list: create a temp repo with a tracked file, ensure the discovered files include it and exclude an untracked file.
+   - (b) git failure (simulate git missing by stubbing exec or PATH) triggers fallback walkDir and finds a known file.
+   - (c) empty repo (git returns empty) results in no files and propagates the "No eligible files" error from `/ingest/start`.
+   Include setup/teardown in hooks; keep all tests inside `server/src/test` per repo convention.
 4. [ ] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
 5. [ ] Run `npm run test --workspace server` (Cucumber suite) and `npm run lint --workspaces`.
 
@@ -951,5 +955,39 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 #### Implementation notes
 
 - Fallback should not change behaviour when git returns a valid list; only trigger when the git command fails or is missing.
+
+---
+
+### 15. Server – Log ingest lifecycle (start/success/error)
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Emit structured log entries to the server log store for ingest lifecycle events so they appear on the Logs page: on start, on successful completion, and on error (including the "No eligible files" path). Include runId, path/root, model, counts (files/chunks/embedded), state, and error message when applicable.
+
+#### Documentation Locations
+
+- Existing logging store: `server/src/logStore.ts`, logger setup `server/src/logger.ts`
+- Ingest orchestrator: `server/src/ingest/ingestJob.ts`
+- Logs page UI expectations: client Logs page (existing behaviour)
+
+#### Subtasks
+
+1. [ ] Wire ingest job to emit log entries (via logStore/logger) on start, completed, and error states; include runId, path/root, model, counts, and error when present. Ensure the "No eligible files" branch logs at error level.
+2. [ ] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting that starting an ingest surfaces a start log, and an error path (no eligible files) surfaces an error log with runId and message.
+3. [ ] Consider completion path: when an ingest completes successfully, assert a log entry with state=completed and embedded/counts is recorded.
+4. [ ] Run `npm run test --workspace server` and `npm run lint --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run lint --workspaces`
+
+#### Implementation notes
+
+- Use existing log store helpers to keep entries visible on the Logs page; avoid duplicating pino-http request logs.
+- Keep payloads small and redaction rules consistent with existing logging.
 
 ---

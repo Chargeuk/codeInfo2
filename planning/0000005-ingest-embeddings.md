@@ -922,7 +922,7 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
 ### 14. Server – Ingest fallback when git is unavailable (and add git to runtime)
 
 - status: **done**
-- Git Commits: 3a16f12
+- Git Commits: 3a16f12, 2094664
 
 #### Overview
 

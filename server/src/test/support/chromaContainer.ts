@@ -111,6 +111,9 @@ AfterAll(async () => {
 
 // Failsafe: ensure container stops even if Cucumber bails early
 const gracefulShutdown = async () => {
+  console.log(
+    `[chroma-compose] gracefulShutdown invoked pid=${process.pid} stopping=${stopping} env=${environment ? 'set' : 'null'}`,
+  );
   if (stopping) return;
   stopping = true;
   if (environment) {

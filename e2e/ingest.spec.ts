@@ -98,12 +98,14 @@ test.describe.serial('Ingest flows', () => {
 
   test('re-embed updates row and stays locked', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
-    const row = page.getByRole('row', { name: new RegExp(fixtureName, 'i') });
+    const row = page.getByRole('row', {
+      name: new RegExp(`^Select ${fixtureName} `, 'i'),
+    });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /re-embed/i }).click();
     await waitForCompletion(page);
-    await expect(page.getByText(/Completed/i)).toBeVisible({
+    await expect(row.getByText(/Completed/i)).toBeVisible({
       timeout: 120_000,
     });
     await expect(page.getByTestId('roots-lock-chip')).toBeVisible();
@@ -111,11 +113,15 @@ test.describe.serial('Ingest flows', () => {
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
-    const row = page.getByRole('row', { name: new RegExp(fixtureName, 'i') });
+    const row = page.getByRole('row', {
+      name: new RegExp(`^Select ${fixtureName} `, 'i'),
+    });
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /^Remove$/i }).click();
-    await expect(page.getByText(/Removed/i)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Removed/i).first()).toBeVisible({
+      timeout: 30_000,
+    });
 
     await expect(page.getByText(/No embedded folders yet/i)).toBeVisible({
       timeout: 30_000,

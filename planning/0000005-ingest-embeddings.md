@@ -156,6 +156,7 @@ Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Exp
 5. [x] `npm run compose:down` (stack stops without errors)
 
 #### Implementation notes
+- Reran lint/format; tightened ingest e2e selectors to scope to the target row/status chips so Playwright strict mode passes after re-embed/remove flows. `npm run e2e` now succeeds end-to-end.
 - Switched Cucumber ingest Testcontainers to use docker-compose (server/src/test/compose/docker-compose.chroma.yml) via DockerComposeEnvironment, starting a single shared Chroma instance per run with explicit teardown and exit hooks. Ports are no longer fixed to 18000; CHROMA_URL now uses the mapped port.
 
 
@@ -808,18 +809,18 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 9. [x] Add a “setup/commands” note (hooks file or README) with exact commands for juniors: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server` (starts Testcontainers; Docker required), `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`, `npm run e2e`; mention `INGEST_COLLECTION`/`INGEST_ROOTS_COLLECTION` defaults come from `.env` and no test-only embedding envs are needed.
 10. [x] Add the missing Cucumber step definition for `Given the ingest roots test server is running with mock chroma and lmstudio` so ingest-roots-metadata.feature executes without undefined steps.
 11. [x] Fix failing Cucumber cancel scenario: Chroma rejects `description: null` metadata during cancel. Update cancel path and roots add/write code to omit description when absent (or set to empty string) so metadata validates, then rerun server tests.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 

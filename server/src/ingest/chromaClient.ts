@@ -193,9 +193,12 @@ async function getClient() {
     return null;
   }
   if (!client) {
+    const embeddingFunction = DEFAULT_EMBED_MODEL
+      ? resolveEmbeddingFunction()
+      : undefined;
     client = new ChromaClient({
       path: chromaUrl,
-      embeddingFunction: resolveEmbeddingFunction(),
+      ...(embeddingFunction ? { embeddingFunction } : {}),
     } as unknown as { path: string });
   }
   return client;
@@ -211,10 +214,12 @@ export async function getVectorsCollection(): Promise<Collection> {
     memoryCollections.set(COLLECTION_VECTORS, created);
     return created as unknown as Collection;
   }
-  const embeddingFunction = resolveEmbeddingFunction();
+  const embeddingFunction = DEFAULT_EMBED_MODEL
+    ? resolveEmbeddingFunction()
+    : undefined;
   vectorsCollection = await c.getOrCreateCollection({
     name: COLLECTION_VECTORS,
-    embeddingFunction,
+    ...(embeddingFunction ? { embeddingFunction } : {}),
   });
   return vectorsCollection;
 }
@@ -229,10 +234,12 @@ export async function getRootsCollection(): Promise<Collection> {
     memoryCollections.set(COLLECTION_ROOTS, created);
     return created as unknown as Collection;
   }
-  const embeddingFunction = resolveEmbeddingFunction();
+  const embeddingFunction = DEFAULT_EMBED_MODEL
+    ? resolveEmbeddingFunction()
+    : undefined;
   rootsCollection = await c.getOrCreateCollection({
     name: COLLECTION_ROOTS,
-    embeddingFunction,
+    ...(embeddingFunction ? { embeddingFunction } : {}),
   });
   return rootsCollection;
 }

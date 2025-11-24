@@ -129,23 +129,26 @@ async function processRun(runId: string, input: IngestJobInput) {
         await deleteVectors({ where: { runId } });
         await deleteRoots({ where: { root } });
         const rootEmbeddingDim = existingRootDim || vectorDim || 1;
+        const cancelMetadata: Metadata = {
+          runId,
+          root,
+          name,
+          model,
+          files: counts.files,
+          chunks: counts.chunks,
+          embedded: counts.embedded,
+          state: 'cancelled',
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs,
+        };
+        if (typeof description === 'string' && description.length > 0) {
+          cancelMetadata.description = description;
+        }
+
         await roots.add({
           ids: [runId],
           embeddings: [Array(rootEmbeddingDim).fill(0)],
-          metadatas: [
-            {
-              runId,
-              root,
-              name,
-              description: description ?? null,
-              model,
-              files: counts.files,
-              chunks: counts.chunks,
-              embedded: counts.embedded,
-              state: 'cancelled',
-              lastIngestAt: new Date().toISOString(),
-            },
-          ],
+          metadatas: [cancelMetadata],
         });
         return;
       }
@@ -309,23 +312,30 @@ export async function cancelRun(runId: string) {
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
     const rootEmbeddingDim =
       existingRootDim && existingRootDim > 0 ? existingRootDim : 1;
+
+    const cancelMetadata: Metadata = {
+      runId,
+      root,
+      name: input?.name ?? '',
+      model: input?.model ?? '',
+      files: status?.counts.files ?? 0,
+      chunks: status?.counts.chunks ?? 0,
+      embedded: status?.counts.embedded ?? 0,
+      state: 'cancelled',
+      lastIngestAt: new Date().toISOString(),
+      ingestedAtMs: Date.now(),
+    };
+    if (
+      typeof input?.description === 'string' &&
+      (input.description as string).length > 0
+    ) {
+      cancelMetadata.description = input.description as string;
+    }
+
     await roots.add({
       ids: [runId],
       embeddings: [Array(Math.max(1, rootEmbeddingDim || 1)).fill(0)],
-      metadatas: [
-        {
-          runId,
-          root,
-          name: input?.name ?? '',
-          description: input?.description ?? null,
-          model: input?.model ?? '',
-          files: status?.counts.files ?? 0,
-          chunks: status?.counts.chunks ?? 0,
-          embedded: status?.counts.embedded ?? 0,
-          state: 'cancelled',
-          lastIngestAt: new Date().toISOString(),
-        },
-      ],
+      metadatas: [cancelMetadata],
     });
   }
 

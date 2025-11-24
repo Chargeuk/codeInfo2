@@ -249,10 +249,7 @@ export class MockLMStudioClient {
       return {
         async embed(text: string) {
           const len = Math.max(1, Math.min(8, text.length));
-          const embedding = Array.from(
-            { length: 3 },
-            (_, i) => (len + i) * 0.1,
-          );
+          const embedding = [(len % 5) * 0.1 + 0.1];
           return { modelKey, embedding };
         },
       };

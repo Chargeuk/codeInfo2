@@ -1,3 +1,5 @@
+import '../support/chromaContainer.js';
+import '../support/mockLmStudioSdk.js';
 import type { Server } from 'http';
 import {
   After,

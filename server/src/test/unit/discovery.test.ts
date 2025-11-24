@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process';
 import { afterEach, beforeEach, test } from 'node:test';
 import os from 'os';
 import path from 'path';
-import { discoverFiles, resolveConfig } from '../index.js';
+import { discoverFiles, resolveConfig } from '../../ingest/index.js';
 
 let tmpDir: string;
 let prevInclude: string | undefined;

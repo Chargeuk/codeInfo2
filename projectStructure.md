@@ -142,9 +142,6 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
-â”‚     â”‚  â”œâ”€ __tests__/chunker.test.ts â€” chunking behaviour and slicing coverage
-â”‚     â”‚  â”œâ”€ __tests__/discovery.test.ts â€” discovery include/exclude and git-tracked coverage
-â”‚     â”‚  â”œâ”€ __tests__/hashing.test.ts â€” deterministic hashing coverage
 â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
 â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL
 â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
@@ -167,7 +164,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-cancel.feature - cancel active ingest scenarios
         - ingest-reembed.feature - re-embed scenarios
         - ingest-remove.feature - remove root scenarios
-steps/
+        - ingest-dryrun-no-write.feature - dry-run skip write scenarios
+        - ingest-empty-drop-collection.feature - delete empty collection + re-ingest
+â”‚        â”œâ”€ steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
@@ -176,8 +175,21 @@ steps/
         - ingest-models.steps.ts - step defs for ingest models endpoint
         - ingest-roots.steps.ts - step defs for ingest roots endpoint
         - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
-support/
-â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+        - ingest-start.steps.ts - step defs for ingest start/status
+        - ingest-start-body.steps.ts - step defs for ingest body validation
+        - ingest-roots-metadata.steps.ts - step defs for roots metadata
+        - ingest-logging.steps.ts - step defs for ingest lifecycle logging
+        - ingest-batch-flush.steps.ts - step defs for batched Chroma flush
+        - ingest-lmstudio-protocol.steps.ts - step defs for LM Studio protocol guardrails
+        - ingest-discovery-fallback.steps.ts - step defs for git fallback discovery
+        - ingest-empty-drop-collection.steps.ts - step defs for collection delete/recreate
+        - ingest-dryrun-no-write.steps.ts - step defs for dry-run no-write
+â”‚        â”œâ”€ support/
+â”‚        |  â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+â”‚        â””â”€ unit/
+â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
+â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
+â”‚           â””â”€ hashing.test.ts â€” deterministic hashing coverage
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import os from 'os';
 import path from 'path';
-import { hashChunk, hashFile } from '../hashing.js';
+import { hashChunk, hashFile } from '../../ingest/hashing.js';
 
 test('hashChunk is deterministic across calls', () => {
   const h1 = hashChunk('src/app.ts', 0, 'hello');

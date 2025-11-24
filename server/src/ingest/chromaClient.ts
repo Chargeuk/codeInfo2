@@ -64,136 +64,8 @@ function resolveEmbeddingFunction(): EmbeddingFunction {
   return new NoopEmbeddingFunction();
 }
 
-class InMemoryCollection {
-  ids: string[] = [];
-  documents: string[] = [];
-  embeddings: number[][] = [];
-  metadatas: Record<string, unknown>[] = [];
-  metadata: Record<string, unknown> | undefined;
-  addCalls = 0;
-
-  constructor(
-    public name: string,
-    metadata?: Record<string, unknown>,
-  ) {
-    this.metadata = metadata;
-  }
-
-  async add(payload: {
-    ids: string[];
-    documents?: string[];
-    embeddings?: number[][];
-    metadatas?: Record<string, unknown>[];
-  }) {
-    this.addCalls += 1;
-    const documents = payload.documents ?? payload.ids.map(() => '');
-    const embeddings = payload.embeddings ?? payload.ids.map(() => []);
-    const metadatas = payload.metadatas ?? payload.ids.map(() => ({}));
-
-    this.ids.push(...payload.ids);
-    this.documents.push(...documents);
-    this.embeddings.push(...embeddings);
-    this.metadatas.push(...metadatas);
-  }
-
-  async count() {
-    return this.ids.length;
-  }
-
-  async modify({ metadata }: { metadata?: Record<string, unknown> }) {
-    this.metadata = metadata;
-  }
-
-  async get({
-    where,
-    include,
-    limit,
-  }: {
-    where?: Record<string, unknown>;
-    include?: string[];
-    limit?: number;
-  } = {}) {
-    const shouldInclude = (field: string) =>
-      !include || include.includes(field);
-    const matchesWhere = (idx: number) => {
-      if (!where) return true;
-      return Object.entries(where).every(([key, value]) => {
-        const meta = this.metadatas[idx] ?? {};
-        return (meta as Record<string, unknown>)[key] === value;
-      });
-    };
-
-    const filteredIndices: number[] = [];
-    for (let i = 0; i < this.ids.length; i += 1) {
-      if (matchesWhere(i)) filteredIndices.push(i);
-      if (limit && filteredIndices.length >= limit) break;
-    }
-
-    return {
-      ids: shouldInclude('ids') ? filteredIndices.map((i) => this.ids[i]) : [],
-      metadatas: shouldInclude('metadatas')
-        ? filteredIndices.map((i) => this.metadatas[i])
-        : [],
-      documents: shouldInclude('documents')
-        ? filteredIndices.map((i) => this.documents[i])
-        : [],
-      embeddings: shouldInclude('embeddings')
-        ? filteredIndices.map((i) => this.embeddings[i])
-        : [],
-    };
-  }
-
-  async delete({
-    where,
-    ids,
-  }: {
-    where?: Record<string, unknown>;
-    ids?: string[];
-  } = {}) {
-    if ((ids && ids.length) || (where && Object.keys(where).length)) {
-      const matchByWhere = (idx: number) => {
-        if (!where) return false;
-        const meta = this.metadatas[idx] ?? {};
-        return Object.entries(where).every(
-          ([key, value]) => (meta as Record<string, unknown>)[key] === value,
-        );
-      };
-
-      const matchById = (idx: number) => {
-        if (!ids || !ids.length) return false;
-        return ids.includes(this.ids[idx]);
-      };
-
-      const keep: number[] = [];
-      for (let i = 0; i < this.ids.length; i += 1) {
-        const matches = matchById(i) || matchByWhere(i);
-        if (!matches) keep.push(i);
-      }
-
-      this.ids = keep.map((i) => this.ids[i]);
-      this.documents = keep.map((i) => this.documents[i]);
-      this.embeddings = keep.map((i) => this.embeddings[i]);
-      this.metadatas = keep.map((i) => this.metadatas[i]);
-      return;
-    }
-
-    if (!where || Object.keys(where).length === 0) {
-      this.ids = [];
-      this.documents = [];
-      this.embeddings = [];
-      this.metadatas = [];
-      return;
-    }
-  }
-}
-
-const memoryCollections = new Map<string, InMemoryCollection>();
-
 async function getClient() {
   const chromaUrl = getChromaUrl();
-  if (chromaUrl.startsWith('mock:')) {
-    return null;
-  }
   if (!client) {
     const embeddingFunction = DEFAULT_EMBED_MODEL
       ? resolveEmbeddingFunction()
@@ -209,13 +81,6 @@ async function getClient() {
 export async function getVectorsCollection(): Promise<Collection> {
   if (vectorsCollection) return vectorsCollection;
   const c = await getClient();
-  if (!c) {
-    const existing = memoryCollections.get(COLLECTION_VECTORS);
-    if (existing) return existing as unknown as Collection;
-    const created = new InMemoryCollection(COLLECTION_VECTORS);
-    memoryCollections.set(COLLECTION_VECTORS, created);
-    return created as unknown as Collection;
-  }
   const embeddingFunction = DEFAULT_EMBED_MODEL
     ? resolveEmbeddingFunction()
     : undefined;
@@ -229,13 +94,6 @@ export async function getVectorsCollection(): Promise<Collection> {
 export async function getRootsCollection(): Promise<Collection> {
   if (rootsCollection) return rootsCollection;
   const c = await getClient();
-  if (!c) {
-    const existing = memoryCollections.get(COLLECTION_ROOTS);
-    if (existing) return existing as unknown as Collection;
-    const created = new InMemoryCollection(COLLECTION_ROOTS);
-    memoryCollections.set(COLLECTION_ROOTS, created);
-    return created as unknown as Collection;
-  }
   const embeddingFunction = DEFAULT_EMBED_MODEL
     ? resolveEmbeddingFunction()
     : undefined;
@@ -260,9 +118,51 @@ export async function setLockedModel(modelId: string): Promise<void> {
   await col.modify({ metadata: { lockedModelId: modelId } });
 }
 
-export async function clearLockedModel(): Promise<void> {
+export async function clearLockedModel(options?: {
+  recreateIfMissing?: boolean;
+}): Promise<void> {
+  if (!vectorsCollection && options?.recreateIfMissing === false) {
+    return;
+  }
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
   await col.modify({ metadata: { lockedModelId: null } });
+}
+
+function resetCachedCollections() {
+  client = null;
+  vectorsCollection = null;
+  rootsCollection = null;
+}
+
+export async function deleteVectorsCollection(): Promise<void> {
+  const c = await getClient();
+  if (c) {
+    try {
+      await c.deleteCollection({ name: COLLECTION_VECTORS });
+    } catch (err) {
+      baseLogger.warn({ err }, 'deleteVectorsCollection ignored error');
+    }
+  }
+  resetCachedCollections();
+  await clearLockedModel({ recreateIfMissing: false });
+}
+
+export async function deleteVectorsCollectionIfEmpty(): Promise<boolean> {
+  const col = (await getVectorsCollection()) as unknown as MinimalCollection;
+  const count = await col.count();
+  if (count > 0) return false;
+
+  const c = await getClient();
+  if (c) {
+    try {
+      await c.deleteCollection({ name: COLLECTION_VECTORS });
+    } catch (err) {
+      baseLogger.warn({ err }, 'deleteVectorsCollectionIfEmpty ignored error');
+    }
+  }
+  resetCachedCollections();
+  await clearLockedModel({ recreateIfMissing: false });
+  return true;
 }
 
 export async function clearRootsCollection(where?: Record<string, unknown>) {
@@ -334,5 +234,4 @@ export function resetCollectionsForTests() {
   client = null;
   vectorsCollection = null;
   rootsCollection = null;
-  memoryCollections.clear();
 }

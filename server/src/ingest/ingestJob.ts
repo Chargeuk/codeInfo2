@@ -10,6 +10,7 @@ import {
   collectionIsEmpty,
   deleteRoots,
   deleteVectors,
+  deleteVectorsCollectionIfEmpty,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
@@ -206,6 +207,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     };
 
     const flushBatch = async () => {
+      // Dry runs should never write to Chroma; clear the batch and return early.
       if (dryRun || embeddingsBatch.length === 0) {
         clearBatch();
         return;
@@ -222,6 +224,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       counts.embedded += embeddingsBatch.length;
       const locked = await getLockedModel();
       if (!locked) {
+        // If the collection was dropped after an empty run, the first real write recreates the lock.
         await setLockedModel(model);
       }
 
@@ -240,6 +243,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         });
         await deleteVectors({ where: { runId } });
         await deleteRoots({ where: { root } });
+        await deleteVectorsCollectionIfEmpty();
         const rootEmbeddingDim = existingRootDim || vectorDim || 1;
         const cancelMetadata: Metadata = {
           runId,
@@ -287,8 +291,8 @@ async function processRun(runId: string, input: IngestJobInput) {
       const fileHash = await hashFile(file.absPath);
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
-        const embedding = dryRun ? [0] : await embedText(model, chunk.text);
-        if (!dryRun && embedding.length > 0) {
+        const embedding = await embedText(model, chunk.text);
+        if (embedding.length > 0) {
           vectorDim = embedding.length;
         }
         if (!dryRun) {
@@ -311,6 +315,9 @@ async function processRun(runId: string, input: IngestJobInput) {
         }
       }
       counts.chunks += chunks.length;
+      if (dryRun) {
+        counts.embedded += chunks.length;
+      }
       filesSinceFlush += 1;
       if (filesSinceFlush >= ingestConfig.flushEvery) {
         await flushBatch();
@@ -318,6 +325,10 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     await flushBatch();
+
+    if (counts.embedded === 0) {
+      await deleteVectorsCollectionIfEmpty();
+    }
 
     const resultState =
       !dryRun && counts.embedded === 0 ? 'skipped' : 'completed';
@@ -450,6 +461,7 @@ export async function cancelRun(runId: string) {
   if (root) {
     await deleteVectors({ where: { runId } });
     await deleteRoots({ where: { root } });
+    await deleteVectorsCollectionIfEmpty();
     const roots = await getRootsCollection();
     const existingRoots = await (
       roots as unknown as {
@@ -544,6 +556,7 @@ export async function reembed(rootPath: string, d: Deps) {
 
   await deleteVectors({ where: { root: rootPath } });
   await deleteRoots({ where: { root: rootPath } });
+  await deleteVectorsCollectionIfEmpty();
 
   return startIngest(
     {
@@ -570,8 +583,11 @@ export async function removeRoot(rootPath: string) {
   baseLogger.info({ rootPath }, 'removeRoot vectors deleted');
   await deleteRoots({ where: { root: rootPath } });
   baseLogger.info({ rootPath }, 'removeRoot roots deleted');
-  await resetLocksIfEmpty();
-  const unlocked = !(await getLockedModel());
+  const collectionDeleted = await deleteVectorsCollectionIfEmpty();
+  if (!collectionDeleted) {
+    await resetLocksIfEmpty();
+  }
+  const unlocked = collectionDeleted ? true : !(await getLockedModel());
   baseLogger.info({ rootPath, unlocked }, 'removeRoot done');
   logLifecycle('info', 'ingest remove completed', {
     runId,

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { EmbeddingModel } from '@lmstudio/sdk';
-import { exampleOne, longRun } from '../__fixtures__/sample.js';
-import { chunkText } from '../chunker.js';
+import { exampleOne, longRun } from '../../ingest/__fixtures__/sample.js';
+import { chunkText } from '../../ingest/chunker.js';
 
 const mockModel = (
   ctx: number,

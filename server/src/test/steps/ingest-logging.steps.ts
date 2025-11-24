@@ -1,3 +1,5 @@
+import '../support/chromaContainer.js';
+import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';
@@ -40,7 +42,6 @@ setDefaultTimeout(20000);
 
 async function startTestServer() {
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
-  process.env.CHROMA_URL = 'mock:ingest-logging';
 
   const app = express();
   app.use(cors());

@@ -1,3 +1,5 @@
+import '../support/chromaContainer.js';
+import '../support/mockLmStudioSdk.js';
 import assert from 'assert';
 import fs from 'fs/promises';
 import type { Server } from 'http';

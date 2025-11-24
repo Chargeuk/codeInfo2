@@ -966,8 +966,8 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 
 ### 15. Server – Log ingest lifecycle (start/success/error)
 
-- status: **to_do**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: **pending**
 
 #### Overview
 
@@ -981,20 +981,20 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 
 #### Subtasks
 
-1. [ ] Emit structured log entries (use the existing server logger/logStore so they appear on the Logs page) at:
+1. [x] Emit structured log entries (use the existing server logger/logStore so they appear on the Logs page) at:
    - **info**: ingest start — fields: runId, operation (start|reembed|remove|cancel), path/root, model, name/description, state=start
    - **info**: ingest completed — runId, operation, root, model, counts (files, chunks, embedded, removed, skipped if present), state=completed
    - **info**: detection/no-op — when re-embed finds no changes, log state=skipped/noop with counts
    - **error**: ingest failed/no eligible files/embedding failure/Chroma add failure — runId, operation, path/root, model, counts, message/lastError, state=error
    Keep payloads small and consistent with existing log schema; do not log at debug.
-2. [ ] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting:
+2. [x] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting:
    - start emits an info log with runId and state=start for both initial ingest and re-embed
    - the "no eligible files" path emits an error log with runId and the message
    - a successful ingest emits an info log with state=completed and counts
    - a re-embed that finds no changes emits state=skipped/noop
    - a remove emits state=completed with removed count and unlock flag if applicable
    Use API calls to `/logs?text=<runId>` to assert visibility.
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 **Files to touch**: `server/src/ingest/ingestJob.ts` (emit log events), `server/src/logger.ts` / `server/src/logStore.ts` (if helpers needed), `server/src/routes/logs.ts` (only if wiring required), new feature `server/src/test/features/ingest-logging.feature`, steps `server/src/test/steps/ingest-logging.steps.ts` (reuse `server/src/test/support/chromaContainer.ts` + LM Studio mock hooks).
 
@@ -1004,25 +1004,29 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 
 - Use existing log store helpers to keep entries visible on the Logs page; avoid duplicating pino-http request logs.
 - Keep payloads small and redaction rules consistent with existing logging.
+- Added server-side lifecycle logging via `logLifecycle` helper (start/completed/skipped/error/cancel/remove) writing to `logStore` + `baseLogger`; re-embed with no files now marks `skipped`.
+- Introduced Cucumber coverage in `ingest-logging.feature`/`ingest-logging.steps.ts` using unique logging-specific steps; resets log store between scenarios and uses mock LM Studio with mock Chroma.
+- Updated `IngestRunState` to include `skipped`; start/re-embed inputs carry operation flags for clearer context in logs and cancellations.
+- Test run summary: lint + format:check, server build/test, client build/test, compose build/up/down, and full `npm run e2e` all succeeded.
 
 ---
 
 ### 16. Server – Batch flush embeddings to Chroma
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

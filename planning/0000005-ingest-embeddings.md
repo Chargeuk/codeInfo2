@@ -719,7 +719,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [x] `npm run test --workspace server`
 2. [x] `npm run test --workspace client`
 3. [x] `npm run build --workspace server`
 4. [x] `npm run build --workspace client`

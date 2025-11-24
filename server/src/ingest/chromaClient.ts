@@ -223,9 +223,6 @@ async function getClient() {
       path: chromaUrl,
       embeddingFunction: resolveEmbeddingFunction(),
     } as unknown as { path: string });
-    if (process.env.CHROMA_TEST_EMBEDDINGS === 'true') {
-      console.info('[chroma] using test embedding function for BDD');
-    }
   }
   return client;
 }

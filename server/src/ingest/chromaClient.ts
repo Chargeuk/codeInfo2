@@ -1,4 +1,10 @@
-import { ChromaClient, type Collection } from 'chromadb';
+import { LMStudioClient } from '@lmstudio/sdk';
+import {
+  ChromaClient,
+  type Collection,
+  type EmbeddingFunction,
+} from 'chromadb';
+import { baseLogger } from '../logger.js';
 
 const getChromaUrl = () => process.env.CHROMA_URL ?? 'http://localhost:8000';
 type MinimalCollection = {
@@ -7,10 +13,56 @@ type MinimalCollection = {
 };
 const COLLECTION_VECTORS = process.env.INGEST_COLLECTION ?? 'ingest_vectors';
 const COLLECTION_ROOTS = process.env.INGEST_ROOTS_COLLECTION ?? 'ingest_roots';
+const DEFAULT_EMBED_MODEL = process.env.INGEST_EMBED_MODEL ?? null;
 
 let client: ChromaClient | null = null;
 let vectorsCollection: Collection | null = null;
 let rootsCollection: Collection | null = null;
+
+const toWebSocketUrl = (value: string) => {
+  if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
+  if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
+  return value;
+};
+
+class NoopEmbeddingFunction implements EmbeddingFunction {
+  async generate(texts: string[]): Promise<number[][]> {
+    return texts.map(() => [0]);
+  }
+}
+
+class LmStudioEmbeddingFunction implements EmbeddingFunction {
+  constructor(
+    private modelKey: string,
+    private baseUrl: string,
+  ) {}
+
+  async generate(texts: string[]): Promise<number[][]> {
+    const client = new LMStudioClient({ baseUrl: this.baseUrl });
+    const model = await client.embedding.model(this.modelKey);
+    const results: number[][] = [];
+    for (const text of texts) {
+      const res = await model.embed(text);
+      results.push(res.embedding);
+    }
+    return results;
+  }
+}
+
+function resolveEmbeddingFunction(): EmbeddingFunction {
+  const baseUrl = process.env.LMSTUDIO_BASE_URL;
+  if (baseUrl && DEFAULT_EMBED_MODEL) {
+    try {
+      return new LmStudioEmbeddingFunction(
+        DEFAULT_EMBED_MODEL,
+        toWebSocketUrl(baseUrl),
+      );
+    } catch {
+      // fall through to noop
+    }
+  }
+  return new NoopEmbeddingFunction();
+}
 
 class InMemoryCollection {
   ids: string[] = [];
@@ -141,7 +193,10 @@ async function getClient() {
     return null;
   }
   if (!client) {
-    client = new ChromaClient({ path: chromaUrl });
+    client = new ChromaClient({
+      path: chromaUrl,
+      embeddingFunction: resolveEmbeddingFunction(),
+    } as unknown as { path: string });
   }
   return client;
 }
@@ -205,7 +260,9 @@ export async function clearRootsCollection(where?: Record<string, unknown>) {
       ids?: string[];
     }) => Promise<void>;
   };
+  baseLogger.info({ where }, 'clearRootsCollection start');
   await collection.delete(where ? { where } : {});
+  baseLogger.info({ where }, 'clearRootsCollection done');
 }
 
 export async function clearVectorsCollection(where?: Record<string, unknown>) {
@@ -216,7 +273,9 @@ export async function clearVectorsCollection(where?: Record<string, unknown>) {
       ids?: string[];
     }) => Promise<void>;
   };
+  baseLogger.info({ where }, 'clearVectorsCollection start');
   await collection.delete(where ? { where } : {});
+  baseLogger.info({ where }, 'clearVectorsCollection done');
 }
 
 export async function deleteVectors(where: {
@@ -230,7 +289,9 @@ export async function deleteVectors(where: {
       ids?: string[];
     }) => Promise<void>;
   };
+  baseLogger.info({ where }, 'deleteVectors start');
   await collection.delete(where);
+  baseLogger.info({ where }, 'deleteVectors done');
 }
 
 export async function deleteRoots(where: {

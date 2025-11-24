@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import type { EmbeddingModel, LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
+import { baseLogger } from '../logger.js';
 import {
   clearLockedModel,
   collectionIsEmpty,
@@ -351,8 +352,13 @@ export async function reembed(rootPath: string, d: Deps) {
 }
 
 export async function removeRoot(rootPath: string) {
+  baseLogger.info({ rootPath }, 'removeRoot start');
   await deleteVectors({ where: { root: rootPath } });
+  baseLogger.info({ rootPath }, 'removeRoot vectors deleted');
   await deleteRoots({ where: { root: rootPath } });
+  baseLogger.info({ rootPath }, 'removeRoot roots deleted');
   await resetLocksIfEmpty();
-  return { unlocked: !(await getLockedModel()) };
+  const unlocked = !(await getLockedModel());
+  baseLogger.info({ rootPath, unlocked }, 'removeRoot done');
+  return { unlocked };
 }

@@ -770,7 +770,7 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 
 ### 11. Cucumber – move ingest tests to Testcontainers
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Documentation Locations

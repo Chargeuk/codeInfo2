@@ -249,7 +249,7 @@ export async function setLockedModel(modelId: string): Promise<void> {
 
 export async function clearLockedModel(): Promise<void> {
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
-  await col.modify({ metadata: {} });
+  await col.modify({ metadata: { lockedModelId: null } });
 }
 
 export async function clearRootsCollection(where?: Record<string, unknown>) {

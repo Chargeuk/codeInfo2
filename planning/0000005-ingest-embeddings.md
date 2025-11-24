@@ -1104,8 +1104,10 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
    - Add `server/src/test/features/ingest-empty-drop-collection.feature`: Scenario A ingests normally, then POST `/ingest/remove/:root`, Then vectors collection is deleted and lock cleared; Scenario B re-ingests after deletion and succeeds with correct dimension (no stale lock error). Create matching step defs in `server/src/test/steps/ingest-dryrun-no-write.steps.ts` and `ingest-empty-drop-collection.steps.ts` that reuse chromaContainer + LM Studio mock and assert counts via the Chroma client.
 8. [ ] **Relocate unit tests + script updates** — Move files from `server/src/ingest/__tests__/*.test.ts` to `server/src/test/unit/*.test.ts`. Update `server/package.json` test script to run unit tests first (`node --test src/test/unit/**/*.test.ts`) then Cucumber (`cucumber-js`). Keep the command order explicit so juniors can copy-paste: `"test": "npm run build && node --test src/test/unit/**/*.test.ts && cucumber-js"` (adjust if existing prebuild is different).
 9. [ ] **Test command scope and doc notes** — Verify `npm run test --workspace server` triggers both unit and Cucumber suites after the script change. Add a one-line note in the script or README comment indicating the order (unit then Cucumber).
-10. [ ] **Docs updates** — Update `projectStructure.md` to reflect moved unit tests and any new feature/step files; update `design.md` if ingest lifecycle/cleanup behaviour changed; update `README.md` only if commands/envs change (e.g., new helper functions aren’t needed there).
-11. [ ] **Testing order (commands to run)** — For this task, run in this order so juniors can follow: 
+10. [ ] **Docs: projectStructure** — Update `projectStructure.md` to list moved unit tests under `server/src/test/unit`, the new feature files, and new step files.
+11. [ ] **Docs: design** — Update `design.md` to describe dry-run no-write behaviour, collection delete + lock reset, and the new cleanup helper flow.
+12. [ ] **Docs: README** — Update `README.md` only if commands/env vars changed (e.g., mention `INGEST_FLUSH_EVERY` already exists; note no mock Chroma path; confirm test command order if altered). If no README change is needed, state “no change required” in Implementation notes.
+13. [ ] **Testing order (commands to run)** — For this task, run in this order so juniors can follow: 
    - `npm run build --workspace server`
    - `npm run build --workspace client`
    - `npm run test --workspace server`
@@ -1114,7 +1116,7 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
    - `npm run compose:up`
    - `npm run compose:down`
    - `npm run e2e`
-12. [ ] **Lint/format** — `npm run lint --workspaces` then `npm run format:check --workspaces`; rerun fix variants if needed.
+14. [ ] **Lint/format** — `npm run lint --workspaces` then `npm run format:check --workspaces`; rerun fix variants if needed.
 
 #### Testing
 

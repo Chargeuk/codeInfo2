@@ -827,3 +827,40 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 - Keep the compose file minimal (Chroma only) and internal to tests; avoid host port publish unless Testcontainers requires it.
 
 ---
+
+### 12. E2E – Clean Chroma state & stabilize re-embed
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+E2E runs can inherit stale Chroma data because the e2e compose stack mounts a persistent `chroma-e2e-data` volume. This can cause model locks/dimension mismatches and re-embed 500s (as seen in recent runs). Make e2e Chroma ephemeral by default, enforce a clean state per run, and harden re-embed/remove e2e coverage to surface real errors while keeping state isolated.
+
+#### Documentation Locations
+
+- Docker/Compose volumes: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Chroma collections management: https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections
+- Jest/Playwright expectations: Context7 `/jestjs/jest`
+
+#### Subtasks
+
+1. [ ] Make e2e Chroma ephemeral by default: update `docker-compose.e2e.yml` to use an anonymous volume or tmpfs for `/chroma/.chroma` so each `compose:e2e:up` starts empty. Ensure `compose:e2e:down` removes any transient volume.
+2. [ ] Add a pre-clean step to the e2e flow: in scripts or test setup, explicitly remove any existing `chroma-e2e-data` volume before bringing the stack up, to cover manual runs that skip `-v`.
+3. [ ] Enhance ingest e2e to assert clean state: before re-embed/remove steps, verify the roots table is empty (or clear it via API) so tests don’t operate on stale data.
+4. [ ] Capture and assert server log output on re-embed failures in e2e tests; surface the exact error to aid debugging (lock vs dimension vs missing model).
+5. [ ] Verify re-embed/remove flows pass consistently after the clean-start changes.
+
+#### Testing
+
+1. [ ] `npm run e2e` (full cycle) — confirm Chroma starts empty, ingests succeed, re-embed/remove pass without 500s.
+2. [ ] Manual rerun of `compose:e2e:up` + `e2e:test` + `compose:e2e:down` without `-v` to confirm pre-clean enforces emptiness.
+3. [ ] Spot-check server logs during e2e to ensure no re-embed 500s are emitted.
+
+#### Implementation notes
+
+- Aim for zero persistence of Chroma data between e2e runs to avoid model lock/dimension drift.
+- Prefer minimal changes to the app; focus on e2e infra and test robustness.
+
+---

@@ -138,6 +138,9 @@ Then(
     for (let i = 0; i < 60; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
+      console.log(
+        `[ingest-roots] poll ${i} runId=${lastRunId} state=${body.state} message=${body.message ?? ''}`,
+      );
       if (body.state === state || body.state === 'error') return;
       await new Promise((r) => setTimeout(r, 100));
     }

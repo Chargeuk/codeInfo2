@@ -773,8 +773,8 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 
 ### 11. Cucumber – move ingest tests to Testcontainers
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: 737d89a, 2a80e77
 
 #### Documentation Locations
 

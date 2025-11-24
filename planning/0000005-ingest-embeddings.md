@@ -766,6 +766,7 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 10. [ ] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
 11. [x] Silence Chroma default-embed warnings by providing a custom embedding function: add a Chroma client wrapper that passes an explicit embedding function using our LMStudio embedding model (see “Custom Embedding Functions” in https://docs.trychroma.com/docs/embeddings/embedding-functions?lang=typescript#custom-embedding-functions). Stub the embedding function to call LM Studio `embedding.model(modelKey).embed(texts[])`, wire it into `getVectorsCollection/getRootsCollection`, and keep dimensions consistent with existing adds.
 12. [x] Add structured logging around the delete/remove path: log before calling Chroma delete/count/add, after success, on catch with error details, and at branching points in `removeRoot`, `clearRootsCollection`, `clearVectorsCollection`, and the `/ingest/remove/:root` route to trace the exact failure path in e2e.
+13. [ ] Fix lock clearing after remove: adjust `clearLockedModel()` so it doesn’t call `collection.modify({ metadata: {} })`, which Chroma rejects with “Expected metadata to be non-empty.” Use a non-empty metadata payload (e.g., `{ lockedModelId: null }`) or skip modify when metadata is already absent. Purpose: prevent 500s on `/ingest/remove/:root` when the vectors collection is empty and we attempt to release the model lock.
 
 ### 11. Cucumber – move ingest tests to Testcontainers
 

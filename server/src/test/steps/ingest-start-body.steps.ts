@@ -36,7 +36,7 @@ let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   startMock({ scenario: 'many' });
 
   const app = express();

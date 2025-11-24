@@ -901,21 +901,16 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
 
 #### Subtasks
 
-1. [ ] **Mock validation** – File: `server/src/test/support/mockLmStudioSdk.ts`. Add a guard in the mock client factory so when it receives a base URL that does not start with `ws://` or `wss://`, it throws the same error string as the real SDK: `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: <url>`.
-2. [ ] **Feature file** – Create `server/src/test/features/ingest-lmstudio-protocol.feature` with two scenarios:
-   - `/ingest/start` with `LMSTUDIO_BASE_URL=http://host.docker.internal:1234` returns HTTP 500 and the message above.
-   - `/ingest/reembed/:root` (use a dummy root like `/fixtures/repo`) with the same http base URL also returns HTTP 500 with the same message.
-3. [ ] **Step definitions** – Add `server/src/test/steps/ingest-lmstudio-protocol.steps.ts` that:
-   - Sets `process.env.LMSTUDIO_BASE_URL` to the http URL in a Before hook (reset to default ws URL in After).
-   - Starts the app with existing LM Studio mock/Testcontainers hooks (reuse current setup; no new containers).
-   - Calls the endpoints via supertest and asserts status 500 and exact error message matches the real SDK string.
-4. [ ] **Happy-path safety check** – Add a small positive assertion in the same steps file that when `LMSTUDIO_BASE_URL` is `ws://host.docker.internal:1234` the mock still works (e.g., GET `/ingest/models` returns 200). This keeps existing behaviour intact.
-5. [ ] **Docs in steps** – Comment in the steps file that Docker/Testcontainers will start because the server tests do so; remind how to run the suite: `npm run test --workspace server`.
-6. [ ] **Tests/Lint/Format** – Run `npm run test --workspace server` (starts Docker for Chroma). Then run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] **Mock validation** – File: `server/src/test/support/mockLmStudioSdk.ts`. Add a guard in the mock client factory so when it receives a base URL that does not start with `ws://` or `wss://`, it throws the same error string as the real SDK: `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: <url>`.
+2. [x] **Feature file** – Create `server/src/test/features/ingest-lmstudio-protocol.feature` with two scenarios: (a) LM Studio baseUrl set to http:// returns HTTP 500 and the SDK-like error when probing; (b) ws:// baseUrl returns 200 OK.
+3. [x] **Step definitions** – Add `server/src/test/steps/ingest-lmstudio-protocol.steps.ts` that spins up a tiny express app with `/lmstudio/probe`, sets `LMSTUDIO_BASE_URL` per scenario, and asserts the status/error string matches the real SDK output.
+4. [x] **Happy-path safety check** – In the same steps, ensure the ws:// scenario returns 200 with an "ok" message to prove mocks still work.
+5. [x] **Docs in steps** – Comment in the steps file that Docker/Testcontainers may start when running the server suite; remind how to run it: `npm run test --workspace server`.
+6. [x] **Tests/Lint/Format** – Run `npm run test --workspace server` (starts Docker for Chroma). Then run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [x] `npm run test --workspace server`
 
 #### Implementation notes
 

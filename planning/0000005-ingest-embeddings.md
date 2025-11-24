@@ -975,10 +975,17 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 
 #### Subtasks
 
-1. [ ] Wire ingest job to emit log entries (via logStore/logger) on start, completed, and error states; include runId, path/root, model, counts, and error when present. Ensure the "No eligible files" branch logs at error level.
-2. [ ] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting that starting an ingest surfaces a start log, and an error path (no eligible files) surfaces an error log with runId and message.
-3. [ ] Consider completion path: when an ingest completes successfully, assert a log entry with state=completed and embedded/counts is recorded.
-4. [ ] Run `npm run test --workspace server` and `npm run lint --workspaces`.
+1. [ ] Emit structured log entries (use the existing server logger/logStore so they appear on the Logs page) at:
+   - **info**: ingest start — fields: runId, path (startPath), model, name/description, state=start
+   - **info**: ingest completed — runId, root, model, files, chunks, embedded, state=completed
+   - **error**: ingest failed/no eligible files — runId, path/root, model, counts, message/lastError, state=error
+   Keep payloads small and consistent with existing log schema; do not log at debug.
+2. [ ] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting:
+   - start emits an info log with runId and state=start
+   - the "no eligible files" path emits an error log with runId and the message
+   - a successful ingest emits an info log with state=completed and counts
+   Use API calls to `/logs?text=<runId>` to assert visibility.
+3. [ ] Run `npm run test --workspace server` and `npm run lint --workspaces`.
 
 #### Testing
 

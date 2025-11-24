@@ -830,8 +830,8 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 
 ### 12. E2E – Clean Chroma state & stabilize re-embed
 
-- status: __in_progress__
-- Git Commits: **to_do**
+- status: __done__
+- Git Commits: 2a24088, 727c3f5
 
 #### Overview
 

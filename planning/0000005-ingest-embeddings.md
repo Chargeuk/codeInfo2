@@ -911,7 +911,7 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
    - Calls the endpoints via supertest and asserts status 500 and exact error message matches the real SDK string.
 4. [ ] **Happy-path safety check** – Add a small positive assertion in the same steps file that when `LMSTUDIO_BASE_URL` is `ws://host.docker.internal:1234` the mock still works (e.g., GET `/ingest/models` returns 200). This keeps existing behaviour intact.
 5. [ ] **Docs in steps** – Comment in the steps file that Docker/Testcontainers will start because the server tests do so; remind how to run the suite: `npm run test --workspace server`.
-6. [ ] **Tests** – Run `npm run test --workspace server` (will start Docker for Chroma). Ensure the new feature appears in the output and passes.
+6. [ ] **Tests/Lint/Format** – Run `npm run test --workspace server` (starts Docker for Chroma). Then run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

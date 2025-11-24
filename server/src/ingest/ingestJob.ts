@@ -225,6 +225,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       lastError: null,
     });
   } catch (err) {
+    console.error('[ingestJob] run failed', {
+      runId,
+      error: (err as Error)?.message,
+      stack: (err as Error)?.stack,
+    });
     jobs.set(runId, {
       runId,
       state: 'error',

@@ -71,6 +71,7 @@ async function processRun(runId: string, input: IngestJobInput) {
   if (!status) return;
   jobInputs.set(runId, input);
   try {
+    const ingestedAtMs = Date.now();
     const { path: startPath, name, description, model, dryRun } = input;
     jobs.set(runId, {
       ...status,
@@ -165,17 +166,19 @@ async function processRun(runId: string, input: IngestJobInput) {
         ids.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
         documents.push(chunk.text);
         embeddings.push(embedding);
-        metadatas.push({
+        const metadata: Metadata = {
           runId,
           root,
           relPath: file.relPath,
           fileHash,
           chunkHash,
           embeddedAt: new Date().toISOString(),
+          ingestedAtMs,
           model,
           name,
-          description: description ?? null,
-        });
+        };
+        if (description) metadata.description = description;
+        metadatas.push(metadata);
       }
       counts.chunks += chunks.length;
     }
@@ -198,23 +201,24 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     const rootEmbeddingDim = existingRootDim || vectorDim || 1;
+    const rootMetadata: Metadata = {
+      runId,
+      root,
+      name,
+      model,
+      files: counts.files,
+      chunks: counts.chunks,
+      embedded: counts.embedded,
+      state: 'completed',
+      lastIngestAt: new Date().toISOString(),
+      ingestedAtMs,
+    };
+    if (description) rootMetadata.description = description;
+
     await roots.add({
       ids: [runId],
       embeddings: [Array(rootEmbeddingDim).fill(0)],
-      metadatas: [
-        {
-          runId,
-          root,
-          name,
-          description: description ?? null,
-          model,
-          files: counts.files,
-          chunks: counts.chunks,
-          embedded: counts.embedded,
-          state: 'completed',
-          lastIngestAt: new Date().toISOString(),
-        },
-      ],
+      metadatas: [rootMetadata],
     });
 
     jobs.set(runId, {

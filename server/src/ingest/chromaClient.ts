@@ -264,9 +264,10 @@ export async function clearRootsCollection(where?: Record<string, unknown>) {
       ids?: string[];
     }) => Promise<void>;
   };
-  baseLogger.info({ where }, 'clearRootsCollection start');
-  await collection.delete(where ? { where } : {});
-  baseLogger.info({ where }, 'clearRootsCollection done');
+  const whereClause = where ?? { ingestedAtMs: { $gt: 0 } };
+  baseLogger.info({ where: whereClause }, 'clearRootsCollection start');
+  await collection.delete({ where: whereClause });
+  baseLogger.info({ where: whereClause }, 'clearRootsCollection done');
 }
 
 export async function clearVectorsCollection(where?: Record<string, unknown>) {
@@ -277,9 +278,10 @@ export async function clearVectorsCollection(where?: Record<string, unknown>) {
       ids?: string[];
     }) => Promise<void>;
   };
-  baseLogger.info({ where }, 'clearVectorsCollection start');
-  await collection.delete(where ? { where } : {});
-  baseLogger.info({ where }, 'clearVectorsCollection done');
+  const whereClause = where ?? { ingestedAtMs: { $gt: 0 } };
+  baseLogger.info({ where: whereClause }, 'clearVectorsCollection start');
+  await collection.delete({ where: whereClause });
+  baseLogger.info({ where: whereClause }, 'clearVectorsCollection done');
 }
 
 export async function deleteVectors(where: {

@@ -886,8 +886,8 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 
 ### 13. Server – LM Studio ws/wss validation in Cucumber
 
-- status: __in_progress__
-- Git Commits: **to_do**
+- status: __done__
+- Git Commits: 4b63c4c, 6c92050
 
 #### Overview
 
@@ -914,6 +914,7 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
 
 #### Implementation notes
 
-- To be filled during implementation.
+- LM Studio mock now throws on non-ws/wss base URLs; probe feature/steps cover http (500) vs ws (200) and reset env between runs.
+- Existing server step hooks now use ws://localhost:1234 to keep suites green; protocol feature uses its own tiny Express probe endpoint to isolate behaviour.
 
 ---

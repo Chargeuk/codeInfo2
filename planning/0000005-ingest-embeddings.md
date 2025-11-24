@@ -1107,7 +1107,7 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 10. [ ] **Docs: projectStructure** — Update `projectStructure.md` to list moved unit tests under `server/src/test/unit`, the new feature files, and new step files.
 11. [ ] **Docs: design** — Update `design.md` to describe dry-run no-write behaviour, collection delete + lock reset, and the new cleanup helper flow.
 12. [ ] **Docs: README** — Update `README.md` only if commands/env vars changed (e.g., mention `INGEST_FLUSH_EVERY` already exists; note no mock Chroma path; confirm test command order if altered). If no README change is needed, state “no change required” in Implementation notes.
-14. [ ] **Lint/format** — `npm run lint --workspaces` then `npm run format:check --workspaces`; rerun fix variants if needed.
+13. [ ] **Lint/format** — `npm run lint --workspaces` then `npm run format:check --workspaces`; rerun fix variants if needed.
 
 #### Testing
 

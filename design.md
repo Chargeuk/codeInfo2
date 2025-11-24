@@ -26,6 +26,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.
+- Ingest Cucumber scenarios start a real `chromadb/chroma:1.3.5` via Testcontainers (see `server/src/test/support/chromaContainer.ts`); hooks inject `CHROMA_URL` and wipe ingest collections before each scenario. Docker must be available when running `npm run test --workspace server`.
+- Manual debug option: `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` to bring up Chroma; tear down with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`.
 - Dockerfile (multi-stage, Node 22 slim) builds server from workspace; `.dockerignore` excludes tests and dev artifacts while keeping `.env` defaults. Build with `docker build -f server/Dockerfile -t codeinfo2-server .`, run with `docker run --rm -p 5010:5010 codeinfo2-server`.
 
 ## Client skeleton

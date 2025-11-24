@@ -33,23 +33,49 @@ class NoopEmbeddingFunction implements EmbeddingFunction {
 
 class LmStudioEmbeddingFunction implements EmbeddingFunction {
   constructor(
-    private modelKey: string,
-    private baseUrl: string,
+    protected modelKey: string,
+    protected baseUrl: string,
   ) {}
 
+  // Separated for easier test overrides.
+  protected async getClient() {
+    return new LMStudioClient({ baseUrl: this.baseUrl });
+  }
+
+  protected async embedText(
+    model: Awaited<ReturnType<LMStudioClient['embedding']['model']>>,
+    text: string,
+  ): Promise<number[]> {
+    const res = await model.embed(text);
+    return res.embedding;
+  }
+
   async generate(texts: string[]): Promise<number[][]> {
-    const client = new LMStudioClient({ baseUrl: this.baseUrl });
+    const client = await this.getClient();
     const model = await client.embedding.model(this.modelKey);
     const results: number[][] = [];
     for (const text of texts) {
-      const res = await model.embed(text);
-      results.push(res.embedding);
+      results.push(await this.embedText(model, text));
     }
     return results;
   }
 }
 
+class TestEmbeddingFunction extends LmStudioEmbeddingFunction {
+  constructor() {
+    super('test-embed', 'http://localhost'); // values unused
+  }
+
+  async generate(texts: string[]): Promise<number[][]> {
+    // Deterministic small vector to satisfy Chroma during BDD; keeps add/delete paths real
+    return texts.map(() => Array(10).fill(0));
+  }
+}
+
 function resolveEmbeddingFunction(): EmbeddingFunction {
+  if (process.env.CHROMA_TEST_EMBEDDINGS === 'true') {
+    return new TestEmbeddingFunction();
+  }
   const baseUrl = process.env.LMSTUDIO_BASE_URL;
   if (baseUrl && DEFAULT_EMBED_MODEL) {
     try {

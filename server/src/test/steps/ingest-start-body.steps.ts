@@ -36,7 +36,6 @@ let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
 
 Before(async () => {
-  process.env.CHROMA_URL = 'mock:';
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
   startMock({ scenario: 'many' });
 

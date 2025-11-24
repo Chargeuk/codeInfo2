@@ -770,7 +770,7 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 
 ### 11. Cucumber – move ingest tests to Testcontainers
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Documentation Locations
@@ -790,29 +790,34 @@ Replace the in-memory Chroma mock in ingest Cucumber suites with real Chroma via
 
 #### Subtasks
 
-1. [ ] Add `server/src/test/compose/docker-compose.chroma.yml` with a single `chroma` service (image `chromadb/chroma:1.3.5`, internal port 8000, named volume e.g., `chroma-test-data`). Include a short comment noting this file is for manual debug/reference; Cucumber will use Testcontainers.
-2. [ ] Add `server/src/test/support/chromaContainer.ts` hooks implementing:
+1. [x] Add `server/src/test/compose/docker-compose.chroma.yml` with a single `chroma` service (image `chromadb/chroma:1.3.5`, internal port 8000, named volume e.g., `chroma-test-data`). Include a short comment noting this file is for manual debug/reference; Cucumber will use Testcontainers.
+2. [x] Add `server/src/test/support/chromaContainer.ts` hooks implementing:
    - `BeforeAll`: start `new GenericContainer('chromadb/chroma:1.3.5')`, set `process.env.CHROMA_URL` to the mapped host/port, log it.
    - `AfterAll`: stop the container.
    - `Before`: wipe ingest collections (see next subtask) before each scenario.
-3. [ ] In `server/src/test/support/chromaContainer.ts` `Before` hook, wipe Chroma between scenarios by deleting and recreating ingest collections. Use `client.deleteCollection({ name: process.env.INGEST_COLLECTION })` and `client.deleteCollection({ name: process.env.INGEST_ROOTS_COLLECTION })` followed by `getOrCreateCollection` for both (ref: https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections).
-4. [ ] Update ingest step defs at `server/src/test/steps/ingest-start.steps.ts`, `ingest-roots.steps.ts`, `ingest-manage.steps.ts`, `ingest-start-body.steps.ts`, and `ingest-roots-metadata.steps.ts`: remove any `CHROMA_URL='mock:'` assignments and ensure they read `process.env.CHROMA_URL` set by the hooks. Keep LM Studio mocking unchanged.
-5. [ ] README: under the testing/BDD section, add a note that ingest Cucumber tests use Testcontainers for Chroma, include manual debug commands (`docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` / `down -v`), and mention `CHROMA_URL` is injected by the hooks.
-6. [ ] design.md: under testing/BDD, add a short paragraph or mini-sequence diagram showing the ingest BDD flow (LM Studio mocked, Chroma real via Testcontainers hooks, per-scenario wipe).
-7. [ ] projectStructure.md: add entries for `server/src/test/compose/docker-compose.chroma.yml` and `server/src/test/support/chromaContainer.ts`.
-8. [ ] Add a “setup/commands” note (in the hooks file or README) with the exact command to run ingest Cucumber tests, e.g., `npm run test --workspace server -- --tags @ingest` (or full test run), and a reminder that env vars `INGEST_COLLECTION` and `INGEST_ROOTS_COLLECTION` must be set (use defaults already in `.env`).
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] In `server/src/test/support/chromaContainer.ts` `Before` hook, wipe Chroma between scenarios by deleting and recreating ingest collections. Use `client.deleteCollection({ name: process.env.INGEST_COLLECTION })` and `client.deleteCollection({ name: process.env.INGEST_ROOTS_COLLECTION })` followed by `getOrCreateCollection` for both (ref: https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections).
+4. [x] Update ingest step defs at `server/src/test/steps/ingest-start.steps.ts`, `ingest-roots.steps.ts`, `ingest-manage.steps.ts`, `ingest-start-body.steps.ts`, and `ingest-roots-metadata.steps.ts`: remove any `CHROMA_URL='mock:'` assignments and ensure they read `process.env.CHROMA_URL` set by the hooks. Keep LM Studio mocking unchanged.
+5. [x] README: under the testing/BDD section, add a note that ingest Cucumber tests use Testcontainers for Chroma, include manual debug commands (`docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` / `down -v`), and mention `CHROMA_URL` is injected by the hooks.
+6. [x] design.md: under testing/BDD, add a short paragraph or mini-sequence diagram showing the ingest BDD flow (LM Studio mocked, Chroma real via Testcontainers hooks, per-scenario wipe).
+7. [x] projectStructure.md: add entries for `server/src/test/compose/docker-compose.chroma.yml` and `server/src/test/support/chromaContainer.ts`.
+8. [x] Add a “setup/commands” note (in the hooks file or README) with the exact command to run ingest Cucumber tests, e.g., `npm run test --workspace server -- --tags @ingest` (or full test run), and a reminder that env vars `INGEST_COLLECTION` and `INGEST_ROOTS_COLLECTION` must be set (use defaults already in `.env`).
+9. [x] Add test-only embedding override:
+    - In `server/src/ingest/chromaClient.ts`, refactor `LmStudioEmbeddingFunction` to expose LM Studio calls via protected methods (`getClient`, `embedText`).
+    - Add `TestEmbeddingFunction extends LmStudioEmbeddingFunction` that overrides those methods to return a deterministic fixed-length vector (e.g., length 10), without calling LM Studio.
+    - In `resolveEmbeddingFunction()`, gate swapping to `TestEmbeddingFunction` behind a test env flag (e.g., `CHROMA_TEST_EMBEDDINGS === 'true'`) set by the Testcontainers hook so production keeps the real embedding path.
+    - Update `server/src/test/support/chromaContainer.ts` to set that flag (and optionally a dummy `INGEST_EMBED_MODEL`) so Cucumber ingest scenarios run against real Chroma with the fixed embedding output but unchanged ingest logic/metadata.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [x] `npm run test --workspace server`
-2. [x] `npm run test --workspace client`
-3. [x] `npm run build --workspace server`
-4. [x] `npm run build --workspace client`
-5. [x] `npm run compose:build`
-6. [x] `npm run compose:up`
-8. [x] `npm run compose:down`
-7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
+7. [ ] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 

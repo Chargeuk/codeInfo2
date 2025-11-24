@@ -846,17 +846,32 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 
 #### Subtasks
 
-1. [ ] Make e2e Chroma ephemeral by default: update `docker-compose.e2e.yml` to use an anonymous volume or tmpfs for `/chroma/.chroma` so each `compose:e2e:up` starts empty. Ensure `compose:e2e:down` removes any transient volume.
-2. [ ] Add a pre-clean step to the e2e flow: in scripts or test setup, explicitly remove any existing `chroma-e2e-data` volume before bringing the stack up, to cover manual runs that skip `-v`.
-3. [ ] Enhance ingest e2e to assert clean state: before re-embed/remove steps, verify the roots table is empty (or clear it via API) so tests don’t operate on stale data.
-4. [ ] Capture and assert server log output on re-embed failures in e2e tests; surface the exact error to aid debugging (lock vs dimension vs missing model).
-5. [ ] Verify re-embed/remove flows pass consistently after the clean-start changes.
+1. [ ] Make e2e Chroma ephemeral by default  
+   - File: `docker-compose.e2e.yml`  
+   - Change: replace the named volume mount `chroma-e2e-data:/chroma/.chroma` with an anonymous volume (`- /chroma/.chroma`) or `tmpfs: /chroma/.chroma` so every `compose:e2e:up` starts empty.  
+   - Ensure the `volumes:` block no longer declares `chroma-e2e-data`.
+2. [ ] Add a pre-clean step to the e2e flow  
+   - File: `package.json` scripts or a small helper script (e.g., `scripts/clean-e2e-volume.sh`).  
+   - Command to run before `compose:e2e:up`: `docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true` (with a note that it’s harmless if absent).  
+   - If using a script, document it and call it from `e2e` or `compose:e2e:up` to cover manual runs that skip `-v`.
+3. [ ] Assert/clear clean state in ingest e2e  
+   - File: `e2e/ingest.spec.ts`.  
+   - Before re-embed/remove tests, call the server `/ingest/roots` API and assert it returns `roots: []`; if not empty, POST `/ingest/remove/<root>` for each root to clear.  
+   - Alternatively add a small helper in the spec to loop remove calls until empty; fail fast if any remove returns non-200.
+4. [ ] Capture and assert server log output on re-embed failures  
+   - During the e2e test, after re-embed actions, fetch `/logs?text=re-embed&limit=50` (or read `logs/server-e2e.*.log` on disk) and assert no 500/“dimension mismatch”/“MODEL_LOCKED” errors.  
+   - If errors appear, surface them via `expect` with a clear message so CI shows the root cause.
+5. [ ] Verify stability with repeated runs  
+   - Run `npm run e2e` twice in a row (without manually deleting volumes) and confirm:  
+     - Roots table starts empty on each run.  
+     - Happy path, cancel, re-embed, remove all pass with no 500s in logs.  
+     - Model lock chip reflects the model chosen in the current run only.
 
 #### Testing
 
-1. [ ] `npm run e2e` (full cycle) — confirm Chroma starts empty, ingests succeed, re-embed/remove pass without 500s.
-2. [ ] Manual rerun of `compose:e2e:up` + `e2e:test` + `compose:e2e:down` without `-v` to confirm pre-clean enforces emptiness.
-3. [ ] Spot-check server logs during e2e to ensure no re-embed 500s are emitted.
+1. [ ] `npm run e2e` (full cycle) — confirm roots are empty at start, all ingest flows pass, and no 500s in server-e2e logs.  
+2. [ ] Run `npm run compose:e2e:up && npm run e2e:test && npm run compose:e2e:down` (intentionally without `-v`) and verify the pre-clean step still yields an empty Chroma and passing tests.  
+3. [ ] After tests, grep `logs/server-e2e.*.log` for `re-embed` and ensure no 500/dimension/lock errors appear.
 
 #### Implementation notes
 

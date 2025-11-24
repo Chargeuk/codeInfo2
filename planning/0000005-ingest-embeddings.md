@@ -967,7 +967,7 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 ### 15. Server – Log ingest lifecycle (start/success/error)
 
 - status: **done**
-- Git Commits: **pending**
+- Git Commits: 47367a5
 
 #### Overview
 
@@ -1027,7 +1027,7 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 ### 16. Server – Batch flush embeddings to Chroma
 
 - status: **done**
-- Git Commits: **to_do**
+- Git Commits: 8ab5e4d
 
 #### Overview
 

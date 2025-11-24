@@ -996,6 +996,10 @@ Emit structured log entries to the server log store for ingest lifecycle events 
    Use API calls to `/logs?text=<runId>` to assert visibility.
 3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
+**Files to touch**: `server/src/ingest/ingestJob.ts` (emit log events), `server/src/logger.ts` / `server/src/logStore.ts` (if helpers needed), `server/src/routes/logs.ts` (only if wiring required), new feature `server/src/test/features/ingest-logging.feature`, steps `server/src/test/steps/ingest-logging.steps.ts` (reuse `server/src/test/support/chromaContainer.ts` + LM Studio mock hooks).
+
+**Assertions to spell out in steps**: `/logs?text=<runId>` contains entries with `state=start`, `state=completed` and counts, `state=skipped` for no-op re-embed, `state=error` when simulating Chroma add failure (e.g., mock throws). Ensure runId matches and level matches (info/error). Note Docker/Testcontainers required before `npm run test --workspace server`.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1042,6 +1046,10 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
    - ensure final remainder flush occurs.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 6. [ ] Run server tests `npm run test --workspace server` (will start Testcontainers) to cover the new feature.
+
+**Files to touch**: `server/.env` (add `INGEST_FLUSH_EVERY=20`), `server/src/ingest/config.ts` (parse with min 1 default 20), `server/src/ingest/ingestJob.ts` (batch buffers + flush), optional helper in `ingest/chromaClient.ts` only if batching needs support. Tests: `server/src/test/features/ingest-batch-flush.feature`, steps in `server/src/test/steps/ingest-batch-flush.steps.ts` (reuse `chromaContainer` + LM Studio mock hooks).
+
+**Assertions to spell out in steps**: when `INGEST_FLUSH_EVERY=1`, vectors collection sees multiple `add` calls or observable chunk counts per flush; final remainder flushes; overall embedded count equals files*chunks; no memory accumulation assumption is required, just batch behaviour. Note Docker/Testcontainers must be running for `npm run test --workspace server`.
 
 #### Testing
 
@@ -1099,3 +1107,7 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 
 - Avoid placeholder embeddings during dry-run; still compute and report counts/messages.
 - After collection delete, ensure `getOrCreateCollection` reuses the embedding function so the first real write sets the correct dimension.
+
+**Files to touch**: `server/src/ingest/ingestJob.ts` (dry-run path skips vectors.add but still generates embeddings/batches), `server/src/ingest/chromaClient.ts` (add deleteCollection when vectors count is zero; re-lock logic), possibly `server/src/ingest/lock.ts` if lock state needs reset, new features `server/src/test/features/ingest-dryrun-no-write.feature` and `.../ingest-empty-drop-collection.feature`, steps `server/src/test/steps/ingest-dryrun-no-write.steps.ts` and `.../ingest-empty-drop-collection.steps.ts` (reuse `chromaContainer` + LM Studio mock hooks).
+
+**Assertions to spell out in steps**: dry-run scenario leaves vectors collection count at 0 and no dimension set; delete-collection scenario ingests once (sets dimension), removes/cancels to empty, verifies collection gone or recreated on next ingest with correct dimension; ensure model lock cleared when collection deleted. Mention Docker/Testcontainers requirement before running server tests.

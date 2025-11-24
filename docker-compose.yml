@@ -11,6 +11,7 @@ services:
       - server/.env.local
     volumes:
       - ./logs:/app/logs
+      - ${HOST_INGEST_DIR:-/tmp}:/data:ro
     depends_on:
       chroma:
         condition: service_started

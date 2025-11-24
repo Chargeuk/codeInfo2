@@ -918,3 +918,38 @@ Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` 
 - Existing server step hooks now use ws://localhost:1234 to keep suites green; protocol feature uses its own tiny Express probe endpoint to isolate behaviour.
 
 ---
+
+### 14. Server – Ingest fallback when git is unavailable (and add git to runtime)
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. Add a graceful fallback to walk the filesystem when git tracking cannot be determined, while preserving the current git-tracked-only behaviour when git is available and returns results. Also install `git` in the server runtime image so tracked-only mode works in Docker. Prevents false "No eligible files" errors when git isn't present and avoids ingesting untracked junk when it is.
+
+#### Documentation Locations
+
+- Git ls-files reference: https://git-scm.com/docs/git-ls-files
+- Node fs/promises & child_process docs (Context7 `/nodejs/node` if needed)
+- Existing ingest discovery module: `server/src/ingest/discovery.ts`
+- Jest docs: Context7 `/jestjs/jest`
+
+#### Subtasks
+
+1. [ ] Update `listGitTracked` to surface failure (throw or `{ ok:false }`) instead of silently returning empty.
+2. [ ] In `discoverFiles`, when git is present but `listGitTracked` fails, fall back to `walkDir(root)` while keeping include/exclude + text checks; log an info/debug note on fallback.
+3. [ ] Add Cucumber coverage in `server/src/test/features/ingest-discovery-fallback.feature` with steps under `server/src/test/steps/` covering: (a) git success uses git list; (b) git failure (git missing) falls back to walkDir and finds files; (c) real empty git repo returns no files and surfaces the existing "No eligible files" message. Keep all tests inside `server/src/test` per repo convention.
+4. [ ] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
+5. [ ] Run `npm run test --workspace server` (Cucumber suite) and `npm run lint --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run lint --workspaces`
+
+#### Implementation notes
+
+- Fallback should not change behaviour when git returns a valid list; only trigger when the git command fails or is missing.
+
+---

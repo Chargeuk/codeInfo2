@@ -649,8 +649,8 @@ Prereqs: server roots/re-embed/remove endpoints available or mocked. Expected: b
 
 ### 9. Final verification
 
-- status: __in_progress__
-- Git Commits: __to_do__
+- status: __done__
+- Git Commits: 6c2387d, 5b4e50f, 43c2c7f
 
 #### Overview
 
@@ -727,20 +727,20 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 6. [x] `npm run compose:up`
 8. [x] `npm run compose:down`
 6. [x] `npm run e2e:up`
-7. [ ] `npm run e2e:test` (including new ingest e2e cases)
+7. [x] `npm run e2e:test` (including new ingest e2e cases)
 8. [x] `npm run e2e:down`
 
 #### Implementation notes
 
 - Coordinate rebase/merge with chat branch for NavBar/router before final checks; capture any screenshots for ingest UI if needed.
 - PR summary draft: Added ingest roots UI (table/details/actions), implemented ingest e2e compose stack + Playwright ingest flows (happy/cancel/re-embed/remove with model-lock awareness), updated docs (README/design/projectStructure) and scripts for isolated e2e runs.
-- E2E status: `npm run e2e:test` currently fails because the client stays disabled when LM Studio models are unavailable in the e2e stack (model select + ingest start disabled). All other build/test/compose steps are green; e2e stack brings up fine and tears down cleanly.
+- E2E status: `npm run e2e:test` now passes against the e2e stack with LM Studio models available; all build/test/compose steps are green.
 
 ---
 
 ### 10. Server – ingest start/roots fixes (body parsing & Chroma metadata)
 
-- status: **in_progress**
+- status: __done__
 - Git Commits: c2159ab, 9575b50, b60632b, 5d228f5, 2272267
 
 #### Overview
@@ -763,46 +763,54 @@ Resolve the ingest API failures blocking e2e: JSON bodies aren’t parsed (so `/
 7. [x] Verify `/ingest/roots` returns 200 with empty roots on a clean e2e stack; verify `/ingest/start` accepts a valid payload and returns 202 in dry-run mode.
 8. [x] Update ingest roots write to satisfy Chroma’s requirement (no metadata-only add): supply a minimal placeholder embedding per root (e.g., `embeddings: [[0]]`, omit `documents`) with the existing `metadatas`, so Chroma doesn’t try to embed documents; ensure `vectors.add` is only called when we have embeddings.
 9. [x] Add guards so ingest skips `add` calls when zero files/chunks are discovered, returning a clear error like “No eligible files found in <path>” instead of relying on Chroma errors.
-10. [ ] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
+10. [x] Rerun `npm run e2e` to confirm ingest flows pass (build, up, test, down); leave the DefaultEmbeddingFunction warning untouched.
 11. [x] Silence Chroma default-embed warnings by providing a custom embedding function: add a Chroma client wrapper that passes an explicit embedding function using our LMStudio embedding model (see “Custom Embedding Functions” in https://docs.trychroma.com/docs/embeddings/embedding-functions?lang=typescript#custom-embedding-functions). Stub the embedding function to call LM Studio `embedding.model(modelKey).embed(texts[])`, wire it into `getVectorsCollection/getRootsCollection`, and keep dimensions consistent with existing adds.
 12. [x] Add structured logging around the delete/remove path: log before calling Chroma delete/count/add, after success, on catch with error details, and at branching points in `removeRoot`, `clearRootsCollection`, `clearVectorsCollection`, and the `/ingest/remove/:root` route to trace the exact failure path in e2e.
-13. [ ] Fix lock clearing after remove: adjust `clearLockedModel()` so it doesn’t call `collection.modify({ metadata: {} })`, which Chroma rejects with “Expected metadata to be non-empty.” Use a non-empty metadata payload (e.g., `{ lockedModelId: null }`) or skip modify when metadata is already absent. Purpose: prevent 500s on `/ingest/remove/:root` when the vectors collection is empty and we attempt to release the model lock.
+13. [x] Fix lock clearing after remove: adjust `clearLockedModel()` so it doesn’t call `collection.modify({ metadata: {} })`, which Chroma rejects with “Expected metadata to be non-empty.” Use a non-empty metadata payload (e.g., `{ lockedModelId: null }`) or skip modify when metadata is already absent. Purpose: prevent 500s on `/ingest/remove/:root` when the vectors collection is empty and we attempt to release the model lock.
 
 ### 11. Cucumber – move ingest tests to Testcontainers
 
 - status: **to_do**
 - Git Commits: **to_do**
 
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright (for existing e2e context): Context7 `/microsoft/playwright`
+- Mermaid (if diagrams needed): Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Chroma collections management (delete collections): https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections
+- Chroma client/API reference: https://docs.trychroma.com/api-reference
+- Testcontainers for Node: https://node.testcontainers.org/
+
 #### Overview
 
-Replace the in-memory Chroma mock in ingest Cucumber suites with real Chroma via Testcontainers, using a dedicated docker-compose file under `server/src/test/compose` so we can extend services later. This will surface real Chroma validation (e.g., metadata-only adds) during BDD runs.
+Replace the in-memory Chroma mock in ingest Cucumber suites with real Chroma via Testcontainers. Provide a minimal compose file for manual debugging, start/stop Chroma from Cucumber hooks, and point ingest step defs at the real container while keeping LM Studio mocked. Aim: surface real Chroma validation (e.g., metadata-only adds) during BDD runs.
 
 #### Subtasks
 
-1. [ ] Add a compose file at `server/src/test/compose/docker-compose.chroma.yml` defining a Chroma service (v1.3.5) on an internal port; expose env for host/port.
-2. [ ] Wire Cucumber `BeforeAll`/`AfterAll` hooks to start/stop the Chroma container (via Testcontainers or docker-compose) for the ingest suite, and wipe the DB before each scenario (e.g., drop collections or recreate container) so runs stay isolated.
-3. [ ] Update ingest step defs (start/roots/manage/body/metadata) to remove `CHROMA_URL='mock:'` and use the real service.
-4. [ ] Adjust mock LM Studio usage only (keep LM Studio mocked); ensure LM Studio mock remains intact.
-5. [ ] Update projectStructure.md to list the compose file; document the new testcontainer flow in design.md/README (brief note).
-6. [ ] Run `npm run test --workspace server` to verify Cucumber passes against real Chroma.
+1. [ ] Add `server/src/test/compose/docker-compose.chroma.yml` with a single `chroma` service (image `chromadb/chroma:1.3.5`, internal port 8000, named volume e.g., `chroma-test-data`). Include a short comment noting this file is for manual debug/reference; Cucumber will use Testcontainers.
+2. [ ] Add `server/src/test/support/chromaContainer.ts` hooks implementing:
+   - `BeforeAll`: start `new GenericContainer('chromadb/chroma:1.3.5')`, set `process.env.CHROMA_URL` to the mapped host/port, log it.
+   - `AfterAll`: stop the container.
+   - `Before`: wipe ingest collections (see next subtask) before each scenario.
+3. [ ] In `server/src/test/support/chromaContainer.ts` `Before` hook, wipe Chroma between scenarios by deleting and recreating ingest collections. Use `client.deleteCollection({ name: process.env.INGEST_COLLECTION })` and `client.deleteCollection({ name: process.env.INGEST_ROOTS_COLLECTION })` followed by `getOrCreateCollection` for both (ref: https://docs.trychroma.com/docs/collections/manage-collections?lang=typescript#deleting-collections).
+4. [ ] Update ingest step defs at `server/src/test/steps/ingest-start.steps.ts`, `ingest-roots.steps.ts`, `ingest-manage.steps.ts`, `ingest-start-body.steps.ts`, and `ingest-roots-metadata.steps.ts`: remove any `CHROMA_URL='mock:'` assignments and ensure they read `process.env.CHROMA_URL` set by the hooks. Keep LM Studio mocking unchanged.
+5. [ ] README: under the testing/BDD section, add a note that ingest Cucumber tests use Testcontainers for Chroma, include manual debug commands (`docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` / `down -v`), and mention `CHROMA_URL` is injected by the hooks.
+6. [ ] design.md: under testing/BDD, add a short paragraph or mini-sequence diagram showing the ingest BDD flow (LM Studio mocked, Chroma real via Testcontainers hooks, per-scenario wipe).
+7. [ ] projectStructure.md: add entries for `server/src/test/compose/docker-compose.chroma.yml` and `server/src/test/support/chromaContainer.ts`.
+8. [ ] Add a “setup/commands” note (in the hooks file or README) with the exact command to run ingest Cucumber tests, e.g., `npm run test --workspace server -- --tags @ingest` (or full test run), and a reminder that env vars `INGEST_COLLECTION` and `INGEST_ROOTS_COLLECTION` must be set (use defaults already in `.env`).
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run test --workspace server`
-
-#### Implementation notes
-
-- Keep the compose file minimal (Chroma only) and internal to tests; no host port publish unless required by the Testcontainers client.
-
-
-#### Testing
-
-1. [x] `npm run test --workspace server`
-2. [x] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
 3. [ ] `npm run e2e`
 
 #### Implementation notes
 
--
+- Keep the compose file minimal (Chroma only) and internal to tests; avoid host port publish unless Testcontainers requires it.
 
 ---

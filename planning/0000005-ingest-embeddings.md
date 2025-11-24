@@ -1077,7 +1077,7 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
 
 ### 17. Server – Dry-run safety & collection cleanup
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

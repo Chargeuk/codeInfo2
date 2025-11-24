@@ -15,6 +15,7 @@ export type IngestRunState =
   | 'scanning'
   | 'embedding'
   | 'completed'
+  | 'skipped'
   | 'cancelled'
   | 'error';
 
@@ -23,4 +24,5 @@ export type IngestConfig = {
   excludes: string[];
   tokenSafetyMargin: number;
   fallbackTokenLimit: number;
+  flushEvery: number;
 };

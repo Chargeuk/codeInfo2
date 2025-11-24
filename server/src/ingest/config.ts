@@ -69,6 +69,10 @@ export function resolveConfig(): IngestConfig {
 
   const tokenSafetyMargin = Number(process.env.INGEST_TOKEN_MARGIN ?? 0.85);
   const fallbackTokenLimit = Number(process.env.INGEST_FALLBACK_TOKENS ?? 2048);
+  const rawFlushEvery = Number(process.env.INGEST_FLUSH_EVERY ?? 20);
+  const flushEvery = Number.isFinite(rawFlushEvery)
+    ? Math.min(500, Math.max(1, Math.floor(rawFlushEvery)))
+    : 20;
 
   return {
     includes,
@@ -79,5 +83,6 @@ export function resolveConfig(): IngestConfig {
     fallbackTokenLimit: Number.isFinite(fallbackTokenLimit)
       ? fallbackTokenLimit
       : 2048,
+    flushEvery,
   };
 }

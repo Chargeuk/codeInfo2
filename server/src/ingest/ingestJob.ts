@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import { LogEntry } from '@codeinfo2/common';
 import type { EmbeddingModel, LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
+import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import {
   clearLockedModel,
@@ -29,6 +31,7 @@ export type IngestJobInput = {
   description?: string;
   model: string;
   dryRun?: boolean;
+  operation?: 'start' | 'reembed';
 };
 
 export type IngestJobStatus = {
@@ -48,6 +51,28 @@ const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
+
+function logLifecycle(
+  level: LogEntry['level'],
+  message: string,
+  context: Record<string, unknown>,
+) {
+  const cleanedContext = Object.fromEntries(
+    Object.entries(context).filter(([, value]) => value !== undefined),
+  );
+
+  const entry: LogEntry = {
+    level,
+    source: 'server',
+    message,
+    timestamp: new Date().toISOString(),
+    context: cleanedContext,
+  };
+
+  appendLog(entry);
+  const logger = level === 'error' ? baseLogger.error : baseLogger.info;
+  logger.call(baseLogger, { ...cleanedContext }, message);
+}
 
 export function setIngestDeps(next: Deps) {
   deps = next;
@@ -72,15 +97,57 @@ async function processRun(runId: string, input: IngestJobInput) {
   jobInputs.set(runId, input);
   try {
     const ingestedAtMs = Date.now();
-    const { path: startPath, name, description, model, dryRun } = input;
+    const {
+      path: startPath,
+      name,
+      description,
+      model,
+      dryRun,
+      operation: op,
+    } = input;
+    const operation = op ?? 'start';
+    logLifecycle('info', 'ingest start', {
+      runId,
+      operation,
+      path: startPath,
+      name,
+      description,
+      model,
+      state: 'start',
+    });
     jobs.set(runId, {
       ...status,
       state: 'scanning',
       message: 'Discovering files',
     });
-    const { files, root } = await discoverFiles(startPath, resolveConfig());
+    const ingestConfig = resolveConfig();
+    const { files, root } = await discoverFiles(startPath, ingestConfig);
     jobInputs.set(runId, { ...input, root });
     if (files.length === 0) {
+      if (operation === 'reembed') {
+        const skipMessage = `No changes detected for ${startPath}`;
+        const counts = { files: 0, chunks: 0, embedded: 0 };
+        jobs.set(runId, {
+          runId,
+          state: 'skipped',
+          counts,
+          message: skipMessage,
+          lastError: null,
+        });
+        logLifecycle('info', 'ingest skipped', {
+          runId,
+          operation,
+          path: startPath,
+          root,
+          model,
+          name,
+          description,
+          state: 'skipped',
+          counts,
+        });
+        ingestLock.release(runId);
+        return;
+      }
       const errorMsg = `No eligible files found in ${startPath}`;
       jobs.set(runId, {
         runId,
@@ -88,6 +155,18 @@ async function processRun(runId: string, input: IngestJobInput) {
         counts: { files: 0, chunks: 0, embedded: 0 },
         message: errorMsg,
         lastError: errorMsg,
+      });
+      logLifecycle('error', 'ingest error', {
+        runId,
+        operation,
+        path: startPath,
+        root,
+        model,
+        name,
+        description,
+        state: 'error',
+        lastError: errorMsg,
+        counts: { files: 0, chunks: 0, embedded: 0 },
       });
       ingestLock.release(runId);
       return;
@@ -111,14 +190,47 @@ async function processRun(runId: string, input: IngestJobInput) {
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = rootDimsResult.embeddings?.[0]?.length;
 
-    const ids: string[] = [];
-    const documents: string[] = [];
-    const embeddings: number[][] = [];
-    const metadatas: Record<string, unknown>[] = [];
+    const idsBatch: string[] = [];
+    const documentsBatch: string[] = [];
+    const embeddingsBatch: number[][] = [];
+    const metadatasBatch: Record<string, unknown>[] = [];
     let vectorDim = 1;
+    let filesSinceFlush = 0;
+
+    const clearBatch = () => {
+      idsBatch.length = 0;
+      documentsBatch.length = 0;
+      embeddingsBatch.length = 0;
+      metadatasBatch.length = 0;
+      filesSinceFlush = 0;
+    };
+
+    const flushBatch = async () => {
+      if (dryRun || embeddingsBatch.length === 0) {
+        clearBatch();
+        return;
+      }
+
+      await vectors.add({
+        ids: [...idsBatch],
+        documents: [...documentsBatch],
+        embeddings: [...embeddingsBatch],
+        metadatas: metadatasBatch as Metadata[],
+      });
+
+      vectorDim = embeddingsBatch[0]?.length ?? vectorDim;
+      counts.embedded += embeddingsBatch.length;
+      const locked = await getLockedModel();
+      if (!locked) {
+        await setLockedModel(model);
+      }
+
+      clearBatch();
+    };
 
     for (const file of files) {
       if (cancelledRuns.has(runId)) {
+        clearBatch();
         jobs.set(runId, {
           runId,
           state: 'cancelled',
@@ -150,14 +262,27 @@ async function processRun(runId: string, input: IngestJobInput) {
           embeddings: [Array(rootEmbeddingDim).fill(0)],
           metadatas: [cancelMetadata],
         });
+        logLifecycle('info', 'ingest cancelled', {
+          runId,
+          operation,
+          path: startPath,
+          root,
+          model,
+          name,
+          description,
+          state: 'cancelled',
+          counts,
+        });
         return;
       }
+
       const text = await fs.readFile(file.absPath, 'utf8');
       const chunks = await chunkText(
         text,
         (await deps
           ?.lmClientFactory(deps.baseUrl)
           .embedding.model(model)) as unknown as EmbeddingModel,
+        ingestConfig,
       );
       const fileHash = await hashFile(file.absPath);
       for (const chunk of chunks) {
@@ -166,43 +291,36 @@ async function processRun(runId: string, input: IngestJobInput) {
         if (!dryRun && embedding.length > 0) {
           vectorDim = embedding.length;
         }
-        ids.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
-        documents.push(chunk.text);
-        embeddings.push(embedding);
-        const metadata: Metadata = {
-          runId,
-          root,
-          relPath: file.relPath,
-          fileHash,
-          chunkHash,
-          embeddedAt: new Date().toISOString(),
-          ingestedAtMs,
-          model,
-          name,
-        };
-        if (description) metadata.description = description;
-        metadatas.push(metadata);
+        if (!dryRun) {
+          idsBatch.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
+          documentsBatch.push(chunk.text);
+          embeddingsBatch.push(embedding);
+          const metadata: Metadata = {
+            runId,
+            root,
+            relPath: file.relPath,
+            fileHash,
+            chunkHash,
+            embeddedAt: new Date().toISOString(),
+            ingestedAtMs,
+            model,
+            name,
+          };
+          if (description) metadata.description = description;
+          metadatasBatch.push(metadata);
+        }
       }
       counts.chunks += chunks.length;
-    }
-
-    if (!dryRun && embeddings.length) {
-      await vectors.add({
-        ids,
-        documents,
-        embeddings,
-        metadatas: metadatas as Metadata[],
-      });
-      vectorDim = embeddings[0]?.length ?? vectorDim;
-      counts.embedded = embeddings.length;
-      const locked = await getLockedModel();
-      if (!locked) {
-        await setLockedModel(model);
+      filesSinceFlush += 1;
+      if (filesSinceFlush >= ingestConfig.flushEvery) {
+        await flushBatch();
       }
-    } else {
-      counts.embedded = 0;
     }
 
+    await flushBatch();
+
+    const resultState =
+      !dryRun && counts.embedded === 0 ? 'skipped' : 'completed';
     const rootEmbeddingDim = existingRootDim || vectorDim || 1;
     const rootMetadata: Metadata = {
       runId,
@@ -212,7 +330,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       files: counts.files,
       chunks: counts.chunks,
       embedded: counts.embedded,
-      state: 'completed',
+      state: resultState,
       lastIngestAt: new Date().toISOString(),
       ingestedAtMs,
     };
@@ -226,23 +344,53 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     jobs.set(runId, {
       runId,
-      state: 'completed',
+      state: resultState,
       counts,
-      message: 'Completed',
+      message: resultState === 'skipped' ? 'No changes detected' : 'Completed',
       lastError: null,
     });
+    logLifecycle(
+      'info',
+      resultState === 'skipped' ? 'ingest skipped' : 'ingest completed',
+      {
+        runId,
+        operation,
+        path: startPath,
+        root,
+        model,
+        name,
+        description,
+        state: resultState,
+        counts,
+      },
+    );
   } catch (err) {
-    console.error('[ingestJob] run failed', {
-      runId,
-      error: (err as Error)?.message,
-      stack: (err as Error)?.stack,
-    });
+    const errorMessage = (err as Error)?.message ?? 'Unknown error';
+    baseLogger.error(
+      {
+        runId,
+        error: errorMessage,
+        stack: (err as Error)?.stack,
+      },
+      '[ingestJob] run failed',
+    );
     jobs.set(runId, {
       runId,
       state: 'error',
       counts: { files: 0, chunks: 0, embedded: 0 },
       message: 'Failed',
-      lastError: (err as Error).message,
+      lastError: errorMessage,
+    });
+    logLifecycle('error', 'ingest error', {
+      runId,
+      operation: input.operation ?? 'start',
+      path: input.path,
+      model: input.model,
+      name: input.name,
+      description: input.description,
+      state: 'error',
+      lastError: errorMessage,
+      counts: { files: 0, chunks: 0, embedded: 0 },
     });
   } finally {
     ingestLock.release(runId);
@@ -251,6 +399,7 @@ async function processRun(runId: string, input: IngestJobInput) {
 
 export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
+  const operation = input.operation ?? 'start';
   const locked = await getLockedModel();
   if (locked && locked !== input.model) {
     const error = new Error('MODEL_LOCKED');
@@ -272,7 +421,7 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
   });
   jobInputs.set(runId, { ...input, root: input.path });
   setImmediate(() => {
-    void processRun(runId, input);
+    void processRun(runId, { ...input, operation });
   });
   return runId;
 }
@@ -346,6 +495,17 @@ export async function cancelRun(runId: string) {
     message: 'Cancelled',
     lastError: null,
   });
+  logLifecycle('info', 'ingest cancelled', {
+    runId,
+    operation: input?.operation ?? 'start',
+    path: input?.path,
+    root,
+    model: input?.model,
+    name: input?.name,
+    description: input?.description,
+    state: 'cancelled',
+    counts: status?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+  });
   ingestLock.release(runId);
   return { cleanupState: 'complete', found: !!status } as const;
 }
@@ -391,12 +551,20 @@ export async function reembed(rootPath: string, d: Deps) {
       name,
       description: description ?? undefined,
       model,
+      operation: 'reembed',
     },
     d,
   );
 }
 
 export async function removeRoot(rootPath: string) {
+  const runId = `remove-${Date.now()}`;
+  logLifecycle('info', 'ingest remove start', {
+    runId,
+    operation: 'remove',
+    root: rootPath,
+    state: 'start',
+  });
   baseLogger.info({ rootPath }, 'removeRoot start');
   await deleteVectors({ where: { root: rootPath } });
   baseLogger.info({ rootPath }, 'removeRoot vectors deleted');
@@ -405,5 +573,13 @@ export async function removeRoot(rootPath: string) {
   await resetLocksIfEmpty();
   const unlocked = !(await getLockedModel());
   baseLogger.info({ rootPath, unlocked }, 'removeRoot done');
+  logLifecycle('info', 'ingest remove completed', {
+    runId,
+    operation: 'remove',
+    root: rootPath,
+    state: 'completed',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    unlocked,
+  });
   return { unlocked };
 }

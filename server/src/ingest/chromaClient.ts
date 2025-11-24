@@ -70,6 +70,7 @@ class InMemoryCollection {
   embeddings: number[][] = [];
   metadatas: Record<string, unknown>[] = [];
   metadata: Record<string, unknown> | undefined;
+  addCalls = 0;
 
   constructor(
     public name: string,
@@ -84,6 +85,7 @@ class InMemoryCollection {
     embeddings?: number[][];
     metadatas?: Record<string, unknown>[];
   }) {
+    this.addCalls += 1;
     const documents = payload.documents ?? payload.ids.map(() => '');
     const embeddings = payload.embeddings ?? payload.ids.map(() => []);
     const metadatas = payload.metadatas ?? payload.ids.map(() => ({}));
@@ -325,4 +327,12 @@ export async function collectionIsEmpty(): Promise<boolean> {
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
   const count = await col.count();
   return count === 0;
+}
+
+// Test helper to reset cached clients/collections between scenarios
+export function resetCollectionsForTests() {
+  client = null;
+  vectorsCollection = null;
+  rootsCollection = null;
+  memoryCollections.clear();
 }

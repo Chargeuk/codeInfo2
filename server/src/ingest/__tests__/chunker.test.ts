@@ -34,6 +34,7 @@ test('falls back to slicing when chunk exceeds limit', async () => {
     excludes: [],
     tokenSafetyMargin: 0.85,
     fallbackTokenLimit: 30,
+    flushEvery: 20,
   };
   const maxTokens = Math.floor(50 * config.tokenSafetyMargin);
   const chunks = await chunkText(

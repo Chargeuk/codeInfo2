@@ -1026,7 +1026,7 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 
 ### 16. Server – Batch flush embeddings to Chroma
 
-- status: **in_progress**
+- status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1042,15 +1042,15 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
 
 #### Subtasks
 
-1. [ ] Add `INGEST_FLUSH_EVERY` to `server/.env` with default 20; parse in `config.ts` with sane min/max (e.g., min 1, default 20).
-2. [ ] Update `ingestJob` to accumulate embeddings/documents/metadata per file and call `vectors.add` whenever the file counter hits the flush threshold; clear buffers after each flush. Ensure final remainder flushes. Keep counts accurate and locked-model logic intact.
-3. [ ] Ensure dry-run path still skips Chroma writes but respects batching logic for counts.
-4. [ ] Add Cucumber feature `server/src/test/features/ingest-batch-flush.feature` with steps under `server/src/test/steps/ingest-batch-flush.steps.ts` that:
+1. [x] Add `INGEST_FLUSH_EVERY` to `server/.env` with default 20; parse in `config.ts` with sane min/max (e.g., min 1, default 20).
+2. [x] Update `ingestJob` to accumulate embeddings/documents/metadata per file and call `vectors.add` whenever the file counter hits the flush threshold; clear buffers after each flush. Ensure final remainder flushes. Keep counts accurate and locked-model logic intact.
+3. [x] Ensure dry-run path still skips Chroma writes but respects batching logic for counts.
+4. [x] Add Cucumber feature `server/src/test/features/ingest-batch-flush.feature` with steps under `server/src/test/steps/ingest-batch-flush.steps.ts` that:
    - set `INGEST_FLUSH_EVERY=1` via env for the scenario;
    - start an ingest over at least 3 files;
    - assert vectors collection receives multiple `add` calls or, alternatively, that embeddings count matches files while memory is not accumulated (e.g., via spy/mock on Chroma add in the in-memory client or counter in test double);
    - ensure final remainder flush occurs.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 **Files to touch**: `server/.env` (add `INGEST_FLUSH_EVERY=20`), `server/src/ingest/config.ts` (parse with min 1 default 20), `server/src/ingest/ingestJob.ts` (batch buffers + flush), optional helper in `ingest/chromaClient.ts` only if batching needs support. Tests: `server/src/test/features/ingest-batch-flush.feature`, steps in `server/src/test/steps/ingest-batch-flush.steps.ts` (reuse `chromaContainer` + LM Studio mock hooks).
 
@@ -1062,18 +1062,18 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
-6. [ ] `npm run e2e` (ensure ingest still passes with default batching)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
+6. [x] `npm run e2e` (ensure ingest still passes with default batching)
 
 #### Implementation notes
 
-- Prefer minimal change to orchestrator: keep per-chunk embedding generation as-is; only change when we call `vectors.add` and buffer clearing.
-- Consider logging a single batch summary per flush at debug/info if helpful, but stay within current logging scope.
-- Ensure batching works with cancel/re-embed/remove flows (partial batches still need cleanup on cancel).
+- Added `flushEvery` config (env `INGEST_FLUSH_EVERY`) with sane bounds and wired ingest discovery to reuse the parsed config.
+- Reworked `ingestJob` to batch ids/docs/embeddings, flush on the configured file threshold and final remainder, update embedded counts per flush, and keep dry-run paths write-free while preserving counts/model lock handling.
+- In-memory Chroma mock now tracks `addCalls`; batch-flush Cucumber scenario asserts batch behaviour using add call counts or collection counts for real clients, and ingest config/tests/types updated for the new field.
 
 ### 17. Server – Dry-run safety & collection cleanup
 

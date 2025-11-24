@@ -213,3 +213,5 @@ support/
   - server/src/test/features/ingest-roots-metadata.feature — roots endpoint ok without null metadata
   - server/src/test/steps/ingest-start-body.steps.ts — step defs for JSON body ingest start
   - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
+  - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
+  - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers

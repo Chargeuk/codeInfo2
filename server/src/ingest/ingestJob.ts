@@ -101,11 +101,20 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     const vectors = await getVectorsCollection();
     const roots = await getRootsCollection();
+    const rootDimsResult = await (
+      roots as unknown as {
+        get: (opts: { include?: string[]; limit?: number }) => Promise<{
+          embeddings?: number[][];
+        }>;
+      }
+    ).get({ include: ['embeddings'], limit: 1 });
+    const existingRootDim = rootDimsResult.embeddings?.[0]?.length;
 
     const ids: string[] = [];
     const documents: string[] = [];
     const embeddings: number[][] = [];
     const metadatas: Record<string, unknown>[] = [];
+    let vectorDim = 1;
 
     for (const file of files) {
       if (cancelledRuns.has(runId)) {
@@ -118,8 +127,10 @@ async function processRun(runId: string, input: IngestJobInput) {
         });
         await deleteVectors({ where: { runId } });
         await deleteRoots({ where: { root } });
+        const rootEmbeddingDim = existingRootDim || vectorDim || 1;
         await roots.add({
           ids: [runId],
+          embeddings: [Array(rootEmbeddingDim).fill(0)],
           metadatas: [
             {
               runId,
@@ -148,6 +159,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
         const embedding = dryRun ? [0] : await embedText(model, chunk.text);
+        if (!dryRun && embedding.length > 0) {
+          vectorDim = embedding.length;
+        }
         ids.push(`${runId}:${file.relPath}:${chunk.chunkIndex}`);
         documents.push(chunk.text);
         embeddings.push(embedding);
@@ -173,6 +187,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         embeddings,
         metadatas: metadatas as Metadata[],
       });
+      vectorDim = embeddings[0]?.length ?? vectorDim;
       counts.embedded = embeddings.length;
       const locked = await getLockedModel();
       if (!locked) {
@@ -182,9 +197,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       counts.embedded = 0;
     }
 
+    const rootEmbeddingDim = existingRootDim || vectorDim || 1;
     await roots.add({
       ids: [runId],
-      embeddings: [[0]],
+      embeddings: [Array(rootEmbeddingDim).fill(0)],
       metadatas: [
         {
           runId,
@@ -274,8 +290,19 @@ export async function cancelRun(runId: string) {
     await deleteVectors({ where: { runId } });
     await deleteRoots({ where: { root } });
     const roots = await getRootsCollection();
+    const existingRoots = await (
+      roots as unknown as {
+        get: (opts: { include?: string[]; limit?: number }) => Promise<{
+          embeddings?: number[][];
+        }>;
+      }
+    ).get({ include: ['embeddings'], limit: 1 });
+    const existingRootDim = existingRoots.embeddings?.[0]?.length;
+    const rootEmbeddingDim =
+      existingRootDim && existingRootDim > 0 ? existingRootDim : 1;
     await roots.add({
       ids: [runId],
+      embeddings: [Array(Math.max(1, rootEmbeddingDim || 1)).fill(0)],
       metadatas: [
         {
           runId,

@@ -32,7 +32,6 @@ let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
 
 Before(async () => {
-  process.env.CHROMA_URL = 'mock:';
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
   startMock({ scenario: 'many' });
 
@@ -79,7 +78,7 @@ After(async () => {
 });
 
 Given(
-  'the ingest roots test server is running with mock chroma and lmstudio',
+  'the ingest roots test server is running with test chroma and lmstudio',
   () => {
     assert.ok(server, 'server should be running');
   },

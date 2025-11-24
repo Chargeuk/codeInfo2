@@ -211,8 +211,10 @@ export async function getVectorsCollection(): Promise<Collection> {
     memoryCollections.set(COLLECTION_VECTORS, created);
     return created as unknown as Collection;
   }
+  const embeddingFunction = resolveEmbeddingFunction();
   vectorsCollection = await c.getOrCreateCollection({
     name: COLLECTION_VECTORS,
+    embeddingFunction,
   });
   return vectorsCollection;
 }
@@ -227,8 +229,10 @@ export async function getRootsCollection(): Promise<Collection> {
     memoryCollections.set(COLLECTION_ROOTS, created);
     return created as unknown as Collection;
   }
+  const embeddingFunction = resolveEmbeddingFunction();
   rootsCollection = await c.getOrCreateCollection({
     name: COLLECTION_ROOTS,
+    embeddingFunction,
   });
   return rootsCollection;
 }

@@ -7,6 +7,42 @@ const fixtureName = 'fixtures-e2e';
 
 let skipReason: string | undefined;
 
+async function ensureCleanRoots() {
+  const ctx = await request.newContext();
+  try {
+    const res = await ctx.get(`${apiBase}/ingest/roots`);
+    if (!res.ok()) {
+      throw new Error(`ingest/roots unavailable (${res.status()})`);
+    }
+    const data = await res.json();
+    const roots = Array.isArray(data.roots) ? data.roots : [];
+    for (const root of roots) {
+      const removeRes = await ctx.post(
+        `${apiBase}/ingest/remove/${encodeURIComponent(root.path)}`,
+      );
+      if (!removeRes.ok()) {
+        throw new Error(
+          `failed to remove root ${root.path} (${removeRes.status()})`,
+        );
+      }
+    }
+    if (roots.length > 0) {
+      const verify = await ctx.get(`${apiBase}/ingest/roots`);
+      const verifyData = await verify.json();
+      const remaining = Array.isArray(verifyData.roots)
+        ? verifyData.roots.length
+        : 0;
+      if (remaining !== 0) {
+        throw new Error(
+          `expected empty roots after cleanup, found ${remaining}`,
+        );
+      }
+    }
+  } finally {
+    await ctx.dispose();
+  }
+}
+
 async function checkPrereqs() {
   const ctx = await request.newContext();
   try {
@@ -32,6 +68,32 @@ async function checkPrereqs() {
   }
 }
 
+async function assertNoReembedErrors() {
+  const ctx = await request.newContext();
+  try {
+    const res = await ctx.get(
+      `${apiBase}/logs?text=re-embed&limit=50&source=server`,
+    );
+    if (!res.ok()) {
+      throw new Error(`logs endpoint unavailable (${res.status()})`);
+    }
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    const bad = items.filter((item) => {
+      const text = JSON.stringify(item).toLowerCase();
+      return (
+        text.includes('500') ||
+        text.includes('dimension mismatch') ||
+        text.includes('model_locked') ||
+        text.includes('model locked')
+      );
+    });
+    expect(bad, 're-embed log errors').toHaveLength(0);
+  } finally {
+    await ctx.dispose();
+  }
+}
+
 const waitForCompletion = async (page: Parameters<typeof test>[0]['page']) => {
   await expect(
     page.getByRole('heading', { name: /Active ingest/i }),
@@ -47,7 +109,7 @@ const waitForCompletion = async (page: Parameters<typeof test>[0]['page']) => {
       },
       { timeout: 120_000, message: 'waiting for ingest status' },
     )
-    .toMatch(/(completed|cancelled|error|scanning|embedding|queued)/);
+    .toMatch(/(completed|cancelled|error)/);
 };
 
 test.describe.serial('Ingest flows', () => {
@@ -55,8 +117,9 @@ test.describe.serial('Ingest flows', () => {
     await checkPrereqs();
   });
 
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     test.skip(Boolean(skipReason), skipReason ?? 'prerequisites missing');
+    await ensureCleanRoots();
   });
 
   test('happy path ingest completes', async ({ page }) => {
@@ -98,9 +161,14 @@ test.describe.serial('Ingest flows', () => {
 
   test('re-embed updates row and stays locked', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(fixtureName);
+    await page.getByTestId('start-ingest').click();
+
     const row = page.getByRole('row', {
       name: new RegExp(`^Select ${fixtureName} `, 'i'),
     });
+    await waitForCompletion(page);
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /re-embed/i }).click();
@@ -109,13 +177,20 @@ test.describe.serial('Ingest flows', () => {
       timeout: 120_000,
     });
     await expect(page.getByTestId('roots-lock-chip')).toBeVisible();
+
+    await assertNoReembedErrors();
   });
 
   test('remove clears entry and unlocks model when empty', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(fixtureName);
+    await page.getByTestId('start-ingest').click();
+
     const row = page.getByRole('row', {
       name: new RegExp(`^Select ${fixtureName} `, 'i'),
     });
+    await waitForCompletion(page);
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /^Remove$/i }).click();

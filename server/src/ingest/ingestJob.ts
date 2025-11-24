@@ -362,10 +362,9 @@ export async function reembed(rootPath: string, d: Deps) {
     roots as unknown as {
       get: (opts: { include?: string[] }) => Promise<{
         metadatas?: Record<string, unknown>[];
-        ids?: string[];
       }>;
     }
-  ).get({ include: ['metadatas', 'ids'] });
+  ).get({ include: ['metadatas'] });
   const metas = raw.metadatas ?? [];
   const matchIdx = metas.findIndex(
     (m) => (m as Record<string, unknown>).root === rootPath,

@@ -46,7 +46,4 @@ services:
     ports:
       - '8800:8000'
     volumes:
-      - chroma-e2e-data:/chroma/.chroma
-
-volumes:
-  chroma-e2e-data:
+      - /chroma/.chroma

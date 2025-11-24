@@ -883,3 +883,36 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 - Ran `npm run e2e` multiple times plus a manual `compose:e2e:up && e2e:test && down` flow to verify repeated runs stay clean and lock state resets each time.
 
 ---
+
+### 13. Server – LM Studio ws/wss validation in Cucumber
+
+- status: __to_do__
+- Git Commits: **to_do**
+
+#### Overview
+
+Add coverage so the LM Studio SDK mock mirrors real behaviour: reject `http://` base URLs and surface the same error we see in e2e. Ensure ingest start/re-embed fail fast in BDD when given a non-ws/wss URL, preventing regressions like the recent production slip.
+
+#### Documentation Locations
+
+- LM Studio SDK base URL/WS rules: https://lmstudio.ai/docs/typescript/overview (connection requirements)
+- Express routing patterns: https://expressjs.com/
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Update LM Studio mock client factory to validate protocol and throw the same message the real SDK produces when given `http://` (expected: “baseUrl must have protocol ws or wss”).
+2. [ ] Add a Cucumber feature (e.g., `ingest-lmstudio-protocol.feature`) with scenarios for `/ingest/start` and `/ingest/reembed/:root` when `LMSTUDIO_BASE_URL` is `http://...`; expect 500 with the validation message.
+3. [ ] Wire step definitions to set `process.env.LMSTUDIO_BASE_URL` to an http URL, invoke the endpoints, and assert the error payload matches the real SDK text.
+4. [ ] Keep happy-path scenarios unchanged and ensure mocks still pass for valid ws/wss URLs.
+5. [ ] Run `npm run test --workspace server` to confirm the new scenarios pass alongside existing suites.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- To be filled during implementation.
+
+---

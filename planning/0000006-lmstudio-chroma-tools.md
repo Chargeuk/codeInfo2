@@ -272,7 +272,7 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 ### 4. Final Task – Validate story completion
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

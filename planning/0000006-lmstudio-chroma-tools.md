@@ -79,8 +79,8 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server` (unit + Cucumber)
+1. [ ] Build (type: build; location: server workspace; command: `npm run build --workspace server`; purpose: ensure new tool routes and helpers compile).
+2. [ ] Server tests (type: unit + Cucumber; location: server; command: `npm run test --workspace server`; purpose: verify repo list/search behaviours, path rewrites, and error handling).
 
 #### Implementation notes
 
@@ -114,8 +114,8 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] Build (type: build; location: server workspace; command: `npm run build --workspace server`; purpose: confirm tool wiring changes still compile).
+2. [ ] Server tests (type: unit/integration; location: server; command: `npm run test --workspace server`; purpose: cover tool invocation paths and error propagation).
 
 #### Implementation notes
 
@@ -147,8 +147,8 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] Build (type: build; location: client workspace; command: `npm run build --workspace client`; purpose: ensure chat UI changes compile).
+2. [ ] Client tests (type: RTL/Jest; location: client; command: `npm run test --workspace client`; purpose: verify citation/path rendering and fallbacks).
 
 #### Implementation notes
 
@@ -182,11 +182,11 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] (If run) `npm run compose:up` then `npm run compose:down`
+1. [ ] Build server (type: build; location: server; command: `npm run build --workspace server`; purpose: final compile check).
+2. [ ] Build client (type: build; location: client; command: `npm run build --workspace client`; purpose: final compile check).
+3. [ ] Server tests (type: unit + Cucumber; location: server; command: `npm run test --workspace server`; purpose: full regression with tooling endpoints).
+4. [ ] Client tests (type: RTL/Jest; location: client; command: `npm run test --workspace client`; purpose: regression for chat UI and citations).
+5. [ ] Compose smoke (type: manual/compose; location: root; command: `npm run compose:up` then `npm run compose:down`; purpose: optional sanity of end-to-end stack with new tooling).
 
 #### Implementation notes
 

@@ -10,6 +10,8 @@ in various tasks you have a single subtask to update multiple markdown documents
 
 some of the tasks look quite big, could they be split up without loosing any information?
 
+For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
+
 It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool or an explicit web address.
 
 some tasks do not have a final subtask to fix linting and prettier (format)

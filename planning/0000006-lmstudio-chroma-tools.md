@@ -75,10 +75,13 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 3. [ ] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
-6. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env` and `README.md` where appropriate.
-7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
-8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
-9. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.\n*** End Patch
+6. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
+7. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
+8. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
+9. [ ] Update `projectStructure.md` to include new routes/helpers/tests related to the tools API.
+10. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
+11. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
+12. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.
 
 #### Testing
 
@@ -118,6 +121,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 7. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
 8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
 9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
+10. [ ] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
 
 #### Testing
 
@@ -152,6 +156,9 @@ Render tool results in the chat UI with inline citations showing the human-frien
 3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text).
 4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; purpose: ensure bubble shows file paths visibly.
 5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; purpose: ensure UI degrades gracefully.
+6. [ ] Update `README.md` (client section) to mention visible file paths/citations from LM Studio tools.
+7. [ ] Update `design.md` with UI flow/state notes for chat citations and file path rendering.
+8. [ ] Update `projectStructure.md` to list any new client components/tests added for citations.
 
 #### Testing
 

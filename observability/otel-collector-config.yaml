@@ -17,3 +17,9 @@ service:
     traces:
       receivers: [otlp]
       exporters: [zipkin, debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      exporters: [debug]

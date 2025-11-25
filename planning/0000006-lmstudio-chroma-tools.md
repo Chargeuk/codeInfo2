@@ -10,7 +10,7 @@ Give the LM Studio-backed assistant the ability to answer questions using the ex
 - Vector search respects an optional repository filter so results can be constrained to one ingested repo; defaults to all ingested data when no filter is provided.
 - Tools leverage the existing Chroma ingest collections and metadata (runId/root name/path/model, hashes, timestamps) without duplicating data or bypassing model-lock rules; assume the single locked embedding model already enforced by ingest.
 - Tool responses include enough provenance (repo name/identifier, relative path, snippet, maybe chunk hash or offset info) for the assistant to surface inline citations to the user.
-- Vector search returns the stored chunk text (from Chroma `documents`) with a sensible snippet/window to keep payloads small while still allowing the agent to quote/cite the actual embedded text.
+- Vector search returns the full stored chunk text (from Chroma `documents`) plus the file path (repo + relative path) so the agent can show inline citations with precise source context.
 - Error handling is clear: empty repository list, missing/unknown repository filter, and Chroma/LM Studio failures surface actionable messages to the agent (and onward to the user).
 - Security/guardrails: queries cannot execute arbitrary DB operations; access limited to read-only list/search on the ingest collections.
 - Performance: sensible defaults for vector search (top-k/threshold) that keep responses fast enough for interactive chat (target under a few seconds with current data sizes).
@@ -27,7 +27,7 @@ Give the LM Studio-backed assistant the ability to answer questions using the ex
 
 ## Questions
 
-- Any size limits on the chunk/snippet payload returned to the agent to avoid flooding the model context (e.g., fixed char window vs. full chunk)?
+- Even with full chunks, should we cap extremely large chunks (if any) or rely on existing chunking to bound size? If capped, what threshold?
 - Should queries allow additional filters (file extension, path prefix) now, or defer until after initial usage feedback?
 
 ## Implementation Plan

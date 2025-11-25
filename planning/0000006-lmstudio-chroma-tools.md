@@ -74,6 +74,12 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 1. [ ] Add a path translation helper (e.g., `server/src/ingest/pathMap.ts`) that rewrites stored ingest paths (mounted at `/data`) back to `HOST_INGEST_DIR`, returning both container and host paths plus repo/name metadata.
    - Rule: stored paths look like `/data/<rootName>/<relativePath>`; map to host via `${HOST_INGEST_DIR}/<rootName>/<relativePath>`. If `HOST_INGEST_DIR` is unset, default to `/data` but include a warning field `hostPathWarning`.
    - Include helper signature suggestion: `mapIngestPath(containerPath: string): { repo: string; relPath: string; containerPath: string; hostPath: string; hostPathWarning?: string }`.
+   - Scaffold snippet:
+     ```ts
+     export function mapIngestPath(containerPath: string, hostIngestDir = process.env.HOST_INGEST_DIR || '/data') {
+       // TODO: parse `/data/<repo>/<relPath>`; when hostIngestDir is missing, set hostPathWarning
+     }
+     ```
 2. [ ] Implement `GET /tools/ingested-repos` reusing the ingest roots collection to return: repo identifier (use `name` with fallback to `path` basename), description, containerPath (from stored path), hostPath (via mapper), lastIngestAt ISO, modelId, counts, lastError. Handle empty lists gracefully.
    - Example response (non-empty):
      ```json
@@ -88,6 +94,14 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
      {"results":[{"repo":"repo","relPath":"docs/main.txt","containerPath":"/data/repo/docs/main.txt","hostPath":"/Users/me/repo/docs/main.txt","score":0.12,"chunk":"hello world from fixture","chunkId":"hash123"}],"modelId":"text-embedding-qwen3-embedding-4b"}
      ```
    - Errors: unknown repo → `404 {"error":"REPO_NOT_FOUND"}`; invalid body → `400 {"error":"VALIDATION_FAILED","details":["query is required"]}`; Chroma failure → `502 {"error":"CHROMA_UNAVAILABLE"}`.
+   - Scaffold snippet:
+     ```ts
+     const results = await collection.query({
+       queryTexts: [body.query],
+       where: body.repository ? { root: body.repository } : undefined,
+       nResults: Math.min(body.limit ?? 5, 20),
+     });
+     ```
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
 6. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering empty list, single repo with mapped hostPath, and lockedModelId passthrough; use fixture ingest root `repo` with path `/data/repo`.
@@ -113,7 +127,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Implementation notes
 
-- 
+- Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---
 
@@ -140,6 +154,19 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 1. [ ] Define LM Studio tool schema for **ListIngestedRepositories** in `server/src/lmstudio/tools.ts` using `tool()` + zod; include description, no input params, output array of repos `{ id, description, containerPath, hostPath, lastIngestAt, modelId, counts, lastError }`.
 2. [ ] Define LM Studio tool schema for **VectorSearch** in the same file: input `{ query: z.string().min(1), repository: z.string().optional(), limit: z.number().int().min(1).max(20).default(5) }`; output item `{ repo, relPath, hostPath, containerPath, score, chunk, chunkId, modelId }`.
+   - Schema scaffold:
+     ```ts
+     const vectorSearch = tool({
+       name: 'VectorSearch',
+       description: 'Search ingested chunks optionally scoped to a repository',
+       parameters: z.object({
+         query: z.string().min(1),
+         repository: z.string().optional(),
+         limit: z.number().int().min(1).max(20).default(5),
+       }),
+       execute: async ({ query, repository, limit }) => {/* call helper */},
+     });
+     ```
 2. [ ] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
    - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
@@ -165,7 +192,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Implementation notes
 
-- 
+- Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---
 
@@ -192,6 +219,14 @@ Render tool results in the chat UI with inline citations showing the human-frien
 2. [ ] Ensure citations remain inline with the assistant message and are visible in the chat bubble; include host-friendly path text where applicable.
    - Target components: `client/src/pages/ChatPage.tsx` (render loop), `client/src/hooks/useChatStream.ts` (parsing tool events), and chat bubble component (add a small inline `path` row with `repo/relPath` and hostPath in parentheses if present).
    - Mobile rule: path wraps and truncates in middle (`textOverflow: 'ellipsis'`, `maxWidth: '100%'`).
+   - Render scaffold (pseudo-JSX):
+     ```jsx
+     {result.hostPath ? (
+       <Typography variant="caption">{`${result.repo}/${result.relPath}`} ({result.hostPath})</Typography>
+     ) : (
+       <Typography variant="caption">{`${result.repo}/${result.relPath}`}</Typography>
+     )}
+     ```
 3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text); extend the SSE/tool event types in `useChatStream.ts` to include `repo`, `relPath`, `hostPath`, `chunk`, `score`.
 4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; use fixture payloads mirroring the server response example (`repo/docs/main.txt`).
 5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; expect the chunk text renders without path row and no crashes.
@@ -213,7 +248,7 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 #### Implementation notes
 
-- 
+- Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---
 

@@ -196,8 +196,9 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 5. [ ] Update `design.md` with diagrams/flow for tool calls, host-path rewrites, and chat citation rendering.
 6. [ ] Update `projectStructure.md` to list new files (routes, helpers, tests).
 7. [ ] Add Playwright e2e test (type: Playwright; location: `e2e/chat-tools.spec.ts` or extend existing chat spec) that: (a) triggers ingest of the mounted fixture repo (`/fixtures/repo` from `e2e/fixtures/repo`), (b) asks a question whose answer is in the fixture (e.g., text in `main.txt`), (c) verifies the assistant returns chunk text with inline file path and host-path text. Ensure the test sets the ingest path to `/fixtures/repo` (or host-equivalent if run outside compose) so data exists before querying.
-8. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with a deterministic answer and document the expected question/answer in the test.
-9. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
+8. [ ] Update e2e ingest/model selection to prefer embedding model `text-embedding-qwen3-embedding-4b` when available; otherwise fall back to the default. Apply this across embedding-related e2e specs.
+9. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with a deterministic answer and document the expected question/answer in the test.
+10. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
 
 #### Testing
 

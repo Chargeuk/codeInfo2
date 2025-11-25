@@ -112,7 +112,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 10. [x] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
 11. [x] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
 12. [x] Update `projectStructure.md` to include new routes/helpers/tests related to the tools API.
-13. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+13. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 
 #### Testing
@@ -135,6 +135,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 - Logged tool calls with request ids and result counts while keeping queries/read-only access aligned to the existing locked model state.
 - Added unit coverage for path mapping plus supertest-based tests for both tooling routes (empty states, repo mapping, validation, limit capping) and introduced `supertest` as a dev dependency in the server workspace.
 - Documented HOST_INGEST_DIR and the new tooling endpoints/flows across `README.md`, `design.md`, and `projectStructure.md` to keep references in sync.
+- Ran workspace lint and format checks to confirm the new tooling code and tests comply with repo standards.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

@@ -3,18 +3,10 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
-const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
 const REQUEST_TIMEOUT_MS = 60_000;
-
-const scrubBaseUrl = (value: string) => {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return '[invalid-url]';
-  }
-};
 
 export function createLmStudioRouter({
   clientFactory,
@@ -53,11 +45,7 @@ export function createLmStudioRouter({
     }
 
     try {
-      const clientBaseUrl = baseUrl.startsWith('http://')
-        ? baseUrl.replace(/^http:/i, 'ws:')
-        : baseUrl.startsWith('https://')
-          ? baseUrl.replace(/^https:/i, 'wss:')
-          : baseUrl;
+      const clientBaseUrl = toWebSocketUrl(baseUrl);
       const client = clientFactory(clientBaseUrl);
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(

@@ -1,0 +1,5 @@
+function hello() {
+  return 'world';
+}
+
+// This file is intentionally tiny so ingest completes quickly.

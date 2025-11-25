@@ -15,7 +15,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ README.md â€” repo overview and commands
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
+â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
 â”œâ”€ docker-compose.yml â€” compose stack for client/server
+â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config
 â”œâ”€ package-lock.json â€” workspace lockfile
 â”œâ”€ package.json â€” root package/workspaces/scripts
@@ -42,7 +45,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ App.tsx â€” app shell with CssBaseline/NavBar/Container
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
-â”‚     â”‚  â””â”€ NavBar.tsx â€” top navigation AppBar/Tabs
+â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
+â”‚     â”‚  â””â”€ ingest/
+â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
+â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
+â”‚     â”‚     â”œâ”€ RootsTable.tsx — embedded roots table with bulk/row actions and lock chip
+â”‚     â”‚     â””â”€ RootDetailsDrawer.tsx — drawer showing root metadata, counts, include/exclude lists
 â”‚     â”œâ”€ logging/
 â”‚     â”‚  â”œâ”€ index.ts â€” logging exports
 |     |  |- logger.ts ? client logger factory (console tee + queue)
@@ -51,11 +59,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
+|     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
+|     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
+|     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select and placeholder transcript
+|     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
 |     |  - LogsPage.tsx ? log viewer with filters, live toggle, sample emitter
@@ -68,6 +80,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
+|     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
+|     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
+|     |     |- ingestRoots.test.tsx ? roots table + details drawer + actions coverage
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests
@@ -89,10 +104,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ logging.ts â€” LogEntry/LogLevel DTO + isLogEntry guard
 â”‚     â””â”€ versionInfo.ts â€” VersionInfo DTO
 â”œâ”€ e2e/ â€” Playwright specs
+â”‚  â”œâ”€ fixtures/
+â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
+â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e
+â”‚  â””â”€ ingest.spec.ts — ingest flows (happy path, cancel, re-embed, remove) with skip when models unavailable
 â”œâ”€ planning/ â€” story plans and template
 â”‚  â”œâ”€ 0000001-initial-skeleton-setup.md â€” plan for story 0000001
 â”‚  â”œâ”€ 0000002-lmstudio-config.md â€” plan for story 0000002
@@ -116,8 +135,25 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
+â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
+â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
+â”‚     â”‚  â”œâ”€ ingestCancel.ts — POST /ingest/cancel/:runId cancels active ingest and cleans vectors
+â”‚     â”‚  â”œâ”€ ingestReembed.ts — POST /ingest/reembed/:root re-runs ingest for a stored root
+â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
+â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
+â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
+â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
+â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL
+â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
+â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
+â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
+â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
+â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
+â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
+â”‚     â”œâ”€ lmstudio/
+â”‚     â”‚  â””â”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
@@ -127,14 +163,38 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - chat_models.feature - Cucumber coverage for chat model list endpoint
         - example.feature - sample feature
         - lmstudio.feature - LM Studio proxy scenarios
-steps/
+        - ingest-models.feature - embedding models endpoint scenarios
+        - ingest-roots.feature - ingest roots listing endpoint scenarios
+        - ingest-cancel.feature - cancel active ingest scenarios
+        - ingest-reembed.feature - re-embed scenarios
+        - ingest-remove.feature - remove root scenarios
+        - ingest-dryrun-no-write.feature - dry-run skip write scenarios
+        - ingest-empty-drop-collection.feature - delete empty collection + re-ingest
+â”‚        â”œâ”€ steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
         - example.steps.ts - step defs for example.feature
         - lmstudio.steps.ts - step defs for LM Studio feature
-support/
-â”‚           â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+        - ingest-models.steps.ts - step defs for ingest models endpoint
+        - ingest-roots.steps.ts - step defs for ingest roots endpoint
+        - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
+        - ingest-start.steps.ts - step defs for ingest start/status
+        - ingest-start-body.steps.ts - step defs for ingest body validation
+        - ingest-roots-metadata.steps.ts - step defs for roots metadata
+        - ingest-logging.steps.ts - step defs for ingest lifecycle logging
+        - ingest-batch-flush.steps.ts - step defs for batched Chroma flush
+        - ingest-lmstudio-protocol.steps.ts - step defs for LM Studio protocol guardrails
+        - ingest-discovery-fallback.steps.ts - step defs for git fallback discovery
+        - ingest-empty-drop-collection.steps.ts - step defs for collection delete/recreate
+        - ingest-dryrun-no-write.steps.ts - step defs for dry-run no-write
+â”‚        â”œâ”€ support/
+â”‚        |  â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+â”‚        â””â”€ unit/
+â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
+â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
+â”‚           â”œâ”€ hashing.test.ts â€” deterministic hashing coverage
+â”‚           â””â”€ clientPool.test.ts â€” LM Studio client pooling + closeAll behaviour
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/
@@ -160,3 +220,15 @@ support/
 
 
 
+- Added ingest routes/tests:
+  - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId
+  - server/src/ingest/chromaClient.ts — Chroma client helpers and lock metadata
+  - server/src/ingest/ingestJob.ts — ingest orchestrator, status tracking, embedding flow
+  - server/src/test/features/ingest-start.feature — ingest start/status scenarios
+  - server/src/test/steps/ingest-start.steps.ts — step defs for ingest start/status
+  - server/src/test/features/ingest-start-body.feature — ingest start accepts JSON body
+  - server/src/test/features/ingest-roots-metadata.feature — roots endpoint ok without null metadata
+  - server/src/test/steps/ingest-start-body.steps.ts — step defs for JSON body ingest start
+  - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
+  - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
+  - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers

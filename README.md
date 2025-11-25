@@ -37,10 +37,18 @@ npm install
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end.
 - **Chat page:** open `/chat` to chat with LM Studio via the server `/chat` streaming proxy. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is streaming. Messages render newest-first near the controls with distinct user/assistant bubbles, streaming tokens accumulate into a single assistant bubble, and failures surface as inline error bubbles with retry guidance. Tool lifecycle events stay out of the transcript but are logged to the server log store so the Logs page can surface them. A **Stop** button appears while streaming to cancel generation (responses may truncate) and adds a status bubble; a **New conversation** button aborts any in-flight response, clears the transcript, keeps the currently selected model, and refocuses the input. Chat history is in-memory only; reloading or leaving the page resets the conversation.
+- **Ingest page:** open `/ingest` to start an embedding run against a server-accessible folder. The form validates required path/name fields, lets you add an optional description, choose an embedding model (disabled once the shared collection is locked), toggle dry-run, and surfaces inline errors such as “Path is required” or “Select a model.” A banner appears when the embedding model is locked to a specific id. The page now lists embedded folders with per-row actions (Re-embed, Remove, Details), bulk actions, inline action feedback, and a tooltip over the name for descriptions. A Details drawer shows path/model/status, counts, last error, and the include/exclude defaults; the empty state explains that the model locks after the first ingest. Actions are disabled while an ingest is active to avoid conflicts.
+- **Active ingest card:** once a run starts, the page polls `/ingest/status/{runId}` ~every 2s to show state chips (Queued/Scanning/Embedding/Completed/Cancelled/Error), file/chunk counts, any last error, a “Cancel ingest” button that calls `/ingest/cancel/{runId}` (disabled while cancelling), and a “View logs for this run” link (pre-filters logs with the runId).
 - Assistant replies that include `<think>...</think>` render the visible reply normally and tuck the think content into a collapsible “Thought process” section inside the same bubble.
 - Server chat proxy uses LM Studio SDK 1.5 via `client.llm.model(<key>).act(...)` with a noop tool built using the SDK `tool()` helper (no parameters) and AbortController so cancellation works; it now builds a `Chat.from(messages)` history so the model sees the full conversation per request. LM Studio base URL comes from `LMSTUDIO_BASE_URL` and is converted to ws/wss for the SDK.
 - **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
 - Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
+
+### End-to-end (Playwright)
+
+- Primary stack: `npm run e2e` uses the dedicated `docker-compose.e2e.yml` (isolated Chroma volume, fixture mount at `/fixtures`) with ports client 6001 / server 6010 / chroma 8800. Individual steps: `npm run compose:e2e:build`, `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down`.
+- Reset the e2e Chroma volume if metadata becomes corrupted (e.g., after schema tweaks): `docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v`.
+- Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`.
 
 ## Root commands
 
@@ -50,6 +58,19 @@ npm install
 - `npm run format --workspaces`
 - `npm run build:all`
 - `npm run clean`
+
+### Quick run order for ingest/Testcontainers work
+
+- `npm run build --workspace server`
+- `npm run build --workspace client`
+- `npm run test --workspace server` (builds then runs unit tests first, followed by Cucumber with Chroma via Testcontainers; Docker required)
+- `npm run test --workspace client`
+- `npm run compose:build`
+- `npm run compose:up`
+- `npm run compose:down`
+- `npm run e2e`
+
+Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come from `.env`; no test-only embedding env flags are needed.
 
 ## Common package
 
@@ -61,10 +82,12 @@ npm install
 ## Server
 
 - Logging: structured pino logger using shared schema; log file at `./logs/server.log` with rotation (expanded in the Logging section added in Task 6).
+- LM Studio clients are pooled per base URL so chat/ingest routes reuse a single connection; SIGINT/SIGTERM triggers the pool to close cleanly before the process exits.
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
-- `npm run test --workspace server` (Cucumber scenarios)
+- `npm run test --workspace server` (builds + unit tests first, then Cucumber; Chroma comes from the Testcontainers compose hook—no mock CHROMA_URL path)
+- Ingest Cucumber tests run against a real Chroma via Testcontainers; Docker must be running and will publish Chroma on host port 18000 (if busy, the hook falls back to a random host port and logs it). For manual debugging, `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (teardown with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 
@@ -82,6 +105,71 @@ npm install
   curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
   ```
 - GET `/logs/stream` provides an SSE feed with heartbeats every 15s; resume with `Last-Event-ID` or `?sinceSequence=`. Example: `curl -N http://localhost:5010/logs/stream`.
+
+### Ingest embedding models
+
+- GET `/ingest/models` returns embedding-capable LM Studio models plus the current lock (if any):
+  ```json
+  {
+    "models": [
+      {
+        "id": "embed-1",
+        "displayName": "all-MiniLM",
+        "contextLength": 2048,
+        "format": "gguf",
+        "size": 145000000,
+        "filename": "all-mini.gguf"
+      }
+    ],
+    "lockedModelId": null
+  }
+  ```
+- Filters to `type === "embedding"` or capabilities including `embedding`; returns 502 `{status:"error", message}` if LM Studio is unavailable.
+
+### Ingest start/status
+
+- POST `/ingest/start` starts an ingest job. Body:
+  ```json
+  {"path":"/repo","name":"repo","description":"optional","model":"embed-1","dryRun":false}
+  ```
+  Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED"}` if collection locked to another model; `429 {"status":"error","code":"BUSY"}` if an ingest is already running; `400` on validation errors.
+- GET `/ingest/status/{runId}` returns current state:
+  ```json
+  {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
+  {"runId":"r1","state":"completed","counts":{"files":3,"chunks":12,"embedded":12}}
+  {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
+  ```
+- Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
+
+### Ingest cancel / re-embed / remove
+
+- POST `/ingest/cancel/{runId}` cancels the active ingest run, purges any partial vectors tagged with the runId, updates the roots entry to `cancelled`, and responds `{ "status": "ok", "cleanup": "complete" }`. Example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`.
+- POST `/ingest/reembed/{root}` re-runs ingest for the stored root path (deletes existing vectors/metadata for that root first). Respects the existing model lock and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
+- POST `/ingest/remove/{root}` deletes vectors and root metadata for the given root; if the vectors collection becomes empty, the locked model is cleared. Responds `{ status: 'ok', unlocked: boolean }`.
+- Single-flight: concurrent ingest/re-embed/remove requests return `429 {code:'BUSY'}` while a run is active. Cancel is allowed to break an active run; the lock is released after cancellation completes.
+
+### Ingest roots listing
+
+- GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order along with the current model lock:
+  ```json
+  {
+    "roots": [
+      {
+        "runId": "a1",
+        "name": "repo",
+        "description": "project",
+        "path": "/repo",
+        "model": "embed-1",
+        "status": "completed",
+        "lastIngestAt": "2025-01-01T12:00:00.000Z",
+        "counts": {"files": 3, "chunks": 12, "embedded": 12},
+        "lastError": null
+      }
+    ],
+    "lockedModelId": "embed-1"
+  }
+  ```
+
 
 ## Logging
 
@@ -144,6 +232,13 @@ npm install
 - Stop stack: `npm run compose:down`
 - Compose loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so those files remain the single source of truth for both local and compose runs (create empty `.env.local` files to silence warnings if you don't need overrides).
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
+
+### Observability (Chroma traces)
+
+- Compose stacks now run an OpenTelemetry Collector (`otel-collector`, ports 4317/4318) plus Zipkin (`zipkin`, port 9411). The collector loads `observability/otel-collector-config.yaml` and exports traces to Zipkin and a debug logger.
+- Chroma containers point to the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, and `OTEL_SERVICE_NAME=chroma` so ingest traffic is captured.
+- View traces at http://localhost:9411 after generating activity (e.g., start an ingest). If nothing appears, check collector logs: `docker compose logs otel-collector`.
+- Cleanup: `docker compose down -v` tears down collector/zipkin/chroma volumes; remove any lingering volumes with `docker volume ls | grep codeinfo2` if ports/telemetry state need a full reset.
 
 ## End-to-end (Playwright)
 

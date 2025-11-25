@@ -71,7 +71,7 @@ When('I GET {string}', async (path: string) => {
   try {
     const body = await fetchLmStudioStatus({
       serverBaseUrl: baseUrl,
-      lmBaseUrl: 'http://localhost:1234',
+      lmBaseUrl: 'ws://localhost:1234',
     });
     response = { status: 200, body };
   } catch (err) {

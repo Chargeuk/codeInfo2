@@ -78,6 +78,20 @@ sequenceDiagram
 - Healthchecks: server uses `/health`; client uses root `/` to ensure availability before dependencies start, with client waiting on server health.
 - Root scripts (`compose:build`, `compose:up`, `compose:down`, `compose:logs`) manage the stack for local demos and e2e setup.
 
+## Observability (Chroma traces)
+
+- Each compose stack (main, e2e, and Cucumber/Testcontainers debug) now includes `otel-collector` (OTLP gRPC/HTTP on 4317/4318) and `zipkin` (UI on 9411). The collector loads `observability/otel-collector-config.yaml`, which pipes traces to Zipkin and a debug logging exporter.
+- Chroma containers point at the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, and `OTEL_SERVICE_NAME=chroma`, so ingest traffic is traced without code changes.
+- Use http://localhost:9411 to inspect spans; if empty, check `docker compose logs otel-collector` for configuration errors.
+- Testcompose uses the same config through a relative bind mount so Cucumber runs capture Chroma traces consistently.
+
+```mermaid
+flowchart LR
+  Chroma -->|OTLP http 4318| Collector
+  Collector -->|Zipkin exporter| Zipkin[Zipkin UI 9411]
+  Collector -->|logging exporter| Logs[Collector debug log]
+```
+
 ## Architecture diagram
 
 ```mermaid
@@ -141,6 +155,90 @@ sequenceDiagram
   end
 ```
 
+- LM Studio clients are pooled by base URL (`server/src/lmstudio/clientPool.ts`) so chat, ingest, and proxy routes reuse a single connection per origin. Pool entries close on SIGINT/SIGTERM via hooks in `server/src/index.ts` to avoid lingering sockets.
+
+### Ingest models fetch
+
+- Endpoint: `GET /ingest/models` (server proxy to LM Studio). Returns embedding-only models plus optional `lockedModelId` when the shared collection is locked.
+- Response example:
+```json
+{
+  "models": [
+    {"id":"embed-1","displayName":"all-MiniLM","contextLength":2048,"format":"gguf","size":145000000,"filename":"all-mini.gguf"}
+  ],
+  "lockedModelId": null
+}
+```
+- Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
+
+### Ingest start/status flow
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant FS as File System
+  participant LM as LM Studio
+  participant Chroma
+
+  Client->>Server: POST /ingest/start {path,name,model,dryRun?}
+  Server->>Chroma: check collectionIsEmpty + lockedModelId
+  alt locked mismatch
+    Server-->>Client: 409 MODEL_LOCKED
+  else busy
+    Server-->>Client: 429 BUSY
+  else
+    Server-->>Client: 202 {runId}
+    Server->>FS: discover files
+    Server->>LM: embed chunks (skip when dryRun)
+    Server->>Chroma: add vectors + metadata (runId, root, relPath, hashes, model)
+    Server->>Chroma: set lockedModelId if empty before
+    Server-->>Client: status queued→scanning→embedding→completed
+  end
+  Client->>Server: GET /ingest/status/{runId}
+  Server-->>Client: {state, counts, message, lastError?}
+```
+
+- Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
+
+### Ingest roots listing
+
+- Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
+- Response shape:
+  ```json
+  {
+    "roots": [
+      {
+        "runId": "abc",
+        "name": "docs",
+        "description": "project docs",
+        "path": "/repo/docs",
+        "model": "embed-1",
+        "status": "completed",
+        "lastIngestAt": "2025-01-01T12:00:00.000Z",
+        "counts": {"files":3,"chunks":12,"embedded":12},
+        "lastError": null
+      }
+    ],
+    "lockedModelId": "embed-1"
+  }
+  ```
+- Sorting happens server-side so the client can render the newest ingest first; empty collections return `roots: []` with `lockedModelId` unchanged.
+
+### Ingest cancel / re-embed / remove flows
+
+- Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
+- Re-embed: `POST /ingest/reembed/:root` deletes existing vectors/metadata for the root, then starts a new ingest using the stored model/name/description. Returns `202 {runId}` or `404` if the root is unknown; respects the existing model lock and single-flight guard.
+- Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
+- Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
+- Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
+
+### Ingest dry-run + cleanup guarantees
+
+- Dry runs still call LM Studio `embed` to size dimensions but never call `vectors.add`; counts reflect the would-be chunk embeds and status ends `completed`.
+- When vectors are emptied (cancel/remove/re-embed pre-delete or a zero-embed flush), the server drops the `ingest_vectors` collection via a helper that also clears the lock metadata; the next real write recreates the collection/lock during `flushBatch`.
+- Ingest routes now rely on a single Chroma/Testcontainers path (no in-memory/mock collections); Cucumber hooks bootstrap Chroma for all ingest scenarios.
+
 The proxy does not cache results and times out after 60s. Invalid base URLs are rejected server-side; other errors bubble up as `status: "error"` responses while leaving CORS unchanged.
 
 ### Chat models endpoint
@@ -172,6 +270,16 @@ sequenceDiagram
 - Actions: `Check status` runs the proxy call with the current URL, `Refresh models` reuses the saved URL, and errors focus the input for quick edits.
 - States: loading text (“Checking…”), inline error text from the server, empty-state message “No models reported by LM Studio.”
 - Responsive layout: table on md+ screens and stacked cards on small screens to avoid horizontal scrolling.
+
+### Ingest page UI (client)
+
+- Layout: top lock banner + refresh button, ingest form card, active run card, and embedded roots table.
+- Form fields: folder path (required), display name (required), optional description, embedding model select (disabled when `lockedModelId` exists), dry-run toggle, submit button. Inline errors show “Path is required”, “Name is required”, “Select a model”.
+- Locked model: info banner “Embedding model locked to <id>” appears when the shared collection already has a model; select stays disabled in that state.
+- Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
+- Active run: when a run is started, the page polls `/ingest/status/{runId}` roughly every 2s until reaching `completed|cancelled|error`, showing a chip for the state, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. A “View logs for this run” link routes to `/logs?text=<runId>`.
+- Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
+- Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
 
 ## Chat streaming endpoint
 
@@ -236,6 +344,13 @@ sequenceDiagram
 - Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
+- Dedicated e2e stack: `docker-compose.e2e.yml` runs client (6001), server (6010), and Chroma (8800) with an isolated `chroma-e2e-data` volume and a mounted fixture repo at `/fixtures`. Scripts `compose:e2e:*` wrap build/up/down. Ingest e2e specs (`e2e/ingest.spec.ts`) exercise happy path, cancel, re-embed, and remove; they auto-skip when LM Studio/models are unavailable.
+
+### Ingest BDD (Testcontainers)
+
+- Cucumber ingest suites run against a real Chroma started via Testcontainers (image `chromadb/chroma:1.3.5`) mapped to host port 18000; Docker must be available.
+- LM Studio stays mocked; only Chroma is real. Hooks in `server/src/test/support/chromaContainer.ts` start Chroma before all tests and wipe the ingest collections before each scenario.
+- For manual debugging, use `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` and tear down with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v` to avoid polluting test runs.
 
 ## Logging schema (shared)
 

@@ -49,7 +49,7 @@ export default function LogsPage() {
   const [levelFilters, setLevelFilters] = useState<string[]>([]);
   const [sourceFilters, setSourceFilters] = useState<string[]>([]);
   const [live, setLive] = useState(true);
-  const logger = useMemo(() => createLogger('client-logs'), []);
+  const logger = useMemo(() => createLogger('client'), []);
   const apiBase =
     (typeof import.meta !== 'undefined' &&
       (import.meta as ImportMeta).env?.VITE_API_URL) ??
@@ -75,7 +75,7 @@ export default function LogsPage() {
     const timestamp = new Date().toISOString();
     const context = { route: '/logs', demo: true, generatedAt: timestamp };
 
-    logger('info', 'sample log', context);
+    logger('info', 'sample log', { feature: 'logs', ...context });
 
     try {
       await fetch(new URL('/logs', apiBase).toString(), {

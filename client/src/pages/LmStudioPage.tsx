@@ -44,7 +44,7 @@ export default function LmStudioPage() {
   const theme = useTheme();
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'));
   const inputRef = useRef<HTMLInputElement>(null);
-  const logger = useMemo(() => createLogger('client-lmstudio'), []);
+  const logger = useMemo(() => createLogger('client'), []);
   const { baseUrl, state, isLoading, isError, isEmpty, refresh } =
     useLmStudioStatus();
   const [input, setInput] = useState(baseUrl);
@@ -69,6 +69,7 @@ export default function LmStudioPage() {
 
   const logRefreshStart = (targetBase: string, reason: string) =>
     logger('info', 'lmstudio refresh start', {
+      feature: 'lmstudio',
       baseUrl: scrubBaseUrl(targetBase),
       reason,
     });
@@ -92,6 +93,7 @@ export default function LmStudioPage() {
       const key = `success:${state.data.baseUrl}:${state.data.models.length}`;
       if (lastResult.current !== key) {
         logger('info', 'lmstudio refresh success', {
+          feature: 'lmstudio',
           baseUrl: scrubBaseUrl(state.data.baseUrl),
           models: state.data.models.length,
         });
@@ -101,6 +103,7 @@ export default function LmStudioPage() {
       const key = `error:${state.error}`;
       if (lastResult.current !== key) {
         logger('error', 'lmstudio refresh failed', {
+          feature: 'lmstudio',
           baseUrl: scrubBaseUrl(baseUrl),
           error: state.error,
         });

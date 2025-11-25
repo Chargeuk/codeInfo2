@@ -21,7 +21,7 @@ let events: unknown[] = [];
 let statusCode: number | null = null;
 
 Before(async () => {
-  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());

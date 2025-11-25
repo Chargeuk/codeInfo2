@@ -181,7 +181,17 @@ export function getLastPredictionState() {
   return lastPrediction;
 }
 
+const wsProtocolError = (url: string) =>
+  `Failed to construct LMStudioClient. The baseUrl passed in must have protocol "ws" or "wss". Received: ${url}`;
+
 export class MockLMStudioClient {
+  constructor(baseUrl?: string) {
+    const candidate =
+      baseUrl ?? process.env.LMSTUDIO_BASE_URL ?? 'ws://localhost:1234';
+    if (!candidate.startsWith('ws://') && !candidate.startsWith('wss://')) {
+      throw new Error(wsProtocolError(candidate));
+    }
+  }
   system = {
     listDownloadedModels: async () => {
       if (scenario === 'timeout') {
@@ -240,6 +250,19 @@ export class MockLMStudioClient {
           path: '/models/embed-1.gguf',
         },
       ];
+    },
+  };
+
+  embedding = {
+    model: async (key: string) => {
+      const modelKey = key;
+      return {
+        async embed(text: string) {
+          const len = Math.max(1, Math.min(8, text.length));
+          const embedding = [(len % 5) * 0.1 + 0.1];
+          return { modelKey, embedding };
+        },
+      };
     },
   };
 

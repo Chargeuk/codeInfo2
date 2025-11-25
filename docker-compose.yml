@@ -6,11 +6,17 @@ services:
     image: codeinfo2-server
     ports:
       - '5010:5010'
+    networks:
+      - internal
     env_file:
       - server/.env
       - server/.env.local
     volumes:
       - ./logs:/app/logs
+      - ${HOST_INGEST_DIR:-/tmp}:/data:ro
+    depends_on:
+      chroma:
+        condition: service_started
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
       interval: 10s
@@ -20,9 +26,15 @@ services:
     build:
       context: .
       dockerfile: client/Dockerfile
+      args:
+        # These are baked into the Vite bundle at build time; fall back to the local defaults if not provided.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5010}
+        VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
     image: codeinfo2-client
     ports:
       - '5001:5001'
+    networks:
+      - internal
     env_file:
       - client/.env
       - client/.env.local
@@ -34,3 +46,42 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  chroma:
+    image: chromadb/chroma:1.3.5
+    environment:
+      - IS_PERSISTENT=True
+      - ANONYMIZED_TELEMETRY=False
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
+      - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
+    ports:
+      - '8000:8000'
+    networks:
+      - internal
+    volumes:
+    # - see https://docs.trychroma.com/docs/overview/migration?lang=typescript - persist path has been /data since version 1
+      - chroma-data:/data
+    depends_on:
+      - otel-collector
+      - zipkin
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    networks:
+      - internal
+
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - '9411:9411'
+    depends_on: [otel-collector]
+    networks:
+      - internal
+
+networks:
+  internal:
+
+volumes:
+  chroma-data:

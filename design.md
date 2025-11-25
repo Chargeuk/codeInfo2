@@ -48,6 +48,12 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
 
+### Chat citations UI
+
+- `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
+- Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
+- Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
+
 ```mermaid
 sequenceDiagram
   participant User

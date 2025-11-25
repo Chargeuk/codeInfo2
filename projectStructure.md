@@ -79,6 +79,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
+|     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
+|     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests

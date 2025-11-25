@@ -229,8 +229,8 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 #### Subtasks
 
-1. [ ] Extend chat message rendering to display file path (repo + relative path) alongside tool-provided snippets/chunks, ensuring layout works on mobile and desktop.
-2. [ ] Ensure citations remain inline with the assistant message and are visible in the chat bubble; include host-friendly path text where applicable.
+1. [x] Extend chat message rendering to display file path (repo + relative path) alongside tool-provided snippets/chunks, ensuring layout works on mobile and desktop.
+2. [x] Ensure citations remain inline with the assistant message and are visible in the chat bubble; include host-friendly path text where applicable.
    - Target components: `client/src/pages/ChatPage.tsx` (render loop), `client/src/hooks/useChatStream.ts` (parsing tool events), and chat bubble component (add a small inline `path` row with `repo/relPath` and hostPath in parentheses if present).
    - Mobile rule: path wraps and truncates in middle (`textOverflow: 'ellipsis'`, `maxWidth: '100%'`).
    - Render scaffold (pseudo-JSX):
@@ -241,27 +241,31 @@ Render tool results in the chat UI with inline citations showing the human-frien
        <Typography variant="caption">{`${result.repo}/${result.relPath}`}</Typography>
      )}
      ```
-3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text); extend the SSE/tool event types in `useChatStream.ts` to include `repo`, `relPath`, `hostPath`, `chunk`, `score`.
-4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; use fixture payloads mirroring the server response example (`repo/docs/main.txt`).
-5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; expect the chunk text renders without path row and no crashes.
-6. [ ] Update `README.md` (client section) to mention visible file paths/citations from LM Studio tools.
-7. [ ] Update `design.md` with UI flow/state notes for chat citations and file path rendering.
-8. [ ] Update `projectStructure.md` to list any new client components/tests added for citations.
-9. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+3. [x] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text); extend the SSE/tool event types in `useChatStream.ts` to include `repo`, `relPath`, `hostPath`, `chunk`, `score`.
+4. [x] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; use fixture payloads mirroring the server response example (`repo/docs/main.txt`).
+5. [x] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; expect the chunk text renders without path row and no crashes.
+6. [x] Update `README.md` (client section) to mention visible file paths/citations from LM Studio tools.
+7. [x] Update `design.md` with UI flow/state notes for chat citations and file path rendering.
+8. [x] Update `projectStructure.md` to list any new client components/tests added for citations.
+9. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
+- Added client-side citation support by parsing `tool-result` payloads for vector search outputs and attaching them to the active assistant message.
+- Chat bubbles now render repo/relPath plus hostPath (when available) with ellipsis handling and show the retrieved chunk beneath the assistant reply.
+- Added two RTL suites: `chatPage.citations.test.tsx` (host path present) and `chatPage.noPaths.test.tsx` (no host path) to guard rendering states and chunk display.
+- Ran lint + format checks and full build/test/compose/e2e pipelines to verify the citation UI changes hold across environments.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

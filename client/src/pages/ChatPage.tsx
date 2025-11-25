@@ -17,7 +17,10 @@ import {
 } from '@mui/material';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import useChatModel from '../hooks/useChatModel';
-import useChatStream, { ChatMessage } from '../hooks/useChatStream';
+import useChatStream, {
+  ChatMessage,
+  ToolCitation,
+} from '../hooks/useChatStream';
 
 export default function ChatPage() {
   const {
@@ -217,6 +220,7 @@ export default function ChatPage() {
                 const isErrorBubble = message.kind === 'error';
                 const isStatusBubble = message.kind === 'status';
                 const isUser = message.role === 'user';
+                const hasCitations = !!message.citations?.length;
                 return (
                   <Stack
                     key={message.id}
@@ -261,6 +265,48 @@ export default function ChatPage() {
                         <Typography variant="body2">
                           {message.content || ' '}
                         </Typography>
+                        {hasCitations && (
+                          <Stack spacing={1} mt={1} data-testid="citations">
+                            {message.citations?.map(
+                              (citation: ToolCitation, idx) => {
+                                const pathLabel = `${citation.repo}/${citation.relPath}`;
+                                const hostSuffix = citation.hostPath
+                                  ? ` (${citation.hostPath})`
+                                  : '';
+                                return (
+                                  <Box
+                                    key={`${citation.chunkId ?? idx}-${citation.relPath}`}
+                                  >
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      title={citation.hostPath ?? pathLabel}
+                                      sx={{
+                                        display: 'block',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        maxWidth: '100%',
+                                      }}
+                                      data-testid="citation-path"
+                                    >
+                                      {pathLabel}
+                                      {hostSuffix}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.primary"
+                                      sx={{ whiteSpace: 'pre-wrap' }}
+                                      data-testid="citation-chunk"
+                                    >
+                                      {citation.chunk}
+                                    </Typography>
+                                  </Box>
+                                );
+                              },
+                            )}
+                          </Stack>
+                        )}
                         {message.think && (
                           <Box mt={1}>
                             <Stack

@@ -7,6 +7,18 @@ export type ChatMessage = {
   content: string;
   kind?: 'error' | 'status';
   think?: string;
+  citations?: ToolCitation[];
+};
+
+export type ToolCitation = {
+  repo: string;
+  relPath: string;
+  hostPath?: string;
+  containerPath?: string;
+  score?: number | null;
+  chunk: string;
+  chunkId?: string;
+  modelId?: string;
 };
 
 type Status = 'idle' | 'sending';
@@ -25,6 +37,7 @@ type StreamEvent =
       callId?: string;
       name?: string;
       stage?: string;
+      result?: unknown;
     };
 
 const serverBase =
@@ -129,6 +142,37 @@ export function useChatStream(model?: string) {
     [logger],
   );
 
+  const extractCitations = useCallback((result: unknown): ToolCitation[] => {
+    const payload =
+      result && typeof result === 'object' && 'results' in result
+        ? (result as { results?: unknown }).results
+        : undefined;
+
+    if (!Array.isArray(payload)) return [];
+
+    return payload
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const i = item as Record<string, unknown>;
+        const repo = typeof i.repo === 'string' ? i.repo : undefined;
+        const relPath = typeof i.relPath === 'string' ? i.relPath : undefined;
+        const chunk = typeof i.chunk === 'string' ? i.chunk : undefined;
+        if (!repo || !relPath || !chunk) return null;
+        return {
+          repo,
+          relPath,
+          hostPath: typeof i.hostPath === 'string' ? i.hostPath : undefined,
+          containerPath:
+            typeof i.containerPath === 'string' ? i.containerPath : undefined,
+          score: typeof i.score === 'number' ? i.score : null,
+          chunk,
+          chunkId: typeof i.chunkId === 'string' ? i.chunkId : undefined,
+          modelId: typeof i.modelId === 'string' ? i.modelId : undefined,
+        } satisfies ToolCitation;
+      })
+      .filter(Boolean) as ToolCitation[];
+  }, []);
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -158,11 +202,27 @@ export function useChatStream(model?: string) {
       const assistantId = makeId();
       let assistantContent = '';
       let assistantThink: string | undefined;
+      let assistantCitations: ToolCitation[] = [];
 
       updateMessages((prev) => [
         ...prev,
         { id: assistantId, role: 'assistant', content: '' },
       ]);
+
+      const appendCitations = (incoming: ToolCitation[]) => {
+        if (!incoming.length) return;
+        assistantCitations = [...assistantCitations, ...incoming];
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  citations: [...(msg.citations ?? []), ...incoming],
+                }
+              : msg,
+          ),
+        );
+      };
 
       try {
         const res = await fetch(new URL('/chat', serverBase).toString(), {
@@ -212,6 +272,10 @@ export function useChatStream(model?: string) {
               const event = JSON.parse(payload) as StreamEvent;
               if (isToolEvent(event)) {
                 handleToolEvent(event);
+                if (event.type === 'tool-result') {
+                  const citations = extractCitations(event.result);
+                  appendCitations(citations);
+                }
                 continue;
               }
               if (event.type === 'token' && typeof event.content === 'string') {
@@ -251,7 +315,15 @@ export function useChatStream(model?: string) {
         }
       }
     },
-    [handleErrorBubble, handleToolEvent, model, status, stop, updateMessages],
+    [
+      extractCitations,
+      handleErrorBubble,
+      handleToolEvent,
+      model,
+      status,
+      stop,
+      updateMessages,
+    ],
   );
 
   useEffect(

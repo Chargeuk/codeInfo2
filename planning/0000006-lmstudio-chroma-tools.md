@@ -64,9 +64,10 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 #### Documentation Locations
 
 - Existing ingest metadata structures: `server/src/ingest/chromaClient.ts`, `server/src/routes/ingestRoots.ts`
-- Chroma JS client docs: https://docs.trychroma.com/ or Context7 `/websites/trychroma`
-- Host path mapping: current compose/env usage of `HOST_INGEST_DIR` and `/data` mount (see `docker-compose.yml`, `server/.env`)
-- Express routing patterns: Context7 `/expressjs/express`
+- Chroma JS client docs (vectors.query, metadata filters, collection schema): https://docs.trychroma.com/ or Context7 `/websites/trychroma`
+- Express routing patterns (handlers, middleware, CORS): Context7 `/expressjs/express`
+- Cucumber JS reference (Gherkin features/steps): https://cucumber.io/docs/guides/ or Context7 `/cucumber/cucumber`
+- Host path mapping/env: current compose/env usage of `HOST_INGEST_DIR` and `/data` mount (see `docker-compose.yml`, `server/.env`)
 
 #### Subtasks
 
@@ -109,6 +110,9 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 - LM Studio agent `.act()` API (multi-round tool use, callbacks, tool schema examples): https://lmstudio.ai/docs/typescript/agent/act
 - Existing chat route/streaming: `server/src/routes/chat.ts`, `server/src/chatStream.ts`
 - Client pool: `server/src/lmstudio/clientPool.ts`
+- Jest docs (unit testing, mocks): Context7 `/jestjs/jest`
+- Supertest docs (HTTP integration testing): https://github.com/ladjs/supertest#readme
+- Cucumber JS reference (for the chat tool wiring feature): https://cucumber.io/docs/guides/ or Context7 `/cucumber/cucumber`
 
 #### Subtasks
 
@@ -148,6 +152,8 @@ Render tool results in the chat UI with inline citations showing the human-frien
 - Existing chat UI/hooks: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/components` chat bubbles
 - Testing: `client/src/test/chatPage.*.test.tsx`
 - MUI components: use MUI MCP docs (per AGENTS instructions)
+- React Testing Library docs (render, screen, assertions): https://testing-library.com/docs/react-testing-library/intro
+- React Router (for navigation impact if needed): https://reactrouter.com/en/main (only if routing touches UI changes)
 
 #### Subtasks
 
@@ -186,6 +192,7 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 - Playwright: Context7 `/microsoft/playwright`
 - Cucumber: https://cucumber.io/docs/guides/
 - Husky: Context7 `/typicode/husky`
+- Chroma docs (for verifying model selection and data presence during e2e): https://docs.trychroma.com/ or Context7 `/websites/trychroma`
 
 #### Subtasks
 

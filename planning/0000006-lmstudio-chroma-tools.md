@@ -143,8 +143,8 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 ### 2. Server – LM Studio tool wiring
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 0c374dc
 
 #### Overview
 
@@ -212,7 +212,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 ### 3. Client – Chat UI citations & file path visibility
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

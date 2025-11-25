@@ -2,6 +2,7 @@ import path from 'path';
 import { Router } from 'express';
 import { getLockedModel, getRootsCollection } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { baseLogger } from '../logger.js';
 
 type RepoEntry = {
   id: string;
@@ -93,6 +94,13 @@ export function createToolsIngestedReposRouter() {
           const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
           return bTs - aTs;
         });
+
+      const requestId =
+        (res.locals?.requestId as string | undefined) ?? undefined;
+      baseLogger.info(
+        { requestId, repos: repos.length, lockedModelId },
+        'tools ingested repos',
+      );
 
       res.json({ repos, lockedModelId });
     } catch (err) {

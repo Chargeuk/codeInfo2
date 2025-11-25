@@ -6,6 +6,7 @@ import {
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { baseLogger } from '../logger.js';
 
 type RepoMeta = {
   id: string;
@@ -213,6 +214,18 @@ export function createToolsVectorSearchRouter() {
       });
 
       const modelId = (await getLockedModel()) ?? null;
+      const requestId =
+        (res.locals?.requestId as string | undefined) ?? undefined;
+      baseLogger.info(
+        {
+          requestId,
+          repository: validation.repository ?? 'all',
+          limit: validation.limit,
+          results: results.length,
+          modelId,
+        },
+        'tools vector search',
+      );
       const payload: QueryResult = { results, modelId };
       return res.json(payload);
     } catch (err) {

@@ -16,6 +16,7 @@ import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
+import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 
 config();
 const app = express();
@@ -56,6 +57,7 @@ app.use('/', createIngestReembedRouter({ clientFactory }));
 app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 app.use('/', createToolsIngestedReposRouter());
+app.use('/', createToolsVectorSearchRouter());
 
 const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
 

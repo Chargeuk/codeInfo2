@@ -87,7 +87,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
      {"repos":[{"id":"repo","description":"sample","containerPath":"/data/repo","hostPath":"/Users/me/repo","lastIngestAt":"2025-01-01T12:00:00.000Z","modelId":"text-embedding-qwen3-embedding-4b","counts":{"files":3,"chunks":12,"embedded":12},"lastError":null}],"lockedModelId":"text-embedding-qwen3-embedding-4b"}
      ```
    - Empty list example: `{ "repos": [], "lockedModelId": null }`.
-3. [ ] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
+3. [x] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
    - Defaults: `limit` default 5, max 20; `query` required non-empty string; `repository` must match an existing ingest root name.
    - Chroma query: `collection.query({ queryTexts:[query], where:{ root: repository? }, nResults: limit })`; include `documents`, `metadatas`, `distances`/`scores`.
    - Response example:
@@ -131,6 +131,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 - Added `mapIngestPath` helper to translate stored `/data/<repo>/<relPath>` paths back to host paths, emitting a warning when `HOST_INGEST_DIR` is absent.
 - Normalized container paths to POSIX and added a fallback split so unexpected inputs still yield repo/relPath values for future tooling calls.
 - Implemented `/tools/ingested-repos` to surface mapped paths, counts, and model lock info sorted by latest ingest time.
+- Added `/tools/vector-search` with validation, repo-id lookup from roots metadata, Chroma query, and host-path/citation fields plus clear 400/404/502 errors.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

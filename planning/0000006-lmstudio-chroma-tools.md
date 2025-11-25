@@ -55,7 +55,7 @@ This is a list of steps that must be copied into each new plan. It instructs how
 ### 1. Server – Chroma tooling API
 
 - Task Status: __in_progress__
-- Git Commits: 84398b2, b63db30, 39a4808
+- Git Commits: 84398b2, b63db30, 39a4808, 5a3026a
 
 #### Overview
 

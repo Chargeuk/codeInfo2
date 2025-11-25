@@ -91,6 +91,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Ingest Cucumber tests run against a real Chroma via Testcontainers; Docker must be running and will publish Chroma on host port 18000 (if busy, the hook falls back to a random host port and logs it). For manual debugging, `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (teardown with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
+- **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
 
 ### Logging endpoints
 

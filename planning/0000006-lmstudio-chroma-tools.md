@@ -212,8 +212,8 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 ### 3. Client – Chat UI citations & file path visibility
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 898c8ba, 19115a5
 
 #### Overview
 

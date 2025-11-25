@@ -8,6 +8,12 @@ import {
 import { mapIngestPath } from '../ingest/pathMap.js';
 import { baseLogger } from '../logger.js';
 
+type Deps = {
+  getRootsCollection: typeof getRootsCollection;
+  getVectorsCollection: typeof getVectorsCollection;
+  getLockedModel: typeof getLockedModel;
+};
+
 type RepoMeta = {
   id: string;
   root: string;
@@ -71,8 +77,10 @@ function buildRepoId(
   return base || fallback;
 }
 
-async function loadRepoMeta(): Promise<RepoMeta[]> {
-  const roots = await getRootsCollection();
+async function loadRepoMeta(
+  getRoots: typeof getRootsCollection,
+): Promise<RepoMeta[]> {
+  const roots = await getRoots();
   const raw = await (roots as unknown as RootsGetter).get({
     include: ['metadatas'],
     limit: 1000,
@@ -128,7 +136,13 @@ function validateBody(body: VectorSearchBody): {
   return { errors, query, repository, limit };
 }
 
-export function createToolsVectorSearchRouter() {
+export function createToolsVectorSearchRouter(
+  deps: Deps = {
+    getRootsCollection,
+    getVectorsCollection,
+    getLockedModel,
+  },
+) {
   const router = Router();
 
   router.post('/tools/vector-search', async (req, res) => {
@@ -140,7 +154,7 @@ export function createToolsVectorSearchRouter() {
     }
 
     try {
-      const repoMeta = await loadRepoMeta();
+      const repoMeta = await loadRepoMeta(deps.getRootsCollection);
       const repoMap = new Map(repoMeta.map((r) => [r.id, r]));
 
       let whereClause: Record<string, unknown> | undefined;
@@ -153,7 +167,7 @@ export function createToolsVectorSearchRouter() {
       }
 
       const collection =
-        (await getVectorsCollection()) as unknown as ChromaQueryable;
+        (await deps.getVectorsCollection()) as unknown as ChromaQueryable;
       const queryResult = await collection.query({
         queryTexts: [validation.query ?? ''],
         where: whereClause,
@@ -213,7 +227,7 @@ export function createToolsVectorSearchRouter() {
         };
       });
 
-      const modelId = (await getLockedModel()) ?? null;
+      const modelId = (await deps.getLockedModel()) ?? null;
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
       baseLogger.info(

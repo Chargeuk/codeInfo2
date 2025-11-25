@@ -4,6 +4,11 @@ import { getLockedModel, getRootsCollection } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
 import { baseLogger } from '../logger.js';
 
+type Deps = {
+  getRootsCollection: typeof getRootsCollection;
+  getLockedModel: typeof getLockedModel;
+};
+
 type RepoEntry = {
   id: string;
   description: string | null;
@@ -27,13 +32,18 @@ function buildRepoId(
   return base || fallback;
 }
 
-export function createToolsIngestedReposRouter() {
+export function createToolsIngestedReposRouter(
+  deps: Deps = {
+    getRootsCollection,
+    getLockedModel,
+  },
+) {
   const router = Router();
 
   router.get('/tools/ingested-repos', async (_req, res) => {
     try {
-      const collection = await getRootsCollection();
-      const lockedModelId = await getLockedModel();
+      const collection = await deps.getRootsCollection();
+      const lockedModelId = await deps.getLockedModel();
 
       type CollectionGetter = {
         get: (opts: {

@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach, mock } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import * as chromaClient from '../../ingest/chromaClient.js';
 import { createToolsIngestedReposRouter } from '../../routes/toolsIngestedRepos.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
@@ -12,7 +11,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  mock.restoreAll();
   if (ORIGINAL_HOST === undefined) {
     delete process.env.HOST_INGEST_DIR;
   } else {
@@ -20,25 +18,28 @@ afterEach(() => {
   }
 });
 
-function buildApp() {
+function buildApp(
+  roots: { ids?: string[]; metadatas?: Record<string, unknown>[] },
+  lockedModelId: string | null,
+) {
   const app = express();
   app.use(express.json());
-  app.use(createToolsIngestedReposRouter());
+  app.use(
+    createToolsIngestedReposRouter({
+      getRootsCollection: async () =>
+        ({
+          get: async () => roots,
+        }) as unknown as import('chromadb').Collection,
+      getLockedModel: async () => lockedModelId,
+    }),
+  );
   return app;
 }
 
 test('returns empty repos list with null lock when no roots exist', async () => {
-  mock.method(
-    chromaClient,
-    'getRootsCollection',
-    async () =>
-      ({
-        get: async () => ({ ids: [], metadatas: [] }),
-      }) as unknown,
+  const res = await request(buildApp({ ids: [], metadatas: [] }, null)).get(
+    '/tools/ingested-repos',
   );
-  mock.method(chromaClient, 'getLockedModel', async () => null);
-
-  const res = await request(buildApp()).get('/tools/ingested-repos');
 
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, { repos: [], lockedModelId: null });
@@ -46,35 +47,28 @@ test('returns empty repos list with null lock when no roots exist', async () => 
 
 test('maps repo metadata and host path with locked model id', async () => {
   process.env.HOST_INGEST_DIR = '/host/base';
-
-  mock.method(
-    chromaClient,
-    'getRootsCollection',
-    async () =>
-      ({
-        get: async () => ({
-          ids: ['run-1'],
-          metadatas: [
-            {
-              root: '/data/repo-one',
-              name: 'repo-one',
-              description: 'sample',
-              model: 'text-embed',
-              files: 3,
-              chunks: 12,
-              embedded: 12,
-              state: 'completed',
-              lastIngestAt: '2025-01-01T00:00:00.000Z',
-              lastError: null,
-            },
-          ],
-        }),
-      }) as unknown,
-  );
-
-  mock.method(chromaClient, 'getLockedModel', async () => 'text-embed');
-
-  const res = await request(buildApp()).get('/tools/ingested-repos');
+  const res = await request(
+    buildApp(
+      {
+        ids: ['run-1'],
+        metadatas: [
+          {
+            root: '/data/repo-one',
+            name: 'repo-one',
+            description: 'sample',
+            model: 'text-embed',
+            files: 3,
+            chunks: 12,
+            embedded: 12,
+            state: 'completed',
+            lastIngestAt: '2025-01-01T00:00:00.000Z',
+            lastError: null,
+          },
+        ],
+      },
+      'text-embed',
+    ),
+  ).get('/tools/ingested-repos');
 
   assert.equal(res.status, 200);
   assert.equal(res.body.lockedModelId, 'text-embed');

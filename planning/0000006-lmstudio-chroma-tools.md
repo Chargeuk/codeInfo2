@@ -74,8 +74,9 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 2. [ ] Implement `GET /tools/ingested-repos` (or similar) reusing the ingest roots collection to return: repo identifier (ingest name or root), description, path (container + host path), last ingest timestamp, model id, counts, last error. Handle empty lists gracefully.
 3. [ ] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
-5. [ ] Wire routes into `server/src/index.ts` (CORS consistent), add logging for tool calls, and document new env requirements if any (e.g., `HOST_INGEST_DIR`).
-6. [ ] Add Cucumber coverage: new features under `server/src/test/features/tools-*.feature` and steps under `server/src/test/steps/tools-*.steps.ts` covering repo list empty/non-empty, search with/without repo filter, host-path rewrite, and error handling.
+5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
+6. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env` and `README.md` where appropriate.
+7. [ ] Add Cucumber coverage: new features under `server/src/test/features/tools-*.feature` and steps under `server/src/test/steps/tools-*.steps.ts` covering repo list empty/non-empty, search with/without repo filter, host-path rewrite, and error handling.
 
 #### Testing
 
@@ -111,6 +112,8 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
 4. [ ] Add unit/integration coverage (Jest or Cucumber) for tool invocation paths to confirm correct wiring and error propagation.
 5. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
+6. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
+7. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
 
 #### Testing
 
@@ -177,8 +180,10 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 1. [ ] Build the server and client: `npm run build --workspace server`, `npm run build --workspace client`.
 2. [ ] Run tests: `npm run test --workspace server`, `npm run test --workspace client`.
 3. [ ] Optional sanity: bring up compose stack to verify endpoints manually if needed (`npm run compose:up` then `npm run compose:down`).
-4. [ ] Update `README.md`, `design.md`, and `projectStructure.md` with new tools, routes, and data flows; note host-path rewrite behavior.
-5. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
+4. [ ] Update `README.md` with new endpoints, tool behaviour, env notes (HOST_INGEST_DIR), and chat citation visibility.
+5. [ ] Update `design.md` with diagrams/flow for tool calls, host-path rewrites, and chat citation rendering.
+6. [ ] Update `projectStructure.md` to list new files (routes, helpers, tests).
+7. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
 
 #### Testing
 

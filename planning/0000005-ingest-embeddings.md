@@ -1206,28 +1206,41 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 
 #### Overview
 
-Avoid creating a fresh LM Studio client for every chat/ingest call. Introduce a small client manager that caches LMStudioClient instances per baseUrl (optionally separate pools for chat vs embedding), wires graceful shutdown, and refactors chat, ingest, and Chroma embedding function paths to reuse pooled clients. Aim: reduce WS churn, shrink LM Studio connection noise, and keep abort semantics intact.
+Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled client manager, refactor chat/ingest and Chroma embedding paths to reuse pooled clients, and close them on shutdown. Goal: fewer LM Studio WS connections, preserved abort semantics, and clear shutdown behavior.
+
+#### Acceptance Criteria
+- LM Studio clients are reused: repeated calls with the same baseUrl return the same client instance; different baseUrls get different clients.
+- Chat and ingest flows use the pooled clients (no direct `new LMStudioClient` per request/path).
+- Graceful shutdown (SIGINT/SIGTERM) closes pooled clients without unhandled errors.
+- Tests cover pooling behavior and regressions; existing chat/ingest tests remain green.
+- Docs describe the pooling strategy and shutdown behavior.
+
+#### Out Of Scope
+- Changing LM Studio baseUrl validation rules.
+- Performance benchmarking beyond verifying reduced client creation.
+
+#### Questions (to clear before coding)
+- Single shared pool vs. two pools (chat vs embedding)? Default: single pool keyed by baseUrl.
+- Should pool eviction be added? Default: no eviction; rely on process lifetime.
+- Do we need metrics on pool size? Default: no; log-only.
 
 #### Documentation Locations
-
-- LM Studio SDK client lifecycle: https://lmstudio.ai/docs/typescript/overview
-- LM Studio embedding API: https://lmstudio.ai/docs/typescript/embedding
-- LM Studio chat/act API: https://lmstudio.ai/docs/typescript/chat
-- Express shutdown hooks patterns: Context7 `/expressjs/express`
-- Jest docs (for new unit tests): Context7 `/jestjs/jest`
+- LM Studio SDK lifecycle: https://lmstudio.ai/docs/typescript/overview
+- Embedding API: https://lmstudio.ai/docs/typescript/embedding
+- Chat/act API: https://lmstudio.ai/docs/typescript/chat
+- Express shutdown hooks: Context7 `/expressjs/express`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
-
-1. [ ] Add a LM Studio client manager (e.g., `server/src/lmstudio/clientPool.ts`) that caches clients by baseUrl, exposes `getClient(baseUrl)` and `closeAll()`, and is testable; ensure thread-safe access and minimal logging.
-2. [ ] Refactor chat route (`server/src/routes/chat.ts`) to obtain the pooled client (ws URL) instead of constructing a new one per request; keep AbortController usage unchanged.
-3. [ ] Refactor ingest paths to use the pool: `ingestJob.embedText` and `LmStudioEmbeddingFunction` (in `chromaClient.ts`) should fetch the pooled client (ws URL) rather than `new LMStudioClient`. Ensure batching still works and abort logic is unaffected.
-4. [ ] Wire shutdown hooks (SIGINT/SIGTERM) in `server/src/index.ts` to call `closeAll()` so LM Studio connections close cleanly; log success/fail.
-5. [ ] Tests: add unit tests for the client pool (returns same instance per baseUrl, creates new for different baseUrl, closeAll closes each, ignores repeat closes). Update/extend chat and ingest tests if needed to mock the pool instead of direct constructor usage.
-6. [ ] Documentation: update `design.md` (client lifecycle/connection strategy) and `README.md` (note pooled LM Studio clients and shutdown behavior).
-7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server` (unit + Cucumber), and `npm run test --workspace client`; fix any issues.
+1. [ ] Create `server/src/lmstudio/clientPool.ts`: cache clients by baseUrl; export `getClient(baseUrl)` and `closeAll()`. Ensure idempotent close, minimal logging, and baseUrl normalization (ws/wss already handled by callers).
+2. [ ] Refactor chat route `server/src/routes/chat.ts` to use `getClient(wsBaseUrl)` instead of `new LMStudioClient`; keep AbortController semantics unchanged.
+3. [ ] Refactor ingest embedding path: in `ingestJob.embedText` use pooled client; in `chromaClient.ts` (`LmStudioEmbeddingFunction`) fetch pooled client instead of constructing a new one.
+4. [ ] Add process shutdown hooks in `server/src/index.ts` for SIGINT/SIGTERM to call `closeAll()` and log success/failure.
+5. [ ] Tests: add unit tests under `server/src/test/unit/clientPool.test.ts` (same instance per baseUrl, different for different baseUrls, closeAll closes each, double-close safe). Adjust/mocks in chat/ingest unit tests if constructor expectations change.
+6. [ ] Documentation: update `design.md` (client lifecycle, pooling rationale, shutdown flow) and `README.md` (note pooled LM Studio clients, shutdown hook behavior).
+7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`; fix issues.
 
 #### Testing
-
 1. [ ] `npm run test --workspace server`
 2. [ ] `npm run test --workspace client`
 3. [ ] `npm run build --workspace server`
@@ -1238,7 +1251,6 @@ Avoid creating a fresh LM Studio client for every chat/ingest call. Introduce a 
 8. [ ] `npm run e2e`
 
 #### Implementation notes
-
-- Empty until work begins; record decisions about pooling strategy (single pool vs split chat/embedding) and any LM Studio connection limits encountered.
+- Fill in once work starts; record any decisions about single vs dual pools and LM Studio connection limits.
 
 ---

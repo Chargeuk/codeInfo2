@@ -23,7 +23,7 @@ Update the Testing steps for every task except the final task to only be the fol
 `npm run compose:up`
 `npm run compose:down`
 
-every task needs a final testing step (not subtask) to ensure the docker environment can compose, and confirm that everything runs well, followed by a step to tear it down.nNote the build and run tasks should not be a subtask, but be part of the Testing section of the task.
+every task needs a final testing step (not subtask) to ensure the docker environment can compose, and confirm that everything runs well, followed by a step to tear it down. Note the build and run tasks should not be a subtask, but be part of the Testing section of the task.
 
 ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7.
 

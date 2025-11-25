@@ -394,10 +394,14 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run test --workspace client` (regression on chat tool events)
-4. [ ] `npm run e2e` (optional if LM Studio/Chroma available; ensures chat-tools spec still passes)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 

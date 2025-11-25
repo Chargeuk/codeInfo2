@@ -4,12 +4,13 @@
 
 Give the LM Studio-backed assistant the ability to answer questions using the existing Chroma vector store. Add agent tools that (a) list previously ingested repositories and (b) run vector searches over stored chunks, optionally scoped to a specific repository. The goal is to let the agent ground answers in ingested repo content without exposing raw database plumbing to end users. The experience should feel like “ask the assistant about the codebase” with results filtered to relevant docs and repositories already processed by the ingest pipeline.
 
-## Acceptance Criteria
+- ## Acceptance Criteria
 
 - LM Studio agent exposes two tools: **ListIngestedRepositories** (returns names/ids and basic metadata) and **VectorSearch** (inputs: query text, optional repository identifier; outputs: ordered matches with source metadata and snippets).
 - Vector search respects an optional repository filter so results can be constrained to one ingested repo; defaults to all ingested data when no filter is provided.
 - Tools leverage the existing Chroma ingest collections and metadata (runId/root name/path/model, hashes, timestamps) without duplicating data or bypassing model-lock rules; assume the single locked embedding model already enforced by ingest.
 - Tool responses include enough provenance (repo name/identifier, relative path, snippet, maybe chunk hash or offset info) for the assistant to surface inline citations to the user.
+- Vector search returns the stored chunk text (from Chroma `documents`) with a sensible snippet/window to keep payloads small while still allowing the agent to quote/cite the actual embedded text.
 - Error handling is clear: empty repository list, missing/unknown repository filter, and Chroma/LM Studio failures surface actionable messages to the agent (and onward to the user).
 - Security/guardrails: queries cannot execute arbitrary DB operations; access limited to read-only list/search on the ingest collections.
 - Performance: sensible defaults for vector search (top-k/threshold) that keep responses fast enough for interactive chat (target under a few seconds with current data sizes).
@@ -26,8 +27,7 @@ Give the LM Studio-backed assistant the ability to answer questions using the ex
 
 ## Questions
 
-- Should vector search return chunk text, a trimmed snippet, or only metadata plus a server-side excerpt window?
-- Any size limits on the chunk/snippet payload returned to the agent to avoid flooding the model context?
+- Any size limits on the chunk/snippet payload returned to the agent to avoid flooding the model context (e.g., fixed char window vs. full chunk)?
 - Should queries allow additional filters (file extension, path prefix) now, or defer until after initial usage feedback?
 
 ## Implementation Plan

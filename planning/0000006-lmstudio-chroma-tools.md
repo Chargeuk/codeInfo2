@@ -72,13 +72,27 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 #### Subtasks
 
 1. [ ] Add a path translation helper (e.g., `server/src/ingest/pathMap.ts`) that rewrites stored ingest paths (mounted at `/data`) back to `HOST_INGEST_DIR`, returning both container and host paths plus repo/name metadata.
-2. [ ] Implement `GET /tools/ingested-repos` (or similar) reusing the ingest roots collection to return: repo identifier (ingest name or root), description, path (container + host path), last ingest timestamp, model id, counts, last error. Handle empty lists gracefully.
+   - Rule: stored paths look like `/data/<rootName>/<relativePath>`; map to host via `${HOST_INGEST_DIR}/<rootName>/<relativePath>`. If `HOST_INGEST_DIR` is unset, default to `/data` but include a warning field `hostPathWarning`.
+   - Include helper signature suggestion: `mapIngestPath(containerPath: string): { repo: string; relPath: string; containerPath: string; hostPath: string; hostPathWarning?: string }`.
+2. [ ] Implement `GET /tools/ingested-repos` reusing the ingest roots collection to return: repo identifier (use `name` with fallback to `path` basename), description, containerPath (from stored path), hostPath (via mapper), lastIngestAt ISO, modelId, counts, lastError. Handle empty lists gracefully.
+   - Example response (non-empty):
+     ```json
+     {"repos":[{"id":"repo","description":"sample","containerPath":"/data/repo","hostPath":"/Users/me/repo","lastIngestAt":"2025-01-01T12:00:00.000Z","modelId":"text-embedding-qwen3-embedding-4b","counts":{"files":3,"chunks":12,"embedded":12},"lastError":null}],"lockedModelId":"text-embedding-qwen3-embedding-4b"}
+     ```
+   - Empty list example: `{ "repos": [], "lockedModelId": null }`.
 3. [ ] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
+   - Defaults: `limit` default 5, max 20; `query` required non-empty string; `repository` must match an existing ingest root name.
+   - Chroma query: `collection.query({ queryTexts:[query], where:{ root: repository? }, nResults: limit })`; include `documents`, `metadatas`, `distances`/`scores`.
+   - Response example:
+     ```json
+     {"results":[{"repo":"repo","relPath":"docs/main.txt","containerPath":"/data/repo/docs/main.txt","hostPath":"/Users/me/repo/docs/main.txt","score":0.12,"chunk":"hello world from fixture","chunkId":"hash123"}],"modelId":"text-embedding-qwen3-embedding-4b"}
+     ```
+   - Errors: unknown repo → `404 {"error":"REPO_NOT_FOUND"}`; invalid body → `400 {"error":"VALIDATION_FAILED","details":["query is required"]}`; Chroma failure → `502 {"error":"CHROMA_UNAVAILABLE"}`.
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
-6. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
-7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
-8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.
+6. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering empty list, single repo with mapped hostPath, and lockedModelId passthrough; use fixture ingest root `repo` with path `/data/repo`.
+7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter, top-k ordering (limit 2), and validation error on missing query.
+8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite with/without HOST_INGEST_DIR and error handling (unknown repo 404, Chroma 502 mock).
 9. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
 10. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
 11. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
@@ -88,10 +102,10 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
 7. [ ] `npm run compose:down`
@@ -124,12 +138,14 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Subtasks
 
-1. [ ] Define LM Studio tool schemas for `ListIngestedRepositories` and `VectorSearch`, matching server API inputs/outputs (including host path, repo id, relative path, score, chunk text).
+1. [ ] Define LM Studio tool schema for **ListIngestedRepositories** in `server/src/lmstudio/tools.ts` using `tool()` + zod; include description, no input params, output array of repos `{ id, description, containerPath, hostPath, lastIngestAt, modelId, counts, lastError }`.
+2. [ ] Define LM Studio tool schema for **VectorSearch** in the same file: input `{ query: z.string().min(1), repository: z.string().optional(), limit: z.number().int().min(1).max(20).default(5) }`; output item `{ repo, relPath, hostPath, containerPath, score, chunk, chunkId, modelId }`.
 2. [ ] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
+   - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
-4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; purpose: guard against schema drift.
-5. [ ] Add integration test (type: Cucumber; location: `server/src/test/features/chat-tools-wire.feature` + steps in `server/src/test/steps/chat-tools-wire.steps.ts`) to cover chat route invoking tools and propagating errors; purpose: ensure wiring executes server tool logic end-to-end.
-6. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; purpose: fast regression without Cucumber harness.
+4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
+5. [ ] Add integration test (type: Cucumber; location: `server/src/test/features/chat-tools-wire.feature` + steps in `server/src/test/steps/chat-tools-wire.steps.ts`) to cover chat route invoking tools and propagating errors; mock LM Studio to return a deterministic tool call result with repo/path fields.
+6. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
 7. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
 8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
 9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
@@ -138,10 +154,10 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
 7. [ ] `npm run compose:down`
@@ -174,9 +190,11 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 1. [ ] Extend chat message rendering to display file path (repo + relative path) alongside tool-provided snippets/chunks, ensuring layout works on mobile and desktop.
 2. [ ] Ensure citations remain inline with the assistant message and are visible in the chat bubble; include host-friendly path text where applicable.
-3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text).
-4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; purpose: ensure bubble shows file paths visibly.
-5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; purpose: ensure UI degrades gracefully.
+   - Target components: `client/src/pages/ChatPage.tsx` (render loop), `client/src/hooks/useChatStream.ts` (parsing tool events), and chat bubble component (add a small inline `path` row with `repo/relPath` and hostPath in parentheses if present).
+   - Mobile rule: path wraps and truncates in middle (`textOverflow: 'ellipsis'`, `maxWidth: '100%'`).
+3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text); extend the SSE/tool event types in `useChatStream.ts` to include `repo`, `relPath`, `hostPath`, `chunk`, `score`.
+4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; use fixture payloads mirroring the server response example (`repo/docs/main.txt`).
+5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; expect the chunk text renders without path row and no crashes.
 6. [ ] Update `README.md` (client section) to mention visible file paths/citations from LM Studio tools.
 7. [ ] Update `design.md` with UI flow/state notes for chat citations and file path rendering.
 8. [ ] Update `projectStructure.md` to list any new client components/tests added for citations.
@@ -184,10 +202,10 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
 7. [ ] `npm run compose:down`
@@ -219,8 +237,10 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 #### Subtasks
 
 1. [ ] Add Playwright e2e test (type: Playwright; location: `e2e/chat-tools.spec.ts` or extend existing chat spec) that: (a) triggers ingest of the mounted fixture repo (`/fixtures/repo` from `e2e/fixtures/repo`), (b) asks a question whose answer is in the fixture (e.g., text in `main.txt`), (c) verifies the assistant returns chunk text with inline file path and host-path text. Ensure the test sets the ingest path to `/fixtures/repo` (or host-equivalent if run outside compose) so data exists before querying.
+   - Question/answer to use: ask “What does main.txt say about the project?” and expect a chunk containing “This is the ingest test fixture for CodeInfo2.” Path assertion: `repo/main.txt` visible plus hostPath text in parentheses.
+   - Compose env: ingest path `/fixtures/repo`, hostPath rewrite should return `/e2e/fixtures/repo` when HOST_INGEST_DIR is `/` in CI.
 2. [ ] Update e2e ingest/model selection to prefer embedding model `text-embedding-qwen3-embedding-4b` when available; otherwise fall back to the default. Apply this across embedding-related e2e specs.
-3. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with a deterministic answer and document the expected question/answer in the test.
+3. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with the above deterministic answer and document the expected question/answer in the test.
 4. [ ] Update `README.md` with new endpoints, tool behaviour, env notes (HOST_INGEST_DIR), and chat citation visibility.
 5. [ ] Update `design.md` with diagrams/flow for tool calls, host-path rewrites, and chat citation rendering.
 6. [ ] Update `projectStructure.md` to list new files (routes, helpers, tests).
@@ -228,10 +248,10 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
 7. [ ] `npm run compose:down`

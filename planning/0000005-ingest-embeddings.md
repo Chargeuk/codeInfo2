@@ -1201,8 +1201,8 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 
 ### 19. Server – LM Studio client reuse/pooling
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: d15be44
 
 #### Overview
 

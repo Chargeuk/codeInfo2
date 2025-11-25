@@ -1180,19 +1180,21 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 8. [x] Update `design.md` with an observability section showing collector → Zipkin flow, the Chroma env variables used, and where traces/logs go.
 9. [x] Update `projectStructure.md` to list `observability/otel-collector-config.yaml` and the added compose services.
 10. [x] Add cleanup notes (either in README or a short snippet here) for new volumes/containers, e.g., `docker compose down -v` for each stack and `docker volume rm codeinfo2_otel-collector-data` if created.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (ensure the server builds locally)
-2. [ ] `npm run build --workspace client` (ensure the client builds locally)
-3. [ ] `npm run test --workspace server` (ensure the server unit & cucumber tests pass)
-4. [ ] `npm run test --workspace client` (ensure the client unit tests pass)
-5. [ ] `npm run compose:build` (Clean docker build for main stack)
-6. [ ] `npm run compose:up` (verify Chroma + collector + Zipkin healthy)
-7. [ ] `npm run compose:down` (Ensure everything can shut down cleanly)
-8. [ ] `npm run e2e` (Ensure e2e tests work with collector/Zipkin)
+1. [x] `npm run build --workspace server` (ensure the server builds locally)
+2. [x] `npm run build --workspace client` (ensure the client builds locally)
+3. [x] `npm run test --workspace server` (ensure the server unit & cucumber tests pass)
+4. [x] `npm run test --workspace client` (ensure the client unit tests pass)
+5. [x] `npm run compose:build` (Clean docker build for main stack)
+6. [x] `npm run compose:up` (verify Chroma + collector + Zipkin healthy)
+7. [x] `npm run compose:down` (Ensure everything can shut down cleanly)
+8. [x] `npm run e2e` (Ensure e2e tests work with collector/Zipkin)
 
 #### Implementation notes
 
 - After bringing a stack up, generate traffic (e.g., start an ingest) then open http://localhost:9411 and confirm a service named `chroma` appears with recent traces. If nothing shows, check collector logs (`docker compose logs otel-collector`) and ensure Chroma env points to `http://otel-collector:4318`.
+- Client Jest was failing to parse the TypeScript config under Jest 30; added `client/jest.config.cjs` and pointed the script at it so tests run without ts-node loaders (existing TS config left untouched). Tests now pass with existing act() warnings only.
+- All lint/format, server/client builds, server tests, client tests, compose build/up/down, and full e2e flow completed successfully on 2025-11-25 (Node 20.15.1; Vite notes engine >=22 but build still succeeds).

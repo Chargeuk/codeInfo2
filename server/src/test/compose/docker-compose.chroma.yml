@@ -21,7 +21,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.111.0
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ['--config=/etc/otel-collector-config.yaml']
     volumes:
       - ../../../../observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     networks:
@@ -37,4 +37,3 @@ services:
 
 networks:
   internal:
-

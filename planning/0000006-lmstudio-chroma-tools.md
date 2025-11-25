@@ -6,13 +6,13 @@ Give the LM Studio-backed assistant the ability to answer questions using the ex
 
 ## Acceptance Criteria
 
-- LM Studio agent exposes two tools: **ListIngestedRepositories** (returns names/ids and basic metadata) and **VectorSearch** (inputs: query text, optional repository name/id; outputs: ordered matches with source metadata and snippets).
+- LM Studio agent exposes two tools: **ListIngestedRepositories** (returns names/ids and basic metadata) and **VectorSearch** (inputs: query text, optional repository identifier; outputs: ordered matches with source metadata and snippets).
 - Vector search respects an optional repository filter so results can be constrained to one ingested repo; defaults to all ingested data when no filter is provided.
-- Tools leverage the existing Chroma ingest collections and metadata (runId/root name/path/model, hashes, timestamps) without duplicating data or bypassing model-lock rules.
-- Tool responses include enough provenance (repo name, relative path, maybe chunk hash or line/offset info) for the assistant to cite sources in answers.
+- Tools leverage the existing Chroma ingest collections and metadata (runId/root name/path/model, hashes, timestamps) without duplicating data or bypassing model-lock rules; assume the single locked embedding model already enforced by ingest.
+- Tool responses include enough provenance (repo name/identifier, relative path, snippet, maybe chunk hash or offset info) for the assistant to surface inline citations to the user.
 - Error handling is clear: empty repository list, missing/unknown repository filter, and Chroma/LM Studio failures surface actionable messages to the agent (and onward to the user).
 - Security/guardrails: queries cannot execute arbitrary DB operations; access limited to read-only list/search on the ingest collections.
-- Performance: sensible defaults for top-k/score threshold; requests complete within expected latency for interactive chat (target under a few seconds with current data sizes).
+- Performance: sensible defaults for vector search (top-k/threshold) that keep responses fast enough for interactive chat (target under a few seconds with current data sizes).
 
 ## Out Of Scope
 
@@ -21,15 +21,13 @@ Give the LM Studio-backed assistant the ability to answer questions using the ex
 - Cross-vector-store federation or non-Chroma backends.
 - UI changes beyond what the agent surface requires (no new client pages; chat UI may only need minimal affordances if any).
 - Full citation rendering/UX polish in the client (focus on tool plumbing first).
+- Tuning or exposing LLM/vector parameters (topK/topP/temperature/score thresholds) beyond baked-in sensible defaults.
+- Supporting multiple embedding models or per-model routing (ingest remains locked to a single model).
 
 ## Questions
 
-- Should the agent present citations inline to the user (e.g., file path + score), or just use them internally to justify answers?
-- What repository identifier should the tools accept/return (ingest `name`, `path`, `runId`, or a derived stable slug)?
-- Desired default `topK` and score threshold for vector search? Should these be configurable via env?
 - Should vector search return chunk text, a trimmed snippet, or only metadata plus a server-side excerpt window?
-- Any size limits on the chunk payload returned to the agent to avoid flooding the model context?
-- Do we need per-model routing if multiple embedding models are ever supported, or assume the existing single locked model forever?
+- Any size limits on the chunk/snippet payload returned to the agent to avoid flooding the model context?
 - Should queries allow additional filters (file extension, path prefix) now, or defer until after initial usage feedback?
 
 ## Implementation Plan

@@ -36,6 +36,7 @@
     "@types/node-fetch": "^2.6.11",
     "cross-env": "7.0.3",
     "node-fetch": "^2.7.0",
+    "supertest": "7.1.4",
     "testcontainers": "10.10.2",
     "ts-node": "10.9.2",
     "tsx": "^4.19.1",

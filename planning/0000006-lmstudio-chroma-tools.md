@@ -105,9 +105,9 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
      ```
 4. [x] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [x] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
-6. [ ] Add pure unit tests in `server/src/test/unit/pathMap.test.ts` for the path translation helper: happy path, missing host env (warning), malformed paths.
-7. [ ] Add unit tests in `server/src/test/unit/tools-ingested-repos.test.ts` that mock ingest roots data (no Chroma/LMStudio) and hit the handler via supertest to cover empty list, single repo mapping, and lockedModelId passthrough.
-8. [ ] Add unit tests in `server/src/test/unit/tools-vector-search.test.ts` that mock the Chroma client dependency (no live service) to cover search with/without repo filter, limit capping, validation error on missing query, unknown repo 404, and upstream failure 502.
+6. [x] Add pure unit tests in `server/src/test/unit/pathMap.test.ts` for the path translation helper: happy path, missing host env (warning), malformed paths.
+7. [x] Add unit tests in `server/src/test/unit/tools-ingested-repos.test.ts` that mock ingest roots data (no Chroma/LMStudio) and hit the handler via supertest to cover empty list, single repo mapping, and lockedModelId passthrough.
+8. [x] Add unit tests in `server/src/test/unit/tools-vector-search.test.ts` that mock the Chroma client dependency (no live service) to cover search with/without repo filter, limit capping, validation error on missing query, unknown repo 404, and upstream failure 502.
 9. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
 10. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
 11. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
@@ -133,6 +133,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 - Implemented `/tools/ingested-repos` to surface mapped paths, counts, and model lock info sorted by latest ingest time.
 - Added `/tools/vector-search` with validation, repo-id lookup from roots metadata, Chroma query, and host-path/citation fields plus clear 400/404/502 errors.
 - Logged tool calls with request ids and result counts while keeping queries/read-only access aligned to the existing locked model state.
+- Added unit coverage for path mapping plus supertest-based tests for both tooling routes (empty states, repo mapping, validation, limit capping) and introduced `supertest` as a dev dependency in the server workspace.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

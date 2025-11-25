@@ -54,7 +54,7 @@ This is a list of steps that must be copied into each new plan. It instructs how
 
 ### 1. Server – Chroma tooling API
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 48688ae, 84398b2, b63db30, 078ccfc, 39a4808, 62a47c7, 5a3026a, 8ad15d5, ac8ec09, 11ba916, fa90d61, 6506a3d, 6d60022, 47d4f12, f72cdba
 
 #### Overview
@@ -77,14 +77,31 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
    - Include helper signature suggestion: `mapIngestPath(containerPath: string): { repo: string; relPath: string; containerPath: string; hostPath: string; hostPathWarning?: string }`.
    - Scaffold snippet:
      ```ts
-     export function mapIngestPath(containerPath: string, hostIngestDir = process.env.HOST_INGEST_DIR || '/data') {
+     export function mapIngestPath(
+       containerPath: string,
+       hostIngestDir = process.env.HOST_INGEST_DIR || '/data',
+     ) {
        // TODO: parse `/data/<repo>/<relPath>`; when hostIngestDir is missing, set hostPathWarning
      }
      ```
 2. [x] Implement `GET /tools/ingested-repos` reusing the ingest roots collection to return: repo identifier (use `name` with fallback to `path` basename), description, containerPath (from stored path), hostPath (via mapper), lastIngestAt ISO, modelId, counts, lastError. Handle empty lists gracefully.
    - Example response (non-empty):
      ```json
-     {"repos":[{"id":"repo","description":"sample","containerPath":"/data/repo","hostPath":"/Users/me/repo","lastIngestAt":"2025-01-01T12:00:00.000Z","modelId":"text-embedding-qwen3-embedding-4b","counts":{"files":3,"chunks":12,"embedded":12},"lastError":null}],"lockedModelId":"text-embedding-qwen3-embedding-4b"}
+     {
+       "repos": [
+         {
+           "id": "repo",
+           "description": "sample",
+           "containerPath": "/data/repo",
+           "hostPath": "/Users/me/repo",
+           "lastIngestAt": "2025-01-01T12:00:00.000Z",
+           "modelId": "text-embedding-qwen3-embedding-4b",
+           "counts": { "files": 3, "chunks": 12, "embedded": 12 },
+           "lastError": null
+         }
+       ],
+       "lockedModelId": "text-embedding-qwen3-embedding-4b"
+     }
      ```
    - Empty list example: `{ "repos": [], "lockedModelId": null }`.
 3. [x] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
@@ -92,7 +109,20 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
    - Chroma query: `collection.query({ queryTexts:[query], where:{ root: repository? }, nResults: limit })`; include `documents`, `metadatas`, `distances`/`scores`.
    - Response example:
      ```json
-     {"results":[{"repo":"repo","relPath":"docs/main.txt","containerPath":"/data/repo/docs/main.txt","hostPath":"/Users/me/repo/docs/main.txt","score":0.12,"chunk":"hello world from fixture","chunkId":"hash123"}],"modelId":"text-embedding-qwen3-embedding-4b"}
+     {
+       "results": [
+         {
+           "repo": "repo",
+           "relPath": "docs/main.txt",
+           "containerPath": "/data/repo/docs/main.txt",
+           "hostPath": "/Users/me/repo/docs/main.txt",
+           "score": 0.12,
+           "chunk": "hello world from fixture",
+           "chunkId": "hash123"
+         }
+       ],
+       "modelId": "text-embedding-qwen3-embedding-4b"
+     }
      ```
    - Errors: unknown repo → `404 {"error":"REPO_NOT_FOUND"}`; invalid body → `400 {"error":"VALIDATION_FAILED","details":["query is required"]}`; Chroma failure → `502 {"error":"CHROMA_UNAVAILABLE"}`.
    - Scaffold snippet:
@@ -113,7 +143,6 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 11. [x] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
 12. [x] Update `projectStructure.md` to include new routes/helpers/tests related to the tools API.
 13. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
-
 
 #### Testing
 
@@ -143,7 +172,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 ### 2. Server – LM Studio tool wiring
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 0c374dc
 
 #### Overview
@@ -174,20 +203,25 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
          repository: z.string().optional(),
          limit: z.number().int().min(1).max(20).default(5),
        }),
-       execute: async ({ query, repository, limit }) => {/* call helper */},
+       execute: async ({ query, repository, limit }) => {
+         /* call helper */
+       },
      });
+     ```
    ```
-2. [x] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
+
+   ```
+3. [x] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
    - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
-3. [x] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
-4. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
-5. [x] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
-6. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools-wire.test.ts`) that validates tool schemas/execute functions when LM Studio is mocked, ensuring tool payloads include repo/path metadata without needing live vectors.
-7. [x] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
-8. [x] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
-9. [x] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
-10. [x] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
-11. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+4. [x] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
+5. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
+6. [x] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
+7. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools-wire.test.ts`) that validates tool schemas/execute functions when LM Studio is mocked, ensuring tool payloads include repo/path metadata without needing live vectors.
+8. [x] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
+9. [x] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
+10. [x] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
+11. [x] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
+12. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
@@ -212,7 +246,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 ### 3. Client – Chat UI citations & file path visibility
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 898c8ba, 19115a5
 
 #### Overview
@@ -235,11 +269,15 @@ Render tool results in the chat UI with inline citations showing the human-frien
    - Mobile rule: path wraps and truncates in middle (`textOverflow: 'ellipsis'`, `maxWidth: '100%'`).
    - Render scaffold (pseudo-JSX):
      ```jsx
-     {result.hostPath ? (
-       <Typography variant="caption">{`${result.repo}/${result.relPath}`} ({result.hostPath})</Typography>
-     ) : (
-       <Typography variant="caption">{`${result.repo}/${result.relPath}`}</Typography>
-     )}
+     {
+       result.hostPath ? (
+         <Typography variant="caption">
+           {`${result.repo}/${result.relPath}`} ({result.hostPath})
+         </Typography>
+       ) : (
+         <Typography variant="caption">{`${result.repo}/${result.relPath}`}</Typography>
+       );
+     }
      ```
 3. [x] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text); extend the SSE/tool event types in `useChatStream.ts` to include `repo`, `relPath`, `hostPath`, `chunk`, `score`.
 4. [x] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; use fixture payloads mirroring the server response example (`repo/docs/main.txt`).
@@ -272,7 +310,7 @@ Render tool results in the chat UI with inline citations showing the human-frien
 
 ### 4. Final Task – Validate story completion
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: abeb483, d798248
 
 #### Overview

@@ -131,7 +131,13 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 - POST `/ingest/start` starts an ingest job. Body:
   ```json
-  {"path":"/repo","name":"repo","description":"optional","model":"embed-1","dryRun":false}
+  {
+    "path": "/repo",
+    "name": "repo",
+    "description": "optional",
+    "model": "embed-1",
+    "dryRun": false
+  }
   ```
   Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED"}` if collection locked to another model; `429 {"status":"error","code":"BUSY"}` if an ingest is already running; `400` on validation errors.
 - GET `/ingest/status/{runId}` returns current state:
@@ -163,7 +169,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
         "model": "embed-1",
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
-        "counts": {"files": 3, "chunks": 12, "embedded": 12},
+        "counts": { "files": 3, "chunks": 12, "embedded": 12 },
         "lastError": null
       }
     ],
@@ -176,10 +182,10 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - GET `/tools/ingested-repos` lists ingested repositories for the agent tools and includes `id`, `description`, `containerPath`, `hostPath`, `counts`, `lastIngestAt`, `lastError`, and `lockedModelId`. Paths stored under `/data/<repo>/...` are rewritten to host paths using `HOST_INGEST_DIR` (defaults to `/data`) and include a warning flag when that env var is unset.
 - POST `/tools/vector-search` accepts `{ "query": string, "repository"?: string, "limit"?: number }`, validates input (`query` required, `limit` default 5/max 20, `repository` must match a known repo id), and queries Chroma. Responses include ordered `results` with `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`, plus top-level `modelId` (locked model). Errors: `400 VALIDATION_FAILED`, `404 REPO_NOT_FOUND`, `502 CHROMA_UNAVAILABLE`.
 
-
 ## Logging
 
 - Quick API calls:
+
   ```sh
   # POST one entry
   curl -X POST http://localhost:5010/logs \
@@ -192,6 +198,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   # Stream live with SSE + heartbeats
   curl -N http://localhost:5010/logs/stream
   ```
+
 - Env keys  
   Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
   Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
@@ -207,7 +214,11 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).
 - Success example:
   ```json
-  { "status": "ok", "baseUrl": "http://host.docker.internal:1234", "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }] }
+  {
+    "status": "ok",
+    "baseUrl": "http://host.docker.internal:1234",
+    "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }]
+  }
   ```
 - Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
 - Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.

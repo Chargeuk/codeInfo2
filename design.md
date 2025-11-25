@@ -173,14 +173,23 @@ sequenceDiagram
 
 - Endpoint: `GET /ingest/models` (server proxy to LM Studio). Returns embedding-only models plus optional `lockedModelId` when the shared collection is locked.
 - Response example:
+
 ```json
 {
   "models": [
-    {"id":"embed-1","displayName":"all-MiniLM","contextLength":2048,"format":"gguf","size":145000000,"filename":"all-mini.gguf"}
+    {
+      "id": "embed-1",
+      "displayName": "all-MiniLM",
+      "contextLength": 2048,
+      "format": "gguf",
+      "size": 145000000,
+      "filename": "all-mini.gguf"
+    }
   ],
   "lockedModelId": null
 }
 ```
+
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
 
 ### Ingest start/status flow
@@ -228,7 +237,7 @@ sequenceDiagram
         "model": "embed-1",
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
-        "counts": {"files":3,"chunks":12,"embedded":12},
+        "counts": { "files": 3, "chunks": 12, "embedded": 12 },
         "lastError": null
       }
     ],
@@ -325,7 +334,7 @@ sequenceDiagram
       Server->>LM: cancel prediction via AbortController/ongoing.cancel()
       Server-->>Client: SSE stream ends without final/complete
     end
-  ```
+```
 
 ### Stop control
 
@@ -458,4 +467,3 @@ flowchart LR
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
 ```
-

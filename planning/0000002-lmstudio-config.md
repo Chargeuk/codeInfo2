@@ -53,7 +53,7 @@ Extend the client so the existing version view becomes the Home page and add a d
 
 ### 1. Router & Home Page Split
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 793743a, 6c00f00
 
 #### Overview
@@ -92,7 +92,7 @@ Introduce React Router (or equivalent) so the existing version card becomes the 
 
 ### 2. Server Types & Env Wiring
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 17eb0cd, 4aaaa9d
 
 #### Overview
@@ -129,7 +129,7 @@ Set up server-side prerequisites for LM Studio integration: shared DTOs, SDK dep
 
 ### 3. Server SDK Proxy Implementation
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: cb45762, acc2c2e
 
 #### Overview
@@ -166,7 +166,7 @@ Implement the `/lmstudio/status` proxy route using the LM Studio SDK with timeou
 
 ### 4. Server Cucumber Tests with LM Studio Mock
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 7e14209, 98e649e
 
 #### Overview
@@ -202,7 +202,7 @@ Add Cucumber coverage for the proxy route using a start/stop-able LM Studio SDK 
 
 ### 5. Server Documentation Updates
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 4cb7bf1, 82dbdc1, 845b258
 
 #### Overview
@@ -238,7 +238,7 @@ Document the new server proxy endpoint, env vars, and test approach.
 
 ### 6. Client Data Hook for LM Studio
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 75c2c7a, fb0250b
 
 #### Overview
@@ -273,7 +273,7 @@ Create a reusable hook to fetch LM Studio status/models via the server proxy wit
 
 ### 7. Client LM Studio Page UI
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 235d67c, 852870c
 
 #### Overview
@@ -309,7 +309,7 @@ Build the LM Studio page that uses the hook, shows status, models, empty/error s
 
 ### 8. Client LM Studio Tests
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 75c2c7a, fb0250b, b30240b
 
 #### Overview
@@ -344,7 +344,7 @@ Add Jest/Testing Library coverage for the LM Studio page and refresh/empty/error
 
 ### 9. Client Documentation Updates
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 75c2c7a, fb0250b, d432f39
 
 #### Overview
@@ -379,7 +379,7 @@ Document LM Studio client usage, refresh action, env vars, and structure changes
 
 ### 10. E2E Validation (Live LM Studio)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 75c2c7a, fb0250b, bdf84ac, 9918df1
 
 #### Overview
@@ -395,6 +395,7 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
 #### Subtasks
 
 1. [x] Add `e2e/lmstudio.spec.ts` with Playwright Test skeleton:
+
    ```ts
    import { test, expect } from '@playwright/test';
    const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
@@ -406,7 +407,9 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
      await expect(page.getByRole('row', { name: /model/i })).toBeVisible();
    });
    ```
+
    Add guard: before assertions, call the shared helper via `page.request.get` (or a small inline fetch) to `${process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234'}/v1/models`; if response not ok, call `test.skip('LM Studio not reachable')`.
+
 2. [x] Update README e2e section: prerequisite to start LM Studio locally on default port (include sample command or link), mention skip behaviour if unreachable, and that tests hit live data.
 3. [x] Update projectStructure.md to list `e2e/lmstudio.spec.ts`.
 4. [x] Commands: `npm run e2e:test`, `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build:all`; record pass/fail in Implementation notes.
@@ -428,11 +431,11 @@ Add Playwright coverage for navigation and LM Studio data using a live LM Studio
 
 ---
 
-
 ### 11. GUI Layout Fix
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: f1d2277, 0261e01, b8c4493, bc383bc, 959544b
+
 #### Overview
 
 Fix the LM Studio page layout so it starts at the top of the viewport and fills the available width appropriately. Address leftover Vite starter CSS (body flex centering, dark background) and constrain the AppBar/Containers using MUI-recommended patterns (CssBaseline, top-level AppBar, single content container) to restore standard alignment and spacing.

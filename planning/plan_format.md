@@ -133,7 +133,7 @@ The final task must always check against the acceptance criteria of the story. I
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
-- Cucumber guides https://cucumber.io/docs/guides/ 
+- Cucumber guides https://cucumber.io/docs/guides/
 
 #### Subtasks
 

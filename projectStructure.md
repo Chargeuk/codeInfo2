@@ -233,8 +233,6 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â””â”€ .husky/pre-commit â€” root hook invoking lint-staged (already listed above for clarity)
 ```
 
-
-
 - Added ingest routes/tests:
   - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId
   - server/src/ingest/chromaClient.ts — Chroma client helpers and lock metadata

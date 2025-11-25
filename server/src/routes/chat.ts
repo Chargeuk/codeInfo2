@@ -265,6 +265,17 @@ export function createChatRouter({
             undefined,
             roundIndex,
           );
+          baseLogger.debug(
+            {
+              requestId,
+              baseUrl: safeBase,
+              model,
+              callId,
+              roundIndex,
+              content,
+            },
+            'chat tool arg fragment',
+          );
           writeIfOpen({
             type: 'tool-request',
             callId,
@@ -273,13 +284,29 @@ export function createChatRouter({
             content,
           });
         },
-        onToolCallRequestEnd: (roundIndex: number, callId: number) => {
+        onToolCallRequestEnd: (
+          roundIndex: number,
+          callId: number,
+          info?: unknown,
+        ) => {
           logToolEvent('toolCallRequestEnd', callId, undefined, roundIndex);
+          baseLogger.debug(
+            {
+              requestId,
+              baseUrl: safeBase,
+              model,
+              callId,
+              roundIndex,
+              info,
+            },
+            'chat tool call end',
+          );
           writeIfOpen({
             type: 'tool-request',
             callId,
             roundIndex,
             stage: 'toolCallRequestEnd',
+            info,
           });
         },
         onToolCallRequestFailure: (
@@ -287,6 +314,19 @@ export function createChatRouter({
           callId: number,
           error: Error,
         ) => {
+          logToolEvent('toolCallRequestFailure', callId, undefined, roundIndex);
+          baseLogger.error(
+            {
+              requestId,
+              baseUrl: safeBase,
+              model,
+              callId,
+              roundIndex,
+              error: error?.message,
+              stack: (error as Error)?.stack,
+            },
+            'chat tool call failed',
+          );
           logToolEvent('toolCallRequestFailure', callId, undefined, roundIndex);
           writeIfOpen({
             type: 'error',

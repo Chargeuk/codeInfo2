@@ -76,7 +76,7 @@ export function validateVectorSearch(body: {
   if (!query) errors.push('query is required');
 
   let repository: string | undefined;
-  if (body.repository !== undefined) {
+  if (body.repository) {
     if (typeof body.repository === 'string' && body.repository.trim()) {
       repository = body.repository.trim();
     } else {
@@ -85,7 +85,7 @@ export function validateVectorSearch(body: {
   }
 
   let limit = 5;
-  if (body.limit !== undefined) {
+  if (body.limit) {
     if (typeof body.limit === 'number' && Number.isInteger(body.limit)) {
       limit = Math.min(Math.max(body.limit, 1), 20);
     } else {

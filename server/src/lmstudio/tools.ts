@@ -1,6 +1,7 @@
 import { tool } from '@lmstudio/sdk';
 import type { ToolCallContext } from '@lmstudio/sdk';
 import { z } from 'zod';
+import { baseLogger } from '../logger.js';
 import {
   RepoNotFoundError,
   ValidationError,
@@ -29,6 +30,10 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
       _params: Record<string, never>,
       _ctx: ToolCallContext,
     ): Promise<ListReposResult> => {
+      baseLogger.info(
+        { tool: 'ListIngestedRepositories', params: _params },
+        'lmstudio tool start',
+      );
       void _params;
       void _ctx;
       const result = await listIngestedRepositories(deps);
@@ -45,22 +50,28 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
     name: 'VectorSearch',
     description:
       'Search ingested chunks optionally scoped to a repository. Returns chunk text and file paths for citations.',
+    // Broad schema so SDK accepts the call; we validate manually inside the implementation.
     parameters: {
-      query: z.string().min(1, 'query is required'),
-      repository: z.string().optional(),
-      limit: z.number().int().min(1).max(20).default(5),
+      query: z.any(),
+      repository: z.any().optional(),
+      limit: z.any().optional(),
     },
     implementation: async (
       params: {
-        query: string;
-        repository?: string;
-        limit: number;
+        query?: unknown;
+        repository?: unknown;
+        limit?: unknown;
       },
       _ctx: ToolCallContext,
     ): Promise<VectorSearchResult> => {
+      baseLogger.info({ tool: 'VectorSearch', params }, 'lmstudio tool start');
       void _ctx;
       try {
-        const validated = validateVectorSearch(params);
+        const validated = validateVectorSearch(params ?? {});
+        baseLogger.info(
+          { tool: 'VectorSearch', params: validated },
+          'lmstudio validated Params',
+        );
         const result = await vectorSearch(validated, deps);
         log?.({
           tool: 'VectorSearch',

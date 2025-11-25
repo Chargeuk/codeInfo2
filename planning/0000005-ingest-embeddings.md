@@ -5,6 +5,7 @@
 Add a new **Ingest** page that lets users point the system at a folder (e.g., a git repo) accessible to the server. The server will walk the tree, chunk files intelligently (prefer boundaries between classes/functions; fall back to size-based chunks), embed the chunks with a selected LM Studio embedding model, and store vectors in a shared Chroma collection. Each chunk must persist rich metadata: repository root path, relative file path, embedding time, file hash, chunk hash, and any flags needed to target later deletes/updates. Users need controls to re-embed incrementally (only changed/added/removed files) and to remove all embeddings associated with a folder using the metadata.
 
 ### Embedding model limits (LM Studio)
+
 - Use the LM Studio SDK to obtain per-model token limits: `await model.getContextLength()` on the selected embedding model to know the max tokens a chunk may contain.
 - Measure candidate chunks with `await model.countTokens(text)` (or `tokenize` length) and keep them under a safety margin, e.g., 80–90% of `getContextLength()` to leave room for any per-chunk prefixes.
 - If limits cannot be fetched, fall back to a conservative default cap (e.g., 2048 tokens) until the real limit is retrieved; prefer the live SDK value over any cached/default number.
@@ -22,7 +23,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 - Exclude list is configurable via env (initial hardcoded defaults still apply); the env-driven list should let operators extend or override exclusions without code changes.
 - Ingest runs are single-flight: server rejects new ingest requests while one is running. In-progress ingest must be abortable (server stops the job and frees the lock; UI surfaces cancellation).
 - Chroma backing store will run via the official Docker image v1.3.5, and the Node client will use `chromadb` npm package v3.1.6.
-- Default include extensions (env-overridable allowlist): ts, tsx, js, jsx, mjs, cjs, json, jsonc, md, mdx, txt, py, java, kt, kts, go, rs, rb, php, cs, cpp, cc, c, h, hpp, swift, scala, clj, cljs, edn, sh, bash, zsh, ps1, yaml, yml, toml, ini, cfg, env (non-secret defaults only), sql. Exclude (hard, even if text or listed in env): lockfiles (package-lock.json, yarn.lock, pnpm-lock.yaml), minified bundles (*.min.js), build/ and dist/ outputs, logs (*.log), vendor directories (node_modules, vendor), VCS/meta (.git), coverage/caches.
+- Default include extensions (env-overridable allowlist): ts, tsx, js, jsx, mjs, cjs, json, jsonc, md, mdx, txt, py, java, kt, kts, go, rs, rb, php, cs, cpp, cc, c, h, hpp, swift, scala, clj, cljs, edn, sh, bash, zsh, ps1, yaml, yml, toml, ini, cfg, env (non-secret defaults only), sql. Exclude (hard, even if text or listed in env): lockfiles (package-lock.json, yarn.lock, pnpm-lock.yaml), minified bundles (_.min.js), build/ and dist/ outputs, logs (_.log), vendor directories (node_modules, vendor), VCS/meta (.git), coverage/caches.
 - Server will expose an embedding-models endpoint that filters LM Studio’s downloaded models to embedding-capable ones only (via `listDownloadedModels`), used by the ingest UI; model choice is only allowed when collection is empty.
 
 ## Out Of Scope
@@ -66,7 +67,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ### 1. Server – Ingest discovery, chunking, and hashing
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 336c678, 4fa3092, dbf0795
 
 #### Overview
@@ -84,10 +85,15 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
 
 1. [x] Subtask – Install missing deps: `npm install --workspace server chromadb@3.1.6` (needed later) and `npm install --workspace server @types/node@latest` if required. **Do not change @lmstudio/sdk@1.5.0.** Add env examples in `server/.env`: `CHROMA_URL=http://localhost:8000`, `INGEST_EXCLUDE=node_modules,.git,dist,build,coverage,logs,vendor,*.log,*.min.js,package-lock.json,yarn.lock,pnpm-lock.yaml`, `INGEST_INCLUDE=ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,mdx,txt,py,java,kt,kts,go,rs,rb,php,cs,cpp,cc,c,h,hpp,swift,scala,clj,cljs,edn,sh,bash,zsh,ps1,yaml,yml,toml,ini,cfg,env,sql`. Note: env extends/overrides hardcoded defaults; mention this in README later.
 2. [x] Subtask – Create `server/src/ingest/discovery.ts`: functions `findRepoRoot(startPath)`, `listGitTracked(root)` (`git ls-files -z`), fallback `walkDir` when not a repo, `isTextFile(path, extAllowlist, hardExcludes)` using allowlist + mime sniff fallback. Apply hard excludes (always) + env excludes (extend/override). Always skip `.git`. Return `{ root, files: Array<{ absPath, relPath, ext }> }`. Add inline example: env override `INGEST_EXCLUDE=node_modules,.git,dist,temp` should prune those.
-   Starter skeleton:
+       Starter skeleton:
+
    ```ts
    // server/src/ingest/discovery.ts
-   export type DiscoveredFile = { absPath: string; relPath: string; ext: string };
+   export type DiscoveredFile = {
+     absPath: string;
+     relPath: string;
+     ext: string;
+   };
 
    export async function findRepoRoot(startPath: string): Promise<string> {
      // TODO walk up until .git or fs root
@@ -97,31 +103,52 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
      // TODO run `git ls-files -z` and split("\0")
    }
 
-   export async function discoverFiles(startPath: string, cfg: IngestConfig): Promise<{ root: string; files: DiscoveredFile[] }> {
+   export async function discoverFiles(
+     startPath: string,
+     cfg: IngestConfig,
+   ): Promise<{ root: string; files: DiscoveredFile[] }> {
      // TODO pick git vs walkDir, filter with cfg.includes/excludes + isTextFile
    }
    ```
+
 3. [x] Subtask – Add `server/src/ingest/hashing.ts`: `hashFile(absPath)`, `hashChunk(relPath, chunkIndex, text)` using sha256; deterministic order (root, relPath, chunkIndex, text) and UTF-8 encoding.
 4. [x] Subtask – Add `server/src/ingest/chunker.ts`: accept text + model token limit. Use LM Studio helpers `countTokens`/`getContextLength`; safety margin `0.85 * contextLength`, fallback limit 2048 if unavailable. Boundary regex `/^(class\s+\w+|function\s+\w+|const\s+\w+\s*=\s*\(|export\s+(function|class))/m`; if boundary chunk exceeds limit, slice to ~75% of limit tokens. Output chunks `{ chunkIndex, text, tokenCount }`. Inputs/Outputs note: input text + limit → array of chunk objects with token counts respecting limit.
-   Starter skeleton:
+       Starter skeleton:
+
    ```ts
    // server/src/ingest/chunker.ts
    export type Chunk = { chunkIndex: number; text: string; tokenCount: number };
 
-   export async function chunkText(text: string, model: EmbeddingModel, cfg: IngestConfig): Promise<Chunk[]> {
+   export async function chunkText(
+     text: string,
+     model: EmbeddingModel,
+     cfg: IngestConfig,
+   ): Promise<Chunk[]> {
      const maxTokens = await getSafeLimit(model, cfg);
      // TODO split by boundary regex, enforce limits, fallback slice
    }
    ```
+
 5. [x] Subtask – Add `server/src/ingest/types.ts` (`DiscoveredFile`, `Chunk`, `ChunkMeta`, `IngestRunState`) and `server/src/ingest/config.ts` to read env include/exclude lists, token safety margin, default cap (2048 fallback).
-   Env merge example to include in `config.ts`:
+       Env merge example to include in `config.ts`:
    ```ts
-   const defaultExcludes = ['node_modules', '.git', 'dist', 'build', 'coverage', 'logs', 'vendor'];
-   const envExcludes = process.env.INGEST_EXCLUDE?.split(',').filter(Boolean) ?? [];
-   export const excludes = Array.from(new Set([...defaultExcludes, ...envExcludes]));
+   const defaultExcludes = [
+     'node_modules',
+     '.git',
+     'dist',
+     'build',
+     'coverage',
+     'logs',
+     'vendor',
+   ];
+   const envExcludes =
+     process.env.INGEST_EXCLUDE?.split(',').filter(Boolean) ?? [];
+   export const excludes = Array.from(
+     new Set([...defaultExcludes, ...envExcludes]),
+   );
    ```
 6. [x] Subtask – Wire `server/src/ingest/index.ts` exporting discovery+chunking+hashing helpers; keep pure (no Express). Document exports briefly in file header.
-   Minimal barrel:
+       Minimal barrel:
    ```ts
    export * from './discovery';
    export * from './chunker';
@@ -130,15 +157,17 @@ Implement server-side folder discovery respecting git-tracked-only rules, exclud
    export * from './types';
    ```
 7. [x] Subtask – Tests: add `server/src/ingest/__tests__/discovery.test.ts`, `chunker.test.ts`, `hashing.test.ts`. Cover git-tracked filter (mock git), hard exclude precedence, env override/extend, text detection, boundary-first splits, fallback slicing, hash determinism. Use fixtures under `server/src/ingest/__fixtures__` (create small sample files with obvious boundaries).
-   Test skeleton example:
+       Test skeleton example:
    ```ts
    describe('discoverFiles', () => {
      it('skips hard excludes and applies env overrides', async () => {
        // arrange temp dir + fixtures
        // mock git ls-files
        const result = await discoverFiles(tmpDir, cfg);
-       expect(result.files.map(f => f.relPath)).toContain('src/app.ts');
-       expect(result.files.some(f => f.relPath.includes('node_modules'))).toBe(false);
+       expect(result.files.map((f) => f.relPath)).toContain('src/app.ts');
+       expect(
+         result.files.some((f) => f.relPath.includes('node_modules')),
+       ).toBe(false);
      });
    });
    ```
@@ -156,16 +185,15 @@ Prereqs: none beyond repo deps; LM Studio/Chroma not required for this task. Exp
 5. [x] `npm run compose:down` (stack stops without errors)
 
 #### Implementation notes
+
 - Reran lint/format; tightened ingest e2e selectors to scope to the target row/status chips so Playwright strict mode passes after re-embed/remove flows. `npm run e2e` now succeeds end-to-end.
 - Switched Cucumber ingest Testcontainers to use docker-compose (server/src/test/compose/docker-compose.chroma.yml) via DockerComposeEnvironment, starting a single shared Chroma instance per run with explicit teardown and exit hooks. Ports are no longer fixed to 18000; CHROMA_URL now uses the mapped port.
 
-
 - Cucumber integration added in Task 2 when endpoints exist.
-
 
 ### 2. Server – Embedding models endpoint
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 30b0f73, a2a4465
 
 #### Overview
@@ -182,20 +210,25 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 #### Subtasks
 
 1. [x] Subtask – Create `server/src/routes/ingestModels.ts` exposing `GET /ingest/models`. Inputs: no body. Outputs: `{ models: [{ id, displayName, contextLength, format, size, filename }], lockedModelId?: string }`. Use LM Studio SDK `listDownloadedModels()` and filter `model.type === 'embedding' || capabilities.includes('embedding')`. On SDK failure return 502 `{ status:'error', message }`.
-   Handler skeleton:
+       Handler skeleton:
    ```ts
    router.get('/ingest/models', async (req, res) => {
      try {
        const models = await sdk.listDownloadedModels();
-       const embedding = models.filter(m => m.type === 'embedding' || m.capabilities?.includes('embedding'));
-       res.json({ models: embedding.map(m => ({
-         id: m.id,
-         displayName: m.displayName,
-         contextLength: m.contextLength,
-         format: m.format,
-         size: m.size,
-         filename: m.filename,
-       })), lockedModelId: await getLockedModel() });
+       const embedding = models.filter(
+         (m) => m.type === 'embedding' || m.capabilities?.includes('embedding'),
+       );
+       res.json({
+         models: embedding.map((m) => ({
+           id: m.id,
+           displayName: m.displayName,
+           contextLength: m.contextLength,
+           format: m.format,
+           size: m.size,
+           filename: m.filename,
+         })),
+         lockedModelId: await getLockedModel(),
+       });
      } catch (err) {
        res.status(502).json({ status: 'error', message: String(err) });
      }
@@ -204,11 +237,18 @@ Expose `/ingest/models` that lists LM Studio downloaded models filtered to embed
 2. [x] Subtask – Register route in `server/src/index.ts` (or routes barrel) under `/ingest/models`; ensure CORS matches existing config.
 3. [x] Subtask – Add Cucumber feature `server/src/test/features/ingest-models.feature` with scenarios: (a) returns only embedding models (mock SDK list with mixed types), (b) SDK failure returns 502 error payload. Implement steps in `server/src/test/steps/ingest-models.steps.ts` using SDK mock/stub.
 4. [x] Subtask – Update README.md: include request/response example for `/ingest/models` (sample JSON), note embedding-only filter, mention locked model behavior.
-   JSON example to insert:
+       JSON example to insert:
    ```json
    {
      "models": [
-       {"id":"embed-1","displayName":"all-MiniLM","contextLength":2048,"format":"gguf","size":145_000_000,"filename":"all-mini.gguf"}
+       {
+         "id": "embed-1",
+         "displayName": "all-MiniLM",
+         "contextLength": 2048,
+         "format": "gguf",
+         "size": 145_000_000,
+         "filename": "all-mini.gguf"
+       }
      ],
      "lockedModelId": null
    }
@@ -235,7 +275,7 @@ Prereqs: none beyond repo deps; LM Studio mocked in tests. Expected: builds succ
 
 ### 3. Server – Ingest API & Chroma write
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 294a264, 586da8a
 
 #### Overview
@@ -267,41 +307,57 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
    ```
 2. [x] Subtask – Implement `server/src/ingest/chromaClient.ts`: singleton to `CHROMA_URL`, init collections, expose `getVectorsCollection()`, `getRootsCollection()`, `getLockedModel()` (from collection metadata), `setLockedModel(modelId)`, `collectionIsEmpty()`. Inputs/Outputs: helper functions only; no HTTP surface.
    - Chroma TS client reference (Context7 `/websites/trychroma`):
-     ```ts
-     import { ChromaClient } from "chromadb";
 
-     const client = new ChromaClient({ path: process.env.CHROMA_URL ?? "http://localhost:8000" });
-     const vectors = await client.getOrCreateCollection({ name: "ingest_vectors" });
+     ```ts
+     import { ChromaClient } from 'chromadb';
+
+     const client = new ChromaClient({
+       path: process.env.CHROMA_URL ?? 'http://localhost:8000',
+     });
+     const vectors = await client.getOrCreateCollection({
+       name: 'ingest_vectors',
+     });
      await vectors.add({
-       ids: ["id1"],
-       documents: ["doc"],
+       ids: ['id1'],
+       documents: ['doc'],
        embeddings: [embedding],
-       metadatas: [{ repo: "my-repo" }],
+       metadatas: [{ repo: 'my-repo' }],
      });
      const results = await vectors.query({
-       queryTexts: ["search text"],
+       queryTexts: ['search text'],
        nResults: 5,
-       where: { repo: "my-repo" },
+       where: { repo: 'my-repo' },
      });
      ```
+
 3. [x] Subtask – Implement `POST /ingest/start` in `server/src/routes/ingestStart.ts`. Request body `{ path, name, description, model, dryRun?: boolean }`; Response `{ runId }` on 202; Errors: 409 `{ status:'error', code:'MODEL_LOCKED' }` if locked, 429 `{ status:'error', code:'BUSY' }` if single-flight holds (lock logic later), 400 validation. Validate model lock (if collection non-empty, reject). Start async job.
-   Handler skeleton:
+       Handler skeleton:
    ```ts
    router.post('/ingest/start', async (req, res) => {
      const { path, name, description, model, dryRun = false } = req.body ?? {};
-     if (!path || !name || !model) return res.status(400).json({ status:'error', code:'VALIDATION' });
-     if (!(await collectionIsEmpty()) && modelLockedDiffers(model)) return res.status(409).json({ status:'error', code:'MODEL_LOCKED' });
-     if (lock.isHeld()) return res.status(429).json({ status:'error', code:'BUSY' });
-     const runId = await orchestrator.start({ path, name, description, model, dryRun });
+     if (!path || !name || !model)
+       return res.status(400).json({ status: 'error', code: 'VALIDATION' });
+     if (!(await collectionIsEmpty()) && modelLockedDiffers(model))
+       return res.status(409).json({ status: 'error', code: 'MODEL_LOCKED' });
+     if (lock.isHeld())
+       return res.status(429).json({ status: 'error', code: 'BUSY' });
+     const runId = await orchestrator.start({
+       path,
+       name,
+       description,
+       model,
+       dryRun,
+     });
      res.status(202).json({ runId });
    });
    ```
 4. [x] Subtask – Implement `GET /ingest/status/:runId` in `server/src/routes/ingestStatus.ts`: Output `{ runId, state: 'queued'|'scanning'|'embedding'|'completed'|'error'|'cancelled', counts: { files, chunks, embedded }, message?, lastError? }` from in-memory job state.
-   Skeleton:
+       Skeleton:
    ```ts
    router.get('/ingest/status/:runId', (req, res) => {
      const status = orchestrator.getStatus(req.params.runId);
-     if (!status) return res.status(404).json({ status:'error', code:'NOT_FOUND' });
+     if (!status)
+       return res.status(404).json({ status: 'error', code: 'NOT_FOUND' });
      res.json(status);
    });
    ```
@@ -312,15 +368,19 @@ Expose ingest endpoints and wire Chroma writes with metadata. Provide Cucumber c
        ids,
        documents,
        embeddings,
-       metadatas: metadatas.map(m => ({ ...m, repo: root, runId })),
+       metadatas: metadatas.map((m) => ({ ...m, repo: root, runId })),
      });
      // later queries can scope by repo/runId
-     await vectors.query({ queryTexts: ["foo"], where: { repo: root }, nResults: 10 });
+     await vectors.query({
+       queryTexts: ['foo'],
+       where: { repo: root },
+       nResults: 10,
+     });
      ```
 6. [x] Subtask – Add API contracts to README.md: request/response JSON examples for `/ingest/start` and `/ingest/status/:runId`, model-lock rules, error codes (409 MODEL_LOCKED, 429 BUSY, 400 validation). Include example curl:
    - `curl -X POST http://localhost:5010/ingest/start -H 'content-type: application/json' -d '{"path":"/repo","name":"repo","model":"model1"}'`
    - `curl http://localhost:5010/ingest/status/<runId>`
-   Add status response examples:
+     Add status response examples:
    ```json
    {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
    {"runId":"r1","state":"completed","counts":{"files":3,"chunks":12,"embedded":12}}
@@ -350,7 +410,7 @@ Prereqs: Chroma service available for tests that need it (Testcontainers/compose
 
 ### 4. Server – Ingest roots listing
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: d191b1d
 
 #### Overview
@@ -370,7 +430,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 #### Subtasks
 
 1. [x] Subtask – Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`. Output: `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` from `ingest_roots` collection and collection metadata.
-   Handler skeleton + sample response:
+       Handler skeleton + sample response:
    ```ts
    router.get('/ingest/roots', async (_req, res) => {
      const roots = await rootsCollection();
@@ -380,14 +440,26 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
    ```json
    {
      "roots": [
-       {"name":"docs","description":"Project docs","path":"/repos/docs","model":"embed-1","status":"completed","lastIngestAt":"2025-01-01T12:00:00Z","counts":{"files":3,"chunks":12},"lastError":null}
+       {
+         "name": "docs",
+         "description": "Project docs",
+         "path": "/repos/docs",
+         "model": "embed-1",
+         "status": "completed",
+         "lastIngestAt": "2025-01-01T12:00:00Z",
+         "counts": { "files": 3, "chunks": 12 },
+         "lastError": null
+       }
      ],
-     "lockedModelId":"embed-1"
+     "lockedModelId": "embed-1"
    }
    ```
+
    - Chroma metadata query example (Context7 `/websites/trychroma`):
      ```ts
-     const rows = await rootsCollection.get({ where: { repo: { "$in": ["docs", "api"] } } });
+     const rows = await rootsCollection.get({
+       where: { repo: { $in: ['docs', 'api'] } },
+     });
      ```
 2. [x] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
 3. [x] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
@@ -416,7 +488,7 @@ Prereqs: Chroma reachable (Testcontainers/compose) and LM Studio mocked. Expecte
 
 ### 5. Server – Single-flight lock, soft cancel, and cleanup
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 33d7c1d
 
 #### Overview
@@ -438,7 +510,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 
 1. [x] Subtask – Implement global single-flight lock in `server/src/ingest/lock.ts` with TTL safeguard (e.g., 30m) and clear on completion/error/cancel. Concurrent `POST /ingest/start` returns 429 `{ status:'error', code:'BUSY' }`.
 2. [x] Subtask – `POST /ingest/cancel/:runId` (route `ingestCancel.ts`): set cancel flag in orchestrator, abort LM Studio calls if possible, stop enqueueing work, delete vectors tagged with `runId`, update `ingest_roots` status to `cancelled`, respond `{ status:'ok', cleanup:'complete'|'pending' }`. Curl example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`; expected log line in server log mentioning runId and cleanup status.
-   Handler skeleton:
+       Handler skeleton:
    ```ts
    router.post('/ingest/cancel/:runId', async (req, res) => {
      const result = await orchestrator.cancel(req.params.runId);
@@ -448,15 +520,21 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 3. [x] Subtask – `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `{ runId }`. Enforce model lock; reject if another ingest active. Curl example: `curl -X POST http://localhost:5010/ingest/reembed/my-root`.
    ```ts
    router.post('/ingest/reembed/:root', async (req, res) => {
-     if (lock.isHeld()) return res.status(429).json({ status:'error', code:'BUSY' });
+     if (lock.isHeld())
+       return res.status(429).json({ status: 'error', code: 'BUSY' });
      const runId = await orchestrator.reembed(req.params.root);
      res.status(202).json({ runId });
    });
    ```
+
    - Chroma delete/query helpers (Context7 `/websites/trychroma`):
      ```ts
      await vectors.delete({ where: { repo: root } });
-     await vectors.query({ queryTexts: ["updated"], where: { repo: root }, nResults: 10 });
+     await vectors.query({
+       queryTexts: ['updated'],
+       where: { repo: root },
+       nResults: 10,
+     });
      ```
 4. [x] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
    ```ts
@@ -493,7 +571,7 @@ Prereqs: Chroma reachable; LM Studio mocked; ensure no other ingest run active. 
 
 ### 6. Client – Ingest form & model lock (depends on NavBar after chat merge)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 17373ae
 
 #### Overview
@@ -512,7 +590,7 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
 1. [x] Subtask – Add `/ingest` route and NavBar tab (sync with chat branch). Files: update `client/src/routes/router.tsx`, `client/src/components/NavBar.tsx`.
 2. [x] Subtask – Create `client/src/pages/IngestPage.tsx` with sections: form, lock banner, active run card placeholder, roots table placeholder.
 3. [x] Subtask – Build `client/src/components/ingest/IngestForm.tsx`: fields path (required), name (required), description (optional), model select (disabled when `lockedModelId` present), dry-run toggle, start button. Validation states: show inline errors “Path is required”, “Name is required”, “Select a model” when applicable; disable submit until valid. Loading state: disable form when submitting. Empty state: when `lockedModelId` present, show banner text “Embedding model locked to <id>”. Submit calls `/ingest/start` JSON body `{ path, name, description?, model, dryRun }`.
-   Prop sketch to guide typing:
+       Prop sketch to guide typing:
    ```ts
    type IngestFormProps = {
      lockedModelId?: string;
@@ -521,10 +599,15 @@ Add Ingest page route/tab, form for path/name/description/model, and model lock 
    };
    ```
 4. [x] Subtask – Hook `useIngestModels` (`client/src/hooks/useIngestModels.ts`) to fetch `/ingest/models`, return models + lockedModelId; cache first model as default when unlocked. Outputs: `{ models, lockedModelId, isLoading, error }`.
-   Return type sketch:
+       Return type sketch:
    ```ts
    type Model = { id: string; displayName: string; contextLength?: number };
-   type UseIngestModelsResult = { models: Model[]; lockedModelId?: string; isLoading: boolean; error?: string };
+   type UseIngestModelsResult = {
+     models: Model[];
+     lockedModelId?: string;
+     isLoading: boolean;
+     error?: string;
+   };
    ```
 5. [x] Subtask – Jest/RTL tests `client/src/test/ingestForm.test.tsx`: cover unlocked vs locked, validation errors text, disabled submit when invalid or loading, payload structure on submit, lock banner visibility.
 6. [x] Subtask – README.md: add ingest page route, UX summary (lock banner, validation messages), how to run locally.
@@ -550,7 +633,7 @@ Prereqs: server endpoints available or mocked; set `VITE_API_URL` to server. Exp
 
 ### 7. Client – Active run card and status polling
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 2ad4ead
 
 #### Overview
@@ -566,11 +649,22 @@ Show current ingest run status with counters, soft cancel, and link to logs. Pol
 #### Subtasks
 
 1. [x] Subtask – Create hook `client/src/hooks/useIngestStatus.ts` polling `/ingest/status/:runId` every ~2s, stop on terminal states. Outputs: `{ status, counts, isLoading, error, cancel }`.
-   Return type sketch:
+       Return type sketch:
    ```ts
-   type IngestCounts = { files: number; chunks: number; embedded: number; skipped?: number };
+   type IngestCounts = {
+     files: number;
+     chunks: number;
+     embedded: number;
+     skipped?: number;
+   };
    type UseIngestStatusResult = {
-     status?: 'queued'|'scanning'|'embedding'|'completed'|'cancelled'|'error';
+     status?:
+       | 'queued'
+       | 'scanning'
+       | 'embedding'
+       | 'completed'
+       | 'cancelled'
+       | 'error';
      counts?: IngestCounts;
      isLoading: boolean;
      error?: string;
@@ -604,7 +698,7 @@ Prereqs: server status/cancel endpoints available or mocked. Expected: build/tes
 
 ### 8. Client – Embedded folders table, details drawer, and actions
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 96911a9, d471631
 
 #### Overview
@@ -620,10 +714,24 @@ Render table of embedded roots with actions (Re-embed, Remove, Details) and desc
 #### Subtasks
 
 1. [x] Subtask – Create hook `client/src/hooks/useIngestRoots.ts` to call `/ingest/roots`, returning `{ roots, lockedModelId, isLoading, error, refetch }`; refetch after re-embed/remove/start completes.
-   Return type sketch:
+       Return type sketch:
    ```ts
-   type IngestRoot = { name: string; description?: string; path: string; model: string; status: string; lastIngestAt?: string; counts?: { files?: number; chunks?: number } };
-   type UseIngestRootsResult = { roots: IngestRoot[]; lockedModelId?: string; isLoading: boolean; error?: string; refetch: () => Promise<void> };
+   type IngestRoot = {
+     name: string;
+     description?: string;
+     path: string;
+     model: string;
+     status: string;
+     lastIngestAt?: string;
+     counts?: { files?: number; chunks?: number };
+   };
+   type UseIngestRootsResult = {
+     roots: IngestRoot[];
+     lockedModelId?: string;
+     isLoading: boolean;
+     error?: string;
+     refetch: () => Promise<void>;
+   };
    ```
 2. [x] Subtask – Component `client/src/components/ingest/RootsTable.tsx`: columns Name (tooltip with description), Path, Model, Status chip, Last ingest time, counts, row actions (Re-embed → POST /ingest/reembed/:root, Remove → POST /ingest/remove/:root, Details). States: disable row/bulk actions during active ingest; show inline success/error text after actions; empty state text “No embedded folders yet. Start an ingest to see entries.”
 3. [x] Subtask – Component `client/src/components/ingest/RootDetailsDrawer.tsx`: shows name, description, path, model (locked), run history (from status/roots data), last error, include/exclude lists (from server response if available; otherwise render env defaults summary). Loading skeleton while data fetching.
@@ -652,7 +760,7 @@ Prereqs: server roots/re-embed/remove endpoints available or mocked. Expected: b
 
 ### 9. Final verification
 
-- status: __done__
+- status: **done**
 - Git Commits: 6c2387d, 5b4e50f, 43c2c7f
 
 #### Overview
@@ -673,10 +781,12 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 1. [x] Subtask – Add `docker-compose.e2e.yml` with isolated Chroma service/volume for e2e tests; ensure it does not affect the main compose stack; document volume cleanup (`docker compose -f docker-compose.e2e.yml down -v`).
 2. [x] Subtask – Update `package.json` `e2e:*` scripts to use the e2e compose stack (build/up/down) and ensure env points to the e2e Chroma (COMPOSE_FILE or overrides).
 3. [x] Subtask – Add Playwright e2e: start ingest on empty DB (select model, ingest sample folder), see status progress, complete, and entries appear in table. Use dedicated e2e docker-compose stack with isolated Chroma volume.
-   Playwright snippet starter:
+       Playwright snippet starter:
    ```ts
    test('ingest happy path', async ({ page }) => {
-     await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:5001/ingest');
+     await page.goto(
+       process.env.E2E_BASE_URL ?? 'http://localhost:5001/ingest',
+     );
      await page.fill('input[name="path"]', '/fixtures/repo');
      await page.fill('input[name="name"]', 'fixtures');
      await page.click('text=Start ingest');
@@ -692,7 +802,9 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      await page.click('text=Start ingest');
      await page.click('text=Cancel');
      await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 60000 });
-     await expect(page.getByRole('row', { name: /fixtures/ })).not.toBeVisible();
+     await expect(
+       page.getByRole('row', { name: /fixtures/ }),
+     ).not.toBeVisible();
    });
    ```
 5. [x] Subtask – Add Playwright e2e: re-embed flow — modify a file, rerun ingest, verify updated timestamp/counts in table/details.
@@ -701,7 +813,9 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
      await page.goto(BASE);
      await page.click('text=Re-embed');
      await expect(page.getByText('Completed')).toBeVisible({ timeout: 120000 });
-     const ts = await page.getByRole('row', { name: /fixtures/ }).getByTestId('last-ingest');
+     const ts = await page
+       .getByRole('row', { name: /fixtures/ })
+       .getByTestId('last-ingest');
      expect(ts).not.toBeNull();
    });
    ```
@@ -728,10 +842,10 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 4. [x] `npm run build --workspace client`
 5. [x] `npm run compose:build`
 6. [x] `npm run compose:up`
-8. [x] `npm run compose:down`
-6. [x] `npm run e2e:up`
-7. [x] `npm run e2e:test` (including new ingest e2e cases)
-8. [x] `npm run e2e:down`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e:up`
+9. [x] `npm run e2e:test` (including new ingest e2e cases)
+10. [x] `npm run e2e:down`
 
 #### Implementation notes
 
@@ -743,7 +857,7 @@ Cross-check acceptance criteria, run full builds/tests, and update docs. Align w
 
 ### 10. Server – ingest start/roots fixes (body parsing & Chroma metadata)
 
-- status: __done__
+- status: **done**
 - Git Commits: c2159ab, 9575b50, b60632b, 5d228f5, 2272267
 
 #### Overview
@@ -819,8 +933,8 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 4. [x] `npm run test --workspace client`
 5. [x] `npm run compose:build`
 6. [x] `npm run compose:up`
-8. [x] `npm run compose:down`
-7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 
@@ -830,7 +944,7 @@ Prior issue to avoid: when a test-only embedding function produced vectors of a 
 
 ### 12. E2E – Clean Chroma state & stabilize re-embed
 
-- status: __done__
+- status: **done**
 - Git Commits: 2a24088, 727c3f5
 
 #### Overview
@@ -846,31 +960,31 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 
 #### Subtasks
 
-1. [x] Make e2e Chroma ephemeral by default  
-   - File: `docker-compose.e2e.yml`  
-   - Change: replace the named volume mount `chroma-e2e-data:/chroma/.chroma` with an anonymous volume (`- /chroma/.chroma`) or `tmpfs: /chroma/.chroma` so every `compose:e2e:up` starts empty.  
+1. [x] Make e2e Chroma ephemeral by default
+   - File: `docker-compose.e2e.yml`
+   - Change: replace the named volume mount `chroma-e2e-data:/chroma/.chroma` with an anonymous volume (`- /chroma/.chroma`) or `tmpfs: /chroma/.chroma` so every `compose:e2e:up` starts empty.
    - Ensure the `volumes:` block no longer declares `chroma-e2e-data`.
-2. [x] Add a pre-clean step to the e2e flow  
-   - File: `package.json` scripts or a small helper script (e.g., `scripts/clean-e2e-volume.sh`).  
-   - Command to run before `compose:e2e:up`: `docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true` (with a note that it’s harmless if absent).  
+2. [x] Add a pre-clean step to the e2e flow
+   - File: `package.json` scripts or a small helper script (e.g., `scripts/clean-e2e-volume.sh`).
+   - Command to run before `compose:e2e:up`: `docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true` (with a note that it’s harmless if absent).
    - If using a script, document it and call it from `e2e` or `compose:e2e:up` to cover manual runs that skip `-v`.
-3. [x] Assert/clear clean state in ingest e2e  
-   - File: `e2e/ingest.spec.ts`.  
-   - Before re-embed/remove tests, call the server `/ingest/roots` API and assert it returns `roots: []`; if not empty, POST `/ingest/remove/<root>` for each root to clear.  
+3. [x] Assert/clear clean state in ingest e2e
+   - File: `e2e/ingest.spec.ts`.
+   - Before re-embed/remove tests, call the server `/ingest/roots` API and assert it returns `roots: []`; if not empty, POST `/ingest/remove/<root>` for each root to clear.
    - Alternatively add a small helper in the spec to loop remove calls until empty; fail fast if any remove returns non-200.
-4. [x] Capture and assert server log output on re-embed failures  
-   - During the e2e test, after re-embed actions, fetch `/logs?text=re-embed&limit=50` (or read `logs/server-e2e.*.log` on disk) and assert no 500/“dimension mismatch”/“MODEL_LOCKED” errors.  
+4. [x] Capture and assert server log output on re-embed failures
+   - During the e2e test, after re-embed actions, fetch `/logs?text=re-embed&limit=50` (or read `logs/server-e2e.*.log` on disk) and assert no 500/“dimension mismatch”/“MODEL_LOCKED” errors.
    - If errors appear, surface them via `expect` with a clear message so CI shows the root cause.
-5. [x] Verify stability with repeated runs  
-   - Run `npm run e2e` twice in a row (without manually deleting volumes) and confirm:  
-     - Roots table starts empty on each run.  
-     - Happy path, cancel, re-embed, remove all pass with no 500s in logs.  
+5. [x] Verify stability with repeated runs
+   - Run `npm run e2e` twice in a row (without manually deleting volumes) and confirm:
+     - Roots table starts empty on each run.
+     - Happy path, cancel, re-embed, remove all pass with no 500s in logs.
      - Model lock chip reflects the model chosen in the current run only.
 
 #### Testing
 
-1. [x] `npm run e2e` (full cycle) — confirm roots are empty at start, all ingest flows pass, and no 500s in server-e2e logs.  
-2. [x] Run `npm run compose:e2e:up && npm run e2e:test && npm run compose:e2e:down` (intentionally without `-v`) and verify the pre-clean step still yields an empty Chroma and passing tests.  
+1. [x] `npm run e2e` (full cycle) — confirm roots are empty at start, all ingest flows pass, and no 500s in server-e2e logs.
+2. [x] Run `npm run compose:e2e:up && npm run e2e:test && npm run compose:e2e:down` (intentionally without `-v`) and verify the pre-clean step still yields an empty Chroma and passing tests.
 3. [x] After tests, grep `logs/server-e2e.*.log` for `re-embed` and ensure no 500/dimension/lock errors appear.
 
 #### Implementation notes
@@ -886,7 +1000,7 @@ E2E runs can inherit stale Chroma data because the e2e compose stack mounts a pe
 
 ### 13. Server – LM Studio ws/wss validation in Cucumber
 
-- status: __done__
+- status: **done**
 - Git Commits: 4b63c4c, 6c92050
 
 #### Overview
@@ -943,7 +1057,7 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
    - (a) git success uses git list: create a temp repo with a tracked file, ensure the discovered files include it and exclude an untracked file.
    - (b) git failure (simulate git missing by stubbing exec or PATH) triggers fallback walkDir and finds a known file.
    - (c) empty repo (git returns empty) results in no files and propagates the "No eligible files" error from `/ingest/start`.
-   Include setup/teardown in hooks; keep all tests inside `server/src/test` per repo convention.
+     Include setup/teardown in hooks; keep all tests inside `server/src/test` per repo convention.
 4. [x] Install git in the server runtime image (`server/Dockerfile` runtime stage) so tracked-only mode works in containers; keep image small (e.g., `apt-get install -y git` alongside curl cleanup).
 5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
@@ -955,8 +1069,8 @@ Ensure ingest can run on non-git folders or when `git ls-files` fails/missing. A
 4. [x] `npm run test --workspace client`
 5. [x] `npm run compose:build`
 6. [x] `npm run compose:up`
-8. [x] `npm run compose:down`
-7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 
@@ -986,14 +1100,14 @@ Emit structured log entries to the server log store for ingest lifecycle events 
    - **info**: ingest completed — runId, operation, root, model, counts (files, chunks, embedded, removed, skipped if present), state=completed
    - **info**: detection/no-op — when re-embed finds no changes, log state=skipped/noop with counts
    - **error**: ingest failed/no eligible files/embedding failure/Chroma add failure — runId, operation, path/root, model, counts, message/lastError, state=error
-   Keep payloads small and consistent with existing log schema; do not log at debug.
+     Keep payloads small and consistent with existing log schema; do not log at debug.
 2. [x] Add a Cucumber scenario in `server/src/test/features/ingest-logging.feature` with steps under `server/src/test/steps/` asserting:
    - start emits an info log with runId and state=start for both initial ingest and re-embed
    - the "no eligible files" path emits an error log with runId and the message
    - a successful ingest emits an info log with state=completed and counts
    - a re-embed that finds no changes emits state=skipped/noop
    - a remove emits state=completed with removed count and unlock flag if applicable
-   Use API calls to `/logs?text=<runId>` to assert visibility.
+     Use API calls to `/logs?text=<runId>` to assert visibility.
 3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 **Files to touch**: `server/src/ingest/ingestJob.ts` (emit log events), `server/src/logger.ts` / `server/src/logStore.ts` (if helpers needed), `server/src/routes/logs.ts` (only if wiring required), new feature `server/src/test/features/ingest-logging.feature`, steps `server/src/test/steps/ingest-logging.steps.ts` (reuse `server/src/test/support/chromaContainer.ts` + LM Studio mock hooks).
@@ -1010,8 +1124,8 @@ Emit structured log entries to the server log store for ingest lifecycle events 
 4. [x] `npm run test --workspace client`
 5. [x] `npm run compose:build`
 6. [x] `npm run compose:up`
-8. [x] `npm run compose:down`
-7. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e` (builds, starts, runs e2e tests against a fresh docker instance, & shuts it down)
 
 #### Implementation notes
 
@@ -1058,7 +1172,7 @@ Add batching so ingest flushes to Chroma after a configurable number of files in
 
 **Step boilerplate imports**: `import '../support/chromaContainer.js'; import '../support/mockLmStudioSdk.js';`.
 
-**Assertions to spell out in steps**: when `INGEST_FLUSH_EVERY=1`, vectors collection sees multiple `add` calls or observable chunk counts per flush; final remainder flushes; overall embedded count equals files*chunks; no memory accumulation assumption is required, just batch behaviour. Note Docker/Testcontainers must be running for `npm run test --workspace server`.
+**Assertions to spell out in steps**: when `INGEST_FLUSH_EVERY=1`, vectors collection sees multiple `add` calls or observable chunk counts per flush; final remainder flushes; overall embedded count equals files\*chunks; no memory accumulation assumption is required, just batch behaviour. Note Docker/Testcontainers must be running for `npm run test --workspace server`.
 
 #### Testing
 
@@ -1209,6 +1323,7 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled client manager, refactor chat/ingest and Chroma embedding paths to reuse pooled clients, and close them on shutdown. Goal: fewer LM Studio WS connections, preserved abort semantics, and clear shutdown behavior.
 
 #### Acceptance Criteria
+
 - LM Studio clients are reused: repeated calls with the same baseUrl return the same client instance; different baseUrls get different clients.
 - Chat and ingest flows use the pooled clients (no direct `new LMStudioClient` per request/path).
 - Graceful shutdown (SIGINT/SIGTERM) closes pooled clients without unhandled errors.
@@ -1216,22 +1331,26 @@ Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled
 - Docs describe the pooling strategy and shutdown behavior.
 
 #### Out Of Scope
+
 - Changing LM Studio baseUrl validation rules.
 - Performance benchmarking beyond verifying reduced client creation.
 
 #### Questions (to clear before coding)
+
 - Single shared pool vs. two pools (chat vs embedding)? Default: single pool keyed by baseUrl.
 - Should pool eviction be added? Default: no eviction; rely on process lifetime.
 - Do we need metrics on pool size? Default: no; log-only.
 
 #### Documentation Locations
- - LM Studio SDK lifecycle: https://lmstudio.ai/docs/typescript/overview
-  - Embedding API: https://lmstudio.ai/docs/typescript/embedding
-  - Chat/act API: https://lmstudio.ai/docs/typescript/chat
-  - Express shutdown hooks: Context7 `/expressjs/express`
-  - Jest docs: Context7 `/jestjs/jest`
+
+- LM Studio SDK lifecycle: https://lmstudio.ai/docs/typescript/overview
+- Embedding API: https://lmstudio.ai/docs/typescript/embedding
+- Chat/act API: https://lmstudio.ai/docs/typescript/chat
+- Express shutdown hooks: Context7 `/expressjs/express`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
+
 1. [x] Create `server/src/lmstudio/clientPool.ts`: cache clients by baseUrl; export `getClient(baseUrl)` and `closeAll()`. Ensure idempotent close, minimal logging, and baseUrl normalization (ws/wss already handled by callers).
 2. [x] Refactor chat route `server/src/routes/chat.ts` to use `getClient(wsBaseUrl)` instead of `new LMStudioClient`; keep AbortController semantics unchanged.
 3. [x] Refactor ingest embedding path: in `ingestJob.embedText` use pooled client; in `chromaClient.ts` (`LmStudioEmbeddingFunction`) fetch pooled client instead of constructing a new one.
@@ -1241,6 +1360,7 @@ Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled
 7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`; fix issues.
 
 #### Testing
+
 1. [x] `npm run test --workspace server`
 2. [x] `npm run test --workspace client`
 3. [x] `npm run build --workspace server`
@@ -1251,6 +1371,7 @@ Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled
 8. [x] `npm run e2e`
 
 #### Implementation notes
+
 - Added `server/src/lmstudio/clientPool.ts` caching LM Studio clients by base URL, supporting test factory overrides and `closeAll` disposal via `Symbol.asyncDispose`/`close` so reuse is automatic and shutdown is safe.
 - Wired chat, ingest, and default embedding paths to the pool (via `index.ts` clientFactory and `LmStudioEmbeddingFunction`), plus SIGINT/SIGTERM hooks to close pooled clients before exiting.
 - Updated docs (design + README) to describe pooling/shutdown and `projectStructure.md` to list the new module and test; added unit coverage in `server/src/test/unit/clientPool.test.ts`.

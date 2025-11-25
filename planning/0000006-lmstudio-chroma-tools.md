@@ -72,7 +72,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Subtasks
 
-1. [ ] Add a path translation helper (e.g., `server/src/ingest/pathMap.ts`) that rewrites stored ingest paths (mounted at `/data`) back to `HOST_INGEST_DIR`, returning both container and host paths plus repo/name metadata.
+1. [x] Add a path translation helper (e.g., `server/src/ingest/pathMap.ts`) that rewrites stored ingest paths (mounted at `/data`) back to `HOST_INGEST_DIR`, returning both container and host paths plus repo/name metadata.
    - Rule: stored paths look like `/data/<rootName>/<relativePath>`; map to host via `${HOST_INGEST_DIR}/<rootName>/<relativePath>`. If `HOST_INGEST_DIR` is unset, default to `/data` but include a warning field `hostPathWarning`.
    - Include helper signature suggestion: `mapIngestPath(containerPath: string): { repo: string; relPath: string; containerPath: string; hostPath: string; hostPathWarning?: string }`.
    - Scaffold snippet:
@@ -128,6 +128,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Implementation notes
 
+- Added `mapIngestPath` helper to translate stored `/data/<repo>/<relPath>` paths back to host paths, emitting a warning when `HOST_INGEST_DIR` is absent.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

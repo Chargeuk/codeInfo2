@@ -1,10 +1,10 @@
 Setup:
-Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how it will be acheived.
+Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be acheived.
 
 Tasks:
 do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
-do you feel task 17s instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
+do you feel task 18s instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
 in various tasks you have a single subtask to update multiple markdown documents. this is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating
 

@@ -195,7 +195,8 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 4. [ ] Update `README.md` with new endpoints, tool behaviour, env notes (HOST_INGEST_DIR), and chat citation visibility.
 5. [ ] Update `design.md` with diagrams/flow for tool calls, host-path rewrites, and chat citation rendering.
 6. [ ] Update `projectStructure.md` to list new files (routes, helpers, tests).
-7. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
+7. [ ] Add Playwright e2e test (type: Playwright; location: `e2e/chat-tools.spec.ts` or extend existing chat spec) that exercises a tool-backed chat query, asserts visible citations with file paths, and verifies host-path text present.
+8. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
 
 #### Testing
 
@@ -203,7 +204,8 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 2. [ ] Build client (type: build; location: client; command: `npm run build --workspace client`; purpose: final compile check).
 3. [ ] Server tests (type: unit + Cucumber; location: server; command: `npm run test --workspace server`; purpose: full regression with tooling endpoints).
 4. [ ] Client tests (type: RTL/Jest; location: client; command: `npm run test --workspace client`; purpose: regression for chat UI and citations).
-5. [ ] Compose smoke (type: manual/compose; location: root; command: `npm run compose:up` then `npm run compose:down`; purpose: optional sanity of end-to-end stack with new tooling).
+5. [ ] E2E test (type: Playwright; location: `e2e/chat-tools.spec.ts` or updated chat spec; command: `npm run e2e` or targeted run); purpose: verify end-to-end chat + tool citations and file paths.
+6. [ ] Compose smoke (type: manual/compose; location: root; command: `npm run compose:up` then `npm run compose:down`; purpose: optional sanity of end-to-end stack with new tooling).
 
 #### Implementation notes
 

@@ -1184,12 +1184,14 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build for main stack (`npm run compose:build`)
-4. [ ] `npm run compose:up` (verify Chroma + collector + Zipkin healthy), then `npm run compose:down`
-5. [ ] `npm run test --workspace server` (Cucumber with updated compose/Testcontainers wiring)
-6. [ ] `npm run e2e` (uses updated e2e compose with collector/Zipkin)
+1. [x] `npm run build --workspace server` (ensure the server builds locally)
+2. [x] `npm run build --workspace client` (ensure the client builds locally)
+3. [x] `npm run test --workspace server` (ensure the server unit & cucumber tests pass)
+4. [x] `npm run test --workspace client` (ensure the client unit tests pass)
+5. [x] `npm run compose:build` (Clean docker build for main stack)
+6. [x] `npm run compose:up` (verify Chroma + collector + Zipkin healthy)
+7. [x] `npm run compose:down` (Ensure everything can shut down cleanly)
+8. [x] `npm run e2e` (Ensure e2e tests work with collector/Zipkin)
 
 #### Implementation notes
 

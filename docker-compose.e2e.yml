@@ -6,6 +6,8 @@ services:
     image: codeinfo2-server-e2e
     ports:
       - '6010:5010'
+    networks:
+      - internal
     env_file:
       - server/.env.e2e
     volumes:
@@ -30,6 +32,8 @@ services:
     image: codeinfo2-client-e2e
     ports:
       - '6001:5001'
+    networks:
+      - internal
     env_file:
       - client/.env.e2e
     depends_on:
@@ -44,16 +48,17 @@ services:
   chroma-e2e:
     image: chromadb/chroma:1.3.5
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http
-      - OTEL_SERVICE_NAME=chroma
+      - IS_PERSISTENT=FALSE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
+      - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
       - '8800:8000'
-    volumes:
-      - /chroma/.chroma
+    networks:
+      - internal
     depends_on:
-      otel-collector:
-        condition: service_started
+      - otel-collector
+      - zipkin
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -63,11 +68,18 @@ services:
     ports:
       - '4317:4317'
       - '4318:4318'
-
+    networks:
+      - internal
+      
   zipkin:
     image: openzipkin/zipkin
     ports:
       - '9411:9411'
+    networks:
+      - internal
     depends_on:
       otel-collector:
         condition: service_started
+
+networks:
+  internal:

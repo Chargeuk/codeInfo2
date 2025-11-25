@@ -1,9 +1,9 @@
-import { LMStudioClient } from '@lmstudio/sdk';
 import {
   ChromaClient,
   type Collection,
   type EmbeddingFunction,
 } from 'chromadb';
+import { getClient as getLmClient } from '../lmstudio/clientPool.js';
 import { baseLogger } from '../logger.js';
 
 const getChromaUrl = () => process.env.CHROMA_URL ?? 'http://localhost:8000';
@@ -38,7 +38,7 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   ) {}
 
   async generate(texts: string[]): Promise<number[][]> {
-    const client = new LMStudioClient({ baseUrl: this.baseUrl });
+    const client = getLmClient(this.baseUrl);
     const model = await client.embedding.model(this.modelKey);
     const results: number[][] = [];
     for (const text of texts) {

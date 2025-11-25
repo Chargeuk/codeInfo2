@@ -152,6 +152,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
+â”‚     â”œâ”€ lmstudio/
+â”‚     â”‚  â””â”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
@@ -191,7 +193,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        â””â”€ unit/
 â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
 â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
-â”‚           â””â”€ hashing.test.ts â€” deterministic hashing coverage
+â”‚           â”œâ”€ hashing.test.ts â€” deterministic hashing coverage
+â”‚           â””â”€ clientPool.test.ts â€” LM Studio client pooling + closeAll behaviour
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/

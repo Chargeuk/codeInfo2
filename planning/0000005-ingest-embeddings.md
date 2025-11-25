@@ -1225,32 +1225,35 @@ Avoid creating a fresh LM Studio client for every chat/ingest call. Add a pooled
 - Do we need metrics on pool size? Default: no; log-only.
 
 #### Documentation Locations
-- LM Studio SDK lifecycle: https://lmstudio.ai/docs/typescript/overview
-- Embedding API: https://lmstudio.ai/docs/typescript/embedding
-- Chat/act API: https://lmstudio.ai/docs/typescript/chat
-- Express shutdown hooks: Context7 `/expressjs/express`
-- Jest docs: Context7 `/jestjs/jest`
+ - LM Studio SDK lifecycle: https://lmstudio.ai/docs/typescript/overview
+  - Embedding API: https://lmstudio.ai/docs/typescript/embedding
+  - Chat/act API: https://lmstudio.ai/docs/typescript/chat
+  - Express shutdown hooks: Context7 `/expressjs/express`
+  - Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
-1. [ ] Create `server/src/lmstudio/clientPool.ts`: cache clients by baseUrl; export `getClient(baseUrl)` and `closeAll()`. Ensure idempotent close, minimal logging, and baseUrl normalization (ws/wss already handled by callers).
-2. [ ] Refactor chat route `server/src/routes/chat.ts` to use `getClient(wsBaseUrl)` instead of `new LMStudioClient`; keep AbortController semantics unchanged.
-3. [ ] Refactor ingest embedding path: in `ingestJob.embedText` use pooled client; in `chromaClient.ts` (`LmStudioEmbeddingFunction`) fetch pooled client instead of constructing a new one.
-4. [ ] Add process shutdown hooks in `server/src/index.ts` for SIGINT/SIGTERM to call `closeAll()` and log success/failure.
-5. [ ] Tests: add unit tests under `server/src/test/unit/clientPool.test.ts` (same instance per baseUrl, different for different baseUrls, closeAll closes each, double-close safe). Adjust/mocks in chat/ingest unit tests if constructor expectations change.
-6. [ ] Documentation: update `design.md` (client lifecycle, pooling rationale, shutdown flow) and `README.md` (note pooled LM Studio clients, shutdown hook behavior).
-7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`; fix issues.
+1. [x] Create `server/src/lmstudio/clientPool.ts`: cache clients by baseUrl; export `getClient(baseUrl)` and `closeAll()`. Ensure idempotent close, minimal logging, and baseUrl normalization (ws/wss already handled by callers).
+2. [x] Refactor chat route `server/src/routes/chat.ts` to use `getClient(wsBaseUrl)` instead of `new LMStudioClient`; keep AbortController semantics unchanged.
+3. [x] Refactor ingest embedding path: in `ingestJob.embedText` use pooled client; in `chromaClient.ts` (`LmStudioEmbeddingFunction`) fetch pooled client instead of constructing a new one.
+4. [x] Add process shutdown hooks in `server/src/index.ts` for SIGINT/SIGTERM to call `closeAll()` and log success/failure.
+5. [x] Tests: add unit tests under `server/src/test/unit/clientPool.test.ts` (same instance per baseUrl, different for different baseUrls, closeAll closes each, double-close safe). Adjust/mocks in chat/ingest unit tests if constructor expectations change.
+6. [x] Documentation: update `design.md` (client lifecycle, pooling rationale, shutdown flow) and `README.md` (note pooled LM Studio clients, shutdown hook behavior).
+7. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`; fix issues.
 
 #### Testing
-1. [ ] `npm run test --workspace server`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run test --workspace server`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run build --workspace server`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
-- Fill in once work starts; record any decisions about single vs dual pools and LM Studio connection limits.
+- Added `server/src/lmstudio/clientPool.ts` caching LM Studio clients by base URL, supporting test factory overrides and `closeAll` disposal via `Symbol.asyncDispose`/`close` so reuse is automatic and shutdown is safe.
+- Wired chat, ingest, and default embedding paths to the pool (via `index.ts` clientFactory and `LmStudioEmbeddingFunction`), plus SIGINT/SIGTERM hooks to close pooled clients before exiting.
+- Updated docs (design + README) to describe pooling/shutdown and `projectStructure.md` to list the new module and test; added unit coverage in `server/src/test/unit/clientPool.test.ts`.
+- Full command set run: lint, format:check, server build/tests, client build/tests, compose build/up/down, and e2e; e2e cancel scenario initially timed out but passed on rerun (first run left stack up, rerun succeeded, then e2e:down executed).
 
 ---

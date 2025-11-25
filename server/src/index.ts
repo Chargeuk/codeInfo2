@@ -15,6 +15,7 @@ import { createIngestRootsRouter } from './routes/ingestRoots.js';
 import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
+import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 
 config();
 const app = express();
@@ -54,6 +55,7 @@ app.use('/', createIngestCancelRouter());
 app.use('/', createIngestReembedRouter({ clientFactory }));
 app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
+app.use('/', createToolsIngestedReposRouter());
 
 const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
 

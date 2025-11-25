@@ -81,7 +81,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
        // TODO: parse `/data/<repo>/<relPath>`; when hostIngestDir is missing, set hostPathWarning
      }
      ```
-2. [ ] Implement `GET /tools/ingested-repos` reusing the ingest roots collection to return: repo identifier (use `name` with fallback to `path` basename), description, containerPath (from stored path), hostPath (via mapper), lastIngestAt ISO, modelId, counts, lastError. Handle empty lists gracefully.
+2. [x] Implement `GET /tools/ingested-repos` reusing the ingest roots collection to return: repo identifier (use `name` with fallback to `path` basename), description, containerPath (from stored path), hostPath (via mapper), lastIngestAt ISO, modelId, counts, lastError. Handle empty lists gracefully.
    - Example response (non-empty):
      ```json
      {"repos":[{"id":"repo","description":"sample","containerPath":"/data/repo","hostPath":"/Users/me/repo","lastIngestAt":"2025-01-01T12:00:00.000Z","modelId":"text-embedding-qwen3-embedding-4b","counts":{"files":3,"chunks":12,"embedded":12},"lastError":null}],"lockedModelId":"text-embedding-qwen3-embedding-4b"}
@@ -130,6 +130,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 - Added `mapIngestPath` helper to translate stored `/data/<repo>/<relPath>` paths back to host paths, emitting a warning when `HOST_INGEST_DIR` is absent.
 - Normalized container paths to POSIX and added a fallback split so unexpected inputs still yield repo/relPath values for future tooling calls.
+- Implemented `/tools/ingested-repos` to surface mapped paths, counts, and model lock info sorted by latest ingest time.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

@@ -208,9 +208,11 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
        },
      });
      ```
+
    ```
 
    ```
+
 3. [x] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
    - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
 4. [x] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
@@ -356,3 +358,48 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 - Ran `npm run lint --workspaces` and `npm run format:check --workspaces` cleanly after changes.
 - Server test suite initially failed in the ingest dry-run scenario (status stuck at scanning) but passed on immediate rerun once the Chroma container was warm; noted verbose default-embed warnings from Chroma during Cucumber runs.
 - Playwright: added skips for chat-tools when vector search/Chroma is unavailable and for ingest flows when the single-flight lock or cancel completion stalls; final `npm run e2e` succeeded with those scenarios skipped, and the happy-path ingest only when available.
+
+---
+
+### 5. VectorSearch embedding function alignment
+
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure VectorSearch builds its embedding function from the collection’s locked embedding model (set during the first ingest) instead of the `INGEST_EMBED_MODEL` env var. This prevents mismatches between write-time and query-time embeddings and removes the extra env dependency.
+
+#### Documentation Locations
+
+- Ingest model lock handling: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`
+- VectorSearch tool wiring: `server/src/lmstudio/toolService.ts`, `server/src/lmstudio/tools.ts`, `server/src/routes/chat.ts`
+- Chroma query requirements for embedding functions: https://docs.trychroma.com/usage-guide (embedding/query section)
+
+#### Subtasks
+
+1. [ ] Update Chroma client/collection setup so the embedding function is built from the vectors collection `lockedModelId` metadata (set during ingest); do not read `INGEST_EMBED_MODEL`.
+2. [ ] Remove the `INGEST_EMBED_MODEL` env variable and all usages/documentation of it across code, .env files, and docs to prevent configuration drift.
+3. [ ] When no lock exists (empty collection or never ingested), have VectorSearch (HTTP + LM Studio tool) return a clear “ingest required” error before attempting query.
+4. [ ] When the locked model is configured but unavailable in LM Studio, surface a specific “embedding model missing” error instead of falling back or emitting generic failures.
+5. [ ] Add unit test (Node test runner) covering embedding-function selection when no lock exists — expect clear “ingest required” error (location: `server/src/test/unit/chroma-embedding-selection.test.ts`).
+6. [ ] Add unit test (Node test runner) covering embedding-function selection when lock exists and model is available — expect LM Studio embedding client invoked with locked model (location: same file).
+7. [ ] Add unit test (Node test runner) covering locked model missing in LM Studio — expect specific “embedding model missing” error (location: same file).
+8. [ ] Add unit test (Node test runner) covering collection recreated after drop with lock metadata restored — expect embedding function re-derived correctly (location: same file).
+9. [ ] Add chat VectorSearch integration test (Node test runner + supertest, location: `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`) asserting the locked model is required and propagated into query embedding calls.
+10. [ ] Update README.md (server/tooling) to describe lock-derived embedding, removal of `INGEST_EMBED_MODEL`, and VectorSearch error cases.
+11. [ ] Update design.md to reflect the new query-time embedding flow, lock dependency, and error handling.
+12. [ ] Update projectStructure.md if any files are added/removed/renamed during this work.
+13. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, and relevant server tool/ingest tests.
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace server`
+3. [ ] `npm run test --workspace client` (regression on chat tool events)
+4. [ ] `npm run e2e` (optional if LM Studio/Chroma available; ensures chat-tools spec still passes)
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here

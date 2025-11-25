@@ -431,12 +431,14 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
 
 1. [x] Subtask – Add `server/src/routes/ingestRoots.ts` for `GET /ingest/roots`. Output: `{ roots: [{ name, description, path, model, status, lastIngestAt, counts, lastError }], lockedModelId }` from `ingest_roots` collection and collection metadata.
        Handler skeleton + sample response:
+
    ```ts
    router.get('/ingest/roots', async (_req, res) => {
      const roots = await rootsCollection();
      res.json({ roots, lockedModelId: await getLockedModel() });
    });
    ```
+
    ```json
    {
      "roots": [
@@ -461,6 +463,7 @@ Expose `GET /ingest/roots` to return embedded roots from the `ingest_roots` mana
        where: { repo: { $in: ['docs', 'api'] } },
      });
      ```
+
 2. [x] Subtask – Ensure sorting by `lastIngestAt` desc; include `lockedModelId` for UI banner.
 3. [x] Subtask – Cucumber feature `ingest-roots.feature`: scenarios (a) after ingest run returns row, (b) after remove returns empty list. Steps in `server/src/test/steps/ingest-roots.steps.ts` using Testcontainers Chroma + mocked LM Studio.
 4. [x] Subtask – Update README.md with payload JSON example and filter/lock note (inputs none; output sample table row).
@@ -518,6 +521,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
    });
    ```
 3. [x] Subtask – `POST /ingest/reembed/:root` (route `ingestReembed.ts`): diff current hashes vs stored metadata, embed only changed chunks, delete removed file chunks; returns new `{ runId }`. Enforce model lock; reject if another ingest active. Curl example: `curl -X POST http://localhost:5010/ingest/reembed/my-root`.
+
    ```ts
    router.post('/ingest/reembed/:root', async (req, res) => {
      if (lock.isHeld())
@@ -536,6 +540,7 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
        nResults: 10,
      });
      ```
+
 4. [x] Subtask – `POST /ingest/remove/:root` (route `ingestRemove.ts`): purge vectors for root and delete entry in `ingest_roots`; if vectors collection becomes empty, clear locked model. Respond `{ status:'ok', unlocked: boolean }`. Curl example: `curl -X POST http://localhost:5010/ingest/remove/my-root`.
    ```ts
    router.post('/ingest/remove/:root', async (req, res) => {

@@ -156,7 +156,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
 â”‚     â”œâ”€ lmstudio/
-â”‚     â”‚  â””â”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
+â”‚     â”‚  â”œâ”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
+â”‚     â”‚  â”œâ”€ toolService.ts â€” shared helpers for LM Studio tools + tooling routes (list/search)
+â”‚     â”‚  â””â”€ tools.ts â€” LM Studio tool schemas for list/vector search used by chat
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
@@ -199,8 +201,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ hashing.test.ts â€” deterministic hashing coverage
 â”‚           â”œâ”€ clientPool.test.ts â€” LM Studio client pooling + closeAll behaviour
 â”‚           â”œâ”€ pathMap.test.ts â€” host/container path mapping helper coverage
+â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
+â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
+â”‚        â”œâ”€ integration/
+â”‚        |  â””â”€ chat-tools-wire.test.ts â€” chat route SSE wiring with mocked LM Studio tools
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/

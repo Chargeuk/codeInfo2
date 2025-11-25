@@ -162,8 +162,8 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Subtasks
 
-1. [ ] Define LM Studio tool schema for **ListIngestedRepositories** in `server/src/lmstudio/tools.ts` using `tool()` + zod; include description, no input params, output array of repos `{ id, description, containerPath, hostPath, lastIngestAt, modelId, counts, lastError }`.
-2. [ ] Define LM Studio tool schema for **VectorSearch** in the same file: input `{ query: z.string().min(1), repository: z.string().optional(), limit: z.number().int().min(1).max(20).default(5) }`; output item `{ repo, relPath, hostPath, containerPath, score, chunk, chunkId, modelId }`.
+1. [x] Define LM Studio tool schema for **ListIngestedRepositories** in `server/src/lmstudio/tools.ts` using `tool()` + zod; include description, no input params, output array of repos `{ id, description, containerPath, hostPath, lastIngestAt, modelId, counts, lastError }`.
+2. [x] Define LM Studio tool schema for **VectorSearch** in the same file: input `{ query: z.string().min(1), repository: z.string().optional(), limit: z.number().int().min(1).max(20).default(5) }`; output item `{ repo, relPath, hostPath, containerPath, score, chunk, chunkId, modelId }`.
    - Schema scaffold:
      ```ts
      const vectorSearch = tool({
@@ -176,33 +176,37 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
        }),
        execute: async ({ query, repository, limit }) => {/* call helper */},
      });
-     ```
-2. [ ] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
+   ```
+2. [x] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
    - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
-3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
-4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
-5. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
-6. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools-wire.test.ts`) that validates tool schemas/execute functions when LM Studio is mocked, ensuring tool payloads include repo/path metadata without needing live vectors.
-7. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
-8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
-9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
-10. [ ] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
-11. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+3. [x] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
+4. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
+5. [x] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
+6. [x] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools-wire.test.ts`) that validates tool schemas/execute functions when LM Studio is mocked, ensuring tool payloads include repo/path metadata without needing live vectors.
+7. [x] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
+8. [x] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
+9. [x] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
+10. [x] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
+11. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
+- Shared the tooling logic via `server/src/lmstudio/toolService.ts` so both HTTP endpoints and LM Studio tools reuse the same path-mapping/validation and provenance fields.
+- Added `server/src/lmstudio/tools.ts` to define `ListIngestedRepositories` and `VectorSearch` tools with zod validation aligned to the SDK; tools log metadata but not payload bodies.
+- Chat route now accepts an injectable tool factory, registers the new tools alongside noop, and logs tool usage with requestId/baseUrl/model.
+- Added unit coverage for tool schemas/logging (`chat-tools.test.ts`) and chat wiring (`chat-tools-wire.test.ts`) plus an integration SSE test (`test/integration/chat-tools-wire.test.ts`).
+- Updated README/design/projectStructure to document the new tools, shared helpers, and files; lint/format run across workspaces.
 
 ---
 

@@ -7,16 +7,20 @@ import {
   startStream,
   writeEvent,
 } from '../chatStream.js';
+import { createLmStudioTools } from '../lmstudio/tools.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
+type ToolFactory = typeof createLmStudioTools;
 
 export function createChatRouter({
   clientFactory,
+  toolFactory = createLmStudioTools,
 }: {
   clientFactory: ClientFactory;
+  toolFactory?: ToolFactory;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -112,7 +116,36 @@ export function createChatRouter({
       const client = clientFactory(toWebSocketUrl(baseUrl));
       const modelClient = await client.llm.model(model);
       let currentRound = 0;
+      const logToolUsage = (payload: Record<string, unknown>) => {
+        append({
+          level: 'info',
+          message: 'chat tool usage',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            baseUrl: safeBase,
+            model,
+            ...payload,
+          },
+        });
+        baseLogger.info(
+          {
+            requestId,
+            baseUrl: safeBase,
+            model,
+            ...payload,
+          },
+          'chat tool usage',
+        );
+      };
+
+      const { tools: lmStudioTools } = toolFactory({
+        log: (payload) => logToolUsage(payload),
+      });
+
       const tools = [
+        ...lmStudioTools,
         tool({
           name: 'noop',
           description: 'does nothing',

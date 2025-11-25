@@ -76,7 +76,9 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
 6. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env` and `README.md` where appropriate.
-7. [ ] Add Cucumber coverage: new features under `server/src/test/features/tools-*.feature` and steps under `server/src/test/steps/tools-*.steps.ts` covering repo list empty/non-empty, search with/without repo filter, host-path rewrite, and error handling.
+7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
+8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
+9. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.\n*** End Patch
 
 #### Testing
 
@@ -110,10 +112,11 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 1. [ ] Define LM Studio tool schemas for `ListIngestedRepositories` and `VectorSearch`, matching server API inputs/outputs (including host path, repo id, relative path, score, chunk text).
 2. [ ] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
-4. [ ] Add unit/integration coverage (Jest or Cucumber) for tool invocation paths to confirm correct wiring and error propagation.
-5. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
-6. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
-7. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
+4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; purpose: guard against schema drift.
+5. [ ] Add integration test (type: Cucumber or supertest; location: `server/src/test/features/chat-tools-wire.feature` or `server/src/test/integration/chat-tools-wire.test.ts`) to cover chat route invoking tools and propagating errors; purpose: ensure wiring executes server tool logic.
+6. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
+7. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
+8. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
 
 #### Testing
 
@@ -146,7 +149,8 @@ Render tool results in the chat UI with inline citations showing the human-frien
 1. [ ] Extend chat message rendering to display file path (repo + relative path) alongside tool-provided snippets/chunks, ensuring layout works on mobile and desktop.
 2. [ ] Ensure citations remain inline with the assistant message and are visible in the chat bubble; include host-friendly path text where applicable.
 3. [ ] Update client-side types and parsing to capture new tool payload fields (score, repo id, file path, host path, chunk text).
-4. [ ] Add RTL tests covering citation display, multiple results, and fallback states when no paths are returned.
+4. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.citations.test.tsx`) to verify path + citation rendering with multiple results; purpose: ensure bubble shows file paths visibly.
+5. [ ] Add RTL test (type: RTL/Jest; location: `client/src/test/chatPage.noPaths.test.tsx`) to verify fallback when paths are missing; purpose: ensure UI degrades gracefully.
 
 #### Testing
 

@@ -1,5 +1,5 @@
 Setup:
-Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be acheived.
+Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Tasks:
 do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story

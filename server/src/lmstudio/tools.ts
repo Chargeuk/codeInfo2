@@ -93,6 +93,39 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
     },
   });
 
+  // Log the parameter schema shape at startup to spot any mismatch in production builds.
+  // Best-effort schema logging (parametersSchema is not on the public Tool type).
+  const paramsSchema = (
+    vectorSearchTool as unknown as { parametersSchema?: unknown }
+  ).parametersSchema as
+    | {
+        shape?: Record<string, { constructor?: { name?: string } } | undefined>;
+      }
+    | undefined;
+  const schemaShape = paramsSchema?.shape
+    ? Object.fromEntries(
+        Object.entries(paramsSchema.shape).map(([key, val]) => [
+          key,
+          (val as { constructor?: { name?: string } } | undefined)?.constructor
+            ?.name ?? typeof val,
+        ]),
+      )
+    : undefined;
+  baseLogger.info(
+    { tool: 'VectorSearch', schemaShape },
+    'lmstudio tool schema',
+  );
+
+  // Monkey-patch checkParameters to log the raw params before SDK validation.
+  const originalCheck = vectorSearchTool.checkParameters;
+  vectorSearchTool.checkParameters = (params) => {
+    baseLogger.info(
+      { tool: 'VectorSearch', checkParams: params },
+      'lmstudio checkParameters input',
+    );
+    return originalCheck(params);
+  };
+
   return {
     listIngestedRepositoriesTool,
     vectorSearchTool,

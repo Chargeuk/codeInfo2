@@ -1180,12 +1180,12 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 8. [x] Update `design.md` with an observability section showing collector → Zipkin flow, the Chroma env variables used, and where traces/logs go.
 9. [x] Update `projectStructure.md` to list `observability/otel-collector-config.yaml` and the added compose services.
 10. [x] Add cleanup notes (either in README or a short snippet here) for new volumes/containers, e.g., `docker compose down -v` for each stack and `docker volume rm codeinfo2_otel-collector-data` if created.
-11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [x] `npm run build --workspace server` (ensure the server builds locally)
-2. [x] `npm run build --workspace client` (ensure the client builds locally)
+1. [ ] `npm run build --workspace server` (ensure the server builds locally)
+2. [ ] `npm run build --workspace client` (ensure the client builds locally)
 3. [ ] `npm run test --workspace server` (ensure the server unit & cucumber tests pass)
 4. [ ] `npm run test --workspace client` (ensure the client unit tests pass)
 5. [ ] `npm run compose:build` (Clean docker build for main stack)

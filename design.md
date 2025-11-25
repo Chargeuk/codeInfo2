@@ -78,6 +78,20 @@ sequenceDiagram
 - Healthchecks: server uses `/health`; client uses root `/` to ensure availability before dependencies start, with client waiting on server health.
 - Root scripts (`compose:build`, `compose:up`, `compose:down`, `compose:logs`) manage the stack for local demos and e2e setup.
 
+## Observability (Chroma traces)
+
+- Each compose stack (main, e2e, and Cucumber/Testcontainers debug) now includes `otel-collector` (OTLP gRPC/HTTP on 4317/4318) and `zipkin` (UI on 9411). The collector loads `observability/otel-collector-config.yaml`, which pipes traces to Zipkin and a debug logging exporter.
+- Chroma containers point at the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, and `OTEL_SERVICE_NAME=chroma`, so ingest traffic is traced without code changes.
+- Use http://localhost:9411 to inspect spans; if empty, check `docker compose logs otel-collector` for configuration errors.
+- Testcompose uses the same config through a relative bind mount so Cucumber runs capture Chroma traces consistently.
+
+```mermaid
+flowchart LR
+  Chroma -->|OTLP http 4318| Collector
+  Collector -->|Zipkin exporter| Zipkin[Zipkin UI 9411]
+  Collector -->|logging exporter| Logs[Collector debug log]
+```
+
 ## Architecture diagram
 
 ```mermaid

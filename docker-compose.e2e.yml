@@ -43,7 +43,31 @@ services:
 
   chroma-e2e:
     image: chromadb/chroma:1.3.5
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http
+      - OTEL_SERVICE_NAME=chroma
     ports:
       - '8800:8000'
     volumes:
       - /chroma/.chroma
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ['--config', '/etc/otel-collector-config.yaml']
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - '9411:9411'
+    depends_on:
+      otel-collector:
+        condition: service_started

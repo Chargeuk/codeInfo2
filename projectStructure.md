@@ -15,6 +15,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ README.md â€” repo overview and commands
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
+â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
 â”œâ”€ docker-compose.yml â€” compose stack for client/server
 â”œâ”€ docker-compose.e2e.yml — isolated e2e stack (client 6001, server 6010, chroma 8800, fixtures mount)
 â”œâ”€ eslint.config.js â€” root ESLint flat config

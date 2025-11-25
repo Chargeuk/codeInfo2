@@ -1152,12 +1152,12 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
 
 #### Subtasks
 
-1. [ ] Read https://docs.trychroma.com/guides/deploy/docker?lang=typescript and note the exact ports and env keys: collector OTLP gRPC `4317`, OTLP HTTP `4318`, Zipkin UI `9411`; env for Chroma `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, `OTEL_SERVICE_NAME=chroma`.
-2. [ ] Update root `docker-compose.yml`: add services `otel-collector` (image `otel/opentelemetry-collector-contrib:latest`), mount `./observability/otel-collector-config.yaml` to `/etc/otel-collector-config.yaml`, start with `--config /etc/otel-collector-config.yaml`, expose `4317` and `4318`; add `zipkin` service (image `openzipkin/zipkin`, expose `9411:9411`); wire Chroma service env vars from step 1 and set dependency on `otel-collector`.
-3. [ ] Update `server/src/test/compose/docker-compose.chroma.yml` (Cucumber/Testcontainers debug compose) with the same `otel-collector` + `zipkin` services and the Chroma container env vars from step 1; keep ports internal unless helpful, but ensure collector listens on 4317/4318 and Zipkin on 9411 for optional troubleshooting.
-4. [ ] Update `docker-compose.e2e.yml` to include `otel-collector` + `zipkin` with the same port mappings and add the env vars from step 1 to the e2e Chroma service.
-5. [ ] Create `observability/` (if missing) and add `observability/otel-collector-config.yaml`; mount this file in all three compose files.
-6. [ ] Populate `observability/otel-collector-config.yaml` per the Chroma guide (https://docs.trychroma.com/guides/deploy/docker?lang=typescript) with this minimal content:
+1. [x] Read https://docs.trychroma.com/guides/deploy/docker?lang=typescript and note the exact ports and env keys: collector OTLP gRPC `4317`, OTLP HTTP `4318`, Zipkin UI `9411`; env for Chroma `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, `OTEL_SERVICE_NAME=chroma`.
+2. [x] Update root `docker-compose.yml`: add services `otel-collector` (image `otel/opentelemetry-collector-contrib:latest`), mount `./observability/otel-collector-config.yaml` to `/etc/otel-collector-config.yaml`, start with `--config /etc/otel-collector-config.yaml`, expose `4317` and `4318`; add `zipkin` service (image `openzipkin/zipkin`, expose `9411:9411`); wire Chroma service env vars from step 1 and set dependency on `otel-collector`.
+3. [x] Update `server/src/test/compose/docker-compose.chroma.yml` (Cucumber/Testcontainers debug compose) with the same `otel-collector` + `zipkin` services and the Chroma container env vars from step 1; keep ports internal unless helpful, but ensure collector listens on 4317/4318 and Zipkin on 9411 for optional troubleshooting.
+4. [x] Update `docker-compose.e2e.yml` to include `otel-collector` + `zipkin` with the same port mappings and add the env vars from step 1 to the e2e Chroma service.
+5. [x] Create `observability/` (if missing) and add `observability/otel-collector-config.yaml`; mount this file in all three compose files.
+6. [x] Populate `observability/otel-collector-config.yaml` per the Chroma guide (https://docs.trychroma.com/guides/deploy/docker?lang=typescript) with this minimal content:
    ```
    receivers:
      otlp:
@@ -1176,16 +1176,16 @@ Add OpenTelemetry Collector and Zipkin alongside every Chroma deployment path (m
          exporters: [zipkin, logging]
    ```
    Keep port values aligned with the compose services.
-7. [ ] Update `README.md` to describe the new observability stack: service names, exposed ports (4317/4318/9411), how to open Zipkin UI (`http://localhost:9411`), and any start/stop commands added.
-8. [ ] Update `design.md` with an observability section showing collector → Zipkin flow, the Chroma env variables used, and where traces/logs go.
-9. [ ] Update `projectStructure.md` to list `observability/otel-collector-config.yaml` and the added compose services.
-10. [ ] Add cleanup notes (either in README or a short snippet here) for new volumes/containers, e.g., `docker compose down -v` for each stack and `docker volume rm codeinfo2_otel-collector-data` if created.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+7. [x] Update `README.md` to describe the new observability stack: service names, exposed ports (4317/4318/9411), how to open Zipkin UI (`http://localhost:9411`), and any start/stop commands added.
+8. [x] Update `design.md` with an observability section showing collector → Zipkin flow, the Chroma env variables used, and where traces/logs go.
+9. [x] Update `projectStructure.md` to list `observability/otel-collector-config.yaml` and the added compose services.
+10. [x] Add cleanup notes (either in README or a short snippet here) for new volumes/containers, e.g., `docker compose down -v` for each stack and `docker volume rm codeinfo2_otel-collector-data` if created.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (ensure the server builds locally)
-2. [ ] `npm run build --workspace client` (ensure the client builds locally)
+1. [x] `npm run build --workspace server` (ensure the server builds locally)
+2. [x] `npm run build --workspace client` (ensure the client builds locally)
 3. [ ] `npm run test --workspace server` (ensure the server unit & cucumber tests pass)
 4. [ ] `npm run test --workspace client` (ensure the client unit tests pass)
 5. [ ] `npm run compose:build` (Clean docker build for main stack)

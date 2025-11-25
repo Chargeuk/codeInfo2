@@ -232,6 +232,13 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Compose loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so those files remain the single source of truth for both local and compose runs (create empty `.env.local` files to silence warnings if you don't need overrides).
 - Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
 
+### Observability (Chroma traces)
+
+- Compose stacks now run an OpenTelemetry Collector (`otel-collector`, ports 4317/4318) plus Zipkin (`zipkin`, port 9411). The collector loads `observability/otel-collector-config.yaml` and exports traces to Zipkin and a debug logger.
+- Chroma containers point to the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, and `OTEL_SERVICE_NAME=chroma` so ingest traffic is captured.
+- View traces at http://localhost:9411 after generating activity (e.g., start an ingest). If nothing appears, check collector logs: `docker compose logs otel-collector`.
+- Cleanup: `docker compose down -v` tears down collector/zipkin/chroma volumes; remove any lingering volumes with `docker volume ls | grep codeinfo2` if ports/telemetry state need a full reset.
+
 ## End-to-end (Playwright)
 
 - One-time: `npx playwright install --with-deps`

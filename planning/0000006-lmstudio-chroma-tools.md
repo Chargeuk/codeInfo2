@@ -113,10 +113,11 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 2. [ ] Integrate tools into the chat handler so tool calls invoke the new server logic (or shared helpers), streaming results into the assistant response with minimal additional latency.
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
 4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; purpose: guard against schema drift.
-5. [ ] Add integration test (type: Cucumber or supertest; location: `server/src/test/features/chat-tools-wire.feature` or `server/src/test/integration/chat-tools-wire.test.ts`) to cover chat route invoking tools and propagating errors; purpose: ensure wiring executes server tool logic.
-6. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
-7. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
-8. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
+5. [ ] Add integration test (type: Cucumber; location: `server/src/test/features/chat-tools-wire.feature` + steps in `server/src/test/steps/chat-tools-wire.steps.ts`) to cover chat route invoking tools and propagating errors; purpose: ensure wiring executes server tool logic end-to-end.
+6. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; purpose: fast regression without Cucumber harness.
+7. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
+8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
+9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
 
 #### Testing
 

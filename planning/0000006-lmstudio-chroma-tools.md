@@ -76,18 +76,26 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 3. [ ] Implement `POST /tools/vector-search` that accepts `{ query: string, repository?: string, limit?: number }`, validates input, scopes to a repo when provided, queries Chroma for top-k matches, and returns: score, full chunk text, repo identifier, relative path, host-resolvable path, chunk hash/ids for provenance.
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
-6. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
-7. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
-8. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
-9. [ ] Update `projectStructure.md` to include new routes/helpers/tests related to the tools API.
-10. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
-11. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
-12. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.
+6. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering list endpoint empty/non-empty and model/metadata fields; purpose: ensure repo list tool data is correct.
+7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter and top-k ordering; purpose: verify vector search behaviour and repo scoping.
+8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite and error handling (unknown repo/Chroma failure); purpose: confirm path mapping and clear errors.
+9. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
+10. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
+11. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
+12. [ ] Update `projectStructure.md` to include new routes/helpers/tests related to the tools API.
+13. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+
 
 #### Testing
 
-1. [ ] Build (type: build; location: server workspace; command: `npm run build --workspace server`; purpose: ensure new tool routes and helpers compile).
-2. [ ] Server tests (type: unit + Cucumber; location: server; command: `npm run test --workspace server`; purpose: verify repo list/search behaviours, path rewrites, and error handling).
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -126,11 +134,18 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
 9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
 10. [ ] Update `projectStructure.md` to list any new tool schema/helper/test files added for LM Studio wiring.
+11. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
-1. [ ] Build (type: build; location: server workspace; command: `npm run build --workspace server`; purpose: confirm tool wiring changes still compile).
-2. [ ] Server tests (type: unit/integration; location: server; command: `npm run test --workspace server`; purpose: cover tool invocation paths and error propagation).
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -165,11 +180,18 @@ Render tool results in the chat UI with inline citations showing the human-frien
 6. [ ] Update `README.md` (client section) to mention visible file paths/citations from LM Studio tools.
 7. [ ] Update `design.md` with UI flow/state notes for chat citations and file path rendering.
 8. [ ] Update `projectStructure.md` to list any new client components/tests added for citations.
+9. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
-1. [ ] Build (type: build; location: client workspace; command: `npm run build --workspace client`; purpose: ensure chat UI changes compile).
-2. [ ] Client tests (type: RTL/Jest; location: client; command: `npm run test --workspace client`; purpose: verify citation/path rendering and fallbacks).
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -196,25 +218,24 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 #### Subtasks
 
-1. [ ] Build the server and client: `npm run build --workspace server`, `npm run build --workspace client`.
-2. [ ] Run tests: `npm run test --workspace server`, `npm run test --workspace client`.
-3. [ ] Optional sanity: bring up compose stack to verify endpoints manually if needed (`npm run compose:up` then `npm run compose:down`).
+1. [ ] Add Playwright e2e test (type: Playwright; location: `e2e/chat-tools.spec.ts` or extend existing chat spec) that: (a) triggers ingest of the mounted fixture repo (`/fixtures/repo` from `e2e/fixtures/repo`), (b) asks a question whose answer is in the fixture (e.g., text in `main.txt`), (c) verifies the assistant returns chunk text with inline file path and host-path text. Ensure the test sets the ingest path to `/fixtures/repo` (or host-equivalent if run outside compose) so data exists before querying.
+2. [ ] Update e2e ingest/model selection to prefer embedding model `text-embedding-qwen3-embedding-4b` when available; otherwise fall back to the default. Apply this across embedding-related e2e specs.
+3. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with a deterministic answer and document the expected question/answer in the test.
 4. [ ] Update `README.md` with new endpoints, tool behaviour, env notes (HOST_INGEST_DIR), and chat citation visibility.
 5. [ ] Update `design.md` with diagrams/flow for tool calls, host-path rewrites, and chat citation rendering.
 6. [ ] Update `projectStructure.md` to list new files (routes, helpers, tests).
-7. [ ] Add Playwright e2e test (type: Playwright; location: `e2e/chat-tools.spec.ts` or extend existing chat spec) that: (a) triggers ingest of the mounted fixture repo (`/fixtures/repo` from `e2e/fixtures/repo`), (b) asks a question whose answer is in the fixture (e.g., text in `main.txt`), (c) verifies the assistant returns chunk text with inline file path and host-path text. Ensure the test sets the ingest path to `/fixtures/repo` (or host-equivalent if run outside compose) so data exists before querying.
-8. [ ] Update e2e ingest/model selection to prefer embedding model `text-embedding-qwen3-embedding-4b` when available; otherwise fall back to the default. Apply this across embedding-related e2e specs.
-9. [ ] If fixture content needs updating for meaningful Q&A, add/adjust files under `e2e/fixtures/repo` with a deterministic answer and document the expected question/answer in the test.
-10. [ ] Record implementation notes and final commit hashes in this plan; set all task statuses to __done__.
+7. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 
-1. [ ] Build server (type: build; location: server; command: `npm run build --workspace server`; purpose: final compile check).
-2. [ ] Build client (type: build; location: client; command: `npm run build --workspace client`; purpose: final compile check).
-3. [ ] Server tests (type: unit + Cucumber; location: server; command: `npm run test --workspace server`; purpose: full regression with tooling endpoints).
-4. [ ] Client tests (type: RTL/Jest; location: client; command: `npm run test --workspace client`; purpose: regression for chat UI and citations).
-5. [ ] E2E test (type: Playwright; location: `e2e/chat-tools.spec.ts` or updated chat spec; command: `npm run e2e` or targeted run); purpose: verify end-to-end chat + tool citations and file paths.
-6. [ ] Compose smoke (type: manual/compose; location: root; command: `npm run compose:up` then `npm run compose:down`; purpose: optional sanity of end-to-end stack with new tooling).
+1. [ ] `npm run test --workspace server`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 

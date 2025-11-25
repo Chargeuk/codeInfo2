@@ -6,13 +6,13 @@ do you feel this story's task instructions are detailed enough for an inexperien
 
 do you feel task 18s instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
-in various tasks you have a single subtask to update multiple markdown documents. this is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating
+in various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating
 
 some of the tasks look quite big, could they be split up without loosing any information?
 
-For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
+in various tasks you have a single subtask for a number of tests to write. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
 
-It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool or an explicit web address.
+It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it.
 
 some tasks do not have a final subtask to fix linting and prettier (format)
 

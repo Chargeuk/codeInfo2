@@ -99,7 +99,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 
 #### Documentation Locations
 
-- LM Studio SDK tooling docs: https://lmstudio.ai/docs/typescript/tooling
+- LM Studio Python agent tools page (tool definition patterns, naming/description importance, error handling via tool callbacks): https://lmstudio.ai/docs/python/agent/tools
 - LM Studio agent `.act()` API (multi-round tool use, callbacks, tool schema examples): https://lmstudio.ai/docs/typescript/agent/act
 - Existing chat route/streaming: `server/src/routes/chat.ts`, `server/src/chatStream.ts`
 - Client pool: `server/src/lmstudio/clientPool.ts`

@@ -55,7 +55,7 @@ This is a list of steps that must be copied into each new plan. It instructs how
 ### 1. Server – Chroma tooling API
 
 - Task Status: __in_progress__
-- Git Commits: __to_do__
+- Git Commits: 84398b2, b63db30
 
 #### Overview
 
@@ -129,6 +129,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 #### Implementation notes
 
 - Added `mapIngestPath` helper to translate stored `/data/<repo>/<relPath>` paths back to host paths, emitting a warning when `HOST_INGEST_DIR` is absent.
+- Normalized container paths to POSIX and added a fallback split so unexpected inputs still yield repo/relPath values for future tooling calls.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

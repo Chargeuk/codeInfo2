@@ -143,7 +143,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 ### 2. Server – LM Studio tool wiring
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

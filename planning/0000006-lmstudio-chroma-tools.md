@@ -55,7 +55,7 @@ This is a list of steps that must be copied into each new plan. It instructs how
 ### 1. Server – Chroma tooling API
 
 - Task Status: __in_progress__
-- Git Commits: 48688ae, 84398b2, b63db30, 078ccfc, 39a4808, 62a47c7, 5a3026a, 8ad15d5, ac8ec09, 11ba916, fa90d61, 6506a3d
+- Git Commits: 48688ae, 84398b2, b63db30, 078ccfc, 39a4808, 62a47c7, 5a3026a, 8ad15d5, ac8ec09, 11ba916, fa90d61, 6506a3d, 6d60022
 
 #### Overview
 
@@ -117,14 +117,14 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
@@ -136,6 +136,7 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 - Added unit coverage for path mapping plus supertest-based tests for both tooling routes (empty states, repo mapping, validation, limit capping) and introduced `supertest` as a dev dependency in the server workspace.
 - Documented HOST_INGEST_DIR and the new tooling endpoints/flows across `README.md`, `design.md`, and `projectStructure.md` to keep references in sync.
 - Ran workspace lint and format checks to confirm the new tooling code and tests comply with repo standards.
+- Swapped route dependencies to injectable stubs to fix mock redefinition errors; server tests initially failed on the dry-run scenario but passed after the refactor and rerun; all compose and e2e suites now pass.
 - Reminder: after each subtask/test completion, update this section with decisions/edge cases discovered and add the latest commit hash under Git Commits, then push. Also keep the Task Status field in sync (`__to_do__` → `__in_progress__` → `__done__`).
 
 ---

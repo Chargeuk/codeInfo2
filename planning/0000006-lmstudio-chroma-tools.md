@@ -66,7 +66,8 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
 - Existing ingest metadata structures: `server/src/ingest/chromaClient.ts`, `server/src/routes/ingestRoots.ts`
 - Chroma JS client docs (vectors.query, metadata filters, collection schema): https://docs.trychroma.com/ or Context7 `/websites/trychroma`
 - Express routing patterns (handlers, middleware, CORS): Context7 `/expressjs/express`
-- Cucumber JS reference (Gherkin features/steps): https://cucumber.io/docs/guides/ or Context7 `/cucumber/cucumber`
+- Jest unit testing (no external services): Context7 `/jestjs/jest`
+- Supertest for HTTP handler units (with mocked deps): https://github.com/ladjs/supertest#readme
 - Host path mapping/env: current compose/env usage of `HOST_INGEST_DIR` and `/data` mount (see `docker-compose.yml`, `server/.env`)
 
 #### Subtasks
@@ -104,9 +105,9 @@ Expose read-only server endpoints that back the LM Studio tools: list ingested r
      ```
 4. [ ] Ensure responses never bypass the ingest model lock; reuse existing collections/metadata and avoid write operations. Add clear error payloads for missing repo, bad input, or Chroma failures.
 5. [ ] Wire routes into `server/src/index.ts` (CORS consistent) and add logging for tool calls.
-6. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-ingested-repos.feature`) + steps (`server/src/test/steps/tools-ingested-repos.steps.ts`) covering empty list, single repo with mapped hostPath, and lockedModelId passthrough; use fixture ingest root `repo` with path `/data/repo`.
-7. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-vector-search.feature`) + steps (`server/src/test/steps/tools-vector-search.steps.ts`) covering search with/without repo filter, top-k ordering (limit 2), and validation error on missing query.
-8. [ ] Write Cucumber feature (type: Cucumber; location: `server/src/test/features/tools-path-rewrite.feature`) + steps (`server/src/test/steps/tools-path-rewrite.steps.ts`) covering host-path rewrite with/without HOST_INGEST_DIR and error handling (unknown repo 404, Chroma 502 mock).
+6. [ ] Add pure unit tests in `server/src/test/unit/pathMap.test.ts` for the path translation helper: happy path, missing host env (warning), malformed paths.
+7. [ ] Add unit tests in `server/src/test/unit/tools-ingested-repos.test.ts` that mock ingest roots data (no Chroma/LMStudio) and hit the handler via supertest to cover empty list, single repo mapping, and lockedModelId passthrough.
+8. [ ] Add unit tests in `server/src/test/unit/tools-vector-search.test.ts` that mock the Chroma client dependency (no live service) to cover search with/without repo filter, limit capping, validation error on missing query, unknown repo 404, and upstream failure 502.
 9. [ ] Document any new env requirements (e.g., `HOST_INGEST_DIR`) in `server/.env`.
 10. [ ] Update `README.md` to describe the new tooling endpoints, inputs/outputs, and path rewrite behaviour.
 11. [ ] Update `design.md` to reflect the new list/search flows, path rewrite, and data returned.
@@ -148,7 +149,7 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
 - Client pool: `server/src/lmstudio/clientPool.ts`
 - Jest docs (unit testing, mocks): Context7 `/jestjs/jest`
 - Supertest docs (HTTP integration testing): https://github.com/ladjs/supertest#readme
-- Cucumber JS reference (for the chat tool wiring feature): https://cucumber.io/docs/guides/ or Context7 `/cucumber/cucumber`
+- (No Cucumber for this task; rely on Jest/supertest unit/integration)
 
 #### Subtasks
 
@@ -171,8 +172,8 @@ Expose the new list/search capabilities as LM Studio tool definitions used by th
    - Register tools in `server/src/routes/chat.ts` (or shared `chatStream.ts`) by passing them into `client.llm.model(...).act(...)` tool list; reuse the same helpers the HTTP endpoints use to avoid duplication.
 3. [ ] Ensure tool responses preserve provenance data for citations and that errors are surfaced as actionable messages to the user.
 4. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools.test.ts`) to assert tool schemas and payload shapes passed into LM Studio `act`; include fixture payloads matching the HTTP examples above.
-5. [ ] Add integration test (type: Cucumber; location: `server/src/test/features/chat-tools-wire.feature` + steps in `server/src/test/steps/chat-tools-wire.steps.ts`) to cover chat route invoking tools and propagating errors; mock LM Studio to return a deterministic tool call result with repo/path fields.
-6. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
+5. [ ] Add integration test (type: supertest/Jest; location: `server/src/test/integration/chat-tools-wire.test.ts`) to exercise the HTTP chat route with mocked LM Studio/tool outputs; verify the streamed SSE includes tool results with hostPath and relPath fields.
+6. [ ] Add unit test (type: Jest; location: `server/src/test/unit/chat-tools-wire.test.ts`) that validates tool schemas/execute functions when LM Studio is mocked, ensuring tool payloads include repo/path metadata without needing live vectors.
 7. [ ] Update server logging to record tool usage (without leaking payload text beyond what logs already allow) for observability.
 8. [ ] Update `README.md` (server section) to describe the new LM Studio tools integration and how they are invoked.
 9. [ ] Update `design.md` to include the tool wiring and data flow for list/search tools in chat.
@@ -265,7 +266,6 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 - Docker/Compose: Context7 `/docker/docs`
 - Playwright: Context7 `/microsoft/playwright`
-- Cucumber: https://cucumber.io/docs/guides/
 - Husky: Context7 `/typicode/husky`
 - Chroma docs (for verifying model selection and data presence during e2e): https://docs.trychroma.com/ or Context7 `/websites/trychroma`
 

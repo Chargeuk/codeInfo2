@@ -374,7 +374,10 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 
 - Ingest model lock handling: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`
 - VectorSearch tool wiring: `server/src/lmstudio/toolService.ts`, `server/src/lmstudio/tools.ts`, `server/src/routes/chat.ts`
-- Chroma query requirements for embedding functions: https://docs.trychroma.com/usage-guide (embedding/query section)
+- Chroma query requirements for embedding functions: https://docs.trychroma.com/usage-guide (embedding/query section) — needed because Chroma requires an embedding function for `queryTexts` when no embeddings are supplied
+- LM Studio TypeScript SDK (embedding models, `model.embed`): https://lmstudio.ai/docs/typescript/embedding — required to derive embeddings using the locked model at query time
+- Node test runner (`node --test`) docs: https://nodejs.org/api/test.html — used for the server unit tests listed below
+- Supertest docs: https://github.com/ladjs/supertest#readme — used for the chat VectorSearch integration test
 
 #### Subtasks
 

@@ -1,5 +1,5 @@
-function hello() {
-  return 'world';
-}
+// Ingest fixture content for CodeInfo2 e2e tests.
+// This text should appear in vector search results and chat citations.
 
-// This file is intentionally tiny so ingest completes quickly.
+Project note: This is the ingest test fixture for CodeInfo2.
+It exists so Playwright can embed `/fixtures/repo` quickly and ask questions about it.

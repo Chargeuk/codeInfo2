@@ -363,7 +363,7 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 ### 5. VectorSearch embedding function alignment
 
-- Task Status: **to_do**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -381,33 +381,37 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 
 #### Subtasks
 
-1. [ ] Update `server/src/ingest/chromaClient.ts` so `resolveEmbeddingFunction` (and collection creation) reads the vectors collection `lockedModelId` metadata set during ingest; remove any read of `INGEST_EMBED_MODEL`; ensure collection recreation still applies the derived embedding function.
-2. [ ] Remove `INGEST_EMBED_MODEL` everywhere: delete from `server/.env` (and `.env` docs), remove any mention in README/design, and delete code references (`process.env.INGEST_EMBED_MODEL` or similar) to prevent configuration drift.
-3. [ ] Implement explicit error when no lock exists (empty collection or never ingested): VectorSearch HTTP route and LM Studio tool should return a clear “INGEST_REQUIRED” style message (include status code/shape) before attempting query; add a log line noting the missing lock.
-4. [ ] Implement explicit error when the locked model is unavailable in LM Studio: emit “EMBED_MODEL_MISSING” style error with model id in message; no silent fallback; log at warn/error with requestId.
-5. [ ] Add unit test (Node test runner) for “no lock” path: expect derived embedding resolution to throw ingest-required error and VectorSearch to surface that error (file: `server/src/test/unit/chroma-embedding-selection.test.ts`).
-6. [ ] Add unit test (Node test runner) for “lock present + model available”: expect LM Studio embedding client invoked with locked model key; query proceeds (file: same).
-7. [ ] Add unit test (Node test runner) for “lock present but model missing”: expect EMBED_MODEL_MISSING error; LM Studio embed call should not proceed past missing check (file: same).
-8. [ ] Add unit test (Node test runner) for “collection recreated after drop with lock metadata restored”: after reset, embedding function is re-derived from metadata and used (file: same).
-9. [ ] Add chat VectorSearch integration test (Node test runner + supertest, `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`): when no lock, SSE returns ingest-required error; when lock + model available, tool call succeeds and invokes LM Studio embed with locked id.
-10. [ ] Update README.md (server/tooling section) to describe lock-derived embedding, removal of `INGEST_EMBED_MODEL`, VectorSearch error payloads/shapes, and the need to ingest before querying.
-11. [ ] Update design.md to show query-time embedding flow using locked model and the two error branches (no lock, model missing); update any sequence/flow diagrams accordingly.
-12. [ ] Update projectStructure.md to reflect any new/removed test files or configuration files touched in this task.
-13. [ ] Add a verification step: after changes, run a full ingest and a VectorSearch call (HTTP or chat tool) to confirm no “Embedding function must be defined” error; capture the expected log/message shape for the plan notes.
-14. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, and relevant server tool/ingest tests.
+1. [x] Update `server/src/ingest/chromaClient.ts` so `resolveEmbeddingFunction` (and collection creation) reads the vectors collection `lockedModelId` metadata set during ingest; remove any read of `INGEST_EMBED_MODEL`; ensure collection recreation still applies the derived embedding function.
+2. [x] Remove `INGEST_EMBED_MODEL` everywhere: delete from `server/.env` (and `.env` docs), remove any mention in README/design, and delete code references (`process.env.INGEST_EMBED_MODEL` or similar) to prevent configuration drift.
+3. [x] Implement explicit error when no lock exists (empty collection or never ingested): VectorSearch HTTP route and LM Studio tool should return a clear “INGEST_REQUIRED” style message (include status code/shape) before attempting query; add a log line noting the missing lock.
+4. [x] Implement explicit error when the locked model is unavailable in LM Studio: emit “EMBED_MODEL_MISSING” style error with model id in message; no silent fallback; log at warn/error with requestId.
+5. [x] Add unit test (Node test runner) for “no lock” path: expect derived embedding resolution to throw ingest-required error and VectorSearch to surface that error (file: `server/src/test/unit/chroma-embedding-selection.test.ts`).
+6. [x] Add unit test (Node test runner) for “lock present + model available”: expect LM Studio embedding client invoked with locked model key; query proceeds (file: same).
+7. [x] Add unit test (Node test runner) for “lock present but model missing”: expect EMBED_MODEL_MISSING error; LM Studio embed call should not proceed past missing check (file: same).
+8. [x] Add unit test (Node test runner) for “collection recreated after drop with lock metadata restored”: after reset, embedding function is re-derived from metadata and used (file: same).
+9. [x] Add chat VectorSearch integration test (Node test runner + supertest, `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`): when no lock, SSE returns ingest-required error; when lock + model available, tool call succeeds and invokes LM Studio embed with locked id.
+10. [x] Update README.md (server/tooling section) to describe lock-derived embedding, removal of `INGEST_EMBED_MODEL`, VectorSearch error payloads/shapes, and the need to ingest before querying.
+11. [x] Update design.md to show query-time embedding flow using locked model and the two error branches (no lock, model missing); update any sequence/flow diagrams accordingly.
+12. [x] Update projectStructure.md to reflect any new/removed test files or configuration files touched in this task.
+13. [x] Add a verification step: after changes, run a full ingest and a VectorSearch call (HTTP or chat tool) to confirm no “Embedding function must be defined” error; capture the expected log/message shape for the plan notes.
+14. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, and relevant server tool/ingest tests.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here
+- Swapped Chroma embedding resolution to derive strictly from the vectors collection `lockedModelId`, removing `INGEST_EMBED_MODEL`; added `IngestRequiredError`/`EmbedModelMissingError` with logging and optional embedding requirement per collection fetch.
+- Added LM Studio embedding verification (model lookup + embed) during vector search queries; host-path mapping unchanged. HTTP route now returns 409 `INGEST_REQUIRED` and 503 `EMBED_MODEL_MISSING` with requestId-aware logs.
+- New unit suite `chroma-embedding-selection.test.ts` covers no-lock, locked+present, locked+missing, and post-delete recreation scenarios; route unit test gains 409 ingest-required coverage.
+- New chat integration test `chat-vectorsearch-locked-model.test.ts` asserts SSE error on missing lock and tool-result + embedding-model invocation when locked; mocks Chroma/LM Studio to avoid network while still exercising embeddingFunction.generate.
+- Docs synced (README/design/projectStructure) to reflect lock-derived embedding, new error shapes, and new tests.
+- Verification: server unit/integration + Cucumber + e2e chat-tools flows now run without “Embedding function must be defined”; chat SSE returns `error: INGEST_REQUIRED` when unlocked and tool-result with `modelId` when locked. Resolved Zipkin port conflict (stopped old container) before rerunning server tests.

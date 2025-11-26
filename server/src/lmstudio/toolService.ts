@@ -1,5 +1,6 @@
 import path from 'path';
 import {
+  IngestRequiredError,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
@@ -216,6 +217,11 @@ export async function vectorSearch(
     getLockedModel,
   } = resolveDeps(deps);
 
+  const lockedModelId = await getLockedModel();
+  if (!lockedModelId) {
+    throw new IngestRequiredError();
+  }
+
   const roots = await rootsCollection();
   const rawRoots = await (roots as unknown as RootsGetter).get({
     include: ['metadatas'],
@@ -251,8 +257,9 @@ export async function vectorSearch(
     whereClause = { root: match.root };
   }
 
-  const collection =
-    (await getVectorsCollection()) as unknown as ChromaQueryable;
+  const collection = (await getVectorsCollection({
+    requireEmbedding: true,
+  })) as unknown as ChromaQueryable;
   const queryResult = await collection.query({
     queryTexts: [query],
     where: whereClause,
@@ -314,6 +321,6 @@ export async function vectorSearch(
     };
   });
 
-  const modelId = (await getLockedModel()) ?? null;
+  const modelId = lockedModelId ?? null;
   return { results, modelId };
 }

@@ -1,6 +1,10 @@
 import { tool } from '@lmstudio/sdk';
 import type { ToolCallContext } from '@lmstudio/sdk';
 import { z } from 'zod';
+import {
+  EmbedModelMissingError,
+  IngestRequiredError,
+} from '../ingest/chromaClient.js';
 import { baseLogger } from '../logger.js';
 import {
   RepoNotFoundError,
@@ -87,6 +91,14 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
         }
         if (err instanceof RepoNotFoundError) {
           throw new Error('REPO_NOT_FOUND');
+        }
+        if (err instanceof IngestRequiredError) {
+          throw new Error('INGEST_REQUIRED: run ingest before vector search');
+        }
+        if (err instanceof EmbedModelMissingError) {
+          throw new Error(
+            `EMBED_MODEL_MISSING: ${err.modelId} not available in LM Studio`,
+          );
         }
         throw err;
       }

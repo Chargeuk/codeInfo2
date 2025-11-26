@@ -139,7 +139,7 @@ test('caps limit to 20 and applies repository filter when provided', async () =>
   const res = await request(
     buildApp({
       roots: defaultRoots,
-      lockedModelId: null,
+      lockedModelId: 'text-embed',
       vectorsQuery: async (opts: {
         nResults?: number;
         where?: Record<string, unknown>;
@@ -156,4 +156,19 @@ test('caps limit to 20 and applies repository filter when provided', async () =>
   assert.equal(res.status, 200);
   assert.equal(capturedLimit, 20);
   assert.deepEqual(capturedWhere, { root: '/data/repo-one' });
+});
+
+test('returns 409 when no locked model is present', async () => {
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: null,
+      vectorsQuery: async () => ({}),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'needs ingest' });
+
+  assert.equal(res.status, 409);
+  assert.equal(res.body.error, 'INGEST_REQUIRED');
 });

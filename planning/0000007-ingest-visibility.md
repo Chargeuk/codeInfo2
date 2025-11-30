@@ -15,6 +15,12 @@ Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>a
 - Harmony/OpenAI channel-tagged outputs (e.g., `<|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>`) are parsed and rendered with the analysis content collapsed like think blocks and the final content shown as the visible reply.
 - Behaviour is documented in README/design with any new env flags or UI states; existing tests are expanded or added to cover the new visibility and markdown flows.
 
+### Harmony + Markdown coexistence
+- Parsing then rendering: detect think/Harmony channels first to split visible vs hidden; markdown-render only the visible “final” text, and optionally the hidden text when expanded.
+- Tool metadata stays structured (not markdown-rendered) to avoid mangling paths/ids; citations remain separate.
+- Streaming: accumulate analysis in the hidden buffer; start streaming/rendering markdown once `final` begins, re-render incrementally.
+- Security: sanitize markdown input before rendering; keep code fences/mermaid blocks intact.
+
 ## Out Of Scope
 - Changing ingest chunking/tokenization behaviour or performance tuning beyond exposing progress.
 - Adding new ingestion data sources or authentication flows.

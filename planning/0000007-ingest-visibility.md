@@ -74,30 +74,38 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 - MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
-1. [ ] Server: add `currentFile`, `fileIndex`, `fileTotal`, `percent`, `etaMs` to the ingest job state in `server/src/ingest/ingestJob.ts` (extend the status snapshot emitted by the polling loop); thread through `IngestStatus` type in `server/src/routes/ingestStart.ts` and include in `/ingest/status/:runId` JSON. Percent = `(fileIndex/fileTotal)*100` rounded to 1dp; etaMs optional when timing data exists.
-2. [ ] Client hook/UI: in `client/src/hooks/useIngestStatus.ts` extend the returned status shape; in `client/src/components/ingest/ActiveRunCard.tsx` render current path, `fileIndex/fileTotal`, percent, and ETA (format hh:mm:ss) under the existing state chip row; fall back to “Pending file info” when undefined.
-3. [ ] Server unit: add `server/src/test/unit/ingest-status.test.ts` covering status snapshot with the new fields (mock ingest job with total=3, index=1, path=`/repo/a.txt`, eta=1200).
-4. [ ] Server Cucumber: create `server/src/test/features/ingest-status.feature` + steps `server/src/test/steps/ingest-status.steps.ts` that start a run, step the mock LM Studio/Chroma, and assert `/ingest/status/:runId` includes path/index/total/percent/eta.
-5. [ ] Client RTL: add `client/src/test/ingestStatus.progress.test.tsx` using MSW to stub `/ingest/status/:runId` responses that change path and percent; assert UI updates text and progress.
-6. [ ] E2E: extend `e2e/ingest.spec.ts` (or new `e2e/ingest-progress.spec.ts`) using fixture path `/fixtures/repo`; assert percent increases and path changes at least once in the active run card.
-7. [ ] Docs: update `README.md` with status field names + example response.
-8. [ ] Docs: update `design.md` with per-file progress flow and mermaid diagram.
-9. [ ] Docs: update `projectStructure.md` if new files are added.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [x] Server: add `currentFile`, `fileIndex`, `fileTotal`, `percent`, `etaMs` to the ingest job state in `server/src/ingest/ingestJob.ts` (extend the status snapshot emitted by the polling loop); thread through `IngestStatus` type in `server/src/routes/ingestStart.ts` and include in `/ingest/status/:runId` JSON. Percent = `(fileIndex/fileTotal)*100` rounded to 1dp; etaMs optional when timing data exists.
+2. [x] Client hook/UI: in `client/src/hooks/useIngestStatus.ts` extend the returned status shape; in `client/src/components/ingest/ActiveRunCard.tsx` render current path, `fileIndex/fileTotal`, percent, and ETA (format hh:mm:ss) under the existing state chip row; fall back to “Pending file info” when undefined.
+3. [x] Server unit: add `server/src/test/unit/ingest-status.test.ts` covering status snapshot with the new fields (mock ingest job with total=3, index=1, path=`/repo/a.txt`, eta=1200).
+4. [x] Server Cucumber: create `server/src/test/features/ingest-status.feature` + steps `server/src/test/steps/ingest-status.steps.ts` that start a run, step the mock LM Studio/Chroma, and assert `/ingest/status/:runId` includes path/index/total/percent/eta.
+5. [x] Client RTL: add `client/src/test/ingestStatus.progress.test.tsx` using MSW to stub `/ingest/status/:runId` responses that change path and percent; assert UI updates text and progress.
+6. [x] E2E: extend `e2e/ingest.spec.ts` (or new `e2e/ingest-progress.spec.ts`) using fixture path `/fixtures/repo`; assert percent increases and path changes at least once in the active run card.
+7. [x] Docs: update `README.md` with status field names + example response.
+8. [x] Docs: update `design.md` with per-file progress flow and mermaid diagram.
+9. [x] Docs: update `projectStructure.md` if new files are added.
+10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 11. [ ] Execution order: server fields → server unit → Cucumber → client hook/UI → client RTL → e2e → docs → lint/format.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
--
+- Added per-file progress fields (currentFile, fileIndex, fileTotal, percent, etaMs) to ingest job status, updated status snapshots during embedding, and surfaced the shape through the ingest status route; percent follows fileIndex/fileTotal to 1dp and ETA derives from average completed-file duration.
+- Introduced test-only helpers to set/reset ingest statuses and added a unit test confirming the new progress fields round-trip via `getStatus`.
+- Added a Cucumber feature and steps to start an ingest run with mocked LM Studio, then assert the status API exposes file path/index/total/percent/eta fields during a run.
+- Extended the ingest status hook to return per-file progress fields and updated the ActiveRunCard UI to show current path, file index/total, percent, and formatted ETA with a fallback “Pending file info” state.
+- Added MSW-backed RTL coverage that stubs `/ingest/status/:runId` responses to verify the UI updates current file, percent, and ETA across polls.
+- Extended the ingest Playwright spec to assert the ActiveRun card shows changing file paths and increasing percent during a live ingest run.
+- Documented the new progress fields in README, added a telemetry sequence diagram in design.md, and refreshed projectStructure.md with the added tests.
+- Ran lint + prettier checks across workspaces after changes.
+- Ran builds/tests: server + client builds, server tests (pass), client tests (pass after Response polyfill), compose build/up/down, and Playwright e2e (ingest scenarios skipped by prereq guard, other specs passed).
 
 ---
 

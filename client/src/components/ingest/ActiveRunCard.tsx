@@ -24,6 +24,11 @@ export type ActiveRunCardProps = {
     embedded?: number;
     skipped?: number;
   };
+  currentFile?: string | null;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
   lastError?: string | null;
   message?: string | null;
   isLoading: boolean;
@@ -48,6 +53,11 @@ export default function ActiveRunCard({
   runId,
   status,
   counts,
+  currentFile,
+  fileIndex,
+  fileTotal,
+  percent,
+  etaMs,
   lastError,
   message,
   isLoading,
@@ -72,6 +82,14 @@ export default function ActiveRunCard({
           size="small"
         />
       </Stack>
+
+      <ProgressRow
+        currentFile={currentFile}
+        fileIndex={fileIndex}
+        fileTotal={fileTotal}
+        percent={percent}
+        etaMs={etaMs}
+      />
 
       <Stack direction="row" spacing={3} flexWrap="wrap">
         <Metric label="Files" value={counts?.files} />
@@ -129,6 +147,71 @@ function Metric({ label, value }: MetricProps) {
         {label}
       </Typography>
       <Typography variant="subtitle1">{value ?? '–'}</Typography>
+    </Stack>
+  );
+}
+
+type ProgressRowProps = {
+  currentFile?: string | null;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
+};
+
+function formatEta(etaMs?: number) {
+  if (etaMs === undefined || etaMs === null || Number.isNaN(etaMs)) return '–';
+  const totalSeconds = Math.max(0, Math.round(etaMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, '0');
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function ProgressRow({
+  currentFile,
+  fileIndex,
+  fileTotal,
+  percent,
+  etaMs,
+}: ProgressRowProps) {
+  const hasFileInfo = fileIndex !== undefined && fileTotal !== undefined;
+  const percentText = percent !== undefined ? `${percent.toFixed(1)}%` : '–';
+  const etaText = formatEta(etaMs);
+
+  if (
+    !hasFileInfo &&
+    !currentFile &&
+    percent === undefined &&
+    etaMs === undefined
+  ) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Pending file info
+      </Typography>
+    );
+  }
+
+  return (
+    <Stack spacing={0.25}>
+      <Typography variant="body2" color="text.secondary">
+        Current file
+      </Typography>
+      <Typography
+        variant="body1"
+        sx={{ wordBreak: 'break-all' }}
+        data-testid="ingest-current-file"
+      >
+        {currentFile ?? 'Unknown path'}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {hasFileInfo ? `${fileIndex} / ${fileTotal}` : '– / –'} · {percentText}{' '}
+        · ETA {etaText}
+      </Typography>
     </Stack>
   );
 }

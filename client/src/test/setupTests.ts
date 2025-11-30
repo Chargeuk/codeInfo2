@@ -12,6 +12,42 @@ if (!global.TextDecoder) {
   global.TextDecoder = TextDecoder;
 }
 
+if (!global.Response) {
+  class SimpleResponse {
+    status: number;
+    statusText: string;
+    headers: Headers;
+    private bodyValue: unknown;
+    constructor(body?: BodyInit | null, init: ResponseInit = {}) {
+      this.status = init.status ?? 200;
+      this.statusText = init.statusText ?? '';
+      // @ts-expect-error align with browser Headers type
+      this.headers = (init.headers as Headers) ?? new Headers();
+      this.bodyValue = body ?? null;
+    }
+    get ok() {
+      return this.status >= 200 && this.status < 300;
+    }
+    async json() {
+      if (typeof this.bodyValue === 'string') return JSON.parse(this.bodyValue);
+      return this.bodyValue;
+    }
+    async text() {
+      if (typeof this.bodyValue === 'string') return this.bodyValue;
+      return JSON.stringify(this.bodyValue ?? '');
+    }
+    clone() {
+      return new SimpleResponse(this.bodyValue as BodyInit, {
+        status: this.status,
+        statusText: this.statusText,
+        headers: this.headers,
+      });
+    }
+  }
+  // @ts-expect-error provide minimal Response polyfill for tests
+  global.Response = SimpleResponse;
+}
+
 if (!global.Headers) {
   class SimpleHeaders {
     private store = new Map<string, string>();

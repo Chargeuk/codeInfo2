@@ -41,6 +41,11 @@ export type IngestJobStatus = {
   counts: { files: number; chunks: number; embedded: number };
   message?: string;
   lastError?: string | null;
+  currentFile?: string;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
 };
 
 type Deps = {
@@ -173,11 +178,19 @@ async function processRun(runId: string, input: IngestJobInput) {
       return;
     }
     const counts = { files: files.length, chunks: 0, embedded: 0 };
+    const fileTotal = files.length;
+    const startedAt = Date.now();
+    let lastFileRelPath: string | undefined;
     jobs.set(runId, {
       ...status,
       state: 'embedding',
       counts,
       message: `Embedding ${files.length} files`,
+      currentFile: undefined,
+      fileIndex: 0,
+      fileTotal,
+      percent: 0,
+      etaMs: undefined,
     });
 
     const vectors = await getVectorsCollection();
@@ -231,7 +244,33 @@ async function processRun(runId: string, input: IngestJobInput) {
       clearBatch();
     };
 
-    for (const file of files) {
+    const progressSnapshot = (fileIndex: number, currentFile: string) => {
+      lastFileRelPath = currentFile;
+      const percent = Number(((fileIndex / fileTotal) * 100).toFixed(1));
+      const completed = Math.max(0, fileIndex - 1);
+      const elapsed = Date.now() - startedAt;
+      const averagePerFile = completed > 0 ? elapsed / completed : undefined;
+      const remaining = Math.max(0, fileTotal - completed);
+      const etaMs =
+        averagePerFile !== undefined
+          ? Math.max(0, Math.round(averagePerFile * remaining))
+          : undefined;
+
+      const currentStatus = jobs.get(runId);
+      if (!currentStatus) return;
+      jobs.set(runId, {
+        ...currentStatus,
+        currentFile,
+        fileIndex,
+        fileTotal,
+        percent,
+        etaMs,
+      });
+    };
+
+    for (const [idx, file] of files.entries()) {
+      const fileIndex = idx + 1;
+      progressSnapshot(fileIndex, file.relPath);
       if (cancelledRuns.has(runId)) {
         clearBatch();
         jobs.set(runId, {
@@ -240,6 +279,10 @@ async function processRun(runId: string, input: IngestJobInput) {
           counts,
           message: 'Cancelled',
           lastError: null,
+          currentFile: lastFileRelPath ?? file.relPath,
+          fileIndex,
+          fileTotal,
+          percent: Number(((fileIndex / fileTotal) * 100).toFixed(1)),
         });
         await deleteVectors({ where: { runId } });
         await deleteRoots({ where: { root } });
@@ -322,6 +365,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       if (filesSinceFlush >= ingestConfig.flushEvery) {
         await flushBatch();
       }
+      progressSnapshot(fileIndex, file.relPath);
     }
 
     await flushBatch();
@@ -359,6 +403,11 @@ async function processRun(runId: string, input: IngestJobInput) {
       counts,
       message: resultState === 'skipped' ? 'No changes detected' : 'Completed',
       lastError: null,
+      currentFile: lastFileRelPath,
+      fileIndex: fileTotal,
+      fileTotal,
+      percent: Number(((fileTotal / fileTotal) * 100).toFixed(1)),
+      etaMs: 0,
     });
     logLifecycle(
       'info',
@@ -445,6 +494,20 @@ export async function resetLocksIfEmpty() {
   if (await collectionIsEmpty()) {
     await clearLockedModel();
   }
+}
+
+export function __setStatusForTest(runId: string, status: IngestJobStatus) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('__setStatusForTest is only available in test mode');
+  }
+  jobs.set(runId, status);
+}
+
+export function __resetIngestJobsForTest() {
+  if (process.env.NODE_ENV !== 'test') return;
+  jobs.clear();
+  jobInputs.clear();
+  cancelledRuns.clear();
 }
 
 export async function cancelRun(runId: string) {

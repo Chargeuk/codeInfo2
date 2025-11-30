@@ -13,6 +13,14 @@ type IngestState =
   | 'cancelled'
   | 'error';
 
+type IngestProgress = {
+  currentFile?: string | null;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
+};
+
 type IngestCounts = {
   files?: number;
   chunks?: number;
@@ -26,6 +34,11 @@ type StatusResponse = {
   counts?: IngestCounts;
   lastError?: string | null;
   message?: string | null;
+  currentFile?: string | null;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
 };
 
 type Status = {
@@ -33,6 +46,11 @@ type Status = {
   counts?: IngestCounts;
   lastError?: string | null;
   message?: string | null;
+  currentFile?: string | null;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
   isLoading: boolean;
   isError: boolean;
   error?: string;
@@ -51,6 +69,7 @@ export function useIngestStatus(runId?: string): Status {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [isCancelling, setIsCancelling] = useState(false);
+  const [progress, setProgress] = useState<IngestProgress | undefined>();
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const activeController = useRef<AbortController | null>(null);
@@ -84,6 +103,13 @@ export function useIngestStatus(runId?: string): Status {
       setCounts(data.counts);
       setLastError(data.lastError);
       setMessage(data.message);
+      setProgress({
+        currentFile: data.currentFile,
+        fileIndex: data.fileIndex,
+        fileTotal: data.fileTotal,
+        percent: data.percent,
+        etaMs: data.etaMs,
+      });
       setIsError(false);
       setError(undefined);
       const isTerminal = terminalStates.includes(data.state);
@@ -109,6 +135,7 @@ export function useIngestStatus(runId?: string): Status {
     setCounts(undefined);
     setLastError(undefined);
     setMessage(undefined);
+    setProgress(undefined);
     setIsError(false);
     setError(undefined);
     if (runId) {
@@ -156,6 +183,7 @@ export function useIngestStatus(runId?: string): Status {
     message,
     ...flags,
     cancel,
+    ...progress,
   };
 }
 

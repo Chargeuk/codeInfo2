@@ -220,6 +220,24 @@ sequenceDiagram
   Server-->>Client: {state, counts, message, lastError?}
 ```
 
+#### Ingest progress telemetry
+
+- `/ingest/status/:runId` now includes `currentFile`, `fileIndex`, `fileTotal`, `percent` (1dp from `fileIndex/fileTotal`), and `etaMs` (ms, estimated from completed-file timing). Final snapshots keep the last processed path and percent 100.
+- The client renders these fields under the Active ingest header, formatting ETA as `hh:mm:ss` and falling back to “Pending file info” when progress data is absent.
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant API as /ingest/status
+  participant Job as Ingest job
+
+  UI->>API: poll status every ~2s
+  API->>Job: read latest snapshot
+  Job-->>API: state + counts + currentFile + fileIndex/fileTotal + percent + etaMs
+  API-->>UI: JSON status
+  UI-->>UI: render file path, index/total, percent, ETA
+```
+
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
 
 ### Ingest roots listing

@@ -84,6 +84,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
+|     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
 |     |     |- ingestRoots.test.tsx ? roots table + details drawer + actions coverage
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
@@ -177,6 +178,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-reembed.feature - re-embed scenarios
         - ingest-remove.feature - remove root scenarios
         - ingest-dryrun-no-write.feature - dry-run skip write scenarios
+        - ingest-status.feature - ingest status endpoint includes per-file progress fields
         - ingest-empty-drop-collection.feature - delete empty collection + re-ingest
 â”‚        â”œâ”€ steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
@@ -189,6 +191,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
         - ingest-start.steps.ts - step defs for ingest start/status
         - ingest-start-body.steps.ts - step defs for ingest body validation
+        - ingest-status.steps.ts - step defs for ingest status progress fields
         - ingest-roots-metadata.steps.ts - step defs for roots metadata
         - ingest-logging.steps.ts - step defs for ingest lifecycle logging
         - ingest-batch-flush.steps.ts - step defs for batched Chroma flush
@@ -207,6 +210,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
 â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
+â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/

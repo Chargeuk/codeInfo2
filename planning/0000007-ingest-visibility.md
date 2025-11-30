@@ -9,6 +9,7 @@ Improve observability during ingest and chat so users see which files are being 
 - Completed tool calls collapse into an inline expandable section that reveals the tool name, result payload, and errors (if any); for VectorSearch this includes the list of chunks and the list of files/paths returned.
 - VectorSearch results displayed in chat include the repo and relative file paths used for grounding; users can see which files informed the answer.
 - Assistant messages render as markdown, preserving code blocks and allowing mermaid diagrams to display correctly in the client.
+- `<think>` content stays collapsed as soon as the opening tag is seen, even before the closing tag arrives; while streaming, show a thinking icon + spinner on the collapsible header, and allow users to open it to watch the think text stream.
 - Behaviour is documented in README/design with any new env flags or UI states; existing tests are expanded or added to cover the new visibility and markdown flows.
 
 ## Out Of Scope

@@ -3,7 +3,7 @@
 ## Description
 Improve observability during ingest and chat so users see which files are being processed and how tool calls drive answers. While ingest runs, expose per-file progress instead of only chunk counts so long runs feel transparent and debuggable. During chat, surface tool invocation moments and show which files/vector results informed the reply. Finally, format assistant responses as markdown (with mermaid support) to make structured answers and diagrams easy to consume.
 
-Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>`), treating `analysis` as hidden/collapsible reasoning (like `<think>`) and `final` as the visible reply, even while streaming.
+Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>` — see https://cookbook.openai.com/articles/openai-harmony), treating `analysis` as hidden/collapsible reasoning (like `<think>`) and `final` as the visible reply, even while streaming.
 
 ## Acceptance Criteria
 - Ingest UI and API expose the current file path being processed (in addition to chunk counts) and update it live during a run.

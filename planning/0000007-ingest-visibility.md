@@ -179,30 +179,33 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 - MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
-1. [ ] Parser rules (in `client/src/hooks/useChatStream.ts` or helper module): maintain two buffers `analysisHidden`, `finalVisible`; on `<think>` open or Harmony `analysis` channel, stream tokens into `analysisHidden` (keep collapsed); when Harmony `final` channel or plain tokens after think close arrive, stream into `finalVisible`; allow interleaved tokens and re-render incrementally.
-2. [ ] UI: in `client/src/pages/ChatPage.tsx` render a collapsible “Thought process” header with spinner while analysis is streaming; show hidden text when expanded, visible markdown uses final buffer only.
-3. [ ] Client RTL: `client/src/test/chatPage.reasoning.test.tsx` simulates streamed Harmony text `<|channel|>analysis<|message|>Need answer: Neil Armstrong.<|end|><|start|>assistant<|channel|>final<|message|>He was the first person on the Moon.`; assert header is collapsed by default with spinner during analysis and final text appears separately.
-4. [ ] Client unit: `client/src/test/useChatStream.reasoning.test.ts` validates parser splits buffers for the same Harmony sample plus a `<think>...` sample.
-5. [ ] Server tests: only if server emits structured Harmony hints—otherwise skip.
-6. [ ] E2E: `e2e/chat-reasoning.spec.ts` streams Harmony frames for prompt “Tell me about the first moon landing”; assert collapsed analysis + visible final; take screenshot.
-7. [ ] Docs: update `README.md` with reasoning collapse behaviour (think + Harmony).
-8. [ ] Docs: update `design.md` with parser state machine bullets and mermaid diagram.
-9. [ ] Docs: update `projectStructure.md` if a helper module is added.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [x] Parser rules (in `client/src/hooks/useChatStream.ts` or helper module): maintain two buffers `analysisHidden`, `finalVisible`; on `<think>` open or Harmony `analysis` channel, stream tokens into `analysisHidden` (keep collapsed); when Harmony `final` channel or plain tokens after think close arrive, stream into `finalVisible`; allow interleaved tokens and re-render incrementally.
+2. [x] UI: in `client/src/pages/ChatPage.tsx` render a collapsible “Thought process” header with spinner while analysis is streaming; show hidden text when expanded, visible markdown uses final buffer only.
+3. [x] Client RTL: `client/src/test/chatPage.reasoning.test.tsx` simulates streamed Harmony text `<|channel|>analysis<|message|>Need answer: Neil Armstrong.<|end|><|start|>assistant<|channel|>final<|message|>He was the first person on the Moon.`; assert header is collapsed by default with spinner during analysis and final text appears separately.
+4. [x] Client unit: `client/src/test/useChatStream.reasoning.test.ts` validates parser splits buffers for the same Harmony sample plus a `<think>...` sample.
+5. [x] Server tests: only if server emits structured Harmony hints—otherwise skip (not needed, server unchanged).
+6. [x] E2E: `e2e/chat-reasoning.spec.ts` streams Harmony frames for prompt “Tell me about the first moon landing”; assert collapsed analysis + visible final; take screenshot.
+7. [x] Docs: update `README.md` with reasoning collapse behaviour (think + Harmony).
+8. [x] Docs: update `design.md` with parser state machine bullets and mermaid diagram.
+9. [x] Docs: update `projectStructure.md` if a helper module is added.
+10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 11. [ ] Order: parser → UI → client tests → server tests (if any) → e2e → docs → lint/format.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
--
+- Added a streaming reasoning parser in `useChatStream` that tracks separate analysis/final buffers, buffers control tokens (<think>, Harmony channels) with a lookback window to avoid leaking partial markers, and surfaces a `thinkStreaming` flag so the UI can show in-flight reasoning without mixing it into the visible reply. Tool handling and citations remain unchanged, and pending buffers flush on completion while stopping the spinner.
+- Chat UI now renders a “Thought process” row whenever analysis is present or streaming, showing a spinner while streaming and letting users toggle the hidden text; visible reply uses only the final buffer. Tool visibility and citations remain as before.
+- Added tests: hook-level reasoning parsing (Harmony + <think>), RTL chat reasoning flow, and a Playwright e2e spec for Harmony reasoning collapse; adjusted the e2e to rely on the thought toggle rather than spinner timing. Project structure/README/design updated accordingly.
+- Ran server/client builds, server/client tests, compose build/up/down, and e2e (all passing after the new reasoning checks). Lint and format checks now clean.
 
 ---
 

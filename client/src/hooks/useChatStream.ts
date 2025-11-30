@@ -7,6 +7,7 @@ export type ChatMessage = {
   content: string;
   kind?: 'error' | 'status';
   think?: string;
+  thinkStreaming?: boolean;
   citations?: ToolCitation[];
   tools?: ToolCall[];
 };
@@ -55,6 +56,150 @@ const serverBase =
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+
+type ReasoningState = {
+  pending: string;
+  mode: 'final' | 'analysis';
+  analysis: string;
+  final: string;
+  analysisStreaming: boolean;
+};
+
+const controlTokens = [
+  {
+    token: '<|start|>assistant<|channel|>final<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|channel|>analysis<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'analysis';
+      state.analysisStreaming = true;
+    },
+  },
+  {
+    token: '<|channel|>final<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<think>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'analysis';
+      state.analysisStreaming = true;
+    },
+  },
+  {
+    token: '</think>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|start|>assistant',
+    onHit: (state: ReasoningState) => {
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|end|>',
+    onHit: () => {},
+  },
+];
+
+const maxMarkerLength = controlTokens.reduce(
+  (max, token) => Math.max(max, token.token.length),
+  0,
+);
+
+const maxLookback = Math.max(maxMarkerLength - 1, 0);
+
+const initialReasoningState = (): ReasoningState => ({
+  pending: '',
+  mode: 'final',
+  analysis: '',
+  final: '',
+  analysisStreaming: false,
+});
+
+const parseReasoning = (
+  current: ReasoningState,
+  chunk: string,
+  { flushAll = false }: { flushAll?: boolean } = {},
+): ReasoningState => {
+  let pending = current.pending + chunk;
+  let analysis = current.analysis;
+  let final = current.final;
+  let mode = current.mode;
+  let analysisStreaming = current.analysisStreaming;
+
+  const appendText = (text: string) => {
+    if (!text) return;
+    if (mode === 'analysis') {
+      analysis += text;
+    } else {
+      final += text;
+    }
+  };
+
+  while (pending.length) {
+    let nearest: { idx: number; token: (typeof controlTokens)[number] } | null =
+      null;
+
+    for (const token of controlTokens) {
+      const idx = pending.indexOf(token.token);
+      if (idx === -1) continue;
+      if (
+        nearest === null ||
+        idx < nearest.idx ||
+        (idx === nearest.idx &&
+          token.token.length > (nearest.token?.token.length ?? 0))
+      ) {
+        nearest = { idx, token };
+      }
+    }
+
+    if (!nearest) {
+      if (flushAll) {
+        appendText(pending);
+        pending = '';
+      } else if (pending.length > maxLookback) {
+        const emitLen = pending.length - maxLookback;
+        appendText(pending.slice(0, emitLen));
+        pending = pending.slice(emitLen);
+      }
+      break;
+    }
+
+    const prefix = pending.slice(0, nearest.idx);
+    appendText(prefix);
+    pending = pending.slice(nearest.idx + nearest.token.token.length);
+
+    const tokenState = {
+      pending: '',
+      mode,
+      analysis,
+      final,
+      analysisStreaming,
+    };
+    nearest.token.onHit(tokenState);
+    ({ mode, analysis, final, analysisStreaming } = tokenState);
+  }
+
+  return {
+    pending,
+    mode,
+    analysis,
+    final,
+    analysisStreaming,
+  };
+};
 
 const isToolEvent = (
   event: StreamEvent,
@@ -128,16 +273,6 @@ export function useChatStream(model?: string) {
     [updateMessages],
   );
 
-  const extractThink = (text: string) => {
-    const match = text.match(/<think>([\s\S]*?)<\/think>/i);
-    if (!match) {
-      return { visible: text.trim(), think: undefined };
-    }
-    const think = match[1]?.trim() ?? '';
-    const visible = text.replace(match[0], '').trim();
-    return { visible, think: think.length ? think : undefined };
-  };
-
   const extractCitations = useCallback((result: unknown): ToolCitation[] => {
     const payload =
       result && typeof result === 'object' && 'results' in result
@@ -196,8 +331,7 @@ export function useChatStream(model?: string) {
         .map((msg) => ({ role: msg.role, content: msg.content }));
 
       const assistantId = makeId();
-      let assistantContent = '';
-      let assistantThink: string | undefined;
+      let reasoning = initialReasoningState();
       let assistantCitations: ToolCitation[] = [];
       let assistantTools: ToolCall[] = [];
 
@@ -205,6 +339,22 @@ export function useChatStream(model?: string) {
         ...prev,
         { id: assistantId, role: 'assistant', content: '' },
       ]);
+
+      const applyReasoning = (next: ReasoningState) => {
+        reasoning = next;
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  content: next.final,
+                  think: next.analysis || undefined,
+                  thinkStreaming: next.analysisStreaming,
+                }
+              : msg,
+          ),
+        );
+      };
 
       const appendCitations = (incoming: ToolCitation[]) => {
         if (!incoming.length) return;
@@ -266,19 +416,6 @@ export function useChatStream(model?: string) {
         const decoder = new TextDecoder();
         let buffer = '';
 
-        const flushAssistant = (content: string) => {
-          assistantContent = content;
-          const { visible, think } = extractThink(content);
-          assistantThink = think;
-          updateMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId
-                ? { ...msg, content: visible, think: assistantThink }
-                : msg,
-            ),
-          );
-        };
-
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -328,12 +465,26 @@ export function useChatStream(model?: string) {
                 continue;
               }
               if (event.type === 'token' && typeof event.content === 'string') {
-                flushAssistant(assistantContent + event.content);
+                applyReasoning(
+                  parseReasoning(reasoning, event.content, {
+                    flushAll: false,
+                  }),
+                );
               } else if (
                 event.type === 'final' &&
                 typeof event.message?.content === 'string'
               ) {
-                flushAssistant(event.message.content);
+                applyReasoning(
+                  parseReasoning(
+                    initialReasoningState(),
+                    event.message.content,
+                    { flushAll: true },
+                  ),
+                );
+              } else if (event.type === 'final') {
+                applyReasoning(
+                  parseReasoning(reasoning, '', { flushAll: true }),
+                );
               } else if (event.type === 'error') {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
@@ -341,6 +492,10 @@ export function useChatStream(model?: string) {
                 setIsStreaming(false);
                 setStatus('idle');
               } else if (event.type === 'complete') {
+                const completed = parseReasoning(reasoning, '', {
+                  flushAll: true,
+                });
+                applyReasoning({ ...completed, analysisStreaming: false });
                 setIsStreaming(false);
                 setStatus('idle');
               }

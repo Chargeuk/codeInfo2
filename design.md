@@ -55,6 +55,13 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
 
+### Reasoning collapse (think + Harmony)
+
+- The chat stream parser keeps two buffers per assistant turn: a hidden `analysis` buffer and a visible `final` buffer, plus a `mode` flag (`analysis` or `final`) and `analysisStreaming` to drive the spinner.
+- Control tokens stripped from the output include `<think>...</think>`, `<|channel|>analysis<|message|>`, `<|channel|>final<|message|>`, `<|start|>assistant...`, and `<|end|>`. Text before/after a marker is routed to the active buffer.
+- As soon as an analysis marker appears, the UI shows a collapsed “Thought process” row with a spinner; users can expand it mid-stream to watch reasoning accumulate. Switching to a final marker stops the spinner and streams visible text separately.
+- Partial marker fragments are buffered (lookback equals the longest marker length) so split tokens do not leak control strings into the rendered output.
+
 ```mermaid
 sequenceDiagram
   participant User

@@ -478,13 +478,20 @@ export default function ChatPage() {
                             )}
                           </Stack>
                         )}
-                        {message.think && (
+                        {(message.thinkStreaming || message.think) && (
                           <Box mt={1}>
                             <Stack
                               direction="row"
                               alignItems="center"
                               gap={0.5}
                             >
+                              {message.thinkStreaming && (
+                                <CircularProgress
+                                  size={12}
+                                  color="inherit"
+                                  data-testid="think-spinner"
+                                />
+                              )}
                               <Typography
                                 variant="caption"
                                 color="text.secondary"

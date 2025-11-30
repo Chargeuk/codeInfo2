@@ -83,6 +83,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
+|     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
@@ -91,6 +92,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests
 |     |     |- setupTests.ts ? Jest/test setup
+|     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
 |     |     |- useLmStudioStatus.test.ts ? hook tests
 |     |     |- useLogs.test.ts ? log fetch + SSE hook tests
 |     |     - version.test.tsx ? version card test
@@ -113,6 +115,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
+â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e

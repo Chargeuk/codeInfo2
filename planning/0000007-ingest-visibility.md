@@ -111,7 +111,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 
 ### 2. Chat tool-call visibility
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

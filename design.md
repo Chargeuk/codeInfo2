@@ -48,6 +48,12 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
 
+### Chat citations UI
+
+- `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
+- Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
+- Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
+
 ```mermaid
 sequenceDiagram
   participant User
@@ -157,18 +163,33 @@ sequenceDiagram
 
 - LM Studio clients are pooled by base URL (`server/src/lmstudio/clientPool.ts`) so chat, ingest, and proxy routes reuse a single connection per origin. Pool entries close on SIGINT/SIGTERM via hooks in `server/src/index.ts` to avoid lingering sockets.
 
+### LM Studio tools (chat wiring)
+
+- Tools are defined in `server/src/lmstudio/tools.ts` and reuse shared helpers in `server/src/lmstudio/toolService.ts` so HTTP tooling endpoints and chat share the same provenance/path mapping. `ListIngestedRepositories` has no inputs; `VectorSearch` accepts `query`, optional `repository`, and `limit` (default 5, max 20).
+- Chat registers both tools alongside the noop tool; `VectorSearch` returns repo id, relPath, containerPath, hostPath, chunk text, score, chunkId, and modelId for inline citations. Validation/unknown-repo errors are surfaced as tool errors to the model. VectorSearch derives its embedding function from the vectors collection `lockedModelId`; if no lock exists the tool and HTTP endpoint return `INGEST_REQUIRED`, and if the locked model is unavailable in LM Studio they return `EMBED_MODEL_MISSING` rather than silently falling back.
+- Logging: each tool execution emits a `chat tool usage` entry with requestId/baseUrl/model plus tool name, repository scope, limit, result count, and modelId; payload bodies are not logged.
+
 ### Ingest models fetch
 
 - Endpoint: `GET /ingest/models` (server proxy to LM Studio). Returns embedding-only models plus optional `lockedModelId` when the shared collection is locked.
 - Response example:
+
 ```json
 {
   "models": [
-    {"id":"embed-1","displayName":"all-MiniLM","contextLength":2048,"format":"gguf","size":145000000,"filename":"all-mini.gguf"}
+    {
+      "id": "embed-1",
+      "displayName": "all-MiniLM",
+      "contextLength": 2048,
+      "format": "gguf",
+      "size": 145000000,
+      "filename": "all-mini.gguf"
+    }
   ],
   "lockedModelId": null
 }
 ```
+
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
 
 ### Ingest start/status flow
@@ -216,7 +237,7 @@ sequenceDiagram
         "model": "embed-1",
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
-        "counts": {"files":3,"chunks":12,"embedded":12},
+        "counts": { "files": 3, "chunks": 12, "embedded": 12 },
         "lastError": null
       }
     ],
@@ -313,7 +334,7 @@ sequenceDiagram
       Server->>LM: cancel prediction via AbortController/ongoing.cancel()
       Server-->>Client: SSE stream ends without final/complete
     end
-  ```
+```
 
 ### Stop control
 
@@ -338,10 +359,16 @@ sequenceDiagram
   Server-->>Server: log {reason:"client_disconnect"}
 ```
 
+### Agent tooling (Chroma list + search)
+
+- `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
+- `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`; the response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
 - Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
+- Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks chat SSE with the returned chunk, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
 - Dedicated e2e stack: `docker-compose.e2e.yml` runs client (6001), server (6010), and Chroma (8800) with an isolated `chroma-e2e-data` volume and a mounted fixture repo at `/fixtures`. Scripts `compose:e2e:*` wrap build/up/down. Ingest e2e specs (`e2e/ingest.spec.ts`) exercise happy path, cancel, re-embed, and remove; they auto-skip when LM Studio/models are unavailable.
@@ -440,4 +467,3 @@ flowchart LR
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
 ```
-

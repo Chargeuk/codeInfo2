@@ -79,6 +79,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
+|     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
+|     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
@@ -106,8 +108,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ e2e/ â€” Playwright specs
 â”‚  â”œâ”€ fixtures/
 â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
-â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file
+â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
+â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e
@@ -141,6 +144,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ ingestReembed.ts — POST /ingest/reembed/:root re-runs ingest for a stored root
 â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
+â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
+â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
@@ -150,10 +155,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
 â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
 â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
+â”‚     â”‚  â”œâ”€ pathMap.ts — maps container ingest paths to host paths for tooling responses
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
 â”‚     â”œâ”€ lmstudio/
-â”‚     â”‚  â””â”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
+â”‚     â”‚  â”œâ”€ clientPool.ts â€” pooled LM Studio clients with closeAll/reset helpers
+â”‚     â”‚  â”œâ”€ toolService.ts â€” shared helpers for LM Studio tools + tooling routes (list/search)
+â”‚     â”‚  â””â”€ tools.ts â€” LM Studio tool schemas for list/vector search used by chat
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
@@ -194,7 +202,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
 â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
 â”‚           â”œâ”€ hashing.test.ts â€” deterministic hashing coverage
-â”‚           â””â”€ clientPool.test.ts â€” LM Studio client pooling + closeAll behaviour
+â”‚           â”œâ”€ clientPool.test.ts â€” LM Studio client pooling + closeAll behaviour
+â”‚           â”œâ”€ pathMap.test.ts â€” host/container path mapping helper coverage
+â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
+â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
+â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
+â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
+â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
+â”‚        â”œâ”€ integration/
+â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route SSE wiring with mocked LM Studio tools
+â”‚        |  â””â”€ chat-vectorsearch-locked-model.test.ts â€” chat SSE error/success flows when vector search lock/enbedding availability changes
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/
@@ -217,8 +234,6 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â””â”€ prepare-commit-msg â€” hook stub
 â””â”€ .husky/pre-commit â€” root hook invoking lint-staged (already listed above for clarity)
 ```
-
-
 
 - Added ingest routes/tests:
   - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId

@@ -64,14 +64,13 @@ Hereâ€™s the streaming approach weâ€™ll use:
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
-
 ## Tasks
 
 ### 1. Server Models Endpoint
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
+- Task Status: **in_progress**
 - Git Commits: 9a6c1c7, 0aac90f
 
 #### Overview
@@ -100,14 +99,16 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 **Implementation scaffolds (for juniors)**
+
 - Hook idea `client/src/hooks/useChatStream.ts`:
+
   ```ts
   import { useEffect, useRef, useState } from 'react';
 
   export function useChatStream(model: string | undefined) {
     const controllerRef = useRef<AbortController | null>(null);
     const [messages, setMessages] = useState([]);
-    const [status, setStatus] = useState<'idle'|'sending'|'error'>('idle');
+    const [status, setStatus] = useState<'idle' | 'sending' | 'error'>('idle');
 
     const send = async (text: string) => {
       if (!model) return;
@@ -115,12 +116,15 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
       const controller = new AbortController();
       controllerRef.current = controller;
       setStatus('sending');
-      setMessages(prev => [...prev, { role: 'user', content: text }]);
+      setMessages((prev) => [...prev, { role: 'user', content: text }]);
 
       const res = await fetch(`${import.meta.env.VITE_API_URL}/chat`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ model, messages: [...messages, { role: 'user', content: text }] }),
+        body: JSON.stringify({
+          model,
+          messages: [...messages, { role: 'user', content: text }],
+        }),
         signal: controller.signal,
       });
 
@@ -132,7 +136,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
         const chunk = await reader.read();
         if (chunk.done) break;
         buffer += decoder.decode(chunk.value, { stream: true });
-        buffer.split('\n\n').forEach(line => {
+        buffer.split('\n\n').forEach((line) => {
           if (line.startsWith('data:')) {
             const payload = JSON.parse(line.slice(5).trim());
             if (payload.type === 'token') assistant += payload.content;
@@ -140,23 +144,44 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
             if (payload.type === 'error') setStatus('error');
           }
         });
-        setMessages(prev => [...prev.filter(m => m.role !== 'assistant-temp'), { role: 'assistant-temp', content: assistant }]);
+        setMessages((prev) => [
+          ...prev.filter((m) => m.role !== 'assistant-temp'),
+          { role: 'assistant-temp', content: assistant },
+        ]);
       }
-      setMessages(prev => [...prev.filter(m => m.role !== 'assistant-temp'), { role: 'assistant', content: assistant }]);
+      setMessages((prev) => [
+        ...prev.filter((m) => m.role !== 'assistant-temp'),
+        { role: 'assistant', content: assistant },
+      ]);
       setStatus('idle');
     };
 
     useEffect(() => () => controllerRef.current?.abort(), []);
 
-    return { send, messages, status, stop: () => controllerRef.current?.abort() };
+    return {
+      send,
+      messages,
+      status,
+      stop: () => controllerRef.current?.abort(),
+    };
   }
   ```
+
 - Bubble rendering (inverted order: newest near top controls):
   ```tsx
   <Stack spacing={1} sx={{ flexDirection: 'column' }}>
     {[...messages].reverse().map((m, idx) => (
-      <Box key={idx} sx={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-        <Paper sx={{ p: 1.5, bgcolor: m.role === 'user' ? 'primary.main' : 'background.paper', color: m.role === 'user' ? 'primary.contrastText' : 'text.primary' }}>
+      <Box
+        key={idx}
+        sx={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start' }}
+      >
+        <Paper
+          sx={{
+            p: 1.5,
+            bgcolor: m.role === 'user' ? 'primary.main' : 'background.paper',
+            color: m.role === 'user' ? 'primary.contrastText' : 'text.primary',
+          }}
+        >
           <Typography variant="body2">{m.content}</Typography>
         </Paper>
       </Box>
@@ -166,36 +191,48 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 - Error bubble example: push `{ role: 'assistant', content: 'Error: ...', error: true }` and style with `color="error.main"`.
 
 **Commands (copy/paste)**
+
 - Focused client test: `npm run test --workspace client -- chat`
 - Manual streaming check: open `/chat`, select model, type â€œhelloâ€, observe token streaming.
 
 **Implementation scaffolds (for juniors)**
+
 - Files to create/update:
   - `client/src/pages/ChatPage.tsx`
   - `client/src/hooks/useChatModel.ts`
   - Add route/tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`
 - Hook idea `useChatModel.ts`:
+
   ```ts
   import { useEffect, useState } from 'react';
 
   export function useChatModel() {
     const [models, setModels] = useState([]);
     const [selected, setSelected] = useState<string | undefined>();
-    const [status, setStatus] = useState<'idle'|'loading'|'error'>('idle');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
 
     useEffect(() => {
       let cancelled = false;
       setStatus('loading');
       fetch(`${import.meta.env.VITE_API_URL}/chat/models`)
-        .then(r => r.json())
-        .then(data => { if (!cancelled) { setModels(data); setSelected(data[0]?.key); setStatus('idle'); } })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled) {
+            setModels(data);
+            setSelected(data[0]?.key);
+            setStatus('idle');
+          }
+        })
         .catch(() => !cancelled && setStatus('error'));
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, []);
 
     return { models, selected, setSelected, status };
   }
   ```
+
 - Layout suggestion for `ChatPage.tsx` (inverted):
   ```tsx
   return (
@@ -220,11 +257,14 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 - State/error cues: show `CircularProgress` for loading; `Alert` for errors; `Typography` for empty state when models=[].
 
 **Commands (copy/paste)**
+
 - Run client tests only: `npm run test --workspace client -- ChatPage`
 - Manual UI check: `npm run dev --workspace client` then open `http://localhost:5001/chat`
 
 **Implementation scaffolds (for juniors)**
+
 - Route file: `server/src/routes/chat.ts`
+
   ```ts
   import { Router } from 'express';
   import { logger } from '../logger';
@@ -238,34 +278,49 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
     try {
       const ongoing = await lmstudio.getModel(model).act({
         messages,
-        tools: [{
-          name: 'noop',
-          description: 'does nothing',
-          execute: async () => ({ result: 'noop' }),
-        }],
+        tools: [
+          {
+            name: 'noop',
+            description: 'does nothing',
+            execute: async () => ({ result: 'noop' }),
+          },
+        ],
         allowParallelToolExecution: false,
       });
 
       for await (const event of ongoing) {
         if (event.type === 'predictionFragment') {
-          writeEvent(res, { type: 'token', content: event.content, roundIndex: event.roundIndex });
+          writeEvent(res, {
+            type: 'token',
+            content: event.content,
+            roundIndex: event.roundIndex,
+          });
         }
         if (event.type === 'message') {
-          writeEvent(res, { type: 'final', message: event.message, roundIndex: event.roundIndex });
+          writeEvent(res, {
+            type: 'final',
+            message: event.message,
+            roundIndex: event.roundIndex,
+          });
         }
       }
       writeEvent(res, { type: 'complete' });
       endStream(res);
     } catch (err: any) {
       logger.error({ err }, 'chat stream error');
-      writeEvent(res, { type: 'error', message: err?.message ?? 'unknown error' });
+      writeEvent(res, {
+        type: 'error',
+        message: err?.message ?? 'unknown error',
+      });
       endStream(res);
     }
   });
 
   export default router;
   ```
+
 - Stream helper skeleton `server/src/chatStream.ts`:
+
   ```ts
   import { Response } from 'express';
 
@@ -282,24 +337,34 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
   export const endStream = (res: Response) => res.end();
   ```
+
 - Tool event mapping hint:
   ```ts
   if (event.type === 'toolCallRequestStart') {
-    writeEvent(res, { type: 'tool-request', callId: event.callId, roundIndex: event.roundIndex });
+    writeEvent(res, {
+      type: 'tool-request',
+      callId: event.callId,
+      roundIndex: event.roundIndex,
+    });
   }
   ```
 - Cucumber step outline for streaming:
   ```ts
   When('I start a chat stream', async () => {
-    res = await fetch(`${baseUrl}/chat`, { method: 'POST', body: JSON.stringify(body), headers });
+    res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers,
+    });
     chunks = await collectSse(res);
   });
   Then('I see a token event', () => {
-    assert.ok(chunks.find(c => c.type === 'token'));
+    assert.ok(chunks.find((c) => c.type === 'token'));
   });
   ```
 
 **SSE payload examples**
+
 - Happy path:
   - `data: {"type":"token","content":"Hello","roundIndex":0}`
   - `data: {"type":"final","message":{"role":"assistant","content":"Hello"},"roundIndex":0}`
@@ -307,6 +372,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 - Error path: `data: {"type":"error","message":"lmstudio unavailable"}` then stream ends.
 
 **Commands (copy/paste)**
+
 - Run single feature: `npm run test --workspace server -- --name "chat stream"`
 - Manual curl (replace payload):
   ```sh
@@ -316,7 +382,9 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
   ```
 
 **Implementation scaffolds (for juniors)**
+
 - Suggested file: `server/src/routes/chatModels.ts`
+
   ```ts
   import { Router } from 'express';
   import { lmstudio } from '../lmstudioClient'; // adjust import to actual helper
@@ -328,7 +396,13 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
     try {
       const models = await lmstudio.listDownloadedModels();
       logger.info({ models: models.length }, 'chat models fetched');
-      res.json(models.map(m => ({ key: m.modelKey, displayName: m.displayName, type: m.type })));
+      res.json(
+        models.map((m) => ({
+          key: m.modelKey,
+          displayName: m.displayName,
+          type: m.type,
+        })),
+      );
     } catch (err: any) {
       logger.error({ err }, 'chat models failed');
       res.status(503).json({ error: err?.message ?? 'lmstudio unavailable' });
@@ -337,6 +411,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
   export default router;
   ```
+
 - Register in `server/src/index.ts`:
   ```ts
   import chatModelsRouter from './routes/chatModels.js';
@@ -355,7 +430,9 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 - Mock toggle idea in `server/src/test/support/mockLmStudioSdk.ts`:
   ```ts
   let failModels = false;
-  export const setModelsFail = (val: boolean) => { failModels = val; };
+  export const setModelsFail = (val: boolean) => {
+    failModels = val;
+  };
   export const lmstudio = {
     listDownloadedModels: async () => {
       if (failModels) throw new Error('lmstudio down');
@@ -365,6 +442,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
   ```
 
 **Commands (copy/paste)**
+
 - Run single feature: `npm run test --workspace server -- --name "chat models"`
 - Start server for manual curl with mock enabled (if needed): `npm run dev --workspace server`
 - Manual check: `curl http://localhost:5010/chat/models`
@@ -379,6 +457,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 6. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added /chat/models route with sanitized base URL, start/success/failure logging, and 503 fallback when LM Studio is unreachable.
 - Shared chat model fixture lives in common and feeds the LM Studio mock for Cucumber coverage.
 - New chat_models feature/steps validate success and failure; reran server tests, server/client builds, and compose build/up/down successfully.
@@ -393,7 +472,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits: a3f3019, 6270e34
 
 #### Overview
@@ -429,7 +508,8 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
      res.setHeader('Connection', 'keep-alive');
      res.write(':\n\n');
    }
-   export const writeEvent = (res, payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+   export const writeEvent = (res, payload) =>
+     res.write(`data: ${JSON.stringify(payload)}\n\n`);
    export const endStream = (res) => res.end();
    ```
 4. [x] Register the route in `server/src/index.ts` under `/chat`; reuse existing middleware (body parser, logger) and guard payload size using existing limits.
@@ -462,7 +542,7 @@ Implement the streaming `/chat` POST using LM Studio `.act()` with a dummy tool,
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 9a6c1c7, 0aac90f, afab79a
 
 #### Overview
@@ -491,6 +571,7 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 **Implementation scaffolds (for juniors)**
+
 - Playwright snippet extension target for chat (can live in `e2e/chat.spec.ts`):
   ```ts
   test('chat streams', async ({ page }) => {
@@ -505,25 +586,42 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 - Screenshot reminder: run Playwright with `--output test-results` and save files to `test-results/screenshots/0000004-8-*.png`.
 
 **Commands (copy/paste)**
+
 - Run only chat e2e: `E2E_BASE_URL=http://localhost:5001 npx playwright test e2e/chat.spec.ts`
 - Save screenshots from UI manually if needed: in Playwright test add `await page.screenshot({ path: 'test-results/screenshots/0000004-8-normal.png', fullPage: true });`
 
 **Implementation scaffolds (for juniors)**
+
 - Stop button near send:
   ```tsx
-  <Button variant="text" color="secondary" onClick={stop} disabled={status !== 'sending'}>Stop</Button>
+  <Button
+    variant="text"
+    color="secondary"
+    onClick={stop}
+    disabled={status !== 'sending'}
+  >
+    Stop
+  </Button>
   ```
 - Client abort wiring: `stop` should call `controllerRef.current?.abort(); setStatus('idle'); push a "stopped" bubble if desired.`
 - UI feedback idea: add a chip `Stopped` next to last assistant bubble when stop is triggered.
 - Test idea: mock fetch stream promise that never resolves, trigger stop, assert `abort` called and UI re-enables send.
 
 **Commands (copy/paste)**
+
 - Client test focus: `npm run test --workspace client -- stop`
 
 **Implementation scaffolds (for juniors)**
+
 - Add button near controls:
   ```tsx
-  <Button variant="outlined" onClick={handleNew} disabled={status === 'sending'}>New conversation</Button>
+  <Button
+    variant="outlined"
+    onClick={handleNew}
+    disabled={status === 'sending'}
+  >
+    New conversation
+  </Button>
   ```
 - Handler logic:
   ```ts
@@ -538,9 +636,11 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 - Test idea (RTL): render page, add two messages, click New, expect transcript empty and input focused (`expect(input).toHaveFocus()`).
 
 **Commands (copy/paste)**
+
 - Client test filter: `npm run test --workspace client -- new conversation`
 
 **Implementation scaffolds (for juniors)**
+
 - In `server/src/routes/chat.ts` add cancellation handling:
   ```ts
   router.post('/', async (req, res) => {
@@ -559,14 +659,22 @@ Implement server-side cancellation of streaming predictions; client stop/new con
   ```ts
   When('I cancel the chat stream', async () => {
     controller = new AbortController();
-    const res = await fetch(url, { method: 'POST', body, headers, signal: controller.signal });
+    const res = await fetch(url, {
+      method: 'POST',
+      body,
+      headers,
+      signal: controller.signal,
+    });
     controller.abort();
     await collect(res); // should finish quickly
   });
-  Then('the server stops sending events', () => { /* assert stream ended */ });
+  Then('the server stops sending events', () => {
+    /* assert stream ended */
+  });
   ```
 
 **Commands (copy/paste)**
+
 - Manual abort test: open a second terminal and run `curl -N ...` to start the stream, then `Ctrl+C` to ensure server logs show cancellation.
 
 #### Testing
@@ -591,7 +699,7 @@ Implement server-side cancellation of streaming predictions; client stop/new con
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: d0dc74a, 83b3540
 
 #### Overview
@@ -644,8 +752,8 @@ Add the chat page route with an initial view that lists available models (from `
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
- - Task Status: __done__
- - Git Commits: 0f44c15, 0d97057
+- Task Status: **done**
+- Git Commits: 0f44c15, 0d97057
 
 #### Overview
 
@@ -668,11 +776,11 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 5. [x] Log tool lifecycle via `createLogger('client-chat')` when tool events arrive (no transcript output); stub logging function so tests can spy.
 6. [x] Update README.md (UI section) describing chat send/stream behaviour, inverted order, and that persistence/stop/new are coming in later steps.
 7. [x] Update design.md with bubble styling (assistant left, user right), inverted stack, and a mermaid sketch of send/stream flow.
-7. [x] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
-8. [x] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
+8. [x] Update projectStructure.md for `useChatStream.ts` and any new component/test files.
+9. [x] Tests (RTL/Jest): add `client/src/test/chatPage.stream.test.tsx` that:
    - mocks `global.fetch` returning a ReadableStream emitting `data:{"type":"token","content":"Hi"}` then `data:{"type":"final","message":{"content":"Hi","role":"assistant"}}`
    - asserts Send is disabled while streaming, assistant bubble shows combined â€œHiâ€, error path shows error bubble, and `unmount` calls `abort` on the controller.
-9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix with `npm run lint:fix`/`npm run format --workspaces` if needed.
 
 #### Testing
 
@@ -697,7 +805,7 @@ Implement chat send/receive on the chat page: connect input to streaming POST `/
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 57c5df8, dcc31e4
 
 #### Overview
@@ -744,7 +852,7 @@ Add a â€œNew conversationâ€ button that clears the transcript and reset
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 2fd1be2
 
 #### Overview
@@ -788,8 +896,8 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __in_progress__
-- Task Status: __done__
+- Task Status: **in_progress**
+- Task Status: **done**
 - Git Commits: abc441c
 
 #### Overview
@@ -844,7 +952,7 @@ Validate the full stack (server chat endpoints + client chat UI) with Playwright
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 04821ef, 3f12c59
 
 #### Overview
@@ -863,7 +971,12 @@ Fix the server chat integration to match the LM Studio TypeScript SDK 1.5.0 API 
 1. [x] In `server/src/routes/chat.ts`, replace `client.getModel(model)` with:
    ```ts
    const modelClient = await client.llm.model(model);
-   const prediction = await modelClient.act({ messages, tools, signal, allowParallelToolExecution: false });
+   const prediction = await modelClient.act({
+     messages,
+     tools,
+     signal,
+     allowParallelToolExecution: false,
+   });
    ```
    Keep AbortController wiring, logging, and streaming loop the same.
 2. [x] Ensure the LM Studio client is constructed with the websocket base URL: `new LMStudioClient({ baseUrl: toWebSocketUrl(process.env.LMSTUDIO_BASE_URL) })`.
@@ -900,8 +1013,8 @@ Fix the server chat integration to match the LM Studio TypeScript SDK 1.5.0 API 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
- - Task Status: __done__
- - Git Commits: ab6ce70, dc06840, ea0f54a
+- Task Status: **done**
+- Git Commits: ab6ce70, dc06840, ea0f54a
 
 #### Overview
 
@@ -943,9 +1056,10 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 - E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtask 6 (projectStructure.md) remains open if structure changes occur later.
 
 ---
+
 ### 11. Fix LM Studio chat tool definition
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: edd7084, f0f3b66
 
 #### Overview
@@ -975,11 +1089,11 @@ LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against r
 1. [x] `npm run test --workspace server`
 2. [x] `npm run test --workspace client`
 3. [x] `npm run build --workspace server`
-3. [x] `npm run build --workspace client`
-4. [x] `npm run compose:build`
-5. [x] `npm run compose:up`
-6. [x] `npx playwright test e2e/chat.spec.ts`
-7. [x] `npm run compose:down`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npx playwright test e2e/chat.spec.ts`
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -992,7 +1106,7 @@ LM Studio 1.5 returns `Unhandled type: undefined` when calling `/chat` against r
 
 ### 12. Render LM Studio <think> content as collapsible bubble section
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 848554c, 43071db
 
 #### Overview
@@ -1037,7 +1151,7 @@ Some LM Studio responses include `<think>` tags. We need to surface the main ass
 
 ### 13. Use LM Studio Chat API with Chat history object
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: d9f42a1, 43071db, 8ba7c04
 
 #### Overview

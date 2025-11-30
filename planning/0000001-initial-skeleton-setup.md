@@ -71,7 +71,7 @@ This list must be copied into each new plan. It instructs how a developer works 
 
 ### 1. Workspace & Tooling Baseline
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: a4c0c46, 0e98d67, 70b5fa4
 
 #### Overview
@@ -130,7 +130,7 @@ Set up npm workspaces, shared TypeScript config, ESLint/Prettier, EditorConfig, 
 
 ### 2. Common Package Skeleton
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: ce6b662, 0991e06
 
 #### Overview
@@ -193,7 +193,7 @@ Bootstrap the `common` workspace package with TypeScript build output, ready-to-
 
 ### 3. Server Core (Express API)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 615ec20, 3eacad6
 
 #### Overview
@@ -284,7 +284,7 @@ Build the Express server core with routes, wiring to `common`, and local scripts
 
 ### 4. Server Testing & Docker Packaging
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 5512761, 67ad373, ab39501
 
 #### Overview
@@ -389,7 +389,7 @@ Add Cucumber (Gherkin) tests, server Dockerfile, docker ignore, and related scri
 
 ### 5. Client Skeleton (React 19 + MUI)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: efe4990, cc5b311, 167a2b1
 
 #### Overview
@@ -439,7 +439,7 @@ Bootstrap React 19 client with Material UI, TypeScript, ESLint, Prettier, and cr
 
 ### 6. Client Testing & Docker Packaging
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 332a4f7, e5a251d
 
 #### Overview
@@ -513,7 +513,7 @@ Add Jest testing, client Dockerfile, docker ignore, and related scripts.
 
 ### 7. Docker Compose Integration
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 354ecfa, 5874d90
 
 #### Overview
@@ -583,7 +583,7 @@ Create `docker-compose.yml` wiring client and server images, managing environmen
 
 ### 8. Design Diagram Updates
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: f109d69, ad96368
 
 #### Overview
@@ -643,7 +643,7 @@ Enrich `design.md` with mermaid diagrams covering the overall architecture and t
 
 ### 9. Project Structure Documentation
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: b25588c, ba4b815
 
 #### Overview
@@ -688,7 +688,7 @@ Create and maintain `projectStructure.md` at the repo root with a live directory
 
 ### 10. End-to-End Validation with Playwright
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 7aeb4fd, 39163c6
 
 #### Overview

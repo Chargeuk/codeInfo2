@@ -37,6 +37,7 @@ npm install
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end.
 - **Chat page:** open `/chat` to chat with LM Studio via the server `/chat` streaming proxy. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is streaming. Messages render newest-first near the controls with distinct user/assistant bubbles, streaming tokens accumulate into a single assistant bubble, and failures surface as inline error bubbles with retry guidance. Tool lifecycle events stay out of the transcript but are logged to the server log store so the Logs page can surface them. A **Stop** button appears while streaming to cancel generation (responses may truncate) and adds a status bubble; a **New conversation** button aborts any in-flight response, clears the transcript, keeps the currently selected model, and refocuses the input. Chat history is in-memory only; reloading or leaving the page resets the conversation.
+- **Chat citations:** when LM Studio tools return vector search results, the assistant bubble shows inline citations with `repo/relPath` plus the host-resolvable path (when available) and the chunk text used for grounding.
 - **Ingest page:** open `/ingest` to start an embedding run against a server-accessible folder. The form validates required path/name fields, lets you add an optional description, choose an embedding model (disabled once the shared collection is locked), toggle dry-run, and surfaces inline errors such as “Path is required” or “Select a model.” A banner appears when the embedding model is locked to a specific id. The page now lists embedded folders with per-row actions (Re-embed, Remove, Details), bulk actions, inline action feedback, and a tooltip over the name for descriptions. A Details drawer shows path/model/status, counts, last error, and the include/exclude defaults; the empty state explains that the model locks after the first ingest. Actions are disabled while an ingest is active to avoid conflicts.
 - **Active ingest card:** once a run starts, the page polls `/ingest/status/{runId}` ~every 2s to show state chips (Queued/Scanning/Embedding/Completed/Cancelled/Error), file/chunk counts, any last error, a “Cancel ingest” button that calls `/ingest/cancel/{runId}` (disabled while cancelling), and a “View logs for this run” link (pre-filters logs with the runId).
 - Assistant replies that include `<think>...</think>` render the visible reply normally and tuck the think content into a collapsible “Thought process” section inside the same bubble.
@@ -48,7 +49,7 @@ npm install
 
 - Primary stack: `npm run e2e` uses the dedicated `docker-compose.e2e.yml` (isolated Chroma volume, fixture mount at `/fixtures`) with ports client 6001 / server 6010 / chroma 8800. Individual steps: `npm run compose:e2e:build`, `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down`.
 - Reset the e2e Chroma volume if metadata becomes corrupted (e.g., after schema tweaks): `docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v`.
-- Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`.
+- Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`. `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks chat SSE, and asserts inline citations show `repo/relPath` plus the host path. It asks “What does main.txt say about the project?” and expects the fixture text “This is the ingest test fixture for CodeInfo2.”
 
 ## Root commands
 
@@ -90,6 +91,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Ingest Cucumber tests run against a real Chroma via Testcontainers; Docker must be running and will publish Chroma on host port 18000 (if busy, the hook falls back to a random host port and logs it). For manual debugging, `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (teardown with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
+- **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
 
 ### Logging endpoints
 
@@ -130,7 +132,13 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 - POST `/ingest/start` starts an ingest job. Body:
   ```json
-  {"path":"/repo","name":"repo","description":"optional","model":"embed-1","dryRun":false}
+  {
+    "path": "/repo",
+    "name": "repo",
+    "description": "optional",
+    "model": "embed-1",
+    "dryRun": false
+  }
   ```
   Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED"}` if collection locked to another model; `429 {"status":"error","code":"BUSY"}` if an ingest is already running; `400` on validation errors.
 - GET `/ingest/status/{runId}` returns current state:
@@ -162,7 +170,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
         "model": "embed-1",
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
-        "counts": {"files": 3, "chunks": 12, "embedded": 12},
+        "counts": { "files": 3, "chunks": 12, "embedded": 12 },
         "lastError": null
       }
     ],
@@ -170,10 +178,15 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   }
   ```
 
+### Tooling endpoints (LM Studio agent support)
+
+- GET `/tools/ingested-repos` lists ingested repositories for the agent tools and includes `id`, `description`, `containerPath`, `hostPath`, `counts`, `lastIngestAt`, `lastError`, and `lockedModelId`. Paths stored under `/data/<repo>/...` are rewritten to host paths using `HOST_INGEST_DIR` (defaults to `/data`) and include a warning flag when that env var is unset.
+- POST `/tools/vector-search` accepts `{ "query": string, "repository"?: string, "limit"?: number }`, validates input (`query` required, `limit` default 5/max 20, `repository` must match a known repo id), and queries Chroma. Responses include ordered `results` with `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`, plus top-level `modelId` (locked model). Errors: `400 VALIDATION_FAILED`, `404 REPO_NOT_FOUND`, `409 INGEST_REQUIRED` (no locked embedding model yet), `503 EMBED_MODEL_MISSING` (locked model not available in LM Studio), `502 CHROMA_UNAVAILABLE`.
 
 ## Logging
 
 - Quick API calls:
+
   ```sh
   # POST one entry
   curl -X POST http://localhost:5010/logs \
@@ -186,6 +199,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   # Stream live with SSE + heartbeats
   curl -N http://localhost:5010/logs/stream
   ```
+
 - Env keys  
   Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`  
   Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
@@ -201,7 +215,11 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).
 - Success example:
   ```json
-  { "status": "ok", "baseUrl": "http://host.docker.internal:1234", "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }] }
+  {
+    "status": "ok",
+    "baseUrl": "http://host.docker.internal:1234",
+    "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }]
+  }
   ```
 - Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
 - Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
@@ -220,6 +238,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - The noop tool is constructed with the LM Studio SDK `tool()` helper (empty `parameters`) so the SDK accepts it as a function tool; invalid tool shapes previously triggered `Unhandled type: undefined`.
 - Example: `curl -N -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"model":"llama-3","messages":[{"role":"user","content":"hello"}]}'`.
 - Logging: server records start/complete/error plus tool lifecycle metadata (name/callId only, no args/results) with the base URL origin and model; payloads respect `LOG_MAX_CLIENT_BYTES`.
+- Tooling: chat registers LM Studio tools `ListIngestedRepositories` and `VectorSearch` (see `server/src/lmstudio/tools.ts`) that reuse the `/tools/ingested-repos` and `/tools/vector-search` logic. Tool responses include repo id, relPath, containerPath, hostPath, chunk text/score, and model id for citations; repo-not-found/validation errors surface as tool errors. VectorSearch now derives its embedding function from the collection’s locked model; if no lock exists it surfaces `INGEST_REQUIRED`, and if the locked model is missing in LM Studio it surfaces `EMBED_MODEL_MISSING`. Usage is logged without persisting payload bodies.
 - Tool lifecycle entries are pushed into the server log buffer (visible on `/logs`/Logs page) but are not rendered in the chat transcript; the client still logs the metadata for observability.
 - Cancellation: if the client disconnects/aborts, the server calls `cancel()` on the LM Studio prediction via an `AbortController`, stops streaming immediately, and logs `{ reason: "client_disconnect" }`.
 - Persistence: chat sessions are ephemeral; navigating away or using **New conversation** resets the transcript while keeping the selected model.

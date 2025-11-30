@@ -17,10 +17,10 @@
     "compose:logs": "docker compose --env-file .env.docker.local logs -f",
     "compose:build": "docker compose --env-file .env.docker.local build",
     "compose": "npm run compose:build && npm run compose:up",
-  "compose:e2e:build": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml build",
-  "compose:e2e:clean": "docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true",
-  "compose:e2e:up": "npm run compose:e2e:clean && docker compose --env-file .env.e2e -f docker-compose.e2e.yml up -d",
-  "compose:e2e:down": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v",
+    "compose:e2e:build": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml build",
+    "compose:e2e:clean": "docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true",
+    "compose:e2e:up": "npm run compose:e2e:clean && docker compose --env-file .env.e2e -f docker-compose.e2e.yml up -d",
+    "compose:e2e:down": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v",
     "e2e:up": "npm run compose:e2e:up",
     "e2e:test": "E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e",
     "e2e:down": "npm run compose:e2e:down",
@@ -43,6 +43,9 @@
     "server",
     "common"
   ],
+  "overrides": {
+    "zod": "3.25.76"
+  },
   "engines": {
     "node": ">=22"
   },

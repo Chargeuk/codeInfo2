@@ -7,6 +7,7 @@ type ChatModel = { key: string; displayName: string; type?: string };
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
+const preferredChatModel = 'openai/gpt-oss-20b';
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -17,6 +18,11 @@ const skipIfUnreachable = async (page: Page) => {
   } catch {
     test.skip('Client not reachable (request failed)');
   }
+};
+
+const pickChatModel = (models: ChatModel[]) => {
+  const preferred = models.find((m) => m.key === preferredChatModel);
+  return preferred ?? models[0];
 };
 
 test('chat streams end-to-end', async ({ page }) => {
@@ -66,9 +72,10 @@ test('chat streams end-to-end', async ({ page }) => {
     test.skip('No LM Studio models reported by /chat/models');
   }
 
-  mkdirSync('test-results/screenshots', { recursive: true });
+  const selectedModel = pickChatModel(models);
+  console.log(`[e2e:chat] using chat model: ${selectedModel.key}`);
 
-  const alternateModel = models[1] ?? models[0];
+  mkdirSync('test-results/screenshots', { recursive: true });
 
   await page.goto(`${baseUrl}/chat`);
 
@@ -76,9 +83,9 @@ test('chat streams end-to-end', async ({ page }) => {
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   await modelSelect.click();
   await page
-    .getByRole('option', { name: alternateModel.displayName, exact: false })
+    .getByRole('option', { name: selectedModel.displayName, exact: false })
     .click();
-  await expect(modelSelect).toHaveText(alternateModel.displayName, {
+  await expect(modelSelect).toHaveText(selectedModel.displayName, {
     timeout: 5000,
   });
 
@@ -92,6 +99,7 @@ test('chat streams end-to-end', async ({ page }) => {
   );
   const thinkToggle = page.locator('[data-testid="think-toggle"]');
   const thinkContent = page.locator('[data-testid="think-content"]');
+  const responding = page.getByText(/Responding\.\.\./i);
 
   await input.fill('Hello from e2e turn one');
   await send.click();
@@ -103,9 +111,8 @@ test('chat streams end-to-end', async ({ page }) => {
       'normal',
     );
     await expect(errorBubbles).toHaveCount(0);
-    await expect(page.getByText(/Responding\.\.\./i)).not.toBeVisible({
-      timeout: 20000,
-    });
+    await expect(responding).toBeVisible({ timeout: 20000 });
+    await expect(responding).not.toBeVisible({ timeout: 20000 });
 
     if (useMockChat) {
       await expect(thinkToggle).toBeVisible();

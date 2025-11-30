@@ -11,6 +11,9 @@ services:
     env_file:
       - server/.env
       - server/.env.local
+    environment:
+      # Override to use host.docker.internal for ChromaDB
+      - CHROMA_URL=http://host.docker.internal:8000
     volumes:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR:-/tmp}:/data:ro
@@ -22,6 +25,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
   client:
     build:
       context: .
@@ -46,29 +52,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
   chroma:
     image: chromadb/chroma:1.3.5
     environment:
       - IS_PERSISTENT=True
       - ANONYMIZED_TELEMETRY=False
-      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4317/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
       - '8000:8000'
     networks:
       - internal
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
-    # - see https://docs.trychroma.com/docs/overview/migration?lang=typescript - persist path has been /data since version 1
       - chroma-data:/data
     depends_on:
       - otel-collector
       - zipkin
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.111.0
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ['--config=/etc/otel-collector-config.yaml']
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - '4317:4317'
+      - '4318:4318'
     networks:
       - internal
 

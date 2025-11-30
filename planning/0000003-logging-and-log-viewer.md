@@ -51,7 +51,7 @@ Introduce structured logging across the monorepo so both the server and client e
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 74af58b
 
 #### Overview
@@ -74,6 +74,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 #### Subtasks
 
 1. [x] Install server logging deps with a single command: `npm install pino pino-http pino-roll --workspace server`. Create `server/src/logger.ts` using the starter below (safe to copy/paste and tweak levels/paths):
+
    ```ts
    import fs from 'node:fs';
    import path from 'node:path';
@@ -85,26 +86,45 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
    const logDir = path.dirname(logFilePath);
    fs.mkdirSync(logDir, { recursive: true });
 
-   const destination = process.env.LOG_FILE_ROTATE === 'false'
-     ? pino.destination(logFilePath)
-     : pinoRoll({ file: logFilePath, frequency: 'daily', mkdir: true });
+   const destination =
+     process.env.LOG_FILE_ROTATE === 'false'
+       ? pino.destination(logFilePath)
+       : pinoRoll({ file: logFilePath, frequency: 'daily', mkdir: true });
 
-   export const baseLogger = pino({ level: process.env.LOG_LEVEL || 'info', redact: ['req.headers.authorization', 'body.password'] }, destination);
+   export const baseLogger = pino(
+     {
+       level: process.env.LOG_LEVEL || 'info',
+       redact: ['req.headers.authorization', 'body.password'],
+     },
+     destination,
+   );
 
    export function createRequestLogger() {
-     return pinoHttp({ logger: baseLogger, genReqId: () => crypto.randomUUID?.() || Date.now().toString() });
+     return pinoHttp({
+       logger: baseLogger,
+       genReqId: () => crypto.randomUUID?.() || Date.now().toString(),
+     });
    }
    ```
+
    Update `server/src/index.ts` to `app.use(createRequestLogger());` right after env/config setup so every route logs; no other behaviour changes yet.
+
 2. [x] Create client logging skeleton files with concrete stubs:
    - `client/src/logging/logger.ts`:
+
      ```ts
      import { LogEntry } from '@codeinfo2/common';
      import { sendLogs } from './transport';
 
-     export function createLogger(source = 'client'): (entry: Omit<LogEntry, 'timestamp' | 'source'>) => void {
+     export function createLogger(
+       source = 'client',
+     ): (entry: Omit<LogEntry, 'timestamp' | 'source'>) => void {
        return (entry) => {
-         const full: LogEntry = { timestamp: new Date().toISOString(), source, ...entry };
+         const full: LogEntry = {
+           timestamp: new Date().toISOString(),
+           source,
+           ...entry,
+         };
          // tee to console for dev ergonomics
          // eslint-disable-next-line no-console
          console[entry.level === 'error' ? 'error' : 'log'](full);
@@ -112,6 +132,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
        };
      }
      ```
+
    - `client/src/logging/transport.ts` (no network yet, just queue placeholder):
      ```ts
      import { LogEntry } from '@codeinfo2/common';
@@ -121,10 +142,14 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
        queue.push(...entries);
        // network POST /logs will be added in Task 4
      }
-     export function getQueuedLogs() { return queue; }
+     export function getQueuedLogs() {
+       return queue;
+     }
      ```
    - `client/src/logging/index.ts` re-export the above. Keep forwarding disabled in tests via the env flag.
+
 3. [x] Define shared `LogEntry` DTO in `common/src/logging.ts` (copy/paste starter):
+
    ```ts
    export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
    export type LogEntry = {
@@ -144,10 +169,16 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
    export function isLogEntry(value: unknown): value is LogEntry {
      const v = value as Partial<LogEntry>;
-     return !!v && ['error','warn','info','debug'].includes(v.level as string) && typeof v.message === 'string';
+     return (
+       !!v &&
+       ['error', 'warn', 'info', 'debug'].includes(v.level as string) &&
+       typeof v.message === 'string'
+     );
    }
    ```
+
    Export from `common/src/index.ts` and add a tiny unit test later (Task 4) to guard the validator.
+
 4. [x] Add env variables with explicit text blocks (append verbatim):
    - `server/.env`
      ```
@@ -164,7 +195,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
      VITE_LOG_MAX_BYTES=32768
      VITE_LOG_STREAM_ENABLED=true
      ```
-   Mirror these as commented examples in `server/.env.local` and `client/.env.local` so juniors know where to override.
+     Mirror these as commented examples in `server/.env.local` and `client/.env.local` so juniors know where to override.
 5. [x] Update design.md: add a “Logging schema (shared)” subsection describing `LogEntry`, env knobs, and the new shared files (`server/src/logger.ts`, `client/src/logging/*`, `common/src/logging.ts`). Include a one-sentence privacy note about redacting auth headers/password fields. Add a mermaid snippet showing client/server/common log flow; use Context7 `/mermaid-js/mermaid` if needed.
 6. [x] Update projectStructure.md: list new files/dirs (`server/src/logger.ts`, `server/src/logStore.ts`, `server/src/routes/logs.ts`, `client/src/logging/*`, `common/src/logging.ts`) and note `logs/` directory under root.
 7. [x] Update README: add a one-line Logging overview under Server/Client intro pointing to the detailed section to be written in Task 6.
@@ -189,7 +220,7 @@ Define the logging approach, shared DTOs, env switches, and dependencies so serv
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 9980249, b7e6b40
 
 #### Overview
@@ -207,10 +238,17 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 1. [x] Update `server/src/index.ts`: import `createRequestLogger` from `server/src/logger.ts` and add `app.use(createRequestLogger());` immediately after CORS/env setup. Store the generated `req.id` on `res.locals.requestId` so downstream routes can reuse it.
 2. [x] Implement `server/src/logStore.ts` using this scaffold (trim/filters included so juniors can fill blanks):
+
    ```ts
    import { LogEntry, LogLevel } from '@codeinfo2/common';
 
-   type Filters = { level?: LogLevel[]; source?: string[]; text?: string; since?: number; until?: number };
+   type Filters = {
+     level?: LogLevel[];
+     source?: string[];
+     text?: string;
+     since?: number;
+     until?: number;
+   };
 
    const maxEntries = Number(process.env.LOG_BUFFER_MAX || 5000);
    const store: LogEntry[] = [];
@@ -227,15 +265,31 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
      return store
        .filter((e) => !filters.level || filters.level.includes(e.level))
        .filter((e) => !filters.source || filters.source.includes(e.source))
-       .filter((e) => !filters.text || `${e.message} ${JSON.stringify(e.context ?? {})}`.toLowerCase().includes(filters.text.toLowerCase()))
-       .filter((e) => !filters.since || new Date(e.timestamp).getTime() >= filters.since)
-       .filter((e) => !filters.until || new Date(e.timestamp).getTime() <= filters.until)
+       .filter(
+         (e) =>
+           !filters.text ||
+           `${e.message} ${JSON.stringify(e.context ?? {})}`
+             .toLowerCase()
+             .includes(filters.text.toLowerCase()),
+       )
+       .filter(
+         (e) =>
+           !filters.since || new Date(e.timestamp).getTime() >= filters.since,
+       )
+       .filter(
+         (e) =>
+           !filters.until || new Date(e.timestamp).getTime() <= filters.until,
+       )
        .slice(-limit);
    }
 
-   export function lastSequence() { return sequence; }
+   export function lastSequence() {
+     return sequence;
+   }
    ```
+
    Leave hooks for file writing; add a TODO comment to forward to `baseLogger` file destination when wired.
+
 3. [x] Wire env/config defaults in code: read `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE`; ensure `./logs` exists. Add a helper `resolveLogConfig()` returning parsed numbers so juniors don’t parse envs ad hoc.
 4. [x] Add `logs/` to root `.gitignore` and `server/.dockerignore`; add a “Storage/Retention” note in design.md covering buffer size, rotation, and compose mount (`./logs:/app/logs`) including the exact volume line to paste later: `- ./logs:/app/logs`.
 5. [x] Update projectStructure.md: add `server/src/logStore.ts`, `server/src/logger.ts`, and note `logs/` dir.
@@ -264,7 +318,7 @@ Build the server-side logging plumbing: logger wiring, rolling in-memory store, 
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 06d2d75
 
 #### Overview
@@ -329,7 +383,7 @@ Expose log ingestion and retrieval: `POST /logs`, `GET /logs` (history), and `GE
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: afcde2a
 
 #### Overview
@@ -348,14 +402,22 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 #### Subtasks
 
 1. [x] Implement `client/src/logging/logger.ts` using this starter:
+
    ```ts
    import { LogEntry, LogLevel } from '@codeinfo2/common';
    import { sendLogs } from './transport';
 
    const levels: LogLevel[] = ['error', 'warn', 'info', 'debug'];
 
-   export function createLogger(source = 'client', routeProvider = () => window.location.pathname) {
-     return (level: LogLevel, message: string, context: Record<string, unknown> = {}) => {
+   export function createLogger(
+     source = 'client',
+     routeProvider = () => window.location.pathname,
+   ) {
+     return (
+       level: LogLevel,
+       message: string,
+       context: Record<string, unknown> = {},
+     ) => {
        if (!levels.includes(level)) level = 'info';
        const entry: LogEntry = {
          level,
@@ -374,13 +436,21 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
      };
    }
 
-   export function installGlobalErrorHooks(log = createLogger('client-global')) {
+   export function installGlobalErrorHooks(
+     log = createLogger('client-global'),
+   ) {
      let lastError = 0;
      const minGap = 1000;
      window.onerror = (msg, url, line, col, err) => {
        if (Date.now() - lastError < minGap) return;
        lastError = Date.now();
-       log('error', 'window.onerror', { msg, url, line, col, error: String(err) });
+       log('error', 'window.onerror', {
+         msg,
+         url,
+         line,
+         col,
+         error: String(err),
+       });
      };
      window.onunhandledrejection = (event) => {
        if (Date.now() - lastError < minGap) return;
@@ -389,7 +459,9 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
      };
    }
    ```
+
 2. [x] Implement `client/src/logging/transport.ts` with batching/backoff scaffold (use these exact defaults: `MAX_BATCH = 10`, `BACKOFF = [500, 1000, 2000, 4000]` ms, `VITE_LOG_MAX_BYTES` cap 32768):
+
    ```ts
    import { LogEntry } from '@codeinfo2/common';
 
@@ -401,8 +473,14 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
    export async function flushQueue() {
      if (inFlight || queue.length === 0) return;
-     if (import.meta.env.MODE === 'test') { queue.length = 0; return; }
-     if (import.meta.env.VITE_LOG_FORWARD_ENABLED === 'false') { queue.length = 0; return; }
+     if (import.meta.env.MODE === 'test') {
+       queue.length = 0;
+       return;
+     }
+     if (import.meta.env.VITE_LOG_FORWARD_ENABLED === 'false') {
+       queue.length = 0;
+       return;
+     }
      if (!navigator.onLine) return;
      const batch = queue.splice(0, MAX_BATCH);
      inFlight = true;
@@ -432,8 +510,11 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
      void flushQueue();
    }
 
-   export function _getQueue() { return queue; } // for tests
+   export function _getQueue() {
+     return queue;
+   } // for tests
    ```
+
 3. [x] Wire logger usage with concrete hooks:
    - `client/src/main.tsx`: call `installGlobalErrorHooks();` once.
    - `client/src/pages/HomePage.tsx`: in the fetch catch, `logger('error', 'version fetch failed', { error });`.
@@ -451,7 +532,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
    - `client/src/test/logging/logger.test.ts`: mock `sendLogs`, call logger, assert it receives a LogEntry with timestamp/source/route; simulate `window.onerror` and ensure throttling works.
    - `client/src/test/logging/transport.test.ts`: mock `fetch`, push entries, await `flushQueue`, assert POST body length ≤ max bytes, retry/backoff puts entries back when fetch rejects.
    - `client/src/test/logsPage.test.tsx`: render a minimal Logs page stub that calls `createLogger` and ensures sendLogs was invoked (mocked) when a button is clicked.
-   Remember to add any new test helpers to projectStructure.
+     Remember to add any new test helpers to projectStructure.
 8. [x] Run client commands in order (stop if any fail): `npm run lint --workspace client`, `npm run format:check --workspaces`, `npm run test --workspace client`, `npm run build --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down`.
 
 #### Testing
@@ -479,7 +560,7 @@ Add a client logging utility that standardizes log creation, hooks into errors/w
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 77d3637
 
 #### Overview
@@ -502,11 +583,18 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 1. [x] Add “Logs” route + NavBar tab in `client/src/routes/router.tsx` and `client/src/components/NavBar.tsx`; copy an existing tab pattern and point to `/logs`. Verify dev server shows the tab.
 2. [x] Build data hook `client/src/hooks/useLogs.ts` using this scaffold; keep defaults `filters.level=[]`, `filters.source=[]`, `filters.text=''`, `limit` implicit at 200 via the server, and `live=true` by default:
+
    ```ts
    import { useEffect, useMemo, useRef, useState } from 'react';
    import { LogEntry } from '@codeinfo2/common';
 
-   type Filters = { level: string[]; source: string[]; text: string; since?: number; until?: number };
+   type Filters = {
+     level: string[];
+     source: string[];
+     text: string;
+     since?: number;
+     until?: number;
+   };
 
    export function useLogs(filters: Filters, live = true) {
      const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -517,18 +605,27 @@ Create a new “Logs” route in the client that consumes the server log API, su
      const query = useMemo(() => {
        const params = new URLSearchParams();
        if (filters.level.length) params.set('level', filters.level.join(','));
-       if (filters.source.length) params.set('source', filters.source.join(','));
+       if (filters.source.length)
+         params.set('source', filters.source.join(','));
        if (filters.text) params.set('text', filters.text);
        if (filters.since) params.set('since', String(filters.since));
        if (filters.until) params.set('until', String(filters.until));
-       if (lastSequence.current) params.set('sinceSequence', String(lastSequence.current));
+       if (lastSequence.current)
+         params.set('sinceSequence', String(lastSequence.current));
        return params.toString();
-     }, [filters.level, filters.source, filters.text, filters.since, filters.until]);
+     }, [
+       filters.level,
+       filters.source,
+       filters.text,
+       filters.since,
+       filters.until,
+     ]);
 
      useEffect(() => {
        let cancelled = false;
        async function load() {
-         setLoading(true); setError(null);
+         setLoading(true);
+         setError(null);
          try {
            const res = await fetch(`/logs?${query}`);
            if (!res.ok) throw new Error(`status ${res.status}`);
@@ -543,7 +640,9 @@ Create a new “Logs” route in the client that consumes the server log API, su
          }
        }
        void load();
-       return () => { cancelled = true; };
+       return () => {
+         cancelled = true;
+       };
      }, [query]);
 
      useEffect(() => {
@@ -554,46 +653,98 @@ Create a new “Logs” route in the client that consumes the server log API, su
          lastSequence.current = parsed.sequence ?? lastSequence.current;
          setLogs((prev) => [...prev.slice(-199), parsed]);
        };
-       es.onerror = () => { es.close(); };
+       es.onerror = () => {
+         es.close();
+       };
        return () => es.close();
      }, [query, live]);
 
      return { logs, loading, error, refreshQuery: () => setLogs([]) };
    }
    ```
+
 3. [x] Implement UI in `client/src/pages/LogsPage.tsx` with a ready layout skeleton (replace with MUI components):
+
    ```tsx
-   import { Chip, Container, Stack, TextField, Switch, FormControlLabel, Button, Table, TableHead, TableRow, TableCell, TableBody, CircularProgress } from '@mui/material';
+   import {
+     Chip,
+     Container,
+     Stack,
+     TextField,
+     Switch,
+     FormControlLabel,
+     Button,
+     Table,
+     TableHead,
+     TableRow,
+     TableCell,
+     TableBody,
+     CircularProgress,
+   } from '@mui/material';
    import { useState } from 'react';
    import { useLogs } from '../hooks/useLogs';
 
    export default function LogsPage() {
      const [text, setText] = useState('');
      const [live, setLive] = useState(true);
-     const { logs, loading, error } = useLogs({ level: [], source: [], text }, live);
+     const { logs, loading, error } = useLogs(
+       { level: [], source: [], text },
+       live,
+     );
 
      return (
        <Container maxWidth="lg">
          <Stack direction="row" spacing={2} alignItems="center" mb={2}>
-           <TextField label="Search text" value={text} onChange={(e) => setText(e.target.value)} size="small" />
-           <FormControlLabel control={<Switch checked={live} onChange={(e) => setLive(e.target.checked)} />} label="Live" />
+           <TextField
+             label="Search text"
+             value={text}
+             onChange={(e) => setText(e.target.value)}
+             size="small"
+           />
+           <FormControlLabel
+             control={
+               <Switch
+                 checked={live}
+                 onChange={(e) => setLive(e.target.checked)}
+               />
+             }
+             label="Live"
+           />
            <Button onClick={() => window.location.reload()}>Refresh</Button>
          </Stack>
-         {loading && <CircularProgress />} {error && <div role="alert">{error}</div>}
+         {loading && <CircularProgress />}{' '}
+         {error && <div role="alert">{error}</div>}
          <Table size="small">
            <TableHead>
              <TableRow>
-               <TableCell>Time</TableCell><TableCell>Level</TableCell><TableCell>Source</TableCell><TableCell>Message</TableCell><TableCell>Context</TableCell>
+               <TableCell>Time</TableCell>
+               <TableCell>Level</TableCell>
+               <TableCell>Source</TableCell>
+               <TableCell>Message</TableCell>
+               <TableCell>Context</TableCell>
              </TableRow>
            </TableHead>
            <TableBody>
              {logs.map((log) => (
                <TableRow key={log.sequence ?? log.timestamp}>
                  <TableCell>{log.timestamp}</TableCell>
-                 <TableCell><Chip label={log.level} color={log.level === 'error' ? 'error' : log.level === 'warn' ? 'warning' : 'primary'} /></TableCell>
+                 <TableCell>
+                   <Chip
+                     label={log.level}
+                     color={
+                       log.level === 'error'
+                         ? 'error'
+                         : log.level === 'warn'
+                           ? 'warning'
+                           : 'primary'
+                     }
+                   />
+                 </TableCell>
                  <TableCell>{log.source}</TableCell>
                  <TableCell>{log.message}</TableCell>
-                 <TableCell>{log.context ? JSON.stringify(log.context) : ''}</TableCell>
+                 <TableCell>
+                   {log.context ? JSON.stringify(log.context) : ''}
+                 </TableCell>
                </TableRow>
              ))}
            </TableBody>
@@ -602,7 +753,9 @@ Create a new “Logs” route in the client that consumes the server log API, su
      );
    }
    ```
+
    On small screens, switch to stacked cards (can reuse MUI `Card` with `Stack` in sm breakpoint).
+
 4. [x] Wire client logging demo: add a `Send sample log` button on Logs page that calls `createLogger('client-demo')('info','sample log',{ route: '/logs' })`; ensure it appears after refresh/stream.
 5. [x] Update README (client UI section) with usage bullets: filters (levels/text), live toggle, refresh button, sample log button, and mention SSE auto-reconnect.
 6. [x] Update design.md “Client UI” with states: loading spinner, empty state (“No logs yet”), error banner, live on/off behaviour, and add a small mermaid sketch of the Logs page data flow (filters → fetch → table/SSE) using Context7 `/mermaid-js/mermaid` for syntax reference.
@@ -638,7 +791,7 @@ Create a new “Logs” route in the client that consumes the server log API, su
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: e8b568c, 8d510d6
 
 #### Overview
@@ -689,7 +842,7 @@ Verify all acceptance criteria, harden docs, and ensure clean builds/tests acros
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 3107781, a90ba9a
 
 #### Overview

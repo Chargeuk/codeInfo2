@@ -54,5 +54,13 @@ export function createRequestLogger() {
   return pinoHttp({
     logger: baseLogger,
     genReqId: () => crypto.randomUUID?.() || Date.now().toString(),
+    autoLogging: {
+      ignore: (req) => {
+        const url = req.url ?? '';
+        if (url.startsWith('/logs')) return true;
+        if (url.startsWith('/health')) return true;
+        return false;
+      },
+    },
   });
 }

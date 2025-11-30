@@ -13,23 +13,18 @@ type MinimalCollection = {
 };
 const COLLECTION_VECTORS = process.env.INGEST_COLLECTION ?? 'ingest_vectors';
 const COLLECTION_ROOTS = process.env.INGEST_ROOTS_COLLECTION ?? 'ingest_roots';
-const DEFAULT_EMBED_MODEL = process.env.INGEST_EMBED_MODEL ?? null;
 
 let client: ChromaClient | null = null;
 let vectorsCollection: Collection | null = null;
+let vectorsCollectionHasEmbedding = false;
 let rootsCollection: Collection | null = null;
+let lmClientResolver = getLmClient;
 
 const toWebSocketUrl = (value: string) => {
   if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
   return value;
 };
-
-class NoopEmbeddingFunction implements EmbeddingFunction {
-  async generate(texts: string[]): Promise<number[][]> {
-    return texts.map(() => [0]);
-  }
-}
 
 class LmStudioEmbeddingFunction implements EmbeddingFunction {
   constructor(
@@ -38,7 +33,7 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   ) {}
 
   async generate(texts: string[]): Promise<number[][]> {
-    const client = getLmClient(this.baseUrl);
+    const client = lmClientResolver(this.baseUrl);
     const model = await client.embedding.model(this.modelKey);
     const results: number[][] = [];
     for (const text of texts) {
@@ -49,57 +44,108 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   }
 }
 
-function resolveEmbeddingFunction(): EmbeddingFunction {
-  const baseUrl = process.env.LMSTUDIO_BASE_URL;
-  if (baseUrl && DEFAULT_EMBED_MODEL) {
-    try {
-      return new LmStudioEmbeddingFunction(
-        DEFAULT_EMBED_MODEL,
-        toWebSocketUrl(baseUrl),
-      );
-    } catch {
-      // fall through to noop
-    }
-  }
-  return new NoopEmbeddingFunction();
-}
-
 async function getClient() {
   const chromaUrl = getChromaUrl();
   if (!client) {
-    const embeddingFunction = DEFAULT_EMBED_MODEL
-      ? resolveEmbeddingFunction()
-      : undefined;
     client = new ChromaClient({
       path: chromaUrl,
-      ...(embeddingFunction ? { embeddingFunction } : {}),
     } as unknown as { path: string });
   }
   return client;
 }
 
-export async function getVectorsCollection(): Promise<Collection> {
-  if (vectorsCollection) return vectorsCollection;
+export function setLmClientResolver(resolver: typeof getLmClient): void {
+  lmClientResolver = resolver;
+}
+
+export function resetLmClientResolver(): void {
+  lmClientResolver = getLmClient;
+}
+
+export class IngestRequiredError extends Error {
+  code = 'INGEST_REQUIRED' as const;
+  constructor(message = 'No embedding model lock found; run ingest first') {
+    super(message);
+    this.name = 'IngestRequiredError';
+  }
+}
+
+export class EmbedModelMissingError extends Error {
+  code = 'EMBED_MODEL_MISSING' as const;
+  constructor(
+    public modelId: string,
+    cause?: unknown,
+  ) {
+    super(`Embedding model ${modelId} unavailable in LM Studio`);
+    this.name = 'EmbedModelMissingError';
+    if (cause) {
+      try {
+        (this as unknown as { cause?: unknown }).cause = cause;
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
+async function resolveLockedEmbeddingFunction(): Promise<EmbeddingFunction> {
+  const lockedModelId = await getLockedModel();
+  if (!lockedModelId) {
+    baseLogger.warn('resolveLockedEmbeddingFunction missing locked model');
+    throw new IngestRequiredError();
+  }
+
+  const baseUrl = process.env.LMSTUDIO_BASE_URL;
+  if (!baseUrl) {
+    throw new EmbedModelMissingError(
+      lockedModelId,
+      new Error('LMSTUDIO_BASE_URL is not configured'),
+    );
+  }
+
+  const wsBase = toWebSocketUrl(baseUrl);
+  try {
+    const client = lmClientResolver(wsBase);
+    // Proactively verify the model exists to surface clear errors before query time.
+    await client.embedding.model(lockedModelId);
+    return new LmStudioEmbeddingFunction(lockedModelId, wsBase);
+  } catch (err) {
+    baseLogger.error(
+      { modelId: lockedModelId, cause: err },
+      'resolveLockedEmbeddingFunction missing LM Studio model',
+    );
+    throw new EmbedModelMissingError(lockedModelId, err);
+  }
+}
+
+export async function getVectorsCollection(opts?: {
+  requireEmbedding?: boolean;
+}): Promise<Collection> {
+  if (
+    vectorsCollection &&
+    (!opts?.requireEmbedding || vectorsCollectionHasEmbedding)
+  ) {
+    return vectorsCollection;
+  }
+
   const c = await getClient();
-  const embeddingFunction = DEFAULT_EMBED_MODEL
-    ? resolveEmbeddingFunction()
+  const embeddingFunction = opts?.requireEmbedding
+    ? await resolveLockedEmbeddingFunction()
     : undefined;
+
   vectorsCollection = await c.getOrCreateCollection({
     name: COLLECTION_VECTORS,
     ...(embeddingFunction ? { embeddingFunction } : {}),
   });
+  vectorsCollectionHasEmbedding = Boolean(embeddingFunction);
   return vectorsCollection;
 }
 
 export async function getRootsCollection(): Promise<Collection> {
   if (rootsCollection) return rootsCollection;
   const c = await getClient();
-  const embeddingFunction = DEFAULT_EMBED_MODEL
-    ? resolveEmbeddingFunction()
-    : undefined;
   rootsCollection = await c.getOrCreateCollection({
     name: COLLECTION_ROOTS,
-    ...(embeddingFunction ? { embeddingFunction } : {}),
   });
   return rootsCollection;
 }
@@ -131,6 +177,7 @@ export async function clearLockedModel(options?: {
 function resetCachedCollections() {
   client = null;
   vectorsCollection = null;
+  vectorsCollectionHasEmbedding = false;
   rootsCollection = null;
 }
 
@@ -233,5 +280,7 @@ export async function collectionIsEmpty(): Promise<boolean> {
 export function resetCollectionsForTests() {
   client = null;
   vectorsCollection = null;
+  vectorsCollectionHasEmbedding = false;
   rootsCollection = null;
+  lmClientResolver = getLmClient;
 }

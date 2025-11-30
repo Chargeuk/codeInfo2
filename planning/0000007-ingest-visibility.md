@@ -163,8 +163,8 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 
 ### 3. Reasoning collapse (think + Harmony)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 84f5b10
 
 #### Overview
 Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing analysis immediately, showing a spinner-enabled header, and keeping final content separate for display.

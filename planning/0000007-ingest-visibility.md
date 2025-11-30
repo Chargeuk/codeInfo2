@@ -54,6 +54,154 @@ Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>a
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
 
 # Tasks
-(To be detailed later; task breakdown will follow this template when we task up.)
+
+### 1. Ingest progress telemetry
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Expose per-file ingest progress: show current file path, index/total, percentage, and ETA in the ingest status API and UI so long runs are transparent and debuggable.
+
+#### Documentation Locations
+- Server ingest orchestration: `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestCancel.ts`
+- Client ingest UI: `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/hooks/useIngestStatus.ts`
+- Ingest Cucumber coverage: `server/src/test/features/ingest-*.feature`
+- Ingest e2e: `e2e/ingest.spec.ts`
+
+#### Subtasks
+1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
+2. [ ] Update ingest polling hook and ActiveRunCard to display file path, index/total, percentage, and ETA with live updates and sane fallbacks.
+3. [ ] Add tests: server unit/Cucumber for new status fields; client RTL for ActiveRunCard display; e2e ingest progress assertion.
+4. [ ] Update README.md with the new ingest status fields and UI behaviour.
+5. [ ] Update design.md with ingest progress flow/state notes.
+6. [ ] Update projectStructure.md if any files are added/renamed.
+7. [ ] Run full linting (`npm run lint --workspaces`).
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean docker build (`npm run compose:build`)
+4. [ ] Start docker compose (`npm run compose:up`)
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+
+#### Implementation notes
+-
+
+---
+
+### 2. Chat tool-call visibility
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Render inline tool-call activity inside assistant bubbles with a spinner and tool name during execution, collapsing to an expandable detail block (showing results/errors, chunks, and file paths) once complete.
+
+#### Documentation Locations
+- Chat stream handling: `client/src/hooks/useChatStream.ts`
+- Chat UI: `client/src/pages/ChatPage.tsx`
+- Server tool events: `server/src/routes/chat.ts`, `server/src/lmstudio/tools.ts`, `server/src/lmstudio/toolService.ts`
+- Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
+- Chat SSE Cucumber/integration: `server/src/test/features/chat_*`, `server/src/test/integration/chat-tools-wire.test.ts`
+
+#### Subtasks
+1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
+2. [ ] Add UI elements: inline spinner + tool name while running; collapsible section with result/error details (chunks + file paths for VectorSearch) after completion.
+3. [ ] Add tests: client RTL for spinner/collapse states and vector file list; server integration/unit for tool event payloads; e2e chat-tools visibility.
+4. [ ] Update README.md with chat tool-call visibility behaviour.
+5. [ ] Update design.md with tool-call UI/flow.
+6. [ ] Update projectStructure.md for any new components/tests.
+7. [ ] Run full linting (`npm run lint --workspaces`).
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean docker build (`npm run compose:build`)
+4. [ ] Start docker compose (`npm run compose:up`)
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+
+#### Implementation notes
+-
+
+---
+
+### 3. Reasoning & markdown rendering (think + Harmony)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing analysis immediately, showing a spinner-enabled header, and rendering visible content as markdown (with mermaid). Ensure hidden reasoning can be expanded while streaming.
+
+#### Documentation Locations
+- Chat stream parsing: `client/src/hooks/useChatStream.ts`
+- Chat UI components for think blocks: `client/src/pages/ChatPage.tsx`
+- Harmony format reference: https://cookbook.openai.com/articles/openai-harmony
+- Markdown/mermaid renderer in client (where configured)
+- Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
+
+#### Subtasks
+1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
+2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming, and render visible content via markdown (mermaid-enabled).
+3. [ ] Add tests: RTL for streaming think/Harmony collapse and markdown rendering; unit tests for parser logic; e2e chat streaming with Harmony-style output.
+4. [ ] Update README.md to describe markdown + mermaid + reasoning behaviour.
+5. [ ] Update design.md with reasoning/rendering flow and streaming states.
+6. [ ] Update projectStructure.md if new parser/renderer files are added.
+7. [ ] Run full linting (`npm run lint --workspaces`).
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean docker build (`npm run compose:build`)
+4. [ ] Start docker compose (`npm run compose:up`)
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+
+#### Implementation notes
+-
+
+---
+
+### 4. Final Task – Validate story completion
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+End-to-end validation against acceptance criteria: ingest progress visibility, tool-call transparency, reasoning collapse, markdown/mermaid rendering. Ensure builds, tests, docs, and screenshots are complete.
+
+#### Documentation Locations
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides https://cucumber.io/docs/guides/
+
+#### Subtasks
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here
 
 ---

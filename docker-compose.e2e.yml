@@ -1,5 +1,8 @@
+name: codeinfo2-e2e
+
 services:
   server:
+    container_name: codeinfo2-server-e2e
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -7,7 +10,7 @@ services:
     ports:
       - '6010:5010'
     networks:
-      - internal
+      - internal_e2e
     env_file:
       - server/.env.e2e
     volumes:
@@ -23,6 +26,7 @@ services:
       retries: 5
 
   client:
+    container_name: codeinfo2-client-e2e
     build:
       context: .
       dockerfile: client/Dockerfile
@@ -33,7 +37,7 @@ services:
     ports:
       - '6001:5001'
     networks:
-      - internal
+      - internal_e2e
     env_file:
       - client/.env.e2e
     depends_on:
@@ -46,40 +50,43 @@ services:
       retries: 5
 
   chroma-e2e:
+    container_name: codeinfo2-chroma-e2e
     image: chromadb/chroma:1.3.5
     environment:
-      - IS_PERSISTENT=FALSE
-      - ANONYMIZED_TELEMETRY=FALSE
+      - IS_PERSISTENT=False
+      - ANONYMIZED_TELEMETRY=False
       - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
       - '8800:8000'
     networks:
-      - internal
+      - internal_e2e
     depends_on:
       - otel-collector
       - zipkin
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    container_name: codeinfo2-otel-collector-e2e
+    image: otel/opentelemetry-collector-contrib:0.111.0
     command: ['--config', '/etc/otel-collector-config.yaml']
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - '4317:4317'
-      - '4318:4318'
+      - '4417:4317'
+      - '4418:4318'
     networks:
-      - internal
+      - internal_e2e
 
   zipkin:
+    container_name: codeinfo2-zipkin-e2e
     image: openzipkin/zipkin
     ports:
-      - '9411:9411'
+      - '9511:9411'
     networks:
-      - internal
+      - internal_e2e
     depends_on:
       otel-collector:
         condition: service_started
 
 networks:
-  internal:
+  internal_e2e:

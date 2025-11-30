@@ -5,7 +5,8 @@ Improve observability during ingest and chat so users see which files are being 
 
 ## Acceptance Criteria
 - Ingest UI and API expose the current file path being processed (in addition to chunk counts) and update it live during a run.
-- Chat transcript shows when LM Studio tools are invoked, including the tool name and timing, without disrupting the conversation flow.
+- Chat transcript shows when LM Studio tools are invoked, including the tool name and timing, without disrupting the conversation flow, via an inline spinner inside the active assistant bubble that stops when the call finishes.
+- Completed tool calls collapse into an inline expandable section that reveals the tool name, result payload, and errors (if any); for VectorSearch this includes the list of chunks and the list of files/paths returned.
 - VectorSearch results displayed in chat include the repo and relative file paths used for grounding; users can see which files informed the answer.
 - Assistant messages render as markdown, preserving code blocks and allowing mermaid diagrams to display correctly in the client.
 - Behaviour is documented in README/design with any new env flags or UI states; existing tests are expanded or added to cover the new visibility and markdown flows.

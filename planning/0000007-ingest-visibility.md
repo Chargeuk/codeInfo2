@@ -83,16 +83,17 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 7. [ ] Update README.md with the new ingest status fields and UI behaviour.
 8. [ ] Update design.md with ingest progress flow/state notes and a mermaid diagram illustrating per-file progress updates.
 9. [ ] Update projectStructure.md if any files are added/renamed.
-10. [ ] Run full linting (`npm run lint --workspaces`).
+10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build (`npm run compose:build`)
-4. [ ] Start docker compose (`npm run compose:up`)
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 -
@@ -129,16 +130,17 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 7. [ ] Update README.md with chat tool-call visibility behaviour.
 8. [ ] Update design.md with tool-call UI/flow and a mermaid sequence/flow diagram covering spinner-to-collapse lifecycle.
 9. [ ] Update projectStructure.md for any new components/tests.
-10. [ ] Run full linting (`npm run lint --workspaces`).
+10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build (`npm run compose:build`)
-4. [ ] Start docker compose (`npm run compose:up`)
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 -
@@ -172,16 +174,17 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 7. [ ] Update README.md for reasoning handling.
 8. [ ] Update design.md with reasoning/rendering flow and streaming states, including a mermaid diagram for think/Harmony collapse and streaming.
 9. [ ] Update projectStructure.md if new parser files are added.
-10. [ ] Run full linting (`npm run lint --workspaces`).
+10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build (`npm run compose:build`)
-4. [ ] Start docker compose (`npm run compose:up`)
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 -
@@ -213,16 +216,17 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 5. [ ] Update README.md to describe markdown behaviour and safety.
 6. [ ] Update design.md to reflect markdown rendering paths and sanitization.
 7. [ ] Update projectStructure.md if renderer utilities change.
-8. [ ] Run full linting (`npm run lint --workspaces`).
+8. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build (`npm run compose:build`)
-4. [ ] Start docker compose (`npm run compose:up`)
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 -
@@ -253,16 +257,17 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 5. [ ] Update README.md for mermaid support and usage.
 6. [ ] Update design.md with mermaid rendering flow/theme notes and include/update mermaid diagrams as needed.
 7. [ ] Update projectStructure.md if renderer utilities change.
-8. [ ] Run full linting (`npm run lint --workspaces`).
+8. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean docker build (`npm run compose:build`)
-4. [ ] Start docker compose (`npm run compose:up`)
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 -
@@ -286,21 +291,23 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Cucumber guides https://cucumber.io/docs/guides/
 
 #### Subtasks
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-7. [ ] Add or extend e2e tests as needed to cover the new ingest progress, tool-call visibility, reasoning collapse, markdown, and mermaid behaviour; commit screenshots per instructions.
-8. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+1. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+2. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+3. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+4. [ ] Add or extend e2e tests as needed to cover the new ingest progress, tool-call visibility, reasoning collapse, markdown, and mermaid behaviour; commit screenshots per instructions.
+5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+6. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
-1. [ ] run the client jest tests
-2. [ ] run the server cucumber tests
-3. [ ] restart the docker environment
-4. [ ] run the e2e tests
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 - Details about the implementation. Include what went to plan and what did not.

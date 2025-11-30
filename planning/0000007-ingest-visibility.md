@@ -17,12 +17,12 @@ Improve observability during ingest and chat so users see which files are being 
 - Full redesign of the chat UI layout; changes are limited to visibility/formatting additions.
 - Server-side RAG parameter tuning (topK/temperature) beyond existing defaults.
 
-## Questions
+## Questions (all resolved)
 - Should file-progress reporting include percentage/ETA or just the current file name/path? **Decision:** include percentage, current index/total, ETA, and current file path.
-- How should tool-call visibility appear in the chat UI (inline status line, chips, or a collapsible log)?
+- How should tool-call visibility appear in the chat UI (inline status line, chips, or a collapsible log)? **Decision:** inline spinner inside the active assistant bubble; on completion it collapses into an expandable block with details.
 - Do we need a toggle to disable tool-call visibility for minimal mode? **Decision:** no toggle; tool details stay in collapsible blocks users can leave closed.
 - Are there security/privacy constraints on showing full host paths in chat, or should we truncate to repo/relPath only? **Decision:** no constraints; show full host paths (local dev only).
-- For mermaid rendering, should we support dark/light themes or rely on MUI theme defaults?
+- For mermaid rendering, should we support dark/light themes or rely on MUI theme defaults? **Decision:** rely on MUI theme defaults (light/dark aware) with no extra toggle.
 
 # Implementation Plan
 

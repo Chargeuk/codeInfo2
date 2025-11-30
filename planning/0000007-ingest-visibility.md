@@ -57,8 +57,8 @@ Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>a
 
 ### 1. Ingest progress telemetry
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 4539102
 
 #### Overview
 Expose per-file ingest progress: show current file path, index/total, percentage, and ETA in the ingest status API and UI so long runs are transparent and debuggable.

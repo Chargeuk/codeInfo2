@@ -4,8 +4,8 @@ services:
   chroma:
     image: chromadb/chroma:1.3.5
     environment:
-      - IS_PERSISTENT=False
-      - ANONYMIZED_TELEMETRY=False
+      - IS_PERSISTENT=false
+      - ANONYMIZED_TELEMETRY=false
       - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:

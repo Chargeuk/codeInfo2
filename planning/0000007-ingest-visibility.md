@@ -68,6 +68,8 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 - Client ingest UI: `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/hooks/useIngestStatus.ts`
 - Ingest Cucumber coverage: `server/src/test/features/ingest-*.feature`
 - Ingest e2e: `e2e/ingest.spec.ts`
+- Cucumber guide: https://cucumber.io/docs/guides/
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
@@ -109,6 +111,8 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 - Server tool events: `server/src/routes/chat.ts`, `server/src/lmstudio/tools.ts`, `server/src/lmstudio/toolService.ts`
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 - Chat SSE Cucumber/integration: `server/src/test/features/chat_*`, `server/src/test/integration/chat-tools-wire.test.ts`
+- Jest docs: Context7 `/jestjs/jest`
+- Cucumber guide: https://cucumber.io/docs/guides/
 
 #### Subtasks
 1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
@@ -149,6 +153,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 - Chat UI components for think blocks: `client/src/pages/ChatPage.tsx`
 - Harmony format reference: https://cookbook.openai.com/articles/openai-harmony
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
@@ -188,6 +193,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 - Markdown renderer usage in client (where configured)
 - Chat UI render paths: `client/src/pages/ChatPage.tsx`
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
@@ -226,6 +232,7 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 - Chat UI render paths: `client/src/pages/ChatPage.tsx`
 - Chat RTL/e2e tests for rendering
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Jest docs: Context7 `/jestjs/jest`
 
 #### Subtasks
 1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.

@@ -294,9 +294,13 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 1. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
 2. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
 3. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-4. [ ] Add or extend e2e tests as needed to cover the new ingest progress, tool-call visibility, reasoning collapse, markdown, and mermaid behaviour; commit screenshots per instructions.
-5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
-6. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+4. [ ] E2E: ingest progress shows file path/index/percent/ETA (extend `e2e/ingest.spec.ts` or new `e2e/ingest-progress.spec.ts`); capture screenshot per naming rules.
+5. [ ] E2E: chat tool-call visibility spinner→collapse with file paths/chunks (extend `e2e/chat-tools.spec.ts` or new spec); capture screenshot.
+6. [ ] E2E: reasoning collapse for `<think>`/Harmony streaming (new `e2e/chat-reasoning.spec.ts`); capture screenshot.
+7. [ ] E2E: markdown rendering of chat reply with code fences (extend `e2e/chat.spec.ts` or new `e2e/chat-markdown.spec.ts`); capture screenshot.
+8. [ ] E2E: mermaid rendering of ```mermaid``` block (new `e2e/chat-mermaid.spec.ts`); capture screenshot.
+9. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

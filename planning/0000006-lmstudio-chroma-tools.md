@@ -418,7 +418,7 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 
 ### 6. E2E embedding-model consistency
 
-- Task Status: **__done__**
+- Task Status: **done**
 - Git Commits: 394cf81
 
 #### Overview

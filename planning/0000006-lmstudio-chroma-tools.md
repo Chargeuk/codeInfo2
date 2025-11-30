@@ -455,7 +455,7 @@ Ensure all e2e ingest flows (happy path, cancel, re-embed, remove) use the same 
 
 ### 7. E2E chat model stability
 
-- Task Status: **__done__**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview

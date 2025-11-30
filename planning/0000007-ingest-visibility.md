@@ -57,7 +57,7 @@ Also support OpenAI/GPT-OSS "Harmony" channel-tagged output (e.g., `<|channel|>a
 
 ### 1. Ingest progress telemetry
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

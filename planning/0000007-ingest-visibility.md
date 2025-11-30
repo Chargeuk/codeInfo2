@@ -10,6 +10,7 @@ Improve observability during ingest and chat so users see which files are being 
 - VectorSearch results displayed in chat include the repo and relative file paths used for grounding; users can see which files informed the answer.
 - Assistant messages render as markdown, preserving code blocks and allowing mermaid diagrams to display correctly in the client.
 - `<think>` content stays collapsed as soon as the opening tag is seen, even before the closing tag arrives; while streaming, show a thinking icon + spinner on the collapsible header, and allow users to open it to watch the think text stream.
+- LM Studio channel-tag style outputs (e.g., `<|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>`) are parsed and rendered with the analysis content collapsed like think blocks and the final content shown as the visible reply.
 - Behaviour is documented in README/design with any new env flags or UI states; existing tests are expanded or added to cover the new visibility and markdown flows.
 
 ## Out Of Scope

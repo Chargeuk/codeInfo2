@@ -415,3 +415,71 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 - New chat integration test `chat-vectorsearch-locked-model.test.ts` asserts SSE error on missing lock and tool-result + embedding-model invocation when locked; mocks Chroma/LM Studio to avoid network while still exercising embeddingFunction.generate.
 - Docs synced (README/design/projectStructure) to reflect lock-derived embedding, new error shapes, and new tests.
 - Verification: server unit/integration + Cucumber + e2e chat-tools flows now run without “Embedding function must be defined”; chat SSE returns `error: INGEST_REQUIRED` when unlocked and tool-result with `modelId` when locked. Resolved Zipkin port conflict (stopped old container) before rerunning server tests.
+
+### 6. E2E embedding-model consistency
+
+- Task Status: **__done__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure all e2e ingest flows (happy path, cancel, re-embed, remove) use the same embedding model to avoid Chroma dimension mismatches that currently cause the latter tests to skip when a different default model is auto-selected.
+
+#### Documentation Locations
+
+- Existing e2e ingest spec: `e2e/ingest.spec.ts`
+- Ingest model lock behaviour: `server/src/ingest/chromaClient.ts`
+- LM Studio models endpoint: `server/src/routes/ingestModels.ts`
+- Playwright docs: Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [x] Add a shared helper in `e2e/ingest.spec.ts` to select a single embedding model (`preferredModelId` fallback to first available) and reuse it for every ingest action in the suite (happy, cancel, re-embed, remove).
+2. [x] Log/trace the chosen model per test run (console/info) to aid debugging when models change in LM Studio.
+3. [x] Update ingest form interactions in each test to explicitly select the chosen model when the select is enabled, instead of relying on defaults.
+4. [x] Rerun `npx playwright test e2e/ingest.spec.ts` to confirm no skips and that cancel/re-embed/remove reach terminal states.
+5. [x] If LM Studio is unavailable, keep the existing graceful skip behaviour but ensure the skip reason mentions the missing model choice (not a dimension mismatch).
+
+#### Testing
+
+1. [x] `E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e/ingest.spec.ts`
+2. [x] `npm run e2e` (full suite) once the targeted spec passes to ensure no new flakes.
+
+#### Implementation notes
+
+- Selected embedding model logged as `text-embedding-qwen3-embedding-4b` and reused across all ingest flows; added helper + explicit selects and an in-progress wait to stabilise cancel flows.
+- `E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e/ingest.spec.ts` now passes all four ingest cases without skips.
+- Full `npm run e2e` executed; ingest cases no longer dimension-mismatch, but suite still fails in `e2e/chat.spec.ts` (Responding... spinner remains visible). This is outside Task 6 scope and will be addressed in Task 7.
+
+---
+
+### 7. E2E chat model stability
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure chat e2e runs use a deterministic, finite model (`openai/gpt-oss-20b`) to avoid hanging streams while keeping real LM Studio traffic (no mock chat).
+
+#### Documentation Locations
+
+- `e2e/chat.spec.ts` (current chat e2e)
+- LM Studio chat models endpoint: `server/src/routes/chatModels.ts`
+- Playwright docs: Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add a helper to `e2e/chat.spec.ts` that picks `openai/gpt-oss-20b` when present, otherwise falls back to the first reported model, and logs the selected key.
+2. [ ] Update the test flow to select that model explicitly in the dropdown before sending messages (no mock mode).
+3. [ ] Add a short timeout/abort guard in the test so “Responding...” cannot hang indefinitely; keep expectations aligned with real streaming.
+4. [ ] Rerun `npx playwright test e2e/chat.spec.ts` to verify completion without spinner hangs.
+
+#### Testing
+
+1. [ ] `E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e/chat.spec.ts`
+2. [ ] `npm run e2e` to confirm the full suite passes with the explicit model selection.
+
+#### Implementation notes
+
+- Start empty; record the selected model key and any LM Studio availability issues. Keep real LM Studio usage (no mock chat).

@@ -9,7 +9,7 @@ const preferredEmbeddingModel = 'text-embedding-qwen3-embedding-4b';
 
 let skipReason: string | undefined;
 let ingestSkip: string | undefined;
-let preferredModelId: string | undefined;
+let chosenModelId: string | undefined;
 
 async function ensureCleanRoots() {
   const ctx = await request.newContext();
@@ -60,9 +60,12 @@ async function checkPrereqs() {
       skipReason = 'no embedding models available';
       return;
     }
-    preferredModelId =
+    chosenModelId =
       data.models.find((m: { id?: string }) => m.id === preferredEmbeddingModel)
         ?.id || data.models[0]?.id;
+    console.log(
+      `[e2e:ingest] using embedding model: ${chosenModelId ?? 'none-selected'}`,
+    );
     // light ping for LM Studio proxy availability
     const lmStatus = await ctx.get(`${apiBase}/lmstudio/status`);
     if (!lmStatus.ok()) {
@@ -119,6 +122,41 @@ const waitForCompletion = async (page: Parameters<typeof test>[0]['page']) => {
     .toMatch(/(completed|cancelled|error)/);
 };
 
+const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
+  await expect(
+    page.getByRole('heading', { name: /Active ingest/i }),
+  ).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const label = await page
+          .locator('.MuiChip-label')
+          .first()
+          .textContent();
+        return label?.toLowerCase() ?? '';
+      },
+      { timeout: 30_000, message: 'waiting for ingest to start' },
+    )
+    .toMatch(/(queued|scanning|embedding|completed)/);
+};
+
+const selectEmbeddingModel = async (
+  page: Parameters<typeof test>[0]['page'],
+) => {
+  if (!chosenModelId) {
+    ingestSkip = 'embedding model not chosen during prereq check';
+    test.skip(ingestSkip);
+  }
+  const modelSelect = page.getByLabel('Embedding model');
+  if (await modelSelect.isEnabled()) {
+    await modelSelect.selectOption(chosenModelId as string);
+  } else {
+    console.log(
+      `[e2e:ingest] embedding model select disabled; assuming locked to ${chosenModelId}`,
+    );
+  }
+};
+
 test.describe.serial('Ingest flows', () => {
   test.setTimeout(180_000);
   test.beforeAll(async () => {
@@ -137,19 +175,7 @@ test.describe.serial('Ingest flows', () => {
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
     await page.getByLabel('Description (optional)').fill('E2E ingest fixture');
-    const modelSelect = page.getByLabel('Embedding model');
-    if (await modelSelect.isEnabled()) {
-      const hasPreferred = preferredModelId
-        ? (await modelSelect
-            .locator(`option[value="${preferredModelId}"]`)
-            .count()) > 0
-        : false;
-      if (hasPreferred && preferredModelId) {
-        await modelSelect.selectOption(preferredModelId);
-      } else {
-        await modelSelect.selectOption({ index: 0 });
-      }
-    }
+    await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
     const submitError = page.getByTestId('submit-error');
@@ -180,7 +206,10 @@ test.describe.serial('Ingest flows', () => {
 
     await page.getByLabel('Folder path').fill(`${fixturePath}`);
     await page.getByLabel('Display name').fill(`${fixtureName}-cancel`);
+    await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
+
+    await waitForInProgress(page);
 
     const cancelButton = page.getByRole('button', { name: /cancel ingest/i });
     await expect(cancelButton).toBeEnabled({ timeout: 10_000 });
@@ -203,6 +232,7 @@ test.describe.serial('Ingest flows', () => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
+    await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
     const row = page
@@ -227,6 +257,7 @@ test.describe.serial('Ingest flows', () => {
     await page.goto(`${baseUrl}/ingest`);
     await page.getByLabel('Folder path').fill(fixturePath);
     await page.getByLabel('Display name').fill(fixtureName);
+    await selectEmbeddingModel(page);
     await page.getByTestId('start-ingest').click();
 
     const row = page

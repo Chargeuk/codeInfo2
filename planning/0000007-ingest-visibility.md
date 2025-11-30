@@ -70,6 +70,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 - Ingest e2e: `e2e/ingest.spec.ts`
 - Cucumber guide: https://cucumber.io/docs/guides/
 - Jest docs: Context7 `/jestjs/jest`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
@@ -79,7 +80,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 5. [ ] Client RTL: ActiveRunCard displays file path, index/total, percent, ETA with live polling (`client/src/components/ingest/ActiveRunCard.tsx`).
 6. [ ] E2E: ingest progress assertion in `e2e/ingest.spec.ts` (or new spec) showing file path and percent update.
 7. [ ] Update README.md with the new ingest status fields and UI behaviour.
-8. [ ] Update design.md with ingest progress flow/state notes.
+8. [ ] Update design.md with ingest progress flow/state notes and a mermaid diagram illustrating per-file progress updates.
 9. [ ] Update projectStructure.md if any files are added/renamed.
 10. [ ] Run full linting (`npm run lint --workspaces`).
 
@@ -113,6 +114,7 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 - Chat SSE Cucumber/integration: `server/src/test/features/chat_*`, `server/src/test/integration/chat-tools-wire.test.ts`
 - Jest docs: Context7 `/jestjs/jest`
 - Cucumber guide: https://cucumber.io/docs/guides/
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
@@ -122,7 +124,7 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 5. [ ] Server Cucumber (if applicable): feature to assert tool-request/result visibility fields in SSE.
 6. [ ] E2E: chat-tools visibility flow shows spinner then collapsible result with file paths.
 7. [ ] Update README.md with chat tool-call visibility behaviour.
-8. [ ] Update design.md with tool-call UI/flow.
+8. [ ] Update design.md with tool-call UI/flow and a mermaid sequence/flow diagram covering spinner-to-collapse lifecycle.
 9. [ ] Update projectStructure.md for any new components/tests.
 10. [ ] Run full linting (`npm run lint --workspaces`).
 
@@ -154,6 +156,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 - Harmony format reference: https://cookbook.openai.com/articles/openai-harmony
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 - Jest docs: Context7 `/jestjs/jest`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
@@ -163,7 +166,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 5. [ ] Server unit/integration (if shared parser/server-side handling is added) for Harmony/think separation.
 6. [ ] E2E: chat streaming scenario with Harmony-style output verifying collapse/expand behaviour.
 7. [ ] Update README.md for reasoning handling.
-8. [ ] Update design.md with reasoning/rendering flow and streaming states.
+8. [ ] Update design.md with reasoning/rendering flow and streaming states, including a mermaid diagram for think/Harmony collapse and streaming.
 9. [ ] Update projectStructure.md if new parser files are added.
 10. [ ] Run full linting (`npm run lint --workspaces`).
 
@@ -194,6 +197,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 - Chat UI render paths: `client/src/pages/ChatPage.tsx`
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 - Jest docs: Context7 `/jestjs/jest`
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
@@ -240,7 +244,7 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 3. [ ] Client RTL: mermaid block render in chat reply with XSS/sanitization assertions.
 4. [ ] E2E: mermaid rendering scenario to confirm diagrams appear and no regressions.
 5. [ ] Update README.md for mermaid support and usage.
-6. [ ] Update design.md with mermaid rendering flow/theme notes.
+6. [ ] Update design.md with mermaid rendering flow/theme notes and include/update mermaid diagrams as needed.
 7. [ ] Update projectStructure.md if renderer utilities change.
 8. [ ] Run full linting (`npm run lint --workspaces`).
 

@@ -363,7 +363,7 @@ Ensure all acceptance criteria are met, documentation is current, and the full s
 
 ### 5. VectorSearch embedding function alignment
 
-- Task Status: **__done__**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview

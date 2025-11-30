@@ -211,7 +211,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 
 ### 4. Markdown rendering
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -8,6 +8,7 @@ export type ChatMessage = {
   kind?: 'error' | 'status';
   think?: string;
   citations?: ToolCitation[];
+  tools?: ToolCall[];
 };
 
 export type ToolCitation = {
@@ -19,6 +20,13 @@ export type ToolCitation = {
   chunk: string;
   chunkId?: string;
   modelId?: string;
+};
+
+export type ToolCall = {
+  id: string;
+  name?: string;
+  status: 'requesting' | 'result' | 'error';
+  payload?: unknown;
 };
 
 type Status = 'idle' | 'sending';
@@ -130,18 +138,6 @@ export function useChatStream(model?: string) {
     return { visible, think: think.length ? think : undefined };
   };
 
-  const handleToolEvent = useCallback(
-    (event: Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }>) => {
-      logger('info', 'chat tool event', {
-        type: event.type,
-        callId: event.callId,
-        name: event.name,
-        stage: event.stage,
-      });
-    },
-    [logger],
-  );
-
   const extractCitations = useCallback((result: unknown): ToolCitation[] => {
     const payload =
       result && typeof result === 'object' && 'results' in result
@@ -203,6 +199,7 @@ export function useChatStream(model?: string) {
       let assistantContent = '';
       let assistantThink: string | undefined;
       let assistantCitations: ToolCitation[] = [];
+      let assistantTools: ToolCall[] = [];
 
       updateMessages((prev) => [
         ...prev,
@@ -218,6 +215,32 @@ export function useChatStream(model?: string) {
               ? {
                   ...msg,
                   citations: [...(msg.citations ?? []), ...incoming],
+                }
+              : msg,
+          ),
+        );
+      };
+
+      const upsertTool = (incoming: ToolCall) => {
+        const existingIndex = assistantTools.findIndex(
+          (tool) => tool.id === incoming.id,
+        );
+        const nextTools = [...assistantTools];
+        if (existingIndex >= 0) {
+          nextTools[existingIndex] = {
+            ...nextTools[existingIndex],
+            ...incoming,
+          };
+        } else {
+          nextTools.push(incoming);
+        }
+        assistantTools = nextTools;
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  tools: nextTools,
                 }
               : msg,
           ),
@@ -271,10 +294,36 @@ export function useChatStream(model?: string) {
             try {
               const event = JSON.parse(payload) as StreamEvent;
               if (isToolEvent(event)) {
-                handleToolEvent(event);
+                const status: ToolCall['status'] =
+                  event.type === 'tool-request'
+                    ? 'requesting'
+                    : event.stage === 'error'
+                      ? 'error'
+                      : 'result';
+                const id = event.callId ?? makeId();
+                logger('info', 'chat tool event', {
+                  type: event.type,
+                  callId: id,
+                  name: event.name,
+                  stage: event.stage,
+                });
+                const applyResult = () => {
+                  upsertTool({
+                    id,
+                    name: event.name,
+                    status,
+                    payload: event.result,
+                  });
+                  if (event.type === 'tool-result') {
+                    const citations = extractCitations(event.result);
+                    appendCitations(citations);
+                  }
+                };
+
                 if (event.type === 'tool-result') {
-                  const citations = extractCitations(event.result);
-                  appendCitations(citations);
+                  setTimeout(applyResult, 500);
+                } else {
+                  applyResult();
                 }
                 continue;
               }
@@ -318,7 +367,7 @@ export function useChatStream(model?: string) {
     [
       extractCitations,
       handleErrorBubble,
-      handleToolEvent,
+      logger,
       model,
       status,
       stop,

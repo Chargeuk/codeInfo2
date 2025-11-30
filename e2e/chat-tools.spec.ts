@@ -122,8 +122,15 @@ test.describe.serial('Chat tools citations', () => {
       if (route.request().method() !== 'POST') return route.continue();
       const events = [
         {
+          type: 'tool-request',
+          callId: 't1',
+          name: 'VectorSearch',
+          roundIndex: 0,
+        },
+        {
           type: 'tool-result',
           name: 'VectorSearch',
+          callId: 't1',
           result: {
             results: [firstResult],
             modelId: firstResult.modelId ?? null,
@@ -160,6 +167,13 @@ test.describe.serial('Chat tools citations', () => {
     await input.fill('What does main.txt say about the project?');
     await send.click();
 
+    const toolSpinner = page.getByTestId('tool-spinner');
+    await expect(toolSpinner).toBeVisible({ timeout: 20000 });
+
+    const toolToggle = page.getByTestId('tool-toggle');
+    await toolToggle.waitFor({ timeout: 20000 });
+    await toolToggle.click();
+
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
     const hostSuffix = firstResult.hostPath ? ` (${firstResult.hostPath})` : '';
 
@@ -169,6 +183,13 @@ test.describe.serial('Chat tools citations', () => {
       pathLabel + hostSuffix,
     );
     await expect(page.getByTestId('citation-chunk').first()).toContainText(
+      firstResult.chunk,
+    );
+
+    await expect(page.getByTestId('tool-result-path').first()).toHaveText(
+      pathLabel + hostSuffix,
+    );
+    await expect(page.getByTestId('tool-result-chunk').first()).toContainText(
       firstResult.chunk,
     );
 

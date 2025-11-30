@@ -18,10 +18,31 @@ export const chatToolEventsFixture = [
   {
     type: 'toolCallRequestStart',
     callId: 'call-1',
-    name: 'noop',
+    name: 'VectorSearch',
     roundIndex: 0,
   },
-  { type: 'toolCallResult', callId: 'call-1', roundIndex: 0 },
+  {
+    type: 'toolCallRequestNameReceived',
+    callId: 'call-1',
+    name: 'VectorSearch',
+    roundIndex: 0,
+  },
+  {
+    type: 'toolCallResult',
+    callId: 'call-1',
+    name: 'VectorSearch',
+    roundIndex: 0,
+    result: {
+      results: [
+        {
+          repo: 'repo',
+          relPath: 'main.txt',
+          hostPath: '/host/repo/main.txt',
+          chunk: 'sample chunk',
+        },
+      ],
+    },
+  },
   {
     type: 'message',
     message: { role: 'assistant', content: 'Tool run complete' },

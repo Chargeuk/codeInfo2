@@ -82,6 +82,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
+|     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
@@ -170,6 +171,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - chat_stream.feature - streaming /chat SSE Cucumber coverage
         - chat_cancellation.feature - Cucumber coverage for aborting chat streams
         - chat_models.feature - Cucumber coverage for chat model list endpoint
+        - chat-tools-visibility.feature - tool request/result metadata in chat stream
         - example.feature - sample feature
         - lmstudio.feature - LM Studio proxy scenarios
         - ingest-models.feature - embedding models endpoint scenarios
@@ -184,6 +186,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
+        - chat-tools-visibility.steps.ts - step defs for chat tool metadata visibility
         - example.steps.ts - step defs for example.feature
         - lmstudio.steps.ts - step defs for LM Studio feature
         - ingest-models.steps.ts - step defs for ingest models endpoint

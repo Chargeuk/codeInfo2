@@ -54,6 +54,7 @@ type ActCallbacks = {
     fragment: LLMPredictionFragment & { roundIndex?: number },
   ) => void;
   onToolCallRequestStart?: (...args: unknown[]) => void;
+  onToolCallRequestNameReceived?: (...args: unknown[]) => void;
   onToolCallRequestEnd?: (...args: unknown[]) => void;
   onToolCallResult?: (
     roundIndex: number,
@@ -98,6 +99,7 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
     ).implementation({ query: 'hi' }, toolCtx);
 
     opts.onToolCallRequestStart?.(0, 1);
+    opts.onToolCallRequestNameReceived?.(0, 1, 'VectorSearch');
     opts.onToolCallRequestEnd?.(0, 1);
     opts.onToolCallResult?.(0, 1, toolResult);
     opts.onMessage?.({ role: 'assistant', content: 'done' });
@@ -133,7 +135,17 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
     .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
 
   const toolResultEvent = events.find((e) => e.type === 'tool-result');
+  const toolRequestEvent = events.find(
+    (e) => e.type === 'tool-request' && typeof e.name === 'string',
+  );
+
+  assert.ok(toolRequestEvent, 'expected tool-request event');
+  assert.equal(toolRequestEvent.callId, 1);
+  assert.equal(toolRequestEvent.name, 'VectorSearch');
+
   assert.ok(toolResultEvent, 'expected tool-result event');
+  assert.equal(toolResultEvent.callId, 1);
+  assert.equal(toolResultEvent.name, 'VectorSearch');
   assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
   assert.equal(
     toolResultEvent.result.results[0].hostPath,

@@ -130,30 +130,34 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 - LM Studio TypeScript agent docs: https://lmstudio.ai/docs/typescript/agent/act
 
 #### Subtasks
-1. [ ] Client parsing: in `client/src/hooks/useChatStream.ts` add tool call tracking (id, name, status `requesting|result|error`, payload) on SSE `tool-request` / `tool-result`; keep payload typed and pass to UI via message state.
-2. [ ] UI placement: in `client/src/pages/ChatPage.tsx` render spinner + tool name inline inside the active assistant bubble header; after result, render a collapsible (MUI `Accordion`/`Collapse`) showing tool name, status, and for VectorSearch list `repo/relPath`, `hostPath`, and `chunk` text.
-3. [ ] Client RTL: add `client/src/test/chatPage.toolVisibility.test.tsx` using mocked SSE events—emit `tool-request` then `tool-result` with payload `{id:"t1", name:"VectorSearch", results:[{repo:"repo", relPath:"main.txt", hostPath:"/host/repo/main.txt", chunk:"sample chunk"}]}`; assert spinner then collapsible contents.
-4. [ ] Server integration: extend `server/src/test/integration/chat-tools-wire.test.ts` (or add new) to assert SSE frames include `tool-request`/`tool-result` with id/name/result fields.
-5. [ ] Server Cucumber: add `server/src/test/features/chat-tools-visibility.feature` + `server/src/test/steps/chat-tools-visibility.steps.ts` to stream a chat turn and assert tool metadata presence.
-6. [ ] E2E: extend `e2e/chat-tools.spec.ts` (or new `e2e/chat-tools-visibility.spec.ts`) to assert spinner then collapsible with chunk text “This is the ingest test fixture for CodeInfo2.” and path `repo/main.txt` for prompt “What does main.txt say about the project?”.
-7. [ ] Docs: update `README.md` with chat tool-call visibility behaviour.
-8. [ ] Docs: update `design.md` with tool-call flow and mermaid spinner→collapse diagram.
-9. [ ] Docs: update `projectStructure.md` if new files/components are added.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
-11. [ ] Order: client hook → UI → client RTL → server tests → e2e → docs → lint/format.
+1. [x] Client parsing: in `client/src/hooks/useChatStream.ts` add tool call tracking (id, name, status `requesting|result|error`, payload) on SSE `tool-request` / `tool-result`; keep payload typed and pass to UI via message state.
+2. [x] UI placement: in `client/src/pages/ChatPage.tsx` render spinner + tool name inline inside the active assistant bubble header; after result, render a collapsible (MUI `Accordion`/`Collapse`) showing tool name, status, and for VectorSearch list `repo/relPath`, `hostPath`, and `chunk` text.
+3. [x] Client RTL: add `client/src/test/chatPage.toolVisibility.test.tsx` using mocked SSE events—emit `tool-request` then `tool-result` with payload `{id:"t1", name:"VectorSearch", results:[{repo:"repo", relPath:"main.txt", hostPath:"/host/repo/main.txt", chunk:"sample chunk"}]}`; assert spinner then collapsible contents.
+4. [x] Server integration: extend `server/src/test/integration/chat-tools-wire.test.ts` (or add new) to assert SSE frames include `tool-request`/`tool-result` with id/name/result fields.
+5. [x] Server Cucumber: add `server/src/test/features/chat-tools-visibility.feature` + `server/src/test/steps/chat-tools-visibility.steps.ts` to stream a chat turn and assert tool metadata presence.
+6. [x] E2E: extend `e2e/chat-tools.spec.ts` (or new `e2e/chat-tools-visibility.spec.ts`) to assert spinner then collapsible with chunk text “This is the ingest test fixture for CodeInfo2.” and path `repo/main.txt` for prompt “What does main.txt say about the project?”.
+7. [x] Docs: update `README.md` with chat tool-call visibility behaviour.
+8. [x] Docs: update `design.md` with tool-call flow and mermaid spinner→collapse diagram.
+9. [x] Docs: update `projectStructure.md` if new files/components are added.
+10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+11. [x] Order: client hook → UI → client RTL → server tests → e2e → docs → lint/format.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
--
+- Chat stream hook now tracks tool calls by id/name/status and merges SSE `tool-request`/`tool-result` frames into the active assistant message, delaying result application by 500ms so the spinner is visible.
+- Chat UI renders inline tool spinners during execution and collapsible detail blocks on completion; VectorSearch payloads list repo/relPath plus hostPath and chunk text, with toggles remembered per call in state.
+- Server chat route preserves tool names when emitting `tool-result` and unwraps LM Studio responses that nest `result`, ensuring the client receives structured payloads; fixtures updated to include tool names/results.
+- Added coverage: RTL test for spinner→collapse flow, server integration test for tool metadata, Cucumber feature/steps for tool events, and Playwright e2e asserting spinner then chunk/path display in chat-tools spec; adjusted ingest dry-run step timing to await completion.
+- Updated README/design/projectStructure to describe tool-call visibility and new tests; ran lint/format, server/client builds, server/client tests, compose build/up/down, and e2e (all passing with ingest specs auto-skipped when prerequisites are missing).
 
 ---
 

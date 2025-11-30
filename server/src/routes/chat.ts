@@ -193,6 +193,8 @@ export function createChatRouter({
         );
       };
 
+      const toolNames = new Map<number, string>();
+
       const actOptions: LLMActionOpts & { signal?: AbortSignal } & Record<
           string,
           unknown
@@ -245,6 +247,7 @@ export function createChatRouter({
           callId: number,
           name: string,
         ) => {
+          toolNames.set(callId, name);
           logToolEvent('toolCallRequestNameReceived', callId, name, roundIndex);
           writeIfOpen({
             type: 'tool-request',
@@ -339,12 +342,21 @@ export function createChatRouter({
           callId: number,
           info: unknown,
         ) => {
-          logToolEvent('toolCallResult', callId, undefined, roundIndex);
+          const name =
+            toolNames.get(callId) ??
+            (info as { name?: string })?.name ??
+            undefined;
+          const payload =
+            info && typeof info === 'object' && 'result' in (info as object)
+              ? (info as { result?: unknown }).result
+              : info;
+          logToolEvent('toolCallResult', callId, name, roundIndex);
           writeIfOpen({
             type: 'tool-result',
             callId,
             roundIndex,
-            result: info,
+            name,
+            result: payload,
           });
         },
       };

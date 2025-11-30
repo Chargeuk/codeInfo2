@@ -111,8 +111,8 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 
 ### 2. Chat tool-call visibility
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 43cfb74
 
 #### Overview
 Render inline tool-call activity inside assistant bubbles with a spinner and tool name during execution, collapsing to an expandable detail block (showing results/errors, chunks, and file paths) once complete.

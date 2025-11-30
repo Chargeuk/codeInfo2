@@ -21,7 +21,7 @@ Improve observability during ingest and chat so users see which files are being 
 - Should file-progress reporting include percentage/ETA or just the current file name/path? **Decision:** include percentage, current index/total, ETA, and current file path.
 - How should tool-call visibility appear in the chat UI (inline status line, chips, or a collapsible log)?
 - Do we need a toggle to disable tool-call visibility for minimal mode?
-- Are there security/privacy constraints on showing full host paths in chat, or should we truncate to repo/relPath only?
+- Are there security/privacy constraints on showing full host paths in chat, or should we truncate to repo/relPath only? **Decision:** no constraints; show full host paths (local dev only).
 - For mermaid rendering, should we support dark/light themes or rely on MUI theme defaults?
 
 # Implementation Plan

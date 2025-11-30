@@ -71,6 +71,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 - Cucumber guide: https://cucumber.io/docs/guides/
 - Jest docs: Context7 `/jestjs/jest`
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
 1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
@@ -115,6 +116,8 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 - Jest docs: Context7 `/jestjs/jest`
 - Cucumber guide: https://cucumber.io/docs/guides/
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- MUI docs: MUI MCP `@mui/material@7.2.0`
+- LM Studio TypeScript agent docs: https://lmstudio.ai/docs/typescript/agent/act
 
 #### Subtasks
 1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
@@ -157,6 +160,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 - Jest docs: Context7 `/jestjs/jest`
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
@@ -198,6 +202,8 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 - Jest docs: Context7 `/jestjs/jest`
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Recommended markdown renderer docs (react-markdown): https://github.com/remarkjs/react-markdown
+- MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
@@ -237,6 +243,7 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 - Chat RTL/e2e tests for rendering
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
 - Jest docs: Context7 `/jestjs/jest`
+- MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
 1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.

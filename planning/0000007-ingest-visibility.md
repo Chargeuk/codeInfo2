@@ -72,7 +72,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 #### Subtasks
 1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
 2. [ ] Update ingest polling hook and ActiveRunCard to display file path, index/total, percentage, and ETA with live updates and sane fallbacks.
-3. [ ] Add tests: server unit/Cucumber for new status fields; client RTL for ActiveRunCard display; e2e ingest progress assertion.
+3. [ ] Add tests: server unit for ingest status fields + Cucumber feature covering status responses; client RTL for ActiveRunCard display; e2e ingest progress assertion.
 4. [ ] Update README.md with the new ingest status fields and UI behaviour.
 5. [ ] Update design.md with ingest progress flow/state notes.
 6. [ ] Update projectStructure.md if any files are added/renamed.
@@ -110,7 +110,7 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 #### Subtasks
 1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
 2. [ ] Add UI elements: inline spinner + tool name while running; collapsible section with result/error details (chunks + file paths for VectorSearch) after completion.
-3. [ ] Add tests: client RTL for spinner/collapse states and vector file list; server integration/unit for tool event payloads; e2e chat-tools visibility.
+3. [ ] Add tests: client RTL for spinner/collapse states and vector file list; server integration/unit (and Cucumber if applicable) for tool event payloads; e2e chat-tools visibility.
 4. [ ] Update README.md with chat tool-call visibility behaviour.
 5. [ ] Update design.md with tool-call UI/flow.
 6. [ ] Update projectStructure.md for any new components/tests.
@@ -147,7 +147,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
 2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming.
-3. [ ] Add tests: RTL for streaming think/Harmony collapse; unit tests for parser logic; e2e chat streaming with Harmony-style output.
+3. [ ] Add tests: client RTL for streaming think/Harmony collapse; client/unit parser tests; server unit/integration if parser shared; e2e chat streaming with Harmony-style output.
 4. [ ] Update README.md and design.md for reasoning handling.
 5. [ ] Update projectStructure.md if new parser files are added.
 6. [ ] Run full linting (`npm run lint --workspaces`).
@@ -182,7 +182,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 #### Subtasks
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
 2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences render correctly.
-3. [ ] Add tests: RTL for markdown rendering of chat replies; snapshot/DOM assertions for code blocks.
+3. [ ] Add tests: client RTL for markdown rendering of chat replies; snapshot/DOM assertions for code blocks; server/unit only if markdown handling touches server rendering.
 4. [ ] Update README.md and design.md to describe markdown behaviour and safety.
 5. [ ] Update projectStructure.md if renderer utilities change.
 6. [ ] Run full linting (`npm run lint --workspaces`).
@@ -218,7 +218,7 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 #### Subtasks
 1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.
 2. [ ] Ensure theme-aware styling (respect MUI theme) and safe DOM injection/sanitization.
-3. [ ] Add tests: RTL/e2e covering a mermaid block render; verify no XSS regressions.
+3. [ ] Add tests: client RTL/e2e covering a mermaid block render; consider server/unit only if server processes markdown; include XSS regression assertions.
 4. [ ] Update README.md/design.md for mermaid support and any caveats.
 5. [ ] Update projectStructure.md if renderer utilities change.
 6. [ ] Run full linting (`npm run lint --workspaces`).

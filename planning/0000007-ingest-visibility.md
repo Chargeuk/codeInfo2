@@ -166,24 +166,24 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 
 ---
 
-### 4. Markdown & mermaid rendering
+### 4. Markdown rendering
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
-Render assistant visible content as markdown with mermaid support while keeping tool metadata structured; ensure safe streaming re-renders.
+Render assistant visible content as markdown (excluding mermaid) with safe streaming re-renders while keeping tool metadata structured.
 
 #### Documentation Locations
-- Markdown/mermaid renderer usage in client (where configured)
+- Markdown renderer usage in client (where configured)
 - Chat UI render paths: `client/src/pages/ChatPage.tsx`
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 
 #### Subtasks
-1. [ ] Integrate/confirm markdown renderer with mermaid blocks for assistant visible content (final channel/visible text), including streaming re-render support.
-2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences and mermaid blocks render correctly.
-3. [ ] Add tests: RTL for markdown/mermaid rendering of chat replies; snapshot/DOM assertions for code blocks and diagrams.
-4. [ ] Update README.md and design.md to describe markdown/mermaid behaviour and safety/sanitization.
+1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
+2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences render correctly.
+3. [ ] Add tests: RTL for markdown rendering of chat replies; snapshot/DOM assertions for code blocks.
+4. [ ] Update README.md and design.md to describe markdown behaviour and safety.
 5. [ ] Update projectStructure.md if renderer utilities change.
 6. [ ] Run full linting (`npm run lint --workspaces`).
 
@@ -201,7 +201,43 @@ Render assistant visible content as markdown with mermaid support while keeping 
 
 ---
 
-### 5. Final Task – Validate story completion
+### 5. Mermaid rendering
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Enable mermaid diagram rendering inside assistant replies (markdown code fences with `mermaid` language), ensuring safe hydration and theme compatibility.
+
+#### Documentation Locations
+- Mermaid renderer/integration points in client
+- Chat UI render paths: `client/src/pages/ChatPage.tsx`
+- Chat RTL/e2e tests for rendering
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+
+#### Subtasks
+1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.
+2. [ ] Ensure theme-aware styling (respect MUI theme) and safe DOM injection/sanitization.
+3. [ ] Add tests: RTL/e2e covering a mermaid block render; verify no XSS regressions.
+4. [ ] Update README.md/design.md for mermaid support and any caveats.
+5. [ ] Update projectStructure.md if renderer utilities change.
+6. [ ] Run full linting (`npm run lint --workspaces`).
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean docker build (`npm run compose:build`)
+4. [ ] Start docker compose (`npm run compose:up`)
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+
+#### Implementation notes
+-
+
+---
+
+### 6. Final Task – Validate story completion
 
 - status: **to_do**
 - Git Commits: **to_do**

@@ -130,29 +130,27 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 
 ---
 
-### 3. Reasoning & markdown rendering (think + Harmony)
+### 3. Reasoning collapse (think + Harmony)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
-Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing analysis immediately, showing a spinner-enabled header, and rendering visible content as markdown (with mermaid). Ensure hidden reasoning can be expanded while streaming.
+Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing analysis immediately, showing a spinner-enabled header, and keeping final content separate for display.
 
 #### Documentation Locations
 - Chat stream parsing: `client/src/hooks/useChatStream.ts`
 - Chat UI components for think blocks: `client/src/pages/ChatPage.tsx`
 - Harmony format reference: https://cookbook.openai.com/articles/openai-harmony
-- Markdown/mermaid renderer in client (where configured)
 - Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
-2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming, and render visible content via markdown (mermaid-enabled).
-3. [ ] Add tests: RTL for streaming think/Harmony collapse and markdown rendering; unit tests for parser logic; e2e chat streaming with Harmony-style output.
-4. [ ] Update README.md to describe markdown + mermaid + reasoning behaviour.
-5. [ ] Update design.md with reasoning/rendering flow and streaming states.
-6. [ ] Update projectStructure.md if new parser/renderer files are added.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming.
+3. [ ] Add tests: RTL for streaming think/Harmony collapse; unit tests for parser logic; e2e chat streaming with Harmony-style output.
+4. [ ] Update README.md and design.md for reasoning handling.
+5. [ ] Update projectStructure.md if new parser files are added.
+6. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -168,7 +166,42 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 
 ---
 
-### 4. Final Task – Validate story completion
+### 4. Markdown & mermaid rendering
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+Render assistant visible content as markdown with mermaid support while keeping tool metadata structured; ensure safe streaming re-renders.
+
+#### Documentation Locations
+- Markdown/mermaid renderer usage in client (where configured)
+- Chat UI render paths: `client/src/pages/ChatPage.tsx`
+- Chat RTL tests: `client/src/test/chatPage.*.test.tsx`
+
+#### Subtasks
+1. [ ] Integrate/confirm markdown renderer with mermaid blocks for assistant visible content (final channel/visible text), including streaming re-render support.
+2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences and mermaid blocks render correctly.
+3. [ ] Add tests: RTL for markdown/mermaid rendering of chat replies; snapshot/DOM assertions for code blocks and diagrams.
+4. [ ] Update README.md and design.md to describe markdown/mermaid behaviour and safety/sanitization.
+5. [ ] Update projectStructure.md if renderer utilities change.
+6. [ ] Run full linting (`npm run lint --workspaces`).
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean docker build (`npm run compose:build`)
+4. [ ] Start docker compose (`npm run compose:up`)
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+
+#### Implementation notes
+-
+
+---
+
+### 5. Final Task – Validate story completion
 
 - status: **to_do**
 - Git Commits: **to_do**

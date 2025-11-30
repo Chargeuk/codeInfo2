@@ -66,6 +66,11 @@ services:
       - '8000:8000'
     networks:
       - internal
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
       - chroma-data:/data
     depends_on:

@@ -72,11 +72,14 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 #### Subtasks
 1. [ ] Add server status fields for `currentFile`, `fileIndex`, `fileTotal`, `percent`, and `etaMs`; plumb through ingest job tracking and `/ingest/status/:runId` responses.
 2. [ ] Update ingest polling hook and ActiveRunCard to display file path, index/total, percentage, and ETA with live updates and sane fallbacks.
-3. [ ] Add tests: server unit for ingest status fields + Cucumber feature covering status responses; client RTL for ActiveRunCard display; e2e ingest progress assertion.
-4. [ ] Update README.md with the new ingest status fields and UI behaviour.
-5. [ ] Update design.md with ingest progress flow/state notes.
-6. [ ] Update projectStructure.md if any files are added/renamed.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+3. [ ] Server unit tests: new status fields surface in ingest job/status handler (`server/src/ingest/ingestJob.ts`, related route tests).
+4. [ ] Server Cucumber: feature+steps asserting `/ingest/status/:runId` returns file path/index/total/percent/eta.
+5. [ ] Client RTL: ActiveRunCard displays file path, index/total, percent, ETA with live polling (`client/src/components/ingest/ActiveRunCard.tsx`).
+6. [ ] E2E: ingest progress assertion in `e2e/ingest.spec.ts` (or new spec) showing file path and percent update.
+7. [ ] Update README.md with the new ingest status fields and UI behaviour.
+8. [ ] Update design.md with ingest progress flow/state notes.
+9. [ ] Update projectStructure.md if any files are added/renamed.
+10. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -110,11 +113,14 @@ Render inline tool-call activity inside assistant bubbles with a spinner and too
 #### Subtasks
 1. [ ] Extend SSE/tool parsing to track active tool calls (id, name, state) and expose progress to the UI.
 2. [ ] Add UI elements: inline spinner + tool name while running; collapsible section with result/error details (chunks + file paths for VectorSearch) after completion.
-3. [ ] Add tests: client RTL for spinner/collapse states and vector file list; server integration/unit (and Cucumber if applicable) for tool event payloads; e2e chat-tools visibility.
-4. [ ] Update README.md with chat tool-call visibility behaviour.
-5. [ ] Update design.md with tool-call UI/flow.
-6. [ ] Update projectStructure.md for any new components/tests.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+3. [ ] Client RTL: spinner/collapse states and vector file list rendering in chat bubble (`client/src/pages/ChatPage.tsx`).
+4. [ ] Server unit/integration: tool event payloads reach SSE stream (e.g., `server/src/test/integration/chat-tools-wire.test.ts`) and include needed fields.
+5. [ ] Server Cucumber (if applicable): feature to assert tool-request/result visibility fields in SSE.
+6. [ ] E2E: chat-tools visibility flow shows spinner then collapsible result with file paths.
+7. [ ] Update README.md with chat tool-call visibility behaviour.
+8. [ ] Update design.md with tool-call UI/flow.
+9. [ ] Update projectStructure.md for any new components/tests.
+10. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -147,11 +153,14 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 #### Subtasks
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
 2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming.
-3. [ ] Add tests: client RTL for streaming think/Harmony collapse; client/unit parser tests; server unit/integration if parser shared; e2e chat streaming with Harmony-style output.
-4. [ ] Update README.md for reasoning handling.
-5. [ ] Update design.md with reasoning/rendering flow and streaming states.
-6. [ ] Update projectStructure.md if new parser files are added.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+3. [ ] Client RTL: streaming think/Harmony collapse UX (collapsed on open, spinner header, expandable during stream).
+4. [ ] Client unit: parser logic for think/Harmony channels (visible vs hidden splitting).
+5. [ ] Server unit/integration (if shared parser/server-side handling is added) for Harmony/think separation.
+6. [ ] E2E: chat streaming scenario with Harmony-style output verifying collapse/expand behaviour.
+7. [ ] Update README.md for reasoning handling.
+8. [ ] Update design.md with reasoning/rendering flow and streaming states.
+9. [ ] Update projectStructure.md if new parser files are added.
+10. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -183,11 +192,12 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 #### Subtasks
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
 2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences render correctly.
-3. [ ] Add tests: client RTL for markdown rendering of chat replies; snapshot/DOM assertions for code blocks; server/unit only if markdown handling touches server rendering.
-4. [ ] Update README.md to describe markdown behaviour and safety.
-5. [ ] Update design.md to reflect markdown rendering paths and sanitization.
-6. [ ] Update projectStructure.md if renderer utilities change.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+3. [ ] Client RTL: markdown rendering of chat replies with code fences; snapshot/DOM assertions for code blocks.
+4. [ ] Server unit (only if server processes markdown) to ensure no regressions in API payload formatting.
+5. [ ] Update README.md to describe markdown behaviour and safety.
+6. [ ] Update design.md to reflect markdown rendering paths and sanitization.
+7. [ ] Update projectStructure.md if renderer utilities change.
+8. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -220,11 +230,12 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 #### Subtasks
 1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.
 2. [ ] Ensure theme-aware styling (respect MUI theme) and safe DOM injection/sanitization.
-3. [ ] Add tests: client RTL/e2e covering a mermaid block render; consider server/unit only if server processes markdown; include XSS regression assertions.
-4. [ ] Update README.md for mermaid support and usage.
-5. [ ] Update design.md with mermaid rendering flow/theme notes.
-6. [ ] Update projectStructure.md if renderer utilities change.
-7. [ ] Run full linting (`npm run lint --workspaces`).
+3. [ ] Client RTL: mermaid block render in chat reply with XSS/sanitization assertions.
+4. [ ] E2E: mermaid rendering scenario to confirm diagrams appear and no regressions.
+5. [ ] Update README.md for mermaid support and usage.
+6. [ ] Update design.md with mermaid rendering flow/theme notes.
+7. [ ] Update projectStructure.md if renderer utilities change.
+8. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`

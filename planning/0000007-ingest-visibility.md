@@ -148,9 +148,10 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 1. [ ] Implement streaming parser that detects `<think>` early and Harmony analysis/final channels, buffering analysis hidden and emitting final to visible content.
 2. [ ] Update UI to collapse analysis/think immediately with thinking icon + spinner, allow expansion during streaming.
 3. [ ] Add tests: client RTL for streaming think/Harmony collapse; client/unit parser tests; server unit/integration if parser shared; e2e chat streaming with Harmony-style output.
-4. [ ] Update README.md and design.md for reasoning handling.
-5. [ ] Update projectStructure.md if new parser files are added.
-6. [ ] Run full linting (`npm run lint --workspaces`).
+4. [ ] Update README.md for reasoning handling.
+5. [ ] Update design.md with reasoning/rendering flow and streaming states.
+6. [ ] Update projectStructure.md if new parser files are added.
+7. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -183,9 +184,10 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 1. [ ] Integrate/confirm markdown renderer for assistant visible content (final channel/visible text), including streaming re-render support and sanitization.
 2. [ ] Keep tool details/citations structured (not markdown-rendered); ensure code fences render correctly.
 3. [ ] Add tests: client RTL for markdown rendering of chat replies; snapshot/DOM assertions for code blocks; server/unit only if markdown handling touches server rendering.
-4. [ ] Update README.md and design.md to describe markdown behaviour and safety.
-5. [ ] Update projectStructure.md if renderer utilities change.
-6. [ ] Run full linting (`npm run lint --workspaces`).
+4. [ ] Update README.md to describe markdown behaviour and safety.
+5. [ ] Update design.md to reflect markdown rendering paths and sanitization.
+6. [ ] Update projectStructure.md if renderer utilities change.
+7. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -219,9 +221,10 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 1. [ ] Wire mermaid rendering for ```mermaid``` fences in assistant replies, with streaming-friendly updates.
 2. [ ] Ensure theme-aware styling (respect MUI theme) and safe DOM injection/sanitization.
 3. [ ] Add tests: client RTL/e2e covering a mermaid block render; consider server/unit only if server processes markdown; include XSS regression assertions.
-4. [ ] Update README.md/design.md for mermaid support and any caveats.
-5. [ ] Update projectStructure.md if renderer utilities change.
-6. [ ] Run full linting (`npm run lint --workspaces`).
+4. [ ] Update README.md for mermaid support and usage.
+5. [ ] Update design.md with mermaid rendering flow/theme notes.
+6. [ ] Update projectStructure.md if renderer utilities change.
+7. [ ] Run full linting (`npm run lint --workspaces`).
 
 #### Testing
 1. [ ] `npm run build --workspace server`

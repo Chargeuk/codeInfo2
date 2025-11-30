@@ -260,7 +260,8 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
 5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
 6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+7. [ ] Add or extend e2e tests as needed to cover the new ingest progress, tool-call visibility, reasoning collapse, markdown, and mermaid behaviour; commit screenshots per instructions.
+8. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing
 1. [ ] run the client jest tests

@@ -38,6 +38,6 @@ I want you to get other codex agents to implement all remaining tasks of the cur
 
 Please work through Task 6 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step.
 
-please create a pr comment that summerises the changes along with bullet points
+please create a pr comment that summarises the changes along with bullet points
 
 /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml

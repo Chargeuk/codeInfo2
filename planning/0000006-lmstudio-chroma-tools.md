@@ -419,7 +419,7 @@ Ensure VectorSearch builds its embedding function from the collection’s locked
 ### 6. E2E embedding-model consistency
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 394cf81
 
 #### Overview
 
@@ -455,8 +455,8 @@ Ensure all e2e ingest flows (happy path, cancel, re-embed, remove) use the same 
 
 ### 7. E2E chat model stability
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -470,16 +470,17 @@ Ensure chat e2e runs use a deterministic, finite model (`openai/gpt-oss-20b`) to
 
 #### Subtasks
 
-1. [ ] Add a helper to `e2e/chat.spec.ts` that picks `openai/gpt-oss-20b` when present, otherwise falls back to the first reported model, and logs the selected key.
-2. [ ] Update the test flow to select that model explicitly in the dropdown before sending messages (no mock mode).
-3. [ ] Add a short timeout/abort guard in the test so “Responding...” cannot hang indefinitely; keep expectations aligned with real streaming.
-4. [ ] Rerun `npx playwright test e2e/chat.spec.ts` to verify completion without spinner hangs.
+1. [x] Add a helper to `e2e/chat.spec.ts` that picks `openai/gpt-oss-20b` when present, otherwise falls back to the first reported model, and logs the selected key.
+2. [x] Update the test flow to select that model explicitly in the dropdown before sending messages (no mock mode).
+3. [x] Add a short timeout/abort guard in the test so “Responding...” cannot hang indefinitely; keep expectations aligned with real streaming.
+4. [x] Rerun `npx playwright test e2e/chat.spec.ts` to verify completion without spinner hangs.
 
 #### Testing
 
-1. [ ] `E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e/chat.spec.ts`
-2. [ ] `npm run e2e` to confirm the full suite passes with the explicit model selection.
+1. [x] `E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e/chat.spec.ts`
+2. [x] `npm run e2e` to confirm the full suite passes with the explicit model selection.
 
 #### Implementation notes
 
-- Start empty; record the selected model key and any LM Studio availability issues. Keep real LM Studio usage (no mock chat).
+- Selected chat model logged as `openai/gpt-oss-20b`; test explicitly selects it and waits for the responding indicator to appear then clear to avoid hangs.
+- `e2e/chat.spec.ts` now passes against live LM Studio; full `npm run e2e` passes all nine tests.

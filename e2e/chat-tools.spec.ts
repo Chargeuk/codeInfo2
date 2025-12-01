@@ -172,6 +172,7 @@ test.describe.serial('Chat tools citations', () => {
 
     const toolToggle = page.getByTestId('tool-toggle');
     await toolToggle.waitFor({ timeout: 20000 });
+    await expect(toolSpinner).toBeHidden({ timeout: 20000 });
     await toolToggle.click();
 
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
@@ -192,6 +193,23 @@ test.describe.serial('Chat tools citations', () => {
     await expect(page.getByTestId('tool-result-chunk').first()).toContainText(
       firstResult.chunk,
     );
+
+    const assistantBubble = page
+      .getByTestId('chat-bubble')
+      .filter({ has: page.getByTestId('tool-row') })
+      .first();
+    const toolBeforeText = await assistantBubble.evaluate((el) => {
+      const tool = el.querySelector('[data-testid="tool-row"]');
+      const text = Array.from(
+        el.querySelectorAll('[data-testid="assistant-markdown"]'),
+      ).find((node) => node.textContent?.includes('I found this'));
+      if (!tool || !text) return false;
+      return !!(
+        tool.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
+
+    expect(toolBeforeText).toBeTruthy();
 
     await page.screenshot({
       path: 'test-results/screenshots/0000006-4-chat-tools.png',

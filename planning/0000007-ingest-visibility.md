@@ -422,12 +422,12 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 - Jest docs (client tests runner): Context7 `/jestjs/jest`
 
 #### Subtasks
-1. [ ] Update message state to preserve tool call insertion order and statuses (`requesting` → `done|error`) so spinner ends on completion.
-2. [ ] Adjust ChatPage rendering to insert the collapsible tool section at the tool-call position, with spinner only while `requesting`, then static header + collapsible payload once `result/error` arrives; subsequent assistant text should render after the tool block.
-3. [ ] Client RTL – `client/src/test/chatPage.toolVisibility.test.tsx`: add scenario where tool spinner stops after result and collapsible remains before trailing assistant text; purpose: verify UI state transition.
-4. [ ] Client RTL – `client/src/test/chatPage.reasoning.test.tsx` (or new targeted test): ensure reasoning + tool blocks order correctly when both appear; purpose: guard ordering regression.
-5. [ ] Playwright e2e – extend `e2e/chat-tools.spec.ts` (or new) to assert spinner visible during call then replaced by collapsible with subsequent assistant text following; purpose: end-to-end confirmation.
-6. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [x] Update message state to preserve tool call insertion order and statuses (`requesting` → `done|error`) so spinner ends on completion.
+2. [x] Adjust ChatPage rendering to insert the collapsible tool section at the tool-call position, with spinner only while `requesting`, then static header + collapsible payload once `result/error` arrives; subsequent assistant text should render after the tool block.
+3. [x] Client RTL – `client/src/test/chatPage.toolVisibility.test.tsx`: add scenario where tool spinner stops after result and collapsible remains before trailing assistant text; purpose: verify UI state transition.
+4. [x] Client RTL – `client/src/test/chatPage.reasoning.test.tsx` (or new targeted test): ensure reasoning + tool blocks order correctly when both appear; purpose: guard ordering regression.
+5. [x] Playwright e2e – extend `e2e/chat-tools.spec.ts` (or new) to assert spinner visible during call then replaced by collapsible with subsequent assistant text following; purpose: end-to-end confirmation.
+6. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Definition of Done
 - Spinner shows only while tool is executing; on completion it is replaced by an inline collapsible block at the tool-call position; any following assistant text renders after the block.
@@ -440,16 +440,18 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 - Tool error frames: spinner must stop and show error state without breaking later text.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
-- To be filled during implementation.
+- Chat stream now tracks ordered message segments (text + tool blocks) with tool statuses transitioning from `requesting` to `done/error`; trailing text attaches to a new segment after each tool so subsequent assistant text renders in-place.
+- ChatPage renders segments in order so tool spinners sit inline where the call started, collapse to results on completion, and later assistant text follows the block; user bubbles keep Typography while assistant bubbles use Markdown.
+- Added RTL coverage for spinner stop/order and reasoning+tool coexistence, plus Playwright chat-tools spec asserting spinner teardown and inline placement. Updated e2e to compute order inside the browser to avoid Node reference errors. Lint and Prettier now clean.
 
 ---

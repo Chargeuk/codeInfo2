@@ -10,6 +10,7 @@ export type ChatMessage = {
   thinkStreaming?: boolean;
   citations?: ToolCitation[];
   tools?: ToolCall[];
+  segments?: ChatSegment[];
 };
 
 export type ToolCitation = {
@@ -26,9 +27,13 @@ export type ToolCitation = {
 export type ToolCall = {
   id: string;
   name?: string;
-  status: 'requesting' | 'result' | 'error';
+  status: 'requesting' | 'done' | 'error';
   payload?: unknown;
 };
+
+export type ChatSegment =
+  | { id: string; kind: 'text'; content: string }
+  | { id: string; kind: 'tool'; tool: ToolCall };
 
 type Status = 'idle' | 'sending';
 
@@ -335,28 +340,80 @@ export function useChatStream(model?: string) {
 
       const assistantId = makeId();
       let reasoning = initialReasoningState();
+      let finalText = '';
       let assistantCitations: ToolCitation[] = [];
-      let assistantTools: ToolCall[] = [];
+      let segments: ChatSegment[] = [
+        { id: makeId(), kind: 'text', content: '' },
+      ];
 
       updateMessages((prev) => [
         ...prev,
-        { id: assistantId, role: 'assistant', content: '' },
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          segments,
+        },
       ]);
 
-      const applyReasoning = (next: ReasoningState) => {
-        reasoning = next;
+      const syncAssistantMessage = () => {
+        const toolList = segments
+          .filter(
+            (segment): segment is Extract<ChatSegment, { kind: 'tool' }> =>
+              segment.kind === 'tool',
+          )
+          .map((segment) => segment.tool);
+
         updateMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantId
               ? {
                   ...msg,
-                  content: next.final,
-                  think: next.analysis || undefined,
-                  thinkStreaming: next.analysisStreaming,
+                  content: finalText,
+                  think: reasoning.analysis || undefined,
+                  thinkStreaming: reasoning.analysisStreaming,
+                  segments,
+                  tools: toolList,
                 }
               : msg,
           ),
         );
+      };
+
+      const appendTextSegment = (text: string) => {
+        if (!text) return;
+        const last = segments[segments.length - 1];
+        let nextSegments = [...segments];
+        if (last && last.kind === 'text') {
+          nextSegments[nextSegments.length - 1] = {
+            ...last,
+            content: last.content + text,
+          };
+        } else {
+          nextSegments = [
+            ...nextSegments,
+            { id: makeId(), kind: 'text', content: text },
+          ];
+        }
+        segments = nextSegments;
+      };
+
+      const applyReasoning = (next: ReasoningState) => {
+        const newFinal = next.final;
+        if (newFinal.length >= finalText.length) {
+          const delta = newFinal.slice(finalText.length);
+          appendTextSegment(delta);
+          finalText = newFinal;
+        } else {
+          finalText = newFinal;
+          segments = segments.filter((segment) => segment.kind !== 'text');
+          segments = [
+            ...segments,
+            { id: makeId(), kind: 'text', content: newFinal },
+          ];
+        }
+        reasoning = next;
+        syncAssistantMessage();
       };
 
       const appendCitations = (incoming: ToolCitation[]) => {
@@ -375,29 +432,51 @@ export function useChatStream(model?: string) {
       };
 
       const upsertTool = (incoming: ToolCall) => {
-        const existingIndex = assistantTools.findIndex(
-          (tool) => tool.id === incoming.id,
+        const stripTrailingEmptyText = (list: ChatSegment[]) => {
+          const last = list[list.length - 1];
+          if (last && last.kind === 'text' && last.content === '') {
+            return list.slice(0, -1);
+          }
+          return list;
+        };
+
+        const ensureTrailingText = (list: ChatSegment[]) => {
+          const last = list[list.length - 1];
+          if (!last || last.kind !== 'text' || last.content.length > 0) {
+            return [
+              ...list,
+              { id: makeId(), kind: 'text', content: '' } as ChatSegment,
+            ];
+          }
+          return list;
+        };
+
+        let nextSegments = [...segments];
+        const existingIndex = nextSegments.findIndex(
+          (segment) =>
+            segment.kind === 'tool' && segment.tool.id === incoming.id,
         );
-        const nextTools = [...assistantTools];
+
         if (existingIndex >= 0) {
-          nextTools[existingIndex] = {
-            ...nextTools[existingIndex],
-            ...incoming,
+          const existing = nextSegments[existingIndex] as Extract<
+            ChatSegment,
+            { kind: 'tool' }
+          >;
+          nextSegments[existingIndex] = {
+            ...existing,
+            tool: { ...existing.tool, ...incoming },
           };
         } else {
-          nextTools.push(incoming);
+          nextSegments = stripTrailingEmptyText(nextSegments);
+          nextSegments = [
+            ...nextSegments,
+            { id: incoming.id, kind: 'tool', tool: incoming },
+          ];
+          nextSegments = ensureTrailingText(nextSegments);
         }
-        assistantTools = nextTools;
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId
-              ? {
-                  ...msg,
-                  tools: nextTools,
-                }
-              : msg,
-          ),
-        );
+
+        segments = nextSegments;
+        syncAssistantMessage();
       };
 
       try {
@@ -439,7 +518,7 @@ export function useChatStream(model?: string) {
                     ? 'requesting'
                     : event.stage === 'error'
                       ? 'error'
-                      : 'result';
+                      : 'done';
                 const id = event.callId ?? makeId();
                 logger('info', 'chat tool event', {
                   type: event.type,

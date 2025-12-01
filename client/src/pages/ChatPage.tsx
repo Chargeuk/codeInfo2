@@ -21,7 +21,6 @@ import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
   ToolCitation,
-  ToolCall,
 } from '../hooks/useChatStream';
 
 export default function ChatPage() {
@@ -228,8 +227,21 @@ export default function ChatPage() {
                 const isErrorBubble = message.kind === 'error';
                 const isStatusBubble = message.kind === 'status';
                 const isUser = message.role === 'user';
-                const isAssistant = message.role === 'assistant';
                 const hasCitations = !!message.citations?.length;
+                const segments = message.segments?.length
+                  ? message.segments
+                  : ([
+                      {
+                        id: `${message.id}-text`,
+                        kind: 'text' as const,
+                        content: message.content ?? '',
+                      },
+                      ...(message.tools?.map((tool) => ({
+                        id: `${message.id}-${tool.id}`,
+                        kind: 'tool' as const,
+                        tool,
+                      })) ?? []),
+                    ] as const);
                 return (
                   <Stack
                     key={message.id}
@@ -271,180 +283,187 @@ export default function ChatPage() {
                               : undefined,
                         }}
                       >
-                        {isAssistant ? (
-                          <Markdown
-                            content={message.content ?? ''}
-                            data-testid="assistant-markdown"
-                          />
-                        ) : (
-                          <Typography variant="body2">
-                            {message.content || ' '}
-                          </Typography>
-                        )}
-                        {!!message.tools?.length && (
-                          <Stack spacing={0.75} mt={1} data-testid="tool-calls">
-                            {message.tools.map((tool: ToolCall) => {
-                              const isRequesting = tool.status === 'requesting';
-                              const isError = tool.status === 'error';
-                              const toggleKey = `${message.id}-${tool.id}`;
-                              const isOpen = !!toolOpen[toggleKey];
-                              const results =
-                                tool.payload &&
-                                typeof tool.payload === 'object' &&
-                                'results' in
-                                  (tool.payload as Record<string, unknown>) &&
-                                Array.isArray(
-                                  (tool.payload as { results?: unknown[] })
-                                    .results,
-                                )
-                                  ? ((tool.payload as { results?: unknown[] })
-                                      .results as unknown[])
-                                  : [];
-
+                        <Stack spacing={1}>
+                          {segments.map((segment) => {
+                            if (segment.kind === 'text') {
+                              if (message.role === 'assistant') {
+                                return (
+                                  <Markdown
+                                    key={segment.id}
+                                    content={segment.content ?? ''}
+                                    data-testid="assistant-markdown"
+                                  />
+                                );
+                              }
                               return (
-                                <Box key={toggleKey} data-testid="tool-row">
-                                  <Stack
-                                    direction="row"
-                                    alignItems="center"
-                                    spacing={1}
-                                    sx={{ mb: isRequesting ? 0 : 0.25 }}
-                                  >
-                                    {isRequesting ? (
-                                      <CircularProgress
-                                        size={14}
-                                        data-testid="tool-spinner"
-                                      />
-                                    ) : (
-                                      <Typography
-                                        variant="caption"
-                                        color={
-                                          isError
-                                            ? 'error.main'
-                                            : 'success.main'
-                                        }
-                                      >
-                                        {isError ? 'Error' : 'Complete'}
-                                      </Typography>
-                                    )}
+                                <Typography
+                                  key={segment.id}
+                                  variant="body2"
+                                  data-testid="user-text"
+                                >
+                                  {segment.content || ' '}
+                                </Typography>
+                              );
+                            }
+
+                            const tool = segment.tool;
+                            const isRequesting = tool.status === 'requesting';
+                            const isError = tool.status === 'error';
+                            const toggleKey = `${message.id}-${tool.id}`;
+                            const isOpen = !!toolOpen[toggleKey];
+                            const results =
+                              tool.payload &&
+                              typeof tool.payload === 'object' &&
+                              'results' in
+                                (tool.payload as Record<string, unknown>) &&
+                              Array.isArray(
+                                (tool.payload as { results?: unknown[] })
+                                  .results,
+                              )
+                                ? ((tool.payload as { results?: unknown[] })
+                                    .results as unknown[])
+                                : [];
+
+                            return (
+                              <Box key={segment.id} data-testid="tool-row">
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  spacing={1}
+                                  sx={{ mb: isRequesting ? 0 : 0.25 }}
+                                >
+                                  {isRequesting ? (
+                                    <CircularProgress
+                                      size={14}
+                                      data-testid="tool-spinner"
+                                    />
+                                  ) : (
                                     <Typography
                                       variant="caption"
-                                      color="text.secondary"
-                                      sx={{ flex: 1 }}
-                                      data-testid="tool-name"
+                                      color={
+                                        isError ? 'error.main' : 'success.main'
+                                      }
                                     >
-                                      {tool.name ?? 'Tool'}
+                                      {isError ? 'Error' : 'Complete'}
                                     </Typography>
-                                    {!isRequesting && (
-                                      <MuiButton
-                                        size="small"
-                                        variant="text"
-                                        onClick={() => toggleTool(toggleKey)}
-                                        data-testid="tool-toggle"
-                                        sx={{
-                                          textTransform: 'none',
-                                          minWidth: 0,
-                                          p: 0,
-                                        }}
-                                      >
-                                        {isOpen ? 'Hide' : 'Show'}
-                                      </MuiButton>
-                                    )}
-                                  </Stack>
+                                  )}
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ flex: 1 }}
+                                    data-testid="tool-name"
+                                  >
+                                    {tool.name ?? 'Tool'}
+                                  </Typography>
                                   {!isRequesting && (
-                                    <Collapse
-                                      in={isOpen}
-                                      timeout="auto"
-                                      unmountOnExit
+                                    <MuiButton
+                                      size="small"
+                                      variant="text"
+                                      onClick={() => toggleTool(toggleKey)}
+                                      data-testid="tool-toggle"
+                                      sx={{
+                                        textTransform: 'none',
+                                        minWidth: 0,
+                                        p: 0,
+                                      }}
                                     >
-                                      <Stack
-                                        spacing={0.75}
-                                        mt={0.5}
-                                        data-testid="tool-details"
+                                      {isOpen ? 'Hide' : 'Show'}
+                                    </MuiButton>
+                                  )}
+                                </Stack>
+                                {!isRequesting && (
+                                  <Collapse
+                                    in={isOpen}
+                                    timeout="auto"
+                                    unmountOnExit
+                                  >
+                                    <Stack
+                                      spacing={0.75}
+                                      mt={0.5}
+                                      data-testid="tool-details"
+                                    >
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
                                       >
+                                        Status: {tool.status}
+                                      </Typography>
+                                      {tool.name === 'VectorSearch' &&
+                                      results.length > 0 ? (
+                                        <Stack
+                                          spacing={1}
+                                          data-testid="tool-vector-results"
+                                        >
+                                          {results.map((item, resultIdx) => {
+                                            const r = item as Record<
+                                              string,
+                                              unknown
+                                            >;
+                                            const repo =
+                                              typeof r.repo === 'string'
+                                                ? r.repo
+                                                : undefined;
+                                            const relPath =
+                                              typeof r.relPath === 'string'
+                                                ? r.relPath
+                                                : undefined;
+                                            const hostPath =
+                                              typeof r.hostPath === 'string'
+                                                ? r.hostPath
+                                                : undefined;
+                                            const chunk =
+                                              typeof r.chunk === 'string'
+                                                ? r.chunk
+                                                : undefined;
+                                            if (!repo || !relPath) return null;
+                                            return (
+                                              <Box
+                                                key={`${repo}-${relPath}-${resultIdx}`}
+                                              >
+                                                <Typography
+                                                  variant="caption"
+                                                  color="text.secondary"
+                                                  data-testid="tool-result-path"
+                                                  sx={{ display: 'block' }}
+                                                >
+                                                  {repo}/{relPath}
+                                                  {hostPath
+                                                    ? ` (${hostPath})`
+                                                    : ''}
+                                                </Typography>
+                                                {chunk && (
+                                                  <Typography
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    sx={{
+                                                      whiteSpace: 'pre-wrap',
+                                                    }}
+                                                    data-testid="tool-result-chunk"
+                                                  >
+                                                    {chunk}
+                                                  </Typography>
+                                                )}
+                                              </Box>
+                                            );
+                                          })}
+                                        </Stack>
+                                      ) : tool.payload ? (
                                         <Typography
                                           variant="caption"
                                           color="text.secondary"
+                                          sx={{ wordBreak: 'break-word' }}
+                                          data-testid="tool-payload"
                                         >
-                                          Status: {tool.status}
+                                          {JSON.stringify(tool.payload)}
                                         </Typography>
-                                        {tool.name === 'VectorSearch' &&
-                                        results.length > 0 ? (
-                                          <Stack
-                                            spacing={1}
-                                            data-testid="tool-vector-results"
-                                          >
-                                            {results.map((item, idx) => {
-                                              const r = item as Record<
-                                                string,
-                                                unknown
-                                              >;
-                                              const repo =
-                                                typeof r.repo === 'string'
-                                                  ? r.repo
-                                                  : undefined;
-                                              const relPath =
-                                                typeof r.relPath === 'string'
-                                                  ? r.relPath
-                                                  : undefined;
-                                              const hostPath =
-                                                typeof r.hostPath === 'string'
-                                                  ? r.hostPath
-                                                  : undefined;
-                                              const chunk =
-                                                typeof r.chunk === 'string'
-                                                  ? r.chunk
-                                                  : undefined;
-                                              if (!repo || !relPath)
-                                                return null;
-                                              return (
-                                                <Box
-                                                  key={`${repo}-${relPath}-${idx}`}
-                                                >
-                                                  <Typography
-                                                    variant="caption"
-                                                    color="text.secondary"
-                                                    data-testid="tool-result-path"
-                                                    sx={{ display: 'block' }}
-                                                  >
-                                                    {repo}/{relPath}
-                                                    {hostPath
-                                                      ? ` (${hostPath})`
-                                                      : ''}
-                                                  </Typography>
-                                                  {chunk && (
-                                                    <Typography
-                                                      variant="body2"
-                                                      color="text.primary"
-                                                      sx={{
-                                                        whiteSpace: 'pre-wrap',
-                                                      }}
-                                                      data-testid="tool-result-chunk"
-                                                    >
-                                                      {chunk}
-                                                    </Typography>
-                                                  )}
-                                                </Box>
-                                              );
-                                            })}
-                                          </Stack>
-                                        ) : tool.payload ? (
-                                          <Typography
-                                            variant="caption"
-                                            color="text.secondary"
-                                            sx={{ wordBreak: 'break-word' }}
-                                            data-testid="tool-payload"
-                                          >
-                                            {JSON.stringify(tool.payload)}
-                                          </Typography>
-                                        ) : null}
-                                      </Stack>
-                                    </Collapse>
-                                  )}
-                                </Box>
-                              );
-                            })}
-                          </Stack>
-                        )}
+                                      ) : null}
+                                    </Stack>
+                                  </Collapse>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Stack>
                         {hasCitations && (
                           <Stack spacing={1} mt={1} data-testid="citations">
                             {message.citations?.map(

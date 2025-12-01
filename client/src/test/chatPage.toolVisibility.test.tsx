@@ -90,6 +90,10 @@ describe('Chat tool call visibility', () => {
       expect(screen.getByTestId('tool-toggle')).toBeInTheDocument(),
     );
 
+    await waitFor(() =>
+      expect(screen.queryByTestId('tool-spinner')).not.toBeInTheDocument(),
+    );
+
     await user.click(screen.getByTestId('tool-toggle'));
 
     const path = await screen.findByTestId('tool-result-path');
@@ -98,5 +102,12 @@ describe('Chat tool call visibility', () => {
     expect(screen.getByTestId('tool-result-chunk')).toHaveTextContent(
       'sample chunk',
     );
+
+    const toolRow = screen.getByTestId('tool-row');
+    const answerText = screen.getByText('Answer');
+    expect(
+      toolRow.compareDocumentPosition(answerText) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });

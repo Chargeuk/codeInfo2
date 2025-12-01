@@ -329,7 +329,7 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 7. [x] E2E: markdown rendering of chat reply with code fences (extend `e2e/chat.spec.ts` or new `e2e/chat-markdown.spec.ts`); capture screenshot.
 8. [x] E2E: mermaid rendering of ```mermaid``` block (new `e2e/chat-mermaid.spec.ts`); capture screenshot.
 9. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
-10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
+10. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 11. [ ] Order: docs updates -> e2e additions -> summary/PR comment -> lint/format.
 
 #### Testing
@@ -350,5 +350,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Ran `npm run e2e` (build→up→test→down); all 12 Playwright specs passed including ingest progress, chat tools, reasoning, markdown, and mermaid flows. Embedding model `text-embedding-qwen3-embedding-4b` and chat model `openai/gpt-oss-20b` were available in the e2e stack, so no skips. Next step: capture required screenshots with the running stack.
 - Captured final screenshots via Playwright with mocked chat SSE streams and a live ingest run: `test-results/screenshots/0000007-6-ingest-progress.png`, `0000007-6-chat-tools.png`, `0000007-6-chat-reasoning.png`, `0000007-6-chat-markdown.png`, `0000007-6-chat-mermaid.png`; brought e2e stack up for ingest shot and down afterwards.
 - PR comment draft: Ingest now surfaces per-file progress (path/index/percent/ETA) in API + UI with tests; chat UI shows tool-call spinners and collapsible results with citations; reasoning streams collapse think/Harmony analysis; assistant replies render sanitized markdown with mermaid diagrams. Added RTL/Cucumber/e2e coverage for progress, tools, reasoning, markdown, mermaid; updated docs to describe behaviour. Final screenshots captured under `test-results/screenshots/0000007-6-*.png`. Full test run: server/client builds, server/client tests, compose:e2e build/up/test/down, and e2e suite passed with LM Studio models available.
+- Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; both succeeded with no changes required.
 
 ---

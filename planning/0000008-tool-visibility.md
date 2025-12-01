@@ -126,7 +126,7 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 
 ### 2. UI rendering: tool summaries & details
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: to_do
 
 #### Overview

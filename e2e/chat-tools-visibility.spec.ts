@@ -284,6 +284,62 @@ test.describe('Chat tool visibility details', () => {
     await expect(fileItem).toContainText('lines 4');
   });
 
+  test('does not surface raw tool payload text as an assistant reply', async ({
+    page,
+  }) => {
+    await mockChatModels(page);
+
+    const events: ToolEvent[] = [
+      {
+        type: 'tool-request',
+        callId: 'no-echo',
+        name: 'VectorSearch',
+        roundIndex: 0,
+      },
+      {
+        type: 'tool-result',
+        callId: 'no-echo',
+        name: 'VectorSearch',
+        stage: 'success',
+        parameters: { query: 'suppress' },
+        result: {
+          files: [
+            {
+              hostPath: '/host/path/a.txt',
+              highestMatch: 0.8,
+              chunkCount: 1,
+              lineCount: 5,
+            },
+          ],
+          results: [
+            {
+              hostPath: '/host/path/a.txt',
+              chunk: 'raw chunk text that should not show as assistant',
+              score: 0.8,
+              lineCount: 5,
+            },
+          ],
+          modelId: 'embed-1',
+        },
+      },
+      { type: 'complete' },
+    ];
+
+    await mockChatStream(page, events);
+
+    await page.goto(`${baseUrl}/chat`);
+    await page.getByTestId('chat-input').fill('Suppress echo');
+    await page.getByTestId('chat-send').click();
+
+    await expect(page.getByTestId('tool-call-summary')).toContainText(
+      'VectorSearch',
+      { timeout: 20000 },
+    );
+    await expect(
+      page.getByText(/raw chunk text that should not show as assistant/i),
+    ).not.toBeVisible();
+  });
+
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
     await mockChatModels(page);
 

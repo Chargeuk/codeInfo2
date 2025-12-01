@@ -186,4 +186,36 @@ describe('useChatStream tool payload handling', () => {
       ).toBe(0.6);
     });
   });
+
+  it('keeps tool block without surfacing assistant text when only tool-result is streamed', async () => {
+    const onUpdate = jest.fn();
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-request","callId":"c4","name":"VectorSearch"}\n\n',
+          ),
+        );
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-result","callId":"c4","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"repo":"r","relPath":"a.txt","hostPath":"/h/a.txt","chunk":"one","chunkId":"1","score":0.7,"modelId":"m"}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.7,"chunkCount":1,"lineCount":1}]}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      },
+    });
+
+    render(<Wrapper prompt="Hi" stream={stream} onUpdate={onUpdate} />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.content).toBe('');
+      expect(assistant?.tools?.[0].payload).toBeDefined();
+    });
+  });
 });

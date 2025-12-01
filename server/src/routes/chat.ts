@@ -15,6 +15,79 @@ import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 type ToolFactory = typeof createLmStudioTools;
 
+export const normalizeToolResults = (
+  message: unknown,
+): Array<{
+  callId?: string | number;
+  name?: string;
+  result?: unknown;
+}> => {
+  const toEntry = (
+    item: unknown,
+  ): { callId?: string | number; name?: string; result?: unknown } => {
+    if (item && typeof item === 'object') {
+      const obj = item as Record<string, unknown>;
+      return {
+        callId:
+          (obj.toolCallId as string | number | undefined) ??
+          (obj.callId as string | number | undefined) ??
+          (obj.id as string | number | undefined),
+        name: (obj.name as string | undefined) ?? undefined,
+        result:
+          'result' in obj ? obj.result : 'content' in obj ? obj.content : obj,
+      };
+    }
+    if (typeof item === 'string') {
+      try {
+        const parsed = JSON.parse(item) as unknown;
+        return toEntry(parsed);
+      } catch {
+        return { result: item };
+      }
+    }
+    return { result: item };
+  };
+
+  const content =
+    (message as { content?: unknown })?.content ??
+    (message as { toolCallResult?: unknown })?.toolCallResult ??
+    message;
+
+  if (typeof content === 'string') {
+    try {
+      const parsed = JSON.parse(content) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => toEntry(item));
+      }
+      return [toEntry(parsed)];
+    } catch {
+      return [toEntry(content)];
+    }
+  }
+
+  if (Array.isArray(content)) {
+    return content.map((item) => toEntry(item));
+  }
+  return [toEntry(content)];
+};
+
+export const findAssistantToolResults = (
+  message: unknown,
+  toolCtx: Map<number, unknown>,
+  toolNames: Map<number, string>,
+) => {
+  const msg = message as { role?: unknown; content?: unknown };
+  if (!msg || msg.role !== 'assistant' || typeof msg.content !== 'string') {
+    return [];
+  }
+  return normalizeToolResults(message).filter(
+    (entry) =>
+      entry.callId !== undefined &&
+      (toolCtx.has(Number(entry.callId)) ||
+        toolNames.has(Number(entry.callId))),
+  );
+};
+
 export function createChatRouter({
   clientFactory,
   toolFactory = createLmStudioTools,
@@ -451,54 +524,6 @@ export function createChatRouter({
         pendingSyntheticResults.delete(callId);
       };
 
-      const normalizeToolResults = (
-        message: unknown,
-      ): Array<{
-        callId?: string | number;
-        name?: string;
-        result?: unknown;
-      }> => {
-        const content =
-          (message as { content?: unknown })?.content ??
-          (message as { toolCallResult?: unknown })?.toolCallResult ??
-          message;
-
-        const toEntry = (
-          item: unknown,
-        ): { callId?: string | number; name?: string; result?: unknown } => {
-          if (item && typeof item === 'object') {
-            const obj = item as Record<string, unknown>;
-            return {
-              callId:
-                (obj.toolCallId as string | number | undefined) ??
-                (obj.callId as string | number | undefined) ??
-                (obj.id as string | number | undefined),
-              name: (obj.name as string | undefined) ?? undefined,
-              result:
-                'result' in obj
-                  ? obj.result
-                  : 'content' in obj
-                    ? obj.content
-                    : obj,
-            };
-          }
-          if (typeof item === 'string') {
-            try {
-              const parsed = JSON.parse(item) as unknown;
-              return toEntry(parsed);
-            } catch {
-              return { result: item };
-            }
-          }
-          return { result: item };
-        };
-
-        if (Array.isArray(content)) {
-          return content.map((item) => toEntry(item));
-        }
-        return [toEntry(content)];
-      };
-
       const actOptions: LLMActionOpts & { signal?: AbortSignal } & Record<
           string,
           unknown
@@ -535,6 +560,51 @@ export function createChatRouter({
               },
               'chat onMessage received tool role',
             );
+          }
+
+          if (
+            msg &&
+            msg.role === 'assistant' &&
+            typeof msg.content === 'string'
+          ) {
+            const assistantToolResults = findAssistantToolResults(
+              message,
+              toolCtx,
+              toolNames,
+            );
+
+            if (assistantToolResults.length > 0) {
+              baseLogger.info(
+                {
+                  requestId,
+                  baseUrl: safeBase,
+                  model,
+                  messageKind: 'assistant_tool_payload',
+                  count: assistantToolResults.length,
+                },
+                'chat onMessage suppressed assistant tool payload',
+              );
+              for (const entry of assistantToolResults) {
+                const callId = entry.callId;
+                if (callId === undefined || callId === null) continue;
+                const name =
+                  entry.name ??
+                  toolNames.get(Number(callId)) ??
+                  toolNames.get(callId as number) ??
+                  undefined;
+                if (syntheticToolResults.has(callId)) {
+                  emittedToolResults.delete(callId);
+                  syntheticToolResults.delete(callId);
+                }
+                emitToolResult(currentRound, callId, name, entry.result, {
+                  parameters:
+                    typeof callId === 'number'
+                      ? parseToolParameters(callId, entry.result)
+                      : undefined,
+                });
+              }
+              return;
+            }
           }
 
           if (

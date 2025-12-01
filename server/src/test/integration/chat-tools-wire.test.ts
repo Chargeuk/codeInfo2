@@ -389,3 +389,98 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
   const finalEvent = events.find((e) => e.type === 'final');
   assert.equal(finalEvent?.message?.content, 'after synthetic');
 });
+
+test('chat route suppresses assistant tool payload echo while emitting tool-result', async () => {
+  const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+    opts.onRoundStart?.(0);
+
+    const vectorTool = tools.find((t) => t.name === 'VectorSearch');
+    assert.ok(vectorTool);
+    const toolCtx: ToolCallContext = {
+      status: () => undefined,
+      warn: () => undefined,
+      signal: new AbortController().signal,
+      callId: 101,
+    };
+    const toolResult = await (
+      vectorTool as unknown as {
+        implementation: (
+          params: unknown,
+          ctx: ToolCallContext,
+        ) => Promise<unknown>;
+      }
+    ).implementation({ query: 'hello' }, toolCtx);
+
+    opts.onToolCallRequestStart?.(0, 101);
+    opts.onToolCallRequestNameReceived?.(0, 101, 'VectorSearch');
+    opts.onToolCallRequestArgumentFragmentGenerated?.(
+      0,
+      101,
+      JSON.stringify({ query: 'hello' }),
+    );
+    opts.onToolCallRequestEnd?.(0, 101, { parameters: { query: 'hello' } });
+    opts.onMessage?.({
+      role: 'assistant',
+      content: JSON.stringify([
+        {
+          toolCallId: 101,
+          name: 'VectorSearch',
+          result: {
+            files: [{ hostPath: '/host/path/a', chunkCount: 1, lineCount: 3 }],
+            results: [
+              {
+                hostPath: '/host/path/a',
+                chunk: 'text',
+                score: 0.9,
+                lineCount: 3,
+              },
+            ],
+          },
+        },
+      ]),
+    });
+    return Promise.resolve(toolResult);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      model: 'dummy-model',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    .expect(200);
+
+  const events = res.text
+    .split('\n\n')
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+
+  const toolResultEvent = events.find(
+    (e) => e.type === 'tool-result' && (e.callId === 101 || e.callId === '101'),
+  );
+  assert.ok(toolResultEvent, 'expected tool-result event');
+  assert.ok(toolResultEvent.result?.files?.[0]?.hostPath);
+
+  const assistantEcho = events.find(
+    (e) =>
+      e.type === 'final' &&
+      typeof e.message?.content === 'string' &&
+      e.message.content.includes('/host/path/a'),
+  );
+  assert.equal(assistantEcho, undefined);
+});

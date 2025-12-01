@@ -156,6 +156,42 @@ describe('Chat page streaming', () => {
     expect(await screen.findByText(/boom/i)).toBeInTheDocument();
   });
 
+  it('does not surface tool payload text as an assistant reply when only tool-result is streamed', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"tool-request","callId":"t5","name":"VectorSearch"}\n\n',
+          'data: {"type":"tool-result","callId":"t5","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"repo":"r","relPath":"a.txt","hostPath":"/h/a.txt","chunk":"one","chunkId":"1","score":0.7,"modelId":"m"}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.7,"chunkCount":1,"lineCount":1}]}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    // Tool block should render, but raw JSON payload should not appear as assistant text.
+    expect(
+      await screen.findByText(/VectorSearch · Success/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/"chunk"/i)).toBeNull();
+  });
+
   it('aborts the stream when the page unmounts', async () => {
     const abortFns: jest.Mock[] = [];
     const OriginalAbortController = global.AbortController;

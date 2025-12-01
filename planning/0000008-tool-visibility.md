@@ -388,7 +388,7 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
 
 ### 6. Suppress assistant echo of tool payloads
 
-- status: **in_progress**
+- status: **done**
 - Git Commits: to_do
 
 #### Overview
@@ -404,28 +404,31 @@ Prevent vector search (or any tool) payloads that arrive as assistant-role messa
 
 #### Subtasks
 
-1. [ ] Add server-side suppression/handling so assistant-role messages that contain tool payloads (e.g., toolCallResult/content arrays) are not forwarded as visible assistant text; implement in `server/src/routes/chat.ts` within `onMessage`, keeping existing tool-result synthesis intact.
-2. [ ] Ensure dedupe bookkeeping still clears synthetic/native tool-result state when suppression happens so no double emissions occur; adjust `emittedToolResults`/`syntheticToolResults` handling in `server/src/routes/chat.ts` if required.
-3. [ ] Add server unit test in `server/src/test/unit/toolService.synthetic.test.ts` (or adjacent new file) to cover assistant-role tool payload suppression versus tool-result emission.
-4. [ ] Add server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that mocks LM Studio emitting tool output as assistant text (no `onToolCallResult`), asserting only one `tool-result` frame arrives and no assistant text mirrors the payload.
-5. [ ] Add client hook test in `client/src/test/useChatStream.toolPayloads.test.tsx` to assert assistant-role tool payloads are ignored for visible text but still create/update the tool block.
-6. [ ] Add client UI RTL test (new or extend `client/src/test/chatPage.stream.test.tsx`) ensuring the chat transcript does not render the tool payload as an assistant bubble while the tool detail still appears.
-7. [ ] Add e2e scenario in `e2e/chat-tools-visibility.spec.ts` (or new spec) verifying users only see the tool block and not duplicated assistant text when the server suppresses assistant-role tool payloads.
-8. [ ] Update docs: `README.md` (chat/tool visibility behavior) and `design.md` (tool-result flow and suppression rule) to describe the new handling.
-9. [ ] Update `projectStructure.md` if new tests/spec files are added or renamed.
-10. [ ] Run lint/format across workspaces (`npm run lint --workspaces`, `npm run format:check --workspaces`) after changes.
+1. [x] Add server-side suppression/handling so assistant-role messages that contain tool payloads (e.g., toolCallResult/content arrays) are not forwarded as visible assistant text; implement in `server/src/routes/chat.ts` within `onMessage`, keeping existing tool-result synthesis intact.
+2. [x] Ensure dedupe bookkeeping still clears synthetic/native tool-result state when suppression happens so no double emissions occur; adjust `emittedToolResults`/`syntheticToolResults` handling in `server/src/routes/chat.ts` if required.
+3. [x] Add server unit test in `server/src/test/unit/toolService.synthetic.test.ts` (or adjacent new file) to cover assistant-role tool payload suppression versus tool-result emission.
+4. [x] Add server integration test in `server/src/test/integration/chat-tools-wire.test.ts` that mocks LM Studio emitting tool output as assistant text (no `onToolCallResult`), asserting only one `tool-result` frame arrives and no assistant text mirrors the payload.
+5. [x] Add client hook test in `client/src/test/useChatStream.toolPayloads.test.tsx` to assert assistant-role tool payloads are ignored for visible text but still create/update the tool block.
+6. [x] Add client UI RTL test (new or extend `client/src/test/chatPage.stream.test.tsx`) ensuring the chat transcript does not render the tool payload as an assistant bubble while the tool detail still appears.
+7. [x] Add e2e scenario in `e2e/chat-tools-visibility.spec.ts` (or new spec) verifying users only see the tool block and not duplicated assistant text when the server suppresses assistant-role tool payloads.
+8. [x] Update docs: `README.md` (chat/tool visibility behavior) and `design.md` (tool-result flow and suppression rule) to describe the new handling.
+9. [x] Update `projectStructure.md` if new tests/spec files are added or renamed.
+10. [x] Run lint/format across workspaces (`npm run lint --workspaces`, `npm run format:check --workspaces`) after changes.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` — ensure server builds after suppression changes.
-2. [ ] `npm run build --workspace client` — ensure client builds.
-3. [ ] `npm run compose:build` — prove clean docker build works.
-4. [ ] `npm run compose:up` — confirm docker compose starts with the change.
-5. [ ] `npm run test --workspace server` — run unit/integration coverage for suppression.
-6. [ ] `npm run test --workspace client` — run hook/UI tests covering suppression.
-7. [ ] `npm run e2e` — validate end-to-end that tool payloads do not surface as assistant text.
-8. [ ] `npm run compose:down` — cleanly stop docker stack.
+1. [x] `npm run build --workspace server` — ensure server builds after suppression changes.
+2. [x] `npm run build --workspace client` — ensure client builds.
+3. [x] `npm run compose:build` — prove clean docker build works.
+4. [x] `npm run compose:up` — confirm docker compose starts with the change.
+5. [x] `npm run test --workspace server` — run unit/integration coverage for suppression.
+6. [x] `npm run test --workspace client` — run hook/UI tests covering suppression.
+7. [x] `npm run e2e` — validate end-to-end that tool payloads do not surface as assistant text.
+8. [x] `npm run compose:down` — cleanly stop docker stack.
 
 #### Implementation notes
 
-- (fill during work)
+- Server now detects assistant-role messages that carry tool payloads, suppresses them from the assistant transcript, and still emits a single tool-result (deduping against synthesized/native results); detection handles JSON arrays in string content.
+- Added unit coverage for the helper that finds assistant tool results, integration coverage for assistant-payload suppression, client hook + UI RTL coverage to ensure no raw tool payload appears as assistant text, and an e2e scenario that asserts the raw payload stays hidden.
+- Docs updated to state that tool payload echoes are suppressed; projectStructure documents the new unit test file.
+- Ran lint/format, server/client builds, compose build/up/down, server/client tests, and e2e (all passing; client tests still emit existing act warnings).

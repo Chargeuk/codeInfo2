@@ -517,7 +517,7 @@ Tool results from LM Studio are arriving inside `final` messages as `role: "tool
 
 ### 10. Stop tool spinner when assistant text resumes
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

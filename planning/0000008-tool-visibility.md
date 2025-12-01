@@ -389,7 +389,7 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
 ### 6. Suppress assistant echo of tool payloads
 
 - status: **done**
-- Git Commits: to_do
+- Git Commits: 155855a
 
 #### Overview
 

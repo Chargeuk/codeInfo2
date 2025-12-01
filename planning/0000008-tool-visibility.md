@@ -521,3 +521,30 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
 #### Implementation notes
 
 - Live LM Studio calls confirm `onMessage` receives `message.data.content` arrays; the old `{ role, content: string }` assumption is invalid. New logic must treat array items as authoritative for text and tool entries, eliminating the JSON-string parsing hacks.
+- Observed shapes (from live prompts that do and do not use tools):
+  ```ts
+  type LMContentItem =
+    | { type: 'text'; text: string } // contains analysis/final markers inline
+    | {
+        type: 'toolCallRequest';
+        toolCallRequest: {
+          id: string; // e.g., "411344140"
+          type: 'function';
+          arguments: Record<string, unknown>; // e.g., { query: 'languages used', repository: 'Code Info 2', limit: 5 }
+          name: string; // "VectorSearch" | "ListIngestedRepositories"
+        };
+      }
+    | {
+        type: 'toolCallResult';
+        toolCallId: string; // matches toolCallRequest.id
+        content: string; // JSON string of the tool payload (vector results, etc.)
+      };
+
+  type LMMessage = {
+    data?: { role: 'assistant' | 'tool' | 'user' | 'system'; content: LMContentItem[] };
+    mutable?: boolean;
+  };
+  // SSE frame example: { type: 'final', message: LMMessage, roundIndex: number }
+  // Non-tool answers: data.content is an array of a single { type: 'text', text: '<|channel|>analysis...<|end|><|start|>assistant<|channel|>final<|message|>Hello!' }
+  // Tool answers: assistant final carries text + toolCallRequest item; later a tool-role final carries toolCallResult item; separate SSE tool-result also arrives.
+  ```

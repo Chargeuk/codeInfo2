@@ -348,5 +348,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Re-read design.md; diagrams and narrative already cover ingest telemetry, tool-call visibility, reasoning collapse, markdown, and mermaid flows—no updates needed.
 - Checked projectStructure.md; tree already lists markdown/mermaid components, tests, and e2e specs, so no structural updates required.
 - Ran `npm run e2e` (build→up→test→down); all 12 Playwright specs passed including ingest progress, chat tools, reasoning, markdown, and mermaid flows. Embedding model `text-embedding-qwen3-embedding-4b` and chat model `openai/gpt-oss-20b` were available in the e2e stack, so no skips. Next step: capture required screenshots with the running stack.
+- Captured final screenshots via Playwright with mocked chat SSE streams and a live ingest run: `test-results/screenshots/0000007-6-ingest-progress.png`, `0000007-6-chat-tools.png`, `0000007-6-chat-reasoning.png`, `0000007-6-chat-markdown.png`, `0000007-6-chat-mermaid.png`; brought e2e stack up for ingest shot and down afterwards.
 
 ---

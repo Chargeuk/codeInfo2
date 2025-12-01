@@ -598,6 +598,9 @@ export function useChatStream(model?: string) {
                     status,
                     payload: event.result,
                   });
+                  if (event.type === 'tool-request') {
+                    toolsAwaitingAssistantOutput.add(id);
+                  }
                   if (event.type === 'tool-result') {
                     const citations = extractCitations(event.result);
                     appendCitations(citations);

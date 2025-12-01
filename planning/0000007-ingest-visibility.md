@@ -106,6 +106,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 - Documented the new progress fields in README, added a telemetry sequence diagram in design.md, and refreshed projectStructure.md with the added tests.
 - Ran lint + prettier checks across workspaces after changes.
 - Ran builds/tests: server + client builds, server tests (pass), client tests (pass after Response polyfill), compose build/up/down, and Playwright e2e (ingest scenarios skipped by prereq guard, other specs passed).
+- Added a guard on `tool-request` frames so tool IDs enter the awaiting set immediately; pending spinners now drop on the first assistant token/final after a tool message even if `tool-result` arrives later, preserving ordering and deduping with synthesized results.
 
 ---
 

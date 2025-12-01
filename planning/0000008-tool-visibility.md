@@ -123,9 +123,9 @@ Validate full flow and document new tool detail UX.
 1. [ ] Add Playwright e2e (type) — extend `e2e/chat-tools-visibility.spec.ts` (or new) to cover tool detail expansions for ListIngestedRepositories and VectorSearch, parameters accordion default-closed, host-path-only file aggregation with summed chunk count/line count, highest match value display, and error expansion; purpose: end-to-end UX verification.
 2. [ ] Add Playwright e2e (type) — add failure-path coverage (mocked tool error) ensuring trimmed error + expandable full details; purpose: failure UX.
 3. [ ] Capture screenshots per story naming convention into `test-results/screenshots/` for the above e2e flows; purpose: visual evidence.
-4. [ ] Update README.md with the new tool detail behaviors and parameter visibility.
-5. [ ] Update design.md with flow description/diagram for tool detail rendering, aggregation rules, and error handling.
-6. [ ] Update projectStructure.md for any new files/components/tests.
+4. [ ] Doc: README.md — add tool detail behaviors, parameters accordion default-closed, host-path-only file aggregation, chunk/line counts, and error expansion behavior.
+5. [ ] Doc: design.md — describe tool detail flows, aggregation rules (host path, chunk sum, line count, highest match), error handling (trimmed + expand full), and include/update diagram if needed.
+6. [ ] Doc: projectStructure.md — reflect any new components, tests, or e2e specs added for this story.
 7. [ ] Summarize changes for PR comment (include coverage + UX notes).
 8. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspaces`, and `npm run e2e` if environment available.
 
@@ -164,8 +164,10 @@ Ensure acceptance criteria met, full builds/tests pass, docs/screenshots complet
 4. [ ] Test: Lint/format (type) — `npm run lint --workspaces` and `npm run format:check --workspaces`; purpose: code quality gate.
 5. [ ] Test: E2E suite (type) — `npm run e2e`; purpose: end-to-end coverage including tool detail UX; capture/verify required screenshots for this story.
 6. [ ] Run clean docker build if needed and compose up/down smoke.
-7. [ ] Verify README/design/projectStructure reflect final state; update if needed.
-8. [ ] Prepare PR comment summarizing all changes and test results.
+7. [ ] Doc: README.md — confirm final state reflects tool detail behavior; update if needed.
+8. [ ] Doc: design.md — confirm flow/diagrams reflect final state; update if needed.
+9. [ ] Doc: projectStructure.md — confirm file tree reflects final components/tests; update if needed.
+10. [ ] Prepare PR comment summarizing all changes and test results.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

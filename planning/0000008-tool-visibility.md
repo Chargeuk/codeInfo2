@@ -645,3 +645,48 @@ Keep vector search citations but render them inside an expandable “Citations�
 - Updated RTL citation suites to assert the accordion starts hidden and reveals path + chunk text on expand; adjusted e2e chat-tools specs to click the citations toggle before checking visibility and host-path text.
 - Documented the new citations toggle in `README.md`, `design.md`, and `projectStructure.md`; lint and format checks now clean after removing stale dist outputs.
 - Full test matrix rerun (server/client builds, server/client tests, compose build/up/down, e2e) now passes; Playwright failure from hidden citations is resolved by expanding before asserting (React act warnings in Jest remain expected noise).
+
+### 10. Stream status + thinking UX
+
+- status: **done**
+- Git Commits: 009efcf, b24df4f
+
+#### Overview
+
+Make it obvious to users when the LLM is still processing versus finished. Add an in-bubble “Processing/Complete/Failed” status chip with spinner/tick/cross, and show a “Thinking…” inline spinner placeholder where the assistant text will appear whenever no visible LLM text has streamed for ≥1000ms and the response is not yet complete. This covers long vector-search turns where the model pauses before emitting visible text.
+
+#### Documentation Locations
+
+- Client chat rendering and status UI: `client/src/pages/ChatPage.tsx`
+- Chat stream state + timers: `client/src/hooks/useChatStream.ts`
+- Existing reasoning/thinking collapse patterns: `client/src/test/chatPage.stream.test.tsx`, `client/src/hooks/useChatStream.reasoning.test.tsx`
+- UX guidelines: `design.md` (chat streaming section)
+
+#### Subtasks
+
+1. [x] Analyze current chat render state for assistant messages and identify where to insert status chip and thinking placeholder; document chosen insertion points before coding (files: `ChatPage.tsx`, `useChatStream.ts`).
+2. [x] Add per-assistant-turn status fields in chat state (`processing`/`complete`/`failed`) derived from stream lifecycle (token/final/error/complete) and tool suppression logic; ensure they reset on new conversation. (file: `useChatStream.ts`).
+3. [x] Implement 1000ms idle timer for assistant-visible text: when streaming with no visible text appended for ≥1000ms and not finished, surface a “Thinking…” spinner placeholder exactly where final text will appear; hide it immediately once text arrives or stream ends. (file: `useChatStream.ts`).
+4. [x] Render a top-of-bubble status chip showing “Processing” with spinner, “Complete” with tick, or “Failed” with cross, synced to the status field; ensure accessibility labels and test ids (`status-chip`, `thinking-placeholder`). (file: `ChatPage.tsx`).
+5. [x] Ensure interaction with reasoning/think collapse: thinking spinner should not collide with hidden analysis block; verify both can coexist. (files: `ChatPage.tsx`, `useChatStream.ts`).
+6. [x] Add/adjust RTL unit tests covering: status chip states across processing/complete/error; thinking spinner appears after 1000ms idle and disappears on text; coexistence with think collapse; reset on new conversation. (files: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/useChatStream.reasoning.test.tsx`).
+7. [x] Update e2e spec to assert status chip and thinking spinner behavior during a long vector-search turn (e.g., pause tokens for >1s before text); add screenshot if needed. (file: `e2e/chat-tools-visibility.spec.ts` or new).
+8. [x] Docs: update `README.md`, `design.md`, and `projectStructure.md` to describe the processing/complete/failed chip and thinking spinner behavior (each in its own subtask entry).
+9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
+
+#### Implementation notes
+
+- Added per-assistant stream status/tracking in `useChatStream` with processing/complete/failed states and a 1s idle timer that surfaces a “Thinking…” placeholder until visible text streams; timers clear on completion/error/reset.
+- Chat bubbles now render a status chip (spinner/tick/cross) at the top and inline thinking spinner when idle; ensured coexistence with reasoning collapse and tool segments.
+- RTL added a delayed-stream test for thinking/status, and Playwright success path asserts the status chip; docs (README, design, projectStructure) describe the UX. Full lint/format/build/test/compose/e2e rerun clean (existing act warnings persist in client Jest output).

@@ -18,6 +18,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 - Altering ingest/vector search business rules beyond presentation.
 - Adding new tools or authentication flows.
 
+## Questions
 - Do we need to cap the number of repository/file entries shown before collapsing behind “show more”? **Answer:** Keep the tool call closed by default. When expanded, show all repository/file entries with no cap. Each entry is itself expandable for detailed info.
 - Should chunk count be summed per file or show per-result list? **Answer:** Sum chunk counts per file. Each file appears once with total chunks (e.g., 3 results for one file → chunk count 3). If available, also surface the file's total line count.
 - Should we show host paths in addition to repo/relPath for VectorSearch? **Answer:** Show only the full host path; skip internal/container paths as they are not user-meaningful.

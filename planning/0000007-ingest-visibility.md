@@ -370,16 +370,23 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 - Playwright docs (for any e2e adjustments): Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Remove noop tool registration from `server/src/routes/chat.ts`; ensure LM Studio tools list is unchanged.
-2. [ ] Update mock LM Studio SDK fixtures to drop noop tool (or adjust expectations) in `server/src/test/support/mockLmStudioSdk.ts`.
-3. [ ] Adjust server integration/Cucumber tests if they assert tool counts/names to exclude noop.
-4. [ ] Verify chat client behaviour (no UI dependency on noop) and update/confirm any client tests if tool count expectations change.
-5. [ ] README.md: update/remove any mention of a noop tool (or explicitly note none exists).
-6. [ ] design.md: update/remove any mention of a noop tool (or explicitly note none exists).
-7. [ ] Server integration test (node --test): update `server/src/test/integration/chat-tools-wire.test.ts` expectations to match tool list without noop; purpose: ensure emitted tool frames are unchanged aside from list.
-8. [ ] Server Cucumber (if applicable): review chat/ingest features for tool count assumptions and adjust step data; purpose: prevent regressions in BDD flows.
-9. [ ] Client RTL: update any tool-count assertions (e.g., `client/src/test/chatPage.toolVisibility.test.tsx`) to align with no-op removal; purpose: UI should rely only on real tools.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [ ] Remove noop tool registration in `server/src/routes/chat.ts` (tools array) so only LM Studio tools remain.
+2. [ ] Update mock LM Studio SDK fixtures in `server/src/test/support/mockLmStudioSdk.ts` to drop noop definitions/expectations.
+3. [ ] Server integration test (node --test): adjust `server/src/test/integration/chat-tools-wire.test.ts` expected tool list to exclude noop; ensure tool frames unchanged otherwise.
+4. [ ] Server Cucumber: review chat/ingest feature steps for tool count/name assumptions; update data tables/steps if they reference noop.
+5. [ ] Client RTL: update any tool-count assertions (e.g., `client/src/test/chatPage.toolVisibility.test.tsx`) to rely only on real tools; confirm no UI dependency on noop.
+6. [ ] README.md: remove or note absence of noop tool, if mentioned.
+7. [ ] design.md: remove or note absence of noop tool, if mentioned.
+8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+
+#### Definition of Done
+- Tool lists sent to/used by chat contain only real LM Studio tools; noop absent from SSE/logs.
+- Integration, Cucumber, and client RTL tests pass without noop references.
+- Docs contain no stale mention of a noop tool.
+
+#### Risks / Edge Cases
+- Ensure act() still succeeds with remaining tools (no assumptions about non-empty tool list beyond real tools).
+- Remove any cached fixtures/snapshots containing noop to avoid hidden regressions.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -417,6 +424,16 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 4. [ ] Client RTL – `client/src/test/chatPage.reasoning.test.tsx` (or new targeted test): ensure reasoning + tool blocks order correctly when both appear; purpose: guard ordering regression.
 5. [ ] Playwright e2e – extend `e2e/chat-tools.spec.ts` (or new) to assert spinner visible during call then replaced by collapsible with subsequent assistant text following; purpose: end-to-end confirmation.
 6. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+
+#### Definition of Done
+- Spinner shows only while tool is executing; on completion it is replaced by an inline collapsible block at the tool-call position; any following assistant text renders after the block.
+- Multiple tools in a turn preserve order; tool errors also end the spinner and show in the collapsible block.
+- Reasoning/think blocks and tool blocks co-exist in correct order; no UI hangs/spinners after completion.
+
+#### Risks / Edge Cases
+- Multiple tool calls in one message: ensure per-call status tracking so the right block stops spinning.
+- Interleaved reasoning + tool events: maintain correct ordering when both stream.
+- Tool error frames: spinner must stop and show error state without breaking later text.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

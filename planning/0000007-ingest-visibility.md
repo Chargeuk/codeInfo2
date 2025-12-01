@@ -364,11 +364,10 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 Remove the placeholder noop tool from the chat route/tool registry so only real tools are exposed to models.
 
 #### Documentation Locations
-- `server/src/routes/chat.ts` (tool registration)
-- `server/src/lmstudio/tools.ts` (real tools)
-- `server/src/test/support/mockLmStudioSdk.ts` (test tool definitions)
-- Chat stream tests: `server/src/test/integration/chat-tools-wire.test.ts`, `client/src/test/chatPage.*.test.tsx`
-- Context7 LM Studio docs as needed
+- LM Studio TypeScript agent docs (tool registration/usage): https://lmstudio.ai/docs/typescript/agent/act
+- Node test runner docs for integration tests: https://nodejs.org/api/test.html
+- Jest docs (client RTL): Context7 `/jestjs/jest`
+- Playwright docs (for any e2e adjustments): Context7 `/microsoft/playwright`
 
 #### Subtasks
 1. [ ] Remove noop tool registration from `server/src/routes/chat.ts`; ensure LM Studio tools list is unchanged.
@@ -406,10 +405,10 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 Ensure the tool spinner appears inline when a tool call starts, stops when the tool finishes, and is replaced by a collapsible result section that stays in-place within the chat bubble before subsequent assistant text.
 
 #### Documentation Locations
-- Client stream handling: `client/src/hooks/useChatStream.ts`
-- Chat UI rendering: `client/src/pages/ChatPage.tsx`
-- Tool UI tests: `client/src/test/chatPage.toolVisibility.test.tsx` (and related chat tests)
-- Server tool events (for reference): `server/src/routes/chat.ts`
+- LM Studio TypeScript agent docs (tool events/act): https://lmstudio.ai/docs/typescript/agent/act
+- React Testing Library docs (RTL patterns): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright docs (e2e assertions): Context7 `/microsoft/playwright`
+- Jest docs (client tests runner): Context7 `/jestjs/jest`
 
 #### Subtasks
 1. [ ] Update message state to preserve tool call insertion order and statuses (`requesting` → `done|error`) so spinner ends on completion.

@@ -559,7 +559,7 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
 
 ### 9. Citations collapsible (default closed)
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: to_do
 
 #### Overview

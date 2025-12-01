@@ -140,15 +140,15 @@ Make it obvious to users when the LLM is still processing versus finished. Add a
 
 #### Subtasks
 
-1. [ ] Analyze current chat render state for assistant messages and identify where to insert status chip and thinking placeholder; document chosen insertion points before coding (files: `ChatPage.tsx`, `useChatStream.ts`).
-2. [ ] Add per-assistant-turn status fields in chat state (`processing`/`complete`/`failed`) derived from stream lifecycle (token/final/error/complete) and tool suppression logic; ensure they reset on new conversation. (file: `useChatStream.ts`).
-3. [ ] Implement 1000ms idle timer for assistant-visible text: when streaming with no visible text appended for ≥1000ms and not finished, surface a “Thinking…” spinner placeholder exactly where final text will appear; hide it immediately once text arrives or stream ends. (file: `useChatStream.ts`).
-4. [ ] Render a top-of-bubble status chip showing “Processing” with spinner, “Complete” with tick, or “Failed” with cross, synced to the status field; ensure accessibility labels and test ids (`status-chip`, `thinking-placeholder`). (file: `ChatPage.tsx`).
-5. [ ] Ensure interaction with reasoning/think collapse: thinking spinner should not collide with hidden analysis block; verify both can coexist. (files: `ChatPage.tsx`, `useChatStream.ts`).
-6. [ ] Add/adjust RTL unit tests covering: status chip states across processing/complete/error; thinking spinner appears after 1000ms idle and disappears on text; coexistence with think collapse; reset on new conversation. (files: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/useChatStream.reasoning.test.tsx`).
-7. [ ] Update e2e spec to assert status chip and thinking spinner behavior during a long vector-search turn (e.g., pause tokens for >1s before text); add screenshot if needed. (file: `e2e/chat-tools-visibility.spec.ts` or new).
-8. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` to describe the processing/complete/failed chip and thinking spinner behavior (each in its own subtask entry).
-9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+1. [x] Analyze current chat render state for assistant messages and identify where to insert status chip and thinking placeholder; document chosen insertion points before coding (files: `ChatPage.tsx`, `useChatStream.ts`).
+2. [x] Add per-assistant-turn status fields in chat state (`processing`/`complete`/`failed`) derived from stream lifecycle (token/final/error/complete) and tool suppression logic; ensure they reset on new conversation. (file: `useChatStream.ts`).
+3. [x] Implement 1000ms idle timer for assistant-visible text: when streaming with no visible text appended for ≥1000ms and not finished, surface a “Thinking…” spinner placeholder exactly where final text will appear; hide it immediately once text arrives or stream ends. (file: `useChatStream.ts`).
+4. [x] Render a top-of-bubble status chip showing “Processing” with spinner, “Complete” with tick, or “Failed” with cross, synced to the status field; ensure accessibility labels and test ids (`status-chip`, `thinking-placeholder`). (file: `ChatPage.tsx`).
+5. [x] Ensure interaction with reasoning/think collapse: thinking spinner should not collide with hidden analysis block; verify both can coexist. (files: `ChatPage.tsx`, `useChatStream.ts`).
+6. [x] Add/adjust RTL unit tests covering: status chip states across processing/complete/error; thinking spinner appears after 1000ms idle and disappears on text; coexistence with think collapse; reset on new conversation. (files: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/useChatStream.reasoning.test.tsx`).
+7. [x] Update e2e spec to assert status chip and thinking spinner behavior during a long vector-search turn (e.g., pause tokens for >1s before text); add screenshot if needed. (file: `e2e/chat-tools-visibility.spec.ts` or new).
+8. [x] Docs: update `README.md`, `design.md`, and `projectStructure.md` to describe the processing/complete/failed chip and thinking spinner behavior (each in its own subtask entry).
+9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -163,7 +163,9 @@ Make it obvious to users when the LLM is still processing versus finished. Add a
 
 #### Implementation notes
 
-- to_be_filled
+- Added per-assistant stream status/tracking in `useChatStream` with processing/complete/failed states and a 1s idle timer that surfaces a “Thinking…” placeholder until visible text streams; timers clear on completion/error/reset.
+- Chat bubbles now render a status chip (spinner/tick/cross) at the top and inline thinking spinner when idle; ensured coexistence with reasoning collapse and tool segments.
+- RTL added a delayed-stream test for thinking/status, and Playwright success path asserts the status chip; docs (README, design, projectStructure) describe the UX. Full lint/format/build/test/compose/e2e rerun clean (existing act warnings persist in client Jest output).
 
 ---
 

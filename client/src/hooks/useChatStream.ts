@@ -11,6 +11,8 @@ export type ChatMessage = {
   citations?: ToolCitation[];
   tools?: ToolCall[];
   segments?: ChatSegment[];
+  streamStatus?: 'processing' | 'complete' | 'failed';
+  thinking?: boolean;
 };
 
 export type ToolCitation = {
@@ -253,11 +255,21 @@ export function useChatStream(model?: string) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVisibleTextAtRef = useRef<number | null>(null);
+
+  const clearThinkingTimer = useCallback(() => {
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+  }, []);
 
   const finishStreaming = useCallback(() => {
     setIsStreaming(false);
     setStatus('idle');
-  }, []);
+    clearThinkingTimer();
+  }, [clearThinkingTimer]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -298,6 +310,7 @@ export function useChatStream(model?: string) {
   const reset = useCallback(() => {
     updateMessages(() => []);
     finishStreaming();
+    lastVisibleTextAtRef.current = null;
   }, [finishStreaming, updateMessages]);
 
   const handleErrorBubble = useCallback(
@@ -392,6 +405,24 @@ export function useChatStream(model?: string) {
         });
       };
 
+      const setAssistantThinking = (thinking: boolean) => {
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId ? { ...msg, thinking } : msg,
+          ),
+        );
+      };
+
+      const setAssistantStatus = (
+        streamStatus: ChatMessage['streamStatus'],
+      ) => {
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId ? { ...msg, streamStatus } : msg,
+          ),
+        );
+      };
+
       updateMessages((prev) => [
         ...prev,
         {
@@ -399,8 +430,17 @@ export function useChatStream(model?: string) {
           role: 'assistant',
           content: '',
           segments,
+          streamStatus: 'processing',
+          thinking: false,
         },
       ]);
+      lastVisibleTextAtRef.current = null;
+      clearThinkingTimer();
+      thinkingTimerRef.current = setTimeout(() => {
+        if (statusRef.current === 'sending') {
+          setAssistantThinking(true);
+        }
+      }, 1000);
 
       const syncAssistantMessage = () => {
         const toolList = segments
@@ -429,6 +469,8 @@ export function useChatStream(model?: string) {
 
       const appendTextSegment = (text: string) => {
         if (!text) return;
+        lastVisibleTextAtRef.current = Date.now();
+        clearThinkingTimer();
         const last = segments[segments.length - 1];
         let nextSegments = [...segments];
         if (last && last.kind === 'text') {
@@ -443,6 +485,15 @@ export function useChatStream(model?: string) {
           ];
         }
         segments = nextSegments;
+        setAssistantThinking(false);
+        thinkingTimerRef.current = setTimeout(() => {
+          if (statusRef.current !== 'sending') return;
+          updateMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId ? { ...msg, thinking: true } : msg,
+            ),
+          );
+        }, 1000);
       };
 
       const applyReasoning = (next: ReasoningState) => {
@@ -729,16 +780,22 @@ export function useChatStream(model?: string) {
                     flushAll: true,
                   }),
                 );
+                setAssistantStatus('complete');
+                setAssistantThinking(false);
               } else if (event.type === 'final') {
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(reasoning, '', { flushAll: true }),
                 );
+                setAssistantStatus('complete');
+                setAssistantThinking(false);
               } else if (event.type === 'error') {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
                 finishStreaming();
+                setAssistantStatus('failed');
+                setAssistantThinking(false);
               } else if (event.type === 'complete') {
                 const completed = parseReasoning(reasoning, '', {
                   flushAll: true,
@@ -746,6 +803,8 @@ export function useChatStream(model?: string) {
                 applyReasoning({ ...completed, analysisStreaming: false });
                 completePendingTools();
                 setTimeout(finishStreaming, 0);
+                setAssistantStatus('complete');
+                setAssistantThinking(false);
               }
             } catch {
               continue;
@@ -775,6 +834,7 @@ export function useChatStream(model?: string) {
       status,
       stop,
       updateMessages,
+      clearThinkingTimer,
     ],
   );
 

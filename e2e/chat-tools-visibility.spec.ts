@@ -146,6 +146,8 @@ test.describe('Chat tool visibility details', () => {
       'alpha chunk text',
     );
 
+    await expect(page.getByTestId('status-chip')).toContainText('Complete');
+
     const toolRows = page.getByTestId('tool-row');
     await expect(toolRows).toHaveCount(2, { timeout: 20000 });
 

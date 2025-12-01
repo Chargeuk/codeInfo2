@@ -47,7 +47,73 @@ function streamFromFrames(frames: string[]) {
   });
 }
 
+function delayedStream(frames: string[], delayMs: number) {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      setTimeout(() => {
+        frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
+        controller.close();
+      }, delayMs);
+    },
+  });
+}
+
 describe('Chat page streaming', () => {
+  it('shows processing status chip, thinking placeholder after idle, then completes', async () => {
+    jest.useFakeTimers();
+    try {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => modelList,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          body: delayedStream(
+            [
+              'data: {"type":"final","message":{"content":"All done","role":"assistant"}}\n\n',
+              'data: {"type":"complete"}\n\n',
+            ],
+            1500,
+          ),
+        });
+
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = screen.getByTestId('chat-send');
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+      });
+
+      expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(await screen.findByText(/All done/)).toBeInTheDocument();
+      expect(screen.getByTestId('status-chip')).toHaveTextContent(/Complete/i);
+      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
   it('streams tokens into one assistant bubble and re-enables send', async () => {
     mockFetch
       .mockResolvedValueOnce({

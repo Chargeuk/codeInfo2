@@ -17,6 +17,7 @@ import {
   Typography,
   Box,
   Collapse,
+  Chip,
   Button as MuiButton,
   Accordion,
   AccordionSummary,
@@ -588,6 +589,38 @@ export default function ChatPage() {
                         }}
                       >
                         <Stack spacing={1}>
+                          {message.role === 'assistant' &&
+                            message.streamStatus && (
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                color={
+                                  message.streamStatus === 'complete'
+                                    ? 'success'
+                                    : message.streamStatus === 'failed'
+                                      ? 'error'
+                                      : 'default'
+                                }
+                                icon={
+                                  message.streamStatus === 'complete' ? (
+                                    <CheckCircleOutlineIcon fontSize="small" />
+                                  ) : message.streamStatus === 'failed' ? (
+                                    <ErrorOutlineIcon fontSize="small" />
+                                  ) : (
+                                    <CircularProgress size={14} />
+                                  )
+                                }
+                                label={
+                                  message.streamStatus === 'complete'
+                                    ? 'Complete'
+                                    : message.streamStatus === 'failed'
+                                      ? 'Failed'
+                                      : 'Processing'
+                                }
+                                data-testid="status-chip"
+                                sx={{ alignSelf: 'flex-start' }}
+                              />
+                            )}
                           {segments.map((segment) => {
                             if (segment.kind === 'text') {
                               if (message.role === 'assistant') {
@@ -688,6 +721,22 @@ export default function ChatPage() {
                               </Box>
                             );
                           })}
+                          {message.role === 'assistant' && message.thinking && (
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="center"
+                              data-testid="thinking-placeholder"
+                            >
+                              <CircularProgress size={16} />
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                Thinking…
+                              </Typography>
+                            </Stack>
+                          )}
                         </Stack>
                         {hasCitations && (
                           <Accordion

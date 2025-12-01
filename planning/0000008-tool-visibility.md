@@ -363,7 +363,7 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
 9. [ ] Docs: README.md – add a note in the chat/tool visibility section that the server synthesizes `tool-result` when LM Studio omits callbacks and dedupes if native results arrive.
 10. [ ] Docs: design.md – add a short subsection in the chat tool detail flow describing synthesized tool-result emission and dedupe.
 11. [ ] Docs: projectStructure.md – update file list if new tests/specs are added (server unit/integration, client hook test, e2e case).
-12. [ ] Lint/format after changes.
+12. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 

@@ -345,6 +345,7 @@ export function useChatStream(model?: string) {
       let segments: ChatSegment[] = [
         { id: makeId(), kind: 'text', content: '' },
       ];
+      const toolsAwaitingAssistantOutput = new Set<string>();
 
       updateMessages((prev) => [
         ...prev,
@@ -479,6 +480,27 @@ export function useChatStream(model?: string) {
         syncAssistantMessage();
       };
 
+      const completeAwaitingToolsOnAssistantOutput = () => {
+        if (!toolsAwaitingAssistantOutput.size) return;
+        let changed = false;
+        segments = segments.map((segment) => {
+          if (segment.kind !== 'tool') return segment;
+          if (segment.tool.status !== 'requesting') return segment;
+          if (!toolsAwaitingAssistantOutput.has(segment.tool.id))
+            return segment;
+          toolsAwaitingAssistantOutput.delete(segment.tool.id);
+          changed = true;
+          return {
+            ...segment,
+            tool: { ...segment.tool, status: 'done' },
+          };
+        });
+
+        if (changed) {
+          syncAssistantMessage();
+        }
+      };
+
       const completePendingTools = () => {
         const nextSegments = segments.map((segment) =>
           segment.kind === 'tool' && segment.tool.status === 'requesting'
@@ -579,6 +601,7 @@ export function useChatStream(model?: string) {
                   if (event.type === 'tool-result') {
                     const citations = extractCitations(event.result);
                     appendCitations(citations);
+                    toolsAwaitingAssistantOutput.add(id);
                   }
                 };
 
@@ -589,7 +612,23 @@ export function useChatStream(model?: string) {
                 }
                 continue;
               }
+              if (event.type === 'final' && event.message?.role === 'tool') {
+                segments
+                  .filter(
+                    (
+                      segment,
+                    ): segment is Extract<ChatSegment, { kind: 'tool' }> =>
+                      segment.kind === 'tool' &&
+                      segment.tool.status === 'requesting',
+                  )
+                  .forEach((segment) => {
+                    toolsAwaitingAssistantOutput.add(segment.tool.id);
+                  });
+                continue;
+              }
+
               if (event.type === 'token' && typeof event.content === 'string') {
+                completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(reasoning, event.content, {
                     flushAll: false,
@@ -599,6 +638,7 @@ export function useChatStream(model?: string) {
                 event.type === 'final' &&
                 typeof event.message?.content === 'string'
               ) {
+                completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(
                     initialReasoningState(),
@@ -607,6 +647,7 @@ export function useChatStream(model?: string) {
                   ),
                 );
               } else if (event.type === 'final') {
+                completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(reasoning, '', { flushAll: true }),
                 );

@@ -93,13 +93,23 @@ function streamWithoutToolResultButWithToolMessage() {
         ),
       );
       setTimeout(() => {
-        [
-          'data: {"type":"final","message":{"role":"tool","content":{"toolCallId":"t1","name":"VectorSearch","result":{"results":[{"repo":"repo","relPath":"main.txt","hostPath":"/host/repo/main.txt","chunk":"sample chunk"}]}}}}\n\n',
-          'data: {"type":"final","message":{"content":"Answer after tool","role":"assistant"}}\n\n',
-          'data: {"type":"complete"}\n\n',
-        ].forEach((frame) => controller.enqueue(encoder.encode(frame)));
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"tool","content":{"toolCallId":"t1","name":"VectorSearch","result":{"results":[{"repo":"repo","relPath":"main.txt","hostPath":"/host/repo/main.txt","chunk":"sample chunk"}]}}}}\n\n',
+          ),
+        );
+      }, 20);
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"token","content":"Answer after tool"}\n\n',
+          ),
+        );
+      }, 60);
+      setTimeout(() => {
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
         controller.close();
-      }, 40);
+      }, 140);
     },
   });
 }
@@ -166,10 +176,8 @@ describe('Chat tool call visibility', () => {
 
     const toolRow = await screen.findByTestId('tool-row');
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('tool-spinner')).not.toBeInTheDocument(),
-    );
-    const answerText = screen.getByText('Answer after tool');
+    const answerText = await screen.findByText('Answer after tool');
+    expect(screen.queryByTestId('tool-spinner')).not.toBeInTheDocument();
     expect(
       toolRow.compareDocumentPosition(answerText) &
         Node.DOCUMENT_POSITION_FOLLOWING,

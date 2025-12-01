@@ -533,26 +533,30 @@ Tool spinners should end as soon as the model resumes assistant output after a t
 - Playwright docs: Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Client logic (file: `client/src/hooks/useChatStream.ts`): in the stream parsing loop, when a tool has `status:"requesting"` and you receive either (a) the first assistant `token` after a `role:"tool"`/toolCallResult message for that callId, or (b) an assistant `final` message after that tool, immediately set that tool’s status to `done` (or `error` if an error stage was present). Keep ordering/segments unchanged and retain the existing `complete` fallback and synthesized `tool-result` handling without double-marking.
-2. [ ] Deduping guard: ensure synthesized `tool-result` frames and the new assistant-output fallback cannot produce duplicate tool blocks—if a tool already has `status!="requesting"`, the assistant-output fallback must no-op. Add/adjust inline comments if helpful for future maintainers.
-3. [ ] RTL (file: `client/src/test/chatPage.toolVisibility.test.tsx`): add a test stream sequence: tool-request → final `{role:"tool", content:{toolCallId:"t1", result:{...}}}` → token `{type:"token", content:"Assistant reply"}` → complete. Assert spinner shows after request, hides as soon as the token arrives (before complete), tool block remains before the assistant text, and status is `done`.
-4. [ ] RTL (file: `client/src/test/chatPage.reasoning.test.tsx`): add/adjust a test with reasoning + tool: tool-request → token with `<|channel|>analysis` → final `role:"tool"` with result → token `<|channel|>final<|message|>Answer...` → complete. Assert spinner stops on that final token and the tool block stays before the visible answer while think content is still collapsible.
-5. [ ] Playwright (file: `e2e/chat-tools.spec.ts`): in the missing tool-result scenario, route `/chat` to emit tool-request → final `role:"tool"` with result → assistant final → complete. Assert the tool block is present and marked complete (no spinner) before asserting assistant text, without relying on stream completion. Capture/update screenshot if needed by the plan’s final task.
-6. [ ] Update `README.md`: add one sentence noting tool spinners stop when assistant output resumes (even if LM Studio omits `tool-result` and the server synthesizes one) so users know the UI won’t wait for stream completion.
-7. [ ] Update `design.md`: add a bullet to the chat/tool flow describing the ordering: synthesized `tool-result` after `role:"tool"` final, then client fallback that marks pending tools done on first assistant output, then final `complete` fallback; mention multiple-tool and dedupe guard.
-8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
+1. [x] Client logic (file: `client/src/hooks/useChatStream.ts`): in the stream parsing loop, when a tool has `status:"requesting"` and you receive either (a) the first assistant `token` after a `role:"tool"`/toolCallResult message for that callId, or (b) an assistant `final` message after that tool, immediately set that tool’s status to `done` (or `error` if an error stage was present). Keep ordering/segments unchanged and retain the existing `complete` fallback and synthesized `tool-result` handling without double-marking.
+2. [x] Deduping guard: ensure synthesized `tool-result` frames and the new assistant-output fallback cannot produce duplicate tool blocks—if a tool already has `status!="requesting"`, the assistant-output fallback must no-op. Add/adjust inline comments if helpful for future maintainers.
+3. [x] RTL (file: `client/src/test/chatPage.toolVisibility.test.tsx`): add a test stream sequence: tool-request → final `{role:"tool", content:{toolCallId:"t1", result:{...}}}` → token `{type:"token", content:"Assistant reply"}` → complete. Assert spinner shows after request, hides as soon as the token arrives (before complete), tool block remains before the assistant text, and status is `done`.
+4. [x] RTL (file: `client/src/test/chatPage.reasoning.test.tsx`): add/adjust a test with reasoning + tool: tool-request → token with `<|channel|>analysis` → final `role:"tool"` with result → token `<|channel|>final<|message|>Answer...` → complete. Assert spinner stops on that final token and the tool block stays before the visible answer while think content is still collapsible.
+5. [x] Playwright (file: `e2e/chat-tools.spec.ts`): in the missing tool-result scenario, route `/chat` to emit tool-request → final `role:"tool"` with result → assistant final → complete. Assert the tool block is present and marked complete (no spinner) before asserting assistant text, without relying on stream completion. Capture/update screenshot if needed by the plan’s final task.
+6. [x] Update `README.md`: add one sentence noting tool spinners stop when assistant output resumes (even if LM Studio omits `tool-result` and the server synthesizes one) so users know the UI won’t wait for stream completion.
+7. [x] Update `design.md`: add a bullet to the chat/tool flow describing the ordering: synthesized `tool-result` after `role:"tool"` final, then client fallback that marks pending tools done on first assistant output, then final `complete` fallback; mention multiple-tool and dedupe guard.
+8. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
-- To be filled during implementation.
+- Added a `toolsAwaitingAssistantOutput` set in `useChatStream` and a helper to mark only requesting tools as done when the first assistant token/final arrives after a tool message, with no reordering of segments.
+- Guarded against duplicate completions by skipping any tool that is not `requesting`, leaving synthesized `tool-result` + `complete` fallbacks intact.
+- Updated RTL streams in `chatPage.toolVisibility.test.tsx` and `chatPage.reasoning.test.tsx` to include final tool messages followed by assistant tokens, asserting the spinner clears on the token and the tool block stays before the assistant text and reasoning output.
+- Tightened Playwright `chat-tools` missing-tool-result scenario to stream a final tool message plus assistant token/final and assert spinner removal + inline ordering inside the assistant bubble.
+- Documented the spinner-on-assistant-output behaviour in README/design and re-ran lint/format plus the full test matrix (server/client builds & tests, compose build/up/down, e2e) successfully.
 
 ---

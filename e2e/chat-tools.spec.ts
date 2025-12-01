@@ -250,6 +250,11 @@ test.describe.serial('Chat tools citations', () => {
           roundIndex: 0,
         },
         {
+          type: 'token',
+          content: 'Here is the answer after the tool.',
+          roundIndex: 0,
+        },
+        {
           type: 'final',
           message: {
             role: 'assistant',
@@ -279,10 +284,25 @@ test.describe.serial('Chat tools citations', () => {
 
     const toolRow = page.getByTestId('tool-row');
     await expect(toolRow).toBeVisible({ timeout: 20000 });
-    await expect(
-      page.getByText('Here is the answer after the tool.'),
-    ).toBeVisible({
+    const answer = page.getByText('Here is the answer after the tool.');
+    await expect(answer).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('tool-spinner')).not.toBeVisible({
       timeout: 20000,
     });
+
+    const assistantBubble = page
+      .getByTestId('chat-bubble')
+      .filter({ has: toolRow })
+      .first();
+    const toolBeforeText = await assistantBubble.evaluate((el) => {
+      const tool = el.querySelector('[data-testid="tool-row"]');
+      const text = el.querySelector('[data-testid="assistant-markdown"]');
+      if (!tool || !text) return false;
+      return !!(
+        tool.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    });
+
+    expect(toolBeforeText).toBeTruthy();
   });
 });

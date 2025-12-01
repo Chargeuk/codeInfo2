@@ -145,14 +145,20 @@ function streamWithReasoningAndToolFinalMessageOnly() {
             'data: {"type":"final","message":{"role":"tool","content":{"toolCallId":"t3","name":"VectorSearch","result":{"results":[{"repo":"repo","relPath":"doc.txt","chunk":"context"}]}}}}\n\n',
           ),
         );
+      }, 60);
+
+      setTimeout(() => {
         controller.enqueue(
           encoder.encode(
             'data: {"type":"token","content":"<|channel|>final<|message|>Answer with context."}\n\n',
           ),
         );
+      }, 120);
+
+      setTimeout(() => {
         controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
         controller.close();
-      }, 60);
+      }, 200);
     },
   });
 }
@@ -245,10 +251,8 @@ describe('Chat reasoning collapse', () => {
 
     const toolRow = await screen.findByTestId('tool-row');
 
-    await waitFor(() =>
-      expect(screen.queryByTestId('tool-spinner')).not.toBeInTheDocument(),
-    );
     const answer = await screen.findByText('Answer with context.');
+    expect(screen.queryByTestId('tool-spinner')).not.toBeInTheDocument();
     expect(
       toolRow.compareDocumentPosition(answer) &
         Node.DOCUMENT_POSITION_FOLLOWING,

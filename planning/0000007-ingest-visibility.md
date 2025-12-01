@@ -455,3 +455,57 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 - Added RTL coverage for spinner stop/order and reasoning+tool coexistence, plus Playwright chat-tools spec asserting spinner teardown and inline placement. Updated e2e to compute order inside the browser to avoid Node reference errors. Lint and Prettier now clean.
 
 ---
+
+### 9. Ensure tool completion frames are emitted so spinners stop
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+Tool results from LM Studio are arriving inside `final` messages as `role: "tool"` blocks, but the SDK is not invoking `onToolCallResult`, so the server never emits `type:"tool-result"` SSE frames. The client keeps tools in `requesting` status indefinitely, leaving spinners spinning. We need to synthesize completion frames (and/or client fallbacks) so each tool call transitions to `done/error` when the result arrives.
+
+#### Documentation Locations
+- Server chat streaming: `server/src/routes/chat.ts`
+- LM Studio tool wrappers: `server/src/lmstudio/tools.ts`
+- Client stream handling: `client/src/hooks/useChatStream.ts`
+- Client chat UI: `client/src/pages/ChatPage.tsx`
+- Playwright chat tools spec: `e2e/chat-tools.spec.ts`
+- Jest/RTL chat tool tests: `client/src/test/chatPage.toolVisibility.test.tsx`
+- LM Studio SDK act callbacks: https://lmstudio.ai/docs/typescript/agent/act
+
+#### Subtasks
+1. [ ] Detect tool results embedded in streamed `final` messages (role `tool` / `toolCallResult`) in `chat.ts`; synthesize and emit `type:"tool-result"` SSE with callId/name/payload when `onToolCallResult` is not called.
+2. [ ] Preserve ordering: insert synthesized tool-result at the correct round/callId and ensure subsequent assistant text remains after the tool block.
+3. [ ] Client fallback: when a `complete` frame arrives, mark any remaining `requesting` tools as `done` to guarantee spinner stop even if a result frame is missing.
+4. [ ] Client RTL (location: `client/src/test/chatPage.toolVisibility.test.tsx`): add a case where tool-result is synthesized from a `final` tool message; assert spinner stops and tool block stays inline before trailing assistant text.
+5. [ ] Client RTL (location: `client/src/test/chatPage.reasoning.test.tsx`): add a case with reasoning + synthesized tool-result to ensure ordering remains (tool block before final visible text) and spinner stops.
+6. [ ] Server/unit or integration (location: `server/src/test/integration/chat-tools-wire.test.ts` or new): add a test that mocks LM Studio returning tool results only inside final messages and assert the server emits a synthesized `tool-result` SSE.
+7. [ ] Playwright e2e (location: `e2e/chat-tools.spec.ts`): assert spinner stops and tool block renders before trailing assistant text when SDK omits `tool-result` callbacks.
+8. [ ] Update `README.md` with a brief note on synthetic tool-result emission and the spinner stop guarantee.
+9. [ ] Update `design.md` with the server-side synthesis flow and the client `complete` fallback.
+10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+
+#### Definition of Done
+- Every tool call produces a completion frame to the client (`tool-result` or fallback), so spinners always stop.
+- Ordering is stable: tool blocks appear where the call occurred; subsequent assistant text follows.
+- Tests (client RTL + e2e) cover the SDK-without-tool-result scenario and pass.
+
+#### Risks / Edge Cases
+- Multiple tools per turn: ensure synthesized results map correctly to callIds and do not reorder segments.
+- Models that *do* emit `tool-result`: avoid duplicate blocks (detect and skip if already emitted).
+- Error cases: propagate tool errors into synthesized result so the spinner stops with an error state.
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+- To be filled during implementation.
+
+---

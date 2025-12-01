@@ -458,8 +458,8 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 
 ### 9. Ensure tool completion frames are emitted so spinners stop
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: 28c1429
 
 #### Overview
 Tool results from LM Studio are arriving inside `final` messages as `role: "tool"` blocks, but the SDK is not invoking `onToolCallResult`, so the server never emits `type:"tool-result"` SSE frames. The client keeps tools in `requesting` status indefinitely, leaving spinners spinning. We need to synthesize completion frames (and/or client fallbacks) so each tool call transitions to `done/error` when the result arrives.

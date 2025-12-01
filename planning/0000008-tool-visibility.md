@@ -124,6 +124,49 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 
 ---
 
+- status: **in_progress**
+- Git Commits: to_do
+
+#### Overview
+
+Make it obvious to users when the LLM is still processing versus finished. Add an in-bubble “Processing/Complete/Failed” status chip with spinner/tick/cross, and show a “Thinking…” inline spinner placeholder where the assistant text will appear whenever no visible LLM text has streamed for ≥1000ms and the response is not yet complete. This should cover long vector-search grounded turns where the model pauses before emitting visible text.
+
+#### Documentation Locations
+
+- Client chat rendering and status UI: `client/src/pages/ChatPage.tsx`
+- Chat stream state + timers: `client/src/hooks/useChatStream.ts`
+- Existing reasoning/thinking collapse patterns: `client/src/test/chatPage.stream.test.tsx`, `client/src/hooks/useChatStream.reasoning.test.tsx`
+- UX guidelines: `design.md` (chat streaming section)
+
+#### Subtasks
+
+1. [ ] Analyze current chat render state for assistant messages and identify where to insert status chip and thinking placeholder; document chosen insertion points before coding (files: `ChatPage.tsx`, `useChatStream.ts`).
+2. [ ] Add per-assistant-turn status fields in chat state (`processing`/`complete`/`failed`) derived from stream lifecycle (token/final/error/complete) and tool suppression logic; ensure they reset on new conversation. (file: `useChatStream.ts`).
+3. [ ] Implement 1000ms idle timer for assistant-visible text: when streaming with no visible text appended for ≥1000ms and not finished, surface a “Thinking…” spinner placeholder exactly where final text will appear; hide it immediately once text arrives or stream ends. (file: `useChatStream.ts`).
+4. [ ] Render a top-of-bubble status chip showing “Processing” with spinner, “Complete” with tick, or “Failed” with cross, synced to the status field; ensure accessibility labels and test ids (`status-chip`, `thinking-placeholder`). (file: `ChatPage.tsx`).
+5. [ ] Ensure interaction with reasoning/think collapse: thinking spinner should not collide with hidden analysis block; verify both can coexist. (files: `ChatPage.tsx`, `useChatStream.ts`).
+6. [ ] Add/adjust RTL unit tests covering: status chip states across processing/complete/error; thinking spinner appears after 1000ms idle and disappears on text; coexistence with think collapse; reset on new conversation. (files: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/useChatStream.reasoning.test.tsx`).
+7. [ ] Update e2e spec to assert status chip and thinking spinner behavior during a long vector-search turn (e.g., pause tokens for >1s before text); add screenshot if needed. (file: `e2e/chat-tools-visibility.spec.ts` or new).
+8. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` to describe the processing/complete/failed chip and thinking spinner behavior (each in its own subtask entry).
+9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- to_be_filled
+
+---
+
 ### 2. UI rendering: tool summaries & details
 
 - Task Status: **done**

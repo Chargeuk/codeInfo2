@@ -147,9 +147,12 @@ Validate full flow and document new tool detail UX.
 - Playwright docs: Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Add Playwright e2e (type) — extend/create `e2e/chat-tools-visibility.spec.ts` to cover: tool closed by default; parameters accordion default-closed; ListIngestedRepositories repo expansion; VectorSearch host-path-only file list with alphabetical sort, highest match value, summed chunk count, line count; per-entry expansion; and closed-state label showing tool name + success/failure. Purpose: end-to-end UX verification.
-2. [ ] Add Playwright e2e (type) — add failure-path coverage (mocked tool error) ensuring trimmed error + expandable full details (error payload visible after expand). Purpose: failure UX.
-3. [ ] Capture screenshots per story naming convention into `test-results/screenshots/` for the above e2e flows; purpose: visual evidence.
+1. [ ] E2E: Success path — extend/create `e2e/chat-tools-visibility.spec.ts` to cover tool closed by default, parameters accordion default-closed, ListIngestedRepositories repo expansion, VectorSearch host-path-only file list (alphabetical), highest match value per file, summed chunk count, line count when available, per-entry expansion, and closed-state label showing tool name + success. Purpose: end-to-end UX verification.
+2. [ ] E2E: Failure path — add spec (e.g., `e2e/chat-tools-visibility-error.spec.ts`) with mocked tool error ensuring trimmed error + expandable full details (error payload visible after expand) and closed-state shows failure. Purpose: failure UX.
+3. [ ] E2E: Parameters-only check — add spec or scenario covering parameters accordion default-closed and expands to show JSON params for either tool (can be within success spec but separate test case). Purpose: parameter visibility.
+4. [ ] E2E: VectorSearch aggregation — add test case verifying host-path-only display, alphabetic ordering, highest match value, summed chunk count, and line count presence; ensure deduped single entry when multiple chunks from same file. Purpose: aggregation correctness.
+5. [ ] E2E: ListIngestedRepositories expansion — add test case verifying repo list, per-repo expansion showing full metadata. Purpose: repo detail visibility.
+6. [ ] Capture screenshots per story naming convention into `test-results/screenshots/` for the above e2e flows; purpose: visual evidence.
 4. [ ] Doc: README.md — add tool detail behaviors, parameters accordion default-closed, host-path-only file aggregation, chunk/line counts, and error expansion behavior.
 5. [ ] Doc: design.md — describe tool detail flows, aggregation rules (host path, chunk sum, line count, highest match), error handling (trimmed + expand full), and include/update diagram if needed.
 6. [ ] Doc: projectStructure.md — reflect any new components, tests, or e2e specs added for this story.

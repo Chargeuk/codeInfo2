@@ -483,7 +483,8 @@ Tool results from LM Studio are arriving inside `final` messages as `role: "tool
 7. [ ] Playwright e2e (file: `e2e/chat-tools.spec.ts`): mock `/chat` to omit tool-result but include final tool message; assert spinner hides and tool block remains inline before trailing assistant text; capture screenshot.
 8. [ ] Update `README.md`: add a note that the server synthesizes `tool-result` when LM Studio omits it and the client marks pending tools done on `complete` to stop spinners.
 9. [ ] Update `design.md`: document the synthesis flow (parse final tool messages, emit tool-result), dedupe rule, and client `complete` safety net.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+10. [ ] Update `projectStructure.md` to reflect any new/changed files introduced by Task 9 (e.g., tests, helper modules), keeping the tree accurate.
+11. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Definition of Done
 - Every tool call produces a completion frame to the client (`tool-result` or fallback), so spinners always stop.

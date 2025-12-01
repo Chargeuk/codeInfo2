@@ -333,15 +333,15 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 11. [ ] Order: docs updates -> e2e additions -> summary/PR comment -> lint/format.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
-9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
+9. [x] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 - Reviewed README.md; content already reflects ingest progress, tool visibility, reasoning collapse, markdown, and mermaid support, so no edits required.
@@ -351,5 +351,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Captured final screenshots via Playwright with mocked chat SSE streams and a live ingest run: `test-results/screenshots/0000007-6-ingest-progress.png`, `0000007-6-chat-tools.png`, `0000007-6-chat-reasoning.png`, `0000007-6-chat-markdown.png`, `0000007-6-chat-mermaid.png`; brought e2e stack up for ingest shot and down afterwards.
 - PR comment draft: Ingest now surfaces per-file progress (path/index/percent/ETA) in API + UI with tests; chat UI shows tool-call spinners and collapsible results with citations; reasoning streams collapse think/Harmony analysis; assistant replies render sanitized markdown with mermaid diagrams. Added RTL/Cucumber/e2e coverage for progress, tools, reasoning, markdown, mermaid; updated docs to describe behaviour. Final screenshots captured under `test-results/screenshots/0000007-6-*.png`. Full test run: server/client builds, server/client tests, compose:e2e build/up/test/down, and e2e suite passed with LM Studio models available.
 - Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; both succeeded with no changes required.
+- Final test commands: server build/test, client build/test (existing act warnings only), compose build/up/down, and full `npm run e2e` rerun all passed. Manual Playwright runs produced the required 0000007-6-* screenshots in `test-results/screenshots/`.
 
 ---

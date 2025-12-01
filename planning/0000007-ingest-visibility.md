@@ -514,3 +514,39 @@ Tool results from LM Studio are arriving inside `final` messages as `role: "tool
 - Ran full test matrix: server/client builds, server/client tests, compose build/up/down, and Playwright e2e (all passing after adjusting chat-tools order checks). Lint and format now clean.
 
 ---
+
+### 10. Stop tool spinner when assistant text resumes
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+Tool spinners should end as soon as the model resumes assistant output after a tool call, not only when the stream completes. Add a client-side guard that marks pending tools done on the first assistant token/final message after the tool result is seen, while keeping the existing synthesized tool-result handling intact.
+
+#### Documentation Locations
+- Client stream handling: `client/src/hooks/useChatStream.ts`
+- Chat UI: `client/src/pages/ChatPage.tsx`
+- Client RTL tests: `client/src/test/chatPage.toolVisibility.test.tsx`, `client/src/test/chatPage.reasoning.test.tsx`
+- Playwright e2e: `e2e/chat-tools.spec.ts`
+- Server context (for reference): `server/src/routes/chat.ts`
+- Jest docs: Context7 `/jestjs/jest`
+- Playwright docs: Context7 `/microsoft/playwright`
+
+#### Subtasks
+1. [ ] Update `useChatStream` to mark any `status:"requesting"` tools as `done` when the first non-tool assistant token or assistant `final` message arrives after the tool’s final message, keeping ordering and payloads unchanged.
+2. [ ] Ensure existing synthesized `tool-result` handling remains deduped; no duplicate tool blocks should appear when real results and the fallback both fire.
+3. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.toolVisibility.test.tsx` to assert spinner stops on the first assistant token after a tool-only final message, without waiting for `complete`.
+4. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.reasoning.test.tsx` for the reasoning + tool path to ensure spinner stops once assistant text resumes.
+5. [ ] Update Playwright `e2e/chat-tools.spec.ts` to assert spinner stops (or tool block is marked complete) before stream end in the missing tool-result scenario.
+6. [ ] Update docs (if behaviour change needs a note) in `README.md` and `design.md`.
+7. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run e2e` (focus on chat-tools spec; allow others to run as part of suite)
+
+#### Implementation notes
+- To be filled during implementation.
+
+---

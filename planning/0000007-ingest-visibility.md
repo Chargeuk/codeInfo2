@@ -323,11 +323,11 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 1. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story.
 2. [x] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story.
 3. [x] Ensure projectStructure.md is updated with any updated, added or removed files & folders.
-4. [ ] E2E: ingest progress shows file path/index/percent/ETA (extend `e2e/ingest.spec.ts` or new `e2e/ingest-progress.spec.ts`); capture screenshot per naming rules.
-5. [ ] E2E: chat tool-call visibility spinner→collapse with file paths/chunks (extend `e2e/chat-tools.spec.ts` or new `e2e/chat-tools-visibility.spec.ts`); capture screenshot.
-6. [ ] E2E: reasoning collapse for `<think>`/Harmony streaming (new `e2e/chat-reasoning.spec.ts`); capture screenshot.
-7. [ ] E2E: markdown rendering of chat reply with code fences (extend `e2e/chat.spec.ts` or new `e2e/chat-markdown.spec.ts`); capture screenshot.
-8. [ ] E2E: mermaid rendering of ```mermaid``` block (new `e2e/chat-mermaid.spec.ts`); capture screenshot.
+4. [x] E2E: ingest progress shows file path/index/percent/ETA (extend `e2e/ingest.spec.ts` or new `e2e/ingest-progress.spec.ts`); capture screenshot per naming rules.
+5. [x] E2E: chat tool-call visibility spinner→collapse with file paths/chunks (extend `e2e/chat-tools.spec.ts` or new `e2e/chat-tools-visibility.spec.ts`); capture screenshot.
+6. [x] E2E: reasoning collapse for `<think>`/Harmony streaming (new `e2e/chat-reasoning.spec.ts`); capture screenshot.
+7. [x] E2E: markdown rendering of chat reply with code fences (extend `e2e/chat.spec.ts` or new `e2e/chat-markdown.spec.ts`); capture screenshot.
+8. [x] E2E: mermaid rendering of ```mermaid``` block (new `e2e/chat-mermaid.spec.ts`); capture screenshot.
 9. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 10. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
 11. [ ] Order: docs updates -> e2e additions -> summary/PR comment -> lint/format.
@@ -347,5 +347,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Reviewed README.md; content already reflects ingest progress, tool visibility, reasoning collapse, markdown, and mermaid support, so no edits required.
 - Re-read design.md; diagrams and narrative already cover ingest telemetry, tool-call visibility, reasoning collapse, markdown, and mermaid flows—no updates needed.
 - Checked projectStructure.md; tree already lists markdown/mermaid components, tests, and e2e specs, so no structural updates required.
+- Ran `npm run e2e` (build→up→test→down); all 12 Playwright specs passed including ingest progress, chat tools, reasoning, markdown, and mermaid flows. Embedding model `text-embedding-qwen3-embedding-4b` and chat model `openai/gpt-oss-20b` were available in the e2e stack, so no skips. Next step: capture required screenshots with the running stack.
 
 ---

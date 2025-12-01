@@ -114,10 +114,26 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
      <AccordionDetails><CodeBlock value={JSON.stringify(params, null, 2)} /></AccordionDetails>
    </Accordion>
    ```
-3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.); component in `ChatPage` or new child component in `client/src/components/chat/ToolDetails.tsx` (if created). Example item label: `repo-a` → expands to JSON block/table of metadata.
+3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.); component in `ChatPage` or new child component `client/src/components/chat/ToolDetails.tsx`. Stub props if creating the component:
+   ```ts
+   type ToolDetailsProps = {
+     toolName: string;
+     params: Record<string, unknown>;
+     repos?: Array<RepoInfo>; // for ListIngestedRepositories
+     files?: Array<VectorFileInfo>; // for VectorSearch
+     errorTrimmed?: ErrorInfo;
+     errorFull?: unknown;
+   };
+   ```
 4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required). Implement in `ChatPage` or shared tool detail component; ensure alphabetic sort only. Example summary row: `/repo/a.txt · match 0.82 · chunks 3 · lines 20`.
-5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields (UI in `ChatPage`). Example trimmed view: `MODEL_UNAVAILABLE: embedding model missing`; expansion shows full JSON.
-6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses).
+5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields (UI in `ChatPage`). Example trimmed view: `MODEL_UNAVAILABLE: embedding model missing`; expansion shows full JSON like:
+   ```json
+   {
+     "errorTrimmed": {"code": "MODEL_UNAVAILABLE", "message": "embedding model missing"},
+     "errorFull": {"code": "MODEL_UNAVAILABLE", "message": "embedding model missing", "stack": "...", "meta": {"runId": "r1"}}
+   }
+   ```
+6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses). Add data-testid hooks for tests: `tool-call-summary`, `tool-params-accordion`, `tool-repo-item`, `tool-file-item`, `tool-error-trimmed`, `tool-error-full`.
 7. [ ] Update projectStructure.md if new components added.
 8. [ ] Run lint/format.
 9. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block (`VectorSearch · Success/Failed`), parameters accordion default closed showing params JSON, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.

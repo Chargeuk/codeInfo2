@@ -71,6 +71,11 @@ beforeEach(() => {
 
 test('chat route streams tool-result with hostPath/relPath from LM Studio tools', async () => {
   const act = async (chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+    const toolNames = tools.map((t) => t.name);
+    assert.ok(toolNames.includes('VectorSearch'));
+    assert.ok(toolNames.includes('ListIngestedRepositories'));
+    assert.ok(!toolNames.includes('noop'));
+
     opts.onRoundStart?.(0);
     opts.onPredictionFragment?.({
       content: 'partial',

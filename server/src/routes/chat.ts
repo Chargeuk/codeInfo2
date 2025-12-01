@@ -1,5 +1,5 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
-import { Chat, tool } from '@lmstudio/sdk';
+import { Chat } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -144,15 +144,7 @@ export function createChatRouter({
         log: (payload) => logToolUsage(payload),
       });
 
-      const tools = [
-        ...lmStudioTools,
-        tool({
-          name: 'noop',
-          description: 'does nothing',
-          parameters: {},
-          implementation: async () => ({ content: 'noop' }),
-        }),
-      ];
+      const tools = [...lmStudioTools];
       const chat = Chat.from(messages);
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;

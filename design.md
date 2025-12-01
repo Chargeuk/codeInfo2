@@ -195,7 +195,7 @@ sequenceDiagram
 ### LM Studio tools (chat wiring)
 
 - Tools are defined in `server/src/lmstudio/tools.ts` and reuse shared helpers in `server/src/lmstudio/toolService.ts` so HTTP tooling endpoints and chat share the same provenance/path mapping. `ListIngestedRepositories` has no inputs; `VectorSearch` accepts `query`, optional `repository`, and `limit` (default 5, max 20).
-- Chat registers both tools alongside the noop tool; `VectorSearch` returns repo id, relPath, containerPath, hostPath, chunk text, score, chunkId, and modelId for inline citations. Validation/unknown-repo errors are surfaced as tool errors to the model. VectorSearch derives its embedding function from the vectors collection `lockedModelId`; if no lock exists the tool and HTTP endpoint return `INGEST_REQUIRED`, and if the locked model is unavailable in LM Studio they return `EMBED_MODEL_MISSING` rather than silently falling back.
+- Chat registers the LM Studio tools (ListIngestedRepositories and VectorSearch); `VectorSearch` returns repo id, relPath, containerPath, hostPath, chunk text, score, chunkId, and modelId for inline citations. Validation/unknown-repo errors are surfaced as tool errors to the model. VectorSearch derives its embedding function from the vectors collection `lockedModelId`; if no lock exists the tool and HTTP endpoint return `INGEST_REQUIRED`, and if the locked model is unavailable in LM Studio they return `EMBED_MODEL_MISSING` rather than silently falling back.
 - Logging: each tool execution emits a `chat tool usage` entry with requestId/baseUrl/model plus tool name, repository scope, limit, result count, and modelId; payload bodies are not logged.
 
 ### Ingest models fetch
@@ -351,7 +351,7 @@ sequenceDiagram
 
 ## Chat streaming endpoint
 
-- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
+- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with the registered LM Studio tools (ListIngestedRepositories, VectorSearch) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
 - If a streamed assistant message contains `<think>...</think>`, the client extracts the think content and renders it in a collapsible “Thought process” section within the assistant bubble; the main reply remains visible.
 - Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
 - Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
@@ -366,7 +366,7 @@ sequenceDiagram
   participant LM as LM Studio
   participant Logs as Log store
   Client->>Server: POST /chat {model,messages}
-  Server->>LM: model.act(messages, tools=[noop])
+  Server->>LM: model.act(messages, tools=[ListIngestedRepositories, VectorSearch])
   LM-->>Server: predictionFragment(content)
   Server-->>Client: SSE {type:"token", content}
   LM-->>Server: toolCallRequest*/Result

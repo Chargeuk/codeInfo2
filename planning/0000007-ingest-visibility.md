@@ -370,14 +370,14 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 - Playwright docs (for any e2e adjustments): Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Remove noop tool registration in `server/src/routes/chat.ts` (tools array) so only LM Studio tools remain.
-2. [ ] Update mock LM Studio SDK fixtures in `server/src/test/support/mockLmStudioSdk.ts` to drop noop definitions/expectations.
-3. [ ] Server integration test (node --test): adjust `server/src/test/integration/chat-tools-wire.test.ts` expected tool list to exclude noop; ensure tool frames unchanged otherwise.
-4. [ ] Server Cucumber: review chat/ingest feature steps for tool count/name assumptions; update data tables/steps if they reference noop.
-5. [ ] Client RTL: update any tool-count assertions (e.g., `client/src/test/chatPage.toolVisibility.test.tsx`) to rely only on real tools; confirm no UI dependency on noop.
-6. [ ] README.md: remove or note absence of noop tool, if mentioned.
-7. [ ] design.md: remove or note absence of noop tool, if mentioned.
-8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [x] Remove noop tool registration in `server/src/routes/chat.ts` (tools array) so only LM Studio tools remain.
+2. [x] Update mock LM Studio SDK fixtures in `server/src/test/support/mockLmStudioSdk.ts` to drop noop definitions/expectations.
+3. [x] Server integration test (node --test): adjust `server/src/test/integration/chat-tools-wire.test.ts` expected tool list to exclude noop; ensure tool frames unchanged otherwise.
+4. [x] Server Cucumber: review chat/ingest feature steps for tool count/name assumptions; update data tables/steps if they reference noop.
+5. [x] Client RTL: update any tool-count assertions (e.g., `client/src/test/chatPage.toolVisibility.test.tsx`) to rely only on real tools; confirm no UI dependency on noop.
+6. [x] README.md: remove or note absence of noop tool, if mentioned.
+7. [x] design.md: remove or note absence of noop tool, if mentioned.
+8. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Definition of Done
 - Tool lists sent to/used by chat contain only real LM Studio tools; noop absent from SSE/logs.
@@ -389,17 +389,21 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 - Remove any cached fixtures/snapshots containing noop to avoid hidden regressions.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
-- To be filled during implementation.
+- Removed the noop tool from `/chat` by passing only LM Studio tools into `act`, cleaned up the unused SDK import, and ensured tool ordering stays intact.
+- Updated mocks and tests: dropped the noop mention in the mock SDK, asserted the integration test receives only the real tools, and tightened the unit test to expect exactly the two LM Studio tools.
+- Adjusted client RTL stream test to use `VectorSearch` tool events instead of noop; refreshed README/design wording to reflect the real tool set.
+- Ran full test matrix after changes: server/client builds, server tests (with Cucumber), client tests, compose build/up/down, and the full e2e suite all passed.
+- Lint and format checks now pass with no further changes.
 
 ---
 

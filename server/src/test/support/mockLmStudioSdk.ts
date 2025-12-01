@@ -334,7 +334,7 @@ export class MockLMStudioClient {
           return { rounds: events.length, totalExecutionTimeSeconds: 0 };
         },
         cancel: () => {
-          /* noop: cancel handled by prediction */
+          /* cancel handled by prediction */
         },
       };
     },

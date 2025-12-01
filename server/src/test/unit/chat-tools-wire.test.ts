@@ -46,5 +46,7 @@ test('chat router injects LM Studio tools into act call', async () => {
   const actCalls = act.mock.calls as unknown as Array<{ arguments: unknown[] }>;
   const passedTools = (actCalls[0]?.arguments?.[1] ?? []) as unknown[];
   assert.equal(Array.isArray(passedTools), true);
-  assert.equal(passedTools.length, 3);
+  assert.equal(passedTools.length, 2);
+  assert.equal(passedTools[0], fakeTool);
+  assert.equal(passedTools[1], fakeTool);
 });

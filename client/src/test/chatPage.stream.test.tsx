@@ -230,7 +230,7 @@ describe('Chat page streaming', () => {
         ok: true,
         status: 200,
         body: streamFromFrames([
-          'data: {"type":"tool-request","callId":"c1","name":"noop"}\n\n',
+          'data: {"type":"tool-request","callId":"c1","name":"VectorSearch"}\n\n',
           'data: {"type":"tool-result","callId":"c1","stage":"toolCallResult"}\n\n',
           'data: {"type":"token","content":"Hi"}\n\n',
           'data: {"type":"final","message":{"content":"Hi there","role":"assistant"}}\n\n',

@@ -575,6 +575,22 @@ export function createChatRouter({
           });
         },
         onMessage: (message) => {
+          try {
+            baseLogger.debug(
+              {
+                requestId,
+                baseUrl: safeBase,
+                model,
+                rawMessage: JSON.stringify(message),
+              },
+              'chat onMessage raw',
+            );
+          } catch {
+            baseLogger.debug(
+              { requestId, baseUrl: safeBase, model, rawMessage: message },
+              'chat onMessage raw (non-serializable)',
+            );
+          }
           const msg = message as { role?: unknown; content?: unknown };
           const pendingToolResults =
             msg && msg.role === 'tool' ? normalizeToolResults(message) : [];

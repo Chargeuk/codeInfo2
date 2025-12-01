@@ -75,16 +75,20 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
    ```
 5. [ ] Update client chat stream state in `client/src/hooks/useChatStream.ts` (e.g., `handleToolResult` path) to retain tool parameters and tool-specific payloads (host-path-only VectorSearch aggregation fields, highestMatch, chunkCount, lineCount, trimmed/full error flags) and mark tool complete on first result/error.
 5. [ ] Docs to update later: README, design, projectStructure.
-6. [ ] Run lint/format after code changes.
-7. [ ] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
-8. [ ] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
-9. [ ] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.
+6. [ ] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
+7. [ ] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
+8. [ ] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.
+9. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run build --workspace client`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - (fill during work)
@@ -135,13 +139,19 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
    ```
 6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses). Add data-testid hooks for tests: `tool-call-summary`, `tool-params-accordion`, `tool-repo-item`, `tool-file-item`, `tool-error-trimmed`, `tool-error-full`.
 7. [ ] Update projectStructure.md if new components added.
-8. [ ] Run lint/format.
-9. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block (`VectorSearch · Success/Failed`), parameters accordion default closed showing params JSON, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
-10. [ ] Test: Client RTL (type) — add error-path coverage showing trimmed error with expandable full payload (same file or new); purpose: ensure failure UX and full error reveal work.
+8. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block (`VectorSearch · Success/Failed`), parameters accordion default closed showing params JSON, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
+9. [ ] Test: Client RTL (type) — add error-path coverage showing trimmed error with expandable full payload (same file or new); purpose: ensure failure UX and full error reveal work.
+10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - (fill during work)
@@ -173,14 +183,17 @@ Validate full flow and document new tool detail UX.
 5. [ ] Doc: design.md — describe tool detail flows, aggregation rules (host path, chunk sum, line count, highest match), error handling (trimmed + expand full), and include/update diagram if needed.
 6. [ ] Doc: projectStructure.md — reflect any new components, tests, or e2e specs added for this story.
 7. [ ] Summarize changes for PR comment (include coverage + UX notes).
-8. [ ] Run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspaces`, and `npm run e2e` if environment available.
+8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
-1. [ ] `npm run e2e`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace server`
-5. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - (fill during work)
@@ -204,23 +217,22 @@ Ensure acceptance criteria met, full builds/tests pass, docs/screenshots complet
 - Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
-1. [ ] Build server and client.
-2. [ ] Test: Server tests (type) — `npm run test --workspace server`; purpose: validate server logic and tool payload shaping.
-3. [ ] Test: Client tests (type) — `npm run test --workspace client`; purpose: validate chat UI and state changes.
-4. [ ] Test: Lint/format (type) — `npm run lint --workspaces` and `npm run format:check --workspaces`; purpose: code quality gate.
-5. [ ] Test: E2E suite (type) — `npm run e2e`; purpose: end-to-end coverage including tool detail UX; capture/verify required screenshots for this story.
-6. [ ] Run clean docker build if needed and compose up/down smoke.
-7. [ ] Doc: README.md — confirm final state reflects tool detail behavior; update if needed.
-8. [ ] Doc: design.md — confirm flow/diagrams reflect final state; update if needed.
-9. [ ] Doc: projectStructure.md — confirm file tree reflects final components/tests; update if needed.
-10. [ ] Prepare PR comment summarizing all changes and test results.
+1. [ ] Doc: README.md — confirm final state reflects tool detail behavior; update if needed.
+2. [ ] Doc: design.md — confirm flow/diagrams reflect final state; update if needed.
+3. [ ] Doc: projectStructure.md — confirm file tree reflects final components/tests; update if needed.
+4. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
+5. [ ] Prepare PR comment summarizing all changes and test results.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 - (fill during work)

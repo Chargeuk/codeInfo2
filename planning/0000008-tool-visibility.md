@@ -437,7 +437,7 @@ Prevent vector search (or any tool) payloads that arrive as assistant-role messa
 
 ### 7. Broaden assistant tool-payload suppression (shape + context)
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: to_do
 
 #### Overview

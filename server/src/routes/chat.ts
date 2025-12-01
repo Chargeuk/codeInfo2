@@ -88,6 +88,36 @@ export const findAssistantToolResults = (
   );
 };
 
+const isVectorPayload = (entry: unknown): boolean => {
+  if (!entry || typeof entry !== 'object') return false;
+  const obj = entry as Record<string, unknown>;
+  const results = Array.isArray(obj.results) ? obj.results : [];
+  const files = Array.isArray(obj.files) ? obj.files : [];
+  const hasVectorLikeItem = (items: unknown[]) =>
+    items.some((item) => {
+      if (!item || typeof item !== 'object') return false;
+      const it = item as Record<string, unknown>;
+      return (
+        typeof it.hostPath === 'string' &&
+        (typeof it.chunk === 'string' ||
+          typeof it.score === 'number' ||
+          typeof it.lineCount === 'number')
+      );
+    });
+  return hasVectorLikeItem(results) || hasVectorLikeItem(files);
+};
+
+const findAssistantVectorPayload = (
+  message: unknown,
+  hasPendingTool: boolean,
+) => {
+  const msg = message as { role?: unknown; content?: unknown };
+  if (!hasPendingTool || msg?.role !== 'assistant') return null;
+  const entries = normalizeToolResults(message);
+  const vectorEntry = entries.find((entry) => isVectorPayload(entry.result));
+  return vectorEntry ?? null;
+};
+
 export function createChatRouter({
   clientFactory,
   toolFactory = createLmStudioTools,
@@ -603,6 +633,42 @@ export function createChatRouter({
                       : undefined,
                 });
               }
+              return;
+            }
+
+            const vectorPayload = findAssistantVectorPayload(
+              message,
+              toolCtx.size > 0,
+            );
+            if (vectorPayload) {
+              const inferredCallId =
+                Array.from(toolCtx.keys()).at(-1) ??
+                vectorPayload.callId ??
+                'assistant-vector';
+              const name =
+                vectorPayload.name ??
+                toolNames.get(Number(inferredCallId)) ??
+                toolNames.get(inferredCallId as number) ??
+                'VectorSearch';
+              if (syntheticToolResults.has(inferredCallId)) {
+                emittedToolResults.delete(inferredCallId);
+                syntheticToolResults.delete(inferredCallId);
+              }
+              emitToolResult(
+                currentRound,
+                inferredCallId,
+                name,
+                vectorPayload.result,
+                {
+                  parameters:
+                    typeof inferredCallId === 'number'
+                      ? parseToolParameters(
+                          inferredCallId,
+                          vectorPayload.result,
+                        )
+                      : undefined,
+                },
+              );
               return;
             }
           }

@@ -419,25 +419,20 @@ test('chat route suppresses assistant tool payload echo while emitting tool-resu
       JSON.stringify({ query: 'hello' }),
     );
     opts.onToolCallRequestEnd?.(0, 101, { parameters: { query: 'hello' } });
+    // Assistant echo with no callId metadata (shape-based suppression).
     opts.onMessage?.({
       role: 'assistant',
-      content: JSON.stringify([
-        {
-          toolCallId: 101,
-          name: 'VectorSearch',
-          result: {
-            files: [{ hostPath: '/host/path/a', chunkCount: 1, lineCount: 3 }],
-            results: [
-              {
-                hostPath: '/host/path/a',
-                chunk: 'text',
-                score: 0.9,
-                lineCount: 3,
-              },
-            ],
+      content: JSON.stringify({
+        files: [{ hostPath: '/host/path/a', chunkCount: 1, lineCount: 3 }],
+        results: [
+          {
+            hostPath: '/host/path/a',
+            chunk: 'text',
+            score: 0.9,
+            lineCount: 3,
           },
-        },
-      ]),
+        ],
+      }),
     });
     return Promise.resolve(toolResult);
   };

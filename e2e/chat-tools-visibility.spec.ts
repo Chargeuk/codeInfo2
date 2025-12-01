@@ -340,6 +340,68 @@ test.describe('Chat tool visibility details', () => {
     ).not.toBeVisible();
   });
 
+  test('assistant JSON vector payload without callId stays hidden', async ({
+    page,
+  }) => {
+    await mockChatModels(page);
+
+    const events: ToolEvent[] = [
+      {
+        type: 'tool-request',
+        callId: 'shape',
+        name: 'VectorSearch',
+        roundIndex: 0,
+      },
+      {
+        type: 'tool-result',
+        callId: 'shape',
+        name: 'VectorSearch',
+        stage: 'success',
+        parameters: { query: 'shape' },
+        result: {
+          files: [
+            {
+              hostPath: '/h/a.txt',
+              highestMatch: 0.6,
+              chunkCount: 1,
+              lineCount: 2,
+            },
+          ],
+          results: [
+            {
+              hostPath: '/h/a.txt',
+              chunk: 'hidden text',
+              score: 0.6,
+              lineCount: 2,
+            },
+          ],
+        },
+      },
+      {
+        type: 'final',
+        message: {
+          role: 'assistant',
+          content:
+            '{"results":[{"hostPath":"/h/a.txt","chunk":"hidden text","score":0.6}],"files":[{"hostPath":"/h/a.txt"}]}',
+        },
+        roundIndex: 0,
+      },
+      { type: 'complete' },
+    ];
+
+    await mockChatStream(page, events);
+
+    await page.goto(`${baseUrl}/chat`);
+    await page.getByTestId('chat-input').fill('Shape suppression');
+    await page.getByTestId('chat-send').click();
+
+    const toolRow = page.getByTestId('tool-row');
+    await expect(toolRow).toHaveCount(1, { timeout: 20000 });
+    await expect(
+      page.getByText(/hidden text/i, { exact: false }),
+    ).not.toBeVisible();
+  });
+
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
     await mockChatModels(page);
 

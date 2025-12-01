@@ -192,6 +192,42 @@ describe('Chat page streaming', () => {
     expect(screen.queryByText(/"chunk"/i)).toBeNull();
   });
 
+  it('suppresses assistant JSON vector payload without callId', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"tool-request","callId":"t6","name":"VectorSearch"}\n\n',
+          'data: {"type":"tool-result","callId":"t6","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"hostPath":"/h/a.txt","chunk":"one","score":0.7,"lineCount":2}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.7,"chunkCount":1,"lineCount":2}]}}\n\n',
+          'data: {"type":"final","message":{"role":"assistant","content":"{\\"results\\":[{\\"hostPath\\":\\"/h/a.txt\\",\\"chunk\\":\\"one\\",\\"score\\":0.7}]}"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await expect(
+      screen.findByText(/VectorSearch · Success/i),
+    ).resolves.toBeInTheDocument();
+    expect(screen.queryByText(/one/)).toBeNull();
+  });
+
   it('aborts the stream when the page unmounts', async () => {
     const abortFns: jest.Mock[] = [];
     const OriginalAbortController = global.AbortController;

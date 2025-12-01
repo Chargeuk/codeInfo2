@@ -218,6 +218,33 @@ const isToolEvent = (
 ): event is Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }> =>
   event.type === 'tool-request' || event.type === 'tool-result';
 
+const isVectorPayloadString = (content: string) => {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    return entries.some((entry) => {
+      if (!entry || typeof entry !== 'object') return false;
+      const obj = entry as Record<string, unknown>;
+      const results = Array.isArray(obj.results) ? obj.results : [];
+      const files = Array.isArray(obj.files) ? obj.files : [];
+      const hasVectorLike = (items: unknown[]) =>
+        items.some((item) => {
+          if (!item || typeof item !== 'object') return false;
+          const it = item as Record<string, unknown>;
+          return (
+            typeof it.hostPath === 'string' &&
+            (typeof it.chunk === 'string' ||
+              typeof it.score === 'number' ||
+              typeof it.lineCount === 'number')
+          );
+        });
+      return hasVectorLike(results) || hasVectorLike(files);
+    });
+  } catch {
+    return false;
+  }
+};
+
 export function useChatStream(model?: string) {
   const logger = useRef(createLogger('client-chat')).current;
   const controllerRef = useRef<AbortController | null>(null);
@@ -656,6 +683,13 @@ export function useChatStream(model?: string) {
                 event.type === 'final' &&
                 typeof event.message?.content === 'string'
               ) {
+                const suppressToolEcho =
+                  toolsAwaitingAssistantOutput.size > 0 &&
+                  isVectorPayloadString(event.message.content);
+                if (suppressToolEcho) {
+                  completeAwaitingToolsOnAssistantOutput();
+                  continue;
+                }
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(

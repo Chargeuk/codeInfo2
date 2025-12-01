@@ -32,3 +32,12 @@ test('normalizeToolResults leaves plain assistant text untouched', () => {
   assert.equal(entries[0]?.callId, undefined);
   assert.equal(entries[0]?.result, 'hello');
 });
+
+test('normalizeToolResults parses array content strings', () => {
+  const entries = normalizeToolResults({
+    role: 'assistant',
+    content: JSON.stringify([{ result: { foo: 'bar' } }]),
+  });
+  assert.equal(entries.length, 1);
+  assert.deepEqual(entries[0]?.result, { foo: 'bar' });
+});

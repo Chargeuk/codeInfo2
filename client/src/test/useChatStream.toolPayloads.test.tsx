@@ -218,4 +218,41 @@ describe('useChatStream tool payload handling', () => {
       expect(assistant?.tools?.[0].payload).toBeDefined();
     });
   });
+
+  it('suppresses assistant JSON payload that looks like a tool result when a tool is pending', async () => {
+    const onUpdate = jest.fn();
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-request","callId":"c5","name":"VectorSearch"}\n\n',
+          ),
+        );
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-result","callId":"c5","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"hostPath":"/h/a.txt","chunk":"snippet","score":0.6,"lineCount":2}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.6,"chunkCount":1,"lineCount":2}]}}\n\n',
+          ),
+        );
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"{\\"results\\":[{\\"hostPath\\":\\"/h/a.txt\\",\\"chunk\\":\\"snippet\\",\\"score\\":0.6}]}"}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      },
+    });
+
+    render(<Wrapper prompt="Hi" stream={stream} onUpdate={onUpdate} />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.tools?.length).toBe(1);
+      expect(assistant?.content).toBe('');
+    });
+  });
 });

@@ -437,8 +437,8 @@ Prevent vector search (or any tool) payloads that arrive as assistant-role messa
 
 ### 7. Broaden assistant tool-payload suppression (shape + context)
 
-- status: **in_progress**
-- Git Commits: to_do
+- status: **done**
+- Git Commits: 0a56249, 155855a
 
 #### Overview
 
@@ -452,27 +452,30 @@ Handle LM Studio responses that emit tool payloads as assistant messages without
 
 #### Subtasks
 
-1. [ ] Add server shape-based suppression in `server/src/routes/chat.ts` that detects assistant-role messages with vector-search payload structure (results/files with hostPath + chunk/score/lineCount) even when no callId is present; require active/pending tool context; emit a single tool-result and do not forward the assistant text.
-2. [ ] Keep callId-based suppression path intact and ensure dedupe sets still prevent double tool-result emission when native/synth results arrive.
-3. [ ] Add/extend server unit test to cover callId-less shape detection (assistant message suppressed, tool-result emitted once).
-4. [ ] Add server integration test where LM Studio emits assistant JSON payload without callId; assert tool-result arrives and no assistant echo is forwarded.
-5. [ ] Add client hook test to drop assistant messages that match the tool payload shape when a tool is pending, while retaining the tool block.
-6. [ ] Add client UI RTL test to verify no raw tool payload text renders in the transcript when only a tool-result is streamed.
-7. [ ] Add e2e scenario proving vector search payloads sent as assistant text remain hidden and only the tool block shows the data.
-8. [ ] Update docs (README/design) to describe shape-based suppression; update `projectStructure.md` if new tests/specs are added.
-9. [ ] Run lint/format after changes.
+1. [x] Add server shape-based suppression in `server/src/routes/chat.ts` that detects assistant-role messages with vector-search payload structure (results/files with hostPath + chunk/score/lineCount) even when no callId is present; require active/pending tool context; emit a single tool-result and do not forward the assistant text.
+2. [x] Keep callId-based suppression path intact and ensure dedupe sets still prevent double tool-result emission when native/synth results arrive.
+3. [x] Add/extend server unit test to cover callId-less shape detection (assistant message suppressed, tool-result emitted once).
+4. [x] Add server integration test where LM Studio emits assistant JSON payload without callId; assert tool-result arrives and no assistant echo is forwarded.
+5. [x] Add client hook test to drop assistant messages that match the tool payload shape when a tool is pending, while retaining the tool block.
+6. [x] Add client UI RTL test to verify no raw tool payload text renders in the transcript when only a tool-result is streamed.
+7. [x] Add e2e scenario proving vector search payloads sent as assistant text remain hidden and only the tool block shows the data.
+8. [x] Update docs (README/design) to describe shape-based suppression; update `projectStructure.md` if new tests/specs are added.
+9. [x] Run lint/format after changes.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run test --workspace server`
+6. [x] `npm run test --workspace client`
+7. [x] `npm run e2e`
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill during work)
+- Added shape-based suppression in `chat.ts`: assistant messages that parse to vector-like `results/files` while a tool is pending are blocked from assistant output; the server emits a single tool-result (deduped) using the latest pending callId.
+- Kept callId-based suppression; helper now parses JSON arrays/objects without callId.
+- Tests: unit (normalization array parse), integration (assistant payload without callId suppressed), client hook + UI RTL, and e2e scenario covering assistant JSON payload with no callId; all passing.
+- Docs updated (README/design) and projectStructure notes the new unit test file; lint/format and full build/test/compose/e2e completed (React act warnings in client tests remain).

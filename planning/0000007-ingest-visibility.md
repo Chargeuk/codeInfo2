@@ -357,8 +357,8 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 
 ### 7. Remove noop tool from chat route
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: ba9e473
 
 #### Overview
 Remove the placeholder noop tool from the chat route/tool registry so only real tools are exposed to models.

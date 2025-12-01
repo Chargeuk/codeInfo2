@@ -320,13 +320,46 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
 
 1. [ ] Capture call context in `server/src/routes/chat.ts`:
    - In `onToolCallRequestNameReceived`/`onToolCallRequestEnd`, store `{requestId, roundIndex, callId, toolName, parameters}` in a map keyed by callId; clear it on `complete`/abort. Use existing `parseToolParameters` for parameters.
+   - Sketch:
+     ```ts
+     type ToolCtx = { requestId: string; roundIndex: number; name?: string; params?: unknown };
+     const toolCtx = new Map<number, ToolCtx>();
+     // onToolCallRequestNameReceived
+     toolCtx.set(callId, { ...(toolCtx.get(callId) ?? {}), requestId, roundIndex, name });
+     // onToolCallRequestEnd
+     toolCtx.set(callId, { ...(toolCtx.get(callId) ?? {}), params: parseToolParameters(callId, info) });
+     // on complete/abort
+     toolCtx.clear();
+     ```
 2. [ ] Wrap tool execution in `server/src/lmstudio/toolService.ts` (e.g., around the resolver used in `runToolWithLogging`): when the tool promise resolves or rejects, emit a synthesized `tool-result` SSE via `emitToolResult`/new helper using the stored context (callId/roundIndex/toolName/parameters) and the actual result/error payload.
+   - Sketch helper:
+     ```ts
+     function emitSyntheticToolResult(callId: number, payload: unknown, err?: unknown) {
+       const ctx = toolCtx.get(callId);
+       if (!ctx || emittedToolResults.has(callId)) return;
+       emitToolResult(ctx.roundIndex, callId, ctx.name, err ? undefined : payload, {
+         parameters: ctx.params,
+         stage: err ? 'error' : 'success',
+         errorTrimmed: trimError(err),
+         errorFull: serializeError(err),
+       });
+       emittedToolResults.add(callId);
+     }
+     ```
 3. [ ] Deduplicate: if a real `onToolCallResult` later fires for the same callId, skip emitting because the synthesized one already sent; conversely, skip synthesis if native result already emitted. Track this in a `emittedToolResults` set.
 4. [ ] Error shaping: reuse `trimError`/`serializeError` so synthesized errors set `stage: "error"` and populate `errorTrimmed`/`errorFull` fields identically to native path.
-5. [ ] Test (server unit): add to `server/src/test/unit/toolService.test.ts` — simulate missing `onToolCallResult`, assert synthesized `tool-result` SSE includes parameters and result payload.
-6. [ ] Test (server integration): extend/add `server/src/test/integration/chat-tools-wire.test.ts` — LM Studio mock omits `onToolCallResult`; verify SSE includes synthesized `tool-result` with files/repos payload; add case where native result arrives and dedupe prevents double emission.
-7. [ ] Test (client hook): extend `client/src/test/useChatStream.toolPayloads.test.tsx` — ensure synthesized `tool-result` updates chat state (parameters + payload) and deduped/native events don’t duplicate tool entries.
-8. [ ] Test (e2e): add scenario to `e2e/chat-tools-visibility.spec.ts` (or new) where SSE only has synthesized `tool-result`; verify tool name/status, parameters accordion, repo/file details render.
+5. [ ] Test (server unit): `server/src/test/unit/toolService.test.ts`
+   - Arrange: stub tool resolver to return `{ ok: true }`, no `onToolCallResult` fired.
+   - Act: invoke wrapper; Assert: emitted SSE has `type:"tool-result"`, includes stored params, payload, `stage:"success"`.
+   - Error case: resolver throws; Assert: `stage:"error"`, `errorTrimmed` populated, no payload.
+6. [ ] Test (server integration): `server/src/test/integration/chat-tools-wire.test.ts`
+   - Arrange LM Studio mock to emit tool call start/name/end but never `onToolCallResult`.
+   - Assert SSE stream contains synthesized `tool-result` with files/repos payload and parameters; add a second case where mock also emits a native result and verify dedupe (only one tool-result per callId).
+7. [ ] Test (client hook): `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Feed SSE with only synthesized `tool-result`; Assert chat state stores parameters, payload, status done.
+   - Feed both synthesized then native result; Assert only one tool entry remains and citations/payload not duplicated.
+8. [ ] Test (e2e): `e2e/chat-tools-visibility.spec.ts`
+   - Route SSE to exclude native tool-result and include only synthesized one; Assert closed summary shows tool name/status, parameters accordion default-closed, repo/file details render.
 9. [ ] Docs: README.md – add a note in the chat/tool visibility section that the server synthesizes `tool-result` when LM Studio omits callbacks and dedupes if native results arrive.
 10. [ ] Docs: design.md – add a short subsection in the chat tool detail flow describing synthesized tool-result emission and dedupe.
 11. [ ] Docs: projectStructure.md – update file list if new tests/specs are added (server unit/integration, client hook test, e2e case).

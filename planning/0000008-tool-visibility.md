@@ -435,31 +435,31 @@ Prevent vector search (or any tool) payloads that arrive as assistant-role messa
 
 ---
 
-### 8. Handle structured LM Studio message payloads (content arrays)
+### 8. Rewrite onMessage for real LM Studio payloads
 
 - status: **in_progress**
 - Git Commits: to_do
 
 #### Overview
 
-LM Studio can emit assistant-role messages whose `data.content` is an array mixing text entries and `toolCallRequest` objects; our suppression logic only inspects string content, so vector search payloads still leak into the assistant transcript. We need to parse the structured message shape, suppress/deduplicate tool payload echoes, and still emit a single tool-result for the pending tool call.
+Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that matches the actual LM Studio callback shape (`message.data.content` array of typed items). Use the real structure to decide when to append chat history, when to emit/suppress tool results, and to avoid forwarding tool payloads as assistant text. Remove prior string/shape hacks that assumed `{ role, content: string }`; rely on the authoritative structure instead. Update all related tests to use the real message shape so we stop encoding wrong assumptions.
 
 #### Documentation Locations
 
 - Server streaming handler: `server/src/routes/chat.ts`
-- LM Studio SDK message shape: `server/src/test/support/mockLmStudioSdk.ts` and live `chat onMessage raw` logs
-- Client stream handling: `client/src/hooks/useChatStream.ts`
+- LM Studio SDK mock: `server/src/test/support/mockLmStudioSdk.ts`
+- Client stream handling (if any tweaks needed): `client/src/hooks/useChatStream.ts`
 - Chat UI rendering: `client/src/pages/ChatPage.tsx`
 
 #### Subtasks
 
-1. [ ] Capture live message shape: run chat against LM Studio asking the VectorSearch languages question; record the raw `onMessage` JSON log to confirm the `data.content` array structure (no code change).
-2. [ ] Server: extend `onMessage` parsing in `server/src/routes/chat.ts` to inspect `message.data.content` arrays (text + `toolCallRequest` items) and detect vector/list tool payloads even without `callId`; suppress assistant output and emit a single tool-result tied to the pending tool call with dedupe.
-3. [ ] Server tests: add/extend unit coverage in `server/src/test/unit/chat-assistant-suppress.test.ts` (or new sibling) for `data.content` array detection/suppression using mixed text + `toolCallRequest` fixtures.
-4. [ ] Server integration test: update `server/src/test/integration/chat-tools-wire.test.ts` (or add new case) to simulate LM Studio emitting `data.content` arrays without `callId` and assert a single tool-result is emitted with no assistant echo.
-5. [ ] Client: update `client/src/hooks/useChatStream.ts` to drop structured assistant tool payload fragments when a tool is pending; ensure transcript ignores them while tool blocks still render.
-6. [ ] Client tests: add RTL/hook coverage in `client/src/test/useChatStream.toolPayloads.test.tsx` and `client/src/test/chatPage.stream.test.tsx` for the content-array shape; verify assistant bubble is not rendered and tool detail still appears.
-7. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` (separate subtask item per file) to describe structured-message suppression and any new/changed tests.
+1. [x] Capture live message shape (done) — assistant messages carry `data.content` arrays mixing `text` and `toolCallRequest`/`toolCallResult` entries.
+2. [ ] Rework `onMessage` in `server/src/routes/chat.ts` to normalize from `message.data.content` (array) and use those typed items to: (a) append text to the chat history, (b) detect toolCallRequest/Result entries, (c) emit a single `tool-result`, and (d) suppress assistant echo of tool payloads. Remove legacy string-based heuristics that parsed JSON blobs.
+3. [ ] Update server unit tests to feed the real `data.content` array shape (include text + toolCallRequest + toolCallResult) and assert suppression/result emission works without JSON-string hacks (file: `server/src/test/unit/chat-assistant-suppress.test.ts` or sibling).
+4. [ ] Update server integration test `server/src/test/integration/chat-tools-wire.test.ts` to use the real message objects, covering both tool and non-tool turns, and assert only one tool-result is emitted with no assistant echo.
+5. [ ] Update client hook tests that model SSE frames containing final messages to mirror the real `data.content` array structure (files: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`); ensure transcript stays clean while tool blocks render.
+6. [ ] Update any UI RTL/e2e fixtures that craft assistant/tool messages so they match the actual structure; keep expectations unchanged (e.g., `e2e/chat-tools-visibility.spec.ts`).
+7. [ ] Docs: adjust `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to describe the real message shape and note tests updated accordingly.
 8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
@@ -475,7 +475,7 @@ LM Studio can emit assistant-role messages whose `data.content` is an array mixi
 
 #### Implementation notes
 
-- to_be_filled
+- Live LM Studio calls confirm `onMessage` receives `message.data.content` arrays; the old `{ role, content: string }` assumption is invalid. New logic must treat array items as authoritative for text and tool entries, eliminating the JSON-string parsing hacks.
 
 ---
 

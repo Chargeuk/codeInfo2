@@ -435,6 +435,50 @@ Prevent vector search (or any tool) payloads that arrive as assistant-role messa
 
 ---
 
+### 8. Handle structured LM Studio message payloads (content arrays)
+
+- status: **in_progress**
+- Git Commits: to_do
+
+#### Overview
+
+LM Studio can emit assistant-role messages whose `data.content` is an array mixing text entries and `toolCallRequest` objects; our suppression logic only inspects string content, so vector search payloads still leak into the assistant transcript. We need to parse the structured message shape, suppress/deduplicate tool payload echoes, and still emit a single tool-result for the pending tool call.
+
+#### Documentation Locations
+
+- Server streaming handler: `server/src/routes/chat.ts`
+- LM Studio SDK message shape: `server/src/test/support/mockLmStudioSdk.ts` and live `chat onMessage raw` logs
+- Client stream handling: `client/src/hooks/useChatStream.ts`
+- Chat UI rendering: `client/src/pages/ChatPage.tsx`
+
+#### Subtasks
+
+1. [ ] Capture live message shape: run chat against LM Studio asking the VectorSearch languages question; record the raw `onMessage` JSON log to confirm the `data.content` array structure (no code change).
+2. [ ] Server: extend `onMessage` parsing in `server/src/routes/chat.ts` to inspect `message.data.content` arrays (text + `toolCallRequest` items) and detect vector/list tool payloads even without `callId`; suppress assistant output and emit a single tool-result tied to the pending tool call with dedupe.
+3. [ ] Server tests: add/extend unit coverage in `server/src/test/unit/chat-assistant-suppress.test.ts` (or new sibling) for `data.content` array detection/suppression using mixed text + `toolCallRequest` fixtures.
+4. [ ] Server integration test: update `server/src/test/integration/chat-tools-wire.test.ts` (or add new case) to simulate LM Studio emitting `data.content` arrays without `callId` and assert a single tool-result is emitted with no assistant echo.
+5. [ ] Client: update `client/src/hooks/useChatStream.ts` to drop structured assistant tool payload fragments when a tool is pending; ensure transcript ignores them while tool blocks still render.
+6. [ ] Client tests: add RTL/hook coverage in `client/src/test/useChatStream.toolPayloads.test.tsx` and `client/src/test/chatPage.stream.test.tsx` for the content-array shape; verify assistant bubble is not rendered and tool detail still appears.
+7. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` (separate subtask item per file) to describe structured-message suppression and any new/changed tests.
+8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- to_be_filled
+
+---
+
 ### 7. Broaden assistant tool-payload suppression (shape + context)
 
 - status: **done**

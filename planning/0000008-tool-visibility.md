@@ -8,7 +8,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 - When opened, show all repository/file entries (no cap); each entry is individually expandable for details.
 - All tool calls include an expandable Parameters section (closed by default) listing every parameter passed to the tool.
 - ListIngestedRepositories results render as a list of repository names; each name is expandable to show the full returned metadata for that repository.
-- VectorSearch results render as an alphabetical list of unique files (including paths); each entry shows relevance score and summed chunk count per file; include total line count when available.
+- VectorSearch results render as an alphabetical list of unique files showing full host path only; each entry shows relevance score and summed chunk count per file (line count when available).
 - Tool failures display a clear failed state; expanding shows relevant error details returned by the tool.
 - Once the front end receives tool results or errors, the tool call status changes to complete (no active spinner).
 - Behavior is covered by unit/RTL/integration/e2e tests and documented in README/design.
@@ -21,7 +21,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 ## Questions
 - Do we need to cap the number of repository/file entries shown before collapsing behind “show more”? **Answer:** Keep the tool call closed by default. When expanded, show all repository/file entries with no cap. Each entry is itself expandable for detailed info.
 - Should chunk count be summed per file or show per-result list? **Answer:** Sum chunk counts per file. Each file appears once with total chunks (e.g., 3 results for one file → chunk count 3). If available, also surface the file's total line count.
-- Should we show host paths in addition to repo/relPath for VectorSearch? (Plan: yes if provided, otherwise relPath only.)
+- Should we show host paths in addition to repo/relPath for VectorSearch? **Answer:** Show only the full host path; skip internal/container paths as they are not user-meaningful.
 
 # Implementation Plan
 
@@ -83,7 +83,7 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
 1. [ ] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details.
 2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call.
 3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.).
-4. [ ] VectorSearch: render all unique files (no cap), aggregated by path, sorted alphabetically; show relevance score, summed chunk count per file, and total line count when available; each file entry expandable for chunk/result details.
+4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show relevance score, summed chunk count per file, and total line count when available; each file entry expandable for chunk/result details.
 5. [ ] Error state: show failed badge; expanded view displays error message/code and raw payload.
 6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels.
 7. [ ] Add/extend client RTL tests covering success/error flows, parameters accordion default-closed, repo/file expansion, and sorting/aggregation.

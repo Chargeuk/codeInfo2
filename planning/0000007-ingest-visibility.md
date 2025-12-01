@@ -305,7 +305,7 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 
 ### 6. Final Task – Validate story completion
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

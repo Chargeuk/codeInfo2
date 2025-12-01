@@ -320,7 +320,7 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Cucumber guides https://cucumber.io/docs/guides/
 
 #### Subtasks
-1. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story.
+1. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story.
 2. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story.
 3. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders.
 4. [ ] E2E: ingest progress shows file path/index/percent/ETA (extend `e2e/ingest.spec.ts` or new `e2e/ingest-progress.spec.ts`); capture screenshot per naming rules.
@@ -344,7 +344,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here
+- Reviewed README.md; content already reflects ingest progress, tool visibility, reasoning collapse, markdown, and mermaid support, so no edits required.
 
 ---

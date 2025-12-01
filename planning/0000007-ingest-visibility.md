@@ -475,14 +475,14 @@ Tool results from LM Studio are arriving inside `final` messages as `role: "tool
 
 #### Subtasks
 1. [ ] Detect tool results embedded in streamed `final` messages (role `tool` / `toolCallResult`) in `chat.ts`; synthesize and emit `type:"tool-result"` SSE with callId/name/payload when `onToolCallResult` is not called.
-2. [ ] Preserve ordering: insert synthesized tool-result at the correct round/callId and ensure subsequent assistant text remains after the tool block.
-3. [ ] Client fallback: when a `complete` frame arrives, mark any remaining `requesting` tools as `done` to guarantee spinner stop even if a result frame is missing.
-4. [ ] Client RTL (location: `client/src/test/chatPage.toolVisibility.test.tsx`): add a case where tool-result is synthesized from a `final` tool message; assert spinner stops and tool block stays inline before trailing assistant text.
-5. [ ] Client RTL (location: `client/src/test/chatPage.reasoning.test.tsx`): add a case with reasoning + synthesized tool-result to ensure ordering remains (tool block before final visible text) and spinner stops.
-6. [ ] Server/unit or integration (location: `server/src/test/integration/chat-tools-wire.test.ts` or new): add a test that mocks LM Studio returning tool results only inside final messages and assert the server emits a synthesized `tool-result` SSE.
-7. [ ] Playwright e2e (location: `e2e/chat-tools.spec.ts`): assert spinner stops and tool block renders before trailing assistant text when SDK omits `tool-result` callbacks.
-8. [ ] Update `README.md` with a brief note on synthetic tool-result emission and the spinner stop guarantee.
-9. [ ] Update `design.md` with the server-side synthesis flow and the client `complete` fallback.
+2. [ ] Preserve ordering: in `server/src/routes/chat.ts` `onMessage`, when synthesizing `tool-result`, emit immediately after the corresponding `final` tool message for the same `roundIndex`/`toolCallId`; dedupe if a real `tool-result` was already emitted.
+3. [ ] Client fallback: in `client/src/hooks/useChatStream.ts` completion handler, transition any `status==='requesting'` tools on the active assistant message to `done` (no payload change) so spinners cannot stick when a result frame is missing.
+4. [ ] Client RTL (file: `client/src/test/chatPage.toolVisibility.test.tsx`): stream frames list including tool-request, final-with-toolCallResult (no tool-result), final assistant text, complete; assert spinner appears then disappears and tool block precedes trailing assistant markdown.
+5. [ ] Client RTL (file: `client/src/test/chatPage.reasoning.test.tsx`): similar stream with Harmony/think + toolCallResult (no tool-result); assert ordering (tool block before final text) and spinner stops.
+6. [ ] Server integration (file: `server/src/test/integration/chat-tools-wire.test.ts` or new): mock LM Studio act to return tool results only via final tool message; assert SSE includes synthesized `tool-result` with callId/name/result and appears before complete.
+7. [ ] Playwright e2e (file: `e2e/chat-tools.spec.ts`): mock `/chat` to omit tool-result but include final tool message; assert spinner hides and tool block remains inline before trailing assistant text; capture screenshot.
+8. [ ] Update `README.md`: add a note that the server synthesizes `tool-result` when LM Studio omits it and the client marks pending tools done on `complete` to stop spinners.
+9. [ ] Update `design.md`: document the synthesis flow (parse final tool messages, emit tool-result), dedupe rule, and client `complete` safety net.
 10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Definition of Done

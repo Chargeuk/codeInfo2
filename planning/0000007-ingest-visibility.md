@@ -321,7 +321,7 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 
 #### Subtasks
 1. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story.
-2. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story.
+2. [x] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story.
 3. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders.
 4. [ ] E2E: ingest progress shows file path/index/percent/ETA (extend `e2e/ingest.spec.ts` or new `e2e/ingest-progress.spec.ts`); capture screenshot per naming rules.
 5. [ ] E2E: chat tool-call visibility spinner→collapse with file paths/chunks (extend `e2e/chat-tools.spec.ts` or new `e2e/chat-tools-visibility.spec.ts`); capture screenshot.
@@ -345,5 +345,6 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 
 #### Implementation notes
 - Reviewed README.md; content already reflects ingest progress, tool visibility, reasoning collapse, markdown, and mermaid support, so no edits required.
+- Re-read design.md; diagrams and narrative already cover ingest telemetry, tool-call visibility, reasoning collapse, markdown, and mermaid flows—no updates needed.
 
 ---

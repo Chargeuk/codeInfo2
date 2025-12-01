@@ -541,10 +541,14 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
       };
 
   type LMMessage = {
-    data?: { role: 'assistant' | 'tool' | 'user' | 'system'; content: LMContentItem[] };
+    data?: {
+      role: 'assistant' | 'tool' | 'user' | 'system';
+      content: LMContentItem[];
+    };
     mutable?: boolean;
   };
   // SSE frame example: { type: 'final', message: LMMessage, roundIndex: number }
   // Non-tool answers: data.content is an array of a single { type: 'text', text: '<|channel|>analysis...<|end|><|start|>assistant<|channel|>final<|message|>Hello!' }
   // Tool answers: assistant final carries text + toolCallRequest item; later a tool-role final carries toolCallResult item; separate SSE tool-result also arrives.
+  // No top-level message.role/content observed; everything is inside message.data.
   ```

@@ -1,3 +1,7 @@
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import {
   Container,
   Alert,
@@ -14,6 +18,9 @@ import {
   Box,
   Collapse,
   Button as MuiButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Markdown from '../components/Markdown';
@@ -21,6 +28,7 @@ import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
   ToolCitation,
+  ToolCall,
 } from '../hooks/useChatStream';
 
 export default function ChatPage() {
@@ -41,6 +49,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
+  const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
+    {},
+  );
   const controlsDisabled = isLoading || isError || isEmpty || !selected;
   const isSending = isStreaming || status === 'sending';
   const showStop = isSending;
@@ -92,6 +103,299 @@ export default function ChatPage() {
 
   const toggleTool = (id: string) => {
     setToolOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleToolError = (id: string) => {
+    setToolErrorOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  type RepoEntry = {
+    id: string;
+    description?: string | null;
+    containerPath?: string;
+    hostPath?: string;
+    hostPathWarning?: string;
+    lastIngestAt?: string | null;
+    modelId?: string;
+    counts?: { files?: number; chunks?: number; embedded?: number };
+    lastError?: string | null;
+  };
+
+  type VectorFile = {
+    hostPath: string;
+    highestMatch: number | null;
+    chunkCount: number;
+    lineCount: number | null;
+    hostPathWarning?: string;
+    repo?: string;
+    modelId?: string;
+  };
+
+  const renderParamsAccordion = (params: unknown, accordionId: string) => (
+    <Accordion
+      defaultExpanded={false}
+      disableGutters
+      data-testid="tool-params-accordion"
+      id={`params-${accordionId}`}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon fontSize="small" />}
+        aria-controls={`params-${accordionId}-content`}
+      >
+        <Typography variant="body2" fontWeight={600}>
+          Parameters
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Box
+          component="pre"
+          sx={{
+            bgcolor: 'grey.100',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 1,
+            overflowX: 'auto',
+            fontSize: '0.8rem',
+            lineHeight: 1.4,
+          }}
+        >
+          {JSON.stringify(params ?? {}, null, 2)}
+        </Box>
+      </AccordionDetails>
+    </Accordion>
+  );
+
+  const renderRepoList = (repos: RepoEntry[]) => (
+    <Stack spacing={1} data-testid="tool-repo-list">
+      {repos.map((repo) => (
+        <Accordion
+          key={repo.id}
+          disableGutters
+          data-testid="tool-repo-item"
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
+            <Typography variant="body2" fontWeight={600}>
+              {repo.id}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={0.5}>
+              {repo.description && (
+                <Typography variant="body2" color="text.secondary">
+                  {repo.description}
+                </Typography>
+              )}
+              {repo.hostPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Host path: {repo.hostPath}
+                </Typography>
+              )}
+              {repo.containerPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Container path: {repo.containerPath}
+                </Typography>
+              )}
+              {repo.hostPathWarning && (
+                <Typography variant="caption" color="warning.main">
+                  Warning: {repo.hostPathWarning}
+                </Typography>
+              )}
+              {repo.counts && (
+                <Typography variant="caption" color="text.secondary">
+                  Files: {repo.counts.files ?? 0} · Chunks:{' '}
+                  {repo.counts.chunks ?? 0} · Embedded:{' '}
+                  {repo.counts.embedded ?? 0}
+                </Typography>
+              )}
+              {typeof repo.lastIngestAt === 'string' && repo.lastIngestAt && (
+                <Typography variant="caption" color="text.secondary">
+                  Last ingest: {repo.lastIngestAt}
+                </Typography>
+              )}
+              {repo.modelId && (
+                <Typography variant="caption" color="text.secondary">
+                  Model: {repo.modelId}
+                </Typography>
+              )}
+              {repo.lastError && (
+                <Typography variant="caption" color="error.main">
+                  Last error: {repo.lastError}
+                </Typography>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </Stack>
+  );
+
+  const renderVectorFiles = (files: VectorFile[]) => {
+    const sorted = [...files].sort((a, b) =>
+      a.hostPath.localeCompare(b.hostPath),
+    );
+    return (
+      <Stack spacing={1} data-testid="tool-file-list">
+        {sorted.map((file) => {
+          const summaryParts = [
+            file.hostPath,
+            `match ${file.highestMatch === null ? '—' : file.highestMatch.toFixed(2)}`,
+            `chunks ${file.chunkCount}`,
+            `lines ${file.lineCount === null ? '—' : file.lineCount}`,
+          ];
+          return (
+            <Accordion
+              key={file.hostPath}
+              disableGutters
+              data-testid="tool-file-item"
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
+              >
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  sx={{ wordBreak: 'break-all' }}
+                >
+                  {summaryParts.join(' · ')}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Highest match:{' '}
+                    {file.highestMatch === null
+                      ? '—'
+                      : file.highestMatch.toFixed(3)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Chunk count: {file.chunkCount}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total lines:{' '}
+                    {file.lineCount === null ? '—' : file.lineCount}
+                  </Typography>
+                  {file.repo && (
+                    <Typography variant="caption" color="text.secondary">
+                      Repo: {file.repo}
+                    </Typography>
+                  )}
+                  {file.modelId && (
+                    <Typography variant="caption" color="text.secondary">
+                      Model: {file.modelId}
+                    </Typography>
+                  )}
+                  {file.hostPathWarning && (
+                    <Typography variant="caption" color="warning.main">
+                      Warning: {file.hostPathWarning}
+                    </Typography>
+                  )}
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Stack>
+    );
+  };
+
+  const renderToolContent = (tool: ToolCall, toggleKey: string) => {
+    const payload = (tool.payload ?? {}) as Record<string, unknown>;
+    const repos = Array.isArray((payload as { repos?: unknown }).repos)
+      ? ((payload as { repos: RepoEntry[] }).repos as RepoEntry[])
+      : [];
+
+    const files = Array.isArray((payload as { files?: unknown }).files)
+      ? ((payload as { files: VectorFile[] }).files as VectorFile[])
+      : [];
+
+    const trimmedError = tool.errorTrimmed ?? null;
+    const fullError = tool.errorFull;
+
+    const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
+    const hasRepos =
+      tool.name === 'ListIngestedRepositories' && repos.length > 0;
+
+    return (
+      <Stack spacing={1} mt={0.5} data-testid="tool-details">
+        <Typography variant="caption" color="text.secondary">
+          Status: {tool.status}
+        </Typography>
+        {trimmedError && (
+          <Stack spacing={0.5}>
+            <Typography
+              variant="body2"
+              color="error.main"
+              data-testid="tool-error-trimmed"
+            >
+              {trimmedError.code ? `${trimmedError.code}: ` : ''}
+              {trimmedError.message ?? 'Error'}
+            </Typography>
+            {fullError && (
+              <Box>
+                <MuiButton
+                  size="small"
+                  variant="text"
+                  onClick={() => toggleToolError(toggleKey)}
+                  data-testid="tool-error-toggle"
+                  aria-expanded={!!toolErrorOpen[toggleKey]}
+                  sx={{ textTransform: 'none', minWidth: 0, p: 0 }}
+                >
+                  {toolErrorOpen[toggleKey]
+                    ? 'Hide full error'
+                    : 'Show full error'}
+                </MuiButton>
+                <Collapse
+                  in={!!toolErrorOpen[toggleKey]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box
+                    component="pre"
+                    mt={0.5}
+                    px={1}
+                    py={0.5}
+                    data-testid="tool-error-full"
+                    sx={{
+                      bgcolor: 'grey.100',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      fontSize: '0.8rem',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {JSON.stringify(fullError, null, 2)}
+                  </Box>
+                </Collapse>
+              </Box>
+            )}
+          </Stack>
+        )}
+
+        {renderParamsAccordion(tool.parameters, toggleKey)}
+
+        {hasRepos && renderRepoList(repos)}
+        {hasVectorFiles && renderVectorFiles(files)}
+
+        {!hasRepos && !hasVectorFiles && tool.payload && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ wordBreak: 'break-word' }}
+            data-testid="tool-payload"
+          >
+            {JSON.stringify(tool.payload)}
+          </Typography>
+        )}
+      </Stack>
+    );
   };
 
   return (
@@ -311,18 +615,12 @@ export default function ChatPage() {
                             const isError = tool.status === 'error';
                             const toggleKey = `${message.id}-${tool.id}`;
                             const isOpen = !!toolOpen[toggleKey];
-                            const results =
-                              tool.payload &&
-                              typeof tool.payload === 'object' &&
-                              'results' in
-                                (tool.payload as Record<string, unknown>) &&
-                              Array.isArray(
-                                (tool.payload as { results?: unknown[] })
-                                  .results,
-                              )
-                                ? ((tool.payload as { results?: unknown[] })
-                                    .results as unknown[])
-                                : [];
+                            const statusLabel =
+                              tool.status === 'error'
+                                ? 'Failed'
+                                : tool.status === 'done'
+                                  ? 'Success'
+                                  : 'Running';
 
                             return (
                               <Box key={segment.id} data-testid="tool-row">
@@ -331,135 +629,62 @@ export default function ChatPage() {
                                   alignItems="center"
                                   spacing={1}
                                   sx={{ mb: isRequesting ? 0 : 0.25 }}
+                                  data-testid="tool-call-summary"
                                 >
                                   {isRequesting ? (
-                                    <CircularProgress
-                                      size={14}
+                                    <HourglassTopIcon
+                                      fontSize="small"
+                                      color="action"
                                       data-testid="tool-spinner"
                                     />
+                                  ) : isError ? (
+                                    <ErrorOutlineIcon
+                                      fontSize="small"
+                                      color="error"
+                                      aria-label="Tool failed"
+                                    />
                                   ) : (
-                                    <Typography
-                                      variant="caption"
-                                      color={
-                                        isError ? 'error.main' : 'success.main'
-                                      }
-                                    >
-                                      {isError ? 'Error' : 'Complete'}
-                                    </Typography>
+                                    <CheckCircleOutlineIcon
+                                      fontSize="small"
+                                      color="success"
+                                      aria-label="Tool succeeded"
+                                    />
                                   )}
                                   <Typography
                                     variant="caption"
-                                    color="text.secondary"
+                                    color="text.primary"
                                     sx={{ flex: 1 }}
                                     data-testid="tool-name"
                                   >
-                                    {tool.name ?? 'Tool'}
+                                    {(tool.name ?? 'Tool') +
+                                      ' · ' +
+                                      statusLabel}
                                   </Typography>
-                                  {!isRequesting && (
-                                    <MuiButton
-                                      size="small"
-                                      variant="text"
-                                      onClick={() => toggleTool(toggleKey)}
-                                      data-testid="tool-toggle"
-                                      sx={{
-                                        textTransform: 'none',
-                                        minWidth: 0,
-                                        p: 0,
-                                      }}
-                                    >
-                                      {isOpen ? 'Hide' : 'Show'}
-                                    </MuiButton>
-                                  )}
-                                </Stack>
-                                {!isRequesting && (
-                                  <Collapse
-                                    in={isOpen}
-                                    timeout="auto"
-                                    unmountOnExit
+                                  <MuiButton
+                                    size="small"
+                                    variant="text"
+                                    onClick={() => toggleTool(toggleKey)}
+                                    disabled={isRequesting}
+                                    data-testid="tool-toggle"
+                                    aria-expanded={isOpen}
+                                    aria-controls={`tool-${toggleKey}-details`}
+                                    sx={{
+                                      textTransform: 'none',
+                                      minWidth: 0,
+                                      p: 0,
+                                    }}
                                   >
-                                    <Stack
-                                      spacing={0.75}
-                                      mt={0.5}
-                                      data-testid="tool-details"
-                                    >
-                                      <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                      >
-                                        Status: {tool.status}
-                                      </Typography>
-                                      {tool.name === 'VectorSearch' &&
-                                      results.length > 0 ? (
-                                        <Stack
-                                          spacing={1}
-                                          data-testid="tool-vector-results"
-                                        >
-                                          {results.map((item, resultIdx) => {
-                                            const r = item as Record<
-                                              string,
-                                              unknown
-                                            >;
-                                            const repo =
-                                              typeof r.repo === 'string'
-                                                ? r.repo
-                                                : undefined;
-                                            const relPath =
-                                              typeof r.relPath === 'string'
-                                                ? r.relPath
-                                                : undefined;
-                                            const hostPath =
-                                              typeof r.hostPath === 'string'
-                                                ? r.hostPath
-                                                : undefined;
-                                            const chunk =
-                                              typeof r.chunk === 'string'
-                                                ? r.chunk
-                                                : undefined;
-                                            if (!repo || !relPath) return null;
-                                            return (
-                                              <Box
-                                                key={`${repo}-${relPath}-${resultIdx}`}
-                                              >
-                                                <Typography
-                                                  variant="caption"
-                                                  color="text.secondary"
-                                                  data-testid="tool-result-path"
-                                                  sx={{ display: 'block' }}
-                                                >
-                                                  {repo}/{relPath}
-                                                  {hostPath
-                                                    ? ` (${hostPath})`
-                                                    : ''}
-                                                </Typography>
-                                                {chunk && (
-                                                  <Typography
-                                                    variant="body2"
-                                                    color="text.primary"
-                                                    sx={{
-                                                      whiteSpace: 'pre-wrap',
-                                                    }}
-                                                    data-testid="tool-result-chunk"
-                                                  >
-                                                    {chunk}
-                                                  </Typography>
-                                                )}
-                                              </Box>
-                                            );
-                                          })}
-                                        </Stack>
-                                      ) : tool.payload ? (
-                                        <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                          sx={{ wordBreak: 'break-word' }}
-                                          data-testid="tool-payload"
-                                        >
-                                          {JSON.stringify(tool.payload)}
-                                        </Typography>
-                                      ) : null}
-                                    </Stack>
-                                  </Collapse>
-                                )}
+                                    {isOpen ? 'Hide details' : 'Show details'}
+                                  </MuiButton>
+                                </Stack>
+                                <Collapse
+                                  in={isOpen}
+                                  timeout="auto"
+                                  unmountOnExit
+                                  id={`tool-${toggleKey}-details`}
+                                >
+                                  {renderToolContent(tool, toggleKey)}
+                                </Collapse>
                               </Box>
                             );
                           })}

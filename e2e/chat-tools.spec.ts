@@ -106,6 +106,17 @@ test.describe.serial('Chat tools citations', () => {
       test.skip('vector search returned no results');
     }
 
+    const aggregated = firstResult
+      ? {
+          hostPath:
+            firstResult.hostPath ??
+            `/data/${firstResult.repo ?? 'repo'}/${firstResult.relPath ?? 'file'}`,
+          highestMatch: firstResult.score ?? null,
+          chunkCount: 1,
+          lineCount: (firstResult.chunk ?? '').split(/\r?\n/).length || 0,
+        }
+      : null;
+
     const mockChatModels = [
       { key: 'mock-chat', displayName: 'Mock Chat Model' },
     ];
@@ -133,6 +144,7 @@ test.describe.serial('Chat tools citations', () => {
           callId: 't1',
           result: {
             results: [firstResult],
+            files: aggregated ? [aggregated] : [],
             modelId: firstResult.modelId ?? null,
           },
           roundIndex: 0,
@@ -183,12 +195,9 @@ test.describe.serial('Chat tools citations', () => {
       firstResult.chunk,
     );
 
-    await expect(page.getByTestId('tool-result-path').first()).toHaveText(
-      pathLabel + hostSuffix,
-    );
-    await expect(page.getByTestId('tool-result-chunk').first()).toContainText(
-      firstResult.chunk,
-    );
+    const fileItem = page.getByTestId('tool-file-item').first();
+    await expect(fileItem).toContainText(aggregated!.hostPath);
+    await expect(fileItem).toContainText('chunks 1');
 
     const assistantBubble = page
       .getByTestId('chat-bubble')

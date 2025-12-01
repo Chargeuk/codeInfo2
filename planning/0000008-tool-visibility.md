@@ -142,8 +142,8 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
 
 #### Subtasks
 
-1. [ ] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details (implement in `client/src/pages/ChatPage.tsx`, e.g., `renderToolCall` section). Closed copy example: `VectorSearch · Success`.
-2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call (in `ChatPage` UI). Example JSX skeleton:
+1. [x] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details (implement in `client/src/pages/ChatPage.tsx`, e.g., `renderToolCall` section). Closed copy example: `VectorSearch · Success`.
+2. [x] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call (in `ChatPage` UI). Example JSX skeleton:
    ```tsx
    <Accordion defaultExpanded={false} aria-label="Tool parameters">
      <AccordionSummary>Parameters</AccordionSummary>
@@ -152,7 +152,7 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
      </AccordionDetails>
    </Accordion>
    ```
-3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.); component in `ChatPage` or new child component `client/src/components/chat/ToolDetails.tsx`. Stub props if creating the component:
+3. [x] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.); component in `ChatPage` or new child component `client/src/components/chat/ToolDetails.tsx`. Stub props if creating the component:
    ```ts
    type ToolDetailsProps = {
      toolName: string;
@@ -163,8 +163,8 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
      errorFull?: unknown;
    };
    ```
-4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required). Implement in `ChatPage` or shared tool detail component; ensure alphabetic sort only. Example summary row: `/repo/a.txt · match 0.82 · chunks 3 · lines 20`.
-5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields (UI in `ChatPage`). Example trimmed view: `MODEL_UNAVAILABLE: embedding model missing`; expansion shows full JSON like:
+4. [x] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required). Implement in `ChatPage` or shared tool detail component; ensure alphabetic sort only. Example summary row: `/repo/a.txt · match 0.82 · chunks 3 · lines 20`.
+5. [x] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields (UI in `ChatPage`). Example trimmed view: `MODEL_UNAVAILABLE: embedding model missing`; expansion shows full JSON like:
    ```json
    {
      "errorTrimmed": {
@@ -179,26 +179,29 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
      }
    }
    ```
-6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses). Add data-testid hooks for tests: `tool-call-summary`, `tool-params-accordion`, `tool-repo-item`, `tool-file-item`, `tool-error-trimmed`, `tool-error-full`.
-7. [ ] Update projectStructure.md if new components added.
-8. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block (`VectorSearch · Success/Failed`), parameters accordion default closed showing params JSON, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
-9. [ ] Test: Client RTL (type) — add error-path coverage showing trimmed error with expandable full payload (same file or new); purpose: ensure failure UX and full error reveal work.
-10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
+6. [x] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses). Add data-testid hooks for tests: `tool-call-summary`, `tool-params-accordion`, `tool-repo-item`, `tool-file-item`, `tool-error-trimmed`, `tool-error-full`.
+7. [x] Update projectStructure.md if new components added.
+8. [x] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block (`VectorSearch · Success/Failed`), parameters accordion default closed showing params JSON, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
+9. [x] Test: Client RTL (type) — add error-path coverage showing trimmed error with expandable full payload (same file or new); purpose: ensure failure UX and full error reveal work.
+10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- (fill during work)
+- Chat tool blocks now render closed summaries with success/error icons, a details toggle, and a default-closed parameters accordion; VectorSearch shows host-path-only aggregated files (sorted, with match/chunk/line counts) and ListIngestedRepositories exposes expandable repo metadata.
+- Errors display trimmed codes/messages with a toggle to reveal the full payload; accessibility improved with aria-expanded on toggles plus data-testids for new UI parts.
+- Added Jest module mapper + mock for MUI icons to keep tests in ESM mode; new RTL suite `chatPage.toolDetails.test.tsx` covers parameters, files, repos, and error expansion; updated e2e chat-tools flow to assert aggregated file rows.
+- projectStructure.md reflects the new tool details test and removal of the legacy toolVisibility test; formatting/lint applied across workspaces.
 
 ---
 

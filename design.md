@@ -48,6 +48,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
 - **Tool-call visibility:** `tool-request` events render an inline spinner + tool name inside the active assistant bubble; when `tool-result` arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
+- Tool completion synthesis: when LM Studio delivers tool payloads only via a `role: "tool"` final message (no `onToolCallResult`), the server synthesizes a `tool-result` SSE right after that message (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` on `complete`, so spinners cannot stick even if a result frame is missing.
 
 ### Chat citations UI
 

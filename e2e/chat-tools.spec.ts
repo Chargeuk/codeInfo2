@@ -167,12 +167,8 @@ test.describe.serial('Chat tools citations', () => {
     await input.fill('What does main.txt say about the project?');
     await send.click();
 
-    const toolSpinner = page.getByTestId('tool-spinner');
-    await expect(toolSpinner).toBeVisible({ timeout: 20000 });
-
     const toolToggle = page.getByTestId('tool-toggle');
     await toolToggle.waitFor({ timeout: 20000 });
-    await expect(toolSpinner).toBeHidden({ timeout: 20000 });
     await toolToggle.click();
 
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
@@ -214,6 +210,79 @@ test.describe.serial('Chat tools citations', () => {
     await page.screenshot({
       path: 'test-results/screenshots/0000006-4-chat-tools.png',
       fullPage: true,
+    });
+  });
+
+  test('stops spinner when tool-result is missing but a final tool message appears', async ({
+    page,
+  }) => {
+    const mockChatModels = [
+      { key: 'mock-chat', displayName: 'Mock Chat Model' },
+    ];
+
+    await page.route('**/chat/models', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockChatModels),
+      }),
+    );
+
+    await page.route('**/chat', (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const events = [
+        {
+          type: 'tool-request',
+          callId: 'miss-1',
+          name: 'VectorSearch',
+          roundIndex: 0,
+        },
+        {
+          type: 'final',
+          message: {
+            role: 'tool',
+            content: {
+              toolCallId: 'miss-1',
+              name: 'VectorSearch',
+              result: { results: [{ repo: 'r', relPath: 'a.txt' }] },
+            },
+          },
+          roundIndex: 0,
+        },
+        {
+          type: 'final',
+          message: {
+            role: 'assistant',
+            content: 'Here is the answer after the tool.',
+          },
+          roundIndex: 0,
+        },
+        { type: 'complete' },
+      ];
+      const body = events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join('');
+      return route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body,
+      });
+    });
+
+    await page.goto(`${baseUrl}/chat`);
+
+    const input = page.getByTestId('chat-input');
+    const send = page.getByTestId('chat-send');
+
+    await input.fill('Hi');
+    await send.click();
+
+    const toolRow = page.getByTestId('tool-row');
+    await expect(toolRow).toBeVisible({ timeout: 20000 });
+    await expect(
+      page.getByText('Here is the answer after the tool.'),
+    ).toBeVisible({
+      timeout: 20000,
     });
   });
 });

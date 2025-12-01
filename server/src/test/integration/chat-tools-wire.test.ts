@@ -61,7 +61,7 @@ type ActCallbacks = {
     callId: number,
     info: unknown,
   ) => void;
-  onMessage?: (message: { role: string; content: string }) => void;
+  onMessage?: (message: { role: string; content: unknown }) => void;
 };
 
 beforeEach(() => {
@@ -163,4 +163,87 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
 
   const finalEvent = events.find((e) => e.type === 'final');
   assert.equal(finalEvent?.message?.content, 'done');
+});
+
+test('chat route synthesizes tool-result when LM Studio only returns a final tool message', async () => {
+  const act = async (chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+    opts.onRoundStart?.(0);
+
+    const vectorTool = tools.find((t) => t.name === 'VectorSearch');
+    if (!vectorTool) throw new Error('VectorSearch tool missing');
+    const toolCtx: ToolCallContext = {
+      status: () => undefined,
+      warn: () => undefined,
+      signal: new AbortController().signal,
+      callId: 1,
+    };
+    const toolResult = await (
+      vectorTool as unknown as {
+        implementation: (
+          params: unknown,
+          ctx: ToolCallContext,
+        ) => Promise<unknown>;
+      }
+    ).implementation({ query: 'hi' }, toolCtx);
+
+    opts.onToolCallRequestStart?.(0, 1);
+    opts.onToolCallRequestNameReceived?.(0, 1, 'VectorSearch');
+    opts.onToolCallRequestEnd?.(0, 1);
+
+    opts.onMessage?.({
+      role: 'tool',
+      content: {
+        toolCallId: 1,
+        name: 'VectorSearch',
+        result: toolResult,
+      },
+    });
+
+    opts.onMessage?.({ role: 'assistant', content: 'after tool' });
+    return Promise.resolve();
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      model: 'dummy-model',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    .expect(200);
+
+  const events = res.text
+    .split('\n\n')
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+
+  const toolResultEvent = events.find((e) => e.type === 'tool-result');
+  assert.ok(toolResultEvent, 'expected synthesized tool-result');
+  assert.equal(toolResultEvent.callId, 1);
+  assert.equal(toolResultEvent.name, 'VectorSearch');
+  assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
+
+  const finalEvents = events.filter((e) => e.type === 'final');
+  assert.equal(finalEvents.length, 2);
+
+  const toolFinalIndex = events.findIndex(
+    (e) => e.type === 'final' && e.message?.role === 'tool',
+  );
+  const toolResultIndex = events.findIndex((e) => e.type === 'tool-result');
+
+  assert.ok(toolResultIndex > toolFinalIndex);
 });

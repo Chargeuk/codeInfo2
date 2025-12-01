@@ -479,6 +479,49 @@ export function useChatStream(model?: string) {
         syncAssistantMessage();
       };
 
+      const completePendingTools = () => {
+        const nextSegments = segments.map((segment) =>
+          segment.kind === 'tool' && segment.tool.status === 'requesting'
+            ? {
+                ...segment,
+                tool: { ...segment.tool, status: 'done' },
+              }
+            : segment,
+        );
+        segments = nextSegments;
+        syncAssistantMessage();
+        updateMessages((prev) =>
+          prev.map((msg, idx, list) => {
+            if (idx !== list.length - 1 || msg.role !== 'assistant') {
+              return msg;
+            }
+            const updatedTools = msg.tools?.map((tool) =>
+              tool.status === 'requesting' ? { ...tool, status: 'done' } : tool,
+            );
+            const updatedSegments = msg.segments?.map((segment) =>
+              segment.kind === 'tool' && segment.tool.status === 'requesting'
+                ? {
+                    ...segment,
+                    tool: { ...segment.tool, status: 'done' },
+                  }
+                : segment,
+            );
+
+            const toolsChanged =
+              JSON.stringify(updatedTools) !== JSON.stringify(msg.tools);
+            const segmentsChanged =
+              JSON.stringify(updatedSegments) !== JSON.stringify(msg.segments);
+
+            if (!toolsChanged && !segmentsChanged) return msg;
+            return {
+              ...msg,
+              ...(updatedTools ? { tools: updatedTools } : {}),
+              ...(updatedSegments ? { segments: updatedSegments } : {}),
+            } as ChatMessage;
+          }),
+        );
+      };
+
       try {
         const res = await fetch(new URL('/chat', serverBase).toString(), {
           method: 'POST',
@@ -577,6 +620,7 @@ export function useChatStream(model?: string) {
                   flushAll: true,
                 });
                 applyReasoning({ ...completed, analysisStreaming: false });
+                completePendingTools();
                 setTimeout(finishStreaming, 0);
               }
             } catch {

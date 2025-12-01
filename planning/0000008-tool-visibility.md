@@ -50,11 +50,11 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 
 #### Subtasks
 1. [ ] Confirm/extend tool result typing for ListIngestedRepositories and VectorSearch to carry parameters and raw payloads through SSE (`tool-result`) frames.
-2. [ ] Ensure errors propagate with structured details (code/message) and mark tool status complete on receipt (no spinner linger).
-3. [ ] Add/adjust fixtures and mocks (server test support, client mock SSE) to include parameters and tool payloads.
-4. [ ] Update client chat stream state to retain tool parameters and tool-specific payloads for UI use.
-5. [ ] Add/extend server unit/integration tests for tool result/error frames including parameters.
-6. [ ] List planned tests: server unit/integration (chat tool frames), client hook unit tests.
+2. [ ] Ensure errors propagate with structured details (code/message), mark tool status complete on receipt (no spinner linger), and include full error payload for optional expansion.
+3. [ ] Add/adjust fixtures and mocks (server test support, client mock SSE) to include parameters and tool payloads; VectorSearch mock should include host path only, summed chunk count per file, highest match value per file, and server-computed line count field when available.
+4. [ ] Update client chat stream state to retain tool parameters and tool-specific payloads for UI use, including host-path-only VectorSearch aggregation fields.
+5. [ ] Add/extend server unit/integration tests for tool result/error frames including parameters and line-count field; ensure deduped files carry summed chunk counts and highest match value.
+6. [ ] List planned tests: server unit/integration (chat tool frames with host path, chunk sum, line count), client hook unit tests for the same fields.
 7. [ ] Docs to update later: README, design, projectStructure.
 8. [ ] Run lint/format after code changes.
 
@@ -88,9 +88,9 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
 2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call.
 3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.).
 4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required).
-5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields).
+5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields.
 6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels.
-7. [ ] Add/extend client RTL tests covering success/error flows, parameters accordion default-closed, repo/file expansion, aggregation (chunk sum/line count), and sorting.
+7. [ ] Add/extend client RTL tests covering success/error flows, parameters accordion default-closed, repo/file expansion, aggregation (chunk sum/line count), host-path-only display, highest match value per file, and sorting (alphabetical only).
 8. [ ] Update projectStructure.md if new components added.
 9. [ ] Run lint/format.
 

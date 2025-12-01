@@ -409,7 +409,7 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 
 ### 8. Fix tool spinner lifecycle and placement in chat bubbles
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

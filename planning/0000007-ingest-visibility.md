@@ -533,14 +533,14 @@ Tool spinners should end as soon as the model resumes assistant output after a t
 - Playwright docs: Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Update `useChatStream` to mark any `status:"requesting"` tools as `done` when the first non-tool assistant token or assistant `final` message arrives after the tool’s final message, keeping ordering and payloads unchanged.
-2. [ ] Ensure existing synthesized `tool-result` handling remains deduped; no duplicate tool blocks should appear when real results and the fallback both fire.
-3. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.toolVisibility.test.tsx` to assert spinner stops on the first assistant token after a tool-only final message, without waiting for `complete`.
-4. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.reasoning.test.tsx` for the reasoning + tool path to ensure spinner stops once assistant text resumes.
-5. [ ] Update Playwright `e2e/chat-tools.spec.ts` to assert spinner stops (or tool block is marked complete) before stream end in the missing tool-result scenario.
-6. [ ] Update `README.md` to mention tool spinner now stops when assistant output resumes (no longer waits for stream complete) and note the synthesized tool-result guard.
-7. [ ] Update `design.md` to describe the spinner-stop-on-assistant-output flow and client fallback ordering relative to synthesized tool-result and stream completion.
-8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+1. [ ] Client logic (file: `client/src/hooks/useChatStream.ts`): in the stream parsing loop, when a tool has `status:"requesting"` and you receive either (a) the first assistant `token` after a `role:"tool"`/toolCallResult message for that callId, or (b) an assistant `final` message after that tool, immediately set that tool’s status to `done` (or `error` if an error stage was present). Keep ordering/segments unchanged and retain the existing `complete` fallback and synthesized `tool-result` handling without double-marking.
+2. [ ] Deduping guard: ensure synthesized `tool-result` frames and the new assistant-output fallback cannot produce duplicate tool blocks—if a tool already has `status!="requesting"`, the assistant-output fallback must no-op. Add/adjust inline comments if helpful for future maintainers.
+3. [ ] RTL (file: `client/src/test/chatPage.toolVisibility.test.tsx`): add a test stream sequence: tool-request → final `{role:"tool", content:{toolCallId:"t1", result:{...}}}` → token `{type:"token", content:"Assistant reply"}` → complete. Assert spinner shows after request, hides as soon as the token arrives (before complete), tool block remains before the assistant text, and status is `done`.
+4. [ ] RTL (file: `client/src/test/chatPage.reasoning.test.tsx`): add/adjust a test with reasoning + tool: tool-request → token with `<|channel|>analysis` → final `role:"tool"` with result → token `<|channel|>final<|message|>Answer...` → complete. Assert spinner stops on that final token and the tool block stays before the visible answer while think content is still collapsible.
+5. [ ] Playwright (file: `e2e/chat-tools.spec.ts`): in the missing tool-result scenario, route `/chat` to emit tool-request → final `role:"tool"` with result → assistant final → complete. Assert the tool block is present and marked complete (no spinner) before asserting assistant text, without relying on stream completion. Capture/update screenshot if needed by the plan’s final task.
+6. [ ] Update `README.md`: add one sentence noting tool spinners stop when assistant output resumes (even if LM Studio omits `tool-result` and the server synthesizes one) so users know the UI won’t wait for stream completion.
+7. [ ] Update `design.md`: add a bullet to the chat/tool flow describing the ordering: synthesized `tool-result` after `role:"tool"` final, then client fallback that marks pending tools done on first assistant output, then final `complete` fallback; mention multiple-tool and dedupe guard.
+8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

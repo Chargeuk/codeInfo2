@@ -377,7 +377,10 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 4. [ ] Verify chat client behaviour (no UI dependency on noop) and update/confirm any client tests if tool count expectations change.
 5. [ ] README.md: update/remove any mention of a noop tool (or explicitly note none exists).
 6. [ ] design.md: update/remove any mention of a noop tool (or explicitly note none exists).
-7. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+7. [ ] Server integration test (node --test): update `server/src/test/integration/chat-tools-wire.test.ts` expectations to match tool list without noop; purpose: ensure emitted tool frames are unchanged aside from list.
+8. [ ] Server Cucumber (if applicable): review chat/ingest features for tool count assumptions and adjust step data; purpose: prevent regressions in BDD flows.
+9. [ ] Client RTL: update any tool-count assertions (e.g., `client/src/test/chatPage.toolVisibility.test.tsx`) to align with no-op removal; purpose: UI should rely only on real tools.
+10. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -411,9 +414,10 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 #### Subtasks
 1. [ ] Update message state to preserve tool call insertion order and statuses (`requesting` → `done|error`) so spinner ends on completion.
 2. [ ] Adjust ChatPage rendering to insert the collapsible tool section at the tool-call position, with spinner only while `requesting`, then static header + collapsible payload once `result/error` arrives; subsequent assistant text should render after the tool block.
-3. [ ] Add/extend RTL tests to cover start→finish spinner behavior and inline placement relative to pre/post tool text.
-4. [ ] Add/extend Playwright e2e (or adjust existing chat-tools spec) to assert spinner disappears and collapsible result remains in-bubble with following text.
-5. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+3. [ ] Client RTL – `client/src/test/chatPage.toolVisibility.test.tsx`: add scenario where tool spinner stops after result and collapsible remains before trailing assistant text; purpose: verify UI state transition.
+4. [ ] Client RTL – `client/src/test/chatPage.reasoning.test.tsx` (or new targeted test): ensure reasoning + tool blocks order correctly when both appear; purpose: guard ordering regression.
+5. [ ] Playwright e2e – extend `e2e/chat-tools.spec.ts` (or new) to assert spinner visible during call then replaced by collapsible with subsequent assistant text following; purpose: end-to-end confirmation.
+6. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

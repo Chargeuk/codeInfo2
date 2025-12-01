@@ -37,7 +37,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 ### 1. Data shaping & plumbing
 
 - Task Status: __in_progress__
-- Git Commits: to_do
+- Git Commits: ac9bfd2
 
 #### Overview
 Ensure tool payloads (success and error) include needed fields for ListIngestedRepositories and VectorSearch, and expose tool parameters to the client state.
@@ -81,7 +81,6 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 9. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -89,7 +88,7 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 5. [x] `npm run compose:build`
 6. [x] `npm run compose:up`
 7. [x] `npm run compose:down`
-8. [ ] `npm run e2e`
+8. [ ] `npm run e2e` (failed on ingest remove/unlock timeout; see trace noted below)
 
 #### Implementation notes
 - Server now emits enriched `tool-result` frames with parameters, stage, trimmed/full errors, and formatted VectorSearch payloads (files aggregated by host path with chunkCount/highestMatch/lineCount). Tool arguments are captured from fragments and attached to results or error events to stop spinners.

@@ -380,6 +380,9 @@ export function useChatStream(model?: string) {
         { id: makeId(), kind: 'text', content: '' },
       ];
       const toolsAwaitingAssistantOutput = new Set<string>();
+      const logContentDecision = (reason: string, content: string) => {
+        console.log('[chat-stream] content decision', { reason, content });
+      };
 
       updateMessages((prev) => [
         ...prev,
@@ -439,6 +442,7 @@ export function useChatStream(model?: string) {
           const delta = newFinal.slice(finalText.length);
           appendTextSegment(delta);
           finalText = newFinal;
+          logContentDecision('append-final-delta', delta);
         } else {
           finalText = newFinal;
           segments = segments.filter((segment) => segment.kind !== 'text');
@@ -446,6 +450,7 @@ export function useChatStream(model?: string) {
             ...segments,
             { id: makeId(), kind: 'text', content: newFinal },
           ];
+          logContentDecision('reset-final-text', newFinal);
         }
         reasoning = next;
         syncAssistantMessage();

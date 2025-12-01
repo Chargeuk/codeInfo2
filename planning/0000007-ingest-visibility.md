@@ -354,3 +354,37 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 - Final test commands: server build/test, client build/test (existing act warnings only), compose build/up/down, and full `npm run e2e` rerun all passed. Manual Playwright runs produced the required 0000007-6-* screenshots in `test-results/screenshots/`.
 
 ---
+
+### 7. Remove noop tool from chat route
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+Remove the placeholder noop tool from the chat route/tool registry so only real tools are exposed to models.
+
+#### Documentation Locations
+- `server/src/routes/chat.ts` (tool registration)
+- `server/src/lmstudio/tools.ts` (real tools)
+- `server/src/test/support/mockLmStudioSdk.ts` (test tool definitions)
+- Chat stream tests: `server/src/test/integration/chat-tools-wire.test.ts`, `client/src/test/chatPage.*.test.tsx`
+- Context7 LM Studio docs as needed
+
+#### Subtasks
+1. [ ] Remove noop tool registration from `server/src/routes/chat.ts`; ensure LM Studio tools list is unchanged.
+2. [ ] Update mock LM Studio SDK fixtures to drop noop tool (or adjust expectations) in `server/src/test/support/mockLmStudioSdk.ts`.
+3. [ ] Adjust server integration/Cucumber tests if they assert tool counts/names to exclude noop.
+4. [ ] Verify chat client behaviour (no UI dependency on noop) and update/confirm any client tests if tool count expectations change.
+5. [ ] Update documentation (README/design) only if current text mentions a noop tool; otherwise note no changes required.
+6. [ ] Run `npm run lint --workspaces` and `npm run test --workspaces server` (and client if any client changes) to ensure coverage stays green.
+
+#### Testing
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace client` (only if client code changes)
+4. [ ] `npm run e2e` (if tool removal impacts e2e expectations)
+
+#### Implementation notes
+- To be filled during implementation.
+
+---

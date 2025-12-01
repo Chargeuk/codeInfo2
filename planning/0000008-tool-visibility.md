@@ -127,7 +127,7 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 ### 2. UI rendering: tool summaries & details
 
 - Task Status: **done**
-- Git Commits: 6dd6b9c3bebdf1b7c7cb3d049415268eff58c710
+- Git Commits: 6dd6b9c3bebdf1b7c7cb3d049415268eff58c710, 2eac68e4f6b3e8ad21b5ab6ba4c4c9f9b141e0e9
 
 #### Overview
 

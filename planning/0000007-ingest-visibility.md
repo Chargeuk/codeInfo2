@@ -410,7 +410,7 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 ### 8. Fix tool spinner lifecycle and placement in chat bubbles
 
 - status: **done**
-- Git Commits: f160c3a, 2084eea
+- Git Commits: 2084eea, f160c3a, 317c072
 
 #### Overview
 Ensure the tool spinner appears inline when a tool call starts, stops when the tool finishes, and is replaced by a collapsible result section that stays in-place within the chat bubble before subsequent assistant text.

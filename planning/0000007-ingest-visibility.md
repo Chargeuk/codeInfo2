@@ -517,8 +517,8 @@ Tool results from LM Studio are arriving inside `final` messages as `role: "tool
 
 ### 10. Stop tool spinner when assistant text resumes
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: be46bf9
 
 #### Overview
 Tool spinners should end as soon as the model resumes assistant output after a tool call, not only when the stream completes. Add a client-side guard that marks pending tools done on the first assistant token/final message after the tool result is seen, while keeping the existing synthesized tool-result handling intact.

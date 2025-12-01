@@ -357,7 +357,7 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 
 ### 7. Remove noop tool from chat route
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

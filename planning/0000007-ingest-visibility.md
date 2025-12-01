@@ -375,8 +375,9 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 2. [ ] Update mock LM Studio SDK fixtures to drop noop tool (or adjust expectations) in `server/src/test/support/mockLmStudioSdk.ts`.
 3. [ ] Adjust server integration/Cucumber tests if they assert tool counts/names to exclude noop.
 4. [ ] Verify chat client behaviour (no UI dependency on noop) and update/confirm any client tests if tool count expectations change.
-5. [ ] Update documentation (README/design) only if current text mentions a noop tool; otherwise note no changes required.
-6. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+5. [ ] README.md: update/remove any mention of a noop tool (or explicitly note none exists).
+6. [ ] design.md: update/remove any mention of a noop tool (or explicitly note none exists).
+7. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

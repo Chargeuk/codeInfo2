@@ -169,6 +169,55 @@ test.describe.serial('Ingest flows', () => {
     await ensureCleanRoots();
   });
 
+  test('ingest status shows per-file progress updates', async ({ page }) => {
+    await page.goto(`${baseUrl}/ingest`);
+
+    await page.getByLabel('Folder path').fill(fixturePath);
+    await page.getByLabel('Display name').fill(`${fixtureName}-progress`);
+    await selectEmbeddingModel(page);
+    await page.getByTestId('start-ingest').click();
+
+    const submitError = page.getByTestId('submit-error');
+    if (await submitError.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const message = (await submitError.textContent())?.trim() ?? 'unknown';
+      ingestSkip = `ingest start failed: ${message}`;
+      test.skip(ingestSkip);
+    }
+
+    await waitForInProgress(page);
+
+    const currentFile = page.getByTestId('ingest-current-file').first();
+    const progressLine = page.locator('text=/\\d+ \/ \\d+ .*% .*ETA/i').first();
+
+    const firstPath = (await currentFile.textContent({ timeout: 120_000 }))
+      ?.trim()
+      .toLowerCase();
+
+    const extractPercent = async () => {
+      const text = await progressLine.textContent();
+      const match = text?.match(/([0-9]+(?:\.[0-9]+)?)%/);
+      return match ? Number.parseFloat(match[1]) : undefined;
+    };
+
+    const firstPercent = await extractPercent();
+    expect(firstPercent).toBeDefined();
+
+    await expect
+      .poll(
+        async () =>
+          (await currentFile.textContent())?.trim()?.toLowerCase() ?? '',
+      )
+      .not.toBe(firstPath ?? '');
+
+    const secondPercent = await extractPercent();
+    expect(secondPercent).toBeDefined();
+    if (firstPercent !== undefined && secondPercent !== undefined) {
+      expect(secondPercent).toBeGreaterThan(firstPercent);
+    }
+
+    await waitForCompletion(page);
+  });
+
   test('happy path ingest completes', async ({ page }) => {
     await page.goto(`${baseUrl}/ingest`);
 

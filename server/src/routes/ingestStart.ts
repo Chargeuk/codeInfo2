@@ -1,7 +1,12 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { collectionIsEmpty, getLockedModel } from '../ingest/chromaClient.js';
-import { getStatus, isBusy, startIngest } from '../ingest/ingestJob.js';
+import {
+  getStatus,
+  isBusy,
+  startIngest,
+  type IngestJobStatus,
+} from '../ingest/ingestJob.js';
 import { toWebSocketUrl } from './lmstudioUrl.js';
 
 export function createIngestStartRouter({
@@ -53,7 +58,7 @@ export function createIngestStartRouter({
   });
 
   router.get('/ingest/status/:runId', (req, res) => {
-    const status = getStatus(req.params.runId);
+    const status: IngestJobStatus | null = getStatus(req.params.runId);
     if (!status)
       return res.status(404).json({ status: 'error', code: 'NOT_FOUND' });
     return res.json(status);

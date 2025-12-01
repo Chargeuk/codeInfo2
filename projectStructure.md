@@ -46,6 +46,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
+|     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
@@ -82,13 +83,19 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
+|     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
+|     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
+|     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
+|     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
+|     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
 |     |     |- ingestRoots.test.tsx ? roots table + details drawer + actions coverage
 |     |     |- logsPage.test.tsx ? Logs page renders data, live toggle behaviour
 |     |     |- lmstudio.test.tsx ? LM Studio page tests
 |     |     |- router.test.tsx ? nav/router tests
 |     |     |- setupTests.ts ? Jest/test setup
+|     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
 |     |     |- useLmStudioStatus.test.ts ? hook tests
 |     |     |- useLogs.test.ts ? log fetch + SSE hook tests
 |     |     - version.test.tsx ? version card test
@@ -111,6 +118,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
+â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)
+â”‚  â”œâ”€ chat-mermaid.spec.ts — renders mermaid diagram from chat reply and captures screenshot
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e
@@ -169,6 +178,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - chat_stream.feature - streaming /chat SSE Cucumber coverage
         - chat_cancellation.feature - Cucumber coverage for aborting chat streams
         - chat_models.feature - Cucumber coverage for chat model list endpoint
+        - chat-tools-visibility.feature - tool request/result metadata in chat stream
         - example.feature - sample feature
         - lmstudio.feature - LM Studio proxy scenarios
         - ingest-models.feature - embedding models endpoint scenarios
@@ -177,11 +187,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-reembed.feature - re-embed scenarios
         - ingest-remove.feature - remove root scenarios
         - ingest-dryrun-no-write.feature - dry-run skip write scenarios
+        - ingest-status.feature - ingest status endpoint includes per-file progress fields
         - ingest-empty-drop-collection.feature - delete empty collection + re-ingest
 â”‚        â”œâ”€ steps/
         - chat_stream.steps.ts - step defs for chat_stream.feature
         - chat_cancellation.steps.ts - step defs for chat_cancellation.feature
         - chat_models.steps.ts - step defs for chat_models.feature
+        - chat-tools-visibility.steps.ts - step defs for chat tool metadata visibility
         - example.steps.ts - step defs for example.feature
         - lmstudio.steps.ts - step defs for LM Studio feature
         - ingest-models.steps.ts - step defs for ingest models endpoint
@@ -189,6 +201,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-manage.steps.ts - step defs for cancel/re-embed/remove endpoints
         - ingest-start.steps.ts - step defs for ingest start/status
         - ingest-start-body.steps.ts - step defs for ingest body validation
+        - ingest-status.steps.ts - step defs for ingest status progress fields
         - ingest-roots-metadata.steps.ts - step defs for roots metadata
         - ingest-logging.steps.ts - step defs for ingest lifecycle logging
         - ingest-batch-flush.steps.ts - step defs for batched Chroma flush
@@ -207,6 +220,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
 â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
+â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/

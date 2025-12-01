@@ -16,6 +16,7 @@ import {
   Button as MuiButton,
 } from '@mui/material';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Markdown from '../components/Markdown';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
@@ -39,6 +40,7 @@ export default function ChatPage() {
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
+  const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
   const controlsDisabled = isLoading || isError || isEmpty || !selected;
   const isSending = isStreaming || status === 'sending';
   const showStop = isSending;
@@ -81,10 +83,15 @@ export default function ChatPage() {
     lastSentRef.current = '';
     inputRef.current?.focus();
     setThinkOpen({});
+    setToolOpen({});
   };
 
   const toggleThink = (id: string) => {
     setThinkOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleTool = (id: string) => {
+    setToolOpen((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -221,6 +228,20 @@ export default function ChatPage() {
                 const isStatusBubble = message.kind === 'status';
                 const isUser = message.role === 'user';
                 const hasCitations = !!message.citations?.length;
+                const segments = message.segments?.length
+                  ? message.segments
+                  : ([
+                      {
+                        id: `${message.id}-text`,
+                        kind: 'text' as const,
+                        content: message.content ?? '',
+                      },
+                      ...(message.tools?.map((tool) => ({
+                        id: `${message.id}-${tool.id}`,
+                        kind: 'tool' as const,
+                        tool,
+                      })) ?? []),
+                    ] as const);
                 return (
                   <Stack
                     key={message.id}
@@ -262,9 +283,187 @@ export default function ChatPage() {
                               : undefined,
                         }}
                       >
-                        <Typography variant="body2">
-                          {message.content || ' '}
-                        </Typography>
+                        <Stack spacing={1}>
+                          {segments.map((segment) => {
+                            if (segment.kind === 'text') {
+                              if (message.role === 'assistant') {
+                                return (
+                                  <Markdown
+                                    key={segment.id}
+                                    content={segment.content ?? ''}
+                                    data-testid="assistant-markdown"
+                                  />
+                                );
+                              }
+                              return (
+                                <Typography
+                                  key={segment.id}
+                                  variant="body2"
+                                  data-testid="user-text"
+                                >
+                                  {segment.content || ' '}
+                                </Typography>
+                              );
+                            }
+
+                            const tool = segment.tool;
+                            const isRequesting = tool.status === 'requesting';
+                            const isError = tool.status === 'error';
+                            const toggleKey = `${message.id}-${tool.id}`;
+                            const isOpen = !!toolOpen[toggleKey];
+                            const results =
+                              tool.payload &&
+                              typeof tool.payload === 'object' &&
+                              'results' in
+                                (tool.payload as Record<string, unknown>) &&
+                              Array.isArray(
+                                (tool.payload as { results?: unknown[] })
+                                  .results,
+                              )
+                                ? ((tool.payload as { results?: unknown[] })
+                                    .results as unknown[])
+                                : [];
+
+                            return (
+                              <Box key={segment.id} data-testid="tool-row">
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  spacing={1}
+                                  sx={{ mb: isRequesting ? 0 : 0.25 }}
+                                >
+                                  {isRequesting ? (
+                                    <CircularProgress
+                                      size={14}
+                                      data-testid="tool-spinner"
+                                    />
+                                  ) : (
+                                    <Typography
+                                      variant="caption"
+                                      color={
+                                        isError ? 'error.main' : 'success.main'
+                                      }
+                                    >
+                                      {isError ? 'Error' : 'Complete'}
+                                    </Typography>
+                                  )}
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ flex: 1 }}
+                                    data-testid="tool-name"
+                                  >
+                                    {tool.name ?? 'Tool'}
+                                  </Typography>
+                                  {!isRequesting && (
+                                    <MuiButton
+                                      size="small"
+                                      variant="text"
+                                      onClick={() => toggleTool(toggleKey)}
+                                      data-testid="tool-toggle"
+                                      sx={{
+                                        textTransform: 'none',
+                                        minWidth: 0,
+                                        p: 0,
+                                      }}
+                                    >
+                                      {isOpen ? 'Hide' : 'Show'}
+                                    </MuiButton>
+                                  )}
+                                </Stack>
+                                {!isRequesting && (
+                                  <Collapse
+                                    in={isOpen}
+                                    timeout="auto"
+                                    unmountOnExit
+                                  >
+                                    <Stack
+                                      spacing={0.75}
+                                      mt={0.5}
+                                      data-testid="tool-details"
+                                    >
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        Status: {tool.status}
+                                      </Typography>
+                                      {tool.name === 'VectorSearch' &&
+                                      results.length > 0 ? (
+                                        <Stack
+                                          spacing={1}
+                                          data-testid="tool-vector-results"
+                                        >
+                                          {results.map((item, resultIdx) => {
+                                            const r = item as Record<
+                                              string,
+                                              unknown
+                                            >;
+                                            const repo =
+                                              typeof r.repo === 'string'
+                                                ? r.repo
+                                                : undefined;
+                                            const relPath =
+                                              typeof r.relPath === 'string'
+                                                ? r.relPath
+                                                : undefined;
+                                            const hostPath =
+                                              typeof r.hostPath === 'string'
+                                                ? r.hostPath
+                                                : undefined;
+                                            const chunk =
+                                              typeof r.chunk === 'string'
+                                                ? r.chunk
+                                                : undefined;
+                                            if (!repo || !relPath) return null;
+                                            return (
+                                              <Box
+                                                key={`${repo}-${relPath}-${resultIdx}`}
+                                              >
+                                                <Typography
+                                                  variant="caption"
+                                                  color="text.secondary"
+                                                  data-testid="tool-result-path"
+                                                  sx={{ display: 'block' }}
+                                                >
+                                                  {repo}/{relPath}
+                                                  {hostPath
+                                                    ? ` (${hostPath})`
+                                                    : ''}
+                                                </Typography>
+                                                {chunk && (
+                                                  <Typography
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    sx={{
+                                                      whiteSpace: 'pre-wrap',
+                                                    }}
+                                                    data-testid="tool-result-chunk"
+                                                  >
+                                                    {chunk}
+                                                  </Typography>
+                                                )}
+                                              </Box>
+                                            );
+                                          })}
+                                        </Stack>
+                                      ) : tool.payload ? (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          sx={{ wordBreak: 'break-word' }}
+                                          data-testid="tool-payload"
+                                        >
+                                          {JSON.stringify(tool.payload)}
+                                        </Typography>
+                                      ) : null}
+                                    </Stack>
+                                  </Collapse>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Stack>
                         {hasCitations && (
                           <Stack spacing={1} mt={1} data-testid="citations">
                             {message.citations?.map(
@@ -307,13 +506,20 @@ export default function ChatPage() {
                             )}
                           </Stack>
                         )}
-                        {message.think && (
+                        {(message.thinkStreaming || message.think) && (
                           <Box mt={1}>
                             <Stack
                               direction="row"
                               alignItems="center"
                               gap={0.5}
                             >
+                              {message.thinkStreaming && (
+                                <CircularProgress
+                                  size={12}
+                                  color="inherit"
+                                  data-testid="think-spinner"
+                                />
+                              )}
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
@@ -341,14 +547,12 @@ export default function ChatPage() {
                               timeout="auto"
                               unmountOnExit
                             >
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                data-testid="think-content"
-                                sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}
-                              >
-                                {message.think}
-                              </Typography>
+                              <Box mt={0.5} color="text.secondary">
+                                <Markdown
+                                  content={message.think ?? ''}
+                                  data-testid="think-content"
+                                />
+                              </Box>
                             </Collapse>
                           </Box>
                         )}

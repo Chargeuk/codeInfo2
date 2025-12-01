@@ -47,12 +47,42 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
+- **Tool-call visibility:** `tool-request` events render an inline spinner + tool name inside the active assistant bubble; when `tool-result` arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
+- Tool completion synthesis: when LM Studio delivers tool payloads only via a `role: "tool"` final message (no `onToolCallResult`), the server synthesizes a `tool-result` SSE right after that message (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` on `complete`, and now clears any pending tool spinner as soon as assistant output resumes (token or final) after a tool call so ordering is preserved and the UI never waits for stream completion to stop spinners.
 
 ### Chat citations UI
 
 - `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
 - Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
+
+### Markdown rendering (assistant replies)
+
+- Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.
+- Styled `<pre><code>` blocks and inline code backgrounds improve readability; links open in a new tab. Blockquotes use a divider-colored border to stay subtle inside bubbles.
+- Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded.
+- Streaming-safe: the Markdown wrapper simply re-renders on content changes, relying on the sanitized schema to drop scripts before the virtual DOM paint.
+
+### Mermaid rendering
+
+- Markdown fences labeled `mermaid` are intercepted in `client/src/components/Markdown.tsx` and rendered via `mermaid.render` into a dedicated `<div>`, keeping the renderer isolated from normal markdown output.
+- Input is sanitized before rendering (script tags stripped) and the mermaid instance is initialized per theme (`default` for light, `dark` for dark mode); render errors fall back to a short inline error message.
+- Diagram containers use the page background + border, clamp width to the chat bubble, and allow horizontal scroll so wide graphs do not overflow on mobile.
+
+```mermaid
+flowchart TD
+  A[Markdown fences] -->|language=mermaid| B[MermaidBlock]
+  B -->|sanitize| C[strip <script> tags]
+  C -->|render| D[mermaid.render to div]
+  D -->|theme| E[light/default or dark]
+```
+
+### Reasoning collapse (think + Harmony)
+
+- The chat stream parser keeps two buffers per assistant turn: a hidden `analysis` buffer and a visible `final` buffer, plus a `mode` flag (`analysis` or `final`) and `analysisStreaming` to drive the spinner.
+- Control tokens stripped from the output include `<think>...</think>`, `<|channel|>analysis<|message|>`, `<|channel|>final<|message|>`, `<|start|>assistant...`, and `<|end|>`. Text before/after a marker is routed to the active buffer.
+- As soon as an analysis marker appears, the UI shows a collapsed “Thought process” row with a spinner; users can expand it mid-stream to watch reasoning accumulate. Switching to a final marker stops the spinner and streams visible text separately.
+- Partial marker fragments are buffered (lookback equals the longest marker length) so split tokens do not leak control strings into the rendered output.
 
 ```mermaid
 sequenceDiagram
@@ -166,7 +196,7 @@ sequenceDiagram
 ### LM Studio tools (chat wiring)
 
 - Tools are defined in `server/src/lmstudio/tools.ts` and reuse shared helpers in `server/src/lmstudio/toolService.ts` so HTTP tooling endpoints and chat share the same provenance/path mapping. `ListIngestedRepositories` has no inputs; `VectorSearch` accepts `query`, optional `repository`, and `limit` (default 5, max 20).
-- Chat registers both tools alongside the noop tool; `VectorSearch` returns repo id, relPath, containerPath, hostPath, chunk text, score, chunkId, and modelId for inline citations. Validation/unknown-repo errors are surfaced as tool errors to the model. VectorSearch derives its embedding function from the vectors collection `lockedModelId`; if no lock exists the tool and HTTP endpoint return `INGEST_REQUIRED`, and if the locked model is unavailable in LM Studio they return `EMBED_MODEL_MISSING` rather than silently falling back.
+- Chat registers the LM Studio tools (ListIngestedRepositories and VectorSearch); `VectorSearch` returns repo id, relPath, containerPath, hostPath, chunk text, score, chunkId, and modelId for inline citations. Validation/unknown-repo errors are surfaced as tool errors to the model. VectorSearch derives its embedding function from the vectors collection `lockedModelId`; if no lock exists the tool and HTTP endpoint return `INGEST_REQUIRED`, and if the locked model is unavailable in LM Studio they return `EMBED_MODEL_MISSING` rather than silently falling back.
 - Logging: each tool execution emits a `chat tool usage` entry with requestId/baseUrl/model plus tool name, repository scope, limit, result count, and modelId; payload bodies are not logged.
 
 ### Ingest models fetch
@@ -218,6 +248,24 @@ sequenceDiagram
   end
   Client->>Server: GET /ingest/status/{runId}
   Server-->>Client: {state, counts, message, lastError?}
+```
+
+#### Ingest progress telemetry
+
+- `/ingest/status/:runId` now includes `currentFile`, `fileIndex`, `fileTotal`, `percent` (1dp from `fileIndex/fileTotal`), and `etaMs` (ms, estimated from completed-file timing). Final snapshots keep the last processed path and percent 100.
+- The client renders these fields under the Active ingest header, formatting ETA as `hh:mm:ss` and falling back to “Pending file info” when progress data is absent.
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant API as /ingest/status
+  participant Job as Ingest job
+
+  UI->>API: poll status every ~2s
+  API->>Job: read latest snapshot
+  Job-->>API: state + counts + currentFile + fileIndex/fileTotal + percent + etaMs
+  API-->>UI: JSON status
+  UI-->>UI: render file path, index/total, percent, ETA
 ```
 
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
@@ -304,7 +352,7 @@ sequenceDiagram
 
 ## Chat streaming endpoint
 
-- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with a registered `noop` tool built via the SDK `tool()` helper (empty parameters) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
+- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with the registered LM Studio tools (ListIngestedRepositories, VectorSearch) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
 - If a streamed assistant message contains `<think>...</think>`, the client extracts the think content and renders it in a collapsible “Thought process” section within the assistant bubble; the main reply remains visible.
 - Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
 - Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
@@ -319,7 +367,7 @@ sequenceDiagram
   participant LM as LM Studio
   participant Logs as Log store
   Client->>Server: POST /chat {model,messages}
-  Server->>LM: model.act(messages, tools=[noop])
+  Server->>LM: model.act(messages, tools=[ListIngestedRepositories, VectorSearch])
   LM-->>Server: predictionFragment(content)
   Server-->>Client: SSE {type:"token", content}
   LM-->>Server: toolCallRequest*/Result

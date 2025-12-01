@@ -7,7 +7,10 @@ export type ChatMessage = {
   content: string;
   kind?: 'error' | 'status';
   think?: string;
+  thinkStreaming?: boolean;
   citations?: ToolCitation[];
+  tools?: ToolCall[];
+  segments?: ChatSegment[];
 };
 
 export type ToolCitation = {
@@ -20,6 +23,17 @@ export type ToolCitation = {
   chunkId?: string;
   modelId?: string;
 };
+
+export type ToolCall = {
+  id: string;
+  name?: string;
+  status: 'requesting' | 'done' | 'error';
+  payload?: unknown;
+};
+
+export type ChatSegment =
+  | { id: string; kind: 'text'; content: string }
+  | { id: string; kind: 'tool'; tool: ToolCall };
 
 type Status = 'idle' | 'sending';
 
@@ -48,6 +62,150 @@ const serverBase =
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
+type ReasoningState = {
+  pending: string;
+  mode: 'final' | 'analysis';
+  analysis: string;
+  final: string;
+  analysisStreaming: boolean;
+};
+
+const controlTokens = [
+  {
+    token: '<|start|>assistant<|channel|>final<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|channel|>analysis<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'analysis';
+      state.analysisStreaming = true;
+    },
+  },
+  {
+    token: '<|channel|>final<|message|>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<think>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'analysis';
+      state.analysisStreaming = true;
+    },
+  },
+  {
+    token: '</think>',
+    onHit: (state: ReasoningState) => {
+      state.mode = 'final';
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|start|>assistant',
+    onHit: (state: ReasoningState) => {
+      state.analysisStreaming = false;
+    },
+  },
+  {
+    token: '<|end|>',
+    onHit: () => {},
+  },
+];
+
+const maxMarkerLength = controlTokens.reduce(
+  (max, token) => Math.max(max, token.token.length),
+  0,
+);
+
+const maxLookback = Math.max(maxMarkerLength - 1, 0);
+
+const initialReasoningState = (): ReasoningState => ({
+  pending: '',
+  mode: 'final',
+  analysis: '',
+  final: '',
+  analysisStreaming: false,
+});
+
+const parseReasoning = (
+  current: ReasoningState,
+  chunk: string,
+  { flushAll = false }: { flushAll?: boolean } = {},
+): ReasoningState => {
+  let pending = current.pending + chunk;
+  let analysis = current.analysis;
+  let final = current.final;
+  let mode = current.mode;
+  let analysisStreaming = current.analysisStreaming;
+
+  const appendText = (text: string) => {
+    if (!text) return;
+    if (mode === 'analysis') {
+      analysis += text;
+    } else {
+      final += text;
+    }
+  };
+
+  while (pending.length) {
+    let nearest: { idx: number; token: (typeof controlTokens)[number] } | null =
+      null;
+
+    for (const token of controlTokens) {
+      const idx = pending.indexOf(token.token);
+      if (idx === -1) continue;
+      if (
+        nearest === null ||
+        idx < nearest.idx ||
+        (idx === nearest.idx &&
+          token.token.length > (nearest.token?.token.length ?? 0))
+      ) {
+        nearest = { idx, token };
+      }
+    }
+
+    if (!nearest) {
+      if (flushAll) {
+        appendText(pending);
+        pending = '';
+      } else if (pending.length > maxLookback) {
+        const emitLen = pending.length - maxLookback;
+        appendText(pending.slice(0, emitLen));
+        pending = pending.slice(emitLen);
+      }
+      break;
+    }
+
+    const prefix = pending.slice(0, nearest.idx);
+    appendText(prefix);
+    pending = pending.slice(nearest.idx + nearest.token.token.length);
+
+    const tokenState = {
+      pending: '',
+      mode,
+      analysis,
+      final,
+      analysisStreaming,
+    };
+    nearest.token.onHit(tokenState);
+    ({ mode, analysis, final, analysisStreaming } = tokenState);
+  }
+
+  return {
+    pending,
+    mode,
+    analysis,
+    final,
+    analysisStreaming,
+  };
+};
+
 const isToolEvent = (
   event: StreamEvent,
 ): event is Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }> =>
@@ -61,6 +219,11 @@ export function useChatStream(model?: string) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
+
+  const finishStreaming = useCallback(() => {
+    setIsStreaming(false);
+    setStatus('idle');
+  }, []);
 
   useEffect(() => {
     statusRef.current = status;
@@ -93,17 +256,15 @@ export function useChatStream(model?: string) {
           },
         ]);
       }
-      setIsStreaming(false);
-      setStatus('idle');
+      finishStreaming();
     },
-    [updateMessages],
+    [finishStreaming, updateMessages],
   );
 
   const reset = useCallback(() => {
     updateMessages(() => []);
-    setIsStreaming(false);
-    setStatus('idle');
-  }, [updateMessages]);
+    finishStreaming();
+  }, [finishStreaming, updateMessages]);
 
   const handleErrorBubble = useCallback(
     (message: string) => {
@@ -118,28 +279,6 @@ export function useChatStream(model?: string) {
       ]);
     },
     [updateMessages],
-  );
-
-  const extractThink = (text: string) => {
-    const match = text.match(/<think>([\s\S]*?)<\/think>/i);
-    if (!match) {
-      return { visible: text.trim(), think: undefined };
-    }
-    const think = match[1]?.trim() ?? '';
-    const visible = text.replace(match[0], '').trim();
-    return { visible, think: think.length ? think : undefined };
-  };
-
-  const handleToolEvent = useCallback(
-    (event: Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }>) => {
-      logger('info', 'chat tool event', {
-        type: event.type,
-        callId: event.callId,
-        name: event.name,
-        stage: event.stage,
-      });
-    },
-    [logger],
   );
 
   const extractCitations = useCallback((result: unknown): ToolCitation[] => {
@@ -200,14 +339,83 @@ export function useChatStream(model?: string) {
         .map((msg) => ({ role: msg.role, content: msg.content }));
 
       const assistantId = makeId();
-      let assistantContent = '';
-      let assistantThink: string | undefined;
+      let reasoning = initialReasoningState();
+      let finalText = '';
       let assistantCitations: ToolCitation[] = [];
+      let segments: ChatSegment[] = [
+        { id: makeId(), kind: 'text', content: '' },
+      ];
+      const toolsAwaitingAssistantOutput = new Set<string>();
 
       updateMessages((prev) => [
         ...prev,
-        { id: assistantId, role: 'assistant', content: '' },
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          segments,
+        },
       ]);
+
+      const syncAssistantMessage = () => {
+        const toolList = segments
+          .filter(
+            (segment): segment is Extract<ChatSegment, { kind: 'tool' }> =>
+              segment.kind === 'tool',
+          )
+          .map((segment) => segment.tool);
+
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  content: finalText,
+                  think: reasoning.analysis || undefined,
+                  thinkStreaming: reasoning.analysisStreaming,
+                  segments,
+                  tools: toolList,
+                }
+              : msg,
+          ),
+        );
+      };
+
+      const appendTextSegment = (text: string) => {
+        if (!text) return;
+        const last = segments[segments.length - 1];
+        let nextSegments = [...segments];
+        if (last && last.kind === 'text') {
+          nextSegments[nextSegments.length - 1] = {
+            ...last,
+            content: last.content + text,
+          };
+        } else {
+          nextSegments = [
+            ...nextSegments,
+            { id: makeId(), kind: 'text', content: text },
+          ];
+        }
+        segments = nextSegments;
+      };
+
+      const applyReasoning = (next: ReasoningState) => {
+        const newFinal = next.final;
+        if (newFinal.length >= finalText.length) {
+          const delta = newFinal.slice(finalText.length);
+          appendTextSegment(delta);
+          finalText = newFinal;
+        } else {
+          finalText = newFinal;
+          segments = segments.filter((segment) => segment.kind !== 'text');
+          segments = [
+            ...segments,
+            { id: makeId(), kind: 'text', content: newFinal },
+          ];
+        }
+        reasoning = next;
+        syncAssistantMessage();
+      };
 
       const appendCitations = (incoming: ToolCitation[]) => {
         if (!incoming.length) return;
@@ -221,6 +429,118 @@ export function useChatStream(model?: string) {
                 }
               : msg,
           ),
+        );
+      };
+
+      const upsertTool = (incoming: ToolCall) => {
+        const stripTrailingEmptyText = (list: ChatSegment[]) => {
+          const last = list[list.length - 1];
+          if (last && last.kind === 'text' && last.content === '') {
+            return list.slice(0, -1);
+          }
+          return list;
+        };
+
+        const ensureTrailingText = (list: ChatSegment[]) => {
+          const last = list[list.length - 1];
+          if (!last || last.kind !== 'text' || last.content.length > 0) {
+            return [
+              ...list,
+              { id: makeId(), kind: 'text', content: '' } as ChatSegment,
+            ];
+          }
+          return list;
+        };
+
+        let nextSegments = [...segments];
+        const existingIndex = nextSegments.findIndex(
+          (segment) =>
+            segment.kind === 'tool' && segment.tool.id === incoming.id,
+        );
+
+        if (existingIndex >= 0) {
+          const existing = nextSegments[existingIndex] as Extract<
+            ChatSegment,
+            { kind: 'tool' }
+          >;
+          nextSegments[existingIndex] = {
+            ...existing,
+            tool: { ...existing.tool, ...incoming },
+          };
+        } else {
+          nextSegments = stripTrailingEmptyText(nextSegments);
+          nextSegments = [
+            ...nextSegments,
+            { id: incoming.id, kind: 'tool', tool: incoming },
+          ];
+          nextSegments = ensureTrailingText(nextSegments);
+        }
+
+        segments = nextSegments;
+        syncAssistantMessage();
+      };
+
+      const completeAwaitingToolsOnAssistantOutput = () => {
+        if (!toolsAwaitingAssistantOutput.size) return;
+        let changed = false;
+        segments = segments.map((segment) => {
+          if (segment.kind !== 'tool') return segment;
+          if (segment.tool.status !== 'requesting') return segment;
+          if (!toolsAwaitingAssistantOutput.has(segment.tool.id))
+            return segment;
+          toolsAwaitingAssistantOutput.delete(segment.tool.id);
+          changed = true;
+          return {
+            ...segment,
+            tool: { ...segment.tool, status: 'done' },
+          };
+        });
+
+        if (changed) {
+          syncAssistantMessage();
+        }
+      };
+
+      const completePendingTools = () => {
+        const nextSegments = segments.map((segment) =>
+          segment.kind === 'tool' && segment.tool.status === 'requesting'
+            ? {
+                ...segment,
+                tool: { ...segment.tool, status: 'done' },
+              }
+            : segment,
+        );
+        segments = nextSegments;
+        syncAssistantMessage();
+        updateMessages((prev) =>
+          prev.map((msg, idx, list) => {
+            if (idx !== list.length - 1 || msg.role !== 'assistant') {
+              return msg;
+            }
+            const updatedTools = msg.tools?.map((tool) =>
+              tool.status === 'requesting' ? { ...tool, status: 'done' } : tool,
+            );
+            const updatedSegments = msg.segments?.map((segment) =>
+              segment.kind === 'tool' && segment.tool.status === 'requesting'
+                ? {
+                    ...segment,
+                    tool: { ...segment.tool, status: 'done' },
+                  }
+                : segment,
+            );
+
+            const toolsChanged =
+              JSON.stringify(updatedTools) !== JSON.stringify(msg.tools);
+            const segmentsChanged =
+              JSON.stringify(updatedSegments) !== JSON.stringify(msg.segments);
+
+            if (!toolsChanged && !segmentsChanged) return msg;
+            return {
+              ...msg,
+              ...(updatedTools ? { tools: updatedTools } : {}),
+              ...(updatedSegments ? { segments: updatedSegments } : {}),
+            } as ChatMessage;
+          }),
         );
       };
 
@@ -243,19 +563,6 @@ export function useChatStream(model?: string) {
         const decoder = new TextDecoder();
         let buffer = '';
 
-        const flushAssistant = (content: string) => {
-          assistantContent = content;
-          const { visible, think } = extractThink(content);
-          assistantThink = think;
-          updateMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId
-                ? { ...msg, content: visible, think: assistantThink }
-                : msg,
-            ),
-          );
-        };
-
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -271,29 +578,94 @@ export function useChatStream(model?: string) {
             try {
               const event = JSON.parse(payload) as StreamEvent;
               if (isToolEvent(event)) {
-                handleToolEvent(event);
+                const status: ToolCall['status'] =
+                  event.type === 'tool-request'
+                    ? 'requesting'
+                    : event.stage === 'error'
+                      ? 'error'
+                      : 'done';
+                const id = event.callId ?? makeId();
+                logger('info', 'chat tool event', {
+                  type: event.type,
+                  callId: id,
+                  name: event.name,
+                  stage: event.stage,
+                });
+                const applyResult = () => {
+                  upsertTool({
+                    id,
+                    name: event.name,
+                    status,
+                    payload: event.result,
+                  });
+                  if (event.type === 'tool-request') {
+                    toolsAwaitingAssistantOutput.add(id);
+                  }
+                  if (event.type === 'tool-result') {
+                    const citations = extractCitations(event.result);
+                    appendCitations(citations);
+                    toolsAwaitingAssistantOutput.add(id);
+                  }
+                };
+
                 if (event.type === 'tool-result') {
-                  const citations = extractCitations(event.result);
-                  appendCitations(citations);
+                  setTimeout(applyResult, 500);
+                } else {
+                  applyResult();
                 }
                 continue;
               }
+              if (event.type === 'final' && event.message?.role === 'tool') {
+                segments
+                  .filter(
+                    (
+                      segment,
+                    ): segment is Extract<ChatSegment, { kind: 'tool' }> =>
+                      segment.kind === 'tool' &&
+                      segment.tool.status === 'requesting',
+                  )
+                  .forEach((segment) => {
+                    toolsAwaitingAssistantOutput.add(segment.tool.id);
+                  });
+                continue;
+              }
+
               if (event.type === 'token' && typeof event.content === 'string') {
-                flushAssistant(assistantContent + event.content);
+                completeAwaitingToolsOnAssistantOutput();
+                applyReasoning(
+                  parseReasoning(reasoning, event.content, {
+                    flushAll: false,
+                  }),
+                );
               } else if (
                 event.type === 'final' &&
                 typeof event.message?.content === 'string'
               ) {
-                flushAssistant(event.message.content);
+                completeAwaitingToolsOnAssistantOutput();
+                applyReasoning(
+                  parseReasoning(
+                    initialReasoningState(),
+                    event.message.content,
+                    { flushAll: true },
+                  ),
+                );
+              } else if (event.type === 'final') {
+                completeAwaitingToolsOnAssistantOutput();
+                applyReasoning(
+                  parseReasoning(reasoning, '', { flushAll: true }),
+                );
               } else if (event.type === 'error') {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
-                setIsStreaming(false);
-                setStatus('idle');
+                finishStreaming();
               } else if (event.type === 'complete') {
-                setIsStreaming(false);
-                setStatus('idle');
+                const completed = parseReasoning(reasoning, '', {
+                  flushAll: true,
+                });
+                applyReasoning({ ...completed, analysisStreaming: false });
+                completePendingTools();
+                setTimeout(finishStreaming, 0);
               }
             } catch {
               continue;
@@ -307,8 +679,7 @@ export function useChatStream(model?: string) {
         handleErrorBubble(
           (err as Error)?.message ?? 'Chat failed. Please try again.',
         );
-        setIsStreaming(false);
-        setStatus('idle');
+        finishStreaming();
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
@@ -317,8 +688,9 @@ export function useChatStream(model?: string) {
     },
     [
       extractCitations,
+      finishStreaming,
       handleErrorBubble,
-      handleToolEvent,
+      logger,
       model,
       status,
       stop,

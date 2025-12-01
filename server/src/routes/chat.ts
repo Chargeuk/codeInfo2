@@ -1,5 +1,5 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
-import { Chat, tool } from '@lmstudio/sdk';
+import { Chat } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -116,6 +116,7 @@ export function createChatRouter({
       const client = clientFactory(toWebSocketUrl(baseUrl));
       const modelClient = await client.llm.model(model);
       let currentRound = 0;
+      const emittedToolResults = new Set<string | number>();
       const logToolUsage = (payload: Record<string, unknown>) => {
         append({
           level: 'info',
@@ -144,15 +145,7 @@ export function createChatRouter({
         log: (payload) => logToolUsage(payload),
       });
 
-      const tools = [
-        ...lmStudioTools,
-        tool({
-          name: 'noop',
-          description: 'does nothing',
-          parameters: {},
-          implementation: async () => ({ content: 'noop' }),
-        }),
-      ];
+      const tools = [...lmStudioTools];
       const chat = Chat.from(messages);
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;
@@ -193,6 +186,89 @@ export function createChatRouter({
         );
       };
 
+      const toolNames = new Map<number, string>();
+
+      const emitToolResult = (
+        roundIndex: number,
+        callId: string | number,
+        name: string | undefined,
+        payload: unknown,
+      ) => {
+        if (emittedToolResults.has(callId)) return;
+        emittedToolResults.add(callId);
+        logToolEvent('toolCallResult', callId, name, roundIndex);
+        baseLogger.info(
+          {
+            requestId,
+            baseUrl: safeBase,
+            model,
+            callId,
+            roundIndex,
+            name,
+            payloadKeys:
+              payload && typeof payload === 'object'
+                ? Object.keys(payload as Record<string, unknown>)
+                : [],
+          },
+          'chat tool result emit',
+        );
+        writeIfOpen({
+          type: 'tool-result',
+          callId,
+          roundIndex,
+          name,
+          result: payload,
+        });
+      };
+
+      const normalizeToolResults = (
+        message: unknown,
+      ): Array<{
+        callId?: string | number;
+        name?: string;
+        result?: unknown;
+      }> => {
+        const content =
+          (message as { content?: unknown })?.content ??
+          (message as { toolCallResult?: unknown })?.toolCallResult ??
+          message;
+
+        const toEntry = (
+          item: unknown,
+        ): { callId?: string | number; name?: string; result?: unknown } => {
+          if (item && typeof item === 'object') {
+            const obj = item as Record<string, unknown>;
+            return {
+              callId:
+                (obj.toolCallId as string | number | undefined) ??
+                (obj.callId as string | number | undefined) ??
+                (obj.id as string | number | undefined),
+              name: (obj.name as string | undefined) ?? undefined,
+              result:
+                'result' in obj
+                  ? obj.result
+                  : 'content' in obj
+                    ? obj.content
+                    : obj,
+            };
+          }
+          if (typeof item === 'string') {
+            try {
+              const parsed = JSON.parse(item) as unknown;
+              return toEntry(parsed);
+            } catch {
+              return { result: item };
+            }
+          }
+          return { result: item };
+        };
+
+        if (Array.isArray(content)) {
+          return content.map((item) => toEntry(item));
+        }
+        return [toEntry(content)];
+      };
+
       const actOptions: LLMActionOpts & { signal?: AbortSignal } & Record<
           string,
           unknown
@@ -215,6 +291,9 @@ export function createChatRouter({
         },
         onMessage: (message) => {
           const msg = message as { role?: unknown; content?: unknown };
+          const pendingToolResults =
+            msg && msg.role === 'tool' ? normalizeToolResults(message) : [];
+
           if (
             msg &&
             typeof msg.role === 'string' &&
@@ -230,6 +309,17 @@ export function createChatRouter({
             message,
             roundIndex: currentRound,
           });
+
+          for (const entry of pendingToolResults) {
+            const callId = entry.callId;
+            if (callId === undefined || callId === null) continue;
+            const name =
+              entry.name ??
+              toolNames.get(Number(callId)) ??
+              toolNames.get(callId as number) ??
+              undefined;
+            emitToolResult(currentRound, callId, name, entry.result);
+          }
         },
         onToolCallRequestStart: (roundIndex: number, callId: number) => {
           logToolEvent('toolCallRequestStart', callId, undefined, roundIndex);
@@ -245,6 +335,7 @@ export function createChatRouter({
           callId: number,
           name: string,
         ) => {
+          toolNames.set(callId, name);
           logToolEvent('toolCallRequestNameReceived', callId, name, roundIndex);
           writeIfOpen({
             type: 'tool-request',
@@ -339,13 +430,15 @@ export function createChatRouter({
           callId: number,
           info: unknown,
         ) => {
-          logToolEvent('toolCallResult', callId, undefined, roundIndex);
-          writeIfOpen({
-            type: 'tool-result',
-            callId,
-            roundIndex,
-            result: info,
-          });
+          const name =
+            toolNames.get(callId) ??
+            (info as { name?: string })?.name ??
+            undefined;
+          const payload =
+            info && typeof info === 'object' && 'result' in (info as object)
+              ? (info as { result?: unknown }).result
+              : info;
+          emitToolResult(roundIndex, callId, name, payload);
         },
       };
 

@@ -110,6 +110,11 @@ export default function IngestPage() {
               runId={activeRunId}
               status={status.status}
               counts={status.counts}
+              currentFile={status.currentFile}
+              fileIndex={status.fileIndex}
+              fileTotal={status.fileTotal}
+              percent={status.percent}
+              etaMs={status.etaMs}
               lastError={status.lastError ?? undefined}
               message={status.message ?? undefined}
               isLoading={status.isLoading}

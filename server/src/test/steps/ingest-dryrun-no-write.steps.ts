@@ -134,7 +134,7 @@ Then(
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
       finalState = body as StatusBody;
-      if (body.state !== 'embedding') break;
+      if (body.state === 'completed' || body.state === 'error') break;
       await new Promise((r) => setTimeout(r, 100));
     }
     assert(finalState, 'status missing');

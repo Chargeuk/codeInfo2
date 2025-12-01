@@ -376,13 +376,17 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 3. [ ] Adjust server integration/Cucumber tests if they assert tool counts/names to exclude noop.
 4. [ ] Verify chat client behaviour (no UI dependency on noop) and update/confirm any client tests if tool count expectations change.
 5. [ ] Update documentation (README/design) only if current text mentions a noop tool; otherwise note no changes required.
-6. [ ] Run `npm run lint --workspaces` and `npm run test --workspaces server` (and client if any client changes) to ensure coverage stays green.
+6. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace client` (only if client code changes)
-4. [ ] `npm run e2e` (if tool removal impacts e2e expectations)
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - To be filled during implementation.
@@ -408,12 +412,17 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 2. [ ] Adjust ChatPage rendering to insert the collapsible tool section at the tool-call position, with spinner only while `requesting`, then static header + collapsible payload once `result/error` arrives; subsequent assistant text should render after the tool block.
 3. [ ] Add/extend RTL tests to cover start→finish spinner behavior and inline placement relative to pre/post tool text.
 4. [ ] Add/extend Playwright e2e (or adjust existing chat-tools spec) to assert spinner disappears and collapsible result remains in-bubble with following text.
-5. [ ] Run `npm run lint --workspaces` and `npm run test --workspaces client`; run `npm run e2e` if UI changes risk regressions.
+5. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
-1. [ ] `npm run test --workspaces client`
-2. [ ] `npm run lint --workspaces`
-3. [ ] `npm run e2e` (if UI changes affect chat tool flow)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - To be filled during implementation.

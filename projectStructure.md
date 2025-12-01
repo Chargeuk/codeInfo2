@@ -67,7 +67,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
-|     |  |- ChatPage.tsx ? chat shell with model select and placeholder transcript
+|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, tool blocks, and citations accordion (closed by default)
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -80,7 +80,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
 |     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
-|     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
+|     |     |- chatPage.citations.test.tsx ? chat citations accordion default-closed with host paths shown when expanded
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolDetails.test.tsx ? tool detail UI (parameters, repos, vector files, errors)

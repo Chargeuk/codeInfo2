@@ -574,26 +574,29 @@ Keep vector search citations but render them inside an expandable “Citations�
 
 #### Subtasks
 
-1. [ ] Restore normal citation collection in `useChatStream.ts` (ensure appendCitations receives real data).
-2. [ ] Add a collapsible “Citations” section in `ChatPage.tsx` for assistant messages that have citations; default closed; show count in the summary.
-3. [ ] Render existing citation content (path + chunk text) inside the collapse; keep current sanitization/styling.
-4. [ ] Accessibility: summary is keyboard-focusable; `aria-expanded` reflects state; add test ids for toggle and list.
-5. [ ] Client RTL tests: cover default-closed state and expansion showing citation text (update/create in `client/src/test/chatPage.stream.test.tsx` or adjacent file).
-6. [ ] E2E: update `e2e/chat-tools-visibility.spec.ts` (or add case) to verify citations are hidden by default and appear after expand.
-7. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to mention the citations toggle.
-8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+1. [x] Restore normal citation collection in `useChatStream.ts` (ensure appendCitations receives real data).
+2. [x] Add a collapsible “Citations” section in `ChatPage.tsx` for assistant messages that have citations; default closed; show count in the summary.
+3. [x] Render existing citation content (path + chunk text) inside the collapse; keep current sanitization/styling.
+4. [x] Accessibility: summary is keyboard-focusable; `aria-expanded` reflects state; add test ids for toggle and list.
+5. [x] Client RTL tests: cover default-closed state and expansion showing citation text (update/create in `client/src/test/chatPage.stream.test.tsx` or adjacent file).
+6. [x] E2E: update `e2e/chat-tools-visibility.spec.ts` (or add case) to verify citations are hidden by default and appear after expand.
+7. [x] Docs: update `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to mention the citations toggle.
+8. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- to_be_filled
+- Restored citation aggregation in `useChatStream` and wrapped the assistant bubble citations in a default-closed MUI accordion with count, border styling, and test ids for toggle/panel.
+- Updated RTL citation suites to assert the accordion starts hidden and reveals path + chunk text on expand; adjusted e2e chat-tools specs to click the citations toggle before checking visibility and host-path text.
+- Documented the new citations toggle in `README.md`, `design.md`, and `projectStructure.md`; lint and format checks now clean after removing stale dist outputs.
+- Full test matrix rerun (server/client builds, server/client tests, compose build/up/down, e2e) now passes; Playwright failure from hidden citations is resolved by expanding before asserting (React act warnings in Jest remain expected noise).

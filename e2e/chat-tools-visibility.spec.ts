@@ -106,7 +106,17 @@ test.describe('Chat tool visibility details', () => {
         parameters: { query: 'alpha info', limit: 5 },
         result: {
           files: vectorFiles,
-          results: [],
+          results: [
+            {
+              repo: 'Code Info 2',
+              relPath: 'src/index.ts',
+              hostPath: '/data/repo/alpha/file-a.txt',
+              chunk: 'alpha chunk text',
+              chunkId: 'c-1',
+              score: 0.9,
+              lineCount: 10,
+            },
+          ],
           modelId: 'embed-1',
         },
       },
@@ -124,6 +134,17 @@ test.describe('Chat tool visibility details', () => {
 
     await page.getByTestId('chat-input').fill('Show tools');
     await page.getByTestId('chat-send').click();
+
+    await expect(page.getByText('Here are the tool details.')).toBeVisible();
+
+    const citationsToggle = page.getByTestId('citations-toggle');
+    await expect(citationsToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('citations')).not.toBeVisible();
+    await citationsToggle.click();
+    await expect(page.getByTestId('citations')).toBeVisible();
+    await expect(page.getByTestId('citations')).toContainText(
+      'alpha chunk text',
+    );
 
     const toolRows = page.getByTestId('tool-row');
     await expect(toolRows).toHaveCount(2, { timeout: 20000 });

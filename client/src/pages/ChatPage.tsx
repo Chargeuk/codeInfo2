@@ -690,46 +690,79 @@ export default function ChatPage() {
                           })}
                         </Stack>
                         {hasCitations && (
-                          <Stack spacing={1} mt={1} data-testid="citations">
-                            {message.citations?.map(
-                              (citation: ToolCitation, idx) => {
-                                const pathLabel = `${citation.repo}/${citation.relPath}`;
-                                const hostSuffix = citation.hostPath
-                                  ? ` (${citation.hostPath})`
-                                  : '';
-                                return (
-                                  <Box
-                                    key={`${citation.chunkId ?? idx}-${citation.relPath}`}
-                                  >
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                      title={citation.hostPath ?? pathLabel}
-                                      sx={{
-                                        display: 'block',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        maxWidth: '100%',
-                                      }}
-                                      data-testid="citation-path"
-                                    >
-                                      {pathLabel}
-                                      {hostSuffix}
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      color="text.primary"
-                                      sx={{ whiteSpace: 'pre-wrap' }}
-                                      data-testid="citation-chunk"
-                                    >
-                                      {citation.chunk}
-                                    </Typography>
-                                  </Box>
-                                );
-                              },
-                            )}
-                          </Stack>
+                          <Accordion
+                            disableGutters
+                            elevation={0}
+                            defaultExpanded={false}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              bgcolor: 'grey.50',
+                              mt: 1,
+                            }}
+                            data-testid="citations-accordion"
+                          >
+                            <AccordionSummary
+                              expandIcon={<ExpandMoreIcon fontSize="small" />}
+                              aria-controls="citations-panel"
+                              id="citations-summary"
+                              data-testid="citations-toggle"
+                            >
+                              <Typography variant="body2" fontWeight={600}>
+                                Citations ({message.citations?.length ?? 0})
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails id="citations-panel">
+                              <Stack spacing={1} data-testid="citations">
+                                {message.citations?.map(
+                                  (citation: ToolCitation, idx) => {
+                                    const pathLabel = `${citation.repo}/${citation.relPath}`;
+                                    const hostSuffix = citation.hostPath
+                                      ? ` (${citation.hostPath})`
+                                      : '';
+                                    return (
+                                      <Box
+                                        key={`${citation.chunkId ?? idx}-${citation.relPath}`}
+                                        sx={{
+                                          border: '1px solid',
+                                          borderColor: 'divider',
+                                          borderRadius: 1,
+                                          p: 1,
+                                          bgcolor: 'background.paper',
+                                        }}
+                                      >
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          title={citation.hostPath ?? pathLabel}
+                                          sx={{
+                                            display: 'block',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            maxWidth: '100%',
+                                          }}
+                                          data-testid="citation-path"
+                                        >
+                                          {pathLabel}
+                                          {hostSuffix}
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          color="text.primary"
+                                          sx={{ whiteSpace: 'pre-wrap' }}
+                                          data-testid="citation-chunk"
+                                        >
+                                          {citation.chunk}
+                                        </Typography>
+                                      </Box>
+                                    );
+                                  },
+                                )}
+                              </Stack>
+                            </AccordionDetails>
+                          </Accordion>
                         )}
                         {(message.thinkStreaming || message.think) && (
                           <Box mt={1}>

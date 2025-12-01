@@ -186,6 +186,11 @@ test.describe.serial('Chat tools citations', () => {
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
     const hostSuffix = firstResult.hostPath ? ` (${firstResult.hostPath})` : '';
 
+    const citationsToggle = page.getByTestId('citations-toggle');
+    await expect(citationsToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('citations')).not.toBeVisible();
+    await citationsToggle.click();
+
     const citations = page.getByTestId('citations');
     await expect(citations).toBeVisible({ timeout: 20000 });
     await expect(page.getByTestId('citation-path').first()).toHaveText(

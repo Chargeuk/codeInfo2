@@ -62,6 +62,20 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded.
 - Streaming-safe: the Markdown wrapper simply re-renders on content changes, relying on the sanitized schema to drop scripts before the virtual DOM paint.
 
+### Mermaid rendering
+
+- Markdown fences labeled `mermaid` are intercepted in `client/src/components/Markdown.tsx` and rendered via `mermaid.render` into a dedicated `<div>`, keeping the renderer isolated from normal markdown output.
+- Input is sanitized before rendering (script tags stripped) and the mermaid instance is initialized per theme (`default` for light, `dark` for dark mode); render errors fall back to a short inline error message.
+- Diagram containers use the page background + border, clamp width to the chat bubble, and allow horizontal scroll so wide graphs do not overflow on mobile.
+
+```mermaid
+flowchart TD
+  A[Markdown fences] -->|language=mermaid| B[MermaidBlock]
+  B -->|sanitize| C[strip <script> tags]
+  C -->|render| D[mermaid.render to div]
+  D -->|theme| E[light/default or dark]
+```
+
 ### Reasoning collapse (think + Harmony)
 
 - The chat stream parser keeps two buffers per assistant turn: a hidden `analysis` buffer and a visible `final` buffer, plus a `mode` flag (`analysis` or `final`) and `analysisStreaming` to drive the spinner.

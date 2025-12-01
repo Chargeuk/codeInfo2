@@ -259,7 +259,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 
 ### 5. Mermaid rendering
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview
@@ -274,28 +274,32 @@ Enable mermaid diagram rendering inside assistant replies (markdown code fences 
 - MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
-1. [ ] Integration choice: render ```mermaid``` fences by detecting them in the markdown wrapper, calling `mermaid.initialize({ startOnLoad:false, theme:'base' })` and `mermaid.render` into a `<div>` via `useEffect`; store in `client/src/components/Markdown.tsx` to keep single responsibility. Do not allow arbitrary HTML; sanitize input before handing to mermaid.
-2. [ ] Theme: switch mermaid theme using MUI palette mode (`light` → `default`, `dark` → `dark`); apply CSS to keep diagrams within bubble width.
-3. [ ] Client RTL: `client/src/test/chatPage.mermaid.test.tsx` renders a sample flowchart fence, asserts an `<svg>` appears, and that script tags are stripped (sanitization check).
-4. [ ] E2E: `e2e/chat-mermaid.spec.ts` sends a reply containing a simple mermaid diagram; assert diagram renders (presence of `svg`) and capture screenshot.
-5. [ ] Docs: update `README.md` with mermaid support and usage notes.
-6. [ ] Docs: update `design.md` with mermaid rendering flow, theme mapping, and sanitization.
-7. [ ] Docs: update `projectStructure.md` if markdown/mermaid components are added/changed.
-8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
-9. [ ] Order: integrate in markdown wrapper → client tests → e2e → docs → lint/format.
+1. [x] Integration choice: render ```mermaid``` fences by detecting them in the markdown wrapper, calling `mermaid.initialize({ startOnLoad:false, theme:'base' })` and `mermaid.render` into a `<div>` via `useEffect`; store in `client/src/components/Markdown.tsx` to keep single responsibility. Do not allow arbitrary HTML; sanitize input before handing to mermaid.
+2. [x] Theme: switch mermaid theme using MUI palette mode (`light` → `default`, `dark` → `dark`); apply CSS to keep diagrams within bubble width.
+3. [x] Client RTL: `client/src/test/chatPage.mermaid.test.tsx` renders a sample flowchart fence, asserts an `<svg>` appears, and that script tags are stripped (sanitization check).
+4. [x] E2E: `e2e/chat-mermaid.spec.ts` sends a reply containing a simple mermaid diagram; assert diagram renders (presence of `svg`) and capture screenshot.
+5. [x] Docs: update `README.md` with mermaid support and usage notes.
+6. [x] Docs: update `design.md` with mermaid rendering flow, theme mapping, and sanitization.
+7. [x] Docs: update `projectStructure.md` if markdown/mermaid components are added/changed.
+8. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+9. [x] Order: integrate in markdown wrapper → client tests → e2e → docs → lint/format.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
--
+- Added mermaid rendering to `client/src/components/Markdown.tsx` with sanitized code fences, theme-aware `mermaid.initialize`, error fallback, and bounded diagram container styling.
+- Added RTL coverage `client/src/test/chatPage.mermaid.test.tsx` (includes SVG getBBox shim for jsdom) and new Playwright e2e `e2e/chat-mermaid.spec.ts` with screenshot `test-results/screenshots/0000007-5-chat-mermaid.png`.
+- Updated docs: README (mermaid support note), design (mermaid rendering flow + diagram), projectStructure (new tests/spec).
+- Installed dependency: `mermaid@11.12.1` in client workspace; kept lint/format clean.
+- Test run results: server build/tests pass; client build/tests pass; compose build/up/down pass; e2e suite ran and new mermaid + chat specs passed but ingest progress spec timed out (likely missing embedding/model in e2e stack); e2e stack torn down via `npm run e2e:down`.
 
 ---
 

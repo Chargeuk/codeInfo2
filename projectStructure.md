@@ -86,6 +86,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
+|     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
@@ -118,6 +119,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
 â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)
+â”‚  â”œâ”€ chat-mermaid.spec.ts — renders mermaid diagram from chat reply and captures screenshot
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
 â”‚  â””â”€ version.spec.ts â€” version display e2e

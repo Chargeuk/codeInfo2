@@ -29,6 +29,10 @@ export type ToolCall = {
   name?: string;
   status: 'requesting' | 'done' | 'error';
   payload?: unknown;
+  parameters?: unknown;
+  stage?: string;
+  errorTrimmed?: { code?: string; message?: string } | null;
+  errorFull?: unknown;
 };
 
 export type ChatSegment =
@@ -48,10 +52,13 @@ type StreamEvent =
   | { type: 'error'; message?: string }
   | {
       type: 'tool-request' | 'tool-result';
-      callId?: string;
+      callId?: string | number;
       name?: string;
       stage?: string;
       result?: unknown;
+      parameters?: unknown;
+      errorTrimmed?: unknown;
+      errorFull?: unknown;
     };
 
 const serverBase =
@@ -592,11 +599,23 @@ export function useChatStream(model?: string) {
                   stage: event.stage,
                 });
                 const applyResult = () => {
+                  const toolParameters =
+                    event.parameters ??
+                    (event.result &&
+                    typeof event.result === 'object' &&
+                    'parameters' in (event.result as Record<string, unknown>)
+                      ? (event.result as { parameters?: unknown }).parameters
+                      : undefined);
                   upsertTool({
                     id,
                     name: event.name,
                     status,
                     payload: event.result,
+                    parameters: toolParameters,
+                    stage: event.stage,
+                    errorTrimmed: (event as { errorTrimmed?: unknown })
+                      .errorTrimmed as ToolCall['errorTrimmed'],
+                    errorFull: (event as { errorFull?: unknown }).errorFull,
                   });
                   if (event.type === 'tool-request') {
                     toolsAwaitingAssistantOutput.add(id);
@@ -608,11 +627,7 @@ export function useChatStream(model?: string) {
                   }
                 };
 
-                if (event.type === 'tool-result') {
-                  setTimeout(applyResult, 500);
-                } else {
-                  applyResult();
-                }
+                applyResult();
                 continue;
               }
               if (event.type === 'final' && event.message?.role === 'tool') {

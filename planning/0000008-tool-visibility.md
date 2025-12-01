@@ -49,7 +49,7 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 - LM Studio agent docs: https://lmstudio.ai/docs/typescript/agent/act
 
 #### Subtasks
-1. [ ] Confirm/extend tool result typing for ListIngestedRepositories and VectorSearch to carry parameters and raw payloads through SSE (`tool-result`) frames (files: `server/src/lmstudio/tools.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/chat.ts`). Example payload to support:
+1. [x] Confirm/extend tool result typing for ListIngestedRepositories and VectorSearch to carry parameters and raw payloads through SSE (`tool-result`) frames (files: `server/src/lmstudio/tools.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/chat.ts`). Example payload to support:
    ```json
    {
      "type": "tool-result",
@@ -63,35 +63,39 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
      "errorFull": null
    }
    ```
-2. [ ] Ensure errors propagate with structured details (code/message), mark tool status complete on receipt (no spinner linger), and include full error payload for optional expansion (same files as above). Trimmed example:
+2. [x] Ensure errors propagate with structured details (code/message), mark tool status complete on receipt (no spinner linger), and include full error payload for optional expansion (same files as above). Trimmed example:
    ```json
    {"code":"MODEL_UNAVAILABLE","message":"embedding model missing"}
    ```
    Full example includes stack/metadata for expansion.
-3. [ ] Compute line counts server-side for VectorSearch: when aggregating per-file results, sum chunk counts and total lines of returned chunks; attach `lineCount` to each file entry (implement aggregation in `server/src/lmstudio/toolService.ts`, e.g., in `formatVectorSearchResults` or equivalent helper).
-4. [ ] Add/adjust fixtures and mocks: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) and client mock SSE payloads to include parameters, hostPath-only, summed chunk count, highestMatch, lineCount, and full/trimmed error fields. Include sample payloads like:
+3. [x] Compute line counts server-side for VectorSearch: when aggregating per-file results, sum chunk counts and total lines of returned chunks; attach `lineCount` to each file entry (implement aggregation in `server/src/lmstudio/toolService.ts`, e.g., in `formatVectorSearchResults` or equivalent helper).
+4. [x] Add/adjust fixtures and mocks: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) and client mock SSE payloads to include parameters, hostPath-only, summed chunk count, highestMatch, lineCount, and full/trimmed error fields. Include sample payloads like:
    ```json
    {"hostPath":"/repo/a.txt","chunkCount":3,"lineCount":20,"highestMatch":0.82}
    ```
-5. [ ] Update client chat stream state in `client/src/hooks/useChatStream.ts` (e.g., `handleToolResult` path) to retain tool parameters and tool-specific payloads (host-path-only VectorSearch aggregation fields, highestMatch, chunkCount, lineCount, trimmed/full error flags) and mark tool complete on first result/error.
+5. [x] Update client chat stream state in `client/src/hooks/useChatStream.ts` (e.g., `handleToolResult` path) to retain tool parameters and tool-specific payloads (host-path-only VectorSearch aggregation fields, highestMatch, chunkCount, lineCount, trimmed/full error flags) and mark tool complete on first result/error.
 5. [ ] Docs to update later: README, design, projectStructure.
-6. [ ] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
-7. [ ] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
-8. [ ] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.
-9. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
+6. [x] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
+7. [x] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
+8. [x] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.
+9. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix any issues.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
 8. [ ] `npm run e2e`
 
 #### Implementation notes
-- (fill during work)
+- Server now emits enriched `tool-result` frames with parameters, stage, trimmed/full errors, and formatted VectorSearch payloads (files aggregated by host path with chunkCount/highestMatch/lineCount). Tool arguments are captured from fragments and attached to results or error events to stop spinners.
+- Vector search responses include per-chunk `lineCount` plus aggregated `files` entries; ListIngestedRepositories fixtures updated accordingly. Common fixtures and LM Studio mocks carry parameters/hostPath-only data for visibility scenarios.
+- Client `useChatStream` stores parameters, errors, and tool payloads directly; new unit test `useChatStream.toolPayloads.test.tsx` covers success and error payload capture. Tool-result delay removed to apply payloads immediately.
+- Tests run: server build/test ✅; client build/test ✅ (act warnings still emitted by legacy tests); compose:build/up/down ✅; e2e ran with LM Studio-enabled stack – `ingest.spec.ts` remove/unlock scenario timed out (trace at `test-results/ingest-Ingest-flows-remove-44fad-nd-unlocks-model-when-empty/trace.zip`).
 
 ---
 

@@ -47,8 +47,20 @@ export type VectorSearchResult = {
     chunk: string;
     chunkId: string;
     modelId: string;
+    lineCount?: number | null;
   }[];
   modelId: string | null;
+  files: VectorSearchFile[];
+};
+
+export type VectorSearchFile = {
+  hostPath: string;
+  highestMatch: number | null;
+  chunkCount: number;
+  lineCount: number | null;
+  hostPathWarning?: string;
+  repo?: string;
+  modelId?: string;
 };
 
 export class RepoNotFoundError extends Error {
@@ -144,6 +156,56 @@ function resolveDeps(partial: Partial<ToolDeps>): ToolDeps {
     getLockedModel,
     ...partial,
   } satisfies ToolDeps;
+}
+
+function countLines(text: string | undefined): number | null {
+  if (typeof text !== 'string') return null;
+  if (!text.length) return 0;
+  return text.split(/\r?\n/).length;
+}
+
+function aggregateVectorFiles(
+  items: VectorSearchResult['results'],
+): VectorSearchFile[] {
+  const byHostPath = new Map<string, VectorSearchFile>();
+
+  items.forEach((item) => {
+    if (!item.hostPath) return;
+    const existing = byHostPath.get(item.hostPath);
+    const nextLineCount =
+      typeof item.lineCount === 'number' ? item.lineCount : null;
+    if (!existing) {
+      byHostPath.set(item.hostPath, {
+        hostPath: item.hostPath,
+        highestMatch: item.score ?? null,
+        chunkCount: 1,
+        lineCount: nextLineCount,
+        hostPathWarning: item.hostPathWarning,
+        repo: item.repo,
+        modelId: item.modelId,
+      });
+      return;
+    }
+
+    existing.chunkCount += 1;
+    if (typeof item.score === 'number') {
+      const prev = existing.highestMatch;
+      existing.highestMatch =
+        prev === null ? item.score : Math.max(prev, item.score);
+    }
+    if (typeof existing.lineCount === 'number' && nextLineCount !== null) {
+      existing.lineCount += nextLineCount;
+    } else if (existing.lineCount === null && nextLineCount !== null) {
+      existing.lineCount = nextLineCount;
+    }
+    if (!existing.hostPathWarning && item.hostPathWarning) {
+      existing.hostPathWarning = item.hostPathWarning;
+    }
+  });
+
+  return Array.from(byHostPath.values()).sort((a, b) =>
+    a.hostPath.localeCompare(b.hostPath),
+  );
 }
 
 export async function listIngestedRepositories(
@@ -318,9 +380,13 @@ export async function vectorSearch(
       chunk: typeof docs[idx] === 'string' ? docs[idx] : '',
       chunkId,
       modelId: typeof m.model === 'string' ? m.model : '',
+      lineCount: countLines(
+        typeof docs[idx] === 'string' ? docs[idx] : undefined,
+      ),
     };
   });
 
   const modelId = lockedModelId ?? null;
-  return { results, modelId };
+  const files = aggregateVectorFiles(results);
+  return { results, modelId, files };
 }

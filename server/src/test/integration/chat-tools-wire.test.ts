@@ -56,6 +56,12 @@ type ActCallbacks = {
   onToolCallRequestStart?: (...args: unknown[]) => void;
   onToolCallRequestNameReceived?: (...args: unknown[]) => void;
   onToolCallRequestEnd?: (...args: unknown[]) => void;
+  onToolCallRequestArgumentFragmentGenerated?: (...args: unknown[]) => void;
+  onToolCallRequestFailure?: (
+    roundIndex: number,
+    callId: number,
+    error: Error,
+  ) => void;
   onToolCallResult?: (
     roundIndex: number,
     callId: number,
@@ -105,6 +111,11 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
 
     opts.onToolCallRequestStart?.(0, 1);
     opts.onToolCallRequestNameReceived?.(0, 1, 'VectorSearch');
+    opts.onToolCallRequestArgumentFragmentGenerated?.(
+      0,
+      1,
+      JSON.stringify({ query: 'hi' }),
+    );
     opts.onToolCallRequestEnd?.(0, 1);
     opts.onToolCallResult?.(0, 1, toolResult);
     opts.onMessage?.({ role: 'assistant', content: 'done' });
@@ -151,12 +162,19 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
   assert.ok(toolResultEvent, 'expected tool-result event');
   assert.equal(toolResultEvent.callId, 1);
   assert.equal(toolResultEvent.name, 'VectorSearch');
+  assert.deepEqual(toolResultEvent.parameters, { query: 'hi' });
   assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
   assert.equal(
     toolResultEvent.result.results[0].hostPath,
     '/host/base/repo-id/docs/readme.md',
   );
   assert.equal(toolResultEvent.result.results[0].repo, 'repo-name');
+  assert.equal(
+    toolResultEvent.result.files[0].hostPath,
+    '/host/base/repo-id/docs/readme.md',
+  );
+  assert.equal(toolResultEvent.result.files[0].chunkCount, 1);
+  assert.equal(toolResultEvent.result.files[0].lineCount, 1);
 
   const tokenEvent = events.find((e) => e.type === 'token');
   assert.equal(tokenEvent?.content, 'partial');
@@ -188,6 +206,11 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
 
     opts.onToolCallRequestStart?.(0, 1);
     opts.onToolCallRequestNameReceived?.(0, 1, 'VectorSearch');
+    opts.onToolCallRequestArgumentFragmentGenerated?.(
+      0,
+      1,
+      JSON.stringify({ query: 'hi' }),
+    );
     opts.onToolCallRequestEnd?.(0, 1);
 
     opts.onMessage?.({
@@ -235,7 +258,9 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
   assert.ok(toolResultEvent, 'expected synthesized tool-result');
   assert.equal(toolResultEvent.callId, 1);
   assert.equal(toolResultEvent.name, 'VectorSearch');
+  assert.deepEqual(toolResultEvent.parameters, { query: 'hi' });
   assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
+  assert.ok(Array.isArray(toolResultEvent.result.files));
 
   const finalEvents = events.filter((e) => e.type === 'final');
   assert.equal(finalEvents.length, 2);
@@ -246,4 +271,56 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
   const toolResultIndex = events.findIndex((e) => e.type === 'tool-result');
 
   assert.ok(toolResultIndex > toolFinalIndex);
+});
+
+test('chat route emits tool-result with error details when a tool call fails', async () => {
+  const act = async (_chat: Chat, _tools: Tool[], opts: ActCallbacks) => {
+    opts.onRoundStart?.(0);
+    opts.onToolCallRequestStart?.(0, 1);
+    opts.onToolCallRequestNameReceived?.(0, 1, 'VectorSearch');
+    opts.onToolCallRequestArgumentFragmentGenerated?.(
+      0,
+      1,
+      JSON.stringify({ query: 'fail' }),
+    );
+    opts.onToolCallRequestFailure?.(0, 1, new Error('MODEL_UNAVAILABLE'));
+    opts.onMessage?.({ role: 'assistant', content: 'after failure' });
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      model: 'dummy-model',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    .expect(200);
+
+  const events = res.text
+    .split('\n\n')
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+
+  const toolResultEvent = events.find((e) => e.type === 'tool-result');
+  assert.ok(toolResultEvent, 'expected tool-result event');
+  assert.equal(toolResultEvent.stage, 'error');
+  assert.deepEqual(toolResultEvent.parameters, { query: 'fail' });
+  assert.equal(toolResultEvent.errorTrimmed?.message, 'MODEL_UNAVAILABLE');
+  assert.ok(toolResultEvent.errorFull);
+  const finalEvent = events.find((e) => e.type === 'final');
+  assert.equal(finalEvent?.message?.content, 'after failure');
 });

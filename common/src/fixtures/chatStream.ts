@@ -28,17 +28,53 @@ export const chatToolEventsFixture = [
     roundIndex: 0,
   },
   {
+    type: 'toolCallRequestArgumentFragmentGenerated',
+    callId: 'call-1',
+    roundIndex: 0,
+    content: '{"query":"fixture","limit":5}',
+  },
+  {
+    type: 'toolCallRequestEnd',
+    callId: 'call-1',
+    roundIndex: 0,
+  },
+  {
     type: 'toolCallResult',
     callId: 'call-1',
     name: 'VectorSearch',
     roundIndex: 0,
     result: {
+      modelId: 'embed-model',
       results: [
         {
           repo: 'repo',
           relPath: 'main.txt',
           hostPath: '/host/repo/main.txt',
           chunk: 'sample chunk',
+          chunkId: 'chunk-1',
+          score: 0.82,
+          modelId: 'embed-model',
+          lineCount: 1,
+        },
+        {
+          repo: 'repo',
+          relPath: 'main.txt',
+          hostPath: '/host/repo/main.txt',
+          chunk: 'second line',
+          chunkId: 'chunk-2',
+          score: 0.71,
+          modelId: 'embed-model',
+          lineCount: 1,
+        },
+      ],
+      files: [
+        {
+          hostPath: '/host/repo/main.txt',
+          highestMatch: 0.82,
+          chunkCount: 2,
+          lineCount: 2,
+          repo: 'repo',
+          modelId: 'embed-model',
         },
       ],
     },

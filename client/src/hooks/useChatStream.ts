@@ -383,6 +383,14 @@ export function useChatStream(model?: string) {
       const logContentDecision = (reason: string, content: string) => {
         console.log('[chat-stream] content decision', { reason, content });
       };
+      const logSync = (reason: string) => {
+        console.log('[chat-stream] sync message', {
+          reason,
+          finalText,
+          analysis: reasoning.analysis,
+          segmentsCount: segments.length,
+        });
+      };
 
       updateMessages((prev) => [
         ...prev,
@@ -416,6 +424,7 @@ export function useChatStream(model?: string) {
               : msg,
           ),
         );
+        logSync('syncAssistantMessage');
       };
 
       const appendTextSegment = (text: string) => {

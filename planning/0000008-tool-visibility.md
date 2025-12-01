@@ -482,8 +482,8 @@ Handle LM Studio responses that emit tool payloads as assistant messages without
 
 ### 8. Rewrite onMessage for real LM Studio payloads
 
-- status: **in_progress**
-- Git Commits: to_do
+- status: **done**
+- Git Commits: 0eac02f, 2879004
 
 #### Overview
 
@@ -504,8 +504,8 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
 4. [x] Update server integration test `server/src/test/integration/chat-tools-wire.test.ts` to use the real message objects, covering both tool and non-tool turns, and assert only one tool-result is emitted with no assistant echo.
 5. [x] Update client hook tests that model SSE frames containing final messages to mirror the real `data.content` array structure (files: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`); ensure transcript stays clean while tool blocks render.
 6. [x] Update any UI RTL/e2e fixtures that craft assistant/tool messages so they match the actual structure; keep expectations unchanged (e.g., `e2e/chat-tools-visibility.spec.ts`).
-7. [ ] Docs: adjust `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to describe the real message shape and note tests updated accordingly.
-8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+7. [x] Docs: adjust `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to describe the real message shape and note tests updated accordingly.
+8. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -554,3 +554,46 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
   ```
 
 - Rewrote `onMessage` to normalize `data.content` items, map toolCallRequest ids to callIds, emit tool-results without assistant echoes, and sanitize final events to text only. Added vector-payload detection for legacy string echoes. Updated unit/integration/client tests and BDD steps; full lint/format/build/test/compose/e2e all pass.
+
+---
+
+### 9. Citations collapsible (default closed)
+
+- status: **to_do**
+- Git Commits: to_do
+
+#### Overview
+
+Keep vector search citations but render them inside an expandable “Citations” section that is closed by default. Users can expand to see the paths/chunks. Restore citation rendering (undo any temporary suppression) and ensure layout/accessibility are preserved.
+
+#### Documentation Locations
+
+- Client chat rendering: `client/src/pages/ChatPage.tsx`
+- Citation plumbing: `client/src/hooks/useChatStream.ts` (appendCitations, extractCitations)
+- Tests: `client/src/test/chatPage.stream.test.tsx`, `client/src/test/chatPage.toolDetails.test.tsx` (if citations covered), `e2e/chat-tools-visibility.spec.ts`
+
+#### Subtasks
+
+1. [ ] Restore normal citation collection in `useChatStream.ts` (ensure appendCitations receives real data).
+2. [ ] Add a collapsible “Citations” section in `ChatPage.tsx` for assistant messages that have citations; default closed; show count in the summary.
+3. [ ] Render existing citation content (path + chunk text) inside the collapse; keep current sanitization/styling.
+4. [ ] Accessibility: summary is keyboard-focusable; `aria-expanded` reflects state; add test ids for toggle and list.
+5. [ ] Client RTL tests: cover default-closed state and expansion showing citation text (update/create in `client/src/test/chatPage.stream.test.tsx` or adjacent file).
+6. [ ] E2E: update `e2e/chat-tools-visibility.spec.ts` (or add case) to verify citations are hidden by default and appear after expand.
+7. [ ] Docs: update `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to mention the citations toggle.
+8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- to_be_filled

@@ -63,6 +63,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
 - VectorSearch: renders an alphabetical, host-path-only file list. Each file shows highest match value, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
+- Tool-result delivery: if LM Studio omits `onToolCallResult`/`role:"tool"`, the server now synthesizes `tool-result` events from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
 ### Markdown rendering (assistant replies)
 

@@ -264,13 +264,6 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
 
   const finalEvents = events.filter((e) => e.type === 'final');
   assert.equal(finalEvents.length, 2);
-
-  const toolFinalIndex = events.findIndex(
-    (e) => e.type === 'final' && e.message?.role === 'tool',
-  );
-  const toolResultIndex = events.findIndex((e) => e.type === 'tool-result');
-
-  assert.ok(toolResultIndex > toolFinalIndex);
 });
 
 test('chat route emits tool-result with error details when a tool call fails', async () => {
@@ -323,4 +316,76 @@ test('chat route emits tool-result with error details when a tool call fails', a
   assert.ok(toolResultEvent.errorFull);
   const finalEvent = events.find((e) => e.type === 'final');
   assert.equal(finalEvent?.message?.content, 'after failure');
+});
+
+test('chat route synthesizes tool-result when LM Studio omits onToolCallResult entirely', async () => {
+  const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+    opts.onRoundStart?.(0);
+
+    const vectorTool = tools.find((t) => t.name === 'VectorSearch');
+    if (!vectorTool) throw new Error('VectorSearch tool missing');
+    const toolCtx: ToolCallContext = {
+      status: () => undefined,
+      warn: () => undefined,
+      signal: new AbortController().signal,
+      callId: 99,
+    };
+    const toolResult = await (
+      vectorTool as unknown as {
+        implementation: (
+          params: unknown,
+          ctx: ToolCallContext,
+        ) => Promise<unknown>;
+      }
+    ).implementation({ query: 'hello' }, toolCtx);
+
+    opts.onToolCallRequestStart?.(0, 99);
+    opts.onToolCallRequestNameReceived?.(0, 99, 'VectorSearch');
+    opts.onToolCallRequestArgumentFragmentGenerated?.(
+      0,
+      99,
+      JSON.stringify({ query: 'hello' }),
+    );
+    opts.onToolCallRequestEnd?.(0, 99, { parameters: { query: 'hello' } });
+    // Intentionally do NOT call onToolCallResult or send a role:"tool" message.
+    opts.onMessage?.({ role: 'assistant', content: 'after synthetic' });
+    return Promise.resolve(toolResult);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      model: 'dummy-model',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+    .expect(200);
+
+  const events = res.text
+    .split('\n\n')
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+
+  const toolResultEvent = events.find((e) => e.type === 'tool-result');
+  assert.ok(toolResultEvent, 'expected synthesized tool-result event');
+  assert.equal(toolResultEvent.callId, 99);
+  assert.equal(toolResultEvent.name, 'VectorSearch');
+  assert.deepEqual(toolResultEvent.parameters, { query: 'hello' });
+  assert.equal(toolResultEvent.stage, 'success');
+  const finalEvent = events.find((e) => e.type === 'final');
+  assert.equal(finalEvent?.message?.content, 'after synthetic');
 });

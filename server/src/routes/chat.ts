@@ -112,11 +112,28 @@ export function createChatRouter({
       cancelled = true;
     });
 
+    const toolNames = new Map<number, string>();
+    const toolArgs = new Map<number, string[]>();
+    const toolCtx = new Map<
+      number,
+      {
+        requestId?: string;
+        roundIndex: number;
+        name?: string;
+        params?: unknown;
+      }
+    >();
+
     try {
       const client = clientFactory(toWebSocketUrl(baseUrl));
       const modelClient = await client.llm.model(model);
       let currentRound = 0;
       const emittedToolResults = new Set<string | number>();
+      const syntheticToolResults = new Set<string | number>();
+      const pendingSyntheticResults = new Map<
+        string | number,
+        { payload?: unknown; error?: unknown }
+      >();
       const logToolUsage = (payload: Record<string, unknown>) => {
         append({
           level: 'info',
@@ -143,6 +160,23 @@ export function createChatRouter({
 
       const { tools: lmStudioTools } = toolFactory({
         log: (payload) => logToolUsage(payload),
+        onToolResult: (callId, result, error, ctx, meta) => {
+          const numericId =
+            typeof callId === 'string'
+              ? Number(callId)
+              : (callId ?? Number.NaN);
+          if (!Number.isNaN(numericId) && !toolCtx.has(Number(numericId))) {
+            toolCtx.set(Number(numericId), {
+              requestId,
+              roundIndex: currentRound,
+              name: toolNames.get(Number(numericId)) ?? meta?.name,
+              params:
+                (ctx as { parameters?: unknown } | undefined)?.parameters ??
+                undefined,
+            });
+          }
+          emitSyntheticToolResult(callId, result, error);
+        },
       });
 
       const tools = [...lmStudioTools];
@@ -185,9 +219,6 @@ export function createChatRouter({
           'chat tool event',
         );
       };
-
-      const toolNames = new Map<number, string>();
-      const toolArgs = new Map<number, string[]>();
 
       const trimError = (
         err: unknown,
@@ -380,10 +411,6 @@ export function createChatRouter({
         const errorTrimmed = trimError(info?.error);
         const errorFull = serializeError(info?.error);
 
-        if (typeof callId === 'number') {
-          toolArgs.delete(callId);
-        }
-
         writeIfOpen({
           type: 'tool-result',
           callId,
@@ -395,6 +422,33 @@ export function createChatRouter({
           errorTrimmed,
           errorFull,
         });
+      };
+
+      const emitSyntheticToolResult = (
+        callId: number | string | undefined | null,
+        payload: unknown,
+        err?: unknown,
+      ) => {
+        if (callId === undefined || callId === null) return;
+        const numericId = typeof callId === 'string' ? Number(callId) : callId;
+        const stored = toolCtx.get(Number(numericId));
+        if (!stored || stored.params === undefined) {
+          pendingSyntheticResults.set(callId, { payload, error: err });
+          return;
+        }
+        emitToolResult(
+          stored.roundIndex,
+          callId,
+          stored.name,
+          err ? null : payload,
+          {
+            parameters: stored.params,
+            stage: err ? 'error' : 'success',
+            error: err,
+          },
+        );
+        syntheticToolResults.add(callId);
+        pendingSyntheticResults.delete(callId);
       };
 
       const normalizeToolResults = (
@@ -507,6 +561,10 @@ export function createChatRouter({
               toolNames.get(Number(callId)) ??
               toolNames.get(callId as number) ??
               undefined;
+            if (syntheticToolResults.has(callId)) {
+              emittedToolResults.delete(callId);
+              syntheticToolResults.delete(callId);
+            }
             emitToolResult(currentRound, callId, name, entry.result, {
               parameters:
                 typeof callId === 'number'
@@ -530,6 +588,12 @@ export function createChatRouter({
           name: string,
         ) => {
           toolNames.set(callId, name);
+          toolCtx.set(callId, {
+            ...(toolCtx.get(callId) ?? {}),
+            requestId,
+            roundIndex,
+            name,
+          });
           logToolEvent('toolCallRequestNameReceived', callId, name, roundIndex);
           writeIfOpen({
             type: 'tool-request',
@@ -587,6 +651,16 @@ export function createChatRouter({
             },
             'chat tool call end',
           );
+          toolCtx.set(callId, {
+            ...(toolCtx.get(callId) ?? {}),
+            requestId,
+            roundIndex,
+            params: parseToolParameters(callId, info),
+          });
+          if (pendingSyntheticResults.has(callId)) {
+            const pending = pendingSyntheticResults.get(callId);
+            emitSyntheticToolResult(callId, pending?.payload, pending?.error);
+          }
           writeIfOpen({
             type: 'tool-request',
             callId,
@@ -642,6 +716,10 @@ export function createChatRouter({
             toolNames.get(callId) ??
             (info as { name?: string })?.name ??
             undefined;
+          if (syntheticToolResults.has(callId)) {
+            emittedToolResults.delete(callId);
+            syntheticToolResults.delete(callId);
+          }
           const payload =
             info && typeof info === 'object' && 'result' in (info as object)
               ? (info as { result?: unknown }).result
@@ -665,6 +743,8 @@ export function createChatRouter({
       }
       completed = true;
       writeEvent(res, { type: 'complete' });
+      toolCtx.clear();
+      toolArgs.clear();
 
       append({
         level: 'info',
@@ -695,6 +775,8 @@ export function createChatRouter({
         'chat stream failed',
       );
     } finally {
+      toolCtx.clear();
+      toolArgs.clear();
       endIfOpen();
     }
   });

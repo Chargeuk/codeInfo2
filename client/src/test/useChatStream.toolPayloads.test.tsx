@@ -139,4 +139,51 @@ describe('useChatStream tool payload handling', () => {
       expect(assistant?.tools?.[0].errorFull).toBeDefined();
     });
   });
+
+  it('dedupes synthesized and native tool-result events', async () => {
+    const onUpdate = jest.fn();
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-request","callId":"c3","name":"VectorSearch"}\n\n',
+          ),
+        );
+        // Synthesized result first
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-result","callId":"c3","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"repo":"r","relPath":"a.txt","hostPath":"/h/a.txt","chunk":"one","chunkId":"1","score":0.5,"modelId":"m"}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.5,"chunkCount":1,"lineCount":1}]}}\n\n',
+          ),
+        );
+        // Native result later (should not create duplicate entry)
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-result","callId":"c3","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"repo":"r","relPath":"a.txt","hostPath":"/h/a.txt","chunk":"one","chunkId":"1","score":0.6,"modelId":"m"}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.6,"chunkCount":1,"lineCount":1}]}}\n\n',
+          ),
+        );
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"done"}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      },
+    });
+
+    render(<Wrapper prompt="Hi" stream={stream} onUpdate={onUpdate} />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.tools?.length).toBe(1);
+      expect(
+        (assistant?.tools?.[0].payload as { files: { highestMatch: number }[] })
+          .files[0].highestMatch,
+      ).toBe(0.6);
+    });
+  });
 });

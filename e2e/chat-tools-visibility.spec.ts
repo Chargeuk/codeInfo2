@@ -231,6 +231,59 @@ test.describe('Chat tool visibility details', () => {
     });
   });
 
+  test('renders synthesized-only tool-result stream', async ({ page }) => {
+    await mockChatModels(page);
+
+    const events: ToolEvent[] = [
+      {
+        type: 'tool-request',
+        callId: 'syn-1',
+        name: 'VectorSearch',
+        roundIndex: 0,
+      },
+      {
+        type: 'tool-result',
+        callId: 'syn-1',
+        name: 'VectorSearch',
+        stage: 'success',
+        parameters: { query: 'only synthesized' },
+        result: {
+          files: [
+            {
+              hostPath: '/data/repo/synth/file.txt',
+              highestMatch: 0.5,
+              chunkCount: 1,
+              lineCount: 4,
+            },
+          ],
+          results: [],
+          modelId: 'embed-1',
+        },
+      },
+      {
+        type: 'final',
+        message: { role: 'assistant', content: 'synth done' },
+        roundIndex: 0,
+      },
+      { type: 'complete' },
+    ];
+
+    await mockChatStream(page, events);
+
+    await page.goto(`${baseUrl}/chat`);
+    await page.getByTestId('chat-input').fill('Show synthesized');
+    await page.getByTestId('chat-send').click();
+
+    const toolRow = page.getByTestId('tool-row');
+    await expect(toolRow).toHaveCount(1, { timeout: 20000 });
+    const toggle = page.getByTestId('tool-toggle');
+    await toggle.click();
+    const fileItem = page.getByTestId('tool-file-item').first();
+    await expect(fileItem).toContainText('/data/repo/synth/file.txt');
+    await expect(fileItem).toContainText('chunks 1');
+    await expect(fileItem).toContainText('lines 4');
+  });
+
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
     await mockChatModels(page);
 

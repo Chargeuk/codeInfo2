@@ -343,6 +343,19 @@ export function createChatRouter({
               ? (info as { result?: unknown }).result
               : info;
           logToolEvent('toolCallResult', callId, name, roundIndex);
+          baseLogger.info(
+            {
+              requestId,
+              baseUrl: safeBase,
+              model,
+              callId,
+              roundIndex,
+              name,
+              payloadKeys:
+                info && typeof info === 'object' ? Object.keys(info) : [],
+            },
+            'chat tool result emit',
+          );
           writeIfOpen({
             type: 'tool-result',
             callId,

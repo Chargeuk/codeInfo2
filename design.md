@@ -55,6 +55,13 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
 
+### Markdown rendering (assistant replies)
+
+- Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.
+- Styled `<pre><code>` blocks and inline code backgrounds improve readability; links open in a new tab. Blockquotes use a divider-colored border to stay subtle inside bubbles.
+- Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded.
+- Streaming-safe: the Markdown wrapper simply re-renders on content changes, relying on the sanitized schema to drop scripts before the virtual DOM paint.
+
 ### Reasoning collapse (think + Harmony)
 
 - The chat stream parser keeps two buffers per assistant turn: a hidden `analysis` buffer and a visible `final` buffer, plus a `mode` flag (`analysis` or `final`) and `analysisStreaming` to drive the spinner.

@@ -215,6 +215,11 @@ export function useChatStream(model?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
 
+  const finishStreaming = useCallback(() => {
+    setIsStreaming(false);
+    setStatus('idle');
+  }, []);
+
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -246,17 +251,15 @@ export function useChatStream(model?: string) {
           },
         ]);
       }
-      setIsStreaming(false);
-      setStatus('idle');
+      finishStreaming();
     },
-    [updateMessages],
+    [finishStreaming, updateMessages],
   );
 
   const reset = useCallback(() => {
     updateMessages(() => []);
-    setIsStreaming(false);
-    setStatus('idle');
-  }, [updateMessages]);
+    finishStreaming();
+  }, [finishStreaming, updateMessages]);
 
   const handleErrorBubble = useCallback(
     (message: string) => {
@@ -489,15 +492,13 @@ export function useChatStream(model?: string) {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
-                setIsStreaming(false);
-                setStatus('idle');
+                finishStreaming();
               } else if (event.type === 'complete') {
                 const completed = parseReasoning(reasoning, '', {
                   flushAll: true,
                 });
                 applyReasoning({ ...completed, analysisStreaming: false });
-                setIsStreaming(false);
-                setStatus('idle');
+                setTimeout(finishStreaming, 0);
               }
             } catch {
               continue;
@@ -511,8 +512,7 @@ export function useChatStream(model?: string) {
         handleErrorBubble(
           (err as Error)?.message ?? 'Chat failed. Please try again.',
         );
-        setIsStreaming(false);
-        setStatus('idle');
+        finishStreaming();
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
@@ -521,6 +521,7 @@ export function useChatStream(model?: string) {
     },
     [
       extractCitations,
+      finishStreaming,
       handleErrorBubble,
       logger,
       model,

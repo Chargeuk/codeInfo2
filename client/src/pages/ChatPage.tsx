@@ -16,6 +16,7 @@ import {
   Button as MuiButton,
 } from '@mui/material';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Markdown from '../components/Markdown';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
@@ -227,6 +228,7 @@ export default function ChatPage() {
                 const isErrorBubble = message.kind === 'error';
                 const isStatusBubble = message.kind === 'status';
                 const isUser = message.role === 'user';
+                const isAssistant = message.role === 'assistant';
                 const hasCitations = !!message.citations?.length;
                 return (
                   <Stack
@@ -269,9 +271,16 @@ export default function ChatPage() {
                               : undefined,
                         }}
                       >
-                        <Typography variant="body2">
-                          {message.content || ' '}
-                        </Typography>
+                        {isAssistant ? (
+                          <Markdown
+                            content={message.content ?? ''}
+                            data-testid="assistant-markdown"
+                          />
+                        ) : (
+                          <Typography variant="body2">
+                            {message.content || ' '}
+                          </Typography>
+                        )}
                         {!!message.tools?.length && (
                           <Stack spacing={0.75} mt={1} data-testid="tool-calls">
                             {message.tools.map((tool: ToolCall) => {
@@ -519,14 +528,12 @@ export default function ChatPage() {
                               timeout="auto"
                               unmountOnExit
                             >
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                data-testid="think-content"
-                                sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}
-                              >
-                                {message.think}
-                              </Typography>
+                              <Box mt={0.5} color="text.secondary">
+                                <Markdown
+                                  content={message.think ?? ''}
+                                  data-testid="think-content"
+                                />
+                              </Box>
                             </Collapse>
                           </Box>
                         )}

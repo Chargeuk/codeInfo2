@@ -46,6 +46,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
+|     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
@@ -84,6 +85,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
+|     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs

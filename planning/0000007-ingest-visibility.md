@@ -538,13 +538,19 @@ Tool spinners should end as soon as the model resumes assistant output after a t
 3. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.toolVisibility.test.tsx` to assert spinner stops on the first assistant token after a tool-only final message, without waiting for `complete`.
 4. [ ] Add/adjust RTL coverage in `client/src/test/chatPage.reasoning.test.tsx` for the reasoning + tool path to ensure spinner stops once assistant text resumes.
 5. [ ] Update Playwright `e2e/chat-tools.spec.ts` to assert spinner stops (or tool block is marked complete) before stream end in the missing tool-result scenario.
-6. [ ] Update docs (if behaviour change needs a note) in `README.md` and `design.md`.
-7. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
+6. [ ] Update `README.md` to mention tool spinner now stops when assistant output resumes (no longer waits for stream complete) and note the synthesized tool-result guard.
+7. [ ] Update `design.md` to describe the spinner-stop-on-assistant-output flow and client fallback ordering relative to synthesized tool-result and stream completion.
+8. [ ] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
 
 #### Testing
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e` (focus on chat-tools spec; allow others to run as part of suite)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 - To be filled during implementation.

@@ -56,6 +56,14 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
 
+### Chat tool detail UI
+
+- Tool calls render closed by default with name + status (Success/Failed/Running) and no lingering spinner after a result or error arrives.
+- Each tool has a default-closed Parameters accordion that pretty-prints the arguments sent to the tool.
+- ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
+- VectorSearch: renders an alphabetical, host-path-only file list. Each file shows highest match value, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
+- Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

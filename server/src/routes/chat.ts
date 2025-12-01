@@ -470,6 +470,19 @@ export function createChatRouter({
           const pendingToolResults =
             msg && msg.role === 'tool' ? normalizeToolResults(message) : [];
 
+          if (msg && msg.role === 'tool') {
+            baseLogger.info(
+              {
+                requestId,
+                baseUrl: safeBase,
+                model,
+                messageKind: 'role:tool',
+                hasResults: pendingToolResults.length > 0,
+              },
+              'chat onMessage received tool role',
+            );
+          }
+
           if (
             msg &&
             typeof msg.role === 'string' &&
@@ -611,6 +624,20 @@ export function createChatRouter({
           callId: number,
           info: unknown,
         ) => {
+          baseLogger.info(
+            {
+              requestId,
+              baseUrl: safeBase,
+              model,
+              callId,
+              roundIndex,
+              infoKeys:
+                info && typeof info === 'object'
+                  ? Object.keys(info as Record<string, unknown>)
+                  : [],
+            },
+            'chat onToolCallResult fired',
+          );
           const name =
             toolNames.get(callId) ??
             (info as { name?: string })?.name ??

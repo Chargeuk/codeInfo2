@@ -4,8 +4,9 @@
 Enhance chat tool-call visibility so users can understand exactly which tool ran, what was passed in, and what it returned. Closed state should show the tool name and status; expanded state should display tool-specific, human-friendly details plus raw parameters. For ListIngestedRepositories, users need an expandable list of repositories with full metadata per repo. For VectorSearch, users should see an alphabetical list of unique files (with paths), each showing relevance score and chunk count. Errors must be obvious, expandable, and include all available details. Once the client receives tool data, the tool call is considered complete—no lingering spinners.
 
 ## Acceptance Criteria
-- Closed tool-call view shows tool name and success/failure state immediately when results/ errors arrive.
-- All tool calls include an expandable Parameters section listing every parameter passed to the tool.
+- Tool call stays closed by default; closed view shows tool name and success/failure state once results/errors arrive.
+- When opened, show all repository/file entries (no cap); each entry is individually expandable for details.
+- All tool calls include an expandable Parameters section (closed by default) listing every parameter passed to the tool.
 - ListIngestedRepositories results render as a list of repository names; each name is expandable to show the full returned metadata for that repository.
 - VectorSearch results render as an alphabetical list of unique files (including paths); each entry shows relevance score and number of chunks returned for that file.
 - Tool failures display a clear failed state; expanding shows relevant error details returned by the tool.
@@ -18,7 +19,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 - Adding new tools or authentication flows.
 
 ## Questions
-- Do we need to cap the number of repository/file entries shown before collapsing behind “show more”? (Default: no cap unless performance issues arise.)
+- Do we need to cap the number of repository/file entries shown before collapsing behind “show more”? **Answer:** Keep the tool call closed by default. When expanded, show all repository/file entries with no cap. Each entry is itself expandable for detailed info.
 - Should chunk count be summed per file or show per-result list? (Plan: sum per file entry.)
 - Should we show host paths in addition to repo/relPath for VectorSearch? (Plan: yes if provided, otherwise relPath only.)
 
@@ -79,13 +80,13 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
 - MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
-1. [ ] Closed state shows tool name and success/failure icon once result/error arrives.
-2. [ ] Add expandable Parameters section showing all input params (pretty-printed JSON) for every tool call.
-3. [ ] ListIngestedRepositories: render list of repo names; each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.).
-4. [ ] VectorSearch: aggregate results into unique files (path label includes repo + relPath/hostPath when available), sorted alphabetically; show relevance score and chunk count per file; allow expanding an entry to view its chunks (optional) or raw results.
+1. [ ] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details.
+2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call.
+3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.).
+4. [ ] VectorSearch: render all unique files (no cap), aggregated by path, sorted alphabetically; show relevance score and chunk count per file; each file entry expandable for chunk/result details.
 5. [ ] Error state: show failed badge; expanded view displays error message/code and raw payload.
 6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels.
-7. [ ] Add/extend client RTL tests covering success/error flows, parameters accordion, repo/file expansion, and sorting/aggregation.
+7. [ ] Add/extend client RTL tests covering success/error flows, parameters accordion default-closed, repo/file expansion, and sorting/aggregation.
 8. [ ] Update projectStructure.md if new components added.
 9. [ ] Run lint/format.
 
@@ -166,4 +167,3 @@ Ensure acceptance criteria met, full builds/tests pass, docs/screenshots complet
 
 #### Implementation notes
 - (fill during work)
-

@@ -458,7 +458,7 @@ Ensure the tool spinner appears inline when a tool call starts, stops when the t
 
 ### 9. Ensure tool completion frames are emitted so spinners stop
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

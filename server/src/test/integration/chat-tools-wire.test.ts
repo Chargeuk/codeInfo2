@@ -67,7 +67,7 @@ type ActCallbacks = {
     callId: number,
     info: unknown,
   ) => void;
-  onMessage?: (message: { role: string; content: unknown }) => void;
+  onMessage?: (message: unknown) => void;
 };
 
 beforeEach(() => {
@@ -116,9 +116,64 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
       1,
       JSON.stringify({ query: 'hi' }),
     );
-    opts.onToolCallRequestEnd?.(0, 1);
+    opts.onToolCallRequestEnd?.(0, 1, {
+      toolCallRequest: {
+        id: 'tool-1',
+        type: 'function',
+        arguments: { query: 'hi' },
+        name: 'VectorSearch',
+      },
+    });
     opts.onToolCallResult?.(0, 1, toolResult);
-    opts.onMessage?.({ role: 'assistant', content: 'done' });
+
+    opts.onMessage?.({
+      data: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: '<|channel|>analysis<|message|>thinking<|end|>',
+          },
+          {
+            type: 'toolCallRequest',
+            toolCallRequest: {
+              id: 'tool-1',
+              type: 'function',
+              arguments: { query: 'hi' },
+              name: 'VectorSearch',
+            },
+          },
+        ],
+      },
+      mutable: true,
+    });
+
+    opts.onMessage?.({
+      data: {
+        role: 'tool',
+        content: [
+          {
+            type: 'toolCallResult',
+            toolCallId: 'tool-1',
+            content: JSON.stringify(toolResult),
+          },
+        ],
+      },
+      mutable: true,
+    });
+
+    opts.onMessage?.({
+      data: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: '<|channel|>final<|message|>done',
+          },
+        ],
+      },
+      mutable: true,
+    });
     return Promise.resolve();
   };
 
@@ -179,8 +234,12 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
   const tokenEvent = events.find((e) => e.type === 'token');
   assert.equal(tokenEvent?.content, 'partial');
 
-  const finalEvent = events.find((e) => e.type === 'final');
-  assert.equal(finalEvent?.message?.content, 'done');
+  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
+  assert.ok(
+    typeof finalEvent?.message?.content === 'string' &&
+      finalEvent.message.content.includes('done'),
+    'expected final assistant content to include done',
+  );
 });
 
 test('chat route synthesizes tool-result when LM Studio only returns a final tool message', async () => {
@@ -314,7 +373,7 @@ test('chat route emits tool-result with error details when a tool call fails', a
   assert.deepEqual(toolResultEvent.parameters, { query: 'fail' });
   assert.equal(toolResultEvent.errorTrimmed?.message, 'MODEL_UNAVAILABLE');
   assert.ok(toolResultEvent.errorFull);
-  const finalEvent = events.find((e) => e.type === 'final');
+  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
   assert.equal(finalEvent?.message?.content, 'after failure');
 });
 
@@ -386,7 +445,7 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
   assert.equal(toolResultEvent.name, 'VectorSearch');
   assert.deepEqual(toolResultEvent.parameters, { query: 'hello' });
   assert.equal(toolResultEvent.stage, 'success');
-  const finalEvent = events.find((e) => e.type === 'final');
+  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
   assert.equal(finalEvent?.message?.content, 'after synthetic');
 });
 

@@ -1,43 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  findAssistantToolResults,
-  normalizeToolResults,
-} from '../../routes/chat.js';
+import { getContentItems, getMessageRole } from '../../routes/chat.js';
 
-test('findAssistantToolResults returns tool entries when assistant payload includes toolCallId', () => {
-  const toolCtx = new Map<number, unknown>([[1, {}]]);
-  const toolNames = new Map<number, string>([[1, 'VectorSearch']]);
+test('getMessageRole returns data.role when present', () => {
+  const role = getMessageRole({ data: { role: 'assistant', content: [] } });
+  assert.equal(role, 'assistant');
+});
+
+test('getContentItems returns typed items from data.content', () => {
   const message = {
-    role: 'assistant',
-    content: JSON.stringify([
-      {
-        toolCallId: 1,
-        name: 'VectorSearch',
-        result: { ok: true },
-      },
-    ]),
+    data: {
+      role: 'assistant',
+      content: [
+        { type: 'text', text: 'hi' },
+        {
+          type: 'toolCallRequest',
+          toolCallRequest: {
+            id: '123',
+            type: 'function',
+            arguments: { query: 'foo' },
+            name: 'VectorSearch',
+          },
+        },
+      ],
+    },
   };
 
-  const entries = findAssistantToolResults(message, toolCtx, toolNames);
+  const items = getContentItems(message);
 
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0]?.callId, 1);
-  assert.equal(entries[0]?.name, 'VectorSearch');
-});
-
-test('normalizeToolResults leaves plain assistant text untouched', () => {
-  const entries = normalizeToolResults({ role: 'assistant', content: 'hello' });
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0]?.callId, undefined);
-  assert.equal(entries[0]?.result, 'hello');
-});
-
-test('normalizeToolResults parses array content strings', () => {
-  const entries = normalizeToolResults({
-    role: 'assistant',
-    content: JSON.stringify([{ result: { foo: 'bar' } }]),
-  });
-  assert.equal(entries.length, 1);
-  assert.deepEqual(entries[0]?.result, { foo: 'bar' });
+  assert.equal(items.length, 2);
+  assert.equal(items[0]?.type, 'text');
+  assert.equal((items[0] as { type: string; text: string }).text, 'hi');
+  assert.equal(items[1]?.type, 'toolCallRequest');
 });

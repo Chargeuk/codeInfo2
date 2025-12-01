@@ -681,22 +681,39 @@ export function useChatStream(model?: string) {
                 );
               } else if (
                 event.type === 'final' &&
-                typeof event.message?.content === 'string'
+                (typeof event.message?.content === 'string' ||
+                  Array.isArray(
+                    (event.message as { data?: unknown })?.data?.['content'],
+                  ))
               ) {
+                const dataContent = Array.isArray(
+                  (event.message as { data?: { content?: unknown } })?.data
+                    ?.content,
+                )
+                  ? ((event.message as { data?: { content?: unknown } })?.data
+                      ?.content as Array<{ type?: string; text?: string }>)
+                  : [];
+                const contentFromData = dataContent
+                  .filter((item) => item?.type === 'text')
+                  .map((item) => item.text ?? '')
+                  .join('');
+                const finalContent =
+                  typeof event.message?.content === 'string'
+                    ? event.message.content
+                    : contentFromData;
+
                 const suppressToolEcho =
                   toolsAwaitingAssistantOutput.size > 0 &&
-                  isVectorPayloadString(event.message.content);
+                  isVectorPayloadString(finalContent);
                 if (suppressToolEcho) {
                   completeAwaitingToolsOnAssistantOutput();
                   continue;
                 }
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
-                  parseReasoning(
-                    initialReasoningState(),
-                    event.message.content,
-                    { flushAll: true },
-                  ),
+                  parseReasoning(initialReasoningState(), finalContent, {
+                    flushAll: true,
+                  }),
                 );
               } else if (event.type === 'final') {
                 completeAwaitingToolsOnAssistantOutput();

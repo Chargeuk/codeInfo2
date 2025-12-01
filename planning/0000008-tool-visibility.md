@@ -499,24 +499,24 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
 #### Subtasks
 
 1. [x] Capture live message shape (done) — assistant messages carry `data.content` arrays mixing `text` and `toolCallRequest`/`toolCallResult` entries.
-2. [ ] Rework `onMessage` in `server/src/routes/chat.ts` to normalize from `message.data.content` (array) and use those typed items to: (a) append text to the chat history, (b) detect toolCallRequest/Result entries, (c) emit a single `tool-result`, and (d) suppress assistant echo of tool payloads. Remove legacy string-based heuristics that parsed JSON blobs.
-3. [ ] Update server unit tests to feed the real `data.content` array shape (include text + toolCallRequest + toolCallResult) and assert suppression/result emission works without JSON-string hacks (file: `server/src/test/unit/chat-assistant-suppress.test.ts` or sibling).
-4. [ ] Update server integration test `server/src/test/integration/chat-tools-wire.test.ts` to use the real message objects, covering both tool and non-tool turns, and assert only one tool-result is emitted with no assistant echo.
-5. [ ] Update client hook tests that model SSE frames containing final messages to mirror the real `data.content` array structure (files: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`); ensure transcript stays clean while tool blocks render.
-6. [ ] Update any UI RTL/e2e fixtures that craft assistant/tool messages so they match the actual structure; keep expectations unchanged (e.g., `e2e/chat-tools-visibility.spec.ts`).
+2. [x] Rework `onMessage` in `server/src/routes/chat.ts` to normalize from `message.data.content` (array) and use those typed items to: (a) append text to the chat history, (b) detect toolCallRequest/Result entries, (c) emit a single `tool-result`, and (d) suppress assistant echo of tool payloads. Remove legacy string-based heuristics that parsed JSON blobs.
+3. [x] Update server unit tests to feed the real `data.content` array shape (include text + toolCallRequest + toolCallResult) and assert suppression/result emission works without JSON-string hacks (file: `server/src/test/unit/chat-assistant-suppress.test.ts` or sibling).
+4. [x] Update server integration test `server/src/test/integration/chat-tools-wire.test.ts` to use the real message objects, covering both tool and non-tool turns, and assert only one tool-result is emitted with no assistant echo.
+5. [x] Update client hook tests that model SSE frames containing final messages to mirror the real `data.content` array structure (files: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`); ensure transcript stays clean while tool blocks render.
+6. [x] Update any UI RTL/e2e fixtures that craft assistant/tool messages so they match the actual structure; keep expectations unchanged (e.g., `e2e/chat-tools-visibility.spec.ts`).
 7. [ ] Docs: adjust `README.md`, `design.md`, and `projectStructure.md` (each its own checkbox) to describe the real message shape and note tests updated accordingly.
 8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
@@ -552,3 +552,5 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
   // Tool answers: assistant final carries text + toolCallRequest item; later a tool-role final carries toolCallResult item; separate SSE tool-result also arrives.
   // No top-level message.role/content observed; everything is inside message.data.
   ```
+
+- Rewrote `onMessage` to normalize `data.content` items, map toolCallRequest ids to callIds, emit tool-results without assistant echoes, and sanitize final events to text only. Added vector-payload detection for legacy string echoes. Updated unit/integration/client tests and BDD steps; full lint/format/build/test/compose/e2e all pass.

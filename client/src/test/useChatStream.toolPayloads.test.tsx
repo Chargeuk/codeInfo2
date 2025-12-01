@@ -255,4 +255,30 @@ describe('useChatStream tool payload handling', () => {
       expect(assistant?.content).toBe('');
     });
   });
+
+  it('parses final messages whose content is provided via data.content array items', async () => {
+    const onUpdate = jest.fn();
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"data":{"role":"assistant","content":[{"type":"text","text":"<|channel|>final<|message|>array text"}]}},"roundIndex":0}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      },
+    });
+
+    render(<Wrapper prompt="Hi" stream={stream} onUpdate={onUpdate} />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.content).toContain('array text');
+    });
+  });
 });

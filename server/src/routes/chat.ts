@@ -15,77 +15,28 @@ import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 type ToolFactory = typeof createLmStudioTools;
 
-export const normalizeToolResults = (
-  message: unknown,
-): Array<{
-  callId?: string | number;
-  name?: string;
-  result?: unknown;
-}> => {
-  const toEntry = (
-    item: unknown,
-  ): { callId?: string | number; name?: string; result?: unknown } => {
-    if (item && typeof item === 'object') {
-      const obj = item as Record<string, unknown>;
-      return {
-        callId:
-          (obj.toolCallId as string | number | undefined) ??
-          (obj.callId as string | number | undefined) ??
-          (obj.id as string | number | undefined),
-        name: (obj.name as string | undefined) ?? undefined,
-        result:
-          'result' in obj ? obj.result : 'content' in obj ? obj.content : obj,
+type LMContentItem =
+  | { type: 'text'; text: string }
+  | {
+      type: 'toolCallRequest';
+      toolCallRequest: {
+        id: string;
+        type: 'function';
+        arguments: Record<string, unknown>;
+        name: string;
       };
     }
-    if (typeof item === 'string') {
-      try {
-        const parsed = JSON.parse(item) as unknown;
-        return toEntry(parsed);
-      } catch {
-        return { result: item };
-      }
-    }
-    return { result: item };
-  };
+  | {
+      type: 'toolCallResult';
+      toolCallId: string;
+      content: string;
+    };
 
-  const content =
-    (message as { content?: unknown })?.content ??
-    (message as { toolCallResult?: unknown })?.toolCallResult ??
-    message;
-
-  if (typeof content === 'string') {
-    try {
-      const parsed = JSON.parse(content) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed.map((item) => toEntry(item));
-      }
-      return [toEntry(parsed)];
-    } catch {
-      return [toEntry(content)];
-    }
-  }
-
-  if (Array.isArray(content)) {
-    return content.map((item) => toEntry(item));
-  }
-  return [toEntry(content)];
-};
-
-export const findAssistantToolResults = (
-  message: unknown,
-  toolCtx: Map<number, unknown>,
-  toolNames: Map<number, string>,
-) => {
-  const msg = message as { role?: unknown; content?: unknown };
-  if (!msg || msg.role !== 'assistant' || typeof msg.content !== 'string') {
-    return [];
-  }
-  return normalizeToolResults(message).filter(
-    (entry) =>
-      entry.callId !== undefined &&
-      (toolCtx.has(Number(entry.callId)) ||
-        toolNames.has(Number(entry.callId))),
-  );
+type LMMessage = {
+  data?: { role?: string; content?: LMContentItem[] };
+  mutable?: boolean;
+  role?: string; // fallback
+  content?: unknown; // fallback
 };
 
 const isVectorPayload = (entry: unknown): boolean => {
@@ -107,15 +58,15 @@ const isVectorPayload = (entry: unknown): boolean => {
   return hasVectorLikeItem(results) || hasVectorLikeItem(files);
 };
 
-const findAssistantVectorPayload = (
-  message: unknown,
-  hasPendingTool: boolean,
-) => {
-  const msg = message as { role?: unknown; content?: unknown };
-  if (!hasPendingTool || msg?.role !== 'assistant') return null;
-  const entries = normalizeToolResults(message);
-  const vectorEntry = entries.find((entry) => isVectorPayload(entry.result));
-  return vectorEntry ?? null;
+export const getMessageRole = (message: unknown): string | undefined => {
+  const msg = message as LMMessage;
+  return msg.data?.role ?? msg.role;
+};
+
+export const getContentItems = (message: unknown): LMContentItem[] => {
+  const msg = message as LMMessage;
+  const items = msg.data?.content;
+  return Array.isArray(items) ? (items as LMContentItem[]) : [];
 };
 
 export function createChatRouter({
@@ -217,6 +168,7 @@ export function createChatRouter({
 
     const toolNames = new Map<number, string>();
     const toolArgs = new Map<number, string[]>();
+    const toolRequestIdToCallId = new Map<string, number>();
     const toolCtx = new Map<
       number,
       {
@@ -591,137 +543,139 @@ export function createChatRouter({
               'chat onMessage raw (non-serializable)',
             );
           }
-          const msg = message as { role?: unknown; content?: unknown };
-          const pendingToolResults =
-            msg && msg.role === 'tool' ? normalizeToolResults(message) : [];
 
-          if (msg && msg.role === 'tool') {
-            baseLogger.info(
-              {
-                requestId,
-                baseUrl: safeBase,
-                model,
-                messageKind: 'role:tool',
-                hasResults: pendingToolResults.length > 0,
-              },
-              'chat onMessage received tool role',
+          const role = getMessageRole(message);
+          const items = getContentItems(message);
+
+          const emitToolResultsFromItems = () => {
+            const results = items.filter(
+              (
+                item,
+              ): item is Extract<LMContentItem, { type: 'toolCallResult' }> =>
+                item?.type === 'toolCallResult',
             );
-          }
-
-          if (
-            msg &&
-            msg.role === 'assistant' &&
-            typeof msg.content === 'string'
-          ) {
-            const assistantToolResults = findAssistantToolResults(
-              message,
-              toolCtx,
-              toolNames,
-            );
-
-            if (assistantToolResults.length > 0) {
-              baseLogger.info(
-                {
-                  requestId,
-                  baseUrl: safeBase,
-                  model,
-                  messageKind: 'assistant_tool_payload',
-                  count: assistantToolResults.length,
-                },
-                'chat onMessage suppressed assistant tool payload',
-              );
-              for (const entry of assistantToolResults) {
-                const callId = entry.callId;
-                if (callId === undefined || callId === null) continue;
-                const name =
-                  entry.name ??
-                  toolNames.get(Number(callId)) ??
-                  toolNames.get(callId as number) ??
-                  undefined;
-                if (syntheticToolResults.has(callId)) {
-                  emittedToolResults.delete(callId);
-                  syntheticToolResults.delete(callId);
-                }
-                emitToolResult(currentRound, callId, name, entry.result, {
-                  parameters:
-                    typeof callId === 'number'
-                      ? parseToolParameters(callId, entry.result)
-                      : undefined,
-                });
+            for (const entry of results) {
+              let parsed: unknown = entry.content;
+              try {
+                parsed = JSON.parse(entry.content);
+              } catch {
+                parsed = entry.content;
               }
-              return;
-            }
-
-            const vectorPayload = findAssistantVectorPayload(
-              message,
-              toolCtx.size > 0,
-            );
-            if (vectorPayload) {
-              const inferredCallId =
-                Array.from(toolCtx.keys()).at(-1) ??
-                vectorPayload.callId ??
-                'assistant-vector';
+              const mappedCallId = toolRequestIdToCallId.get(entry.toolCallId);
+              const callId =
+                mappedCallId ?? entry.toolCallId ?? 'assistant-tool';
               const name =
-                vectorPayload.name ??
-                toolNames.get(Number(inferredCallId)) ??
-                toolNames.get(inferredCallId as number) ??
-                'VectorSearch';
-              if (syntheticToolResults.has(inferredCallId)) {
-                emittedToolResults.delete(inferredCallId);
-                syntheticToolResults.delete(inferredCallId);
+                toolNames.get(Number(callId)) ??
+                toolNames.get(mappedCallId ?? Number.NaN) ??
+                undefined;
+              if (syntheticToolResults.has(callId)) {
+                emittedToolResults.delete(callId);
+                syntheticToolResults.delete(callId);
               }
-              emitToolResult(
-                currentRound,
-                inferredCallId,
-                name,
-                vectorPayload.result,
-                {
-                  parameters:
-                    typeof inferredCallId === 'number'
-                      ? parseToolParameters(
-                          inferredCallId,
-                          vectorPayload.result,
-                        )
-                      : undefined,
-                },
-              );
-              return;
+              emitToolResult(currentRound, callId, name, parsed, {
+                parameters:
+                  typeof callId === 'number'
+                    ? parseToolParameters(callId, parsed)
+                    : undefined,
+              });
             }
+          };
+
+          if (role === 'tool') {
+            emitToolResultsFromItems();
+            writeIfOpen({
+              type: 'final',
+              message: { role: 'tool', content: '' },
+              roundIndex: currentRound,
+            });
+            return;
           }
 
-          if (
-            msg &&
-            typeof msg.role === 'string' &&
-            typeof msg.content === 'string'
-          ) {
-            chat.append(
-              msg.role as 'assistant' | 'user' | 'system',
-              msg.content,
-            );
-          }
-          writeIfOpen({
-            type: 'final',
-            message,
-            roundIndex: currentRound,
-          });
-
-          for (const entry of pendingToolResults) {
-            const callId = entry.callId;
-            if (callId === undefined || callId === null) continue;
-            const name =
-              entry.name ??
-              toolNames.get(Number(callId)) ??
-              toolNames.get(callId as number) ??
-              undefined;
-            if (syntheticToolResults.has(callId)) {
-              emittedToolResults.delete(callId);
-              syntheticToolResults.delete(callId);
+          if (role === 'assistant') {
+            let text = items
+              .filter((item) => item?.type === 'text')
+              .map(
+                (item) =>
+                  (item as Extract<LMContentItem, { type: 'text' }>).text,
+              )
+              .join('');
+            const rawDataContent = (
+              message as unknown as { data?: { content?: unknown } }
+            )?.data?.content;
+            const contentString =
+              rawDataContent === undefined &&
+              typeof (message as { content?: unknown })?.content === 'string'
+                ? ((message as { content?: string }).content ?? '')
+                : undefined;
+            if (!text && typeof contentString === 'string') {
+              let parsed: unknown;
+              try {
+                parsed = JSON.parse(contentString);
+              } catch {
+                parsed = undefined;
+              }
+              if (parsed && isVectorPayload(parsed) && toolCtx.size > 0) {
+                const inferredCallId =
+                  Array.from(toolCtx.keys()).at(-1) ?? 'assistant-vector';
+                const name =
+                  toolNames.get(Number(inferredCallId)) ?? 'VectorSearch';
+                if (!emittedToolResults.has(inferredCallId)) {
+                  emitToolResult(currentRound, inferredCallId, name, parsed, {
+                    parameters:
+                      typeof inferredCallId === 'number'
+                        ? parseToolParameters(inferredCallId, parsed)
+                        : undefined,
+                  });
+                }
+                return;
+              }
             }
-            emitToolResult(currentRound, callId, name, entry.result, {
-              parameters:
-                typeof callId === 'number'
-                  ? parseToolParameters(callId, entry.result)
-                  : undefined,
+            if (
+              !text &&
+              rawDataContent === undefined &&
+              typeof (message as { content?: unknown })?.content === 'string'
+            ) {
+              text = (message as { content?: string }).content ?? '';
+            }
+            if (text) {
+              chat.append('assistant', text);
+            }
+
+            emitToolResultsFromItems();
+
+            writeIfOpen({
+              type: 'final',
+              message: { role: 'assistant', content: text },
+              roundIndex: currentRound,
+            });
+            return;
+          }
+
+          if (role && typeof role === 'string') {
+            let text = items
+              .filter((item) => item?.type === 'text')
+              .map(
+                (item) =>
+                  (item as Extract<LMContentItem, { type: 'text' }>).text,
+              )
+              .join('');
+            const rawDataContent = (
+              message as unknown as { data?: { content?: unknown } }
+            )?.data?.content;
+            if (
+              !text &&
+              rawDataContent === undefined &&
+              typeof (message as { content?: unknown })?.content === 'string'
+            ) {
+              text = (message as { content?: string }).content ?? '';
+            }
+            if (text) {
+              chat.append(role as 'assistant' | 'user' | 'system', text);
+            }
+            writeIfOpen({
+              type: 'final',
+              message: { role, content: text },
+              roundIndex: currentRound,
             });
           }
         },
@@ -803,6 +757,12 @@ export function createChatRouter({
             },
             'chat tool call end',
           );
+          const toolCallRequestId = (
+            info as { toolCallRequest?: { id?: string } } | undefined
+          )?.toolCallRequest?.id;
+          if (toolCallRequestId) {
+            toolRequestIdToCallId.set(toolCallRequestId, callId);
+          }
           toolCtx.set(callId, {
             ...(toolCtx.get(callId) ?? {}),
             requestId,
@@ -897,6 +857,7 @@ export function createChatRouter({
       writeEvent(res, { type: 'complete' });
       toolCtx.clear();
       toolArgs.clear();
+      toolRequestIdToCallId.clear();
 
       append({
         level: 'info',
@@ -929,6 +890,7 @@ export function createChatRouter({
     } finally {
       toolCtx.clear();
       toolArgs.clear();
+      toolRequestIdToCallId.clear();
       endIfOpen();
     }
   });

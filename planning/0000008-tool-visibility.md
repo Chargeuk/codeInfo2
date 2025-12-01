@@ -49,15 +49,16 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 - LM Studio agent docs: https://lmstudio.ai/docs/typescript/agent/act
 
 #### Subtasks
-1. [ ] Confirm/extend tool result typing for ListIngestedRepositories and VectorSearch to carry parameters and raw payloads through SSE (`tool-result`) frames.
-2. [ ] Ensure errors propagate with structured details (code/message), mark tool status complete on receipt (no spinner linger), and include full error payload for optional expansion.
-3. [ ] Add/adjust fixtures and mocks (server test support, client mock SSE) to include parameters and tool payloads; VectorSearch mock should include host path only, summed chunk count per file, highest match value per file, and server-computed line count field when available.
-4. [ ] Update client chat stream state to retain tool parameters and tool-specific payloads for UI use, including host-path-only VectorSearch aggregation fields.
+1. [ ] Confirm/extend tool result typing for ListIngestedRepositories and VectorSearch to carry parameters and raw payloads through SSE (`tool-result`) frames (files: `server/src/lmstudio/tools.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/chat.ts`).
+2. [ ] Ensure errors propagate with structured details (code/message), mark tool status complete on receipt (no spinner linger), and include full error payload for optional expansion (same files as above; trimmed+full error fields in the emitted SSE payload).
+3. [ ] Compute line counts server-side for VectorSearch: when aggregating per-file results, sum chunk counts and total lines of returned chunks; attach `lineCount` to each file entry (implement aggregation in `server/src/lmstudio/toolService.ts`).
+4. [ ] Add/adjust fixtures and mocks: `server/src/test/support/mockLmStudioSdk.ts`, `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) and client mock SSE payloads to include parameters, hostPath-only, summed chunk count, highestMatch, lineCount, and full/trimmed error fields. Include sample payloads in test fixtures.
+5. [ ] Update client chat stream state in `client/src/hooks/useChatStream.ts` to retain tool parameters and tool-specific payloads (host-path-only VectorSearch aggregation fields, highestMatch, chunkCount, lineCount, trimmed/full error flags) and mark tool complete on first result/error.
 5. [ ] Docs to update later: README, design, projectStructure.
 6. [ ] Run lint/format after code changes.
-7. [ ] Test: Server unit/integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, host path only, summed chunk count per file, highest match value, and line count field; purpose: verify server emits correct payloads and completion status.
+7. [ ] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
 8. [ ] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
-9. [ ] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highest match value, summed chunks, line count, and completion status; purpose: client state correctness.
+9. [ ] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -85,15 +86,15 @@ Render closed state (name + status) and expanded views with per-tool bespoke lay
 - MUI docs: MUI MCP `@mui/material@7.2.0`
 
 #### Subtasks
-1. [ ] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details.
-2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call.
-3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.).
-4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required).
-5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields.
-6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels.
+1. [ ] Closed state (default) shows tool name and success/failure icon once result/error arrives; user opens to view details (implement in `client/src/pages/ChatPage.tsx`).
+2. [ ] Add expandable Parameters section (closed by default) showing all input params (pretty-printed JSON) for every tool call (in `ChatPage` UI).
+3. [ ] ListIngestedRepositories: render all repo names (no cap); each repo clickable to expand full metadata (hostPath/containerPath/counts/lastIngestAt/lockedModelId/lastError/etc.); component in `ChatPage` or new child component in `client/src/components/chat/ToolDetails.tsx` (if created).
+4. [ ] VectorSearch: render all unique files (no cap), aggregated by host path only, sorted alphabetically; show highest match value per file, summed chunk count per file, and server-computed total line count when available; each file entry expandable for chunk/result details (no per-chunk snippets required). Implement in `ChatPage` or shared tool detail component; ensure alphabetic sort only.
+5. [ ] Error state: show failed badge; expanded view displays trimmed error details with toggle to reveal full error (including stack/all fields); no masking of fields (UI in `ChatPage`).
+6. [ ] Ensure accessibility: keyboard toggle for expansions, sensible aria labels (all new accordions/collapses).
 7. [ ] Update projectStructure.md if new components added.
 8. [ ] Run lint/format.
-9. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` (or split existing) to cover: closed-by-default tool block, parameters accordion default closed, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
+9. [ ] Test: Client RTL (type) — add/extend `client/src/test/chatPage.toolDetails.test.tsx` to cover: closed-by-default tool block, parameters accordion default closed, repo list expansion, host-path-only vector file aggregation, highest match value display, summed chunk count, optional line count, alphabetical ordering, and error expansion; purpose: UI behavior/regression coverage.
 10. [ ] Test: Client RTL (type) — add error-path coverage showing trimmed error with expandable full payload; purpose: ensure failure UX and full error reveal work.
 
 #### Testing
@@ -120,7 +121,7 @@ Validate full flow and document new tool detail UX.
 - Playwright docs: Context7 `/microsoft/playwright`
 
 #### Subtasks
-1. [ ] Add Playwright e2e (type) — extend `e2e/chat-tools-visibility.spec.ts` (or new) to cover tool detail expansions for ListIngestedRepositories and VectorSearch, parameters accordion default-closed, host-path-only file aggregation with summed chunk count/line count, highest match value display, and error expansion; purpose: end-to-end UX verification.
+1. [ ] Add Playwright e2e (type) — extend/create `e2e/chat-tools-visibility.spec.ts` to cover: tool closed by default; parameters accordion default-closed; ListIngestedRepositories repo expansion; VectorSearch host-path-only file list with alphabetical sort, highest match value, summed chunk count, line count; and per-entry expansion. Purpose: end-to-end UX verification.
 2. [ ] Add Playwright e2e (type) — add failure-path coverage (mocked tool error) ensuring trimmed error + expandable full details; purpose: failure UX.
 3. [ ] Capture screenshots per story naming convention into `test-results/screenshots/` for the above e2e flows; purpose: visual evidence.
 4. [ ] Doc: README.md — add tool detail behaviors, parameters accordion default-closed, host-path-only file aggregation, chunk/line counts, and error expansion behavior.

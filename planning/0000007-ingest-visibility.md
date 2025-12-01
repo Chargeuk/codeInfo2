@@ -388,3 +388,34 @@ Remove the placeholder noop tool from the chat route/tool registry so only real 
 - To be filled during implementation.
 
 ---
+
+### 8. Fix tool spinner lifecycle and placement in chat bubbles
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+Ensure the tool spinner appears inline when a tool call starts, stops when the tool finishes, and is replaced by a collapsible result section that stays in-place within the chat bubble before subsequent assistant text.
+
+#### Documentation Locations
+- Client stream handling: `client/src/hooks/useChatStream.ts`
+- Chat UI rendering: `client/src/pages/ChatPage.tsx`
+- Tool UI tests: `client/src/test/chatPage.toolVisibility.test.tsx` (and related chat tests)
+- Server tool events (for reference): `server/src/routes/chat.ts`
+
+#### Subtasks
+1. [ ] Update message state to preserve tool call insertion order and statuses (`requesting` → `done|error`) so spinner ends on completion.
+2. [ ] Adjust ChatPage rendering to insert the collapsible tool section at the tool-call position, with spinner only while `requesting`, then static header + collapsible payload once `result/error` arrives; subsequent assistant text should render after the tool block.
+3. [ ] Add/extend RTL tests to cover start→finish spinner behavior and inline placement relative to pre/post tool text.
+4. [ ] Add/extend Playwright e2e (or adjust existing chat-tools spec) to assert spinner disappears and collapsible result remains in-bubble with following text.
+5. [ ] Run `npm run lint --workspaces` and `npm run test --workspaces client`; run `npm run e2e` if UI changes risk regressions.
+
+#### Testing
+1. [ ] `npm run test --workspaces client`
+2. [ ] `npm run lint --workspaces`
+3. [ ] `npm run e2e` (if UI changes affect chat tool flow)
+
+#### Implementation notes
+- To be filled during implementation.
+
+---

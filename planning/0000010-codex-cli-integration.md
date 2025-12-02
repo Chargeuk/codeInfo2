@@ -16,7 +16,7 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
   - Provider adapter
       - Add a “codex” provider in the server chat router that:
           - Checks which codex and ~/.codex/auth.json (or copied auth) on boot; only enables if present.
-          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: <env default, gpt-5.1-codex-max>, threadOptions as needed }.
+          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: selected Codex model, threadOptions as needed }.
           - Streams deltas → our SSE frames (token/final/complete/error) with provider: 'codex'.
           - If MCP startup or handshake fails, block Codex sends and surface an error popup; tools are required (no chat-only fallback). Mark toolsAvailable: false so the UI disables Codex.
   - Client changes
@@ -24,9 +24,10 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
       - Add a Provider dropdown left of Model with options LMStudio and OpenAI Codex; models list filters per provider. Provider is locked for the current conversation; models can change. New conversation keeps the provider.
       - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
       - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
+      - Codex model list is fixed to `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, and `gpt-5.1` when the provider is OpenAI Codex.
   - Config/flags to bake in
       - Auto-detect Codex: if the CLI is not found or auth/config is missing, log a startup warning and expose Codex as disabled with guidance (no CODEX_ENABLED switch).
-      - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_MCP_PORT. Tool availability is governed by config.toml; no separate toggle.
+      - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_TOOL_TIMEOUT_MS, CODEX_MCP_PORT. Tool availability is governed by config.toml; no separate toggle.
       - Keep Codex effectively disabled in Docker/e2e by default because detection will fail there.
 
 ## Acceptance Criteria (draft, now parameterised)

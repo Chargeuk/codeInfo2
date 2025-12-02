@@ -179,12 +179,6 @@ describe('Chat page streaming', () => {
 
     await waitFor(() => expect(sendButton).toBeEnabled());
 
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
     await act(async () => {
       await user.click(sendButton);
     });

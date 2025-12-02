@@ -25,8 +25,9 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
       - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
       - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
   - Config/flags to bake in
-      - CODEX_ENABLED (opt-in), CODEINFO_CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true, but tools required), CODEX_MCP_PORT.
-      - Keep Codex disabled in Docker/e2e by default.
+      - Auto-detect Codex: if the CLI is not found or auth/config is missing, log a startup warning and expose Codex as disabled with guidance (no CODEX_ENABLED switch).
+      - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true, but tools required), CODEX_MCP_PORT.
+      - Keep Codex effectively disabled in Docker/e2e by default because detection will fail there.
 
 ## Acceptance Criteria (draft, now parameterised)
 

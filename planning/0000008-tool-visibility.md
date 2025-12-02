@@ -719,7 +719,7 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 
 ### 12. Thinking spinner correctness (LLM output wait states)
 
-- status: **in_progress**
+- status: **done**
 - Git Commits: to_do
 
 #### Overview

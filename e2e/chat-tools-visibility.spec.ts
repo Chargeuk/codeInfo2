@@ -425,6 +425,179 @@ test.describe('Chat tool visibility details', () => {
     ).not.toBeVisible();
   });
 
+  test('thinking spinner tracks idle gaps but ignores tool-only waits', async ({
+    page,
+  }) => {
+    const events: Array<{ delay: number; event: ToolEvent }> = [
+      {
+        delay: 1200,
+        event: { type: 'token', content: 'First reply' },
+      },
+      {
+        delay: 1500,
+        event: {
+          type: 'tool-request',
+          callId: 'gap-tool',
+          name: 'VectorSearch',
+        },
+      },
+      {
+        delay: 2600,
+        event: {
+          type: 'tool-result',
+          callId: 'gap-tool',
+          name: 'VectorSearch',
+          result: { files: [], results: [] },
+        },
+      },
+      {
+        delay: 3800,
+        event: { type: 'token', content: 'Second reply' },
+      },
+      {
+        delay: 3900,
+        event: {
+          type: 'final',
+          message: { role: 'assistant', content: 'Second reply' },
+          roundIndex: 0,
+        },
+      },
+      { delay: 4000, event: { type: 'complete' } },
+    ];
+
+    await page.addInitScript(
+      ({ models, streamedEvents }) => {
+        const encoder = new TextEncoder();
+        const originalFetch = window.fetch.bind(window);
+        const events = streamedEvents;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).setChatMockEvents = (next: typeof events) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__chatMockEvents = next;
+        };
+
+        window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input.toString();
+
+          if (url.endsWith('/chat/models')) {
+            return Promise.resolve(
+              new Response(JSON.stringify(models), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              }),
+            );
+          }
+
+          if (url.endsWith('/chat')) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const currentEvents: Array<{ delay: number; event: any }> =
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (window as any).__chatMockEvents ?? events;
+
+            const stream = new ReadableStream({
+              start(controller) {
+                const lastDelay = Math.max(
+                  ...currentEvents.map((e) => e.delay ?? 0),
+                  0,
+                );
+                currentEvents.forEach(({ event, delay }) => {
+                  setTimeout(() => {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+                    );
+                  }, delay ?? 0);
+                });
+                setTimeout(() => controller.close(), lastDelay + 20);
+              },
+            });
+
+            return Promise.resolve(
+              new Response(stream, {
+                status: 200,
+                headers: { 'Content-Type': 'text/event-stream' },
+              }),
+            );
+          }
+
+          return originalFetch(input, init);
+        };
+      },
+      { models: mockModels, streamedEvents: events },
+    );
+
+    await page.goto(`${baseUrl}/chat`);
+
+    await page.getByTestId('chat-input').fill('Spinner flow');
+    await page.getByTestId('chat-send').click();
+
+    const thinking = page.getByTestId('thinking-placeholder');
+
+    await page.waitForTimeout(1100);
+    await expect(thinking).toBeVisible();
+
+    await page.waitForTimeout(400);
+    await expect(thinking).toHaveCount(0);
+    // During tool-only wait, spinner stays off
+    await page.waitForTimeout(800);
+    await expect(thinking).toHaveCount(0);
+
+    // After tool result and prolonged silence, spinner returns
+    await page.waitForTimeout(700);
+    await expect(thinking).toBeVisible();
+
+    await page.waitForTimeout(400);
+    await expect(page.getByText('Second reply')).toBeVisible();
+    await expect(thinking).toHaveCount(0);
+  });
+
+  test('status chip stays processing until tool-result arrives after complete', async ({
+    page,
+  }) => {
+    await mockChatModels(page);
+
+    await mockChatStream(page, [
+      {
+        type: 'tool-request',
+        callId: 'gated-1',
+        name: 'VectorSearch',
+        roundIndex: 0,
+      },
+      {
+        type: 'final',
+        message: { role: 'assistant', content: 'Working on it' },
+        roundIndex: 0,
+      },
+      { type: 'complete' },
+      {
+        type: 'tool-result',
+        callId: 'gated-1',
+        name: 'VectorSearch',
+        roundIndex: 0,
+        result: {
+          files: [
+            {
+              hostPath: '/host/path/gated.txt',
+              highestMatch: 0.7,
+              chunkCount: 1,
+              lineCount: 3,
+            },
+          ],
+          results: [],
+        },
+      },
+    ]);
+
+    await page.goto(`${baseUrl}/chat`);
+    await page.getByTestId('chat-input').fill('Gated status');
+    await page.getByTestId('chat-send').click();
+
+    await expect(page.getByTestId('status-chip')).toContainText('Processing');
+    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
+      timeout: 10000,
+    });
+  });
+
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
     await mockChatModels(page);
 

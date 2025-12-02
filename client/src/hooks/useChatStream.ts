@@ -291,6 +291,11 @@ export function useChatStream(model?: string) {
       const wasSending = statusRef.current === 'sending';
       controllerRef.current?.abort();
       controllerRef.current = null;
+      updateMessages((prev) =>
+        prev.map((msg) =>
+          msg.role === 'assistant' ? { ...msg, thinking: false } : msg,
+        ),
+      );
       if (options?.showStatusBubble && wasSending) {
         updateMessages((prev) => [
           ...prev,
@@ -393,6 +398,9 @@ export function useChatStream(model?: string) {
         { id: makeId(), kind: 'text', content: '' },
       ];
       const toolsAwaitingAssistantOutput = new Set<string>();
+      const pendingToolResults = new Set<string>();
+      const toolEchoGuards = new Set<string>();
+      let completeFrameSeen = false;
       const logContentDecision = (reason: string, content: string) => {
         console.log('[chat-stream] content decision', { reason, content });
       };
@@ -411,6 +419,30 @@ export function useChatStream(model?: string) {
             msg.id === assistantId ? { ...msg, thinking } : msg,
           ),
         );
+      };
+
+      const computeWaitingForVisibleText = () => {
+        const now = Date.now();
+        const hasVisibleText = finalText.length > 0;
+        const lastVisible = lastVisibleTextAtRef.current;
+        const isIdleOver1s = !lastVisible || now - lastVisible >= 1000;
+
+        return (
+          statusRef.current === 'sending' &&
+          (!hasVisibleText || isIdleOver1s) &&
+          pendingToolResults.size === 0
+        );
+      };
+
+      const scheduleThinkingTimer = () => {
+        clearThinkingTimer();
+        thinkingTimerRef.current = setTimeout(() => {
+          const waitingForVisibleText = computeWaitingForVisibleText();
+          setAssistantThinking(waitingForVisibleText);
+          if (statusRef.current === 'sending') {
+            scheduleThinkingTimer();
+          }
+        }, 1000);
       };
 
       const setAssistantStatus = (
@@ -435,12 +467,16 @@ export function useChatStream(model?: string) {
         },
       ]);
       lastVisibleTextAtRef.current = null;
-      clearThinkingTimer();
-      thinkingTimerRef.current = setTimeout(() => {
-        if (statusRef.current === 'sending') {
-          setAssistantThinking(true);
+      scheduleThinkingTimer();
+
+      const maybeMarkComplete = () => {
+        if (!completeFrameSeen) return;
+        if (pendingToolResults.size > 0) {
+          return;
         }
-      }, 1000);
+        setAssistantStatus('complete');
+        setAssistantThinking(false);
+      };
 
       const syncAssistantMessage = () => {
         const toolList = segments
@@ -486,14 +522,7 @@ export function useChatStream(model?: string) {
         }
         segments = nextSegments;
         setAssistantThinking(false);
-        thinkingTimerRef.current = setTimeout(() => {
-          if (statusRef.current !== 'sending') return;
-          updateMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId ? { ...msg, thinking: true } : msg,
-            ),
-          );
-        }, 1000);
+        scheduleThinkingTimer();
       };
 
       const applyReasoning = (next: ReasoningState) => {
@@ -584,15 +613,17 @@ export function useChatStream(model?: string) {
         let changed = false;
         segments = segments.map((segment) => {
           if (segment.kind !== 'tool') return segment;
-          if (segment.tool.status !== 'requesting') return segment;
           if (!toolsAwaitingAssistantOutput.has(segment.tool.id))
             return segment;
           toolsAwaitingAssistantOutput.delete(segment.tool.id);
-          changed = true;
-          return {
-            ...segment,
-            tool: { ...segment.tool, status: 'done' },
-          };
+          if (segment.tool.status === 'requesting') {
+            changed = true;
+            return {
+              ...segment,
+              tool: { ...segment.tool, status: 'done' },
+            };
+          }
+          return segment;
         });
 
         if (changed) {
@@ -710,16 +741,23 @@ export function useChatStream(model?: string) {
                     errorFull: (event as { errorFull?: unknown }).errorFull,
                   });
                   if (event.type === 'tool-request') {
+                    pendingToolResults.add(id.toString());
                     toolsAwaitingAssistantOutput.add(id);
+                    setAssistantThinking(false);
+                    scheduleThinkingTimer();
                   }
                   if (event.type === 'tool-result') {
                     const citations = extractCitations(event.result);
                     appendCitations(citations);
-                    toolsAwaitingAssistantOutput.add(id);
+                    pendingToolResults.delete(id.toString());
+                    toolsAwaitingAssistantOutput.delete(id);
+                    toolEchoGuards.add(id.toString());
+                    scheduleThinkingTimer();
                   }
                 };
 
                 applyResult();
+                maybeMarkComplete();
                 continue;
               }
               if (event.type === 'final' && event.message?.role === 'tool') {
@@ -767,11 +805,15 @@ export function useChatStream(model?: string) {
                     ? event.message.content
                     : contentFromData;
 
+                const hasToolContext =
+                  pendingToolResults.size > 0 ||
+                  toolsAwaitingAssistantOutput.size > 0 ||
+                  toolEchoGuards.size > 0;
                 const suppressToolEcho =
-                  toolsAwaitingAssistantOutput.size > 0 &&
-                  isVectorPayloadString(finalContent);
+                  hasToolContext && isVectorPayloadString(finalContent);
                 if (suppressToolEcho) {
                   completeAwaitingToolsOnAssistantOutput();
+                  toolEchoGuards.clear();
                   continue;
                 }
                 completeAwaitingToolsOnAssistantOutput();
@@ -780,15 +822,17 @@ export function useChatStream(model?: string) {
                     flushAll: true,
                   }),
                 );
-                setAssistantStatus('complete');
                 setAssistantThinking(false);
+                toolEchoGuards.clear();
+                maybeMarkComplete();
               } else if (event.type === 'final') {
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(reasoning, '', { flushAll: true }),
                 );
-                setAssistantStatus('complete');
                 setAssistantThinking(false);
+                toolEchoGuards.clear();
+                maybeMarkComplete();
               } else if (event.type === 'error') {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
@@ -797,14 +841,18 @@ export function useChatStream(model?: string) {
                 setAssistantStatus('failed');
                 setAssistantThinking(false);
               } else if (event.type === 'complete') {
+                completeFrameSeen = true;
                 const completed = parseReasoning(reasoning, '', {
                   flushAll: true,
                 });
                 applyReasoning({ ...completed, analysisStreaming: false });
                 completePendingTools();
-                setTimeout(finishStreaming, 0);
-                setAssistantStatus('complete');
+                maybeMarkComplete();
                 setAssistantThinking(false);
+                setTimeout(() => {
+                  maybeMarkComplete();
+                  finishStreaming();
+                }, 0);
               }
             } catch {
               continue;

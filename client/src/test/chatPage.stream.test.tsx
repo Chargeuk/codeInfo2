@@ -20,6 +20,10 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
@@ -55,6 +59,19 @@ function delayedStream(frames: string[], delayMs: number) {
         frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
         controller.close();
       }, delayMs);
+    },
+  });
+}
+
+function timedStream(frames: Array<{ frame: string; delay: number }>) {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const lastDelay = Math.max(...frames.map((item) => item.delay), 0);
+      frames.forEach(({ frame, delay }) => {
+        setTimeout(() => controller.enqueue(encoder.encode(frame)), delay);
+      });
+      setTimeout(() => controller.close(), lastDelay + 10);
     },
   });
 }
@@ -110,6 +127,247 @@ describe('Chat page streaming', () => {
       expect(await screen.findByText(/All done/)).toBeInTheDocument();
       expect(screen.getByTestId('status-chip')).toHaveTextContent(/Complete/i);
       expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('shows thinking after a pre-token pause then hides on first streamed text', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: timedStream([
+          {
+            frame: 'data: {"type":"token","content":"First chunk"}\n\n',
+            delay: 1200,
+          },
+          {
+            frame:
+              'data: {"type":"final","message":{"content":"First chunk","role":"assistant"}}\n\n',
+            delay: 1500,
+          },
+          { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    });
+
+    expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+
+    expect(await screen.findByText(/First chunk/)).toBeInTheDocument();
+    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+  }, 15000);
+
+  it('restarts thinking after a mid-turn silent gap and stops once text resumes', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: timedStream([
+          {
+            frame: 'data: {"type":"token","content":"Hello"}\n\n',
+            delay: 0,
+          },
+          {
+            frame: 'data: {"type":"token","content":" again"}\n\n',
+            delay: 1400,
+          },
+          {
+            frame:
+              'data: {"type":"final","message":{"content":"Hello again","role":"assistant"}}\n\n',
+            delay: 1400,
+          },
+          { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    expect(await screen.findByText('Hello')).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1300));
+    });
+
+    expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    });
+
+    expect(await screen.findByText('Hello again')).toBeInTheDocument();
+    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+  }, 15000);
+
+  it('stays processing after final until the complete frame arrives', async () => {
+    jest.useFakeTimers();
+    try {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => modelList,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          body: timedStream([
+            {
+              frame:
+                'data: {"type":"final","message":{"content":"All done","role":"assistant"}}\n\n',
+              delay: 0,
+            },
+            { frame: 'data: {"type":"complete"}\n\n', delay: 800 },
+          ]),
+        });
+
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = screen.getByTestId('chat-send');
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(20);
+      });
+
+      expect(await screen.findByText(/All done/)).toBeInTheDocument();
+      expect(screen.getByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+      });
+
+      expect(screen.getByTestId('status-chip')).toHaveTextContent(/Complete/i);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('waits for tool-result after complete before marking complete', async () => {
+    jest.useFakeTimers();
+    try {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => modelList,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          body: timedStream([
+            {
+              frame:
+                'data: {"type":"tool-request","callId":"1","name":"VectorSearch","stage":"request","parameters":{"query":"q"}}\n\n',
+              delay: 0,
+            },
+            {
+              frame:
+                'data: {"type":"final","message":{"content":"Working","role":"assistant"}}\n\n',
+              delay: 0,
+            },
+            { frame: 'data: {"type":"complete"}\n\n', delay: 800 },
+            {
+              frame:
+                'data: {"type":"tool-result","callId":"1","name":"VectorSearch","result":{"results":[{"hostPath":"/repo/a.txt","chunk":"x","score":0.9}]}}\n\n',
+              delay: 1200,
+            },
+          ]),
+        });
+
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = screen.getByTestId('chat-send');
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(10);
+      });
+
+      expect(await screen.findByText(/Working/)).toBeInTheDocument();
+      expect(screen.getByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+      });
+      expect(screen.getByTestId('status-chip')).toHaveTextContent(
+        /Processing/i,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('status-chip')).toHaveTextContent(
+          /Complete/i,
+        ),
+      );
     } finally {
       jest.useRealTimers();
     }
@@ -220,6 +478,8 @@ describe('Chat page streaming', () => {
     });
 
     expect(await screen.findByText(/boom/i)).toBeInTheDocument();
+    expect(screen.getByTestId('status-chip')).toHaveTextContent(/Failed/i);
+    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
   });
 
   it('does not surface tool payload text as an assistant reply when only tool-result is streamed', async () => {

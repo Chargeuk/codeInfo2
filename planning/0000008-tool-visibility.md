@@ -122,7 +122,6 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
 - E2E ingest remove path now retries/short-circuits when the UI surfaces a 429 start failure to avoid flake; all e2e specs pass after the retry handling and longer completion timeout.
 - Tests run: server build/test ✅; client build/test ✅ (act warnings still emitted by legacy tests); compose:build/up/down ✅; e2e ✅.
 
-
 ### 2. UI rendering: tool summaries & details
 
 - Task Status: **done**
@@ -321,27 +320,50 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
    - In `onToolCallRequestNameReceived`/`onToolCallRequestEnd`, store `{requestId, roundIndex, callId, toolName, parameters}` in a map keyed by callId; clear it on `complete`/abort. Use existing `parseToolParameters` for parameters.
    - Sketch:
      ```ts
-     type ToolCtx = { requestId: string; roundIndex: number; name?: string; params?: unknown };
+     type ToolCtx = {
+       requestId: string;
+       roundIndex: number;
+       name?: string;
+       params?: unknown;
+     };
      const toolCtx = new Map<number, ToolCtx>();
      // onToolCallRequestNameReceived
-     toolCtx.set(callId, { ...(toolCtx.get(callId) ?? {}), requestId, roundIndex, name });
+     toolCtx.set(callId, {
+       ...(toolCtx.get(callId) ?? {}),
+       requestId,
+       roundIndex,
+       name,
+     });
      // onToolCallRequestEnd
-     toolCtx.set(callId, { ...(toolCtx.get(callId) ?? {}), params: parseToolParameters(callId, info) });
+     toolCtx.set(callId, {
+       ...(toolCtx.get(callId) ?? {}),
+       params: parseToolParameters(callId, info),
+     });
      // on complete/abort
      toolCtx.clear();
      ```
 2. [x] Wrap tool execution in `server/src/lmstudio/toolService.ts` (e.g., around the resolver used in `runToolWithLogging`): when the tool promise resolves or rejects, emit a synthesized `tool-result` SSE via `emitToolResult`/new helper using the stored context (callId/roundIndex/toolName/parameters) and the actual result/error payload.
    - Sketch helper:
      ```ts
-     function emitSyntheticToolResult(callId: number, payload: unknown, err?: unknown) {
+     function emitSyntheticToolResult(
+       callId: number,
+       payload: unknown,
+       err?: unknown,
+     ) {
        const ctx = toolCtx.get(callId);
        if (!ctx || emittedToolResults.has(callId)) return;
-       emitToolResult(ctx.roundIndex, callId, ctx.name, err ? undefined : payload, {
-         parameters: ctx.params,
-         stage: err ? 'error' : 'success',
-         errorTrimmed: trimError(err),
-         errorFull: serializeError(err),
-       });
+       emitToolResult(
+         ctx.roundIndex,
+         callId,
+         ctx.name,
+         err ? undefined : payload,
+         {
+           parameters: ctx.params,
+           stage: err ? 'error' : 'success',
+           errorTrimmed: trimError(err),
+           errorFull: serializeError(err),
+         },
+       );
        emittedToolResults.add(callId);
      }
      ```
@@ -383,6 +405,7 @@ Ensure chat streams always deliver `tool-result` events even when LM Studio omit
 - Added coverage: new unit suite `toolService.synthetic.test.ts`, expanded integration `chat-tools-wire` cases for synthesized-only and dedupe flows, client hook dedupe test, and e2e scenario that streams only synthetic results; docs (README/design/projectStructure) note the fallback.
 - Ran lint/format plus full server/client builds, server/client tests, compose build/up/down, and e2e; ingest cancel/re-embed/remove scenarios remain skipped in e2e, and React act warnings persist in client Jest output.
 - Playwright MCP manual check isn’t available in this environment; rely on the e2e tool-visibility spec and existing story screenshots for visual verification.
+
 ---
 
 ### 6. Suppress assistant echo of tool payloads
@@ -521,6 +544,7 @@ Replace the `onMessage` handler in `server/src/routes/chat.ts` with logic that m
 
 - Live LM Studio calls confirm `onMessage` receives `message.data.content` arrays; the old `{ role, content: string }` assumption is invalid. New logic must treat array items as authoritative for text and tool entries, eliminating the JSON-string parsing hacks.
 - Observed shapes (from live prompts that do and do not use tools):
+
   ```ts
   type LMContentItem =
     | { type: 'text'; text: string } // contains analysis/final markers inline
@@ -669,10 +693,10 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 5. [x] RTL test B (same file): SSE frames = `tool-request`, `final` (no tool-result yet), delay 800ms, `complete`, delay 400ms, `tool-result`; assert chip stays “Processing” until tool-result processed, then “Complete”.
 6. [x] RTL test C (same file): SSE frames = `error` only; assert chip “Failed” immediately and thinking cleared.
 7. [x] E2E test (update `e2e/chat-tools-visibility.spec.ts` or new spec): mock stream with `tool-request`, `final`, 1s pause, `complete`, 0.5s pause, `tool-result`; assert status-chip “Processing” during pauses and “Complete” only after tool-result; screenshot optional.
-6. [x] Docs: `README.md` — note the corrected completion gating and status chip behavior.
-7. [x] Docs: `design.md` — update chat streaming section to reflect completion gating and thinking clearance rules.
-8. [x] Docs: `projectStructure.md` — adjust file descriptions if any files change for this task.
-9. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+8. [x] Docs: `README.md` — note the corrected completion gating and status chip behavior.
+9. [x] Docs: `design.md` — update chat streaming section to reflect completion gating and thinking clearance rules.
+10. [x] Docs: `projectStructure.md` — adjust file descriptions if any files change for this task.
+11. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -711,7 +735,7 @@ Ensure the thinking spinner appears only while the LLM has not yet produced visi
 
 #### Subtasks
 
-1. [ ] Add `waitingForVisibleText` flag in `client/src/hooks/useChatStream.ts` near existing status/thinking state. Set true when: status is `sending` AND ((no visible assistant text yet) OR (Date.now() - lastVisibleTextAtRef > 1000ms)) AND `pendingToolResults.size === 0`. Example scaffold to drop in:
+1. [x] Add `waitingForVisibleText` flag in `client/src/hooks/useChatStream.ts` near existing status/thinking state. Set true when: status is `sending` AND ((no visible assistant text yet) OR (Date.now() - lastVisibleTextAtRef > 1000ms)) AND `pendingToolResults.size === 0`. Example scaffold to drop in:
    ```ts
    const waitingForVisibleText =
      statusRef.current === 'sending' &&
@@ -719,30 +743,33 @@ Ensure the thinking spinner appears only while the LLM has not yet produced visi
      pendingToolResults.size === 0;
    ```
    Use this flag to drive `thinking` instead of clearing on every `final/complete`.
-2. [ ] Idle timer logic in `client/src/hooks/useChatStream.ts`: reset/start the 1s timer when streaming starts and after each `appendTextSegment`. On timer fire, if `waitingForVisibleText` is true set `thinking=true`. Clear `thinking` immediately when visible text is appended or when stream ends (complete/error/abort). Ensure tool-only waits with existing visible text do NOT set thinking.
-3. [ ] Keep status chip code unchanged. Verify `thinking` updates do not modify `streamStatus` transitions in `useChatStream.ts` or `client/src/pages/ChatPage.tsx`.
-4. [ ] RTL test A (unit/integration) in `client/src/test/chatPage.stream.test.tsx`: Simulate no tokens for 1.2s, then a token; assert spinner shows during the pause and hides on first visible text. Purpose: pre-first-token behavior.
-5. [ ] RTL test B (unit/integration) in `client/src/test/chatPage.stream.test.tsx`: Simulate initial tokens, then a 1.1s pause with no new visible text, then another token; assert spinner reappears during the pause and hides on the next token. Purpose: mid-turn silent gap handling.
-6. [ ] RTL test C (unit/integration) in `client/src/test/useChatStream.reasoning.test.tsx` (or same file if preferred): Simulate tool-request plus delayed tool-result with existing assistant text and no further tokens; assert spinner stays off during tool-only wait. Purpose: ensure tools alone don’t trigger thinking.
-7. [ ] E2E test in `e2e/chat-tools-visibility.spec.ts`: Add/extend scenario with mocked stream: pre-token pause → spinner on, token burst → spinner off, 1s silent gap with no text → spinner on, resume text → spinner off; include tool-only gap with existing text and confirm spinner stays off. Purpose: end-to-end validation of spinner gating.
-8. [ ] Docs: update `README.md` — add the refined thinking-spinner rules and reference the `waitingForVisibleText` guard.
-9. [ ] Docs: update `design.md` — describe the spinner lifecycle (pre-token, mid-turn idle, tool-only gaps) and how the guard works.
-10. [ ] Docs: update `projectStructure.md` — note any new/changed test files and the spinner logic location in `useChatStream.ts`.
-11. [ ] Lint/format after code changes (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+2. [x] Idle timer logic in `client/src/hooks/useChatStream.ts`: reset/start the 1s timer when streaming starts and after each `appendTextSegment`. On timer fire, if `waitingForVisibleText` is true set `thinking=true`. Clear `thinking` immediately when visible text is appended or when stream ends (complete/error/abort). Ensure tool-only waits with existing visible text do NOT set thinking.
+3. [x] Keep status chip code unchanged. Verify `thinking` updates do not modify `streamStatus` transitions in `useChatStream.ts` or `client/src/pages/ChatPage.tsx`.
+4. [x] RTL test A (unit/integration) in `client/src/test/chatPage.stream.test.tsx`: Simulate no tokens for 1.2s, then a token; assert spinner shows during the pause and hides on first visible text. Purpose: pre-first-token behavior.
+5. [x] RTL test B (unit/integration) in `client/src/test/chatPage.stream.test.tsx`: Simulate initial tokens, then a 1.1s pause with no new visible text, then another token; assert spinner reappears during the pause and hides on the next token. Purpose: mid-turn silent gap handling.
+6. [x] RTL test C (unit/integration) in `client/src/test/useChatStream.reasoning.test.tsx` (or same file if preferred): Simulate tool-request plus delayed tool-result with existing assistant text and no further tokens; assert spinner stays off during tool-only wait. Purpose: ensure tools alone don’t trigger thinking.
+7. [x] E2E test in `e2e/chat-tools-visibility.spec.ts`: Add/extend scenario with mocked stream: pre-token pause → spinner on, token burst → spinner off, 1s silent gap with no text → spinner on, resume text → spinner off; include tool-only gap with existing text and confirm spinner stays off. Purpose: end-to-end validation of spinner gating.
+8. [x] Docs: update `README.md` — add the refined thinking-spinner rules and reference the `waitingForVisibleText` guard.
+9. [x] Docs: update `design.md` — describe the spinner lifecycle (pre-token, mid-turn idle, tool-only gaps) and how the guard works.
+10. [x] Docs: update `projectStructure.md` — note any new/changed test files and the spinner logic location in `useChatStream.ts`.
+11. [x] Lint/format after code changes (`npm run lint --workspaces`, `npm run format:check --workspaces`).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- to_be_filled
+- Thinking spinner now uses a `computeWaitingForVisibleText` guard (needs `status === 'sending'`, no pending tool results, and either no visible text yet or >1s idle since the last text). Timer reschedules every second while streaming and clears on append/complete/error/stop.
+- Tool events reset thinking immediately and reschedule the guard so tool-only waits do not show the spinner; completion now explicitly clears thinking.
+- Added RTL coverage for pre-token idle, mid-turn silent gaps, and tool-only waits; added Playwright scenario with delayed stream showing spinner return after tool-result once silence resumes.
+- Updated docs (README/design/projectStructure) to describe the guard and new tests; reran full lint/format/build/test/compose/e2e suites (client act warnings remain expected).
 
 ---

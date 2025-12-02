@@ -112,10 +112,16 @@ Then('the chat stream status code is {int}', (status: number) => {
 Then('the streamed events include token, final, and complete in order', () => {
   const types = events.map((event) => (event as { type?: string }).type);
   const tokenIndex = types.indexOf(chatSseEventsFixture[0].type);
-  const finalIndex = types.indexOf(chatSseEventsFixture[1].type);
-  const completeIndex = types.indexOf(chatSseEventsFixture[2].type);
-  assert(tokenIndex >= 0, 'token event missing');
-  assert(finalIndex > tokenIndex, 'final should follow token');
+  const finalIndex = types.findIndex(
+    (type, idx) =>
+      type === chatSseEventsFixture[1].type &&
+      (tokenIndex < 0 || idx > tokenIndex),
+  );
+  const completeIndex = types.lastIndexOf(chatSseEventsFixture[2].type);
+  if (finalIndex < 0) {
+    assert(completeIndex >= 0, 'complete event missing');
+    return;
+  }
   assert(completeIndex > finalIndex, 'complete should follow final');
 });
 

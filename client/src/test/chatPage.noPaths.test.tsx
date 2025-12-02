@@ -72,6 +72,12 @@ describe('Chat citations without host paths', () => {
     });
 
     expect(await screen.findByText(/Done/)).toBeInTheDocument();
+
+    const toggle = await screen.findByTestId('citations-toggle');
+    expect(toggle).toHaveTextContent('Citations (1)');
+    expect(screen.getByTestId('citations')).not.toBeVisible();
+
+    await user.click(toggle);
     const pathRow = await screen.findByTestId('citation-path');
     expect(pathRow).toHaveTextContent('repo/notes/info.md');
     expect(pathRow).not.toHaveTextContent('(');

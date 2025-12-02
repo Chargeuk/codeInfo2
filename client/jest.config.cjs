@@ -7,6 +7,7 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/src/test/setupTests.ts'],
   moduleNameMapper: {
     '@codeinfo2/common': '<rootDir>/../common/dist/index.js',
+    '@mui/icons-material/(.*)$': '<rootDir>/src/test/__mocks__/muiIconMock.tsx',
   },
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   transform: {

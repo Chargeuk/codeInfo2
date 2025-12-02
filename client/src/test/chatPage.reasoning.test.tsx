@@ -20,6 +20,10 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
@@ -163,6 +167,39 @@ function streamWithReasoningAndToolFinalMessageOnly() {
   });
 }
 
+function streamWithToolGapNoNewText() {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode('data: {"type":"token","content":"Hi"}\n\n'),
+      );
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-request","callId":"tool-gap","name":"VectorSearch"}\n\n',
+          ),
+        );
+      }, 100);
+
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"tool-result","callId":"tool-gap","name":"VectorSearch","result":{"results":[],"files":[]}}\n\n',
+          ),
+        );
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"Hi"}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      }, 1800);
+    },
+  });
+}
+
 describe('Chat reasoning collapse', () => {
   it('collapses analysis with spinner and streams final separately', async () => {
     mockChatFetch(streamWithReasoningFrames());
@@ -258,4 +295,38 @@ describe('Chat reasoning collapse', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
+
+  it('keeps thinking spinner off during tool-only waits once visible text exists', async () => {
+    mockChatFetch(streamWithToolGapNoNewText());
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Tool gap' } });
+
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
+
+    await act(async () => {
+      await user.click(screen.getByTestId('chat-send'));
+    });
+
+    expect(
+      await screen.findByText(/Hi/, undefined, { timeout: 3000 }),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1400));
+    });
+
+    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+
+    expect(screen.getByTestId('status-chip')).toHaveTextContent('Complete');
+    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+  }, 10000);
 });

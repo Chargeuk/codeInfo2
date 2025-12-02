@@ -67,7 +67,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
-|     |  |- ChatPage.tsx ? chat shell with model select and placeholder transcript
+|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -79,11 +79,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |  - transport.test.ts ? client log transport queue/backoff tests
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
-|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage
-|     |     |- chatPage.citations.test.tsx ? chat citations render with host paths
+|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage (status chip/thinking gating incl. pre-token + mid-turn idle waits)
+|     |     |- chatPage.citations.test.tsx ? chat citations accordion default-closed with host paths shown when expanded
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
-|     |     |- chatPage.toolVisibility.test.tsx ? tool-call spinner + collapsible results
+|     |     |- chatPage.toolDetails.test.tsx ? tool detail UI (parameters, repos, vector files, errors)
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
@@ -118,6 +118,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
+â”‚  â”œâ”€ chat-tools-visibility.spec.ts — chat tool detail UX e2e (closed state, params, repo expansion, vector aggregation, errors, thinking spinner idle/tool-wait behaviour)
 â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)
 â”‚  â”œâ”€ chat-mermaid.spec.ts — renders mermaid diagram from chat reply and captures screenshot
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
@@ -156,6 +157,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
+â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
 â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
@@ -219,6 +221,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ pathMap.test.ts â€” host/container path mapping helper coverage
 â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
 â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
+â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos

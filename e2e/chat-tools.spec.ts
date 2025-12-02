@@ -106,6 +106,17 @@ test.describe.serial('Chat tools citations', () => {
       test.skip('vector search returned no results');
     }
 
+    const aggregated = firstResult
+      ? {
+          hostPath:
+            firstResult.hostPath ??
+            `/data/${firstResult.repo ?? 'repo'}/${firstResult.relPath ?? 'file'}`,
+          highestMatch: firstResult.score ?? null,
+          chunkCount: 1,
+          lineCount: (firstResult.chunk ?? '').split(/\r?\n/).length || 0,
+        }
+      : null;
+
     const mockChatModels = [
       { key: 'mock-chat', displayName: 'Mock Chat Model' },
     ];
@@ -133,6 +144,7 @@ test.describe.serial('Chat tools citations', () => {
           callId: 't1',
           result: {
             results: [firstResult],
+            files: aggregated ? [aggregated] : [],
             modelId: firstResult.modelId ?? null,
           },
           roundIndex: 0,
@@ -174,6 +186,11 @@ test.describe.serial('Chat tools citations', () => {
     const pathLabel = `${firstResult.repo}/${firstResult.relPath}`;
     const hostSuffix = firstResult.hostPath ? ` (${firstResult.hostPath})` : '';
 
+    const citationsToggle = page.getByTestId('citations-toggle');
+    await expect(citationsToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('citations')).not.toBeVisible();
+    await citationsToggle.click();
+
     const citations = page.getByTestId('citations');
     await expect(citations).toBeVisible({ timeout: 20000 });
     await expect(page.getByTestId('citation-path').first()).toHaveText(
@@ -183,12 +200,9 @@ test.describe.serial('Chat tools citations', () => {
       firstResult.chunk,
     );
 
-    await expect(page.getByTestId('tool-result-path').first()).toHaveText(
-      pathLabel + hostSuffix,
-    );
-    await expect(page.getByTestId('tool-result-chunk').first()).toContainText(
-      firstResult.chunk,
-    );
+    const fileItem = page.getByTestId('tool-file-item').first();
+    await expect(fileItem).toContainText(aggregated!.hostPath);
+    await expect(fileItem).toContainText('chunks 1');
 
     const assistantBubble = page
       .getByTestId('chat-bubble')

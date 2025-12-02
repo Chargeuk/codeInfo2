@@ -20,10 +20,17 @@ import {
 export type ToolFactoryOptions = {
   deps?: Partial<ToolDeps>;
   log?: (payload: Record<string, unknown>) => void;
+  onToolResult?: (
+    callId: string | number | undefined,
+    result?: unknown,
+    error?: unknown,
+    ctx?: ToolCallContext,
+    meta?: { name: string },
+  ) => void;
 };
 
 export function createLmStudioTools(options: ToolFactoryOptions = {}) {
-  const { deps = {}, log } = options;
+  const { deps = {}, log, onToolResult } = options;
 
   const listIngestedRepositoriesTool = tool({
     name: 'ListIngestedRepositories',
@@ -46,6 +53,20 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
         repos: result.repos.length,
         lockedModelId: result.lockedModelId,
       });
+      onToolResult?.(
+        ((_ctx as unknown as { callId?: unknown }).callId ??
+          (_ctx as unknown as { call?: { id?: unknown } }).call?.id ??
+          (_ctx as unknown as { id?: unknown }).id) as
+          | string
+          | number
+          | undefined,
+        result,
+        undefined,
+        _ctx,
+        {
+          name: 'ListIngestedRepositories',
+        },
+      );
       return result;
     },
   });
@@ -84,8 +105,32 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
           results: result.results.length,
           modelId: result.modelId,
         });
+        onToolResult?.(
+          ((_ctx as unknown as { callId?: unknown }).callId ??
+            (_ctx as unknown as { call?: { id?: unknown } }).call?.id ??
+            (_ctx as unknown as { id?: unknown }).id) as
+            | string
+            | number
+            | undefined,
+          result,
+          undefined,
+          _ctx,
+          { name: 'VectorSearch' },
+        );
         return result;
       } catch (err) {
+        onToolResult?.(
+          ((_ctx as unknown as { callId?: unknown }).callId ??
+            (_ctx as unknown as { call?: { id?: unknown } }).call?.id ??
+            (_ctx as unknown as { id?: unknown }).id) as
+            | string
+            | number
+            | undefined,
+          undefined,
+          err,
+          _ctx,
+          { name: 'VectorSearch' },
+        );
         if (err instanceof ValidationError) {
           throw new Error(err.details.join(', '));
         }

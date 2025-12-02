@@ -74,6 +74,13 @@ describe('Chat citations rendering', () => {
     expect(
       await screen.findByText(/Here is what I found/i),
     ).toBeInTheDocument();
+
+    const toggle = await screen.findByTestId('citations-toggle');
+    expect(toggle).toHaveTextContent('Citations (1)');
+    // Default closed; content should not yet be visible.
+    expect(screen.getByTestId('citations')).not.toBeVisible();
+
+    await user.click(toggle);
     const pathRow = await screen.findByTestId('citation-path');
     expect(pathRow).toHaveTextContent(
       'repo/docs/main.txt (/host/repo/docs/main.txt)',

@@ -46,6 +46,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
+- Stream status chip: each assistant bubble shows a chip at the top—Processing (spinner), Complete (tick), or Failed (cross) driven by stream lifecycle events. Complete now triggers only after the `complete` SSE frame **and** when no tool calls remain pending (tool requests without a result keep the chip in Processing even if a `final` arrives early).
+- Thinking placeholder: when streaming is active and no tool results are pending, a “Thinking…” inline spinner appears only after 1s with no visible assistant text (including pre-token starts or mid-turn silent gaps); it hides immediately once visible text arrives or the stream completes/fails, and it stays off during tool-only waits if text is already visible.
 - **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
 - **Tool-call visibility:** `tool-request` events render an inline spinner + tool name inside the active assistant bubble; when `tool-result` arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
 - Tool completion synthesis: when LM Studio delivers tool payloads only via a `role: "tool"` final message (no `onToolCallResult`), the server synthesizes a `tool-result` SSE right after that message (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` on `complete`, and now clears any pending tool spinner as soon as assistant output resumes (token or final) after a tool call so ordering is preserved and the UI never waits for stream completion to stop spinners.
@@ -53,14 +55,23 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ### Chat citations UI
 
 - `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
-- Citations attach to the in-flight assistant bubble and render inline beneath the reply with `repo/relPath` plus `hostPath` in parentheses; the path line ellipsizes within the bubble width for small screens.
-- Chunk text from the tool response is shown under the path to make grounding explicit without waiting for the model to quote it verbatim.
+- Citations attach to the in-flight assistant bubble inside a default-closed “Citations” accordion; expanding reveals the `repo/relPath` + host path (when available). The path line ellipsizes within the bubble width for small screens.
+- Chunk text from the tool response is shown under the path inside the expanded panel to make grounding explicit without waiting for the model to quote it verbatim.
+
+### Chat tool detail UI
+
+- Tool calls render closed by default with name + status (Success/Failed/Running) and no lingering spinner after a result or error arrives.
+- Each tool has a default-closed Parameters accordion that pretty-prints the arguments sent to the tool.
+- ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
+- VectorSearch: renders an alphabetical, host-path-only file list. Each file shows highest match value, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
+- Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
+- Tool-result delivery: if LM Studio omits `onToolCallResult`/`role:"tool"`, the server now synthesizes `tool-result` events from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.
 - Styled `<pre><code>` blocks and inline code backgrounds improve readability; links open in a new tab. Blockquotes use a divider-colored border to stay subtle inside bubbles.
-- Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded.
+- Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded. Assistant-role messages that contain tool payloads are suppressed server-side so raw tool JSON never shows as a normal assistant reply; only the structured tool block renders the data.
 - Streaming-safe: the Markdown wrapper simply re-renders on content changes, relying on the sanitized schema to drop scripts before the virtual DOM paint.
 
 ### Mermaid rendering

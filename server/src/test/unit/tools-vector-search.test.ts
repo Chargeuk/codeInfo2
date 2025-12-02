@@ -130,6 +130,56 @@ test('returns mapped search results with host path and model id', async () => {
   assert.equal(result.chunk, 'chunk body');
   assert.equal(result.score, 0.12);
   assert.equal(result.modelId, 'text-embed');
+  assert.equal(result.lineCount, 1);
+  assert.ok(Array.isArray(res.body.files));
+  assert.equal(res.body.files.length, 1);
+  const file = res.body.files[0];
+  assert.equal(file.hostPath, '/host/base/repo-one/docs/readme.md');
+  assert.equal(file.chunkCount, 1);
+  assert.equal(file.highestMatch, 0.12);
+  assert.equal(file.lineCount, 1);
+});
+
+test('aggregates files by host path with summed lines and max score', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [['first line', 'second\nline']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.33, 0.12]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.ok(Array.isArray(res.body.files));
+  assert.equal(res.body.files.length, 1);
+  const file = res.body.files[0];
+  assert.equal(file.hostPath, '/host/base/repo-one/docs/readme.md');
+  assert.equal(file.chunkCount, 2);
+  assert.equal(file.highestMatch, 0.33);
+  assert.equal(file.lineCount, 3);
 });
 
 test('caps limit to 20 and applies repository filter when provided', async () => {

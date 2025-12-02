@@ -11,6 +11,8 @@ export type ChatMessage = {
   citations?: ToolCitation[];
   tools?: ToolCall[];
   segments?: ChatSegment[];
+  streamStatus?: 'processing' | 'complete' | 'failed';
+  thinking?: boolean;
 };
 
 export type ToolCitation = {
@@ -29,6 +31,10 @@ export type ToolCall = {
   name?: string;
   status: 'requesting' | 'done' | 'error';
   payload?: unknown;
+  parameters?: unknown;
+  stage?: string;
+  errorTrimmed?: { code?: string; message?: string } | null;
+  errorFull?: unknown;
 };
 
 export type ChatSegment =
@@ -48,10 +54,13 @@ type StreamEvent =
   | { type: 'error'; message?: string }
   | {
       type: 'tool-request' | 'tool-result';
-      callId?: string;
+      callId?: string | number;
       name?: string;
       stage?: string;
       result?: unknown;
+      parameters?: unknown;
+      errorTrimmed?: unknown;
+      errorFull?: unknown;
     };
 
 const serverBase =
@@ -211,6 +220,33 @@ const isToolEvent = (
 ): event is Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }> =>
   event.type === 'tool-request' || event.type === 'tool-result';
 
+const isVectorPayloadString = (content: string) => {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    return entries.some((entry) => {
+      if (!entry || typeof entry !== 'object') return false;
+      const obj = entry as Record<string, unknown>;
+      const results = Array.isArray(obj.results) ? obj.results : [];
+      const files = Array.isArray(obj.files) ? obj.files : [];
+      const hasVectorLike = (items: unknown[]) =>
+        items.some((item) => {
+          if (!item || typeof item !== 'object') return false;
+          const it = item as Record<string, unknown>;
+          return (
+            typeof it.hostPath === 'string' &&
+            (typeof it.chunk === 'string' ||
+              typeof it.score === 'number' ||
+              typeof it.lineCount === 'number')
+          );
+        });
+      return hasVectorLike(results) || hasVectorLike(files);
+    });
+  } catch {
+    return false;
+  }
+};
+
 export function useChatStream(model?: string) {
   const logger = useRef(createLogger('client-chat')).current;
   const controllerRef = useRef<AbortController | null>(null);
@@ -219,11 +255,21 @@ export function useChatStream(model?: string) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVisibleTextAtRef = useRef<number | null>(null);
+
+  const clearThinkingTimer = useCallback(() => {
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+  }, []);
 
   const finishStreaming = useCallback(() => {
     setIsStreaming(false);
     setStatus('idle');
-  }, []);
+    clearThinkingTimer();
+  }, [clearThinkingTimer]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -245,6 +291,11 @@ export function useChatStream(model?: string) {
       const wasSending = statusRef.current === 'sending';
       controllerRef.current?.abort();
       controllerRef.current = null;
+      updateMessages((prev) =>
+        prev.map((msg) =>
+          msg.role === 'assistant' ? { ...msg, thinking: false } : msg,
+        ),
+      );
       if (options?.showStatusBubble && wasSending) {
         updateMessages((prev) => [
           ...prev,
@@ -264,6 +315,7 @@ export function useChatStream(model?: string) {
   const reset = useCallback(() => {
     updateMessages(() => []);
     finishStreaming();
+    lastVisibleTextAtRef.current = null;
   }, [finishStreaming, updateMessages]);
 
   const handleErrorBubble = useCallback(
@@ -346,6 +398,62 @@ export function useChatStream(model?: string) {
         { id: makeId(), kind: 'text', content: '' },
       ];
       const toolsAwaitingAssistantOutput = new Set<string>();
+      const pendingToolResults = new Set<string>();
+      const toolEchoGuards = new Set<string>();
+      let completeFrameSeen = false;
+      const logContentDecision = (reason: string, content: string) => {
+        console.log('[chat-stream] content decision', { reason, content });
+      };
+      const logSync = (reason: string) => {
+        console.log('[chat-stream] sync message', {
+          reason,
+          finalText,
+          analysis: reasoning.analysis,
+          segmentsCount: segments.length,
+        });
+      };
+
+      const setAssistantThinking = (thinking: boolean) => {
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId ? { ...msg, thinking } : msg,
+          ),
+        );
+      };
+
+      const computeWaitingForVisibleText = () => {
+        const now = Date.now();
+        const hasVisibleText = finalText.length > 0;
+        const lastVisible = lastVisibleTextAtRef.current;
+        const isIdleOver1s = !lastVisible || now - lastVisible >= 1000;
+
+        return (
+          statusRef.current === 'sending' &&
+          (!hasVisibleText || isIdleOver1s) &&
+          pendingToolResults.size === 0
+        );
+      };
+
+      const scheduleThinkingTimer = () => {
+        clearThinkingTimer();
+        thinkingTimerRef.current = setTimeout(() => {
+          const waitingForVisibleText = computeWaitingForVisibleText();
+          setAssistantThinking(waitingForVisibleText);
+          if (statusRef.current === 'sending') {
+            scheduleThinkingTimer();
+          }
+        }, 1000);
+      };
+
+      const setAssistantStatus = (
+        streamStatus: ChatMessage['streamStatus'],
+      ) => {
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId ? { ...msg, streamStatus } : msg,
+          ),
+        );
+      };
 
       updateMessages((prev) => [
         ...prev,
@@ -354,8 +462,21 @@ export function useChatStream(model?: string) {
           role: 'assistant',
           content: '',
           segments,
+          streamStatus: 'processing',
+          thinking: false,
         },
       ]);
+      lastVisibleTextAtRef.current = null;
+      scheduleThinkingTimer();
+
+      const maybeMarkComplete = () => {
+        if (!completeFrameSeen) return;
+        if (pendingToolResults.size > 0) {
+          return;
+        }
+        setAssistantStatus('complete');
+        setAssistantThinking(false);
+      };
 
       const syncAssistantMessage = () => {
         const toolList = segments
@@ -379,10 +500,13 @@ export function useChatStream(model?: string) {
               : msg,
           ),
         );
+        logSync('syncAssistantMessage');
       };
 
       const appendTextSegment = (text: string) => {
         if (!text) return;
+        lastVisibleTextAtRef.current = Date.now();
+        clearThinkingTimer();
         const last = segments[segments.length - 1];
         let nextSegments = [...segments];
         if (last && last.kind === 'text') {
@@ -397,6 +521,8 @@ export function useChatStream(model?: string) {
           ];
         }
         segments = nextSegments;
+        setAssistantThinking(false);
+        scheduleThinkingTimer();
       };
 
       const applyReasoning = (next: ReasoningState) => {
@@ -405,6 +531,7 @@ export function useChatStream(model?: string) {
           const delta = newFinal.slice(finalText.length);
           appendTextSegment(delta);
           finalText = newFinal;
+          logContentDecision('append-final-delta', delta);
         } else {
           finalText = newFinal;
           segments = segments.filter((segment) => segment.kind !== 'text');
@@ -412,6 +539,7 @@ export function useChatStream(model?: string) {
             ...segments,
             { id: makeId(), kind: 'text', content: newFinal },
           ];
+          logContentDecision('reset-final-text', newFinal);
         }
         reasoning = next;
         syncAssistantMessage();
@@ -485,15 +613,17 @@ export function useChatStream(model?: string) {
         let changed = false;
         segments = segments.map((segment) => {
           if (segment.kind !== 'tool') return segment;
-          if (segment.tool.status !== 'requesting') return segment;
           if (!toolsAwaitingAssistantOutput.has(segment.tool.id))
             return segment;
           toolsAwaitingAssistantOutput.delete(segment.tool.id);
-          changed = true;
-          return {
-            ...segment,
-            tool: { ...segment.tool, status: 'done' },
-          };
+          if (segment.tool.status === 'requesting') {
+            changed = true;
+            return {
+              ...segment,
+              tool: { ...segment.tool, status: 'done' },
+            };
+          }
+          return segment;
         });
 
         if (changed) {
@@ -592,27 +722,42 @@ export function useChatStream(model?: string) {
                   stage: event.stage,
                 });
                 const applyResult = () => {
+                  const toolParameters =
+                    event.parameters ??
+                    (event.result &&
+                    typeof event.result === 'object' &&
+                    'parameters' in (event.result as Record<string, unknown>)
+                      ? (event.result as { parameters?: unknown }).parameters
+                      : undefined);
                   upsertTool({
                     id,
                     name: event.name,
                     status,
                     payload: event.result,
+                    parameters: toolParameters,
+                    stage: event.stage,
+                    errorTrimmed: (event as { errorTrimmed?: unknown })
+                      .errorTrimmed as ToolCall['errorTrimmed'],
+                    errorFull: (event as { errorFull?: unknown }).errorFull,
                   });
                   if (event.type === 'tool-request') {
+                    pendingToolResults.add(id.toString());
                     toolsAwaitingAssistantOutput.add(id);
+                    setAssistantThinking(false);
+                    scheduleThinkingTimer();
                   }
                   if (event.type === 'tool-result') {
                     const citations = extractCitations(event.result);
                     appendCitations(citations);
-                    toolsAwaitingAssistantOutput.add(id);
+                    pendingToolResults.delete(id.toString());
+                    toolsAwaitingAssistantOutput.delete(id);
+                    toolEchoGuards.add(id.toString());
+                    scheduleThinkingTimer();
                   }
                 };
 
-                if (event.type === 'tool-result') {
-                  setTimeout(applyResult, 500);
-                } else {
-                  applyResult();
-                }
+                applyResult();
+                maybeMarkComplete();
                 continue;
               }
               if (event.type === 'final' && event.message?.role === 'tool') {
@@ -639,33 +784,75 @@ export function useChatStream(model?: string) {
                 );
               } else if (
                 event.type === 'final' &&
-                typeof event.message?.content === 'string'
+                (typeof event.message?.content === 'string' ||
+                  Array.isArray(
+                    (event.message as { data?: unknown })?.data?.['content'],
+                  ))
               ) {
+                const dataContent = Array.isArray(
+                  (event.message as { data?: { content?: unknown } })?.data
+                    ?.content,
+                )
+                  ? ((event.message as { data?: { content?: unknown } })?.data
+                      ?.content as Array<{ type?: string; text?: string }>)
+                  : [];
+                const contentFromData = dataContent
+                  .filter((item) => item?.type === 'text')
+                  .map((item) => item.text ?? '')
+                  .join('');
+                const finalContent =
+                  typeof event.message?.content === 'string'
+                    ? event.message.content
+                    : contentFromData;
+
+                const hasToolContext =
+                  pendingToolResults.size > 0 ||
+                  toolsAwaitingAssistantOutput.size > 0 ||
+                  toolEchoGuards.size > 0;
+                const suppressToolEcho =
+                  hasToolContext && isVectorPayloadString(finalContent);
+                if (suppressToolEcho) {
+                  completeAwaitingToolsOnAssistantOutput();
+                  toolEchoGuards.clear();
+                  continue;
+                }
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
-                  parseReasoning(
-                    initialReasoningState(),
-                    event.message.content,
-                    { flushAll: true },
-                  ),
+                  parseReasoning(initialReasoningState(), finalContent, {
+                    flushAll: true,
+                  }),
                 );
+                setAssistantThinking(false);
+                toolEchoGuards.clear();
+                maybeMarkComplete();
               } else if (event.type === 'final') {
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
                   parseReasoning(reasoning, '', { flushAll: true }),
                 );
+                setAssistantThinking(false);
+                toolEchoGuards.clear();
+                maybeMarkComplete();
               } else if (event.type === 'error') {
                 const message =
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
                 finishStreaming();
+                setAssistantStatus('failed');
+                setAssistantThinking(false);
               } else if (event.type === 'complete') {
+                completeFrameSeen = true;
                 const completed = parseReasoning(reasoning, '', {
                   flushAll: true,
                 });
                 applyReasoning({ ...completed, analysisStreaming: false });
                 completePendingTools();
-                setTimeout(finishStreaming, 0);
+                maybeMarkComplete();
+                setAssistantThinking(false);
+                setTimeout(() => {
+                  maybeMarkComplete();
+                  finishStreaming();
+                }, 0);
               }
             } catch {
               continue;
@@ -695,6 +882,7 @@ export function useChatStream(model?: string) {
       status,
       stop,
       updateMessages,
+      clearThinkingTimer,
     ],
   );
 

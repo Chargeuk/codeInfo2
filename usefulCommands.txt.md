@@ -2,9 +2,9 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Tasks:
-do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
+do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask.
 
-do you feel the todo tasks instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
+do you feel the todo task's subtasks are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
 in various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating
 
@@ -38,8 +38,14 @@ I want to see if you can run a seperate codex agent. Please try to run the follo
 
 I want you to get other codex agents to implement all remaining tasks of the current story sequentially, and to get back to me with information about how this way of working went. This should be possible if you execute the following command for each task in sequence once the previous task is completed, adjusting the appropriate task number and story plan name for each task. Note that you must not try to run multiple agents at the same time, run an agent for the next task, when that is complete, run a new agent for the task after, and so on until all tasks are complete. each agent could take up to 35 minutes to complete a task: codex exec -s danger-full-access "Please read Agents.md and follow it's instructions. Once done you must work through Task [Task Number & name] of planning/[current planning document].md, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done."
 
-Please work through Task 9 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step.
+Please work through Task 10 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step.
 
 please create a pr comment that summarises the changes along with bullet points
 
 /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/docker-compose.e2e.yml
+
+
+
+
+ based on the new log output it looks to me like our assumption that the message contains { role?: unknown; content?: unknown } is completely incorrect and that entire logic section is wrong. Do you agree? - though maybe it is that format when asking a question that does not
+    require tool use, such as "who was the first man on the moon". I want you to ask multiple questions that both exercise tool use and do not, to get a correct understanding of the response structure that gets passed into the onMessage callback within chat.ts.

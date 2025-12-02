@@ -202,44 +202,6 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 ---
 
-### 4. Final Task – verification & docs sweep
-
-- status: **to_do**
-- Git Commits: **to_do**
-
-#### Overview
-
-Ensure builds/tests clean, docs accurate, and summarize changes for the PR comment.
-
-#### Documentation Locations
-
-- README.md
-- design.md
-- projectStructure.md
-
-#### Subtasks
-
-1. [ ] Confirm README/design/projectStructure reflect the log source/tag behavior.
-2. [ ] Prepare PR summary text covering scope, tests, and risk.
-3. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
-
-#### Implementation notes
-
-- to_be_filled
-
----
-
 ### 4. Thinking snippet stability
 
 - status: **to_do**

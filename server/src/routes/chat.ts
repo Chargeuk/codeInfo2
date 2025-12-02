@@ -527,6 +527,7 @@ export function createChatRouter({
           });
         },
         onMessage: (message) => {
+          chat.append(message);
           try {
             baseLogger.debug(
               {
@@ -637,9 +638,9 @@ export function createChatRouter({
             ) {
               text = (message as { content?: string }).content ?? '';
             }
-            if (text) {
-              chat.append('assistant', text);
-            }
+            // if (text) {
+            //   chat.append('assistant', text);
+            // }
 
             emitToolResultsFromItems();
 
@@ -669,9 +670,9 @@ export function createChatRouter({
             ) {
               text = (message as { content?: string }).content ?? '';
             }
-            if (text) {
-              chat.append(role as 'assistant' | 'user' | 'system', text);
-            }
+            // if (text) {
+            //   chat.append(role as 'assistant' | 'user' | 'system', text);
+            // }
             writeIfOpen({
               type: 'final',
               message: { role, content: text },

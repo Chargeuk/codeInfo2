@@ -78,14 +78,14 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run test --workspace server` (only if server files were touched; otherwise note “not needed” in implementation notes)
-5. [ ] `npm run build --workspace client`
-6. [ ] `npm run build --workspace server` (same conditional note as above)
-7. [ ] `npm run compose:build` && `npm run compose:up` (smoke) && `npm run compose:down`
-8. [ ] `npm run e2e:test` (optional if compose smoke already covers; state decision in notes)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -163,14 +163,14 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run test --workspace server` (only if server touched; otherwise document skip)
-5. [ ] `npm run build --workspace client`
-6. [ ] `npm run build --workspace server` (conditional as above)
-7. [ ] `npm run compose:build` && `npm run compose:up` (smoke) && `npm run compose:down`
-8. [ ] `npm run e2e:test` (run if UI changes might affect e2e; otherwise note rationale)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -196,8 +196,8 @@ Ensure builds/tests clean, docs accurate, and summarize changes for the PR comme
 #### Subtasks
 
 1. [ ] Confirm README/design/projectStructure reflect the log source/tag behavior.
-3. [ ] Prepare PR summary text covering scope, tests, and risk.
-4. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+2. [ ] Prepare PR summary text covering scope, tests, and risk.
+3. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 

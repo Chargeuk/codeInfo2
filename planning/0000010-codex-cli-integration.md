@@ -83,7 +83,57 @@ This should only be started once all the above sections are clear and understood
 
 # Tasks
 
-### 1. Codex SDK + CLI bootstrap
+### 1. Codex config template and bootstrap copy
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Provide a checked-in `config.toml.example` for Codex with our defaults, and seed `./codex/config.toml` (CODEINFO_CODEX_HOME) from it when missing, without overwriting user changes.
+
+#### Documentation Locations
+
+- Codex config reference (config.toml fields): https://github.com/openai/codex/blob/main/docs/agents_md.md
+- CODEX_HOME env mapping in SDK: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
+- plan_format.md (process)
+
+#### Subtasks
+
+1. [ ] Add `config.toml.example` at repo root with:
+   - `model = "gpt-5.1-codex-max"`
+   - `model_reasoning_effort = "high"`
+   - `[features]` `web_search_request = true` `view_image_tool = true`
+   - `[mcp_servers]` entry for MCP: host `http://localhost:5010/mcp`, docker `http://server:5010/mcp` (comment both)
+2. [ ] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
+   - Minimal copy snippet:
+   ```ts
+   if (!fs.existsSync(target)) {
+     fs.copyFileSync(path.resolve('config.toml.example'), target);
+   }
+   ```
+3. [ ] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- Capture the MCP server URL(s) used in the example and any template substitutions.
+- Note any platform/path considerations for CODEINFO_CODEX_HOME.
+
+---
+
+### 2. Codex SDK + CLI bootstrap
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -127,8 +177,14 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] Clean Docker build of server image (CI-equivalent) to verify CLI install step
-4. [ ] Start server locally and confirm startup logs show Codex detected/disabled messages (manual)
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Stop server docker image
+9. [ ] Start server locally and confirm startup logs show Codex detected/disabled messages (manual)
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -137,7 +193,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 ---
 
-### 2. Provider/model surfacing & UI layout changes
+### 3. Provider/model surfacing & UI layout changes
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -175,8 +231,14 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace client`
-4. [ ] Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, perform Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
+9. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 
@@ -185,7 +247,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 ---
 
-### 3. Codex chat pathway (no MCP/tools yet)
+### 4. Codex chat pathway (no MCP/tools yet)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -226,7 +288,13 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+9. [ ] `npm run compose:down`
+
+
 
 #### Implementation notes
 
@@ -235,52 +303,6 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 ---
 
-### 4. Codex config template and bootstrap copy
-
-- Task Status: **__to_do__**
-- Git Commits: **to_do**
-
-#### Overview
-
-Provide a checked-in `config.toml.example` for Codex with our defaults, and seed `./codex/config.toml` (CODEINFO_CODEX_HOME) from it when missing, without overwriting user changes.
-
-#### Documentation Locations
-
-- Codex config reference (config.toml fields): https://github.com/openai/codex/blob/main/docs/agents_md.md
-- CODEX_HOME env mapping in SDK: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
-- plan_format.md (process)
-
-#### Subtasks
-
-1. [ ] Add `config.toml.example` at repo root with:
-   - `model = "gpt-5.1-codex-max"`
-   - `model_reasoning_effort = "high"`
-   - `[features]` `web_search_request = true` `view_image_tool = true`
-   - `[mcp_servers]` entry for MCP: host `http://localhost:5010/mcp`, docker `http://server:5010/mcp` (comment both)
-2. [ ] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
-   - Minimal copy snippet:
-   ```ts
-   if (!fs.existsSync(target)) {
-     fs.copyFileSync(path.resolve('config.toml.example'), target);
-   }
-   ```
-3. [ ] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
-5. [ ] Tests: server build (`npm run build --workspace server`).
-6. [ ] Tests: manual seed check – remove/rename `./codex/config.toml`, start server, verify seed from example; restart to confirm no overwrite.
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
-2. [ ] Manual: remove/rename `./codex/config.toml`, start the server, verify the file is seeded from the example; restart to confirm idempotency (no overwrite).
-3. [ ] If a standalone script is provided, run it directly to confirm copy behavior.
-
-#### Implementation notes
-
-- Capture the MCP server URL(s) used in the example and any template substitutions.
-- Note any platform/path considerations for CODEINFO_CODEX_HOME.
-
----
 
 ### 5. Expose existing tools via MCP server
 
@@ -316,8 +338,14 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server` (add unit/integration for `/mcp` list_tools and call_tool happy/err paths)
-3. [ ] Manual: with Codex CLI logged in, point `config.toml` `[mcp_servers]` at `http://localhost:5010/mcp`, run `codex` chat, and verify the tools are listed and callable.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -362,7 +390,12 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
+9. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 
@@ -397,9 +430,15 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] Manual UI check: disabled Codex state shows guidance; README renders instructions.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -438,10 +477,14 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 
 #### Testing
 
-1. [ ] `npm run build --workspaces`
-2. [ ] `npm run test --workspaces`
-3. [ ] Docker compose up/down (document Codex availability)
-4. [ ] `npm run e2e` (note skips if Codex not available)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

@@ -673,7 +673,7 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 6. [ ] Docs: `README.md` — note the corrected completion gating and status chip behavior.
 7. [ ] Docs: `design.md` — update chat streaming section to reflect completion gating and thinking clearance rules.
 8. [ ] Docs: `projectStructure.md` — adjust file descriptions if any files change for this task.
-9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+9. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 

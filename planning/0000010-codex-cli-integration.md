@@ -318,3 +318,76 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 - Capture how SYSTEM_CONTEXT is injected (server-side to avoid client replay) and any prompt wording.
 - Note any Codex-specific quirks in MCP call shapes vs our SSE expectations.
+
+---
+
+### 7. Codex guidance copy and disabled-state UX
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Finalize and implement the user-facing guidance for Codex: login instructions placement (README + UI banner/tooltip), disabled-state messaging when CLI/auth/MCP is missing, and inline hints for config.toml seeding/mounting.
+
+#### Documentation Locations
+
+- README/design.md current Codex sections
+- Chat UI components for banners/tooltips
+- Codex config docs for accurate wording
+
+#### Subtasks
+
+1. [ ] Define exact wording/location for Codex login/setup guidance in README (host + Docker) and add it.
+2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount).
+3. [ ] Ensure disabled-state copy covers both host and Docker paths (CODEINFO_CODEX_HOME, config seeding, auth login).
+4. [ ] Update tests if UI elements are added (snapshot/RTL as appropriate).
+5. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Manual UI check: disabled Codex state shows guidance; README renders instructions.
+
+#### Implementation notes
+
+- Capture final copy text for reuse in future stories.
+
+---
+
+### 8. Final validation and release checklist
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Cross-check acceptance criteria, run full builds/tests (including Docker/e2e where applicable), update docs (README/design/projectStructure), and prepare the PR summary/screenshots per plan_format final-task guidance.
+
+#### Documentation Locations
+
+- plan_format.md final task expectations
+- README/design.md/projectStructure.md
+- Docker compose files and e2e scripts
+
+#### Subtasks
+
+1. [ ] Build server and client.
+2. [ ] Run server tests and client tests.
+3. [ ] Perform clean Docker build; start compose stack (with Codex disabled/enabled as appropriate) and verify health.
+4. [ ] Run e2e tests (skip Codex if not available in CI; document).
+5. [ ] Update README, design.md, projectStructure.md to reflect final state and MCP/Codex config.
+6. [ ] Capture required screenshots (if applicable) and prepare a PR-ready summary of changes and how to enable Codex.
+7. [ ] Run lint/format across workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspaces`
+2. [ ] `npm run test --workspaces`
+3. [ ] Docker compose up/down (document Codex availability)
+4. [ ] `npm run e2e` (note skips if Codex not available)
+
+#### Implementation notes
+
+- Document any deviations/known limitations (e.g., Codex unavailable in CI).

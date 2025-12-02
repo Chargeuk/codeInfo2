@@ -46,8 +46,8 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Align chat logger source with backend schema
 
-- Task Status: **in_progress**
-- Git Commits: to_do
+- Task Status: **done**
+- Git Commits: a2a0b6a
 
 #### Overview
 
@@ -110,7 +110,7 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 ### 2. System context update hook
 
-- status: **to_do**
+- status: __in_progress__
 - Git Commits: **to_do**
 
 #### Overview

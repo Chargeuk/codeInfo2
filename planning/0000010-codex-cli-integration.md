@@ -6,9 +6,9 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
 
 ### Rough Plan
   - Codex home/config
-      - Create a dedicated Codex home inside the repo (e.g., ./codex_home/) with config.toml that lists our MCP server(s) and any defaults (model, sampling, caches).
-      - When constructing the Codex client in the server, pass CodexOptions with env: { CODEX_HOME: <abs path to codex_home> }. That forces the CLI bridge to read our config (and MCP servers) instead of the user’s default ~/.codex.
-      - Keep ~/.codex/auth.json untouched; we just reuse its auth via the CLI executable. If needed, we can symlink/copy the auth into the custom home on startup when present.
+      - Use a repo-local git-ignored `./codex/` as CODEX_HOME, containing config.toml and CLI artifacts.
+      - Construct the Codex client with CodexOptions env: { CODEX_HOME: <abs path to ./codex> } so the CLI bridge reads our config (including MCP servers) instead of ~/.codex.
+      - Users must manually log in the Codex CLI against this CODEX_HOME; no auto-copy of ~/.codex/auth.json.
   - MCP wiring
       - Run a lightweight MCP server inside our Node process that exposes our existing tools (ListIngestedRepositories, VectorSearch). Bind it to 127.0.0.1:<port>.
       - In codex_home/config.toml, register that MCP server under [mcp] so Codex sees it without API keys.
@@ -16,15 +16,16 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
   - Provider adapter
       - Add a “codex” provider in the server chat router that:
           - Checks which codex and ~/.codex/auth.json (or copied auth) on boot; only enables if present.
-          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: <env default, e.g., codex-mini-latest>, threadOptions as needed }.
+          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: <env default, gpt-5.1-codex-max>, threadOptions as needed }.
           - Streams deltas → our SSE frames (token/final/complete/error) with provider: 'codex'.
-          - If MCP startup or handshake fails, fall back to chat-only and mark toolsAvailable: false in /chat/models.
+          - If MCP startup or handshake fails, block Codex sends and surface an error popup; tools are required (no chat-only fallback). Mark toolsAvailable: false so the UI disables Codex.
   - Client changes
-      - /chat/models returns provider-grouped entries with a toolsAvailable flag.
-      - Chat dropdown shows Codex when enabled; hide citations/tool blocks if toolsAvailable is false.
-      - Add a brief inline note: “Codex runs via local CLI; uses your Codex balance; tools on/off shown per provider.”
+      - /chat/models returns provider-grouped entries with a toolsAvailable flag; Codex entries disabled with guidance when CLI/auth/MCP is unavailable.
+      - Add a Provider dropdown left of Model with options LMStudio and OpenAI Codex; models list filters per provider. Provider is locked for the current conversation; models can change. New conversation keeps the provider.
+      - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
+      - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
   - Config/flags to bake in
-      - CODEX_ENABLED (opt-in), CODEX_HOME (path, default ./codex_home), CODEX_MODEL (codex-mini-latest by default), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true), CODEX_MCP_PORT.
+      - CODEX_ENABLED (opt-in), CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true, but tools required), CODEX_MCP_PORT.
       - Keep Codex disabled in Docker/e2e by default.
 
 ## Acceptance Criteria (draft, now parameterised)

@@ -27,9 +27,14 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
       - CODEX_ENABLED (opt-in), CODEX_HOME (path, default ./codex_home), CODEX_MODEL (codex-mini-latest by default), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true), CODEX_MCP_PORT.
       - Keep Codex disabled in Docker/e2e by default.
 
-## Acceptance Criteria
+## Acceptance Criteria (draft, now parameterised)
 
-- Draft — to be refined after agreeing on provider behavior, tool availability guarantees, and UX fallbacks.
+- Codex provider uses `gpt-5.1-codex-max` by default when available via the CLI/SDK bridge.
+- MCP tool access is required; if MCP handshake fails, the client is blocked from sending to Codex and receives a clear error popup (no chat-only fallback).
+- Auth expectation: user must manually log in the Codex CLI under the configured `CODEX_HOME`; README documents the login step and custom home path. No automatic copying of `~/.codex/auth.json`.
+- Provider selection UI: chat page adds a Provider dropdown (left of Model) with options `LMStudio` and `OpenAI Codex`; the Models dropdown filters to the chosen provider.
+- Conversation constraints: provider cannot be switched mid-conversation; model can be switched. New conversation keeps the chosen provider.
+- Input layout: message text input becomes multi-line, placed under the Provider/Model row alongside the Send button; New conversation stays on the top row. No front-end rate/timeout enforcement.
 
 ## Out Of Scope
 
@@ -38,11 +43,16 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
 
 ## Questions
 
-- Default model: `codex-mini-latest` (cost/latency) or `gpt-5-codex` (quality)?
-- MCP failure behavior: allow chat-only fallback or block sends when tools unavailable?
-- Auth handling: may we auto-copy `~/.codex/auth.json` into the repo `CODEX_HOME` when missing, or must it be manual?
-- Should Codex be shown in the UI when tools are disabled, or only when MCP is healthy?
-- Do we need per-provider rate/timeout limits surfaced in UI or just enforced server-side?
+Resolved:
+- Default model: use `gpt-5.1-codex-max`.
+- MCP failure: block Codex sends and show an error popup (no chat-only fallback).
+- Auth: user must manually log in under the configured `CODEX_HOME`; document in README; no auto-copy of `~/.codex/auth.json`.
+- UI: show both providers; models list depends on provider; provider locked per conversation; multi-line input under selectors; new conversation stays on top row.
+- Front-end rate/timeouts: none enforced in UI.
+
+Open items (to confirm before tasking):
+- Exact wording/location of the Codex login instructions in README and any warning banner in the chat page.
+- Whether to hide Codex entirely when CLI/auth is missing, or show disabled with guidance.
 
 # Implementation Plan
 

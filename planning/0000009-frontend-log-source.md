@@ -204,7 +204,7 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 ### 4. Thinking snippet stability
 
-- status: **to_do**
+- status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

@@ -61,25 +61,31 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 #### Subtasks
 
-1. [ ] Audit current logger creation in `client/src/hooks/useChatStream.ts`; locate the `createLogger('client-chat')` instantiation and plan its replacement.
-2. [ ] Change that call to `createLogger('client')` and attach chat tagging in the log payload (e.g., spread `context` with `{ channel: 'client-chat', ...context }` before `sendLogs`), so entries validate while retaining chat identification.
-3. [ ] Test (unit/RTL): `client/src/test/chatPage.stream.test.tsx` — assert a logged tool event now has `source: 'client'` and `context.channel === 'client-chat'` (mock/spy `sendLogs`). Purpose: ensure emitted log shape matches backend schema with chat tag preserved.
-4. [ ] Test (unit/RTL): If a mock logger helper exists in `client/src/test/__mocks__/`, update/extend it to capture the new channel tag and validate source. Purpose: keep shared mocks aligned with logging change.
-5. [ ] Documentation: Update README logging section to state chat tool events use source `client` with channel tag `client-chat`.
-6. [ ] Documentation: Update design.md observability/logging notes with the same source + channel tag detail.
-7. [ ] Documentation: Update projectStructure.md if any new test/helper files were added or existing ones renamed.
-8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+1. [ ] Audit current logger creation in `client/src/hooks/useChatStream.ts` (function `useChatStream`, near the top-level logger definition). Capture the exact snippet that currently reads `const log = createLogger('client-chat');` to show before/after in notes.
+2. [ ] Replace that line with `const log = createLogger('client');` and wrap the logger call so every emitted entry merges `{ channel: 'client-chat', ...context }` before `sendLogs` (e.g., inside `logToolEvent` helper). Include the concrete code diff in the task notes:
+   ```ts
+   const log = createLogger('client');
+   const logWithChannel = (level, message, context = {}) =>
+     log(level, message, { channel: 'client-chat', ...context });
+   ```
+   Then swap existing `log(...)` calls in this hook to `logWithChannel(...)`.
+3. [ ] Test (unit/RTL) in `client/src/test/chatPage.stream.test.tsx`: mock/spy `sendLogs` (existing jest mock) and assert the first logged tool event equals `{ source: 'client', context: expect.objectContaining({ channel: 'client-chat' }) }`. Add a concrete expectation snippet in the test: `expect(payload.source).toBe('client'); expect(payload.context?.channel).toBe('client-chat');`.
+4. [ ] If present, update the shared logger mock in `client/src/test/__mocks__/logger.ts` (or similar) to capture `channel` and default `source: 'client'` so other tests stay aligned; add a small assertion to that mock’s test to verify the channel is preserved.
+5. [ ] Documentation: README `Logging` section (existing heading) — add a bullet under “Client logging” noting chat tool events now use `source: client` with `context.channel = "client-chat"` for filtering.
+6. [ ] Documentation: design.md `Logging` / observability section — add the same source/tag detail and a one-liner on why the tag is used for chat telemetry.
+7. [ ] Documentation: projectStructure.md — if new/renamed test helper files are added, list them; otherwise note the `useChatStream` update in the comments for that file.
+8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (record commands/outcomes in implementation notes).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace client`
+4. [ ] `npm run test --workspace server` (only if server files were touched; otherwise note “not needed” in implementation notes)
+5. [ ] `npm run build --workspace client`
+6. [ ] `npm run build --workspace server` (same conditional note as above)
+7. [ ] `npm run compose:build` && `npm run compose:up` (smoke) && `npm run compose:down`
+8. [ ] `npm run e2e:test` (optional if compose smoke already covers; state decision in notes)
 
 #### Implementation notes
 
@@ -103,12 +109,13 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 #### Subtasks
 
-1. [ ] When the text is provided, place it in the agreed file (proposed: a new constant in `client/src/constants/systemContext.ts` or an existing config file if already used). Document the exact target in the plan once confirmed.
-2. [ ] Wire the consumer (if any) to read from that constant without changing existing behavior until the content is present. Note the injection point (component/hook) in this plan.
-3. [ ] Test (unit/RTL) [file TBD once consumer known]: verify the system context constant is loaded/used/rendered as intended. Purpose: ensure the injected text is actually consumed.
-4. [ ] Documentation: Update README to note where the system context constant lives and how it’s applied.
-5. [ ] Documentation: Update design.md with a brief note on the system context location/usage once set.
-6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+1. [ ] Create/stub `client/src/constants/systemContext.ts` now with `export const SYSTEM_CONTEXT = '';` so the target is fixed. Document this exact path here.
+2. [ ] When text is provided, replace the empty string with the supplied content; no other behaviour change. Record the exact commit hash in the plan.
+3. [ ] Identify the consumer: note which component/hook will read the constant (e.g., `client/src/hooks/useChatStream.ts` or `client/src/pages/ChatPage.tsx`) and add a TODO comment there pointing to the constant until content arrives.
+4. [ ] Test (unit/RTL) for the chosen consumer: add an assertion that the constant is read (e.g., render path picks up `SYSTEM_CONTEXT` value). Purpose: ensure injected text is actually used.
+5. [ ] Documentation: README “Chat” (or “Logging/Chat tooling”) subsection — add a sentence stating system context is stored in `client/src/constants/systemContext.ts` and injected when provided.
+6. [ ] Documentation: design.md — add a short note in the chat/agent section about the system context location and consumer.
+7. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -143,24 +150,27 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 #### Subtasks
 
-1. [ ] Pick radii (e.g., 12–16px) and apply to chat bubbles in `client/src/pages/ChatPage.tsx` (or shared styles in `client/src/index.css`/styled components). Ensure both user and assistant bubbles use the new corners.
-2. [ ] Verify layout for status chips, tool blocks, and citations remains aligned; adjust padding/margins in the same file if needed.
-3. [ ] Test (RTL): `client/src/test/chatPage.stream.test.tsx` (or new style-focused test) — assert chat bubbles have the new rounded radius (class/style) for both user and assistant. Purpose: prevent regressions in bubble shape.
-4. [ ] Documentation: Update README to mention rounded chat bubbles and note the chosen radius token.
-5. [ ] Documentation: Update design.md chat UI section to reflect rounded bubble styling.
-6. [ ] Documentation: Update projectStructure.md if new style/test helpers are added for the bubble change.
+1. [ ] Use a single radius token `14px` for both user and assistant bubbles. Apply in `client/src/pages/ChatPage.tsx` where the bubble `Box`/`Paper` `sx` is defined (and any shared styled component). Include the exact `sx` change in notes:
+   ```ts
+   borderRadius: '14px',
+   ```
+2. [ ] Verify layout for status chips, tool blocks, and citations remains aligned; adjust padding/margins in the same file if needed (note any tweaks with file/line references).
+3. [ ] Test (RTL): in `client/src/test/chatPage.stream.test.tsx` (or a new `chatPage.bubble-style.test.tsx` if clearer), assert rendered bubbles have `border-radius: 14px` for both user and assistant selectors (query by test id or role used today).
+4. [ ] Documentation: README “Chat” section — add a bullet noting bubbles use 14px rounding to align with the current visual language.
+5. [ ] Documentation: design.md chat UI section — update to mention 14px bubble radius and that citations/status chips remain aligned.
+6. [ ] Documentation: projectStructure.md — update the `client/src/pages/ChatPage.tsx` comment if needed to mention bubble styling and add any new test file path.
 7. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace client`
+4. [ ] `npm run test --workspace server` (only if server touched; otherwise document skip)
+5. [ ] `npm run build --workspace client`
+6. [ ] `npm run build --workspace server` (conditional as above)
+7. [ ] `npm run compose:build` && `npm run compose:up` (smoke) && `npm run compose:down`
+8. [ ] `npm run e2e:test` (run if UI changes might affect e2e; otherwise note rationale)
 
 #### Implementation notes
 

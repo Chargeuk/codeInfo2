@@ -53,11 +53,11 @@ This should only be started once all the above sections are clear and understood
 
 Switch chat logging to use the allowed `client` source while preserving chat-specific tagging so tool telemetry still identifies chat flows.
 
-#### Documentation Locations
+#### Documentation Locations (external)
 
-- Logging DTOs: `common/src/logging.ts`
-- Client logger factory: `client/src/logging/logger.ts`
-- Chat stream logging: `client/src/hooks/useChatStream.ts`
+- React hooks reference (useRef/useEffect/useCallback): https://react.dev/reference/react
+- MDN Fetch streaming basics (for log transport context): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- TypeScript handbook – narrowing & structural typing: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 
 #### Subtasks
 
@@ -89,9 +89,10 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 Prepare to inject a provided system-context text block once it’s supplied. Identify the target location now so we can paste it in immediately when given (no semantics change until the text arrives).
 
-#### Documentation Locations
+#### Documentation Locations (external)
 
-- TBD (will depend on where system context lives once text is provided)
+- React context & module exports: https://react.dev/reference/react/createContext
+- TypeScript modules/exporting constants: https://www.typescriptlang.org/docs/handbook/modules.html
 
 #### Subtasks
 
@@ -119,11 +120,10 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 Update chat bubble styling so both user and assistant messages have rounded corners consistent with the design language.
 
-#### Documentation Locations
+#### Documentation Locations (external)
 
-- Chat UI: `client/src/pages/ChatPage.tsx`
-- Shared styles: `client/src/index.css` or component-level styles
-- MUI docs: via MUI MCP tool (theme/shape/styling)
+- MUI component styling (sx / theme shape) via MCP `@mui/material@7.2.0`
+- React styling patterns: https://react.dev/learn/adding-styles
 
 #### Subtasks
 

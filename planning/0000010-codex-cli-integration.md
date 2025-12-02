@@ -277,3 +277,44 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 - Capture final MCP URL(s) and any CORS/host binding choices.
 - Note any streaming behaviors or limitations for large payloads.
+
+---
+
+### 6. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Enable Codex chats to use our MCP tools to answer repository questions. Inject the shared SYSTEM_CONTEXT at the start of Codex conversations, instructing the model to call MCP tools to gather answers. Ensure Codex requests route through the MCP server and that tool results flow back to the client (citations/tool blocks) when available.
+
+#### Documentation Locations
+
+- SYSTEM_CONTEXT location: client/src/constants/systemContext.ts
+- MCP usage in Codex: Codex docs (agents_md) + SDK thread options
+- Existing tool rendering on client (chat tool blocks/citations)
+
+#### Subtasks
+
+1. [ ] Server: when provider=Codex, prepend SYSTEM_CONTEXT to the first Codex turn; ensure thread creation includes this context.
+2. [ ] Server: wire Codex thread options to point at our MCP server; require tool use where appropriate (or strongly bias via instructions) so Codex calls ListIngestedRepositories/VectorSearch.
+3. [ ] Server: map Codex MCP tool calls/results into our existing SSE tool-request/result frames so the client can render tool blocks/citations; include provider tags.
+4. [ ] Client: re-enable chat input for Codex, allowing tool blocks/citations to render when provider=Codex and toolsAvailable=true; still hide when unavailable.
+5. [ ] Ensure threadId handling remains intact with MCP calls and that subsequent turns reuse the same thread with context and tool availability.
+6. [ ] Tests: server integration test with mocked Codex MCP calls; client RTL verifying Codex provider now streams tool blocks/citations; update existing tests that assumed Codex disabled.
+7. [ ] Update README/design to note SYSTEM_CONTEXT injection for Codex and tool-required behaviour; document any prompts/instructions used.
+8. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
+
+#### Implementation notes
+
+- Capture how SYSTEM_CONTEXT is injected (server-side to avoid client replay) and any prompt wording.
+- Note any Codex-specific quirks in MCP call shapes vs our SSE expectations.

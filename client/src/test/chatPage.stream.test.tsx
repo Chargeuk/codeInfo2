@@ -11,6 +11,18 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn();
+const loggedEntries: unknown[] = [];
+
+await jest.unstable_mockModule('../logging/transport', () => ({
+  sendLogs: jest.fn((entries: unknown[]) => loggedEntries.push(...entries)),
+  flushQueue: jest.fn(),
+  _getQueue: () => loggedEntries,
+}));
+
+const mockedSystemContext = 'Stay concise and cite sources.';
+await jest.unstable_mockModule('../constants/systemContext', () => ({
+  SYSTEM_CONTEXT: mockedSystemContext,
+}));
 
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
@@ -18,6 +30,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  loggedEntries.length = 0;
 });
 
 afterEach(() => {
@@ -164,6 +177,8 @@ describe('Chat page streaming', () => {
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
 
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
     await act(async () => {
       await user.click(sendButton);
     });
@@ -218,6 +233,8 @@ describe('Chat page streaming', () => {
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
 
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
     await act(async () => {
       await user.click(sendButton);
     });
@@ -234,7 +251,10 @@ describe('Chat page streaming', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
-    expect(await screen.findByText('Hello again')).toBeInTheDocument();
+    const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+    expect(
+      assistantTexts.some((node) => node.textContent?.includes('Hello again')),
+    ).toBe(true);
     expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
   }, 15000);
 
@@ -406,7 +426,10 @@ describe('Chat page streaming', () => {
     });
 
     await waitFor(() => expect(sendButton).toBeDisabled());
-    expect(await screen.findByText('Hi')).toBeInTheDocument();
+    const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+    expect(
+      assistantTexts.some((node) => node.textContent?.includes('Hi')),
+    ).toBe(true);
   });
 
   it('renders <think> content as a collapsible section', async () => {
@@ -432,6 +455,8 @@ describe('Chat page streaming', () => {
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     await act(async () => {
       await user.click(sendButton);
@@ -507,6 +532,8 @@ describe('Chat page streaming', () => {
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     await act(async () => {
       await user.click(sendButton);
@@ -650,7 +677,10 @@ describe('Chat page streaming', () => {
         await user.click(sendButton);
       });
 
-      expect(await screen.findByText('Hi there')).toBeInTheDocument();
+      const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+      expect(
+        assistantTexts.some((node) => node.textContent?.includes('Hi there')),
+      ).toBe(true);
 
       const bubbles = screen.getAllByTestId('chat-bubble');
       expect(bubbles.length).toBe(2);
@@ -665,5 +695,144 @@ describe('Chat page streaming', () => {
     } finally {
       logSpy.mockRestore();
     }
+  });
+
+  it('sends tool event logs with client source and chat channel tag', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"tool-request","callId":"c1","name":"VectorSearch"}\n\n',
+          'data: {"type":"tool-result","callId":"c1","name":"VectorSearch","result":{"results":[]}}\n\n',
+          'data: {"type":"final","message":{"content":"Done","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await screen.findByText('Done');
+
+    await waitFor(
+      () => {
+        expect(loggedEntries.length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 },
+    );
+
+    const payload = loggedEntries[0] as {
+      source?: string;
+      context?: { channel?: string };
+    };
+    expect(payload.source).toBe('client');
+    expect(payload.context?.channel).toBe('client-chat');
+  });
+
+  it('prepends system context to chat payloads when provided', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames(['data: {"type":"complete"}\n\n']),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    const body = (mockFetch.mock.calls[1]?.[1] as RequestInit | undefined)
+      ?.body as string;
+    const parsed = JSON.parse(body);
+    expect(parsed.messages[0]).toEqual({
+      role: 'system',
+      content: mockedSystemContext,
+    });
+    expect(parsed.messages.at(-1)).toEqual({
+      role: 'user',
+      content: 'Hello',
+    });
+  });
+
+  it('renders user and assistant bubbles with 14px border radius', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"final","message":{"content":"Reply","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'Hello');
+    const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    const bubbles = await screen.findAllByTestId('chat-bubble');
+    const assistantBubble = bubbles.find(
+      (bubble) => bubble.getAttribute('data-role') === 'assistant',
+    );
+    const userBubble = bubbles.find(
+      (bubble) => bubble.getAttribute('data-role') === 'user',
+    );
+
+    expect(assistantBubble).toBeTruthy();
+    expect(userBubble).toBeTruthy();
+
+    const assistantRadius = getComputedStyle(
+      assistantBubble as HTMLElement,
+    ).borderRadius;
+    const userRadius = getComputedStyle(userBubble as HTMLElement).borderRadius;
+
+    expect(assistantRadius).toBe('14px');
+    expect(userRadius).toBe('14px');
   });
 });

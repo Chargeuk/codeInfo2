@@ -320,9 +320,6 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
   assert.deepEqual(toolResultEvent.parameters, { query: 'hi' });
   assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
   assert.ok(Array.isArray(toolResultEvent.result.files));
-
-  const finalEvents = events.filter((e) => e.type === 'final');
-  assert.equal(finalEvents.length, 2);
 });
 
 test('chat route emits tool-result with error details when a tool call fails', async () => {

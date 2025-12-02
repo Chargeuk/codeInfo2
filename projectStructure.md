@@ -56,9 +56,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ index.ts â€” logging exports
 |     |  |- logger.ts ? client logger factory (console tee + queue)
 |     |  - transport.ts ? forwarding queue placeholder
+â”‚     â”œâ”€ constants/
+|     |  â””â”€ systemContext.ts — holds optional system prompt prepended to chat payloads when non-empty
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
-|     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events)
+|     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
@@ -67,7 +69,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
-|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
+|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI

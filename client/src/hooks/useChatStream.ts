@@ -1,4 +1,6 @@
+import { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SYSTEM_CONTEXT } from '../constants/systemContext';
 import { createLogger } from '../logging/logger';
 
 export type ChatMessage = {
@@ -248,7 +250,12 @@ const isVectorPayloadString = (content: string) => {
 };
 
 export function useChatStream(model?: string) {
-  const logger = useRef(createLogger('client-chat')).current;
+  const log = useRef(createLogger('client')).current;
+  const logWithChannel = useCallback(
+    (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
+      log(level, message, { channel: 'client-chat', ...context }),
+    [log],
+  );
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const statusRef = useRef<Status>('idle');
@@ -384,6 +391,13 @@ export function useChatStream(model?: string) {
       };
 
       updateMessages((prev) => [...prev, userMessage]);
+
+      // TODO: replace placeholder SYSTEM_CONTEXT when system prompt text is supplied.
+      const systemContext = SYSTEM_CONTEXT.trim();
+
+      const systemMessages = systemContext
+        ? [{ role: 'system', content: systemContext }]
+        : [];
 
       const payloadMessages = messagesRef.current
         .filter((msg) => !msg.kind)
@@ -680,7 +694,11 @@ export function useChatStream(model?: string) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             model,
-            messages: [...payloadMessages, { role: 'user', content: trimmed }],
+            messages: [
+              ...systemMessages,
+              ...payloadMessages,
+              { role: 'user', content: trimmed },
+            ],
           }),
           signal: controller.signal,
         });
@@ -715,7 +733,7 @@ export function useChatStream(model?: string) {
                       ? 'error'
                       : 'done';
                 const id = event.callId ?? makeId();
-                logger('info', 'chat tool event', {
+                logWithChannel('info', 'chat tool event', {
                   type: event.type,
                   callId: id,
                   name: event.name,
@@ -752,6 +770,7 @@ export function useChatStream(model?: string) {
                     pendingToolResults.delete(id.toString());
                     toolsAwaitingAssistantOutput.delete(id);
                     toolEchoGuards.add(id.toString());
+                    setAssistantThinking(computeWaitingForVisibleText());
                     scheduleThinkingTimer();
                   }
                 };
@@ -817,11 +836,41 @@ export function useChatStream(model?: string) {
                   continue;
                 }
                 completeAwaitingToolsOnAssistantOutput();
-                applyReasoning(
-                  parseReasoning(initialReasoningState(), finalContent, {
-                    flushAll: true,
-                  }),
-                );
+                const parsedFinal = parseReasoning(reasoning, finalContent, {
+                  flushAll: true,
+                });
+                const mergedAnalysis = (() => {
+                  if (!parsedFinal.analysis) return reasoning.analysis;
+                  if (!reasoning.analysis) {
+                    const half = parsedFinal.analysis.length / 2;
+                    const first = parsedFinal.analysis.slice(0, half);
+                    if (
+                      parsedFinal.analysis.length % 2 === 0 &&
+                      parsedFinal.analysis === first.repeat(2)
+                    ) {
+                      return first;
+                    }
+                    return parsedFinal.analysis;
+                  }
+                  const delta = parsedFinal.analysis.slice(
+                    reasoning.analysis.length,
+                  );
+                  const trimmedDelta = delta.startsWith(reasoning.analysis)
+                    ? delta.slice(reasoning.analysis.length)
+                    : delta;
+                  return reasoning.analysis + trimmedDelta;
+                })();
+                applyReasoning({
+                  ...reasoning,
+                  pending: parsedFinal.pending,
+                  mode: parsedFinal.mode,
+                  analysisStreaming: parsedFinal.analysisStreaming,
+                  analysis: mergedAnalysis,
+                  final:
+                    parsedFinal.final.length >= reasoning.final.length
+                      ? parsedFinal.final
+                      : reasoning.final,
+                });
                 setAssistantThinking(false);
                 toolEchoGuards.clear();
                 maybeMarkComplete();
@@ -877,7 +926,7 @@ export function useChatStream(model?: string) {
       extractCitations,
       finishStreaming,
       handleErrorBubble,
-      logger,
+      logWithChannel,
       model,
       status,
       stop,

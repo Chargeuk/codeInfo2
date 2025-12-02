@@ -44,7 +44,9 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - Message input and Send button feed into `useChatStream(model)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`) into a single assistant bubble per turn.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
+- User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
+- Thought process buffering is append-only: multiple `<think>`/Harmony analysis bursts are preserved even after final/tool frames, and the spinner only stops once the stream completes and pending tools finish.
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - Stream status chip: each assistant bubble shows a chip at the top—Processing (spinner), Complete (tick), or Failed (cross) driven by stream lifecycle events. Complete now triggers only after the `complete` SSE frame **and** when no tool calls remain pending (tool requests without a result keep the chip in Processing even if a `final` arrives early).
 - Thinking placeholder: when streaming is active and no tool results are pending, a “Thinking…” inline spinner appears only after 1s with no visible assistant text (including pre-token starts or mid-turn silent gaps); it hides immediately once visible text arrives or the stream completes/fails, and it stays off during tool-only waits if text is already visible.
@@ -370,6 +372,7 @@ sequenceDiagram
 - Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
 - UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
 - Model filtering: `/chat/models` maps LM Studio `listDownloadedModels` and filters out embeddings/vectors so only chat-capable LLMs appear in the dropdown; empty state copy reflects "No chat-capable models".
+- System context: `client/src/constants/systemContext.ts` holds an optional system prompt; `useChatStream` prepends it to payloads only when non-empty, keeping current behaviour unchanged until text is supplied.
 
 ```mermaid
 sequenceDiagram
@@ -491,6 +494,7 @@ sequenceDiagram
 ### Client logging flow & hooks
 
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
+- `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. Chat tool events now use `source: client` with `context.channel = "client-chat"` so they satisfy the server schema while staying filterable for telemetry. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
 - The transport queues entries, enforces `VITE_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${VITE_API_URL}/logs` unless forwarding is disabled (`VITE_LOG_FORWARD_ENABLED=false`), the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
 - Context should avoid PII; URLs with embedded credentials are redacted before logging. Forwarding can be opt-out via `.env.local` while keeping console output for local debugging.
 - LM Studio: client logs status/refresh/reset actions with `baseUrl` reduced to `URL.origin` and errors included; server logs LM Studio proxy requests (requestId, base URL origin, model count or error) and forwards them into the log buffer/streams, keeping credentials/token/password fields redacted.

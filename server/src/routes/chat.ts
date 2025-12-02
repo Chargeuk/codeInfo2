@@ -236,9 +236,17 @@ export function createChatRouter({
 
       const tools = [...lmStudioTools];
       const chat = Chat.from(messages);
+      let finalCount = 0;
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;
         writeEvent(res, payload);
+        if (
+          payload &&
+          typeof payload === 'object' &&
+          (payload as { type?: unknown }).type === 'final'
+        ) {
+          finalCount += 1;
+        }
       };
       const logToolEvent = (
         eventType: string,
@@ -527,6 +535,7 @@ export function createChatRouter({
           });
         },
         onMessage: (message) => {
+          chat.append(message);
           try {
             baseLogger.debug(
               {
@@ -582,6 +591,45 @@ export function createChatRouter({
           };
 
           if (role === 'tool') {
+            // Some LM Studio responses send a single tool message object instead of
+            // toolCallResult content items. Synthesize a tool-result in that case
+            // so downstream consumers still see the payload.
+            const rawContent = (message as { content?: unknown })?.content;
+            if (!items.length && rawContent && typeof rawContent === 'object') {
+              const obj = rawContent as {
+                toolCallId?: unknown;
+                tool_call_id?: unknown;
+                id?: unknown;
+                name?: unknown;
+                result?: unknown;
+                parameters?: unknown;
+                error?: unknown;
+                stage?: unknown;
+              };
+              const callId =
+                (obj.toolCallId as number | string | undefined) ??
+                (obj.tool_call_id as number | string | undefined) ??
+                (obj.id as number | string | undefined) ??
+                'assistant-tool';
+              const nameCandidate = obj.name;
+              const name =
+                typeof nameCandidate === 'string'
+                  ? nameCandidate
+                  : (toolNames.get(Number(callId)) ?? 'VectorSearch');
+              emitToolResult(currentRound, callId, name, obj.result, {
+                parameters:
+                  typeof obj.parameters === 'object'
+                    ? obj.parameters
+                    : parseToolParameters(Number(callId), obj.result),
+                stage:
+                  obj.stage && typeof obj.stage === 'string'
+                    ? (obj.stage as string)
+                    : obj.error
+                      ? 'error'
+                      : 'success',
+                error: obj.error,
+              });
+            }
             emitToolResultsFromItems();
             writeIfOpen({
               type: 'final',
@@ -637,10 +685,6 @@ export function createChatRouter({
             ) {
               text = (message as { content?: string }).content ?? '';
             }
-            if (text) {
-              chat.append('assistant', text);
-            }
-
             emitToolResultsFromItems();
 
             writeIfOpen({
@@ -668,9 +712,6 @@ export function createChatRouter({
               typeof (message as { content?: unknown })?.content === 'string'
             ) {
               text = (message as { content?: string }).content ?? '';
-            }
-            if (text) {
-              chat.append(role as 'assistant' | 'user' | 'system', text);
             }
             writeIfOpen({
               type: 'final',
@@ -852,6 +893,13 @@ export function createChatRouter({
 
       if (cancelled || req.aborted) {
         return;
+      }
+      if (finalCount === 0) {
+        writeIfOpen({
+          type: 'final',
+          message: { role: 'assistant', content: '' },
+          roundIndex: currentRound,
+        });
       }
       completed = true;
       writeEvent(res, { type: 'complete' });

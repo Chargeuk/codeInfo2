@@ -102,12 +102,12 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 #### Subtasks
 
-1. [ ] Add `@openai/codex-sdk` dependency to `server/package.json`; run install.
-2. [ ] Create `CODEINFO_CODEX_HOME` default (`./codex`) in server config/env handling; ensure it is passed as `CODEX_HOME` to the SDK options factory; do not set global `CODEX_HOME`.
-3. [ ] Implement Codex availability check on server startup (detect `codex` binary, presence of auth/config under `CODEINFO_CODEX_HOME`); log success/warning accordingly; expose detection state in a provider registry (no endpoints yet).
-4. [ ] Update server Dockerfile to install Codex CLI (`npm install -g @openai/codex`); mount `CODEINFO_CODEX_HOME` in compose/dev docs; set env `CODEINFO_CODEX_HOME=/app/codex` in Docker envs.
-5. [ ] Add README section describing Codex CLI prerequisite, login under `CODEINFO_CODEX_HOME`, and Docker mounting steps; mention that without CLI/auth Codex is disabled with guidance.
-6. [ ] Run lint/format for touched workspaces.
+1. [ ] Add `@openai/codex-sdk` to `server/package.json` and install (`npm install --workspace server @openai/codex-sdk`).
+2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and produce `CodexOptions` with `env: { CODEX_HOME }`; do **not** set process-wide `CODEX_HOME`.
+3. [ ] In `server/src/index.ts` (startup) or a new `server/src/providers/codexDetection.ts`, add detection: run `which codex` (or `codex --version`) and check `${CODEINFO_CODEX_HOME}/auth.json` + `config.toml`; log success/warning; store detection in an in-memory provider registry module (e.g., `server/src/providers/registry.ts`).
+4. [ ] Update `server/Dockerfile` to include `npm install -g @openai/codex` and ensure `CODEINFO_CODEX_HOME=/app/codex` is set; add a volume hint in `docker-compose.yml` (comment) `./codex:/app/codex`.
+5. [ ] Add README “Codex prerequisites” section with: install CLI (`npm install -g @openai/codex`), set/confirm `CODEINFO_CODEX_HOME` (default `./codex`), run `codex login` inside host or container, and note disabled behavior when missing.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -141,13 +141,13 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 #### Subtasks
 
-1. [ ] Add provider registry endpoint (e.g., `/chat/providers`) and extend `/chat/models` to accept `provider`, returning LM Studio models or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) plus `toolsAvailable/available` flags.
-2. [ ] Update client state to store provider + model; lock provider for the current conversation; allow model changes; carry provider to model fetch and send payloads.
-3. [ ] Rework chat UI layout: Provider dropdown left of Model; multiline message box under selectors with Send; keep New conversation button on the top row; disable input/Send when provider=Codex (temporary until Codex chat lands).
-4. [ ] Show disabled-with-guidance UI when Codex unavailable or tools unavailable; hide citations/tool blocks when `toolsAvailable` is false.
-5. [ ] Update tests (client) for provider/model selection, disabled Codex state, layout changes (data-testid/style assertions where applicable).
-6. [ ] Update README/design.md to describe provider selection, fixed Codex model list, and disabled state when Codex not available.
-7. [ ] Run lint/format for touched workspaces.
+1. [ ] Add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) that returns providers and availability; extend `/chat/models` (likely `server/src/routes/chatModels.ts`) to accept `provider` query and return LM Studio models or the fixed Codex list with `toolsAvailable/available` flags.
+2. [ ] Client: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in requests; in `client/src/pages/ChatPage.tsx`, store provider+model in state and lock provider per conversation.
+3. [ ] UI: in `client/src/pages/ChatPage.tsx`, add Provider dropdown left of Model; move message input to multiline under selectors with Send; keep New conversation button on top row; disable input/Send when provider=Codex (temporary).
+4. [ ] Guidance: add disabled-state banner/tooltip near Provider when Codex unavailable; hide citations/tool blocks when `toolsAvailable` is false.
+5. [ ] Tests: update/add RTL in `client/src/test/chatPage.provider.test.tsx` (new) or existing chat tests to cover provider selection, disabled Codex state, and layout (aria roles/testids).
+6. [ ] Docs: update README (Chat section) and design.md (chat UI) with provider dropdown, model filtering, fixed Codex list, and disabled behavior.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -180,13 +180,13 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 #### Subtasks
 
-1. [ ] Implement Codex chat provider in the server router: accept provider/model/threadId; start or resume Codex thread; stream deltas as our SSE frames (token/final/complete/error); gate send if Codex detection failed.
-2. [ ] Update client chat hook/page to send provider/model/threadId; store Codex threadId in conversation state; prohibit provider change mid-conversation; allow model change.
-3. [ ] Ensure Codex path is tool-free for now: block/ignore tool requests; keep citations hidden for Codex responses.
-4. [ ] Update logging to include provider and threadId context; ensure disabled state errors surface cleanly to the UI.
-5. [ ] Add server and client tests: server unit/integration for Codex provider stub (mock SDK); client RTL for sending with provider=Codex, threadId persistence, and disabled state when detection fails.
-6. [ ] Update README/design.md to note Codex chat availability (tooling pending) and threadId persistence requirement.
-7. [ ] Run lint/format for touched workspaces.
+1. [ ] Implement Codex chat provider in `server/src/routes/chat.ts` (or new `chatCodex.ts`): accept provider/model/threadId; start/resume Codex thread via SDK; stream deltas as SSE frames (`token/final/complete/error`); block send if detection failed.
+2. [ ] Client: in `client/src/hooks/useChatStream.ts`, send provider/model/threadId; store Codex threadId in chat state; block provider change mid-conversation; allow model change.
+3. [ ] For this task, keep Codex tool-free: ignore tool calls; suppress citations/tool blocks for Codex responses.
+4. [ ] Logging: add provider/threadId context to chat logs (server + client logger).
+5. [ ] Tests: add server integration/unit tests (e.g., `server/src/test/integration/chat-codex.test.ts`) with mocked SDK; add client RTL tests (e.g., extend `chatPage.stream.test.tsx`) for provider=Codex, threadId persistence, disabled state on detection failure.
+6. [ ] Docs: update README/design.md noting Codex chat (tools pending) and threadId persistence.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -220,14 +220,14 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 #### Subtasks
 
-1. [ ] Add `config.toml.example` (tracked) containing:
+1. [ ] Add `config.toml.example` at repo root with:
    - `model = "gpt-5.1-codex-max"`
    - `model_reasoning_effort = "high"`
-   - `[features]` with `web_search_request = true` and `view_image_tool = true`
-   - `[mcp_servers]` entry for our MCP server (document host vs Docker URL)
-2. [ ] Implement bootstrap logic (startup hook or small script) to copy the example to `${CODEINFO_CODEX_HOME}/config.toml` if it does not exist; never overwrite an existing file.
-3. [ ] Document in README how to customize `./codex/config.toml`, how seeding works, and that `codex/` remains git-ignored while the example stays tracked.
-4. [ ] Run lint/format for touched workspaces (and shellcheck if a shell script is added).
+   - `[features]` `web_search_request = true` `view_image_tool = true`
+   - `[mcp_servers]` entry for MCP: host `http://localhost:5010/mcp`, docker `http://server:5010/mcp` (comment both)
+2. [ ] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
+3. [ ] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
 
 #### Testing
 
@@ -259,13 +259,13 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 #### Subtasks
 
-1. [ ] Add MCP server module/route (HTTP + SSE) on the Express app (e.g., `/mcp`): implement `list_tools` returning both tools’ schemas and `call_tool` dispatching to existing service logic. Bind to 127.0.0.1 by default.
-2. [ ] Map request/response to JSON-RPC 2.0; support SSE/streamable HTTP where appropriate; include error envelopes on failures.
-3. [ ] Reuse current validation/schemas for both tools; ensure outputs match existing HTTP responses (including hostPath metadata).
-4. [ ] Surface detection/logs on startup that MCP is enabled and the URL to configure (host + docker forms).
-5. [ ] Update `config.toml.example` `[mcp_servers]` entry with the MCP URL (`http://localhost:5010/mcp` for host; `http://server:5010/mcp` for docker) and note in README how to set it.
-6. [ ] Add README/design notes for MCP usage, including manual verification steps and security scope (local only by default).
-7. [ ] Run lint/format for touched workspaces.
+1. [ ] Add MCP server module `server/src/mcp/server.ts` and mount routes under `/mcp` in `server/src/index.ts`: implement `list_tools` and `call_tool` mapping to existing tool services.
+2. [ ] Map JSON-RPC 2.0 envelopes; support SSE/streamable HTTP for `call_tool` when responses stream; return JSON errors on failure.
+3. [ ] Reuse existing validation/schemas from `toolsIngestedRepos` and `toolsVectorSearch`; ensure response payload matches current HTTP outputs (hostPath, modelId, etc.).
+4. [ ] On startup, log MCP enabled URL(s) (host: http://localhost:5010/mcp, docker: http://server:5010/mcp) and any binding choices (127.0.0.1).
+5. [ ] Update `config.toml.example` `[mcp_servers]` entry with the URLs above and ensure README documents how to set it.
+6. [ ] Docs: add README/design notes for MCP usage, manual verification steps, and local-only security scope.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -297,14 +297,14 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 #### Subtasks
 
-1. [ ] Server: when provider=Codex, prepend SYSTEM_CONTEXT to the first Codex turn; ensure thread creation includes this context.
-2. [ ] Server: wire Codex thread options to point at our MCP server; require tool use where appropriate (or strongly bias via instructions) so Codex calls ListIngestedRepositories/VectorSearch.
-3. [ ] Server: map Codex MCP tool calls/results into our existing SSE tool-request/result frames so the client can render tool blocks/citations; include provider tags.
-4. [ ] Client: re-enable chat input for Codex, allowing tool blocks/citations to render when provider=Codex and toolsAvailable=true; still hide when unavailable.
-5. [ ] Ensure threadId handling remains intact with MCP calls and that subsequent turns reuse the same thread with context and tool availability.
-6. [ ] Tests: server integration test with mocked Codex MCP calls; client RTL verifying Codex provider now streams tool blocks/citations; update existing tests that assumed Codex disabled.
-7. [ ] Update README/design to note SYSTEM_CONTEXT injection for Codex and tool-required behaviour; document any prompts/instructions used.
-8. [ ] Run lint/format for touched workspaces.
+1. [ ] Server: in `server/src/routes/chat.ts` (Codex path), prepend `SYSTEM_CONTEXT` on first Codex turn and ensure thread creation includes it.
+2. [ ] Server: set Codex thread options to point at `/mcp`; require/strongly bias tool use so Codex calls ListIngestedRepositories/VectorSearch.
+3. [ ] Server: map Codex MCP tool calls/results into SSE `tool-request`/`tool-result` frames; include provider tags; ensure citations data flow matches LM Studio path.
+4. [ ] Client: re-enable chat input for provider=Codex; allow tool blocks/citations when `toolsAvailable=true`; still hide when unavailable.
+5. [ ] Preserve threadId handling with MCP: store/forward threadId per conversation.
+6. [ ] Tests: add server integration test with mocked Codex MCP responses; update client RTL (e.g., `chatPage.toolDetails.test.tsx` or new) to verify Codex tool blocks/citations; adjust any tests that assumed Codex disabled.
+7. [ ] Docs: update README/design with SYSTEM_CONTEXT injection for Codex and tool-required behaviour; include prompt/instruction snippet used.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -339,7 +339,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 #### Subtasks
 
 1. [ ] Define exact wording/location for Codex login/setup guidance in README (host + Docker) and add it.
-2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount).
+2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount) with links to README anchors.
 3. [ ] Ensure disabled-state copy covers both host and Docker paths (CODEINFO_CODEX_HOME, config seeding, auth login).
 4. [ ] Update tests if UI elements are added (snapshot/RTL as appropriate).
 5. [ ] Run lint/format for touched workspaces.
@@ -376,7 +376,7 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 1. [ ] Build server and client.
 2. [ ] Run server tests and client tests.
 3. [ ] Perform clean Docker build; start compose stack (with Codex disabled/enabled as appropriate) and verify health.
-4. [ ] Run e2e tests (skip Codex if not available in CI; document).
+4. [ ] Run e2e tests (skip Codex if not available in CI; document) and manual MCP smoke if Codex CLI is available.
 5. [ ] Update README, design.md, projectStructure.md to reflect final state and MCP/Codex config.
 6. [ ] Capture required screenshots (if applicable) and prepare a PR-ready summary of changes and how to enable Codex.
 7. [ ] Run lint/format across workspaces.

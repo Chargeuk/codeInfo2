@@ -258,8 +258,8 @@ Occasionally the streamed “Thought process” block disappears or never shows 
 
 1. [ ] Reproduce the missing-think case by mocking a stream that sends analysis tokens followed by final tokens; capture the exact frame order that causes the drop.
 2. [ ] Trace `useChatStream` parsing: confirm whether analysis markers are trimmed/overwritten when `final` arrives, when tool results stream, or when empty analysis chunks are emitted; document the root cause.
-3. [ ] Fix: adjust the analysis buffer handling so non-empty `analysis` content persists through `final`/`complete` and is not cleared by empty follow-up tokens. Ensure the `thinkStreaming` flag only flips off after final content is rendered.
-4. [ ] Tests: add/extend RTL/hook tests to assert the “Thought process” accordion renders the streamed analysis text for the reproduced frame order; include a regression for mixed analysis/final frames with tools.
+3. [ ] Fix: make analysis buffering append-only per message. Preserve `thinkBuffer` across final/complete and tool events; never clear it on mode switches. Gate spinner off only after complete + no pending tools, but leave `hasThink`/buffer intact so the accordion always renders when any non-empty analysis arrived.
+4. [ ] Tests: add RTL/hook regressions for (a) analysis→final→complete, (b) analysis→tool→final→complete, (c) multiple analysis bursts → final, and (d) analysis→final→analysis edge. Assert concatenated analysis renders and spinner stops without dropping content.
 5. [ ] Documentation: update design.md chat section to note the think handling guardrails; add a short README note if behavior changes are user-visible.
 6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 

@@ -1,0 +1,70 @@
+# Story 0000010 – Codex CLI provider integration (draft)
+
+## Description
+
+Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, which shells out to the locally installed Codex CLI with cached auth. The server should detect Codex availability, route chat requests through the SDK, and (when possible) expose our existing tools via an MCP server by steering Codex to a repo-local `CODEX_HOME`/`config.toml`. Client users can pick Codex alongside LM Studio; Codex stays hidden in environments without the CLI/auth. This draft captures intent and open questions before tasks and acceptance are finalized.
+
+### Rough Plan
+  - Codex home/config
+      - Create a dedicated Codex home inside the repo (e.g., ./codex_home/) with config.toml that lists our MCP server(s) and any defaults (model, sampling, caches).
+      - When constructing the Codex client in the server, pass CodexOptions with env: { CODEX_HOME: <abs path to codex_home> }. That forces the CLI bridge to read our config (and MCP servers) instead of the user’s default ~/.codex.
+      - Keep ~/.codex/auth.json untouched; we just reuse its auth via the CLI executable. If needed, we can symlink/copy the auth into the custom home on startup when present.
+  - MCP wiring
+      - Run a lightweight MCP server inside our Node process that exposes our existing tools (ListIngestedRepositories, VectorSearch). Bind it to 127.0.0.1:<port>.
+      - In codex_home/config.toml, register that MCP server under [mcp] so Codex sees it without API keys.
+      - On startup, generate/update codex_home/config.toml from a template with the chosen port and feature flags; keep it gitignored but document the template path.
+  - Provider adapter
+      - Add a “codex” provider in the server chat router that:
+          - Checks which codex and ~/.codex/auth.json (or copied auth) on boot; only enables if present.
+          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: <env default, e.g., codex-mini-latest>, threadOptions as needed }.
+          - Streams deltas → our SSE frames (token/final/complete/error) with provider: 'codex'.
+          - If MCP startup or handshake fails, fall back to chat-only and mark toolsAvailable: false in /chat/models.
+  - Client changes
+      - /chat/models returns provider-grouped entries with a toolsAvailable flag.
+      - Chat dropdown shows Codex when enabled; hide citations/tool blocks if toolsAvailable is false.
+      - Add a brief inline note: “Codex runs via local CLI; uses your Codex balance; tools on/off shown per provider.”
+  - Config/flags to bake in
+      - CODEX_ENABLED (opt-in), CODEX_HOME (path, default ./codex_home), CODEX_MODEL (codex-mini-latest by default), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true), CODEX_MCP_PORT.
+      - Keep Codex disabled in Docker/e2e by default.
+
+## Acceptance Criteria
+
+- Draft — to be refined after agreeing on provider behavior, tool availability guarantees, and UX fallbacks.
+
+## Out Of Scope
+
+- Permanent exposure of Codex in Docker/e2e environments (CLI/auth not available there).
+- Billing/key management changes beyond using the existing Codex CLI login.
+
+## Questions
+
+- Default model: `codex-mini-latest` (cost/latency) or `gpt-5-codex` (quality)?
+- MCP failure behavior: allow chat-only fallback or block sends when tools unavailable?
+- Auth handling: may we auto-copy `~/.codex/auth.json` into the repo `CODEX_HOME` when missing, or must it be manual?
+- Should Codex be shown in the UI when tools are disabled, or only when MCP is healthy?
+- Do we need per-provider rate/timeout limits surfaced in UI or just enforced server-side?
+
+# Implementation Plan
+
+## Instructions
+
+This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
+This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
+
+1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
+2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
+3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit & push that change, and only then begin implementation.
+4. For each task, execute every subtask sequentially: before starting a subtask, read the documentation sources listed in that task; after finishing the subtask, run the relevant linters/formatters (Python + TypeScript) and fix issues before continuing.
+5. Once a subtask is complete, mark its checkbox.
+6. Once all subtasks are done, Move on to the Testing section and work through the tests in order
+7. Once a test is complete, mark its checkbox.
+8. After tests pass, perform every documentation update listed for the task.
+9. Once a document is updated, mark its checkbox.
+10. When all subtasks, tests, documentation updates, and verification commands are complete, consider the task finished and follow points 11–13 below.
+11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
+12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
+13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
+# Tasks
+
+To be defined once acceptance criteria are finalized.

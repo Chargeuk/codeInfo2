@@ -1,0 +1,15 @@
+# Codex configuration for CodeInfo2
+# Copy of this file is placed in CODEINFO_CODEX_HOME (default ./codex) on server startup when missing.
+
+model = "gpt-5.1-codex-max"
+model_reasoning_effort = "high"
+
+[features]
+web_search_request = true
+view_image_tool = true
+
+[mcp_servers]
+# Host (local dev)
+codeinfo_host = { url = "http://localhost:5010/mcp" }
+# Docker (compose)
+codeinfo_docker = { url = "http://server:5010/mcp" }

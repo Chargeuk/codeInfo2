@@ -3,6 +3,7 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { ensureCodexConfigSeeded } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { createRequestLogger } from './logger.js';
 import { createChatRouter } from './routes/chat.js';
@@ -19,6 +20,7 @@ import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 
 config();
+ensureCodexConfigSeeded();
 const app = express();
 app.use(cors());
 app.use(express.json());

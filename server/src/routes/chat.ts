@@ -535,7 +535,6 @@ export function createChatRouter({
           });
         },
         onMessage: (message) => {
-          chat.append(message);
           try {
             baseLogger.debug(
               {

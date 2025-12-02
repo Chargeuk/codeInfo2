@@ -14,6 +14,11 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 npm install
 ```
 
+## Codex config seed
+
+- The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
+- Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
+
 ## Workspace layout
 
 - `client/` — React app (Vite) [workspace]

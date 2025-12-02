@@ -63,9 +63,9 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 1. [ ] Audit current logger creation in `client/src/hooks/useChatStream.ts`; locate the `createLogger('client-chat')` instantiation and plan its replacement.
 2. [ ] Change that call to `createLogger('client')` and attach chat tagging in the log payload (e.g., spread `context` with `{ channel: 'client-chat', ...context }` before `sendLogs`), so entries validate while retaining chat identification.
-3. [ ] Update/extend unit or RTL coverage in `client/src/test/chatPage.stream.test.tsx` (or a small new test file) to assert logged entries now carry `source: 'client'` and `context.channel === 'client-chat'` (mock fetch logger payload or spy on `sendLogs`).
-4. [ ] If the logger API mock lives in `client/src/test/__mocks__/`, adjust it to reflect the new source/tag expectations.
-5. [ ] Update docs: README logging section and design.md (logging/observability notes) to state chat tool events use source `client` with channel tag `client-chat`; update projectStructure.md if any test file or helper is added.
+3. [ ] Test (unit/RTL): `client/src/test/chatPage.stream.test.tsx` — assert a logged tool event now has `source: 'client'` and `context.channel === 'client-chat'` (mock/spy `sendLogs`). Purpose: ensure emitted log shape matches backend schema with chat tag preserved.
+4. [ ] Test (unit/RTL): If a mock logger helper exists in `client/src/test/__mocks__/`, update/extend it to capture the new channel tag and validate source. Purpose: keep shared mocks aligned with logging change.
+5. [ ] Documentation: README logging section and design.md (observability) mention source `client` + channel tag `client-chat`; update projectStructure.md if any new test/helper is added.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` after the code/test changes.
 
 #### Testing
@@ -98,7 +98,7 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 1. [ ] When the text is provided, place it in the agreed file (proposed: a new constant in `client/src/constants/systemContext.ts` or an existing config file if already used). Document the exact target in the plan once confirmed.
 2. [ ] Wire the consumer (if any) to read from that constant without changing existing behavior until the content is present. Note the injection point (component/hook) in this plan.
-3. [ ] Add/adjust tests or snapshots touching that consumer (identify file once consumer is known; e.g., `client/src/test/...`), ensuring the context is loaded/displayed/used as intended.
+3. [ ] Test (unit/RTL) [file TBD once consumer known]: verify the system context constant is loaded/used/rendered as intended. Purpose: ensure the injected text is actually consumed.
 4. [ ] Update documentation (README or design) to note where system context lives and how it’s applied.
 
 #### Testing
@@ -129,7 +129,7 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 1. [ ] Pick radii (e.g., 12–16px) and apply to chat bubbles in `client/src/pages/ChatPage.tsx` (or shared styles in `client/src/index.css`/styled components). Ensure both user and assistant bubbles use the new corners.
 2. [ ] Verify layout for status chips, tool blocks, and citations remains aligned; adjust padding/margins in the same file if needed.
-3. [ ] Update or add an RTL test/snapshot (e.g., in `client/src/test/chatPage.stream.test.tsx` or a new style-focused test) to assert the bubbles render with the rounded class/style.
+3. [ ] Test (RTL): `client/src/test/chatPage.stream.test.tsx` (or new style-focused test) — assert chat bubbles have the new rounded radius (class/style) for both user and assistant. Purpose: prevent regressions in bubble shape.
 4. [ ] Document the change in README/design (noting the radius token) and update projectStructure.md if new style/test helpers are added.
 
 #### Testing

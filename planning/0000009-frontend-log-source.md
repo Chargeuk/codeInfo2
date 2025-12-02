@@ -55,9 +55,9 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 #### Documentation Locations (external)
 
-- React hooks reference (useRef/useEffect/useCallback): https://react.dev/reference/react
-- MDN Fetch streaming basics (for log transport context): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-- TypeScript handbook – narrowing & structural typing: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- React hooks reference (useRef/useEffect/useCallback) – needed to reason about the chat hook changes: https://react.dev/reference/react
+- MDN Fetch streaming basics – relevant because log transport batches use fetch: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- TypeScript handbook (narrowing & structural typing) – to ensure the updated log payload/contexts stay type-safe: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 
 #### Subtasks
 
@@ -91,8 +91,8 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 #### Documentation Locations (external)
 
-- React context & module exports: https://react.dev/reference/react/createContext
-- TypeScript modules/exporting constants: https://www.typescriptlang.org/docs/handbook/modules.html
+- React context / module exports (for placing the provided text in a shared constant): https://react.dev/reference/react/createContext
+- TypeScript modules/exporting constants (for sharing the context block safely): https://www.typescriptlang.org/docs/handbook/modules.html
 
 #### Subtasks
 
@@ -122,8 +122,8 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 #### Documentation Locations (external)
 
-- MUI component styling (sx / theme shape) via MCP `@mui/material@7.2.0`
-- React styling patterns: https://react.dev/learn/adding-styles
+- MUI component styling (sx / theme shape) – use MUI MCP `@mui/material@7.2.0` docs (required for Bubble styling): https://llms.mui.com/material-ui/7.2.0/llms.txt
+- React styling patterns (to keep styles consistent with React best practices): https://react.dev/learn/adding-styles
 
 #### Subtasks
 

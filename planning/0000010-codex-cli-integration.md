@@ -28,7 +28,7 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
   - Config/flags to bake in
       - Auto-detect Codex: if the CLI is not found or auth/config is missing, log a startup warning and expose Codex as disabled with guidance (no CODEX_ENABLED switch).
       - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_TOOL_TIMEOUT_MS, CODEX_MCP_PORT. Tool availability is governed by config.toml; no separate toggle.
-      - Keep Codex effectively disabled in Docker/e2e by default because detection will fail there.
+      - Docker enablement (opt-in): install the Codex CLI in images (`npm install -g @openai/codex`), mount CODEINFO_CODEX_HOME (e.g., ./codex:/app/codex), set CODEINFO_CODEX_HOME=/app/codex in the container env, and ensure users log in inside the container or provide a trusted auth.json in the mounted volume. Without these, Codex remains disabled with guidance in Docker/e2e.
 
 ## Acceptance Criteria (draft, now parameterised)
 

@@ -83,4 +83,120 @@ This should only be started once all the above sections are clear and understood
 
 # Tasks
 
-To be defined once acceptance criteria are finalized.
+### 1. Codex SDK + CLI bootstrap
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docker environments, wire `CODEINFO_CODEX_HOME`, and log provider detection at startup without enabling chat yet.
+
+#### Documentation Locations
+
+- Codex SDK README: https://github.com/openai/codex/blob/main/sdk/typescript/README.md
+- Codex options/env mapping: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
+- Codex CLI install/login: https://github.com/openai/codex/blob/main/docs/getting_started.md
+- Repo README + design.md for environment notes
+- plan_format.md for process
+
+#### Subtasks
+
+1. [ ] Add `@openai/codex-sdk` dependency to `server/package.json`; run install.
+2. [ ] Create `CODEINFO_CODEX_HOME` default (`./codex`) in server config/env handling; ensure it is passed as `CODEX_HOME` to the SDK options factory; do not set global `CODEX_HOME`.
+3. [ ] Implement Codex availability check on server startup (detect `codex` binary, presence of auth/config under `CODEINFO_CODEX_HOME`); log success/warning accordingly; expose detection state in a provider registry (no endpoints yet).
+4. [ ] Update server Dockerfile to install Codex CLI (`npm install -g @openai/codex`); mount `CODEINFO_CODEX_HOME` in compose/dev docs; set env `CODEINFO_CODEX_HOME=/app/codex` in Docker envs.
+5. [ ] Add README section describing Codex CLI prerequisite, login under `CODEINFO_CODEX_HOME`, and Docker mounting steps; mention that without CLI/auth Codex is disabled with guidance.
+6. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] Clean Docker build of server image (CI-equivalent) to verify CLI install step
+4. [ ] Start server locally and confirm startup logs show Codex detected/disabled messages (manual)
+
+#### Implementation notes
+
+- Record detection outcome and any CLI install nuances.
+- Note any security considerations for mounting auth.json in Docker.
+
+---
+
+### 2. Provider/model surfacing & UI layout changes
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Expose provider-aware model listings and rearrange the chat UI: Provider dropdown (LMStudio / OpenAI Codex), provider-locked per conversation, fixed Codex model list, multiline input beneath selectors; disable chat input when Codex is selected (until Codex chat is implemented).
+
+#### Documentation Locations
+
+- Codex SDK model options: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
+- UI/React refs: react.dev docs for controlled inputs
+- MUI components: use MUI MCP docs (@mui/material@7.2.0)
+- design.md / README chat sections
+
+#### Subtasks
+
+1. [ ] Add provider registry endpoint (e.g., `/chat/providers`) and extend `/chat/models` to accept `provider`, returning LM Studio models or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) plus `toolsAvailable/available` flags.
+2. [ ] Update client state to store provider + model; lock provider for the current conversation; allow model changes; carry provider to model fetch and send payloads.
+3. [ ] Rework chat UI layout: Provider dropdown left of Model; multiline message box under selectors with Send; keep New conversation button on the top row; disable input/Send when provider=Codex (temporary until Codex chat lands).
+4. [ ] Show disabled-with-guidance UI when Codex unavailable or tools unavailable; hide citations/tool blocks when `toolsAvailable` is false.
+5. [ ] Update tests (client) for provider/model selection, disabled Codex state, layout changes (data-testid/style assertions where applicable).
+6. [ ] Update README/design.md to describe provider selection, fixed Codex model list, and disabled state when Codex not available.
+7. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace client`
+4. [ ] Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
+
+#### Implementation notes
+
+- Capture the provider-lock behavior and any UI/ARIA tweaks for multiline input.
+- Note any temporary disabling flags that will be removed in Task 3.
+
+---
+
+### 3. Codex chat pathway (no MCP/tools yet)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Enable chatting with Codex via the SDK using the selected provider/model, streaming into existing SSE frames. No MCP/tool execution yet. Add threadId handling so Codex conversations resume without replaying client-side history.
+
+#### Documentation Locations
+
+- Codex SDK streaming/thread API: https://github.com/openai/codex/blob/main/sdk/typescript/README.md
+- SSE framing in server: server/src/chatStream.ts
+- Client chat state/hooks docs in codebase (useChatStream, etc.)
+
+#### Subtasks
+
+1. [ ] Implement Codex chat provider in the server router: accept provider/model/threadId; start or resume Codex thread; stream deltas as our SSE frames (token/final/complete/error); gate send if Codex detection failed.
+2. [ ] Update client chat hook/page to send provider/model/threadId; store Codex threadId in conversation state; prohibit provider change mid-conversation; allow model change.
+3. [ ] Ensure Codex path is tool-free for now: block/ignore tool requests; keep citations hidden for Codex responses.
+4. [ ] Update logging to include provider and threadId context; ensure disabled state errors surface cleanly to the UI.
+5. [ ] Add server and client tests: server unit/integration for Codex provider stub (mock SDK); client RTL for sending with provider=Codex, threadId persistence, and disabled state when detection fails.
+6. [ ] Update README/design.md to note Codex chat availability (tooling pending) and threadId persistence requirement.
+7. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+
+#### Implementation notes
+
+- Record any SDK mocking approach and SSE mapping decisions.
+- Note future hook points where MCP/tool execution will be added in a later task.

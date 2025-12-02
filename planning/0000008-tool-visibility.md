@@ -663,12 +663,12 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 
 #### Subtasks
 
-1. [x] Capture current bug (documented): in `client/src/hooks/useChatStream.ts`, inside the SSE loop the `final` branch sets `setAssistantStatus('complete')` immediately (around the event.type === 'final' handling) even while `toolsAwaitingAssistantOutput` still has entries and before the `complete` frame fires, so the chip flips to Complete too early.
-2. [ ] Adjust status updates so “Complete” is set only after the `complete` event fires *and* no pending tool requests remain; keep “Processing” until then. Ensure error paths still set “Failed” immediately.
-3. [ ] Make sure thinking placeholder respects the new status timing (should clear on complete/error, not just final text).
-4. [ ] Update RTL tests to cover: (a) final arrives before complete → chip stays “Processing” until complete; (b) pending tool results keep chip in Processing; (c) error still flips to Failed promptly. (files: `client/src/test/chatPage.stream.test.tsx`, add/adjust fixtures).
-5. [ ] Update e2e (chat tools visibility or new) to assert chip remains Processing until complete frame when tool results are still pending.
-6. [ ] Docs: note the corrected completion gating in `README.md` and `design.md`; update `projectStructure.md` if files change.
+1. [x] Capture current bug (documented): in `client/src/hooks/useChatStream.ts`, inside the SSE loop the `final` branch sets `setAssistantStatus('complete')` immediately (event.type === 'final') even while `toolsAwaitingAssistantOutput` still has entries and before the `complete` frame fires, so the chip flips to Complete too early.
+2. [ ] Implement correct gating in `client/src/hooks/useChatStream.ts`: keep `streamStatus` as `processing` through all `final` events; set to `complete` only when (a) a `complete` event arrives **and** (b) `toolsAwaitingAssistantOutput` is empty. Keep `failed` on `error` unchanged.
+3. [ ] Update the thinking timer logic in `useChatStream.ts` to clear `thinking` only when status becomes `complete` or `failed`, not merely on `final` text; ensure the timer still starts after 1s of no visible text while `streamStatus === 'processing'`.
+4. [ ] RTL tests (edit `client/src/test/chatPage.stream.test.tsx`): add fixtures for (a) `final` then delayed `complete` (chip stays Processing until complete); (b) `final` while a `tool-request` is pending and `tool-result` arrives after complete (chip Processing until both resolve); (c) `error` turns chip Failed immediately. Use SSE frame arrays to model timing.
+5. [ ] E2E test (update `e2e/chat-tools-visibility.spec.ts` or new): stream `final` before `complete` with a pending tool; assert status chip shows Processing during the gap and flips to Complete only after `complete` and tool result; optionally capture screenshot.
+6. [ ] Docs: add a short note about completion gating to `README.md` and `design.md`; update `projectStructure.md` if file roles change.
 7. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing

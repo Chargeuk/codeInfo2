@@ -770,6 +770,7 @@ export function useChatStream(model?: string) {
                     pendingToolResults.delete(id.toString());
                     toolsAwaitingAssistantOutput.delete(id);
                     toolEchoGuards.add(id.toString());
+                    setAssistantThinking(computeWaitingForVisibleText());
                     scheduleThinkingTimer();
                   }
                 };
@@ -835,11 +836,41 @@ export function useChatStream(model?: string) {
                   continue;
                 }
                 completeAwaitingToolsOnAssistantOutput();
-                applyReasoning(
-                  parseReasoning(reasoning, finalContent, {
-                    flushAll: true,
-                  }),
-                );
+                const parsedFinal = parseReasoning(reasoning, finalContent, {
+                  flushAll: true,
+                });
+                const mergedAnalysis = (() => {
+                  if (!parsedFinal.analysis) return reasoning.analysis;
+                  if (!reasoning.analysis) {
+                    const half = parsedFinal.analysis.length / 2;
+                    const first = parsedFinal.analysis.slice(0, half);
+                    if (
+                      parsedFinal.analysis.length % 2 === 0 &&
+                      parsedFinal.analysis === first.repeat(2)
+                    ) {
+                      return first;
+                    }
+                    return parsedFinal.analysis;
+                  }
+                  const delta = parsedFinal.analysis.slice(
+                    reasoning.analysis.length,
+                  );
+                  const trimmedDelta = delta.startsWith(reasoning.analysis)
+                    ? delta.slice(reasoning.analysis.length)
+                    : delta;
+                  return reasoning.analysis + trimmedDelta;
+                })();
+                applyReasoning({
+                  ...reasoning,
+                  pending: parsedFinal.pending,
+                  mode: parsedFinal.mode,
+                  analysisStreaming: parsedFinal.analysisStreaming,
+                  analysis: mergedAnalysis,
+                  final:
+                    parsedFinal.final.length >= reasoning.final.length
+                      ? parsedFinal.final
+                      : reasoning.final,
+                });
                 setAssistantThinking(false);
                 toolEchoGuards.clear();
                 maybeMarkComplete();

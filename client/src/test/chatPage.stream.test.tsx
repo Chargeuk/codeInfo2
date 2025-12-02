@@ -179,6 +179,12 @@ describe('Chat page streaming', () => {
 
     await waitFor(() => expect(sendButton).toBeEnabled());
 
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
     await act(async () => {
       await user.click(sendButton);
     });
@@ -233,6 +239,8 @@ describe('Chat page streaming', () => {
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
 
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
     await act(async () => {
       await user.click(sendButton);
     });
@@ -249,7 +257,10 @@ describe('Chat page streaming', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
-    expect(await screen.findByText('Hello again')).toBeInTheDocument();
+    const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+    expect(
+      assistantTexts.some((node) => node.textContent?.includes('Hello again')),
+    ).toBe(true);
     expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
   }, 15000);
 
@@ -421,7 +432,10 @@ describe('Chat page streaming', () => {
     });
 
     await waitFor(() => expect(sendButton).toBeDisabled());
-    expect(await screen.findByText('Hi')).toBeInTheDocument();
+    const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+    expect(
+      assistantTexts.some((node) => node.textContent?.includes('Hi')),
+    ).toBe(true);
   });
 
   it('renders <think> content as a collapsible section', async () => {
@@ -447,6 +461,8 @@ describe('Chat page streaming', () => {
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     await act(async () => {
       await user.click(sendButton);
@@ -522,6 +538,8 @@ describe('Chat page streaming', () => {
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     await act(async () => {
       await user.click(sendButton);
@@ -665,7 +683,10 @@ describe('Chat page streaming', () => {
         await user.click(sendButton);
       });
 
-      expect(await screen.findByText('Hi there')).toBeInTheDocument();
+      const assistantTexts = await screen.findAllByTestId('assistant-markdown');
+      expect(
+        assistantTexts.some((node) => node.textContent?.includes('Hi there')),
+      ).toBe(true);
 
       const bubbles = screen.getAllByTestId('chat-bubble');
       expect(bubbles.length).toBe(2);

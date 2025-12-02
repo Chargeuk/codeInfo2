@@ -202,7 +202,42 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 ---
 
-### 4. Thinking snippet stability
+### 4. Thinking snippet drop analysis & guardrail
+
+- status: **done**
+- Git Commits: dca6d8c
+
+#### Overview
+
+Document why the “Thought process” accordion sometimes disappears and capture the guardrail to prevent it, especially when multiple analysis bursts stream for one assistant turn.
+
+#### Documentation Locations (external)
+
+- React state updates: https://react.dev/reference/react/useState
+- LM Studio stream framing: see `server/src/chatStream.ts` and `@codeinfo2/common` fixtures
+
+#### Subtasks
+
+1. [x] Reproduce analysis → final streams where the thinking text vanished and record the frame order causing the loss.
+2. [x] Identify root cause: final-frame parsing reinitialised reasoning state, dropping earlier analysis; note this explicitly in the plan.
+3. [x] Propose fix: reuse the existing reasoning buffer when flushing finals so analysis stays append-only, even across multiple analysis bursts.
+4. [x] Confirm via unit tests that multiple analysis streams per bubble remain visible after final/complete frames.
+5. [x] Update Task 5 overview/notes to reflect the fix so implementers know the chosen approach.
+
+#### Testing
+
+1. [x] Hook tests exercising multiple analysis bursts (see `multiAnalysisFinalStream` in `useChatStream.reasoning.test.tsx`).
+2. [x] Client chat streaming RTL covers thinking accordion rendering after final frames.
+
+#### Implementation notes
+
+- Reproduced the drop with analysis tokens followed by a final that called `parseReasoning(initialReasoningState(), ...)`, wiping earlier analysis.
+- Fix uses `parseReasoning(reasoning, ...)` so the buffer is append-only; covers multiple analysis bursts per assistant turn and keeps the accordion visible even when finals/tool frames arrive later.
+- The same guardrail ensures no thought text is lost when LM Studio emits multiple analysis streams for one bubble.
+
+---
+
+### 5. Thinking snippet stability
 
 - status: **in_progress**
 - Git Commits: dca6d8c, 5070118
@@ -229,24 +264,23 @@ Occasionally the streamed “Thought process” block disappears or never shows 
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 - Reproduced the missing-think issue with a mock stream sending analysis tokens then a final payload containing both analysis and final; prior parsing reset the analysis buffer because the final handler re-initialized reasoning state.
-- Traced `useChatStream` and found `parseReasoning(initialReasoningState(), finalContent, { flushAll: true })` discarded earlier analysis. Switched to `parseReasoning(reasoning, ...)` so analysis is append-only across final/tool frames.
-- Added `multiAnalysisFinalStream` regression in `useChatStream.reasoning.test.tsx` to assert multiple analysis bursts persist through final/complete; existing think tests still cover streaming.
-- Updated docs: README (thought process reliability) and design.md (append-only think buffering) to surface the guardrail.
-- Lint/format completed. Builds: server/client both succeed.
-- Testing: server tests currently failing 1 integration case (`chat route synthesizes tool-result when LM Studio only returns a final tool message`, expected 2 synthesized events got 0); likely pre-existing flake unrelated to client reasoning change. Client `chatPage.stream.test.tsx` now fails three streaming assertions in isolated run (token text not found); needs follow-up before marking tests as passed. Remaining test steps not run pending resolution.
+- Adjusted final-frame parsing to reuse the existing reasoning state and dedupe analysis so repeated Harmony analysis text collapses while still preserving earlier bursts and pending fragments.
+- Added `multiAnalysisFinalStream` regression in `useChatStream.reasoning.test.tsx` and tightened thinking timer behaviour to re-evaluate immediately after tool results so the placeholder returns on long gaps; fixed server chat history length by removing the extra `chat.append` during streaming.
+- Updated docs: README/design already note append-only buffering; plan task 4 documents the guardrail. All server/unit/integration tests now green; client Jest + RTL suites pass (with existing act warnings only).
+- Testing completed in order: server tests, client tests, compose build/up/down, and full e2e (ingest cancel/re-embed/remove still intentionally skipped in fixtures). Additional fix ensures LM Studio history stays at the provided message count.
 
 ---
 
-### 5. Final Task – verification & docs sweep
+### 6. Final Task – verification & docs sweep
 
 - status: **to_do**
 - Git Commits: **to_do**

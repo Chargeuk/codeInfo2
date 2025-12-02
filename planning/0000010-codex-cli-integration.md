@@ -108,6 +108,9 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 4. [ ] Update `server/Dockerfile` to include `npm install -g @openai/codex` and ensure `CODEINFO_CODEX_HOME=/app/codex` is set; add a volume hint in `docker-compose.yml` (comment) `./codex:/app/codex`.
 5. [ ] Add README “Codex prerequisites” section with: install CLI (`npm install -g @openai/codex`), set/confirm `CODEINFO_CODEX_HOME` (default `./codex`), run `codex login` inside host or container, and note disabled behavior when missing.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
+8. [ ] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
+9. [ ] Tests: manual startup log check verifying Codex detection messages.
 
 #### Testing
 
@@ -148,6 +151,17 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 5. [ ] Tests: update/add RTL in `client/src/test/chatPage.provider.test.tsx` (new) or existing chat tests to cover provider selection, disabled Codex state, and layout (aria roles/testids).
 6. [ ] Docs: update README (Chat section) and design.md (chat UI) with provider dropdown, model filtering, fixed Codex list, and disabled behavior.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Tests: server build (`npm run build --workspace server`).
+9. [ ] Tests: server integration tests for `/mcp` list_tools and call_tool happy/error paths (add `server/src/test/integration/mcp-server.test.ts`).
+10. [ ] Manual: with Codex CLI logged in, point `[mcp_servers]` to `http://localhost:5010/mcp`, run `codex` chat, and verify tools list/call succeed.
+8. [ ] Tests: server build (`npm run build --workspace server`).
+9. [ ] Tests: client build (`npm run build --workspace client`).
+10. [ ] Tests: server integration/unit – add `server/src/test/integration/chat-codex.test.ts` (mock SDK) covering provider=Codex path, SSE frames, detection failure.
+11. [ ] Tests: client RTL – update `client/src/test/chatPage.stream.test.tsx` (or new) for provider=Codex threadId persistence and disabled-on-failure.
+8. [ ] Tests: server build (`npm run build --workspace server`).
+9. [ ] Tests: client build (`npm run build --workspace client`).
+10. [ ] Tests: client RTL – add/extend `client/src/test/chatPage.provider.test.tsx` (or similar) to cover provider selection, disabled Codex state, and layout.
+11. [ ] Tests: manual UI check – provider dropdown/model filtering/disabled banner and multiline input positioning.
 
 #### Testing
 
@@ -228,6 +242,8 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 2. [ ] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
 3. [ ] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
+5. [ ] Tests: server build (`npm run build --workspace server`).
+6. [ ] Tests: manual seed check – remove/rename `./codex/config.toml`, start server, verify seed from example; restart to confirm no overwrite.
 
 #### Testing
 
@@ -305,6 +321,8 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 6. [ ] Tests: add server integration test with mocked Codex MCP responses; update client RTL (e.g., `chatPage.toolDetails.test.tsx` or new) to verify Codex tool blocks/citations; adjust any tests that assumed Codex disabled.
 7. [ ] Docs: update README/design with SYSTEM_CONTEXT injection for Codex and tool-required behaviour; include prompt/instruction snippet used.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+9. [ ] Tests: server integration with mocked Codex MCP calls to verify tool-call/result SSE mapping.
+10. [ ] Tests: client RTL (e.g., extend `chatPage.toolDetails.test.tsx`) for Codex provider showing tool blocks/citations when toolsAvailable=true and hidden when false.
 
 #### Testing
 
@@ -341,7 +359,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 1. [ ] Define exact wording/location for Codex login/setup guidance in README (host + Docker) and add it.
 2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount) with links to README anchors.
 3. [ ] Ensure disabled-state copy covers both host and Docker paths (CODEINFO_CODEX_HOME, config seeding, auth login).
-4. [ ] Update tests if UI elements are added (snapshot/RTL as appropriate).
+4. [ ] Update tests: client RTL (add/extend `chatPage.provider.test.tsx`) to assert disabled-state banner/tooltip renders with required guidance text and links when Codex unavailable.
 5. [ ] Run lint/format for touched workspaces.
 
 #### Testing
@@ -377,6 +395,8 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 2. [ ] Run server tests and client tests.
 3. [ ] Perform clean Docker build; start compose stack (with Codex disabled/enabled as appropriate) and verify health.
 4. [ ] Run e2e tests (skip Codex if not available in CI; document) and manual MCP smoke if Codex CLI is available.
+5. [ ] Tests: server build (`npm run build --workspace server`) and client build (`npm run build --workspace client`) as part of final gate.
+6. [ ] Tests: server tests (`npm run test --workspace server`) and client tests (`npm run test --workspace client`).
 5. [ ] Update README, design.md, projectStructure.md to reflect final state and MCP/Codex config.
 6. [ ] Capture required screenshots (if applicable) and prepare a PR-ready summary of changes and how to enable Codex.
 7. [ ] Run lint/format across workspaces.

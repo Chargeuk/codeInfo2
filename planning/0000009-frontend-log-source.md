@@ -156,8 +156,8 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 ### 3. Round chat bubble corners
 
-- status: **in_progress**
-- Git Commits: **to_do**
+- status: **done**
+- Git Commits: b0b009b
 
 #### Overview
 

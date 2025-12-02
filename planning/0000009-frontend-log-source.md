@@ -46,7 +46,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Align chat logger source with backend schema
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: to_do
 
 #### Overview

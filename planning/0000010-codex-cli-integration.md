@@ -6,9 +6,9 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
 
 ### Rough Plan
   - Codex home/config
-      - Use a repo-local git-ignored `./codex/` as CODEX_HOME, containing config.toml and CLI artifacts.
-      - Construct the Codex client with CodexOptions env: { CODEX_HOME: <abs path to ./codex> } so the CLI bridge reads our config (including MCP servers) instead of ~/.codex.
-      - Users must manually log in the Codex CLI against this CODEX_HOME; no auto-copy of ~/.codex/auth.json.
+      - Use a repo-local git-ignored `./codex/` as the Codex home directory, but do not set global CODEX_HOME; instead, expose `CODEINFO_CODEX_HOME` env and pass it as `CODEX_HOME` inside CodexOptions when instantiating the SDK. This avoids interfering with users’ personal Codex config.
+      - Construct the Codex client with CodexOptions env: { CODEX_HOME: <abs path from CODEINFO_CODEX_HOME> } so the CLI bridge reads our config (including MCP servers) instead of ~/.codex.
+      - Users must manually log in the Codex CLI against this repo-specific home; no auto-copy of ~/.codex/auth.json.
   - MCP wiring
       - Run a lightweight MCP server inside our Node process that exposes our existing tools (ListIngestedRepositories, VectorSearch). Bind it to 127.0.0.1:<port>.
       - In codex_home/config.toml, register that MCP server under [mcp] so Codex sees it without API keys.
@@ -25,7 +25,7 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
       - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
       - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
   - Config/flags to bake in
-      - CODEX_ENABLED (opt-in), CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true, but tools required), CODEX_MCP_PORT.
+      - CODEX_ENABLED (opt-in), CODEINFO_CODEX_HOME (path, default ./codex), CODEX_MODEL (default gpt-5.1-codex-max), CODEX_TOOL_TIMEOUT_MS, CODEX_ALLOW_TOOLS (default true, but tools required), CODEX_MCP_PORT.
       - Keep Codex disabled in Docker/e2e by default.
 
 ## Acceptance Criteria (draft, now parameterised)

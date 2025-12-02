@@ -103,8 +103,14 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 #### Subtasks
 
 1. [ ] Add `@openai/codex-sdk` to `server/package.json` and install (`npm install --workspace server @openai/codex-sdk`).
-2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and return `CodexOptions` with `env: { CODEX_HOME: absPath }`; explicitly **do not** set process-wide `CODEX_HOME`.
-3. [ ] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason).
+2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and return `CodexOptions` with `env: { CODEX_HOME: absPath }`; explicitly **do not** set process-wide `CODEX_HOME`. Include a snippet in the file:
+   ```ts
+   export function buildCodexOptions() {
+     const home = path.resolve(process.env.CODEINFO_CODEX_HOME ?? './codex');
+     return { env: { CODEX_HOME: home } } satisfies CodexOptions;
+   }
+   ```
+3. [ ] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason). Example command for detection shell call: `command -v codex`.
 4. [ ] Update `server/Dockerfile`: add `RUN npm install -g @openai/codex`; set `ENV CODEINFO_CODEX_HOME=/app/codex`; ensure docker-compose example shows volume `./codex:/app/codex`.
 5. [ ] README “Codex prerequisites” subsection: include exact commands `npm install -g @openai/codex` and `codex login` (host and inside container with `docker compose run --rm server sh`); state default `CODEINFO_CODEX_HOME=./codex` and disabled behaviour when CLI/auth/config missing.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

@@ -277,6 +277,9 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 5. [ ] Update `config.toml.example` `[mcp_servers]` entry with the URLs above and ensure README documents how to set it.
 6. [ ] Docs: add README/design notes for MCP usage, manual verification steps, and local-only security scope.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Test (build): `npm run build --workspace server` — ensure MCP module compiles.
+9. [ ] Test (server integration/unit): add `server/src/test/integration/mcp-server.test.ts` covering `list_tools` and `call_tool` happy/error paths; purpose: verify JSON-RPC wiring and tool dispatch.
+10. [ ] Test (manual): with Codex CLI logged in, set `[mcp_servers]` to `http://localhost:5010/mcp`, run `codex` chat, and verify tools list/call succeed; purpose: end-to-end MCP validation.
 
 #### Testing
 
@@ -313,11 +316,12 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 3. [ ] Server: map Codex MCP tool calls/results into SSE `tool-request`/`tool-result` frames; include provider tags; ensure citations data flow matches LM Studio path.
 4. [ ] Client: re-enable chat input for provider=Codex; allow tool blocks/citations when `toolsAvailable=true`; still hide when unavailable.
 5. [ ] Preserve threadId handling with MCP: store/forward threadId per conversation.
-6. [ ] Tests: add server integration test with mocked Codex MCP responses; update client RTL (e.g., `chatPage.toolDetails.test.tsx` or new) to verify Codex tool blocks/citations; adjust any tests that assumed Codex disabled.
-7. [ ] Docs: update README/design with SYSTEM_CONTEXT injection for Codex and tool-required behaviour; include prompt/instruction snippet used.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-9. [ ] Tests: server integration with mocked Codex MCP calls to verify tool-call/result SSE mapping.
-10. [ ] Tests: client RTL (e.g., extend `chatPage.toolDetails.test.tsx`) for Codex provider showing tool blocks/citations when toolsAvailable=true and hidden when false.
+6. [ ] Docs: update README/design with SYSTEM_CONTEXT injection for Codex and tool-required behaviour; include prompt/instruction snippet used.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [ ] Test (build): `npm run build --workspace server` — ensure MCP-enabled Codex path compiles.
+9. [ ] Test (build): `npm run build --workspace client` — ensure UI changes compile.
+10. [ ] Test (server integration): add mocked Codex MCP test (e.g., `server/src/test/integration/chat-codex-mcp.test.ts`) verifying tool-call/result SSE mapping; purpose: Codex+MCP flow works.
+11. [ ] Test (client RTL): extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex provider shows tool blocks/citations when `toolsAvailable=true` and hides when false; purpose: UI renders tools correctly for Codex.
 
 #### Testing
 
@@ -390,11 +394,13 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 2. [ ] Run server tests and client tests.
 3. [ ] Perform clean Docker build; start compose stack (with Codex disabled/enabled as appropriate) and verify health.
 4. [ ] Run e2e tests (skip Codex if not available in CI; document) and manual MCP smoke if Codex CLI is available.
-5. [ ] Tests: server build (`npm run build --workspace server`) and client build (`npm run build --workspace client`) as part of final gate.
-6. [ ] Tests: server tests (`npm run test --workspace server`) and client tests (`npm run test --workspace client`).
 5. [ ] Update README, design.md, projectStructure.md to reflect final state and MCP/Codex config.
 6. [ ] Capture required screenshots (if applicable) and prepare a PR-ready summary of changes and how to enable Codex.
 7. [ ] Run lint/format across workspaces.
+8. [ ] Test (build): `npm run build --workspaces` — final confirmation.
+9. [ ] Test (unit/integration): `npm run test --workspaces` — final confirmation.
+10. [ ] Test (Docker): clean build + `docker compose up`/`down`, noting Codex availability status.
+11. [ ] Test (e2e): `npm run e2e` (document skips if Codex unavailable); manual MCP smoke if Codex CLI present.
 
 #### Testing
 

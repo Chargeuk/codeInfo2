@@ -85,8 +85,8 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Codex config template and bootstrap copy
 
-- Task Status: **__to_do__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: **5c049e0**
 
 #### Overview
 
@@ -100,36 +100,38 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 #### Subtasks
 
-1. [ ] Add `config.toml.example` at repo root with:
+1. [x] Add `config.toml.example` at repo root with:
    - `model = "gpt-5.1-codex-max"`
    - `model_reasoning_effort = "high"`
    - `[features]` `web_search_request = true` `view_image_tool = true`
    - `[mcp_servers]` entry for MCP: host `http://localhost:5010/mcp`, docker `http://server:5010/mcp` (comment both)
-2. [ ] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
+2. [x] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
    - Minimal copy snippet:
    ```ts
    if (!fs.existsSync(target)) {
      fs.copyFileSync(path.resolve('config.toml.example'), target);
    }
    ```
-3. [ ] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
+3. [x] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- Capture the MCP server URL(s) used in the example and any template substitutions.
-- Note any platform/path considerations for CODEINFO_CODEX_HOME.
+- Seed example includes host `http://localhost:5010/mcp` and docker `http://server:5010/mcp` entries under `[mcp_servers]` with default model `gpt-5.1-codex-max` and `model_reasoning_effort="high"`.
+- `ensureCodexConfigSeeded` resolves `CODEINFO_CODEX_HOME` (default `./codex`), creates the directory, and copies `config.toml.example` on first run; it logs when seeding and warns if the example is missing.
+- README documents the seeding flow and that `codex/` is git-ignored; users can edit `./codex/config.toml` after first start.
+- Fixed LM Studio chat history test by avoiding mutation of the Chat object during streaming (`chat.append` removed), so mock history length stays aligned with the initial request; all server tests now pass.
 
 ---
 

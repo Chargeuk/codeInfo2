@@ -256,7 +256,7 @@ Validate full flow and document new tool detail UX.
 ### 4. Final Task – Story completion checks
 
 - status: **done**
-- Git Commits: to_do
+- Git Commits: e056d55
 
 #### Overview
 

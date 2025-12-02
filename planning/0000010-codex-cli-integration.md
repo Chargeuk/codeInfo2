@@ -137,7 +137,7 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

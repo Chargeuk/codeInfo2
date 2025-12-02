@@ -124,28 +124,33 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 
 #### Subtasks
 
-1. [ ] Create/stub `client/src/constants/systemContext.ts` now with `export const SYSTEM_CONTEXT = '';` so the target is fixed. Document this exact path here.
+1. [x] Create/stub `client/src/constants/systemContext.ts` now with `export const SYSTEM_CONTEXT = '';` so the target is fixed. Document this exact path here.
 2. [ ] When text is provided, replace the empty string with the supplied content; no other behaviour change. Record the exact commit hash in the plan.
-3. [ ] Identify the consumer: note which component/hook will read the constant (e.g., `client/src/hooks/useChatStream.ts` or `client/src/pages/ChatPage.tsx`) and add a TODO comment there pointing to the constant until content arrives.
-4. [ ] Test (unit/RTL) for the chosen consumer: add an assertion that the constant is read (e.g., render path picks up `SYSTEM_CONTEXT` value). Purpose: ensure injected text is actually used.
-5. [ ] Documentation: README “Chat” (or “Logging/Chat tooling”) subsection — add a sentence stating system context is stored in `client/src/constants/systemContext.ts` and injected when provided.
-6. [ ] Documentation: design.md — add a short note in the chat/agent section about the system context location and consumer.
-7. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+3. [x] Identify the consumer: note which component/hook will read the constant (e.g., `client/src/hooks/useChatStream.ts` or `client/src/pages/ChatPage.tsx`) and add a TODO comment there pointing to the constant until content arrives.
+4. [x] Test (unit/RTL) for the chosen consumer: add an assertion that the constant is read (e.g., render path picks up `SYSTEM_CONTEXT` value). Purpose: ensure injected text is actually used.
+5. [x] Documentation: README “Chat” (or “Logging/Chat tooling”) subsection — add a sentence stating system context is stored in `client/src/constants/systemContext.ts` and injected when provided.
+6. [x] Documentation: design.md — add a short note in the chat/agent section about the system context location and consumer.
+7. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- to_be_filled
+- Added `client/src/constants/systemContext.ts` as the stub home for the system prompt; waiting for real text so subtask 2 stays open.
+- Hook `useChatStream` now trims `SYSTEM_CONTEXT` and prepends a system message when non-empty; added TODO comment marking it as the consumer.
+- New RTL coverage in `client/src/test/chatPage.stream.test.tsx` verifies chat requests include the system prompt (global constant mocked for tests) without changing runtime behaviour when empty.
+- Docs: README chat section documents the constant path/behaviour; design.md notes `useChatStream` prepends the prompt when present; projectStructure lists the new constants folder/file.
+- Ran lint + format for all workspaces; reran after test edits.
+- Testing completed per checklist: server build/tests, client build/tests (fixed system-context test to avoid isolate hook issues), compose build/up/down, and full e2e suite.
 
 ---
 

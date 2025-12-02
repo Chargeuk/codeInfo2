@@ -56,6 +56,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ index.ts â€” logging exports
 |     |  |- logger.ts ? client logger factory (console tee + queue)
 |     |  - transport.ts ? forwarding queue placeholder
+â”‚     â”œâ”€ constants/
+|     |  â””â”€ systemContext.ts — holds optional system prompt prepended to chat payloads when non-empty
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)

@@ -1,5 +1,6 @@
 import { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SYSTEM_CONTEXT } from '../constants/systemContext';
 import { createLogger } from '../logging/logger';
 
 export type ChatMessage = {
@@ -391,6 +392,13 @@ export function useChatStream(model?: string) {
 
       updateMessages((prev) => [...prev, userMessage]);
 
+      // TODO: replace placeholder SYSTEM_CONTEXT when system prompt text is supplied.
+      const systemContext = SYSTEM_CONTEXT.trim();
+
+      const systemMessages = systemContext
+        ? [{ role: 'system', content: systemContext }]
+        : [];
+
       const payloadMessages = messagesRef.current
         .filter((msg) => !msg.kind)
         .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
@@ -686,7 +694,11 @@ export function useChatStream(model?: string) {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             model,
-            messages: [...payloadMessages, { role: 'user', content: trimmed }],
+            messages: [
+              ...systemMessages,
+              ...payloadMessages,
+              { role: 'user', content: trimmed },
+            ],
           }),
           signal: controller.signal,
         });

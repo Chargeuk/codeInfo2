@@ -19,6 +19,11 @@ await jest.unstable_mockModule('../logging/transport', () => ({
   _getQueue: () => loggedEntries,
 }));
 
+const mockedSystemContext = 'Stay concise and cite sources.';
+await jest.unstable_mockModule('../constants/systemContext', () => ({
+  SYSTEM_CONTEXT: mockedSystemContext,
+}));
+
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -722,5 +727,46 @@ describe('Chat page streaming', () => {
     };
     expect(payload.source).toBe('client');
     expect(payload.context?.channel).toBe('client-chat');
+  });
+
+  it('prepends system context to chat payloads when provided', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames(['data: {"type":"complete"}\n\n']),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    const body = (mockFetch.mock.calls[1]?.[1] as RequestInit | undefined)
+      ?.body as string;
+    const parsed = JSON.parse(body);
+    expect(parsed.messages[0]).toEqual({
+      role: 'system',
+      content: mockedSystemContext,
+    });
+    expect(parsed.messages.at(-1)).toEqual({
+      role: 'user',
+      content: 'Hello',
+    });
   });
 });

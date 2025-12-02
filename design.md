@@ -370,6 +370,7 @@ sequenceDiagram
 - Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
 - UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
 - Model filtering: `/chat/models` maps LM Studio `listDownloadedModels` and filters out embeddings/vectors so only chat-capable LLMs appear in the dropdown; empty state copy reflects "No chat-capable models".
+- System context: `client/src/constants/systemContext.ts` holds an optional system prompt; `useChatStream` prepends it to payloads only when non-empty, keeping current behaviour unchanged until text is supplied.
 
 ```mermaid
 sequenceDiagram

@@ -1,3 +1,4 @@
+import { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createLogger } from '../logging/logger';
 
@@ -248,7 +249,12 @@ const isVectorPayloadString = (content: string) => {
 };
 
 export function useChatStream(model?: string) {
-  const logger = useRef(createLogger('client-chat')).current;
+  const log = useRef(createLogger('client')).current;
+  const logWithChannel = useCallback(
+    (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
+      log(level, message, { channel: 'client-chat', ...context }),
+    [log],
+  );
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const statusRef = useRef<Status>('idle');
@@ -715,7 +721,7 @@ export function useChatStream(model?: string) {
                       ? 'error'
                       : 'done';
                 const id = event.callId ?? makeId();
-                logger('info', 'chat tool event', {
+                logWithChannel('info', 'chat tool event', {
                   type: event.type,
                   callId: id,
                   name: event.name,
@@ -877,7 +883,7 @@ export function useChatStream(model?: string) {
       extractCitations,
       finishStreaming,
       handleErrorBubble,
-      logger,
+      logWithChannel,
       model,
       status,
       stop,

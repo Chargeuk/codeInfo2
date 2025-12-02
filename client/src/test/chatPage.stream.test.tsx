@@ -11,6 +11,13 @@ import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn();
+const loggedEntries: unknown[] = [];
+
+await jest.unstable_mockModule('../logging/transport', () => ({
+  sendLogs: jest.fn((entries: unknown[]) => loggedEntries.push(...entries)),
+  flushQueue: jest.fn(),
+  _getQueue: () => loggedEntries,
+}));
 
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
@@ -18,6 +25,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  loggedEntries.length = 0;
 });
 
 afterEach(() => {
@@ -163,6 +171,8 @@ describe('Chat page streaming', () => {
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
     await act(async () => {
       await user.click(sendButton);
@@ -665,5 +675,52 @@ describe('Chat page streaming', () => {
     } finally {
       logSpy.mockRestore();
     }
+  });
+
+  it('sends tool event logs with client source and chat channel tag', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"tool-request","callId":"c1","name":"VectorSearch"}\n\n',
+          'data: {"type":"tool-result","callId":"c1","name":"VectorSearch","result":{"results":[]}}\n\n',
+          'data: {"type":"final","message":{"content":"Done","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await screen.findByText('Done');
+
+    await waitFor(
+      () => {
+        expect(loggedEntries.length).toBeGreaterThan(0);
+      },
+      { timeout: 3000 },
+    );
+
+    const payload = loggedEntries[0] as {
+      source?: string;
+      context?: { channel?: string };
+    };
+    expect(payload.source).toBe('client');
+    expect(payload.context?.channel).toBe('client-chat');
   });
 });

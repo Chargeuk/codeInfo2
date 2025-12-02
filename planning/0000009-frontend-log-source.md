@@ -61,35 +61,50 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 #### Subtasks
 
-1. [ ] Audit current logger creation in `client/src/hooks/useChatStream.ts` (function `useChatStream`, near the top-level logger definition). Capture the exact snippet that currently reads `const log = createLogger('client-chat');` to show before/after in notes.
-2. [ ] Replace that line with `const log = createLogger('client');` and wrap the logger call so every emitted entry merges `{ channel: 'client-chat', ...context }` before `sendLogs` (e.g., inside `logToolEvent` helper). Include the concrete code diff in the task notes:
+1. [x] Audit current logger creation in `client/src/hooks/useChatStream.ts` (function `useChatStream`, near the top-level logger definition). Capture the exact snippet that currently reads `const log = createLogger('client-chat');` to show before/after in notes.
+2. [x] Replace that line with `const log = createLogger('client');` and wrap the logger call so every emitted entry merges `{ channel: 'client-chat', ...context }` before `sendLogs` (e.g., inside `logToolEvent` helper). Include the concrete code diff in the task notes:
    ```ts
    const log = createLogger('client');
    const logWithChannel = (level, message, context = {}) =>
      log(level, message, { channel: 'client-chat', ...context });
    ```
    Then swap existing `log(...)` calls in this hook to `logWithChannel(...)`.
-3. [ ] Test (unit/RTL) in `client/src/test/chatPage.stream.test.tsx`: mock/spy `sendLogs` (existing jest mock) and assert the first logged tool event equals `{ source: 'client', context: expect.objectContaining({ channel: 'client-chat' }) }`. Add a concrete expectation snippet in the test: `expect(payload.source).toBe('client'); expect(payload.context?.channel).toBe('client-chat');`.
-4. [ ] If present, update the shared logger mock in `client/src/test/__mocks__/logger.ts` (or similar) to capture `channel` and default `source: 'client'` so other tests stay aligned; add a small assertion to that mock’s test to verify the channel is preserved.
-5. [ ] Documentation: README `Logging` section (existing heading) — add a bullet under “Client logging” noting chat tool events now use `source: client` with `context.channel = "client-chat"` for filtering.
-6. [ ] Documentation: design.md `Logging` / observability section — add the same source/tag detail and a one-liner on why the tag is used for chat telemetry.
-7. [ ] Documentation: projectStructure.md — if new/renamed test helper files are added, list them; otherwise note the `useChatStream` update in the comments for that file.
-8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (record commands/outcomes in implementation notes).
+3. [x] Test (unit/RTL) in `client/src/test/chatPage.stream.test.tsx`: mock/spy `sendLogs` (existing jest mock) and assert the first logged tool event equals `{ source: 'client', context: expect.objectContaining({ channel: 'client-chat' }) }`. Add a concrete expectation snippet in the test: `expect(payload.source).toBe('client'); expect(payload.context?.channel).toBe('client-chat');`.
+4. [x] If present, update the shared logger mock in `client/src/test/__mocks__/logger.ts` (or similar) to capture `channel` and default `source: 'client'` so other tests stay aligned; add a small assertion to that mock’s test to verify the channel is preserved.
+5. [x] Documentation: README `Logging` section (existing heading) — add a bullet under “Client logging” noting chat tool events now use `source: client` with `context.channel = "client-chat"` for filtering.
+6. [x] Documentation: design.md `Logging` / observability section — add the same source/tag detail and a one-liner on why the tag is used for chat telemetry.
+7. [x] Documentation: projectStructure.md — if new/renamed test helper files are added, list them; otherwise note the `useChatStream` update in the comments for that file.
+8. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues (record commands/outcomes in implementation notes).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- to_be_filled
+- Subtask 1: Confirmed `useChatStream` initializes `const logger = useRef(createLogger('client-chat')).current;` and uses `logger('info', 'chat tool event', { ... })` for tool events.
+- Subtask 2: Swapped to `const log = useRef(createLogger('client')).current` with a `logWithChannel` helper that merges `{ channel: 'client-chat', ...context }`, and replaced the tool-event logger call with `logWithChannel('info', ...)`; send callback deps updated accordingly.
+- Subtask 3: Added `sendLogs` jest mock queue in `chatPage.stream.test.tsx` and asserted the first tool log carries `source: 'client'` and `context.channel = 'client-chat'`.
+- Subtask 4: No shared `__mocks__/logger.ts` exists; noted as not applicable after confirming mocks, so no extra mock file changes were required.
+- Subtask 5: README logging section now documents chat tool logs using `source: client` with `context.channel = "client-chat"`.
+- Subtask 6: design.md logging section mentions the channel tag rationale for chat telemetry and schema alignment.
+- Subtask 7: projectStructure entry for `useChatStream.ts` notes the client source + chat channel tag logging.
+- Subtask 8: Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces`; formatted `client/src/hooks/useChatStream.ts` then rechecked successfully.
+- Test 1: `npm run build --workspace server` succeeded.
+- Test 2: `npm run build --workspace client` succeeded (vite build, noted large chunk warning unchanged).
+- Test 3: `npm run test --workspace server` passed (unit + Cucumber; expected Chroma default-embed warnings/deprecation notices only).
+- Test 4: `npm run test --workspace client` passed after mocking `logging/transport` via `jest.unstable_mockModule`; console act warnings remain from existing suites.
+- Test 5: `npm run compose:build` succeeded (Docker images built; npm deprecated/vulnerability warnings noted from base dependencies, chunk size warning persists).
+- Test 6: `npm run compose:up` brought stack up (client/server/chroma/otel/zipkin all started, server reported healthy).
+- Test 7: `npm run compose:down` stopped and removed stack containers/network cleanly.
+- Test 8: `npm run e2e` succeeded (compose:e2e build/up/test/down; all 21 Playwright specs passed; chunk size warning noted, no residual containers).
 
 ---
 

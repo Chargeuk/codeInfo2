@@ -58,7 +58,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  - transport.ts ? forwarding queue placeholder
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
-|     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events)
+|     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper

@@ -53,7 +53,7 @@ Resolved:
 
 Open items (to confirm before tasking):
 - Exact wording/location of the Codex login instructions in README and any warning banner in the chat page.
-- Whether to hide Codex entirely when CLI/auth is missing, or show disabled with guidance.
+- Whether to hide Codex entirely when CLI/auth is missing, or show disabled with guidance. **Decision:** show disabled with guidance.
 
 # Implementation Plan
 

@@ -68,13 +68,18 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 5. [ ] Documentation: Update README logging section to state chat tool events use source `client` with channel tag `client-chat`.
 6. [ ] Documentation: Update design.md observability/logging notes with the same source + channel tag detail.
 7. [ ] Documentation: Update projectStructure.md if any new test/helper files were added or existing ones renamed.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` after the code/test changes.
+8. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run lint --workspaces`
-3. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -103,10 +108,18 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 3. [ ] Test (unit/RTL) [file TBD once consumer known]: verify the system context constant is loaded/used/rendered as intended. Purpose: ensure the injected text is actually consumed.
 4. [ ] Documentation: Update README to note where the system context constant lives and how it’s applied.
 5. [ ] Documentation: Update design.md with a brief note on the system context location/usage once set.
+6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client` (or narrower affected suite once location is known)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -136,10 +149,18 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 4. [ ] Documentation: Update README to mention rounded chat bubbles and note the chosen radius token.
 5. [ ] Documentation: Update design.md chat UI section to reflect rounded bubble styling.
 6. [ ] Documentation: Update projectStructure.md if new style/test helpers are added for the bubble change.
+7. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 
@@ -165,15 +186,19 @@ Ensure builds/tests clean, docs accurate, and summarize changes for the PR comme
 #### Subtasks
 
 1. [ ] Confirm README/design/projectStructure reflect the log source/tag behavior.
-2. [ ] Run `npm run build --workspaces`.
-3. [ ] Run `npm run test --workspace client` (sanity).
-4. [ ] Prepare PR summary text covering scope, tests, and risk.
+3. [ ] Prepare PR summary text covering scope, tests, and risk.
+4. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run build --workspace server`
-3. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
 
 #### Implementation notes
 

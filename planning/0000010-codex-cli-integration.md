@@ -239,3 +239,41 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 - Capture the MCP server URL(s) used in the example and any template substitutions.
 - Note any platform/path considerations for CODEINFO_CODEX_HOME.
+
+---
+
+### 5. Expose existing tools via MCP server
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP server endpoint that Codex can call. Provide a stable HTTP/SSE MCP surface (e.g., `/mcp`) and document the config.toml parameters users need to point Codex at it (localhost and Docker variants).
+
+#### Documentation Locations
+
+- MCP protocol reference: https://openai.github.io/openai-agents-python/mcp/
+- Current tool schemas in server routes (`toolsIngestedRepos`, `toolsVectorSearch`) and LM Studio tool wiring
+- Codex config guide: https://github.com/openai/codex/blob/main/docs/agents_md.md
+
+#### Subtasks
+
+1. [ ] Add MCP server module/route (HTTP + SSE) on the Express app (e.g., `/mcp`): implement `list_tools` returning both tools’ schemas and `call_tool` dispatching to existing service logic. Bind to 127.0.0.1 by default.
+2. [ ] Map request/response to JSON-RPC 2.0; support SSE/streamable HTTP where appropriate; include error envelopes on failures.
+3. [ ] Reuse current validation/schemas for both tools; ensure outputs match existing HTTP responses (including hostPath metadata).
+4. [ ] Surface detection/logs on startup that MCP is enabled and the URL to configure (host + docker forms).
+5. [ ] Update `config.toml.example` `[mcp_servers]` entry with the MCP URL (`http://localhost:5010/mcp` for host; `http://server:5010/mcp` for docker) and note in README how to set it.
+6. [ ] Add README/design notes for MCP usage, including manual verification steps and security scope (local only by default).
+7. [ ] Run lint/format for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server` (add unit/integration for `/mcp` list_tools and call_tool happy/err paths)
+3. [ ] Manual: with Codex CLI logged in, point `config.toml` `[mcp_servers]` at `http://localhost:5010/mcp`, run `codex` chat, and verify the tools are listed and callable.
+
+#### Implementation notes
+
+- Capture final MCP URL(s) and any CORS/host binding choices.
+- Note any streaming behaviors or limitations for large payloads.

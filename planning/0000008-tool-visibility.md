@@ -670,8 +670,10 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 5. [ ] RTL test B (client/src/test/chatPage.stream.test.tsx): `final` arrives while a `tool-request` is pending and `tool-result` comes after `complete`; chip remains “Processing” until tool resolves, then flips “Complete”.
 6. [ ] RTL test C (client/src/test/chatPage.stream.test.tsx): `error` event; chip switches to “Failed” immediately and thinking clears.
 7. [ ] E2E test (update `e2e/chat-tools-visibility.spec.ts` or new): stream `final` before `complete` with a pending tool; assert chip shows “Processing” during the gap and “Complete” only after `complete` + tool result; capture screenshot if practical.
-6. [ ] Docs: add a short note about completion gating to `README.md` and `design.md`; update `projectStructure.md` if file roles change.
-7. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+6. [ ] Docs: `README.md` — note the corrected completion gating and status chip behavior.
+7. [ ] Docs: `design.md` — update chat streaming section to reflect completion gating and thinking clearance rules.
+8. [ ] Docs: `projectStructure.md` — adjust file descriptions if any files change for this task.
+9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 

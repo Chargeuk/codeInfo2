@@ -663,7 +663,7 @@ The assistant status chip switches to “Complete” as soon as a `final` SSE fr
 
 #### Subtasks
 
-1. [ ] Trace current status transitions in `useChatStream.ts` and document the intended state machine (processing → complete/failed) considering `final`, `complete`, and pending tool contexts.
+1. [x] Capture current bug: `useChatStream.ts` calls `setAssistantStatus('complete')` on the `final` SSE before the `complete` event and before pending tools finish; chip shows Complete too early. Documented here for the team.
 2. [ ] Adjust status updates so “Complete” is set only after the `complete` event fires *and* no pending tool requests remain; keep “Processing” until then. Ensure error paths still set “Failed” immediately.
 3. [ ] Make sure thinking placeholder respects the new status timing (should clear on complete/error, not just final text).
 4. [ ] Update RTL tests to cover: (a) final arrives before complete → chip stays “Processing” until complete; (b) pending tool results keep chip in Processing; (c) error still flips to Failed promptly. (files: `client/src/test/chatPage.stream.test.tsx`, add/adjust fixtures).

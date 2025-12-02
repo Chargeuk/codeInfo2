@@ -836,7 +836,7 @@ export function useChatStream(model?: string) {
                 }
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
-                  parseReasoning(initialReasoningState(), finalContent, {
+                  parseReasoning(reasoning, finalContent, {
                     flushAll: true,
                   }),
                 );

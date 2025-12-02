@@ -83,6 +83,28 @@ const thinkStream = () => {
   });
 };
 
+const multiAnalysisFinalStream = () => {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          'data: {"type":"token","content":"<|channel|>analysis<|message|>First part."}\n\n',
+        ),
+      );
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"<|channel|>analysis<|message|>Second part.<|end|><|start|>assistant<|channel|>final<|message|>Visible answer."}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      }, 10);
+    },
+  });
+};
+
 describe('useChatStream reasoning parsing', () => {
   it('splits Harmony analysis/final into hidden and visible buffers', async () => {
     const onUpdate = jest.fn();
@@ -137,5 +159,27 @@ describe('useChatStream reasoning parsing', () => {
     const assistant = latest.find((msg) => msg.role === 'assistant');
     expect(assistant?.think).toContain('Analyzing steps');
     expect(assistant?.thinkStreaming).toBe(false);
+  });
+
+  it('keeps earlier analysis when final content includes another analysis block', async () => {
+    const onUpdate = jest.fn();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: multiAnalysisFinalStream(),
+    });
+
+    render(<Wrapper prompt="multi" onUpdate={onUpdate} />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = latest.find((msg) => msg.role === 'assistant');
+      expect(assistant?.content).toContain('Visible answer.');
+    });
+
+    const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+    const assistant = latest.find((msg) => msg.role === 'assistant');
+    expect(assistant?.think).toContain('First part.');
+    expect(assistant?.think).toContain('Second part.');
   });
 });

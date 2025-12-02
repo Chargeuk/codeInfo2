@@ -170,31 +170,35 @@ Update chat bubble styling so both user and assistant messages have rounded corn
 
 #### Subtasks
 
-1. [ ] Use a single radius token `14px` for both user and assistant bubbles. Apply in `client/src/pages/ChatPage.tsx` where the bubble `Box`/`Paper` `sx` is defined (and any shared styled component). Include the exact `sx` change in notes:
+1. [x] Use a single radius token `14px` for both user and assistant bubbles. Apply in `client/src/pages/ChatPage.tsx` where the bubble `Box`/`Paper` `sx` is defined (and any shared styled component). Include the exact `sx` change in notes:
    ```ts
    borderRadius: '14px',
    ```
-2. [ ] Verify layout for status chips, tool blocks, and citations remains aligned; adjust padding/margins in the same file if needed (note any tweaks with file/line references).
-3. [ ] Test (RTL): in `client/src/test/chatPage.stream.test.tsx` (or a new `chatPage.bubble-style.test.tsx` if clearer), assert rendered bubbles have `border-radius: 14px` for both user and assistant selectors (query by test id or role used today).
-4. [ ] Documentation: README “Chat” section — add a bullet noting bubbles use 14px rounding to align with the current visual language.
-5. [ ] Documentation: design.md chat UI section — update to mention 14px bubble radius and that citations/status chips remain aligned.
-6. [ ] Documentation: projectStructure.md — update the `client/src/pages/ChatPage.tsx` comment if needed to mention bubble styling and add any new test file path.
-7. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+2. [x] Verify layout for status chips, tool blocks, and citations remains aligned; adjust padding/margins in the same file if needed (note any tweaks with file/line references).
+3. [x] Test (RTL): in `client/src/test/chatPage.stream.test.tsx` (or a new `chatPage.bubble-style.test.tsx` if clearer), assert rendered bubbles have `border-radius: 14px` for both user and assistant selectors (query by test id or role used today).
+4. [x] Documentation: README “Chat” section — add a bullet noting bubbles use 14px rounding to align with the current visual language.
+5. [x] Documentation: design.md chat UI section — update to mention 14px bubble radius and that citations/status chips remain aligned.
+6. [x] Documentation: projectStructure.md — update the `client/src/pages/ChatPage.tsx` comment if needed to mention bubble styling and add any new test file path.
+7. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run compose:down`
-8. [ ] `npm run e2e`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run compose:build`
+6. [x] `npm run compose:up`
+7. [x] `npm run compose:down`
+8. [x] `npm run e2e`
 
 #### Implementation notes
 
-- to_be_filled
+- Added `borderRadius: '14px'` to chat bubbles in `client/src/pages/ChatPage.tsx`; other layout spacing stayed aligned so no padding tweaks were needed.
+- Added an RTL test in `client/src/test/chatPage.stream.test.tsx` that waits for controls to enable, sends a short chat stream, and asserts both user/assistant bubbles compute a 14px radius.
+- Documented the styling in README (Chat bubble styling bullet), design.md (chat streaming UI bullets), and projectStructure.md (ChatPage line item mentioning rounded bubbles).
+- Lint and format checks: `npm run lint --workspaces` and `npm run format:check --workspaces` both passed.
+- Test commands run: server build/tests (pass with usual Chroma default-embed warnings), client build/tests (initial failure due to disabled send; fixed by waiting for enabled input; rerun passed with existing act warnings), compose build/up/down (clean), and `npm run e2e` (18 passed, 3 ingest scenarios skipped as expected).
 
 ---
 

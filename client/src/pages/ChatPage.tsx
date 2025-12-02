@@ -567,6 +567,7 @@ export default function ChatPage() {
                         data-kind={message.kind ?? 'normal'}
                         sx={{
                           p: 1.5,
+                          borderRadius: '14px',
                           bgcolor: isErrorBubble
                             ? 'error.light'
                             : isStatusBubble

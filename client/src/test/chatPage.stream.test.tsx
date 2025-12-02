@@ -769,4 +769,55 @@ describe('Chat page streaming', () => {
       content: 'Hello',
     });
   });
+
+  it('renders user and assistant bubbles with 14px border radius', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => modelList,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: streamFromFrames([
+          'data: {"type":"final","message":{"content":"Reply","role":"assistant"}}\n\n',
+          'data: {"type":"complete"}\n\n',
+        ]),
+      });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'Hello');
+    const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    const bubbles = await screen.findAllByTestId('chat-bubble');
+    const assistantBubble = bubbles.find(
+      (bubble) => bubble.getAttribute('data-role') === 'assistant',
+    );
+    const userBubble = bubbles.find(
+      (bubble) => bubble.getAttribute('data-role') === 'user',
+    );
+
+    expect(assistantBubble).toBeTruthy();
+    expect(userBubble).toBeTruthy();
+
+    const assistantRadius = getComputedStyle(
+      assistantBubble as HTMLElement,
+    ).borderRadius;
+    const userRadius = getComputedStyle(userBubble as HTMLElement).borderRadius;
+
+    expect(assistantRadius).toBe('14px');
+    expect(userRadius).toBe('14px');
+  });
 });

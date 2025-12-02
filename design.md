@@ -44,6 +44,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - Message input and Send button feed into `useChatStream(model)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`) into a single assistant bubble per turn.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
+- User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
 - Stream status chip: each assistant bubble shows a chip at the top—Processing (spinner), Complete (tick), or Failed (cross) driven by stream lifecycle events. Complete now triggers only after the `complete` SSE frame **and** when no tool calls remain pending (tool requests without a result keep the chip in Processing even if a `final` arrives early).

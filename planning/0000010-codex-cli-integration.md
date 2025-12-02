@@ -32,6 +32,7 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
 - Codex provider uses `gpt-5.1-codex-max` by default when available via the CLI/SDK bridge.
 - MCP tool access is required; if MCP handshake fails, the client is blocked from sending to Codex and receives a clear error popup (no chat-only fallback).
 - Auth expectation: user must manually log in the Codex CLI under the configured `CODEX_HOME`; README documents the login step and custom home path. No automatic copying of `~/.codex/auth.json`.
+- Repository uses a git-ignored `codex/` directory as the default `CODEX_HOME`; all Codex config/auth files live there and stay out of version control.
 - Provider selection UI: chat page adds a Provider dropdown (left of Model) with options `LMStudio` and `OpenAI Codex`; the Models dropdown filters to the chosen provider.
 - Conversation constraints: provider cannot be switched mid-conversation; model can be switched. New conversation keeps the chosen provider.
 - Input layout: message text input becomes multi-line, placed under the Provider/Model row alongside the Send button; New conversation stays on the top row. No front-end rate/timeout enforcement.

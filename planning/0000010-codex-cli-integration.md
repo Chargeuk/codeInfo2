@@ -97,8 +97,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 - Codex SDK README: https://github.com/openai/codex/blob/main/sdk/typescript/README.md
 - Codex options/env mapping: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
 - Codex CLI install/login: https://github.com/openai/codex/blob/main/docs/getting_started.md
-- Repo README + design.md for environment notes
-- plan_format.md for process
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -144,9 +143,9 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 #### Documentation Locations
 
 - Codex SDK model options: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
-- UI/React refs: react.dev docs for controlled inputs
-- MUI components: use MUI MCP docs (@mui/material@7.2.0)
-- design.md / README chat sections
+- React controlled inputs: https://react.dev/learn/sharing-state-between-components
+- MUI components (@mui/material@7.2.0 docs via MUI MCP tool)
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -187,8 +186,9 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 #### Documentation Locations
 
 - Codex SDK streaming/thread API: https://github.com/openai/codex/blob/main/sdk/typescript/README.md
-- SSE framing in server: server/src/chatStream.ts
-- Client chat state/hooks docs in codebase (useChatStream, etc.)
+- SSE/EventSource reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- React streaming state patterns: https://react.dev/reference/react/useEffect
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -231,7 +231,7 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 - Codex config reference: https://github.com/openai/codex/blob/main/docs/agents_md.md
 - CODEX_HOME env mapping in SDK: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
-- Repository README/design for Codex home expectations
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -271,8 +271,9 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 #### Documentation Locations
 
 - MCP protocol reference: https://openai.github.io/openai-agents-python/mcp/
-- Current tool schemas in server routes (`toolsIngestedRepos`, `toolsVectorSearch`) and LM Studio tool wiring
-- Codex config guide: https://github.com/openai/codex/blob/main/docs/agents_md.md
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Codex config guide (mcp_servers): https://github.com/openai/codex/blob/main/docs/agents_md.md
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -311,9 +312,9 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 #### Documentation Locations
 
-- SYSTEM_CONTEXT location: client/src/constants/systemContext.ts
-- MCP usage in Codex: Codex docs (agents_md) + SDK thread options
-- Existing tool rendering on client (chat tool blocks/citations)
+- SYSTEM_CONTEXT usage in Codex: https://github.com/openai/codex/blob/main/docs/agents_md.md
+- Codex SDK thread options (tools/MCP): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
+- plan_format.md (process)
 
 #### Subtasks
 
@@ -355,9 +356,9 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Documentation Locations
 
-- README/design.md current Codex sections
-- Chat UI components for banners/tooltips
-- Codex config docs for accurate wording
+- Codex docs (config/login): https://github.com/openai/codex/blob/main/docs/getting_started.md
+- MCP notes (for wording references): https://github.com/openai/codex/blob/main/docs/agents_md.md
+- plan_format.md (process)
 
 #### Subtasks
 

@@ -103,10 +103,10 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 #### Subtasks
 
 1. [ ] Add `@openai/codex-sdk` to `server/package.json` and install (`npm install --workspace server @openai/codex-sdk`).
-2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and produce `CodexOptions` with `env: { CODEX_HOME }`; do **not** set process-wide `CODEX_HOME`.
-3. [ ] In `server/src/index.ts` (startup) or a new `server/src/providers/codexDetection.ts`, add detection: run `which codex` (or `codex --version`) and check `${CODEINFO_CODEX_HOME}/auth.json` + `config.toml`; log success/warning; store detection in an in-memory provider registry module (e.g., `server/src/providers/registry.ts`).
-4. [ ] Update `server/Dockerfile` to include `npm install -g @openai/codex` and ensure `CODEINFO_CODEX_HOME=/app/codex` is set; add a volume hint in `docker-compose.yml` (comment) `./codex:/app/codex`.
-5. [ ] Add README “Codex prerequisites” section with: install CLI (`npm install -g @openai/codex`), set/confirm `CODEINFO_CODEX_HOME` (default `./codex`), run `codex login` inside host or container, and note disabled behavior when missing.
+2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and return `CodexOptions` with `env: { CODEX_HOME: absPath }`; explicitly **do not** set process-wide `CODEX_HOME`.
+3. [ ] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason).
+4. [ ] Update `server/Dockerfile`: add `RUN npm install -g @openai/codex`; set `ENV CODEINFO_CODEX_HOME=/app/codex`; ensure docker-compose example shows volume `./codex:/app/codex`.
+5. [ ] README “Codex prerequisites” subsection: include exact commands `npm install -g @openai/codex` and `codex login` (host and inside container with `docker compose run --rm server sh`); state default `CODEINFO_CODEX_HOME=./codex` and disabled behaviour when CLI/auth/config missing.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 7. [ ] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
 8. [ ] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
@@ -144,24 +144,16 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 #### Subtasks
 
-1. [ ] Add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) that returns providers and availability; extend `/chat/models` (likely `server/src/routes/chatModels.ts`) to accept `provider` query and return LM Studio models or the fixed Codex list with `toolsAvailable/available` flags.
-2. [ ] Client: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in requests; in `client/src/pages/ChatPage.tsx`, store provider+model in state and lock provider per conversation.
-3. [ ] UI: in `client/src/pages/ChatPage.tsx`, add Provider dropdown left of Model; move message input to multiline under selectors with Send; keep New conversation button on top row; disable input/Send when provider=Codex (temporary).
-4. [ ] Guidance: add disabled-state banner/tooltip near Provider when Codex unavailable; hide citations/tool blocks when `toolsAvailable` is false.
-5. [ ] Tests: update/add RTL in `client/src/test/chatPage.provider.test.tsx` (new) or existing chat tests to cover provider selection, disabled Codex state, and layout (aria roles/testids).
-6. [ ] Docs: update README (Chat section) and design.md (chat UI) with provider dropdown, model filtering, fixed Codex list, and disabled behavior.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-8. [ ] Tests: server build (`npm run build --workspace server`).
-9. [ ] Tests: server integration tests for `/mcp` list_tools and call_tool happy/error paths (add `server/src/test/integration/mcp-server.test.ts`).
-10. [ ] Manual: with Codex CLI logged in, point `[mcp_servers]` to `http://localhost:5010/mcp`, run `codex` chat, and verify tools list/call succeed.
-8. [ ] Tests: server build (`npm run build --workspace server`).
-9. [ ] Tests: client build (`npm run build --workspace client`).
-10. [ ] Tests: server integration/unit – add `server/src/test/integration/chat-codex.test.ts` (mock SDK) covering provider=Codex path, SSE frames, detection failure.
-11. [ ] Tests: client RTL – update `client/src/test/chatPage.stream.test.tsx` (or new) for provider=Codex threadId persistence and disabled-on-failure.
-8. [ ] Tests: server build (`npm run build --workspace server`).
-9. [ ] Tests: client build (`npm run build --workspace client`).
-10. [ ] Tests: client RTL – add/extend `client/src/test/chatPage.provider.test.tsx` (or similar) to cover provider selection, disabled Codex state, and layout.
-11. [ ] Tests: manual UI check – provider dropdown/model filtering/disabled banner and multiline input positioning.
+1. [ ] Backend models: add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) to return providers + availability; extend `/chat/models` (`server/src/routes/chatModels.ts`) to accept `provider` and return LM Studio list or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) with `toolsAvailable/available` flags.
+2. [ ] Client state: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in fetch; in `client/src/pages/ChatPage.tsx`, store `provider`+`model` in state, lock provider per conversation, allow model change, and send both in chat payloads.
+3. [ ] UI layout: in `client/src/pages/ChatPage.tsx`, add Provider dropdown left of Model; move message input to multiline beneath selectors with Send; keep New conversation on top row; when `provider === "codex"` disable message + Send (temporary).
+4. [ ] Guidance UI: add disabled-state banner/tooltip near Provider when Codex unavailable, stating prerequisites: install CLI (`npm install -g @openai/codex`), run `codex login`, ensure `CODEINFO_CODEX_HOME` + `config.toml` exist; hide citations/tool blocks when `toolsAvailable` is false.
+5. [ ] Docs: update README Chat and design.md chat UI sections describing Provider dropdown, fixed Codex model list, disabled behaviour, and multiline input position.
+6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Test (build): `npm run build --workspace server` — ensure backend changes compile.
+8. [ ] Test (build): `npm run build --workspace client` — ensure frontend changes compile.
+9. [ ] Test (client RTL): add `client/src/test/chatPage.provider.test.tsx` covering provider selection, disabled Codex state/banner text, and layout (aria roles/testids); purpose: verify UI wiring before Codex chat path.
+10. [ ] Test (manual UI): open chat page, verify provider dropdown, per-provider model filtering, disabled banner when Codex unavailable, and multiline input positioning.
 
 #### Testing
 
@@ -195,12 +187,15 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 #### Subtasks
 
 1. [ ] Implement Codex chat provider in `server/src/routes/chat.ts` (or new `chatCodex.ts`): accept provider/model/threadId; start/resume Codex thread via SDK; stream deltas as SSE frames (`token/final/complete/error`); block send if detection failed.
-2. [ ] Client: in `client/src/hooks/useChatStream.ts`, send provider/model/threadId; store Codex threadId in chat state; block provider change mid-conversation; allow model change.
-3. [ ] For this task, keep Codex tool-free: ignore tool calls; suppress citations/tool blocks for Codex responses.
-4. [ ] Logging: add provider/threadId context to chat logs (server + client logger).
-5. [ ] Tests: add server integration/unit tests (e.g., `server/src/test/integration/chat-codex.test.ts`) with mocked SDK; add client RTL tests (e.g., extend `chatPage.stream.test.tsx`) for provider=Codex, threadId persistence, disabled state on detection failure.
-6. [ ] Docs: update README/design.md noting Codex chat (tools pending) and threadId persistence.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+2. [ ] Client send: in `client/src/hooks/useChatStream.ts`, include `provider/model/threadId` in payload; store Codex `threadId` per conversation; block provider change mid-conversation; allow model change.
+3. [ ] Codex tools off for this task: ignore tool calls on server; suppress citations/tool blocks on client for Codex responses.
+4. [ ] Logging: add provider + threadId context in `server/src/logger.ts` and in `useChatStream` logger calls.
+5. [ ] Docs: update README/design.md noting Codex chat is available (tools pending) and requires threadId persistence.
+6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [ ] Test (build): `npm run build --workspace server` — ensure Codex path compiles.
+8. [ ] Test (build): `npm run build --workspace client` — ensure chat UI changes compile.
+9. [ ] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
+10. [ ] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
 
 #### Testing
 

@@ -239,3 +239,81 @@ Ensure builds/tests clean, docs accurate, and summarize changes for the PR comme
 - to_be_filled
 
 ---
+
+### 4. Thinking snippet stability
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Occasionally the streamed “Thought process” block disappears or never shows when the model emits analysis content. We need to identify why the analysis buffer is lost and ensure the UI consistently renders it when present.
+
+#### Documentation Locations (external)
+
+- React streaming/State updates: https://react.dev/reference/react/useState
+- LM Studio chat stream framing (analysis/final markers) — refer to `@codeinfo2/common` fixtures and `server/src/chatStream.ts` implementation.
+
+#### Subtasks
+
+1. [ ] Reproduce the missing-think case by mocking a stream that sends analysis tokens followed by final tokens; capture the exact frame order that causes the drop.
+2. [ ] Trace `useChatStream` parsing: confirm whether analysis markers are trimmed/overwritten when `final` arrives, when tool results stream, or when empty analysis chunks are emitted; document the root cause.
+3. [ ] Fix: adjust the analysis buffer handling so non-empty `analysis` content persists through `final`/`complete` and is not cleared by empty follow-up tokens. Ensure the `thinkStreaming` flag only flips off after final content is rendered.
+4. [ ] Tests: add/extend RTL/hook tests to assert the “Thought process” accordion renders the streamed analysis text for the reproduced frame order; include a regression for mixed analysis/final frames with tools.
+5. [ ] Documentation: update design.md chat section to note the think handling guardrails; add a short README note if behavior changes are user-visible.
+6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- to_be_filled
+
+---
+
+### 5. Final Task – verification & docs sweep
+
+- status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure builds/tests clean, docs accurate, and summarize changes for the PR comment.
+
+#### Documentation Locations
+
+- README.md
+- design.md
+- projectStructure.md
+
+#### Subtasks
+
+1. [ ] Confirm README/design/projectStructure reflect the log source/tag behavior.
+2. [ ] Prepare PR summary text covering scope, tests, and risk.
+3. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run compose:down`
+8. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- to_be_filled
+
+---

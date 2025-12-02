@@ -200,3 +200,42 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 - Record any SDK mocking approach and SSE mapping decisions.
 - Note future hook points where MCP/tool execution will be added in a later task.
+
+---
+
+### 4. Codex config template and bootstrap copy
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Provide a checked-in `config.toml.example` for Codex with our defaults, and seed `./codex/config.toml` (CODEINFO_CODEX_HOME) from it when missing, without overwriting user changes.
+
+#### Documentation Locations
+
+- Codex config reference: https://github.com/openai/codex/blob/main/docs/agents_md.md
+- CODEX_HOME env mapping in SDK: https://github.com/openai/codex/blob/main/sdk/typescript/src/codexOptions.ts
+- Repository README/design for Codex home expectations
+
+#### Subtasks
+
+1. [ ] Add `config.toml.example` (tracked) containing:
+   - `model = "gpt-5.1-codex-max"`
+   - `model_reasoning_effort = "high"`
+   - `[features]` with `web_search_request = true` and `view_image_tool = true`
+   - `[mcp_servers]` entry for our MCP server (document host vs Docker URL)
+2. [ ] Implement bootstrap logic (startup hook or small script) to copy the example to `${CODEINFO_CODEX_HOME}/config.toml` if it does not exist; never overwrite an existing file.
+3. [ ] Document in README how to customize `./codex/config.toml`, how seeding works, and that `codex/` remains git-ignored while the example stays tracked.
+4. [ ] Run lint/format for touched workspaces (and shellcheck if a shell script is added).
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] Manual: remove/rename `./codex/config.toml`, start the server, verify the file is seeded from the example; restart to confirm idempotency (no overwrite).
+3. [ ] If a standalone script is provided, run it directly to confirm copy behavior.
+
+#### Implementation notes
+
+- Capture the MCP server URL(s) used in the example and any template substitutions.
+- Note any platform/path considerations for CODEINFO_CODEX_HOME.

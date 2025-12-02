@@ -19,6 +19,14 @@ npm install
 - The repo ships `config.toml.example` at the root. On server startup, if `${CODEINFO_CODEX_HOME:-./codex}/config.toml` is missing, it is copied from the example (the `codex/` directory is git-ignored).
 - Customize `./codex/config.toml` after the first run; subsequent starts leave your edits intact.
 
+## Codex (CLI)
+
+- Install CLI (host): `npm install -g @openai/codex`
+- Login (host): `codex login`
+- Login (docker): `docker compose run --rm server sh -lc "codex login"`
+- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker)
+- If the CLI, `auth.json`, or `config.toml` are missing, Codex stays disabled; detection logs at startup report what is missing.
+
 ## Workspace layout
 
 - `client/` — React app (Vite) [workspace]

@@ -5,7 +5,8 @@ import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { ensureCodexConfigSeeded } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
-import { createRequestLogger } from './logger.js';
+import { baseLogger, createRequestLogger } from './logger.js';
+import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
@@ -21,10 +22,12 @@ import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 
 config();
 ensureCodexConfigSeeded();
+const codexDetection = detectCodex();
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(createRequestLogger());
+baseLogger.info({ codexDetection }, 'Codex detection summary');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
   if (requestId) res.locals.requestId = requestId;

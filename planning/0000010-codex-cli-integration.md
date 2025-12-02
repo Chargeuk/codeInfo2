@@ -153,40 +153,40 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 #### Subtasks
 
-1. [ ] Add `@openai/codex-sdk` to `server/package.json` and install (`npm install --workspace server @openai/codex-sdk`).
-2. [ ] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and return `CodexOptions` with `env: { CODEX_HOME: absPath }`; explicitly **do not** set process-wide `CODEX_HOME`. Include a snippet in the file:
+1. [x] Add `@openai/codex-sdk` to `server/package.json` and install (`npm install --workspace server @openai/codex-sdk`).
+2. [x] In `server/src/config/codex.ts` (create if missing), add a helper to read `CODEINFO_CODEX_HOME` (default `./codex`) and return `CodexOptions` with `env: { CODEX_HOME: absPath }`; explicitly **do not** set process-wide `CODEX_HOME`. Include a snippet in the file:
    ```ts
    export function buildCodexOptions() {
      const home = path.resolve(process.env.CODEINFO_CODEX_HOME ?? './codex');
      return { env: { CODEX_HOME: home } } satisfies CodexOptions;
    }
    ```
-3. [ ] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason). Example command for detection shell call: `command -v codex`.
-4. [ ] Update `server/Dockerfile`: add `RUN npm install -g @openai/codex`; set `ENV CODEINFO_CODEX_HOME=/app/codex`; ensure docker-compose example shows volume `./codex:/app/codex`.
-5. [ ] README “Codex prerequisites” subsection: include exact commands `npm install -g @openai/codex` and `codex login` (host and inside container with `docker compose run --rm server sh`); state default `CODEINFO_CODEX_HOME=./codex` and disabled behaviour when CLI/auth/config missing.
+3. [x] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason). Example command for detection shell call: `command -v codex`.
+4. [x] Update `server/Dockerfile`: add `RUN npm install -g @openai/codex`; set `ENV CODEINFO_CODEX_HOME=/app/codex`; ensure docker-compose example shows volume `./codex:/app/codex`.
+5. [x] README “Codex prerequisites” subsection: include exact commands `npm install -g @openai/codex` and `codex login` (host and inside container with `docker compose run --rm server sh`); state default `CODEINFO_CODEX_HOME=./codex` and disabled behaviour when CLI/auth/config missing.
    - Add under `README.md` heading `## Codex (CLI)`: 
      - "Install CLI: npm install -g @openai/codex"
      - "Login (host): codex login"
      - "Login (docker): docker compose run --rm server sh -lc 'codex login'"
      - "Home: CODEINFO_CODEX_HOME=./codex (mounted to /app/codex in docker)"
      - "If CLI/auth/config missing → Codex shows as disabled with guidance."
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-7. [ ] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
-8. [ ] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
-9. [ ] Tests: manual startup log check verifying Codex detection messages.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [x] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
+8. [x] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
+9. [x] Tests: manual startup log check verifying Codex detection messages.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Stop server docker image
-9. [ ] Start server locally and confirm startup logs show Codex detected/disabled messages (manual)
-10. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Stop server docker image
+9. [x] Start server locally and confirm startup logs show Codex detected/disabled messages (manual)
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 

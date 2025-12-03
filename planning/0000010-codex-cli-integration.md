@@ -137,7 +137,7 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: **__done__**
+- Task Status: **__in_progress__**
 - Git Commits: **059752d, 78ddd17**
 
 #### Overview
@@ -174,6 +174,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 7. [x] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
 8. [x] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
 9. [x] Tests: manual startup log check verifying Codex detection messages.
+10. [ ] Ignore final-frame content to prevent duplicate assistant text when streaming tokens already delivered it; add regression test via existing chat stream suite.
 
 #### Testing
 

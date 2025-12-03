@@ -137,8 +137,8 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: **__in_progress__**
-- Git Commits: **059752d, 78ddd17**
+- Task Status: **__done__**
+- Git Commits: **059752d, 78ddd17, c466fe2**
 
 #### Overview
 
@@ -174,7 +174,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 7. [x] Tests: server build (`npm run build --workspace server`) to ensure SDK install does not break build.
 8. [x] Tests: client build (`npm run build --workspace client`) to ensure workspace unaffected.
 9. [x] Tests: manual startup log check verifying Codex detection messages.
-10. [ ] Ignore final-frame content to prevent duplicate assistant text when streaming tokens already delivered it; add regression test via existing chat stream suite.
+10. [x] Ignore final-frame content to prevent duplicate assistant text when streaming tokens already delivered it; add regression test via existing chat stream suite.
 
 #### Testing
 
@@ -195,6 +195,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 - Dockerfile installs Codex CLI and sets `CODEINFO_CODEX_HOME=/app/codex`; compose mounts `./codex` so auth lives outside images.
 - README now documents host/container login steps, default home, and disabled behavior when CLI/auth/config are missing.
 - Verified lint/format, server & client builds/tests, main compose build/up/down, and full e2e suite; detection log confirmed in runtime startup output (missing auth shows reason).
+- Ignored assistant text in duplicate-prone final SSE frames when streamed tokens already delivered content; `chatPage.stream.test.tsx` now confirms no double rendering while preserving final-only replies.
 
 ---
 

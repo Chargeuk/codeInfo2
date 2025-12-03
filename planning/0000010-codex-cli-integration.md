@@ -137,8 +137,8 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: **059752d**
 
 #### Overview
 
@@ -190,8 +190,10 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 #### Implementation notes
 
-- Record detection outcome and any CLI install nuances.
-- Note any security considerations for mounting auth.json in Docker.
+- Codex SDK added with options builder reading `CODEINFO_CODEX_HOME`; detection captures CLI path plus auth/config presence and logs summary via base logger.
+- Dockerfile installs Codex CLI and sets `CODEINFO_CODEX_HOME=/app/codex`; compose mounts `./codex` so auth lives outside images.
+- README now documents host/container login steps, default home, and disabled behavior when CLI/auth/config are missing.
+- Verified lint/format, server & client builds/tests, main compose build/up/down, and full e2e suite; detection log confirmed in runtime startup output (missing auth shows reason).
 
 ---
 

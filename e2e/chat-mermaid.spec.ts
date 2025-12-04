@@ -2,6 +2,7 @@ import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 const mockChatModels = [{ key: 'mock-chat', displayName: 'Mock Chat Model' }];
 
@@ -17,6 +18,7 @@ const mermaidMessage = [
 ].join('\n');
 
 const mermaidEvents = [
+  { type: 'token', content: 'Rendering diagram', roundIndex: 0 },
   {
     type: 'final',
     message: { role: 'assistant', content: mermaidMessage },
@@ -38,13 +40,37 @@ test('renders mermaid diagrams safely', async ({ page }) => {
             available: true,
             toolsAvailable: true,
           },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
         ],
       }),
     }),
   );
 
-  await page.route('**/chat/models', (route) =>
-    route.fulfill({
+  await page.route('**/chat/models', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: false,
+          toolsAvailable: false,
+          reason: codexReason,
+          models: [],
+        }),
+      });
+    }
+
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
@@ -53,8 +79,8 @@ test('renders mermaid diagrams safely', async ({ page }) => {
         toolsAvailable: true,
         models: mockChatModels,
       }),
-    }),
-  );
+    });
+  });
 
   await page.route('**/chat', (route) => {
     if (route.request().method() !== 'POST') return route.continue();

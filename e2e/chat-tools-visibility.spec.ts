@@ -4,13 +4,14 @@ import { expect, test, type Page } from '@playwright/test';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 
 const mockModels = [{ key: 'mock-chat', displayName: 'Mock Chat Model' }];
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 type ToolEvent = Record<string, unknown>;
 
 const toSse = (events: ToolEvent[]) =>
   events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
 
-async function mockChatModels(page: Page) {
+async function mockChatModels(page: Page, toolsAvailable = true) {
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
       status: 200,
@@ -21,25 +22,49 @@ async function mockChatModels(page: Page) {
             id: 'lmstudio',
             label: 'LM Studio',
             available: true,
-            toolsAvailable: true,
+            toolsAvailable,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
           },
         ],
       }),
     }),
   );
 
-  await page.route('**/chat/models', (route) =>
-    route.fulfill({
+  await page.route('**/chat/models', (route) => {
+    const url = new URL(route.request().url());
+    const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: false,
+          toolsAvailable: false,
+          reason: codexReason,
+          models: [],
+        }),
+      });
+    }
+
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         provider: 'lmstudio',
         available: true,
-        toolsAvailable: true,
+        toolsAvailable,
         models: mockModels,
       }),
-    }),
-  );
+    });
+  });
 }
 
 async function mockChatStream(page: Page, events: ToolEvent[]) {
@@ -100,6 +125,7 @@ test.describe('Chat tool visibility details', () => {
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
+      { type: 'token', content: 'Thinking...', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'repos-1',
@@ -217,6 +243,7 @@ test.describe('Chat tool visibility details', () => {
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
+      { type: 'token', content: 'Starting search', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'vec-err',
@@ -280,6 +307,7 @@ test.describe('Chat tool visibility details', () => {
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
+      { type: 'token', content: 'Synth start', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'syn-1',
@@ -329,12 +357,164 @@ test.describe('Chat tool visibility details', () => {
     await expect(fileItem).toContainText('lines 4');
   });
 
+  test('hides tool blocks and citations when tools are unavailable', async ({
+    page,
+  }) => {
+    const events: ToolEvent[] = [
+      { type: 'token', content: 'Starting', roundIndex: 0 },
+      {
+        type: 'tool-request',
+        callId: 'unavail-1',
+        name: 'VectorSearch',
+        roundIndex: 0,
+      },
+      {
+        type: 'tool-result',
+        callId: 'unavail-1',
+        name: 'VectorSearch',
+        roundIndex: 0,
+        result: {
+          files: [
+            {
+              hostPath: '/data/repo/hidden/file.txt',
+              highestMatch: 0.4,
+              chunkCount: 1,
+              lineCount: 3,
+            },
+          ],
+          results: [
+            {
+              hostPath: '/data/repo/hidden/file.txt',
+              chunk: 'hidden chunk',
+              score: 0.4,
+              lineCount: 3,
+            },
+          ],
+          modelId: 'embed-1',
+        },
+      },
+      {
+        type: 'final',
+        message: { role: 'assistant', content: 'No tools shown' },
+        roundIndex: 0,
+      },
+      { type: 'complete' },
+    ];
+
+    await page.addInitScript(
+      ({ events: streamedEvents, codexReason: injectedCodexReason }) => {
+        const encoder = new TextEncoder();
+        const originalFetch = window.fetch.bind(window);
+
+        window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = typeof input === 'string' ? input : input.toString();
+
+          if (url.includes('/chat/providers')) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  providers: [
+                    {
+                      id: 'lmstudio',
+                      label: 'LM Studio',
+                      available: true,
+                      toolsAvailable: false,
+                    },
+                    {
+                      id: 'codex',
+                      label: 'OpenAI Codex',
+                      available: false,
+                      toolsAvailable: false,
+                      reason: injectedCodexReason,
+                    },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              ),
+            );
+          }
+
+          if (url.includes('/chat/models')) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  provider: 'lmstudio',
+                  available: true,
+                  toolsAvailable: false,
+                  models: [
+                    { key: 'mock-chat', displayName: 'Mock Chat Model' },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              ),
+            );
+          }
+
+          if (url.endsWith('/chat')) {
+            const stream = new ReadableStream<Uint8Array>({
+              start(controller) {
+                const send = (event: unknown, delay: number) =>
+                  setTimeout(
+                    () =>
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+                      ),
+                    delay,
+                  );
+
+                streamedEvents.forEach((event, idx) => send(event, idx * 50));
+                setTimeout(
+                  () => controller.close(),
+                  streamedEvents.length * 50 + 50,
+                );
+              },
+            });
+
+            return Promise.resolve(
+              new Response(stream, {
+                status: 200,
+                headers: { 'Content-Type': 'text/event-stream' },
+              }),
+            );
+          }
+
+          return originalFetch(input, init);
+        };
+      },
+      { events, codexReason },
+    );
+
+    await mockChatModels(page, false);
+
+    await mockChatStream(page, events);
+
+    await page.goto(`${baseUrl}/chat`);
+    await expect(page.getByTestId('model-select')).toBeEnabled({
+      timeout: 20000,
+    });
+    await page.getByTestId('chat-input').fill('Check tools');
+    await page.getByTestId('chat-send').click();
+
+    await expect(page.getByText('No tools shown')).toBeVisible();
+    await expect(page.getByTestId('citations-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('tool-row')).toHaveCount(0, {
+      timeout: 20000,
+    });
+  });
+
   test('does not surface raw tool payload text as an assistant reply', async ({
     page,
   }) => {
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
+      { type: 'token', content: 'Loading tool', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'no-echo',
@@ -391,6 +571,7 @@ test.describe('Chat tool visibility details', () => {
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
+      { type: 'token', content: 'Parsing tools', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'shape',
@@ -488,7 +669,7 @@ test.describe('Chat tool visibility details', () => {
     ];
 
     await page.addInitScript(
-      ({ models, streamedEvents }) => {
+      ({ models, streamedEvents, codexReason: injectedCodexReason }) => {
         const encoder = new TextEncoder();
         const originalFetch = window.fetch.bind(window);
         const events = streamedEvents;
@@ -512,6 +693,13 @@ test.describe('Chat tool visibility details', () => {
                       label: 'LM Studio',
                       available: true,
                       toolsAvailable: true,
+                    },
+                    {
+                      id: 'codex',
+                      label: 'OpenAI Codex',
+                      available: false,
+                      toolsAvailable: false,
+                      reason: injectedCodexReason,
                     },
                   ],
                 }),
@@ -574,7 +762,7 @@ test.describe('Chat tool visibility details', () => {
           return originalFetch(input, init);
         };
       },
-      { models: mockModels, streamedEvents: events },
+      { models: mockModels, streamedEvents: events, codexReason },
     );
 
     await page.goto(`${baseUrl}/chat`);
@@ -608,6 +796,7 @@ test.describe('Chat tool visibility details', () => {
     await mockChatModels(page);
 
     await mockChatStream(page, [
+      { type: 'token', content: 'Starting status', roundIndex: 0 },
       {
         type: 'tool-request',
         callId: 'gated-1',
@@ -619,6 +808,7 @@ test.describe('Chat tool visibility details', () => {
         message: { role: 'assistant', content: 'Thinking about languages...' },
         roundIndex: 0,
       },
+      { type: 'token', content: 'Still working', roundIndex: 0 },
       {
         type: 'tool-result',
         callId: 'gated-1',

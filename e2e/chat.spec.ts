@@ -8,6 +8,7 @@ const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 const preferredChatModel = 'openai/gpt-oss-20b';
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -46,12 +47,36 @@ test('chat streams end-to-end', async ({ page }) => {
               available: true,
               toolsAvailable: true,
             },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: false,
+              toolsAvailable: false,
+              reason: codexReason,
+            },
           ],
         }),
       }),
     );
-    await page.route('**/chat/models', (route) =>
-      route.fulfill({
+    await page.route('**/chat/models', (route) => {
+      const url = new URL(route.request().url());
+      const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'codex') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+            models: [],
+          }),
+        });
+      }
+
+      return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
@@ -60,8 +85,8 @@ test('chat streams end-to-end', async ({ page }) => {
           toolsAvailable: true,
           models: mockModels,
         }),
-      }),
-    );
+      });
+    });
     await page.route('**/chat', (route) => {
       if (route.request().method() !== 'POST') {
         return route.continue();

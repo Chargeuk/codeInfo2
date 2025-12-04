@@ -4,9 +4,62 @@ import { expect, test } from '@playwright/test';
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 const trustErrorText =
-  'Not inside a trusted directory and --skip-git-repo-check was not specified';
+  'Not inside a trusted directory and --skip-git-repo-check was not specified.';
+
+test('Codex disabled banner shows when provider is unavailable (mock)', async ({
+  page,
+}) => {
+  if (!useMockChat) {
+    test.skip('Codex disabled banner path only runs with mock chat');
+  }
+
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.route('**/chat/models**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-lm', displayName: 'Mock LM' }],
+      }),
+    }),
+  );
+
+  await page.goto(`${baseUrl}/chat`);
+
+  await expect(
+    page.getByText('OpenAI Codex is unavailable', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText(codexReason, { exact: false })).toBeVisible();
+});
 
 test('Codex chat succeeds without trust error when working directory is handled', async ({
   page,
@@ -22,6 +75,8 @@ test('Codex chat succeeds without trust error when working directory is handled'
   }
 
   if (useMockChat) {
+    let chatCalls = 0;
+
     await page.route('**/chat/providers', (route) =>
       route.fulfill({
         status: 200,
@@ -38,7 +93,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
               id: 'codex',
               label: 'OpenAI Codex',
               available: true,
-              toolsAvailable: false,
+              toolsAvailable: true,
             },
           ],
         }),
@@ -55,7 +110,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
         body: JSON.stringify({
           provider: provider ?? 'lmstudio',
           available: true,
-          toolsAvailable: !isCodex,
+          toolsAvailable: true,
           models: isCodex
             ? [
                 {
@@ -75,15 +130,29 @@ test('Codex chat succeeds without trust error when working directory is handled'
 
     await page.route('**/chat', (route) => {
       if (route.request().method() !== 'POST') return route.continue();
+      chatCalls += 1;
+
+      if (chatCalls === 1) {
+        const body = [
+          `data: ${JSON.stringify({ type: 'error', message: trustErrorText })}\n\n`,
+        ].join('');
+        return route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body,
+        });
+      }
+
+      const body = [
+        'data: {"type":"thread","threadId":"mock-thread"}\n\n',
+        'data: {"type":"token","content":"Hello"}\n\n',
+        'data: {"type":"final","message":{"role":"assistant","content":"Hello from Codex"}}\n\n',
+        'data: {"type":"complete","threadId":"mock-thread"}\n\n',
+      ].join('');
       return route.fulfill({
         status: 200,
         contentType: 'text/event-stream',
-        body: [
-          'data: {"type":"thread","threadId":"mock-thread"}\n\n',
-          'data: {"type":"token","content":"Hello"}\n\n',
-          'data: {"type":"final","message":{"role":"assistant","content":"Hello from Codex"}}\n\n',
-          'data: {"type":"complete","threadId":"mock-thread"}\n\n',
-        ].join(''),
+        body,
       });
     });
   } else {
@@ -128,9 +197,21 @@ test('Codex chat succeeds without trust error when working directory is handled'
   await input.fill('Hello Codex');
   await send.click();
 
-  await expect(assistantBubble.first()).toHaveText(/.+/i, { timeout: 20000 });
-  await expect(errorBubble).toHaveCount(0);
-  await expect(assistantBubble.first()).not.toContainText(trustErrorText);
+  if (useMockChat) {
+    await expect(errorBubble.first()).toContainText(trustErrorText, {
+      timeout: 20000,
+    });
+
+    await input.fill('Second Codex try');
+    await send.click();
+  }
+
+  await expect(assistantBubble.first()).toHaveText(/Hello from Codex/i, {
+    timeout: 20000,
+  });
+  await expect(errorBubble.filter({ hasText: trustErrorText })).toHaveCount(
+    useMockChat ? 1 : 0,
+  );
 
   await page.screenshot({
     path: 'test-results/screenshots/0000010-4-codex-trust.png',

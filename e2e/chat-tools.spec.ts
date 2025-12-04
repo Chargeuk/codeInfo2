@@ -6,6 +6,7 @@ const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const fixturePath = '/fixtures/repo';
 const fixtureName = 'fixtures-chat-tools';
 const preferredModelId = 'text-embedding-qwen3-embedding-4b';
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 type IngestModel = { id: string; displayName: string };
 
@@ -133,13 +134,37 @@ test.describe.serial('Chat tools citations', () => {
               available: true,
               toolsAvailable: true,
             },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: false,
+              toolsAvailable: false,
+              reason: codexReason,
+            },
           ],
         }),
       }),
     );
 
-    await page.route('**/chat/models', (route) =>
-      route.fulfill({
+    await page.route('**/chat/models', (route) => {
+      const url = new URL(route.request().url());
+      const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'codex') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+            models: [],
+          }),
+        });
+      }
+
+      return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
@@ -148,12 +173,13 @@ test.describe.serial('Chat tools citations', () => {
           toolsAvailable: true,
           models: mockChatModels,
         }),
-      }),
-    );
+      });
+    });
 
     await page.route('**/chat', (route) => {
       if (route.request().method() !== 'POST') return route.continue();
       const events = [
+        { type: 'token', content: 'Starting search', roundIndex: 0 },
         {
           type: 'tool-request',
           callId: 't1',
@@ -268,13 +294,37 @@ test.describe.serial('Chat tools citations', () => {
               available: true,
               toolsAvailable: true,
             },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: false,
+              toolsAvailable: false,
+              reason: codexReason,
+            },
           ],
         }),
       }),
     );
 
-    await page.route('**/chat/models', (route) =>
-      route.fulfill({
+    await page.route('**/chat/models', (route) => {
+      const url = new URL(route.request().url());
+      const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'codex') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+            models: [],
+          }),
+        });
+      }
+
+      return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
@@ -283,12 +333,13 @@ test.describe.serial('Chat tools citations', () => {
           toolsAvailable: true,
           models: mockChatModels,
         }),
-      }),
-    );
+      });
+    });
 
     await page.route('**/chat', (route) => {
       if (route.request().method() !== 'POST') return route.continue();
       const events = [
+        { type: 'token', content: 'Tool call starting', roundIndex: 0 },
         {
           type: 'tool-request',
           callId: 'miss-1',
@@ -308,9 +359,16 @@ test.describe.serial('Chat tools citations', () => {
           roundIndex: 0,
         },
         {
-          type: 'token',
-          content: 'Here is the answer after the tool.',
+          type: 'tool-result',
+          name: 'VectorSearch',
+          callId: 'miss-1',
           roundIndex: 0,
+          parameters: { query: 'Hi', limit: 5 },
+          result: {
+            results: [{ repo: 'r', relPath: 'a.txt' }],
+            files: [],
+          },
+          stage: 'success',
         },
         {
           type: 'final',

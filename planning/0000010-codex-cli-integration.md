@@ -274,7 +274,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 ### 4. Codex chat pathway (no MCP/tools yet)
 
-- Task Status: ****in_progress****
+- Task Status: \***\*in_progress\*\***
 - Git Commits: **fc25d98, d219f01, 626d981, 01483b2, 7d0e11a**
 
 #### Overview
@@ -307,6 +307,15 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 9. [x] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
 10. [x] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
 11. [x] Ensure Codex runs from within the trusted `/data` folder when invoked by setting `workingDirectory: '/data'` on Codex thread options (TS SDK maps this to `--cd /data`), so the git trust check passes without needing `--skip-git-repo-check`.
+    - Implementation recipe for a junior:
+      - Read `CODEX_WORKDIR` (fallback `CODEINFO_CODEX_WORKDIR`, default `/data`) near the Codex thread creation in `server/src/routes/chat.ts`.
+      - Pass that path as `workingDirectory` in both `codex.startThread` and `codex.resumeThread` options.
+      - Keep existing `model` option untouched; no other flags are required for this subtask.
+      - Do not alter LM Studio branch or client code.
+      - After the change, run `npm run build --workspace server` and `npm run test --workspace server` to ensure types stay aligned.
+      - Note: this only works when the working directory is a trusted git repo; otherwise a later subtask will add `skipGitRepoCheck` as a fallback.
+12. [ ] Add an e2e test that exercises Codex chat inside Docker with the current working directory lacking a `.git` folder, capturing the “Not inside a trusted directory and --skip-git-repo-check was not specified.” failure to reproduce the regression.
+13. [ ] Add a guarded code path to set `skipGitRepoCheck: true` in Codex thread options (as per https://github.com/openai/codex/blob/main/sdk/typescript/README.md) so we can fix the trust failure; do not implement yet.
 
 #### Testing
 

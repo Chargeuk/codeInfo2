@@ -482,25 +482,24 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 #### Subtasks
 
 1. [ ] Server (`server/src/routes/chat.ts`, Codex branch):
-   - Prepend `{ role: 'system', content: SYSTEM_CONTEXT }` on the first Codex turn (no `threadId` yet). SYSTEM_CONTEXT lives in `client/src/constants/systemContext.ts`; inject server-side so the client doesn’t resend it.
-   - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4), `skipGitRepoCheck:true` (trust fix), `mcpServerUrl` (`http://localhost:5010/mcp` host; `http://server:5010/mcp` docker), and selected `model`.
-2. [ ] Tool wiring: route Codex MCP tool calls to existing services and emit SSE:
-   - `tool-request` with tool name + callId when Codex calls `ListIngestedRepositories` or `VectorSearch`.
-   - `tool-result` with payload matching LM Studio shape (repo, relPath, hostPath, containerPath, chunk, score, modelId). Provider tag must be `codex`.
+   - On the first Codex turn, prefix the prompt string with `SYSTEM_CONTEXT` plus a short marker (e.g., `Context:\n…\n\nUser:\n<user text>`). Do not send role-based messages; Codex expects a single prompt string.
+   - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4) and `skipGitRepoCheck:true` (trust fix). MCP discovery stays in `config.toml`; no per-request `mcpServerUrl` hook.
+2. [ ] Config TOML: ensure `config.toml.example` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:\n   - `[mcp_servers.codeinfo_host]` `url = \"http://localhost:5010/mcp\"`\n   - `[mcp_servers.codeinfo_docker]` `url = \"http://server:5010/mcp\"`\n   Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.\n3. [ ] MCP tool wiring: handle Codex `mcp_tool_call` items from `runStreamed` and emit SSE:
+   - Emit `tool-request` when a `mcp_tool_call` item starts; emit `tool-result` on completion (or an error payload) mapped to our LM Studio tool shape (repo, relPath, hostPath, containerPath, chunk, score, modelId) with provider `codex`.
    - Preserve `threadId` emission on `thread`/`complete` frames as already done in Task 4.
-3. [ ] Client (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, tool/citation components):
+4. [ ] Client (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, tool/citation components):
    - Re-enable send/input for provider=Codex when `toolsAvailable=true`; keep disabled when unavailable.
-   - Allow tool blocks/citations to render for Codex using existing components; hide only when `toolsAvailable=false`.
+   - Allow tool blocks/citations to render for Codex; hide only when `toolsAvailable=false`.
    - Ensure payload still includes `provider`, `model`, `threadId`; continue to reuse Codex threadId per conversation.
-4. [ ] Tests:
-   - Server integration: add `server/src/test/integration/chat-codex-mcp.test.ts` mocking Codex SDK to emit tool-request/result and asserting SYSTEM_CONTEXT injection + SSE mapping + skipGitRepoCheck/workingDirectory options.
-   - Client RTL: extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex shows tool blocks/citations when tools available and hides when not; also assert send is enabled for Codex once toolsAvailable is true.
+5. [ ] Tests:
+   - Server integration: add `server/src/test/integration/chat-codex-mcp.test.ts` mocking Codex SDK to emit `mcp_tool_call` events; assert prompt prefixing with SYSTEM_CONTEXT, workingDirectory/skipGitRepoCheck options, and SSE tool-request/result mapping.
+   - Client RTL: extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex shows tool blocks/citations when tools are available and hides when not; also assert send is enabled for Codex once `toolsAvailable` is true.
    - Commands: `npm run test --workspace server -- chat-codex-mcp.test.ts`; `npm run test --workspace client -- chatPage.toolDetails.test.tsx`.
-5. [ ] Documentation:
-   - README: document that Codex chats now require MCP, include SYSTEM_CONTEXT snippet, workingDirectory `/data`, and `skipGitRepoCheck:true`.
+6. [ ] Documentation:
+   - README: document that Codex chats now require MCP, note prompt prefix with SYSTEM_CONTEXT, workingDirectory `/data`, and `skipGitRepoCheck:true`.
    - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
-6. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
-7. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+7. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+8. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 

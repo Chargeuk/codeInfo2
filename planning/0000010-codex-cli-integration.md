@@ -315,30 +315,31 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
       - After the change, run `npm run build --workspace server` and `npm run test --workspace server` to ensure types stay aligned.
       - Note: this only works when the working directory is a trusted git repo; otherwise a later subtask will add `skipGitRepoCheck` as a fallback.
 12. [ ] Add an e2e test that exercises Codex chat inside Docker with the working directory lacking a `.git` folder, capturing the “Not inside a trusted directory and --skip-git-repo-check was not specified.” failure.
-    - Steps for a junior:
+    - Implementation steps:
       - Create a new Playwright spec under `e2e/` (e.g., `chat-codex-trust.spec.ts`).
       - In the e2e compose env, ensure Codex provider is enabled (set `CODEINFO_CODEX_HOME` volume + fake auth/config fixtures as needed) but do **not** mount a repo at `/data` so no `.git` exists.
-      - In the test, select provider “OpenAI Codex”, send a prompt (e.g., “Hi”), and assert the SSE/error bubble contains the exact trust error text.
+      - In the test, select provider “OpenAI Codex” & model "gpt-5.1", send a prompt (e.g., “Hi, how are you?”), and assert the SSE/error bubble contains the exact trust error text.
       - Mark the spec skipped automatically when Codex is unavailable to keep CI green.
       - Run `npm run e2e` to confirm the test executes and reproduces the error.
 13. [ ] Add a guarded code path to set `skipGitRepoCheck: true` in Codex thread options (per https://github.com/openai/codex/blob/main/sdk/typescript/README.md) to fix the trust failure (do not implement yet).
-    - Steps for a junior (when implementing):
+    - Implementation steps:
       - In `server/src/routes/chat.ts`, where `startThread`/`resumeThread` are called, include `skipGitRepoCheck: true` alongside `workingDirectory` for the Codex branch only.
       - Keep LM Studio untouched; keep `model`/`threadId` logic as-is.
       - Add a unit/integration test that asserts the factory receives `skipGitRepoCheck: true`.
+      - enable the e2e test from subtask 12 7 ensure it passes
       - Re-run `npm run build --workspace server` and `npm run test --workspace server`.
 
 #### Testing
 
-1. [x] `npm run build --workspace server`
-2. [x] `npm run build --workspace client`
-3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client`
-5. [x] `npm run e2e`
-6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
 8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
-9. [x] `npm run compose:down`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

@@ -433,32 +433,34 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 #### Subtasks
 
-1. [ ] Implement `server/src/mcp/server.ts` as an HTTP JSON-RPC 2.0 handler that supports MCP-required methods `initialize`, `tools/list`, and `tools/call` (reference: MCP spec, https://modelcontextprotocol.io/specification/2024-11-05/index#json-rpc-methods). `initialize` must return `protocolVersion`, `capabilities.tools.listChanged=false`, and `serverInfo`.
-2. [ ] Mount POST `/mcp` in `server/src/index.ts` with the same CORS policy as `/chat`; accept `application/json` only (reference: MCP over HTTP guidance, https://developers.openai.com/apps-sdk/concepts/mcp-server). SSE/streaming optional—baseline must work over plain HTTP POST per MCP Inspector examples.
-3. [ ] Define tool metadata with JSON Schema per MCP: expose `ListIngestedRepositories` (no params) and `VectorSearch` (query:string required, repository?:string, limit?:number<=20). Reuse validation/output from `toolsIngestedRepos.ts` and `toolsVectorSearch.ts`; outputs must include `repo, relPath, containerPath, hostPath, chunk, score, modelId` (tool schema requirements: https://modelcontextprotocol.io/specification/2024-11-05/index#tool-schema).
-4. [ ] Wire `tools/call` to existing services; on errors return JSON-RPC `error` with code/message per MCP error envelope (error shape: https://modelcontextprotocol.io/specification/2024-11-05/index#errors).
-5. [ ] Startup log: print MCP URLs (host `http://localhost:5010/mcp`, docker `http://server:5010/mcp`) so users can drop them into Codex config; mirror Codex detection logging style (Codex config expectations: https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers).
-6. [ ] Update `config.toml.example` `[mcp_servers]` entry to point at the POST endpoint using the Codex MCP config format (https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers). Include both host and docker URLs; remind this seeds into `./codex` (git-ignored).
-7. [ ] Documentation: README “MCP for Codex” subsection with step-by-step curl examples (`initialize`, `tools/list`, `tools/call`) and docker URL; design.md note/diagram for MCP flow over JSON-RPC POST (reference curl shapes: https://www.jsonrpc.org/specification and MCP examples: https://developers.openai.com/apps-sdk/concepts/mcp-server).
-8. [ ] Tests: add `server/src/test/integration/mcp-server.test.ts` covering initialize → tools/list → tools/call happy path, unknown tool error, validation error; run `npm run build --workspace server` and `npm run test --workspace server -- mcp-server.test.ts` (test flow mirrors spec sequence above).
-9. [ ] Manual smoke: `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'` then tools/list and tools/call; verify schema compliance; finish with `npm run lint --workspaces` and `npm run format:check --workspaces` (curl form per JSON-RPC spec: https://www.jsonrpc.org/specification).
+1. [x] Implement `server/src/mcp/server.ts` as an HTTP JSON-RPC 2.0 handler that supports MCP-required methods `initialize`, `tools/list`, and `tools/call` (reference: MCP spec, https://modelcontextprotocol.io/specification/2024-11-05/index#json-rpc-methods). `initialize` must return `protocolVersion`, `capabilities.tools.listChanged=false`, and `serverInfo`.
+2. [x] Mount POST `/mcp` in `server/src/index.ts` with the same CORS policy as `/chat`; accept `application/json` only (reference: MCP over HTTP guidance, https://developers.openai.com/apps-sdk/concepts/mcp-server). SSE/streaming optional—baseline must work over plain HTTP POST per MCP Inspector examples.
+3. [x] Define tool metadata with JSON Schema per MCP: expose `ListIngestedRepositories` (no params) and `VectorSearch` (query:string required, repository?:string, limit?:number<=20). Reuse validation/output from `toolsIngestedRepos.ts` and `toolsVectorSearch.ts`; outputs must include `repo, relPath, containerPath, hostPath, chunk, score, modelId` (tool schema requirements: https://modelcontextprotocol.io/specification/2024-11-05/index#tool-schema).
+4. [x] Wire `tools/call` to existing services; on errors return JSON-RPC `error` with code/message per MCP error envelope (error shape: https://modelcontextprotocol.io/specification/2024-11-05/index#errors).
+5. [x] Startup log: print MCP URLs (host `http://localhost:5010/mcp`, docker `http://server:5010/mcp`) so users can drop them into Codex config; mirror Codex detection logging style (Codex config expectations: https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers).
+6. [x] Update `config.toml.example` `[mcp_servers]` entry to point at the POST endpoint using the Codex MCP config format (https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers). Include both host and docker URLs; remind this seeds into `./codex` (git-ignored).
+7. [x] Documentation: README “MCP for Codex” subsection with step-by-step curl examples (`initialize`, `tools/list`, `tools/call`) and docker URL; design.md note/diagram for MCP flow over JSON-RPC POST (reference curl shapes: https://www.jsonrpc.org/specification and MCP examples: https://developers.openai.com/apps-sdk/concepts/mcp-server).
+8. [x] Tests: add `server/src/test/integration/mcp-server.test.ts` covering initialize → tools/list → tools/call happy path, unknown tool error, validation error; run `npm run build --workspace server` and `npm run test --workspace server -- mcp-server.test.ts` (test flow mirrors spec sequence above).
+9. [x] Manual smoke: `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'` then tools/list and tools/call; verify schema compliance; finish with `npm run lint --workspaces` and `npm run format:check --workspaces` (curl form per JSON-RPC spec: https://www.jsonrpc.org/specification).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Capture final MCP URL(s) and any CORS/host binding choices.
-- Note any streaming behaviors or limitations for large payloads.
+- MCP server added at `/mcp` with JSON-RPC methods `initialize`/`tools/list`/`tools/call`; responses wrap tool payloads in `content: application/json` and map validation/domain failures into JSON-RPC errors.
+- Startup now logs host/docker MCP URLs; `config.toml.example` seeds matching `[mcp_servers]` entries; README + design document the curl flows and tool schemas.
+- Integration test `mcp-server.test.ts` covers initialize, list, happy-path tool calls, invalid params, unknown tool, and internal error mapping; all server/unit/Cucumber suites pass with LM Studio + Codex available.
+- Manual smoke: curl initialize/tools/list succeeded; `/chat` with provider=codex streamed threadId `019ae9c4-b0a5-7f40-b28a-96ac379f9813` and reused it on a second turn; MCP curl verified schema. Lint/format re-run; only pre-existing useChatModel dependency warnings remain.
 
 ---
 

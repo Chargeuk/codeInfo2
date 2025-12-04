@@ -9,6 +9,9 @@ web_search_request = true
 view_image_tool = true
 
 [mcp_servers]
+codeinfo_host = { url = "http://localhost:5010/mcp" }
+codeinfo_docker = { url = "http://server:5010/mcp" }
+
 [mcp_servers.context7]
 args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866']
 command = 'npx'

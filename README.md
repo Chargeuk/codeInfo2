@@ -27,6 +27,17 @@ npm install
 - Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker)
 - If the CLI, `auth.json`, or `config.toml` are missing, Codex stays disabled; detection logs at startup report what is missing.
 
+### MCP for Codex
+
+- Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
+- Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
+- Required methods: `initialize` → `tools/list` → `tools/call`.
+- Quick smoke (host):
+  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'`
+  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
+  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
+- Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20). Results are returned in `content: [{ type: "application/json", json: <payload> }]`.
+
 ## Workspace layout
 
 - `client/` — React app (Vite) [workspace]

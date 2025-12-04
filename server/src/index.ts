@@ -6,6 +6,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { ensureCodexConfigSeeded } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
+import { createMcpRouter } from './mcp/server.js';
 import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
@@ -29,12 +30,15 @@ app.use(cors());
 app.use(express.json());
 app.use(createRequestLogger());
 baseLogger.info({ codexDetection }, 'Codex detection summary');
+const PORT = process.env.PORT ?? '5010';
+const mcpHostUrl = `http://localhost:${PORT}/mcp`;
+const mcpDockerUrl = `http://server:${PORT}/mcp`;
+baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
   if (requestId) res.locals.requestId = requestId;
   next();
 });
-const PORT = process.env.PORT ?? '5010';
 const clientFactory = (baseUrl: string) => getClient(baseUrl);
 
 app.get('/health', (_req, res) => {
@@ -65,6 +69,7 @@ app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 app.use('/', createToolsIngestedReposRouter());
 app.use('/', createToolsVectorSearchRouter());
+app.use('/', createMcpRouter());
 
 const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
 

@@ -362,41 +362,57 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 #### Overview
 
-Verify that all chat-related e2e tests using mocked `/chat` streams match current real-world SSE ordering/content. For each identified test, compare against live LM Studio behaviour and adjust mocks only where they diverge. Goal: mocks stay faithful to production to reduce false positives/negatives.
+Update every mocked `/chat` Playwright spec to mirror the live ordering we validated in Tasks 3–4 (token → tool-request → tool-result → final → complete; synthesized tool-result when LM Studio omits it; status chip waits for tool completion). Codex mocks must mirror the trust fix from Task 4 (`workingDirectory=/data`, `skipGitRepoCheck:true`) and reuse the exact trust error string seen before the fix.
 
 #### Documentation Locations
 
-- LM Studio SSE/event reference (real captures from curl or Playwright MCP)
+- Live SSE reference: capture via `curl -N -X POST http://localhost:5010/chat ...` and save to `e2e/fixtures/sse-live.json`.
 - plan_format.md (process)
-- Existing chat e2e specs under `e2e/`
+- Mock helpers: search `e2e/utils` for `mockApi` / `mockChat` and `E2E_USE_MOCK_CHAT`.
+- Implementation notes from Tasks 1–4 (synthesized tool-result, status-chip gating, skipGitRepoCheck, provider banners).
 
 #### Subtasks
 
 1. [ ] `e2e/chat-tools-visibility.spec.ts`
-      - Mocks providers/models/chat and drives many synthetic SSE sequences (tool-request/final/tool-result combos, synthesized-only tool-result, errors, thinking gaps, status-chip gating, params accordion).
+   - Update mocked provider/model endpoints to include LM Studio available + Codex disabled banner text (matches Task 3 UI).
+   - Chat stream: token → tool-request → tool-result (or synthesized tool-result when only final arrives) → final → complete. Keep params accordion default-closed and status chip gating identical to Task 4.
+   - Command: `npm run e2e -- --grep "chat tools visibility"`.
+   - Acceptance: spinner clears only after tool-result/complete; citations hidden when `toolsAvailable` is false.
 2. [ ] `e2e/chat-tools.spec.ts`
-      - Mocks providers/models/chat; first scenario asserts citations rendering from mocked tool-result.
-      - Second scenario tests spinner stop when a final tool message appears without a tool-result (mocked sequence).
+   - Scenario A: citations render from tool-result; Scenario B: final-only tool message triggers synthesized tool-result before complete (align with server guard).
+   - Files: spec + shared mock payloads in `e2e/utils/mockChat.ts`.
+   - Command: `npm run e2e -- --grep "chat tools"` (ensure both scenarios).
+   - Acceptance: citations accordion closed by default; status chip waits for complete.
 3. [ ] `e2e/chat-mermaid.spec.ts`
-      - Mocks providers/models/chat and sends a mocked SSE stream containing a mermaid code fence in the assistant final text; asserts the client renders the diagram.
+   - Stream order token → final (with mermaid fence) → complete; no tool frames.
+   - Command: `npm run e2e -- --grep "chat mermaid"`.
+   - Acceptance: diagram renders; no console errors in trace.
 4. [ ] `e2e/chat-reasoning.spec.ts`
-      - Mocks providers/models/chat and streams analysis/final markers (<|channel|>analysis, <|channel|>final) to test reasoning collapse spinner and toggle behaviour.
+   - Mock `<|channel|>analysis` tokens then `<|channel|>final` after ~1s gap to hit “Thinking…” idle guard from Task 4.
+   - Command: `npm run e2e -- --grep "chat reasoning"`.
+   - Acceptance: reasoning accordion shows spinner during analysis, stops on final; markers not rendered.
 5. [ ] `e2e/chat.spec.ts` (when `E2E_USE_MOCK_CHAT=true`)
-      - Replaces providers/models/chat with simple mocks: one mock model and a short SSE stream (token + final + complete); otherwise hits real backend. Mock path is used in CI fallback.
-6. [ ] `e2e/chat-codex-trust.spec.ts` (when Codex unavailable)
-      - Mocks providers/models/chat to simulate Codex being available/unavailable; mocked SSE returns either an error (trust) or a simple success stream, depending on the path. It’s the Codex trust regression check.
+   - Provide single mock model + provider list (LM Studio enabled, Codex disabled with banner). Stream token → final → complete; status chip gating consistent with Task 4.
+   - Command: `E2E_USE_MOCK_CHAT=true npm run e2e -- --grep "chat page"`.
+   - Acceptance: provider dropdown renders, send works, status chip flips only on complete.
+6. [ ] `e2e/chat-codex-trust.spec.ts`
+   - Path 1 (Codex unavailable): mock providers/models to mark Codex disabled; ensure banner matches README copy.
+   - Path 2 (Codex available): first mock stream returns trust error string exactly `"Not inside a trusted directory and --skip-git-repo-check was not specified."`; second stream uses options with `skipGitRepoCheck:true` + `workingDirectory:"/data"` and returns success (token → final → complete) with threadId reuse.
+   - Command: `npm run e2e -- --grep "codex trust"`.
+   - Acceptance: auto-skip when Codex unavailable; when available, error case reproduces, success case passes with same threadId.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run e2e` (ensure no regressions; Codex-related specs may skip if unavailable)
-3. [ ] `npm run compose:e2e:up` + manual Playwright MCP check (live) to re-capture real SSE ordering for comparison
+1. [ ] `npm run test --workspace client` (ensure RTL unaffected by mock changes)
+2. [ ] `npm run e2e` (Codex specs may skip when unavailable)
+3. [ ] `npm run compose:e2e:up` then `npm run e2e -- --project chromium --grep @live-capture` to record real SSE; save to `e2e/fixtures/sse-live.json`
 4. [ ] `npm run compose:e2e:down`
 
 #### Implementation notes
 
-- Capture real SSE traces (curl or Playwright) before changing each mock; document any observed differences and rationale for adjustments.
-- Do not alter application code—only test mocks unless a real discrepancy is uncovered.
+- Prefer changing mocks; only touch app code if a real divergence is confirmed.
+- Keep synthesized tool-result behaviour in mocks to match server guard added in Task 4.
+- Codex mocks must include `workingDirectory="/data"` and `skipGitRepoCheck:true` for success; omit `skipGitRepoCheck` to reproduce the trust error variant.
 
 ### 6. Expose existing tools via MCP server
 
@@ -416,18 +432,22 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 #### Subtasks
 
-1. [ ] Add MCP server module `server/src/mcp/server.ts` and mount routes under `/mcp` in `server/src/index.ts`: implement `list_tools` and `call_tool` mapping to existing tool services.
-   - JSON-RPC response example: `{ "jsonrpc": "2.0", "id": 1, "result": { ...toolResult } }`
-   - SSE fallback example for streaming: `res.write('event: tool_result\n'); res.write('data: '+JSON.stringify(payload)+'\n\n');`
-2. [ ] Map JSON-RPC 2.0 envelopes; support SSE/streamable HTTP for `call_tool` when responses stream; return JSON errors on failure.
-3. [ ] Reuse existing validation/schemas from `toolsIngestedRepos` and `toolsVectorSearch`; ensure response payload matches current HTTP outputs (hostPath, modelId, etc.).
-4. [ ] On startup, log MCP enabled URL(s) (host: http://localhost:5010/mcp, docker: http://server:5010/mcp) and any binding choices (127.0.0.1).
-5. [ ] Update `config.toml.example` `[mcp_servers]` entry with the URLs above and ensure README documents how to set it.
-6. [ ] Docs: add README/design notes for MCP usage, manual verification steps, and local-only security scope.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-8. [ ] Test (build): `npm run build --workspace server` — ensure MCP module compiles.
-9. [ ] Test (server integration/unit): add `server/src/test/integration/mcp-server.test.ts` covering `list_tools` and `call_tool` happy/error paths; purpose: verify JSON-RPC wiring and tool dispatch.
-10. [ ] Test (manual): with Codex CLI logged in, set `[mcp_servers]` to `http://localhost:5010/mcp`, run `codex` chat, and verify tools list/call succeed; purpose: end-to-end MCP validation.
+1. [ ] Create `server/src/mcp/server.ts` implementing JSON-RPC 2.0:
+   - Methods: `list_tools`, `call_tool`.
+   - Envelope: `{ "jsonrpc": "2.0", "id": <number>, "result": {...} }` or `{ "jsonrpc": "2.0", "id": <number>, "error": { "code": <int>, "message": "...", "data": {...} } }`.
+   - SSE fallback for streaming: `event: tool_result` + JSON payload lines.
+2. [ ] Mount route in `server/src/index.ts` as `POST /mcp` (and SSE variant if streaming used). Reuse the same CORS settings as `/chat`.
+3. [ ] Validation: reuse schemas from `server/src/routes/toolsIngestedRepos.ts` and `server/src/routes/toolsVectorSearch.ts`; ensure outputs include `repo, relPath, hostPath, containerPath, chunk, score, modelId`.
+4. [ ] Startup log: emit MCP URLs (host `http://localhost:5010/mcp`, docker `http://server:5010/mcp`) similar to Codex detection logs from Task 2.
+5. [ ] Update `config.toml.example` `[mcp_servers]` entries to those URLs; remind that `config.toml` is seeded into `./codex` (Task 1) and git-ignored.
+6. [ ] Documentation:
+   - README: add “MCP for Codex” under the Codex section with setup steps, ports, and sample JSON-RPC curl.
+   - design.md: short MCP flow note under chat/tooling.
+7. [ ] Tests:
+   - `server/src/test/integration/mcp-server.test.ts` covering list_tools, call_tool happy path, unknown tool error, validation error.
+   - Commands: `npm run build --workspace server`; `npm run test --workspace server -- mcp-server.test.ts`.
+8. [ ] Manual smoke: with Codex CLI logged in (`CODEINFO_CODEX_HOME=./codex`), run `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"list_tools"}'` and confirm both tools appear.
+9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -465,18 +485,26 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 #### Subtasks
 
-1. [ ] Server: in `server/src/routes/chat.ts` (Codex path), prepend `SYSTEM_CONTEXT` on first Codex turn and ensure thread creation includes it.
-   - Add system message example: `{ role: 'system', content: SYSTEM_CONTEXT }` prepended before user message when threadId is absent.
-2. [ ] Server: set Codex thread options to point at `/mcp`; require/strongly bias tool use so Codex calls ListIngestedRepositories/VectorSearch.
-3. [ ] Server: map Codex MCP tool calls/results into SSE `tool-request`/`tool-result` frames; include provider tags; ensure citations data flow matches LM Studio path.
-4. [ ] Client: re-enable chat input for provider=Codex; allow tool blocks/citations when `toolsAvailable=true`; still hide when unavailable.
-5. [ ] Preserve threadId handling with MCP: store/forward threadId per conversation.
-6. [ ] Docs: update README/design with SYSTEM_CONTEXT injection for Codex and tool-required behaviour; include prompt/instruction snippet used.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-8. [ ] Test (build): `npm run build --workspace server` — ensure MCP-enabled Codex path compiles.
-9. [ ] Test (build): `npm run build --workspace client` — ensure UI changes compile.
-10. [ ] Test (server integration): add mocked Codex MCP test (e.g., `server/src/test/integration/chat-codex-mcp.test.ts`) verifying tool-call/result SSE mapping; purpose: Codex+MCP flow works.
-11. [ ] Test (client RTL): extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex provider shows tool blocks/citations when `toolsAvailable=true` and hides when false; purpose: UI renders tools correctly for Codex.
+1. [ ] Server (`server/src/routes/chat.ts`, Codex branch):
+   - Prepend `{ role: 'system', content: SYSTEM_CONTEXT }` on the first Codex turn (no `threadId` yet). SYSTEM_CONTEXT lives in `client/src/constants/systemContext.ts`; inject server-side so the client doesn’t resend it.
+   - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4), `skipGitRepoCheck:true` (trust fix), `mcpServerUrl` (`http://localhost:5010/mcp` host; `http://server:5010/mcp` docker), and selected `model`.
+2. [ ] Tool wiring: route Codex MCP tool calls to existing services and emit SSE:
+   - `tool-request` with tool name + callId when Codex calls `ListIngestedRepositories` or `VectorSearch`.
+   - `tool-result` with payload matching LM Studio shape (repo, relPath, hostPath, containerPath, chunk, score, modelId). Provider tag must be `codex`.
+   - Preserve `threadId` emission on `thread`/`complete` frames as already done in Task 4.
+3. [ ] Client (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, tool/citation components):
+   - Re-enable send/input for provider=Codex when `toolsAvailable=true`; keep disabled when unavailable.
+   - Allow tool blocks/citations to render for Codex using existing components; hide only when `toolsAvailable=false`.
+   - Ensure payload still includes `provider`, `model`, `threadId`; continue to reuse Codex threadId per conversation.
+4. [ ] Tests:
+   - Server integration: add `server/src/test/integration/chat-codex-mcp.test.ts` mocking Codex SDK to emit tool-request/result and asserting SYSTEM_CONTEXT injection + SSE mapping + skipGitRepoCheck/workingDirectory options.
+   - Client RTL: extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex shows tool blocks/citations when tools available and hides when not; also assert send is enabled for Codex once toolsAvailable is true.
+   - Commands: `npm run test --workspace server -- chat-codex-mcp.test.ts`; `npm run test --workspace client -- chatPage.toolDetails.test.tsx`.
+5. [ ] Documentation:
+   - README: document that Codex chats now require MCP, include SYSTEM_CONTEXT snippet, workingDirectory `/data`, and `skipGitRepoCheck:true`.
+   - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
+6. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+7. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -514,12 +542,19 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Subtasks
 
-1. [ ] Define exact wording/location for Codex login/setup guidance in README (host + Docker) and add it.
-   - Insert under `README.md` -> `## Codex (CLI)` the text: "Install CLI: npm install -g @openai/codex. Login: codex login (host) or docker compose run --rm server sh -lc 'codex login'. Set CODEINFO_CODEX_HOME=./codex (mounted to /app/codex). If CLI/auth/config missing, Codex shows disabled."
-2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount) with links to README anchors.
-3. [ ] Ensure disabled-state copy covers both host and Docker paths (CODEINFO_CODEX_HOME, config seeding, auth login).
-4. [ ] Update tests: client RTL (add/extend `chatPage.provider.test.tsx`) to assert disabled-state banner/tooltip renders with required guidance text and links when Codex unavailable.
-5. [ ] Run lint/format for touched workspaces.
+1. [ ] README (`## Codex (CLI)`): add final guidance text including:
+   - Install: `npm install -g @openai/codex`
+   - Login host: `codex login`
+   - Login docker: `docker compose run --rm server sh -lc "codex login"`
+   - Home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex`); seeded from `config.toml.example` per Task 1; skipGitRepoCheck/workingDirectory defaults from Task 4.
+   - Disabled behaviour: Codex appears disabled with banner if CLI/auth/config missing.
+2. [ ] UI banner/tooltip (ChatPage near Provider select):
+   - Mention all prerequisites above, including Docker mount path and seeded config.
+   - Link to README anchor `#codex-cli`.
+   - Note that tools are required and will be enabled once MCP is configured (Task 7).
+3. [ ] Disabled-state logic: ensure banner appears whenever Codex detection says unavailable (no CLI/auth/config) and hides when available.
+4. [ ] Tests: extend `client/src/test/chatPage.provider.test.tsx` to assert banner text, link href, and that Send stays disabled when Codex unavailable but enables when available. Command: `npm run test --workspace client -- chatPage.provider.test.tsx`.
+5. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -556,17 +591,14 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 
 #### Subtasks
 
-1. [ ] Build server and client.
-2. [ ] Run server tests and client tests.
-3. [ ] Perform clean Docker build; start compose stack (with Codex disabled/enabled as appropriate) and verify health.
-4. [ ] Run e2e tests (skip Codex if not available in CI; document) and manual MCP smoke if Codex CLI is available.
-5. [ ] Update README, design.md, projectStructure.md to reflect final state and MCP/Codex config.
-6. [ ] Capture required screenshots (if applicable) and prepare a PR-ready summary of changes and how to enable Codex.
-7. [ ] Run lint/format across workspaces.
-8. [ ] Test (build): `npm run build --workspaces` — final confirmation.
-9. [ ] Test (unit/integration): `npm run test --workspaces` — final confirmation.
-10. [ ] Test (Docker): clean build + `docker compose up`/`down`, noting Codex availability status.
-11. [ ] Test (e2e): `npm run e2e` (document skips if Codex unavailable); manual MCP smoke if Codex CLI present.
+1. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+2. [ ] Tests: `npm run test --workspace server`; `npm run test --workspace client`.
+3. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+4. [ ] Docker: clean build `npm run compose:build`; start `npm run compose:up`; verify health (`curl http://localhost:5010/health`, `curl http://localhost:5001`), then `npm run compose:down`.
+5. [ ] e2e: `npm run e2e` (note Codex skips if CLI unavailable). If Codex CLI available, run manual MCP smoke: `curl -X POST http://localhost:5010/mcp ...list_tools` and one Codex chat turn via `/chat` to confirm tools.
+6. [ ] Docs: update `README.md` (final Codex/MCP steps, commands added), `design.md` (chat + MCP flow, UI changes), `projectStructure.md` (new MCP files/tests/fixtures).
+7. [ ] Screenshots: capture to `test-results/screenshots/0000010-09-<name>.png` per plan_format—include chat with Codex+MCP (if available) and core pages (logs/ingest) showing healthy state.
+8. [ ] PR summary: in this plan’s Implementation notes, add a concise story-wide summary plus Codex enablement instructions; reuse it for the PR comment.
 
 #### Testing
 

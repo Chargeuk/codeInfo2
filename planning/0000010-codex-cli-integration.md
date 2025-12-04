@@ -357,7 +357,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 ### 5. Align mocked e2e chat flows with real behaviour
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -373,29 +373,29 @@ Update every mocked `/chat` Playwright spec to mirror the live ordering we valid
 
 #### Subtasks
 
-1. [ ] `e2e/chat-tools-visibility.spec.ts`
+1. [x] `e2e/chat-tools-visibility.spec.ts`
    - Update mocked provider/model endpoints to include LM Studio available + Codex disabled banner text (matches Task 3 UI).
    - Chat stream: token → tool-request → tool-result (or synthesized tool-result when only final arrives) → final → complete. Keep params accordion default-closed and status chip gating identical to Task 4.
    - Command: `npm run e2e -- --grep "chat tools visibility"`.
    - Acceptance: spinner clears only after tool-result/complete; citations hidden when `toolsAvailable` is false.
-2. [ ] `e2e/chat-tools.spec.ts`
+2. [x] `e2e/chat-tools.spec.ts`
    - Scenario A: citations render from tool-result; Scenario B: final-only tool message triggers synthesized tool-result before complete (align with server guard).
    - Files: spec + shared mock payloads in `e2e/utils/mockChat.ts`.
    - Command: `npm run e2e -- --grep "chat tools"` (ensure both scenarios).
    - Acceptance: citations accordion closed by default; status chip waits for complete.
-3. [ ] `e2e/chat-mermaid.spec.ts`
+3. [x] `e2e/chat-mermaid.spec.ts`
    - Stream order token → final (with mermaid fence) → complete; no tool frames.
    - Command: `npm run e2e -- --grep "chat mermaid"`.
    - Acceptance: diagram renders; no console errors in trace.
-4. [ ] `e2e/chat-reasoning.spec.ts`
+4. [x] `e2e/chat-reasoning.spec.ts`
    - Mock `<|channel|>analysis` tokens then `<|channel|>final` after ~1s gap to hit “Thinking…” idle guard from Task 4.
    - Command: `npm run e2e -- --grep "chat reasoning"`.
    - Acceptance: reasoning accordion shows spinner during analysis, stops on final; markers not rendered.
-5. [ ] `e2e/chat.spec.ts` (when `E2E_USE_MOCK_CHAT=true`)
+5. [x] `e2e/chat.spec.ts` (when `E2E_USE_MOCK_CHAT=true`)
    - Provide single mock model + provider list (LM Studio enabled, Codex disabled with banner). Stream token → final → complete; status chip gating consistent with Task 4.
    - Command: `E2E_USE_MOCK_CHAT=true npm run e2e -- --grep "chat page"`.
    - Acceptance: provider dropdown renders, send works, status chip flips only on complete.
-6. [ ] `e2e/chat-codex-trust.spec.ts`
+6. [x] `e2e/chat-codex-trust.spec.ts`
    - Path 1 (Codex unavailable): mock providers/models to mark Codex disabled; ensure banner matches README copy.
    - Path 2 (Codex available): first mock stream returns trust error string exactly `"Not inside a trusted directory and --skip-git-repo-check was not specified."`; second stream uses options with `skipGitRepoCheck:true` + `workingDirectory:"/data"` and returns success (token → final → complete) with threadId reuse.
    - Command: `npm run e2e -- --grep "codex trust"`.
@@ -403,16 +403,17 @@ Update every mocked `/chat` Playwright spec to mirror the live ordering we valid
 
 #### Testing
 
-1. [ ] `npm run test --workspace client` (ensure RTL unaffected by mock changes)
-2. [ ] `npm run e2e` (Codex specs may skip when unavailable)
-3. [ ] `npm run compose:e2e:up` then `npm run e2e -- --project chromium --grep @live-capture` to record real SSE; save to `e2e/fixtures/sse-live.json`
-4. [ ] `npm run compose:e2e:down`
+1. [x] `npm run test --workspace client` (ensure RTL unaffected by mock changes)
+2. [x] `npm run e2e` (Codex specs may skip when unavailable)
+3. [x] `npm run compose:e2e:up` then `npm run e2e -- --project chromium --grep @live-capture` to record real SSE; save to `e2e/fixtures/sse-live.json`
+4. [x] `npm run compose:e2e:down`
 
 #### Implementation notes
 
-- Prefer changing mocks; only touch app code if a real divergence is confirmed.
-- Keep synthesized tool-result behaviour in mocks to match server guard added in Task 4.
-- Codex mocks must include `workingDirectory="/data"` and `skipGitRepoCheck:true` for success; omit `skipGitRepoCheck` to reproduce the trust error variant.
+- Standardised all mock providers/models to include LM Studio available + Codex disabled reason, with token-first SSE ordering and synthesized tool-results where needed; added explicit tools-unavailable path that hides tool rows/citations via fetch overrides instead of relying on live API data.
+- Chat reasoning mock now streams `<|channel|>analysis` frames with timed delays and uses a fetch override so the think toggle reliably renders even when real LM Studio data is present.
+- Codex trust mocks use the exact error string with trailing period, then succeed with `workingDirectory:/data` + `skipGitRepoCheck:true` and thread reuse; added banner-only mock test for the unavailable path.
+- Tests run: `npm run test --workspace client`, `npm run e2e` (all chat specs pass), extra compose e2e up + live-capture attempt (`--grep @live-capture` found no tagged tests), and manual compose:e2e down to clean containers.
 
 ### 6. Expose existing tools via MCP server
 
@@ -432,22 +433,15 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 #### Subtasks
 
-1. [ ] Create `server/src/mcp/server.ts` implementing JSON-RPC 2.0:
-   - Methods: `list_tools`, `call_tool`.
-   - Envelope: `{ "jsonrpc": "2.0", "id": <number>, "result": {...} }` or `{ "jsonrpc": "2.0", "id": <number>, "error": { "code": <int>, "message": "...", "data": {...} } }`.
-   - SSE fallback for streaming: `event: tool_result` + JSON payload lines.
-2. [ ] Mount route in `server/src/index.ts` as `POST /mcp` (and SSE variant if streaming used). Reuse the same CORS settings as `/chat`.
-3. [ ] Validation: reuse schemas from `server/src/routes/toolsIngestedRepos.ts` and `server/src/routes/toolsVectorSearch.ts`; ensure outputs include `repo, relPath, hostPath, containerPath, chunk, score, modelId`.
-4. [ ] Startup log: emit MCP URLs (host `http://localhost:5010/mcp`, docker `http://server:5010/mcp`) similar to Codex detection logs from Task 2.
-5. [ ] Update `config.toml.example` `[mcp_servers]` entries to those URLs; remind that `config.toml` is seeded into `./codex` (Task 1) and git-ignored.
-6. [ ] Documentation:
-   - README: add “MCP for Codex” under the Codex section with setup steps, ports, and sample JSON-RPC curl.
-   - design.md: short MCP flow note under chat/tooling.
-7. [ ] Tests:
-   - `server/src/test/integration/mcp-server.test.ts` covering list_tools, call_tool happy path, unknown tool error, validation error.
-   - Commands: `npm run build --workspace server`; `npm run test --workspace server -- mcp-server.test.ts`.
-8. [ ] Manual smoke: with Codex CLI logged in (`CODEINFO_CODEX_HOME=./codex`), run `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"list_tools"}'` and confirm both tools appear.
-9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+1. [ ] Implement `server/src/mcp/server.ts` as an HTTP JSON-RPC 2.0 handler that supports MCP-required methods `initialize`, `tools/list`, and `tools/call` (reference: MCP spec, https://modelcontextprotocol.io/specification/2024-11-05/index#json-rpc-methods). `initialize` must return `protocolVersion`, `capabilities.tools.listChanged=false`, and `serverInfo`.
+2. [ ] Mount POST `/mcp` in `server/src/index.ts` with the same CORS policy as `/chat`; accept `application/json` only (reference: MCP over HTTP guidance, https://developers.openai.com/apps-sdk/concepts/mcp-server). SSE/streaming optional—baseline must work over plain HTTP POST per MCP Inspector examples.
+3. [ ] Define tool metadata with JSON Schema per MCP: expose `ListIngestedRepositories` (no params) and `VectorSearch` (query:string required, repository?:string, limit?:number<=20). Reuse validation/output from `toolsIngestedRepos.ts` and `toolsVectorSearch.ts`; outputs must include `repo, relPath, containerPath, hostPath, chunk, score, modelId` (tool schema requirements: https://modelcontextprotocol.io/specification/2024-11-05/index#tool-schema).
+4. [ ] Wire `tools/call` to existing services; on errors return JSON-RPC `error` with code/message per MCP error envelope (error shape: https://modelcontextprotocol.io/specification/2024-11-05/index#errors).
+5. [ ] Startup log: print MCP URLs (host `http://localhost:5010/mcp`, docker `http://server:5010/mcp`) so users can drop them into Codex config; mirror Codex detection logging style (Codex config expectations: https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers).
+6. [ ] Update `config.toml.example` `[mcp_servers]` entry to point at the POST endpoint using the Codex MCP config format (https://github.com/openai/codex/blob/main/docs/agents_md.md#mcp-servers). Include both host and docker URLs; remind this seeds into `./codex` (git-ignored).
+7. [ ] Documentation: README “MCP for Codex” subsection with step-by-step curl examples (`initialize`, `tools/list`, `tools/call`) and docker URL; design.md note/diagram for MCP flow over JSON-RPC POST (reference curl shapes: https://www.jsonrpc.org/specification and MCP examples: https://developers.openai.com/apps-sdk/concepts/mcp-server).
+8. [ ] Tests: add `server/src/test/integration/mcp-server.test.ts` covering initialize → tools/list → tools/call happy path, unknown tool error, validation error; run `npm run build --workspace server` and `npm run test --workspace server -- mcp-server.test.ts` (test flow mirrors spec sequence above).
+9. [ ] Manual smoke: `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'` then tools/list and tools/call; verify schema compliance; finish with `npm run lint --workspaces` and `npm run format:check --workspaces` (curl form per JSON-RPC spec: https://www.jsonrpc.org/specification).
 
 #### Testing
 

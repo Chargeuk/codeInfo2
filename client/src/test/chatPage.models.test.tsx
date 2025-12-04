@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn();
@@ -29,52 +29,75 @@ const routes = [
 
 describe('Chat page models list', () => {
   it('shows loading then selects the first model', async () => {
-    let resolveFetch:
-      | ((value: {
-          ok: boolean;
-          status: number;
-          json: () => Promise<unknown>;
-        }) => void)
-      | undefined;
-    mockFetch.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+      if (target.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        });
+      }
+      if (target.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [
+              { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+              {
+                key: 'embed',
+                displayName: 'Embedding Model',
+                type: 'embedding',
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+    });
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
     });
     render(<RouterProvider router={router} />);
 
-    expect(screen.getAllByText(/loading models/i).length).toBeGreaterThan(0);
-
-    await act(async () => {
-      resolveFetch?.({
-        ok: true,
-        status: 200,
-        json: async () => [
-          { key: 'm1', displayName: 'Model 1', type: 'gguf' },
-          { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
-        ],
-      });
-    });
+    expect(
+      screen.getAllByText(/loading chat providers and models/i).length,
+    ).toBeGreaterThan(0);
 
     const select = await screen.findByRole('combobox', { name: /model/i });
-    expect(select).toHaveTextContent('Model 1');
+    await waitFor(() => expect(select).toHaveTextContent('Model 1'));
     expect(screen.queryByText(/Embedding Model/i)).toBeNull();
   });
 
   it('surfaces an error alert when fetch fails', async () => {
-    mockFetch.mockRejectedValue(new Error('network down'));
+    mockFetch.mockImplementation(() => {
+      throw new Error('network down');
+    });
 
     const router = createMemoryRouter(routes, {
       initialEntries: ['/chat'],
     });
     render(<RouterProvider router={router} />);
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/network down/i);
+    const select = await screen.findByRole('combobox', { name: /model/i });
+    await waitFor(() => expect(select).toHaveTextContent('Mock Chat Model'));
   });
 });

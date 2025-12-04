@@ -31,3 +31,19 @@ export type ChatModelInfo = {
   displayName: string;
   type: string;
 };
+
+export type ChatProviderInfo = {
+  id: string;
+  label: string;
+  available: boolean;
+  toolsAvailable: boolean;
+  reason?: string;
+};
+
+export type ChatModelsResponse = {
+  provider: string;
+  available: boolean;
+  toolsAvailable: boolean;
+  models: ChatModelInfo[];
+  reason?: string;
+};

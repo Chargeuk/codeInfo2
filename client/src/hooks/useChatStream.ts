@@ -147,7 +147,10 @@ const initialReasoningState = (): ReasoningState => ({
 const parseReasoning = (
   current: ReasoningState,
   chunk: string,
-  { flushAll = false }: { flushAll?: boolean } = {},
+  {
+    flushAll = false,
+    dedupeAnalysis = false,
+  }: { flushAll?: boolean; dedupeAnalysis?: boolean } = {},
 ): ReasoningState => {
   let pending = current.pending + chunk;
   let analysis = current.analysis;
@@ -158,6 +161,9 @@ const parseReasoning = (
   const appendText = (text: string) => {
     if (!text) return;
     if (mode === 'analysis') {
+      if (dedupeAnalysis && text && analysis.endsWith(text)) {
+        return;
+      }
       analysis += text;
     } else {
       final += text;
@@ -249,12 +255,17 @@ const isVectorPayloadString = (content: string) => {
   }
 };
 
-export function useChatStream(model?: string) {
+export function useChatStream(model?: string, provider?: string) {
   const log = useRef(createLogger('client')).current;
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
-      log(level, message, { channel: 'client-chat', ...context }),
-    [log],
+      log(level, message, {
+        channel: 'client-chat',
+        provider,
+        model,
+        ...context,
+      }),
+    [log, model, provider],
   );
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
@@ -374,7 +385,7 @@ export function useChatStream(model?: string) {
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || status === 'sending' || !model) {
+      if (!trimmed || status === 'sending' || !model || !provider) {
         return;
       }
 
@@ -693,6 +704,7 @@ export function useChatStream(model?: string) {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
+            provider,
             model,
             messages: [
               ...systemMessages,
@@ -841,6 +853,7 @@ export function useChatStream(model?: string) {
                   finalText.length > 0 ? '' : finalContent,
                   {
                     flushAll: true,
+                    dedupeAnalysis: true,
                   },
                 );
                 applyReasoning(parsedFinal);
@@ -901,6 +914,7 @@ export function useChatStream(model?: string) {
       handleErrorBubble,
       logWithChannel,
       model,
+      provider,
       status,
       stop,
       updateMessages,

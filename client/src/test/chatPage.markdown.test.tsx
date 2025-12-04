@@ -37,6 +37,16 @@ const routes = [
 ];
 
 const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
+const providerPayload = {
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+  ],
+};
 
 function streamWithMarkdown() {
   const encoder = new TextEncoder();
@@ -67,17 +77,40 @@ function streamWithMarkdown() {
 
 describe('Chat markdown rendering', () => {
   it('renders lists and code blocks without escaping content', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => providerPayload,
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: modelList,
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: streamWithMarkdown(),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => modelList,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        body: streamWithMarkdown(),
-      });
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
 
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });

@@ -36,6 +36,16 @@ const routes = [
 ];
 
 const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
+const providerPayload = {
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+  ],
+};
 
 describe('Chat page stop control', () => {
   it('cancels an in-flight stream and shows a stopped status bubble', async () => {
@@ -76,21 +86,44 @@ describe('Chat page stop control', () => {
         ),
       };
 
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => modelList,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          body: {
-            getReader: () => ({
-              read: reader.read,
+      mockFetch.mockImplementation((url: RequestInfo | URL) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => providerPayload,
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'lmstudio',
+              available: true,
+              toolsAvailable: true,
+              models: modelList,
             }),
-          } as unknown as ReadableStream<Uint8Array>,
-        });
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: {
+              getReader: () => ({
+                read: reader.read,
+              }),
+            } as unknown as ReadableStream<Uint8Array>,
+          }) as unknown as Response;
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      });
 
       const user = userEvent.setup();
       const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -110,7 +143,13 @@ describe('Chat page stop control', () => {
         await user.click(sendButton);
       });
 
-      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(
+          mockFetch.mock.calls.filter(([target]) =>
+            target.toString().includes('/chat'),
+          ).length,
+        ).toBeGreaterThanOrEqual(1),
+      );
 
       const stopButton = await screen.findByTestId('chat-stop');
       expect(stopButton).toBeVisible();

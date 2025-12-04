@@ -1,6 +1,6 @@
 import assert from 'assert';
 import type { Server } from 'http';
-import { mockModels } from '@codeinfo2/common';
+import { mockModelsResponse } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
@@ -75,7 +75,7 @@ Then('the chat models response status code is {int}', (status: number) => {
 
 Then('the chat models body equals the mock models fixture', () => {
   assert(response, 'expected response');
-  assert.deepStrictEqual(response.body, mockModels);
+  assert.deepStrictEqual(response.body, mockModelsResponse);
 });
 
 Then(

@@ -36,9 +36,9 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ### Chat page (models list)
 
-- Route `/chat` surfaces the chat shell; controls sit at the top (inverted layout) with a model `<Select>` and a message `<TextField>`. The first model auto-selects when data loads.
-- `useChatModel` fetches `/chat/models`, aborts on unmount, and exposes `models`, `selected`, `status` flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No models available." and keep inputs disabled.
-- Controls are disabled while loading, on errors, or when no models exist so the chat form cannot submit without a model.
+- Route `/chat` surfaces the chat shell; controls sit at the top with a Provider `<Select>` (LM Studio default, OpenAI Codex when detected) to the left of the Model `<Select>`. The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
+- `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
+- Controls are disabled while loading, on errors, or when no models exist. Codex stays disabled (with banner guidance) until its CLI/auth/config are present; send is blocked when Codex is selected. The message input is multiline beneath the selectors with Send/Stop beside it.
 
 ### Chat page (streaming UI)
 

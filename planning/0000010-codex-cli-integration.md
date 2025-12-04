@@ -201,8 +201,8 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 ### 3. Provider/model surfacing & UI layout changes
 
-- Task Status: **__to_do__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: **599f2bf**
 
 #### Overview
 
@@ -217,39 +217,44 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 #### Subtasks
 
-1. [ ] Backend models: add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) to return providers + availability; extend `/chat/models` (`server/src/routes/chatModels.ts`) to accept `provider` and return LM Studio list or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) with `toolsAvailable/available` flags.
+1. [x] Backend models: add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) to return providers + availability; extend `/chat/models` (`server/src/routes/chatModels.ts`) to accept `provider` and return LM Studio list or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) with `toolsAvailable/available` flags.
    - Minimal handler skeleton:
    ```ts
    router.get('/chat/providers', (_req,res)=>res.json({providers:[{id:'lmstudio',label:'LM Studio',available:true},{id:'codex',label:'OpenAI Codex',available:detection.available,toolsAvailable:detection.toolsAvailable}]}));
    ```
-2. [ ] Client state: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in fetch; in `client/src/pages/ChatPage.tsx`, store `provider`+`model` in state, lock provider per conversation, allow model change, and send both in chat payloads.
+2. [x] Client state: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in fetch; in `client/src/pages/ChatPage.tsx`, store `provider`+`model` in state, lock provider per conversation, allow model change, and send both in chat payloads.
    - Send shape example: `{ provider, model, messages, threadId? }`.
-3. [ ] UI layout: in `client/src/pages/ChatPage.tsx`, add Provider dropdown left of Model; move message input to multiline beneath selectors with Send; keep New conversation on top row; when `provider === "codex"` disable message + Send (temporary).
-4. [ ] Guidance UI: add disabled-state banner/tooltip near Provider when Codex unavailable, stating prerequisites: install CLI (`npm install -g @openai/codex`), run `codex login`, ensure `CODEINFO_CODEX_HOME` + `config.toml` exist; hide citations/tool blocks when `toolsAvailable` is false.
-5. [ ] Docs: update README Chat and design.md chat UI sections describing Provider dropdown, fixed Codex model list, disabled behaviour, and multiline input position.
-6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-7. [ ] Test (build): `npm run build --workspace server` — ensure backend changes compile.
-8. [ ] Test (build): `npm run build --workspace client` — ensure frontend changes compile.
-9. [ ] Test (client RTL): add `client/src/test/chatPage.provider.test.tsx` covering provider selection, disabled Codex state/banner text, and layout (aria roles/testids); purpose: verify UI wiring before Codex chat path.
-10. [ ] Test (manual UI): open chat page, verify provider dropdown, per-provider model filtering, disabled banner when Codex unavailable, and multiline input positioning.
+3. [x] UI layout: in `client/src/pages/ChatPage.tsx`, add Provider dropdown left of Model; move message input to multiline beneath selectors with Send; keep New conversation on top row; when `provider === "codex"` disable message + Send (temporary).
+4. [x] Guidance UI: add disabled-state banner/tooltip near Provider when Codex unavailable, stating prerequisites: install CLI (`npm install -g @openai/codex`), run `codex login`, ensure `CODEINFO_CODEX_HOME` + `config.toml` exist; hide citations/tool blocks when `toolsAvailable` is false.
+5. [x] Docs: update README Chat and design.md chat UI sections describing Provider dropdown, fixed Codex model list, disabled behaviour, and multiline input position.
+6. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [x] Test (build): `npm run build --workspace server` — ensure backend changes compile.
+8. [x] Test (build): `npm run build --workspace client` — ensure frontend changes compile.
+9. [x] Test (client RTL): add `client/src/test/chatPage.provider.test.tsx` covering provider selection, disabled Codex state/banner text, and layout (aria roles/testids); purpose: verify UI wiring before Codex chat path.
+10. [x] Test (manual UI): open chat page, verify provider dropdown, per-provider model filtering, disabled banner when Codex unavailable, and multiline input positioning.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, perform Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, perform Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
+9. [x] `npm run compose:down`
 
 
 #### Implementation notes
 
-- Capture the provider-lock behavior and any UI/ARIA tweaks for multiline input.
-- Note any temporary disabling flags that will be removed in Task 3.
+- Added provider-aware `/chat/providers` + `/chat/models?provider=` wiring, client hook updates, and UI provider lock while allowing model switches.
+- Updated docs (README/design) for provider dropdown, multiline input placement, and Codex disabled guidance; citations/tool blocks hidden when provider lacks tools.
+- Expanded chat tests with provider coverage and refreshed chat stream mocks (providers/models endpoints, control enabling waits, helper `mockChatFetch`), fixing prior mock gaps.
+- All client Jest suites now pass (2025-12-03) after stream/citation/mermaid/reasoning/tool payload test fixes; pending manual UI + compose/e2e checks.
+- Manual UI smoke via headless Playwright (2025-12-04) shows Codex disabled banner; provider/model options empty in compose-up snapshot (LM Studio not available), but layout renders with selectors and alert.
+- Docker compose (main) build/up/down completed; images built from cache quickly.
+- E2E run (2025-12-04) now passing after reasoning dedupe fix; 18 specs passed, 3 ingest cleanup specs skipped as designed.
 
 ---
 

@@ -36,6 +36,16 @@ const routes = [
 ];
 
 const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
+const providerPayload = {
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+  ],
+};
 
 describe('Chat page new conversation control', () => {
   it('aborts the current stream, clears transcript, and refocuses input', async () => {
@@ -59,21 +69,46 @@ describe('Chat page new conversation control', () => {
     global.AbortController = MockAbortController;
 
     try {
-      mockFetch
-        .mockResolvedValueOnce({
+      const stream = new ReadableStream<Uint8Array>({
+        start() {
+          // keep stream open until aborted
+        },
+      });
+
+      mockFetch.mockImplementation((url: RequestInfo | URL) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => providerPayload,
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'lmstudio',
+              available: true,
+              toolsAvailable: true,
+              models: modelList,
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: stream,
+          }) as unknown as Response;
+        }
+        return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => modelList,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          body: new ReadableStream<Uint8Array>({
-            start() {
-              // keep stream open until aborted
-            },
-          }),
-        });
+          json: async () => ({}),
+        }) as unknown as Response;
+      });
 
       const user = userEvent.setup();
       const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -87,6 +122,7 @@ describe('Chat page new conversation control', () => {
       const input = await screen.findByTestId('chat-input');
       fireEvent.change(input, { target: { value: 'Hello' } });
       const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(sendButton).toBeEnabled());
 
       await act(async () => {
         await user.click(sendButton);

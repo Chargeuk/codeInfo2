@@ -41,14 +41,35 @@ const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
 function mockChatFetch(stream: ReadableStream<Uint8Array>) {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
-    if (href.endsWith('/chat/models')) {
+    if (href.includes('/chat/providers')) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => modelList,
+        json: async () => ({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
       }) as unknown as Response;
     }
-    if (href.endsWith('/chat')) {
+    if (href.includes('/chat/models')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: modelList,
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat')) {
       return Promise.resolve({
         ok: true,
         status: 200,

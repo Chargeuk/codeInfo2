@@ -87,6 +87,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolDetails.test.tsx ? tool detail UI (parameters, repos, vector files, errors)
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
+|     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
@@ -150,6 +151,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
+â”‚     â”‚  â”œâ”€ chatProviders.ts — lists chat providers with availability flags
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
 â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
 â”‚     â”‚  â”œâ”€ ingestCancel.ts — POST /ingest/cancel/:runId cancels active ingest and cleans vectors

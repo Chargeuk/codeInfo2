@@ -9,6 +9,7 @@ import { baseLogger, createRequestLogger } from './logger.js';
 import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
+import { createChatProvidersRouter } from './routes/chatProviders.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
 import { createIngestModelsRouter } from './routes/ingestModels.js';
 import { createIngestReembedRouter } from './routes/ingestReembed.js';
@@ -53,6 +54,7 @@ app.get('/info', (_req, res) => {
 
 app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
+app.use('/chat', createChatProvidersRouter());
 app.use('/chat', createChatModelsRouter({ clientFactory }));
 app.use('/', createIngestStartRouter({ clientFactory }));
 app.use('/', createIngestModelsRouter({ clientFactory }));

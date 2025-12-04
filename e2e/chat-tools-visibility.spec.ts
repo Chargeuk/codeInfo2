@@ -11,11 +11,33 @@ const toSse = (events: ToolEvent[]) =>
   events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
 
 async function mockChatModels(page: Page) {
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      }),
+    }),
+  );
+
   await page.route('**/chat/models', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(mockModels),
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mockModels,
+      }),
     }),
   );
 }
@@ -480,12 +502,41 @@ test.describe('Chat tool visibility details', () => {
         window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input.toString();
 
+          if (url.endsWith('/chat/providers')) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  providers: [
+                    {
+                      id: 'lmstudio',
+                      label: 'LM Studio',
+                      available: true,
+                      toolsAvailable: true,
+                    },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              ),
+            );
+          }
+
           if (url.endsWith('/chat/models')) {
             return Promise.resolve(
-              new Response(JSON.stringify(models), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-              }),
+              new Response(
+                JSON.stringify({
+                  provider: 'lmstudio',
+                  available: true,
+                  toolsAvailable: true,
+                  models,
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              ),
             );
           }
 

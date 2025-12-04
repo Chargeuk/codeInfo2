@@ -1,4 +1,4 @@
-import type { ChatModelInfo } from '../lmstudio.js';
+import type { ChatModelInfo, ChatModelsResponse } from '../lmstudio.js';
 
 export const mockModels: ChatModelInfo[] = [
   {
@@ -7,3 +7,10 @@ export const mockModels: ChatModelInfo[] = [
     type: 'gguf',
   },
 ];
+
+export const mockModelsResponse: ChatModelsResponse = {
+  provider: 'lmstudio',
+  available: true,
+  toolsAvailable: true,
+  models: mockModels,
+};

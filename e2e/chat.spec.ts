@@ -34,11 +34,32 @@ test('chat streams end-to-end', async ({ page }) => {
   ];
 
   if (useMockChat) {
+    await page.route('**/chat/providers', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      }),
+    );
     await page.route('**/chat/models', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(mockModels),
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: mockModels,
+        }),
       }),
     );
     await page.route('**/chat', (route) => {
@@ -62,7 +83,10 @@ test('chat streams end-to-end', async ({ page }) => {
       if (!modelsRes.ok()) {
         test.skip(`LM Studio models not reachable (${modelsRes.status()})`);
       }
-      models = (await modelsRes.json()) as ChatModel[];
+      const data = await modelsRes.json();
+      models = Array.isArray(data)
+        ? (data as ChatModel[])
+        : ((data as { models?: ChatModel[] }).models ?? []);
     } catch {
       test.skip('LM Studio models not reachable (request failed)');
     }

@@ -21,7 +21,7 @@ function Wrapper({
   prompt: string;
   onUpdate: (messages: ChatMessage[]) => void;
 }) {
-  const { messages, send } = useChatStream('m1');
+  const { messages, send } = useChatStream('m1', 'lmstudio');
 
   useEffect(() => {
     onUpdate(messages);

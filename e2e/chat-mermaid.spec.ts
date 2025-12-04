@@ -26,11 +26,33 @@ const mermaidEvents = [
 ];
 
 test('renders mermaid diagrams safely', async ({ page }) => {
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      }),
+    }),
+  );
+
   await page.route('**/chat/models', (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(mockChatModels),
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mockChatModels,
+      }),
     }),
   );
 

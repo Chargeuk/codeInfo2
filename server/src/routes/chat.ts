@@ -1,5 +1,6 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
 import { Chat } from '@lmstudio/sdk';
+import { Codex } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -7,13 +8,27 @@ import {
   startStream,
   writeEvent,
 } from '../chatStream.js';
+import { buildCodexOptions } from '../config/codexConfig.js';
 import { createLmStudioTools } from '../lmstudio/tools.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
+import { getCodexDetection } from '../providers/codexRegistry.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 type ToolFactory = typeof createLmStudioTools;
+
+type CodexThread = {
+  id: string | null;
+  runStreamed: (
+    ...args: unknown[]
+  ) => Promise<{ events: AsyncGenerator<unknown> }>;
+};
+
+type CodexFactory = () => {
+  startThread: (...args: unknown[]) => CodexThread;
+  resumeThread: (...args: unknown[]) => CodexThread;
+};
 
 type LMContentItem =
   | { type: 'text'; text: string }
@@ -72,9 +87,11 @@ export const getContentItems = (message: unknown): LMContentItem[] => {
 export function createChatRouter({
   clientFactory,
   toolFactory = createLmStudioTools,
+  codexFactory = () => new Codex(buildCodexOptions()),
 }: {
   clientFactory: ClientFactory;
   toolFactory?: ToolFactory;
+  codexFactory?: CodexFactory;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -82,7 +99,11 @@ export function createChatRouter({
 
   router.post('/', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
-    const { model, messages } = req.body ?? {};
+    const { model, messages, provider: rawProvider, threadId } = req.body ?? {};
+    const provider =
+      typeof rawProvider === 'string' && rawProvider.length > 0
+        ? rawProvider
+        : 'lmstudio';
     const controller = new AbortController();
     let ended = false;
     let completed = false;
@@ -94,13 +115,217 @@ export function createChatRouter({
       endStream(res);
     };
 
-    if (typeof model !== 'string' || !Array.isArray(messages)) {
+    if (
+      typeof model !== 'string' ||
+      !Array.isArray(messages) ||
+      typeof provider !== 'string'
+    ) {
       return res.status(400).json({ error: 'invalid request' });
     }
 
     const rawSize = JSON.stringify(req.body ?? {}).length;
     if (rawSize > maxClientBytes) {
       return res.status(400).json({ error: 'payload too large' });
+    }
+
+    if (provider === 'codex') {
+      const detection = getCodexDetection();
+      if (!detection.available) {
+        append({
+          level: 'error',
+          message: 'chat stream unavailable (codex)',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            provider,
+            model,
+            reason: detection.reason,
+          },
+        });
+        baseLogger.error(
+          { requestId, provider, model, reason: detection.reason },
+          'chat stream unavailable (codex)',
+        );
+        return res
+          .status(503)
+          .json({ error: 'codex unavailable', reason: detection.reason });
+      }
+
+      startStream(res);
+
+      const endIfOpen = () => {
+        if (ended || isStreamClosed(res)) return;
+        ended = true;
+        endStream(res);
+      };
+
+      const handleDisconnect = (reason: 'close' | 'aborted') => {
+        if (completed) return;
+        if (reason === 'close' && !controller.signal.aborted) return;
+        controller.abort();
+        cancelled = true;
+        append({
+          level: 'info',
+          message: 'chat stream cancelled',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { provider, model, reason: 'client_disconnect' },
+        });
+        baseLogger.info(
+          { requestId, provider, model, reason: 'client_disconnect' },
+          'chat stream cancelled',
+        );
+        endIfOpen();
+      };
+
+      req.on('close', () => handleDisconnect('close'));
+      req.on('aborted', () => handleDisconnect('aborted'));
+      res.on('close', handleDisconnect);
+      controller.signal.addEventListener('abort', () => {
+        cancelled = true;
+      });
+
+      append({
+        level: 'info',
+        message: 'chat stream start',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: { provider, model },
+      });
+      baseLogger.info({ requestId, provider, model }, 'chat stream start');
+
+      try {
+        const codex = codexFactory();
+        const thread =
+          typeof threadId === 'string' && threadId.length > 0
+            ? codex.resumeThread(threadId, { model })
+            : codex.startThread({ model });
+
+        let activeThreadId = thread.id ?? threadId ?? null;
+        let finalText = '';
+        const prompt = messages
+          .map((msg: { role?: unknown; content?: unknown }, idx: number) => {
+            const role =
+              typeof msg?.role === 'string' ? msg.role : `message_${idx}`;
+            const content =
+              typeof msg?.content === 'string'
+                ? msg.content
+                : JSON.stringify(msg?.content ?? '');
+            return `${role}: ${content}`;
+          })
+          .join('\n\n');
+
+        const { events } = await thread.runStreamed(prompt, {
+          signal: controller.signal,
+        });
+
+        const emitThreadId = (incoming?: string | null) => {
+          if (!incoming || activeThreadId === incoming) return;
+          activeThreadId = incoming;
+          writeEvent(res, { type: 'thread', threadId: incoming });
+        };
+
+        emitThreadId(activeThreadId);
+
+        for await (const event of events) {
+          if (cancelled || isStreamClosed(res)) break;
+          switch (event.type) {
+            case 'thread.started': {
+              emitThreadId(event.thread_id);
+              break;
+            }
+            case 'item.updated':
+            case 'item.completed': {
+              const item = (event as { item?: unknown })?.item as
+                | { type?: string; text?: string }
+                | undefined;
+              if (!item || item.type !== 'agent_message') break;
+              const text = item.text ?? '';
+              const delta = text.slice(finalText.length);
+              if (delta) {
+                writeEvent(res, { type: 'token', content: delta });
+              }
+              finalText = text;
+              if (event.type === 'item.completed') {
+                writeEvent(res, {
+                  type: 'final',
+                  message: { role: 'assistant', content: finalText },
+                });
+              }
+              break;
+            }
+            case 'turn.failed': {
+              const message = (event as { error?: { message?: string } })?.error
+                ?.message;
+              writeEvent(res, {
+                type: 'error',
+                message: message ?? 'codex turn failed',
+              });
+              break;
+            }
+            case 'error': {
+              writeEvent(res, {
+                type: 'error',
+                message: (event as { message?: string })?.message,
+              });
+              break;
+            }
+            case 'turn.completed': {
+              emitThreadId(activeThreadId);
+              break;
+            }
+            default:
+              break;
+          }
+        }
+
+        if (!isStreamClosed(res)) {
+          if (finalText.length === 0) {
+            writeEvent(res, {
+              type: 'final',
+              message: { role: 'assistant', content: '' },
+            });
+          }
+          completed = true;
+          writeEvent(res, { type: 'complete', threadId: activeThreadId });
+        }
+
+        append({
+          level: 'info',
+          message: 'chat stream complete',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { provider, model, threadId: activeThreadId },
+        });
+        baseLogger.info(
+          { requestId, provider, model, threadId: activeThreadId },
+          'chat stream complete',
+        );
+      } catch (err) {
+        const message =
+          (err as Error | undefined)?.message ?? 'codex unavailable';
+        writeEvent(res, { type: 'error', message });
+        append({
+          level: 'error',
+          message: 'chat stream failed',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { provider, model, error: message },
+        });
+        baseLogger.error(
+          { requestId, provider, model, error: message },
+          'chat stream failed',
+        );
+      } finally {
+        endIfOpen();
+      }
+
+      return;
     }
 
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
@@ -113,10 +338,10 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model },
+        context: { baseUrl: safeBase, model, provider },
       });
       baseLogger.error(
-        { requestId, baseUrl: safeBase, model },
+        { requestId, baseUrl: safeBase, model, provider },
         'chat stream invalid baseUrl',
       );
       return res.status(503).json({ error: 'lmstudio unavailable' });
@@ -128,10 +353,10 @@ export function createChatRouter({
       timestamp: new Date().toISOString(),
       source: 'server',
       requestId,
-      context: { baseUrl: safeBase, model },
+      context: { baseUrl: safeBase, model, provider },
     });
     baseLogger.info(
-      { requestId, baseUrl: safeBase, model },
+      { requestId, baseUrl: safeBase, model, provider },
       'chat stream start',
     );
 
@@ -149,10 +374,21 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model, reason: 'client_disconnect' },
+        context: {
+          baseUrl: safeBase,
+          model,
+          provider,
+          reason: 'client_disconnect',
+        },
       });
       baseLogger.info(
-        { requestId, baseUrl: safeBase, model, reason: 'client_disconnect' },
+        {
+          requestId,
+          baseUrl: safeBase,
+          model,
+          provider,
+          reason: 'client_disconnect',
+        },
         'chat stream cancelled',
       );
       endIfOpen();
@@ -912,10 +1148,10 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model },
+        context: { baseUrl: safeBase, model, provider },
       });
       baseLogger.info(
-        { requestId, baseUrl: safeBase, model },
+        { requestId, baseUrl: safeBase, model, provider },
         'chat stream complete',
       );
     } catch (err) {
@@ -928,10 +1164,10 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model, error: message },
+        context: { baseUrl: safeBase, model, provider, error: message },
       });
       baseLogger.error(
-        { requestId, baseUrl: safeBase, model, error: message },
+        { requestId, baseUrl: safeBase, model, provider, error: message },
         'chat stream failed',
       );
     } finally {

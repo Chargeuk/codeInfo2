@@ -38,11 +38,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with a Provider `<Select>` (LM Studio default, OpenAI Codex when detected) to the left of the Model `<Select>`. The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
-- Controls are disabled while loading, on errors, or when no models exist. Codex stays disabled (with banner guidance) until its CLI/auth/config are present; send is blocked when Codex is selected. The message input is multiline beneath the selectors with Send/Stop beside it.
+- Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 
 ### Chat page (streaming UI)
 
-- Message input and Send button feed into `useChatStream(model)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`) into a single assistant bubble per turn.
+- Message input and Send button feed into `useChatStream(model, provider)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`, `thread`, `complete`) into a single assistant bubble per turn. Codex frames include a `thread`/`complete` payload with `threadId` so the hook can resume Codex threads without resending prior turns; LM Studio continues to use chat history replay.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).

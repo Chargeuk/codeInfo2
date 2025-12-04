@@ -276,41 +276,43 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 #### Subtasks
 
-1. [ ] Implement Codex chat provider in `server/src/routes/chat.ts` (or new `chatCodex.ts`): accept provider/model/threadId; start/resume Codex thread via SDK; stream deltas as SSE frames (`token/final/complete/error`); block send if detection failed.
+1. [x] Implement Codex chat provider in `server/src/routes/chat.ts` (or new `chatCodex.ts`): accept provider/model/threadId; start/resume Codex thread via SDK; stream deltas as SSE frames (`token/final/complete/error`); block send if detection failed.
    - SSE mapping example:
    ```ts
    res.write(`data: ${JSON.stringify({type:'token',content:delta})}\n\n`);
    res.write(`data: ${JSON.stringify({type:'final',message})}\n\n`);
    res.write(`data: {"type":"complete"}\n\n`);
    ```
-2. [ ] Client send: in `client/src/hooks/useChatStream.ts`, include `provider/model/threadId` in payload; store Codex `threadId` per conversation; block provider change mid-conversation; allow model change.
-3. [ ] Codex tools off for this task: ignore tool calls on server; suppress citations/tool blocks on client for Codex responses.
-4. [ ] Logging: add provider + threadId context in `server/src/logger.ts` and in `useChatStream` logger calls.
-5. [ ] Docs: update README/design.md noting Codex chat is available (tools pending) and requires threadId persistence.
-6. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
-7. [ ] Test (build): `npm run build --workspace server` — ensure Codex path compiles.
-8. [ ] Test (build): `npm run build --workspace client` — ensure chat UI changes compile.
-9. [ ] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
-10. [ ] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
+2. [x] Client send: in `client/src/hooks/useChatStream.ts`, include `provider/model/threadId` in payload; store Codex `threadId` per conversation; block provider change mid-conversation; allow model change.
+3. [x] Codex tools off for this task: ignore tool calls on server; suppress citations/tool blocks on client for Codex responses.
+4. [x] Logging: add provider + threadId context in `server/src/logger.ts` and in `useChatStream` logger calls.
+5. [x] Docs: update README/design.md noting Codex chat is available (tools pending) and requires threadId persistence.
+6. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [x] Test (build): `npm run build --workspace server` — ensure Codex path compiles.
+8. [x] Test (build): `npm run build --workspace client` — ensure chat UI changes compile.
+9. [x] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
+10. [x] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 
 
 #### Implementation notes
 
-- Record any SDK mocking approach and SSE mapping decisions.
-- Note future hook points where MCP/tool execution will be added in a later task.
+- Added Codex branch to `/chat` with threadId-aware SSE (`thread` + `complete` carrying ids), detection gating, and injectable codexFactory for tests; LM Studio logging now includes provider context.
+- Client chat stream now carries provider/threadId, reuses Codex threads instead of replaying history, and keeps tools/citations hidden for Codex; provider UI shows a warning when Codex is unavailable and enables Codex send when available.
+- New tests: server `chat-codex.test.ts` (mocked Codex CLI/threadId and unavailable path) and client provider test covering Codex threadId reuse; docs updated (README/design) for Codex chat availability and thread reuse.
+- Commands run: lint/format, server/client builds, server/client tests, full e2e suite, compose:build/up/down. Manual Codex smoke via Playwright MCP was not run (Codex auth/config not present in this environment).
 
 ---
 

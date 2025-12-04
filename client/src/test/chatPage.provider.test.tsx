@@ -95,6 +95,110 @@ function mockChatApis() {
   });
 }
 
+function makeStream(frames: unknown[]) {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      frames.forEach((frame) =>
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(frame)}\n\n`),
+        ),
+      );
+      controller.close();
+    },
+  });
+}
+
+function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
+  const streams = [
+    makeStream([
+      { type: 'thread', threadId: 'thread-codex' },
+      { type: 'token', content: 'Hello' },
+      { type: 'final', message: { role: 'assistant', content: 'Hello world' } },
+      { type: 'complete', threadId: 'thread-codex' },
+    ]),
+    makeStream([
+      { type: 'final', message: { role: 'assistant', content: 'Second turn' } },
+      { type: 'complete', threadId: 'thread-codex' },
+    ]),
+  ];
+
+  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
+    const href = typeof url === 'string' ? url : url.toString();
+    if (href.includes('/chat/providers')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: false,
+            },
+          ],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/models') && href.includes('provider=codex')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: false,
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+          ],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/models')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat')) {
+      if (opts?.body) {
+        try {
+          chatBodies.push(JSON.parse(opts.body as string));
+        } catch {
+          chatBodies.push({});
+        }
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        body: streams.shift() ?? makeStream([]),
+      }) as unknown as Response;
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }) as unknown as Response;
+  });
+}
+
 describe('Chat provider selection', () => {
   it('shows Codex as unavailable with guidance banner', async () => {
     mockChatApis();
@@ -114,7 +218,7 @@ describe('Chat provider selection', () => {
     expect(codexOption).toHaveAttribute('aria-disabled', 'true');
     await userEvent.keyboard('{Escape}');
 
-    const banner = await screen.findByText(/codex is currently disabled/i, {
+    const banner = await screen.findByText(/openai codex is unavailable/i, {
       exact: false,
     });
     expect(banner).toBeInTheDocument();
@@ -148,5 +252,61 @@ describe('Chat provider selection', () => {
     await waitFor(() => {
       expect(providerSelect).toHaveAttribute('aria-disabled', 'true');
     });
+  });
+
+  it('sends Codex chat and reuses threadId on subsequent turns', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockCodexAvailable(chatBodies);
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    const modelSelect = await screen.findByRole('combobox', {
+      name: /model/i,
+    });
+    await waitFor(() =>
+      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+    );
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = screen.getByTestId('chat-send');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Hello Codex');
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText(/Hello world/i)).toBeInTheDocument(),
+    );
+
+    await waitFor(() => {
+      expect(providerSelect).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    await userEvent.type(input, 'Second turn');
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+
+    const firstBody = chatBodies[0];
+    const secondBody = chatBodies[1];
+
+    expect(firstBody.provider).toBe('codex');
+    expect(firstBody.threadId).toBeUndefined();
+    expect(secondBody.provider).toBe('codex');
+    expect(secondBody.threadId).toBe('thread-codex');
   });
 });

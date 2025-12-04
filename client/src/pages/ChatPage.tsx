@@ -76,6 +76,7 @@ export default function ChatPage() {
     () => providers.find((p) => p.id === 'codex'),
     [providers],
   );
+  const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
   const activeToolsAvailable = toolsAvailable && provider === 'lmstudio';
   const controlsDisabled =
     isLoading || isError || isEmpty || !selected || !providerAvailable;
@@ -109,7 +110,7 @@ export default function ChatPage() {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || controlsDisabled || providerIsCodex) return;
+    if (!trimmed || controlsDisabled) return;
     lastSentRef.current = trimmed;
     void send(trimmed);
     setInput('');
@@ -496,9 +497,7 @@ export default function ChatPage() {
 
               <FormControl
                 sx={{ minWidth: 260, flex: 1 }}
-                disabled={
-                  controlsDisabled || providerIsCodex || !providerAvailable
-                }
+                disabled={isLoading || isError || isEmpty || !providerAvailable}
               >
                 <InputLabel id="chat-model-label">Model</InputLabel>
                 <Select
@@ -538,16 +537,20 @@ export default function ChatPage() {
               </Stack>
             </Stack>
 
-            {(providerIsCodex ||
-              (codexProvider && !codexProvider.available)) && (
-              <Alert severity={providerAvailable ? 'info' : 'warning'}>
-                OpenAI Codex is currently disabled in this UI. Install the CLI
-                (`npm install -g @openai/codex`), run `codex login`, and ensure
-                `./codex/config.toml` + `auth.json` exist. Select LM Studio to
-                chat until Codex tooling is enabled.
+            {(providerIsCodex && !providerAvailable) || codexUnavailable ? (
+              <Alert severity="warning">
+                OpenAI Codex is unavailable. Install the CLI (`npm install -g
+                @openai/codex`), run `codex login`, and ensure
+                `./codex/config.toml` + `auth.json` exist.
                 {providerIsCodex || codexProvider?.reason
                   ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
                   : ''}
+              </Alert>
+            ) : null}
+            {providerIsCodex && providerAvailable && (
+              <Alert severity="info">
+                Codex chats are enabled (tools not yet wired). Threads will be
+                resumed automatically when a thread ID is returned.
               </Alert>
             )}
 
@@ -565,11 +568,11 @@ export default function ChatPage() {
                 placeholder="Type your prompt"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                disabled={controlsDisabled || providerIsCodex}
+                disabled={controlsDisabled}
                 inputProps={{ 'data-testid': 'chat-input' }}
                 helperText={
-                  providerIsCodex
-                    ? 'Switch to LM Studio to chat while Codex is disabled.'
+                  providerIsCodex && !providerAvailable
+                    ? 'Codex is unavailable until the CLI is installed and logged in.'
                     : undefined
                 }
               />
@@ -578,12 +581,7 @@ export default function ChatPage() {
                   type="submit"
                   variant="contained"
                   data-testid="chat-send"
-                  disabled={
-                    controlsDisabled ||
-                    providerIsCodex ||
-                    isSending ||
-                    !input.trim()
-                  }
+                  disabled={controlsDisabled || isSending || !input.trim()}
                 >
                   Send
                 </Button>

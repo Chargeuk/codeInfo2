@@ -62,31 +62,30 @@ export function ensureCodexConfigSeeded(): string {
     }
   }
 
-  const configText = fs.readFileSync(target, 'utf8');
-  const hasMcpSection = /\[mcp_servers\]/.test(configText);
-  const hasHost = /codeinfo_host\s*=/.test(configText);
-  const hasDocker = /codeinfo_docker\s*=/.test(configText);
+  // const configText = fs.readFileSync(target, 'utf8');
+  // const hasMcpSection = /\[mcp_servers\]/.test(configText);
+  // const hasHost = /codeinfo_host\s*=/.test(configText);
+  // const hasDocker = /codeinfo_docker\s*=/.test(configText);
 
-  if (!hasHost || !hasDocker || !hasMcpSection) {
-    const mcpBlock = [
-      hasMcpSection ? '' : '[mcp_servers]',
-      hasHost ? '' : 'codeinfo_host = { url = "http://localhost:5010/mcp" }',
-      hasDocker ? '' : 'codeinfo_docker = { url = "http://server:5010/mcp" }',
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const updated = `${configText.trim()}\n\n${mcpBlock}\n`;
-    fs.writeFileSync(target, updated);
-  }
+  // if (!hasHost || !hasDocker || !hasMcpSection) {
+  //   const mcpBlock = [
+  //     hasMcpSection ? '' : '[mcp_servers]',
+  //     hasHost ? '' : 'codeinfo_host = { url = "http://localhost:5010/mcp" }',
+  //     hasDocker ? '' : 'codeinfo_docker = { url = "http://server:5010/mcp" }',
+  //   ]
+  //     .filter(Boolean)
+  //     .join('\n');
+  // }
 
   return target;
 }
 
-export function buildCodexOptions(): CodexOptions {
+export function buildCodexOptions(): CodexOptions | undefined {
   const home = getCodexHome();
   return {
     env: {
+      // ensure we give the full environment so MCP servers work
+      ...process.env,
       CODEX_HOME: home,
     },
   } satisfies CodexOptions;

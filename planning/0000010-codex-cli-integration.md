@@ -417,7 +417,7 @@ Update every mocked `/chat` Playwright spec to mirror the live ordering we valid
 
 ### 6. Expose existing tools via MCP server
 
-- Task Status: \***\*to_do\*\***
+- Task Status: \***\*in_progress\*\***
 - Git Commits: **to_do**
 
 #### Overview

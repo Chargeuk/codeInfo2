@@ -1,6 +1,11 @@
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
 import { Chat } from '@lmstudio/sdk';
 import { Codex } from '@openai/codex-sdk';
+import type {
+  ThreadEvent as CodexThreadEvent,
+  ThreadOptions as CodexThreadOptions,
+  TurnOptions as CodexTurnOptions,
+} from '@openai/codex-sdk';
 import { Router, json } from 'express';
 import {
   endStream,
@@ -21,13 +26,14 @@ type ToolFactory = typeof createLmStudioTools;
 type CodexThread = {
   id: string | null;
   runStreamed: (
-    ...args: unknown[]
-  ) => Promise<{ events: AsyncGenerator<unknown> }>;
+    input: string,
+    opts?: CodexTurnOptions,
+  ) => Promise<{ events: AsyncGenerator<CodexThreadEvent> }>;
 };
 
 type CodexFactory = () => {
-  startThread: (...args: unknown[]) => CodexThread;
-  resumeThread: (...args: unknown[]) => CodexThread;
+  startThread: (opts?: CodexThreadOptions) => CodexThread;
+  resumeThread: (id: string, opts?: CodexThreadOptions) => CodexThread;
 };
 
 type LMContentItem =
@@ -220,7 +226,7 @@ export function createChatRouter({
 
         const { events } = await thread.runStreamed(prompt, {
           signal: controller.signal,
-        });
+        } as CodexTurnOptions);
 
         const emitThreadId = (incoming?: string | null) => {
           if (!incoming || activeThreadId === incoming) return;

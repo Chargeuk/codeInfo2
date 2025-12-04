@@ -380,7 +380,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 ### 5. Align mocked e2e chat flows with real behaviour
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits: 193d83d, 963c9a5
 
 #### Overview
 
@@ -489,7 +489,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 ### 7. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
 - Task Status: __in_progress__
-- Git Commits: **to_do**
+- Git Commits: 193d83d, 963c9a5
 
 #### Overview
 
@@ -549,7 +549,7 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 ### 8. Codex guidance copy and disabled-state UX
 
 - Task Status: \***\*to_do\*\***
-- Git Commits: **to_do**
+- Git Commits: 193d83d, 963c9a5
 
 #### Overview
 
@@ -598,7 +598,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 ### 9. Final validation and release checklist
 
 - Task Status: \***\*to_do\*\***
-- Git Commits: **to_do**
+- Git Commits: 193d83d, 963c9a5
 
 #### Overview
 

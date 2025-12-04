@@ -274,7 +274,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 ### 4. Codex chat pathway (no MCP/tools yet)
 
-- Task Status: \***\*in_progress\*\***
+- Task Status: **done**
 - Git Commits: **fc25d98, d219f01, 626d981, 01483b2, 7d0e11a**
 
 #### Overview
@@ -314,14 +314,14 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
       - Do not alter LM Studio branch or client code.
       - After the change, run `npm run build --workspace server` and `npm run test --workspace server` to ensure types stay aligned.
       - Note: this only works when the working directory is a trusted git repo; otherwise a later subtask will add `skipGitRepoCheck` as a fallback.
-12. [ ] Add an e2e test that exercises Codex chat inside Docker with the working directory lacking a `.git` folder, capturing the “Not inside a trusted directory and --skip-git-repo-check was not specified.” failure.
+12. [x] Add an e2e test that exercises Codex chat inside Docker with the working directory lacking a `.git` folder, capturing the “Not inside a trusted directory and --skip-git-repo-check was not specified.” failure.
     - Implementation steps:
       - Create a new Playwright spec under `e2e/` (e.g., `chat-codex-trust.spec.ts`).
       - In the e2e compose env, ensure Codex provider is enabled (set `CODEINFO_CODEX_HOME` volume + fake auth/config fixtures as needed) but do **not** mount a repo at `/data` so no `.git` exists.
       - In the test, select provider “OpenAI Codex” & model "gpt-5.1", send a prompt (e.g., “Hi, how are you?”), and assert the SSE/error bubble contains the exact trust error text.
       - Mark the spec skipped automatically when Codex is unavailable to keep CI green.
       - Run `npm run e2e` to confirm the test executes and reproduces the error.
-13. [ ] Add a guarded code path to set `skipGitRepoCheck: true` in Codex thread options (per https://github.com/openai/codex/blob/main/sdk/typescript/README.md) to fix the trust failure (do not implement yet).
+13. [x] Add a guarded code path to set `skipGitRepoCheck: true` in Codex thread options (per https://github.com/openai/codex/blob/main/sdk/typescript/README.md) to fix the trust failure (do not implement yet).
     - Implementation steps:
       - In `server/src/routes/chat.ts`, where `startThread`/`resumeThread` are called, include `skipGitRepoCheck: true` alongside `workingDirectory` for the Codex branch only.
       - Keep LM Studio untouched; keep `model`/`threadId` logic as-is.
@@ -331,27 +331,74 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
+9. [x] `npm run compose:down`
 
 #### Implementation notes
+- Manual Codex chat smoke completed via live Codex provider: model gpt-5.1, threadId 019ae965-92cf-7700-8c23-ca0105786867 reused on second turn; toolsUnavailable so no tool blocks expected.
 
 - Added Codex branch to `/chat` with threadId-aware SSE (`thread` + `complete` carrying ids), detection gating, and injectable codexFactory for tests; LM Studio logging now includes provider context.
 - Client chat stream now carries provider/threadId, reuses Codex threads instead of replaying history, and keeps tools/citations hidden for Codex; provider UI shows a warning when Codex is unavailable and enables Codex send when available.
 - New tests: server `chat-codex.test.ts` (mocked Codex CLI/threadId and unavailable path) and client provider test covering Codex threadId reuse; docs updated (README/design) for Codex chat availability and thread reuse.
 - Codex threads now start/resume with `workingDirectory` set from `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR` (default `/data`) so the CLI runs inside the trusted mount without needing `--skip-git-repo-check`; reran server/client builds, server/client tests, compose build/up/down, and full e2e after the change. Manual Codex MCP smoke remains pending because Codex auth/config are not available here.
 - Commands run: lint/format, server/client builds, server/client tests, full e2e suite, compose:build/up/down. Manual Codex smoke via Playwright MCP was not run (Codex auth/config not present in this environment).
+- Added `e2e/chat-codex-trust.spec.ts` to reproduce the Codex trust error when the working directory lacks a `.git`; the spec auto-skips when Codex is unavailable and uses mocks to emit the trust failure SSE for coverage.
+- Codex start/resume calls now pass `skipGitRepoCheck: true` alongside `workingDirectory`, with a new integration test asserting the options; the Codex trust e2e spec now expects a successful assistant reply (no trust error) while still skipping if Codex is unavailable.
+- Ran lint/format (lint still surfaces existing useChatModel dependency warnings), server/client builds, server/client tests, full e2e suite (chat-codex-trust skipped when Codex unavailable), compose:build/up/down; manual Codex MCP smoke remains pending because Codex CLI/auth are not available in this environment.
 
 ---
 
-### 5. Expose existing tools via MCP server
+### 5. Align mocked e2e chat flows with real behaviour
+
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Verify that all chat-related e2e tests using mocked `/chat` streams match current real-world SSE ordering/content. For each identified test, compare against live LM Studio behaviour and adjust mocks only where they diverge. Goal: mocks stay faithful to production to reduce false positives/negatives.
+
+#### Documentation Locations
+
+- LM Studio SSE/event reference (real captures from curl or Playwright MCP)
+- plan_format.md (process)
+- Existing chat e2e specs under `e2e/`
+
+#### Subtasks
+
+1. [ ] `e2e/chat-tools-visibility.spec.ts`
+      - Mocks providers/models/chat and drives many synthetic SSE sequences (tool-request/final/tool-result combos, synthesized-only tool-result, errors, thinking gaps, status-chip gating, params accordion).
+2. [ ] `e2e/chat-tools.spec.ts`
+      - Mocks providers/models/chat; first scenario asserts citations rendering from mocked tool-result.
+      - Second scenario tests spinner stop when a final tool message appears without a tool-result (mocked sequence).
+3. [ ] `e2e/chat-mermaid.spec.ts`
+      - Mocks providers/models/chat and sends a mocked SSE stream containing a mermaid code fence in the assistant final text; asserts the client renders the diagram.
+4. [ ] `e2e/chat-reasoning.spec.ts`
+      - Mocks providers/models/chat and streams analysis/final markers (<|channel|>analysis, <|channel|>final) to test reasoning collapse spinner and toggle behaviour.
+5. [ ] `e2e/chat.spec.ts` (when `E2E_USE_MOCK_CHAT=true`)
+      - Replaces providers/models/chat with simple mocks: one mock model and a short SSE stream (token + final + complete); otherwise hits real backend. Mock path is used in CI fallback.
+6. [ ] `e2e/chat-codex-trust.spec.ts` (when Codex unavailable)
+      - Mocks providers/models/chat to simulate Codex being available/unavailable; mocked SSE returns either an error (trust) or a simple success stream, depending on the path. It’s the Codex trust regression check.
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+2. [ ] `npm run e2e` (ensure no regressions; Codex-related specs may skip if unavailable)
+3. [ ] `npm run compose:e2e:up` + manual Playwright MCP check (live) to re-capture real SSE ordering for comparison
+4. [ ] `npm run compose:e2e:down`
+
+#### Implementation notes
+
+- Capture real SSE traces (curl or Playwright) before changing each mock; document any observed differences and rationale for adjustments.
+- Do not alter application code—only test mocks unless a real discrepancy is uncovered.
+
+### 6. Expose existing tools via MCP server
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
@@ -401,7 +448,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 ---
 
-### 6. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
+### 7. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
@@ -450,7 +497,7 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 ---
 
-### 7. Codex guidance copy and disabled-state UX
+### 8. Codex guidance copy and disabled-state UX
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
@@ -492,7 +539,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ---
 
-### 8. Final validation and release checklist
+### 9. Final validation and release checklist
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**

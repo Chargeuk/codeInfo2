@@ -209,16 +209,16 @@ export function createChatRouter({
           process.env.CODEX_WORKDIR ??
           process.env.CODEINFO_CODEX_WORKDIR ??
           '/data';
+        const codexThreadOptions: CodexThreadOptions = {
+          model,
+          workingDirectory: codexWorkingDirectory,
+          skipGitRepoCheck: true,
+        };
+
         const thread =
           typeof threadId === 'string' && threadId.length > 0
-            ? codex.resumeThread(threadId, {
-                model,
-                workingDirectory: codexWorkingDirectory,
-              })
-            : codex.startThread({
-                model,
-                workingDirectory: codexWorkingDirectory,
-              });
+            ? codex.resumeThread(threadId, codexThreadOptions)
+            : codex.startThread(codexThreadOptions);
 
         let activeThreadId = thread.id ?? threadId ?? null;
         let finalText = '';

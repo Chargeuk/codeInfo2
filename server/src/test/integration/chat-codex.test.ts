@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
-import type { ThreadEvent } from '@openai/codex-sdk';
+import type {
+  ThreadEvent,
+  ThreadOptions as CodexThreadOptions,
+} from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
@@ -38,16 +41,20 @@ class MockThread {
 
 class MockCodex {
   id: string;
+  lastStartOptions?: CodexThreadOptions;
+  lastResumeOptions?: CodexThreadOptions;
 
   constructor(id = 'thread-mock') {
     this.id = id;
   }
 
-  startThread() {
+  startThread(opts?: CodexThreadOptions) {
+    this.lastStartOptions = opts;
     return new MockThread(this.id);
   }
 
-  resumeThread(threadId: string) {
+  resumeThread(threadId: string, opts?: CodexThreadOptions) {
+    this.lastResumeOptions = opts;
     return new MockThread(threadId);
   }
 }
@@ -124,6 +131,37 @@ test('codex chat streams token/final/complete with thread id', async () => {
   const completeFrame = frames.find((f) => f.type === 'complete');
   assert.ok(completeFrame);
   assert.equal(completeFrame?.threadId, 'thread-abc');
+});
+
+test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-opt');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Hi' }],
+    })
+    .expect(200);
+
+  assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
+  assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });
 
 test('codex chat rejects when detection is unavailable', async () => {

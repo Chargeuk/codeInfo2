@@ -16,6 +16,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./e2e/fixtures:/fixtures:ro
+      - ./e2e/fixtures/repo:/data:ro
     depends_on:
       chroma-e2e:
         condition: service_started

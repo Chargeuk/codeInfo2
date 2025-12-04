@@ -616,10 +616,9 @@ test.describe('Chat tool visibility details', () => {
       },
       {
         type: 'final',
-        message: { role: 'assistant', content: 'Working on it' },
+        message: { role: 'assistant', content: 'Thinking about languages...' },
         roundIndex: 0,
       },
-      { type: 'complete' },
       {
         type: 'tool-result',
         callId: 'gated-1',
@@ -637,6 +636,20 @@ test.describe('Chat tool visibility details', () => {
           results: [],
         },
       },
+      {
+        type: 'final',
+        message: { role: 'tool', content: '' },
+        roundIndex: 1,
+      },
+      {
+        type: 'final',
+        message: {
+          role: 'assistant',
+          content: 'The repo uses Python and TypeScript.',
+        },
+        roundIndex: 2,
+      },
+      { type: 'complete' },
     ]);
 
     await page.goto(`${baseUrl}/chat`);

@@ -1,3 +1,4 @@
+import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
 import { Chat } from '@lmstudio/sdk';
 import { Codex } from '@openai/codex-sdk';
@@ -222,17 +223,24 @@ export function createChatRouter({
 
         let activeThreadId = thread.id ?? threadId ?? null;
         let finalText = '';
-        const prompt = messages
-          .map((msg: { role?: unknown; content?: unknown }, idx: number) => {
-            const role =
-              typeof msg?.role === 'string' ? msg.role : `message_${idx}`;
-            const content =
-              typeof msg?.content === 'string'
-                ? msg.content
-                : JSON.stringify(msg?.content ?? '');
-            return `${role}: ${content}`;
-          })
+
+        const systemContext = SYSTEM_CONTEXT.trim();
+        const userText = messages
+          .filter(
+            (msg: { role?: unknown }) =>
+              msg?.role === 'user' || msg?.role === undefined,
+          )
+          .map((msg: { content?: unknown }) =>
+            typeof msg?.content === 'string'
+              ? msg.content
+              : JSON.stringify(msg?.content ?? ''),
+          )
           .join('\n\n');
+
+        const prompt =
+          !threadId && systemContext
+            ? `Context:\n${systemContext}\n\nUser:\n${userText}`
+            : userText;
 
         const { events } = await thread.runStreamed(prompt, {
           signal: controller.signal,
@@ -246,6 +254,132 @@ export function createChatRouter({
 
         emitThreadId(activeThreadId);
 
+        type CodexToolCallItem = {
+          type?: string;
+          id?: string;
+          name?: string;
+          arguments?: unknown;
+          status?: string;
+          result?: { content?: unknown; error?: unknown };
+        };
+
+        const codexToolCtx = new Map<
+          string,
+          { name?: string; parameters?: unknown }
+        >();
+
+        const parseCodexToolParameters = (item: CodexToolCallItem): unknown => {
+          const raw =
+            (item as { arguments?: unknown; args?: unknown }).arguments ??
+            (item as { args?: unknown }).args;
+          if (raw === undefined) return undefined;
+          if (typeof raw === 'string') {
+            try {
+              return JSON.parse(raw);
+            } catch {
+              return raw;
+            }
+          }
+          return raw;
+        };
+
+        const pickContent = (content?: unknown): unknown | null => {
+          if (!Array.isArray(content)) return null;
+          const jsonEntry = content.find(
+            (entry) =>
+              entry &&
+              typeof entry === 'object' &&
+              (entry as { type?: string }).type === 'application/json' &&
+              'json' in (entry as Record<string, unknown>),
+          ) as { json?: unknown } | undefined;
+          if (jsonEntry && 'json' in jsonEntry) {
+            return jsonEntry.json as unknown;
+          }
+
+          const textEntry = content.find(
+            (entry) =>
+              entry &&
+              typeof entry === 'object' &&
+              (entry as { type?: string }).type === 'text' &&
+              typeof (entry as { text?: unknown }).text === 'string',
+          ) as { text?: string } | undefined;
+
+          if (textEntry?.text) {
+            try {
+              return JSON.parse(textEntry.text);
+            } catch {
+              return textEntry.text;
+            }
+          }
+
+          return null;
+        };
+
+        const parseCodexToolResult = (item: CodexToolCallItem): unknown => {
+          const content = (item.result as { content?: unknown } | undefined)
+            ?.content;
+          const picked = pickContent(content);
+          if (picked !== null) return picked;
+          if ((item.result as { error?: unknown } | undefined)?.error) {
+            return { error: (item.result as { error?: unknown }).error };
+          }
+          return item.result ?? null;
+        };
+
+        const trimCodexError = (
+          err: unknown,
+        ): { code?: string; message: string } | null => {
+          if (!err) return null;
+          if (typeof err === 'object') {
+            const obj = err as Record<string, unknown>;
+            const message =
+              typeof obj.message === 'string' ? obj.message : String(err);
+            const code = typeof obj.code === 'string' ? obj.code : undefined;
+            return { code, message };
+          }
+          return { message: String(err) };
+        };
+
+        const emitCodexToolRequest = (item: CodexToolCallItem) => {
+          if (item.type !== 'mcp_tool_call') return;
+          const callId = item.id ?? `codex-tool-${Date.now()}`;
+          const parameters = parseCodexToolParameters(item);
+          codexToolCtx.set(String(callId), {
+            name: item.name,
+            parameters,
+          });
+          writeEvent(res, {
+            type: 'tool-request',
+            callId,
+            name: item.name,
+            stage: 'started',
+            parameters,
+          });
+        };
+
+        const emitCodexToolResult = (item: CodexToolCallItem) => {
+          if (item.type !== 'mcp_tool_call') return;
+          const callId = item.id ?? 'codex-tool';
+          const stored = codexToolCtx.get(String(callId));
+          const parameters =
+            stored?.parameters ?? parseCodexToolParameters(item);
+          const name = item.name ?? stored?.name;
+          const payload = parseCodexToolResult(item);
+          const error = (item.result as { error?: unknown } | undefined)?.error;
+          const errorTrimmed = trimCodexError(error);
+
+          writeEvent(res, {
+            type: 'tool-result',
+            callId,
+            name,
+            stage: error ? 'error' : 'success',
+            parameters,
+            result: payload,
+            errorTrimmed: errorTrimmed ?? undefined,
+            errorFull: error ?? undefined,
+          });
+        };
+
         for await (const event of events) {
           if (cancelled || isStreamClosed(res)) break;
           switch (event.type) {
@@ -253,13 +387,31 @@ export function createChatRouter({
               emitThreadId(event.thread_id);
               break;
             }
+            case 'item.started': {
+              const item = (event as { item?: unknown })?.item as
+                | CodexToolCallItem
+                | undefined;
+              if (item?.type === 'mcp_tool_call') {
+                emitCodexToolRequest(item);
+              }
+              break;
+            }
             case 'item.updated':
             case 'item.completed': {
               const item = (event as { item?: unknown })?.item as
+                | CodexToolCallItem
                 | { type?: string; text?: string }
                 | undefined;
+
+              if (item?.type === 'mcp_tool_call') {
+                if (event.type === 'item.completed') {
+                  emitCodexToolResult(item);
+                }
+                break;
+              }
+
               if (!item || item.type !== 'agent_message') break;
-              const text = item.text ?? '';
+              const text = (item as { text?: string }).text ?? '';
               const delta = text.slice(finalText.length);
               if (delta) {
                 writeEvent(res, { type: 'token', content: delta });

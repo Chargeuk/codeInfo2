@@ -16,9 +16,12 @@ export function useChatModel() {
   const providerControllerRef = useRef<AbortController | null>(null);
   const modelsControllerRef = useRef<AbortController | null>(null);
   const legacyBootstrapRef = useRef(false);
-  const fallbackModels: ChatModelInfo[] = [
-    { key: 'fallback-model', displayName: 'Mock Chat Model', type: 'gguf' },
-  ];
+  const fallbackModels: ChatModelInfo[] = useMemo(
+    () => [
+      { key: 'fallback-model', displayName: 'Mock Chat Model', type: 'gguf' },
+    ],
+    [],
+  );
 
   const [providers, setProviders] = useState<ChatProviderInfo[]>([]);
   const [provider, setProvider] = useState<string | undefined>();
@@ -135,7 +138,7 @@ export function useChatModel() {
         providerControllerRef.current = null;
       }
     }
-  }, [pickProvider]);
+  }, [pickProvider, fallbackModels]);
 
   const refreshModels = useCallback(
     async (targetProvider?: string) => {
@@ -188,7 +191,7 @@ export function useChatModel() {
         }
       }
     },
-    [provider],
+    [provider, fallbackModels],
   );
 
   useEffect(() => {

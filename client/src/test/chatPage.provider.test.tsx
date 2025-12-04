@@ -141,7 +141,7 @@ function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
               id: 'codex',
               label: 'OpenAI Codex',
               available: true,
-              toolsAvailable: false,
+              toolsAvailable: true,
             },
           ],
         }),
@@ -154,7 +154,7 @@ function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
         json: async () => ({
           provider: 'codex',
           available: true,
-          toolsAvailable: false,
+          toolsAvailable: true,
           models: [
             {
               key: 'gpt-5.1-codex-max',

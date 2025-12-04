@@ -69,6 +69,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
 - Tool-result delivery: if LM Studio omits `onToolCallResult`/`role:"tool"`, the server now synthesizes `tool-result` events from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
+### Codex MCP flow
+
+- On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
+- Codex `mcp_tool_call` events are translated into SSE `tool-request`/`tool-result` frames carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

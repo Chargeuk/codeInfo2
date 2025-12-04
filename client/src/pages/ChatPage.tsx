@@ -77,9 +77,14 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
-  const activeToolsAvailable = toolsAvailable && provider === 'lmstudio';
+  const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
   const controlsDisabled =
-    isLoading || isError || isEmpty || !selected || !providerAvailable;
+    isLoading ||
+    isError ||
+    isEmpty ||
+    !selected ||
+    !providerAvailable ||
+    (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
   const showStop = isSending;
   const combinedError =
@@ -547,10 +552,16 @@ export default function ChatPage() {
                   : ''}
               </Alert>
             ) : null}
-            {providerIsCodex && providerAvailable && (
+            {providerIsCodex && providerAvailable && !toolsAvailable && (
+              <Alert severity="warning">
+                Codex requires MCP tools to run. Ensure config.toml lists the
+                /mcp endpoint and that tools are enabled, then retry.
+              </Alert>
+            )}
+            {providerIsCodex && providerAvailable && toolsAvailable && (
               <Alert severity="info">
-                Codex chats are enabled (tools not yet wired). Threads will be
-                resumed automatically when a thread ID is returned.
+                Codex chats are enabled with MCP tools. Threads reuse returned
+                thread IDs so conversations can continue across turns.
               </Alert>
             )}
 
@@ -571,8 +582,8 @@ export default function ChatPage() {
                 disabled={controlsDisabled}
                 inputProps={{ 'data-testid': 'chat-input' }}
                 helperText={
-                  providerIsCodex && !providerAvailable
-                    ? 'Codex is unavailable until the CLI is installed and logged in.'
+                  providerIsCodex && (!providerAvailable || !toolsAvailable)
+                    ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
                     : undefined
                 }
               />

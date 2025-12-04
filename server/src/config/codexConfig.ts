@@ -62,6 +62,24 @@ export function ensureCodexConfigSeeded(): string {
     }
   }
 
+  const configText = fs.readFileSync(target, 'utf8');
+  const hasMcpSection = /\[mcp_servers\]/.test(configText);
+  const hasHost = /codeinfo_host\s*=/.test(configText);
+  const hasDocker = /codeinfo_docker\s*=/.test(configText);
+
+  if (!hasHost || !hasDocker || !hasMcpSection) {
+    const mcpBlock = [
+      hasMcpSection ? '' : '[mcp_servers]',
+      hasHost ? '' : 'codeinfo_host = { url = "http://localhost:5010/mcp" }',
+      hasDocker ? '' : 'codeinfo_docker = { url = "http://server:5010/mcp" }',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const updated = `${configText.trim()}\n\n${mcpBlock}\n`;
+    fs.writeFileSync(target, updated);
+  }
+
   return target;
 }
 

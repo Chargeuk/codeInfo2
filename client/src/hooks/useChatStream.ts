@@ -419,7 +419,7 @@ export function useChatStream(model?: string, provider?: string) {
 
       // TODO: replace placeholder SYSTEM_CONTEXT when system prompt text is supplied.
       const systemContext = SYSTEM_CONTEXT.trim();
-      const shouldIncludeHistory = provider !== 'codex' || !threadIdRef.current;
+      const shouldIncludeHistory = provider !== 'codex';
 
       const systemMessages =
         systemContext && shouldIncludeHistory

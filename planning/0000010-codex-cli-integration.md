@@ -88,7 +88,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Codex config template and bootstrap copy
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **5c049e0**
 
 #### Overview
@@ -140,7 +140,7 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **059752d, 78ddd17, c466fe2**
 
 #### Overview
@@ -204,7 +204,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 ### 3. Provider/model surfacing & UI layout changes
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **599f2bf**
 
 #### Overview
@@ -275,7 +275,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 ### 4. Codex chat pathway (no MCP/tools yet)
 
 - Task Status: ****in_progress****
-- Git Commits: **fc25d98, d219f01**
+- Git Commits: **fc25d98, d219f01, 626d981, 01483b2, 7d0e11a**
 
 #### Overview
 
@@ -332,7 +332,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 
 ### 5. Expose existing tools via MCP server
 
-- Task Status: ****to_do****
+- Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
 
 #### Overview
@@ -382,7 +382,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 ### 6. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
-- Task Status: ****to_do****
+- Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
 
 #### Overview
@@ -431,7 +431,7 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 ### 7. Codex guidance copy and disabled-state UX
 
-- Task Status: ****to_do****
+- Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
 
 #### Overview
@@ -473,7 +473,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 8. Final validation and release checklist
 
-- Task Status: ****to_do****
+- Task Status: \***\*to_do\*\***
 - Git Commits: **to_do**
 
 #### Overview

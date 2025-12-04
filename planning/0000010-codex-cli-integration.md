@@ -103,20 +103,35 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 #### Subtasks
 
-1. [x] Add `config.toml.example` at repo root with:
-   - `model = "gpt-5.1-codex-max"`
-   - `model_reasoning_effort = "high"`
-   - `[features]` `web_search_request = true` `view_image_tool = true`
-   - `[mcp_servers]` entry for MCP: host `http://localhost:5010/mcp`, docker `http://server:5010/mcp` (comment both)
-2. [x] Add bootstrap copy in `server/src/config/codexConfig.ts` (or a small `scripts/seed-codex-config.ts`): on startup, if `${CODEINFO_CODEX_HOME}/config.toml` missing, copy the example without overwriting.
-   - Minimal copy snippet:
-   ```ts
-   if (!fs.existsSync(target)) {
-     fs.copyFileSync(path.resolve('config.toml.example'), target);
-   }
-   ```
-3. [x] Document in README: location of the example, how it seeds `./codex/config.toml`, how to edit, and reminder that `codex/` is git-ignored.
-4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; shellcheck any script if added.
+1. [ ] Server (`server/src/routes/chat.ts`, Codex branch):
+   - On the first Codex turn, prefix the prompt string with `SYSTEM_CONTEXT` plus a short marker (e.g., `Context:
+...
+
+User:
+<user text>`). Do not send role-based messages; Codex expects a single prompt string.
+   - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4) and `skipGitRepoCheck:true` (trust fix). MCP discovery stays in `config.toml`; no per-request `mcpServerUrl` hook.
+2. [ ] Config TOML (template): ensure `config.toml.example` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:
+   - `[mcp_servers.codeinfo_host]` `url = "http://localhost:5010/mcp"`
+   - `[mcp_servers.codeinfo_docker]` `url = "http://server:5010/mcp"`
+   Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
+3. [ ] Config TOML (seeded copy): update the repo-local `codex/config.toml` that gets created from the example to include the same MCP server entries so local runs pick them up without manual edits.
+4. [ ] MCP tool wiring: handle Codex `mcp_tool_call` items from `runStreamed` and emit SSE:
+   - Emit `tool-request` when a `mcp_tool_call` item starts; emit `tool-result` on completion (or an error payload) mapped to our LM Studio tool shape (repo, relPath, hostPath, containerPath, chunk, score, modelId) with provider `codex`.
+   - Preserve `threadId` emission on `thread`/`complete` frames as already done in Task 4.
+5. [ ] Client (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, tool/citation components):
+   - Re-enable send/input for provider=Codex when `toolsAvailable=true`; keep disabled when unavailable.
+   - Allow tool blocks/citations to render for Codex; hide only when `toolsAvailable=false`.
+   - Ensure payload still includes `provider`, `model`, `threadId`; continue to reuse Codex threadId per conversation.
+6. [ ] Tests:
+   - Server integration: add `server/src/test/integration/chat-codex-mcp.test.ts` mocking Codex SDK to emit `mcp_tool_call` events; assert prompt prefixing with SYSTEM_CONTEXT, workingDirectory/skipGitRepoCheck options, and SSE tool-request/result mapping.
+   - Client RTL: extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex shows tool blocks/citations when tools are available and hides when not; also assert send is enabled for Codex once `toolsAvailable` is true.
+   - Commands: `npm run test --workspace server -- chat-codex-mcp.test.ts`; `npm run test --workspace client -- chatPage.toolDetails.test.tsx`.
+7. [ ] Documentation:
+   - README: document that Codex chats now require MCP, note prompt prefix with SYSTEM_CONTEXT, workingDirectory `/data`, and `skipGitRepoCheck:true`.
+   - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
+8. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+
 
 #### Testing
 

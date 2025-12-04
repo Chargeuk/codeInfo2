@@ -260,7 +260,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 ### 4. Codex chat pathway (no MCP/tools yet)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

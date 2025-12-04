@@ -105,15 +105,17 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 1. [x] Server (`server/src/routes/chat.ts`, Codex branch):
    - On the first Codex turn, prefix the prompt string with `SYSTEM_CONTEXT` plus a short marker (e.g., `Context:
-...
+     ...
 
 User:
 <user text>`). Do not send role-based messages; Codex expects a single prompt string.
-   - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4) and `skipGitRepoCheck:true` (trust fix). MCP discovery stays in `config.toml`; no per-request `mcpServerUrl` hook.
+
+- Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4) and `skipGitRepoCheck:true` (trust fix). MCP discovery stays in `config.toml`; no per-request `mcpServerUrl` hook.
+
 2. [x] Config TOML (template): ensure `config.toml.example` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:
    - `[mcp_servers.codeinfo_host]` `url = "http://localhost:5010/mcp"`
    - `[mcp_servers.codeinfo_docker]` `url = "http://server:5010/mcp"`
-   Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
+     Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
 3. [x] Config TOML (seeded copy): extend the seeding helper to inject the `[mcp_servers.*]` entries into `codex/config.toml` when they are missing, without overwriting user edits (merge-add; preserve existing values). Use the same host/docker URLs as the template.
 4. [x] MCP tool wiring: in the Codex `runStreamed` loop, handle `item.started|item.updated|item.completed` where `item.type === "mcp_tool_call"` and emit SSE:
    - Emit `tool-request` on the first `item.started` for that callId; keep `callId = item.id`.
@@ -128,17 +130,14 @@ User:
    - Server integration: add `server/src/test/integration/chat-codex-mcp.test.ts` mocking Codex SDK to emit `mcp_tool_call` events; assert prompt prefixing with SYSTEM_CONTEXT, workingDirectory/skipGitRepoCheck options, and SSE tool-request/result mapping.
    - Client RTL: extend `client/src/test/chatPage.toolDetails.test.tsx` (or new) to confirm Codex shows tool blocks/citations when tools are available and hides when not; also assert send is enabled for Codex once `toolsAvailable` is true.
    - Commands: `npm run test --workspace server -- chat-codex-mcp.test.ts`; `npm run test --workspace client -- chatPage.toolDetails.test.tsx`.
-7. [x] Documentation:
+7. [x] Tools availability gating: replace Codex `toolsAvailable=false` hardcoding in `/chat/providers` and `/chat/models` with an MCP availability check (e.g., POST /mcp initialize with timeout) and log availability status.
+8. [x] Documentation:
    - README: document that Codex chats now require MCP, note prompt prefix with SYSTEM_CONTEXT, workingDirectory `/data`, and `skipGitRepoCheck:true`.
    - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
-8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
-9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+9. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+10. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
-
-P flow note/diagram near the chat tooling section.
-8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
-9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
-
+P flow note/diagram near the chat tooling section. 8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`. 9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -364,6 +363,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Manual Codex chat smoke completed via live Codex provider: model gpt-5.1, threadId 019ae965-92cf-7700-8c23-ca0105786867 reused on second turn; toolsUnavailable so no tool blocks expected.
 
 - Added Codex branch to `/chat` with threadId-aware SSE (`thread` + `complete` carrying ids), detection gating, and injectable codexFactory for tests; LM Studio logging now includes provider context.
@@ -488,7 +488,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 ### 7. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
-- Task Status: __in_progress__
+- Task Status: **in_progress**
 - Git Commits: 193d83d, 963c9a5
 
 #### Overview
@@ -506,8 +506,8 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 1. [x] Server (`server/src/routes/chat.ts`, Codex branch):
    - On the first Codex turn, prefix the prompt string with `SYSTEM_CONTEXT` plus a short marker (e.g., `Context:\n…\n\nUser:\n<user text>`). Do not send role-based messages; Codex expects a single prompt string.
    - Thread options must include: `workingDirectory` (default `/data` via `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`, as in Task 4) and `skipGitRepoCheck:true` (trust fix). MCP discovery stays in `config.toml`; no per-request `mcpServerUrl` hook.
-2. [x] Config TOML: ensure `config.toml.example` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:\n   - `[mcp_servers.codeinfo_host]` `url = \"http://localhost:5010/mcp\"`\n   - `[mcp_servers.codeinfo_docker]` `url = \"http://server:5010/mcp\"`\n   Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
-3. [x] Config TOML: ensure `codex/config.toml` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:\n   - `[mcp_servers.codeinfo_host]` `url = \"http://localhost:5010/mcp\"`\n   - `[mcp_servers.codeinfo_docker]` `url = \"http://server:5010/mcp\"`\n   Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
+2. [x] Config TOML: ensure `config.toml.example` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:\n - `[mcp_servers.codeinfo_host]` `url = \"http://localhost:5010/mcp\"`\n - `[mcp_servers.codeinfo_docker]` `url = \"http://server:5010/mcp\"`\n Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
+3. [x] Config TOML: ensure `codex/config.toml` declares the MCP server with correct TOML syntax—top-level table `mcp_servers` (snake_case), HTTP transport uses `url` only (no `command`/`args`). Add entries like:\n - `[mcp_servers.codeinfo_host]` `url = \"http://localhost:5010/mcp\"`\n - `[mcp_servers.codeinfo_docker]` `url = \"http://server:5010/mcp\"`\n Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
 4. [x] MCP tool wiring: handle Codex `mcp_tool_call` items from `runStreamed` and emit SSE:
    - Emit `tool-request` when a `mcp_tool_call` item starts; emit `tool-result` on completion (or an error payload) mapped to our LM Studio tool shape (repo, relPath, hostPath, containerPath, chunk, score, modelId) with provider `codex`.
    - Preserve `threadId` emission on `thread`/`complete` frames as already done in Task 4.

@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import { getMcpStatus } from '../providers/mcpStatus.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
@@ -39,6 +40,7 @@ export function createChatModelsRouter({
 
     if (provider === 'codex') {
       const detection = getCodexDetection();
+      const mcp = await getMcpStatus();
       const codexModels: ChatModelInfo[] = [
         {
           key: 'gpt-5.1-codex-max',
@@ -60,8 +62,8 @@ export function createChatModelsRouter({
       const response: ChatModelsResponse = {
         provider: 'codex',
         available: detection.available,
-        toolsAvailable: false,
-        reason: detection.reason,
+        toolsAvailable: detection.available && mcp.available,
+        reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
       };
 

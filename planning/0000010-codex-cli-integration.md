@@ -114,9 +114,11 @@ User:
    - `[mcp_servers.codeinfo_host]` `url = "http://localhost:5010/mcp"`
    - `[mcp_servers.codeinfo_docker]` `url = "http://server:5010/mcp"`
    Reference Codex docs (HTTP/streamable MCP) for allowed keys and mutual exclusion rules.
-3. [ ] Config TOML (seeded copy): update the repo-local `codex/config.toml` that gets created from the example to include the same MCP server entries so local runs pick them up without manual edits.
-4. [ ] MCP tool wiring: handle Codex `mcp_tool_call` items from `runStreamed` and emit SSE:
-   - Emit `tool-request` when a `mcp_tool_call` item starts; emit `tool-result` on completion (or an error payload) mapped to our LM Studio tool shape (repo, relPath, hostPath, containerPath, chunk, score, modelId) with provider `codex`.
+3. [ ] Config TOML (seeded copy): extend the seeding helper to inject the `[mcp_servers.*]` entries into `codex/config.toml` when they are missing, without overwriting user edits (merge-add; preserve existing values). Use the same host/docker URLs as the template.
+4. [ ] MCP tool wiring: in the Codex `runStreamed` loop, handle `item.started|item.updated|item.completed` where `item.type === "mcp_tool_call"` and emit SSE:
+   - Emit `tool-request` on the first `item.started` for that callId; keep `callId = item.id`.
+   - Optional: update status on `item.updated` (no SSE needed unless we want in-progress).
+   - Emit `tool-result` on `item.completed`, mapping `item.result?.content` (or `item.error`) into our LM Studio tool shape (repo, relPath, hostPath, containerPath, chunk, score, modelId) with provider `codex`.
    - Preserve `threadId` emission on `thread`/`complete` frames as already done in Task 4.
 5. [ ] Client (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, tool/citation components):
    - Re-enable send/input for provider=Codex when `toolsAvailable=true`; keep disabled when unavailable.
@@ -129,6 +131,11 @@ User:
 7. [ ] Documentation:
    - README: document that Codex chats now require MCP, note prompt prefix with SYSTEM_CONTEXT, workingDirectory `/data`, and `skipGitRepoCheck:true`.
    - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
+8. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+
+
+P flow note/diagram near the chat tooling section.
 8. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
 9. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 

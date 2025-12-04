@@ -5,32 +5,33 @@
 Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, which shells out to the locally installed Codex CLI with cached auth. The server should detect Codex availability, route chat requests through the SDK, and (when possible) expose our existing tools via an MCP server by steering Codex to a repo-local `CODEX_HOME`/`config.toml`. Client users can pick Codex alongside LM Studio; Codex stays hidden in environments without the CLI/auth. This draft captures intent and open questions before tasks and acceptance are finalized.
 
 ### Rough Plan
-  - Codex home/config
-      - Use a repo-local git-ignored `./codex/` as the Codex home directory, but do not set global CODEX_HOME; instead, expose `CODEINFO_CODEX_HOME` env and pass it as `CODEX_HOME` inside CodexOptions when instantiating the SDK. This avoids interfering with users’ personal Codex config.
-      - Construct the Codex client with CodexOptions env: { CODEX_HOME: <abs path from CODEINFO_CODEX_HOME> } so the CLI bridge reads our config (including MCP servers) instead of ~/.codex.
-      - Users must manually log in the Codex CLI against this repo-specific home; no auto-copy of ~/.codex/auth.json.
-  - MCP wiring
-      - Run a lightweight MCP server inside our Node process that exposes our existing tools (ListIngestedRepositories, VectorSearch). Bind it to 127.0.0.1:<port>.
-      - In codex_home/config.toml, register that MCP server under [mcp] so Codex sees it without API keys.
-      - On startup, generate/update codex_home/config.toml from a template with the chosen port and feature flags; keep it gitignored but document the template path.
-  - Provider adapter
-      - Add a “codex” provider in the server chat router that:
-          - Checks which codex and ~/.codex/auth.json (or copied auth) on boot; only enables if present.
-          - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: selected Codex model, threadOptions as needed }.
-          - Streams deltas → our SSE frames (token/final/complete/error) with provider: 'codex'.
-          - If MCP startup or handshake fails, block Codex sends and surface an error popup; tools are required (no chat-only fallback). Mark toolsAvailable: false so the UI disables Codex.
-          - Return and accept a Codex threadId so conversations can resume without replaying prior messages from the client; client must send threadId on subsequent Codex turns.
-  - Client changes
-      - /chat/models returns provider-grouped entries with a toolsAvailable flag; Codex entries disabled with guidance when CLI/auth/MCP is unavailable.
-      - Add a Provider dropdown left of Model with options LMStudio and OpenAI Codex; models list filters per provider. Provider is locked for the current conversation; models can change. New conversation keeps the provider.
-      - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
-      - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
-      - Codex model list is fixed to `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, and `gpt-5.1` when the provider is OpenAI Codex.
-      - When provider is Codex, store the returned threadId in chat state (and persist per conversation) and include it on subsequent sends; do not rely on replaying the full message history for Codex.
-  - Config/flags to bake in
-      - Auto-detect Codex: if the CLI is not found or auth/config is missing, log a startup warning and expose Codex as disabled with guidance (no CODEX_ENABLED switch).
-      - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_TOOL_TIMEOUT_MS, CODEX_MCP_PORT. Tool availability is governed by config.toml; no separate toggle.
-      - Docker enablement (opt-in): install the Codex CLI in images (`npm install -g @openai/codex`), mount CODEINFO_CODEX_HOME (e.g., ./codex:/app/codex), set CODEINFO_CODEX_HOME=/app/codex in the container env, and ensure users log in inside the container or provide a trusted auth.json in the mounted volume. Without these, Codex remains disabled with guidance in Docker/e2e.
+
+- Codex home/config
+  - Use a repo-local git-ignored `./codex/` as the Codex home directory, but do not set global CODEX_HOME; instead, expose `CODEINFO_CODEX_HOME` env and pass it as `CODEX_HOME` inside CodexOptions when instantiating the SDK. This avoids interfering with users’ personal Codex config.
+  - Construct the Codex client with CodexOptions env: { CODEX_HOME: <abs path from CODEINFO_CODEX_HOME> } so the CLI bridge reads our config (including MCP servers) instead of ~/.codex.
+  - Users must manually log in the Codex CLI against this repo-specific home; no auto-copy of ~/.codex/auth.json.
+- MCP wiring
+  - Run a lightweight MCP server inside our Node process that exposes our existing tools (ListIngestedRepositories, VectorSearch). Bind it to 127.0.0.1:<port>.
+  - In codex_home/config.toml, register that MCP server under [mcp] so Codex sees it without API keys.
+  - On startup, generate/update codex_home/config.toml from a template with the chosen port and feature flags; keep it gitignored but document the template path.
+- Provider adapter
+  - Add a “codex” provider in the server chat router that:
+    - Checks which codex and ~/.codex/auth.json (or copied auth) on boot; only enables if present.
+    - Creates a Codex client with CodexOptions { env: { CODEX_HOME }, model: selected Codex model, threadOptions as needed }.
+    - Streams deltas → our SSE frames (token/final/complete/error) with provider: 'codex'.
+    - If MCP startup or handshake fails, block Codex sends and surface an error popup; tools are required (no chat-only fallback). Mark toolsAvailable: false so the UI disables Codex.
+    - Return and accept a Codex threadId so conversations can resume without replaying prior messages from the client; client must send threadId on subsequent Codex turns.
+- Client changes
+  - /chat/models returns provider-grouped entries with a toolsAvailable flag; Codex entries disabled with guidance when CLI/auth/MCP is unavailable.
+  - Add a Provider dropdown left of Model with options LMStudio and OpenAI Codex; models list filters per provider. Provider is locked for the current conversation; models can change. New conversation keeps the provider.
+  - Move the message input to a multiline field beneath the Provider/Model row alongside Send; keep New conversation on the top row.
+  - Hide citations/tool blocks when toolsAvailable is false; show inline guidance about Codex requiring local CLI login and MCP.
+  - Codex model list is fixed to `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, and `gpt-5.1` when the provider is OpenAI Codex.
+  - When provider is Codex, store the returned threadId in chat state (and persist per conversation) and include it on subsequent sends; do not rely on replaying the full message history for Codex.
+- Config/flags to bake in
+  - Auto-detect Codex: if the CLI is not found or auth/config is missing, log a startup warning and expose Codex as disabled with guidance (no CODEX_ENABLED switch).
+  - CODEINFO_CODEX_HOME (path, default ./codex), CODEX_TOOL_TIMEOUT_MS, CODEX_MCP_PORT. Tool availability is governed by config.toml; no separate toggle.
+  - Docker enablement (opt-in): install the Codex CLI in images (`npm install -g @openai/codex`), mount CODEINFO_CODEX_HOME (e.g., ./codex:/app/codex), set CODEINFO_CODEX_HOME=/app/codex in the container env, and ensure users log in inside the container or provide a trusted auth.json in the mounted volume. Without these, Codex remains disabled with guidance in Docker/e2e.
 
 ## Acceptance Criteria (draft, now parameterised)
 
@@ -50,6 +51,7 @@ Introduce Codex as an optional chat provider using the `@openai/codex-sdk`, whic
 ## Questions
 
 Resolved:
+
 - Default model: use `gpt-5.1-codex-max`.
 - MCP failure: block Codex sends and show an error popup (no chat-only fallback).
 - Auth: user must manually log in under the configured `CODEX_HOME`; document in README; no auto-copy of `~/.codex/auth.json`.
@@ -57,6 +59,7 @@ Resolved:
 - Front-end rate/timeouts: none enforced in UI.
 
 Open items (to confirm before tasking):
+
 - Exact wording/location of the Codex login instructions in README and any warning banner in the chat page.
 - Whether to hide Codex entirely when CLI/auth is missing, or show disabled with guidance. **Decision:** show disabled with guidance.
 
@@ -85,7 +88,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Codex config template and bootstrap copy
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **5c049e0**
 
 #### Overview
@@ -137,7 +140,7 @@ Provide a checked-in `config.toml.example` for Codex with our defaults, and seed
 
 ### 2. Codex SDK + CLI bootstrap
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **059752d, 78ddd17, c466fe2**
 
 #### Overview
@@ -164,7 +167,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 3. [x] In `server/src/index.ts` (startup) or `server/src/providers/codexDetection.ts`, detect Codex: run `which codex` (or `codex --version`); check `${CODEINFO_CODEX_HOME}/auth.json` **and** `${CODEINFO_CODEX_HOME}/config.toml`; log success/warning; store detection in `server/src/providers/registry.ts` (boolean + reason). Example command for detection shell call: `command -v codex`.
 4. [x] Update `server/Dockerfile`: add `RUN npm install -g @openai/codex`; set `ENV CODEINFO_CODEX_HOME=/app/codex`; ensure docker-compose example shows volume `./codex:/app/codex`.
 5. [x] README “Codex prerequisites” subsection: include exact commands `npm install -g @openai/codex` and `codex login` (host and inside container with `docker compose run --rm server sh`); state default `CODEINFO_CODEX_HOME=./codex` and disabled behaviour when CLI/auth/config missing.
-   - Add under `README.md` heading `## Codex (CLI)`: 
+   - Add under `README.md` heading `## Codex (CLI)`:
      - "Install CLI: npm install -g @openai/codex"
      - "Login (host): codex login"
      - "Login (docker): docker compose run --rm server sh -lc 'codex login'"
@@ -201,7 +204,7 @@ Add the Codex TypeScript SDK to the server, install the Codex CLI in local/Docke
 
 ### 3. Provider/model surfacing & UI layout changes
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **599f2bf**
 
 #### Overview
@@ -220,7 +223,19 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 1. [x] Backend models: add `/chat/providers` in `server/src/routes/chatProviders.ts` (new) to return providers + availability; extend `/chat/models` (`server/src/routes/chatModels.ts`) to accept `provider` and return LM Studio list or fixed Codex list (`gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`) with `toolsAvailable/available` flags.
    - Minimal handler skeleton:
    ```ts
-   router.get('/chat/providers', (_req,res)=>res.json({providers:[{id:'lmstudio',label:'LM Studio',available:true},{id:'codex',label:'OpenAI Codex',available:detection.available,toolsAvailable:detection.toolsAvailable}]}));
+   router.get('/chat/providers', (_req, res) =>
+     res.json({
+       providers: [
+         { id: 'lmstudio', label: 'LM Studio', available: true },
+         {
+           id: 'codex',
+           label: 'OpenAI Codex',
+           available: detection.available,
+           toolsAvailable: detection.toolsAvailable,
+         },
+       ],
+     }),
+   );
    ```
 2. [x] Client state: in `client/src/hooks/useChatModel.ts` (or new hook), include `provider` in fetch; in `client/src/pages/ChatPage.tsx`, store `provider`+`model` in state, lock provider per conversation, allow model change, and send both in chat payloads.
    - Send shape example: `{ provider, model, messages, threadId? }`.
@@ -245,7 +260,6 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 8. [x] Using the Playwright mcp tool, perform Manual UI check: Provider dropdown, model filtering, disabled Codex state, layout positioning
 9. [x] `npm run compose:down`
 
-
 #### Implementation notes
 
 - Added provider-aware `/chat/providers` + `/chat/models?provider=` wiring, client hook updates, and UI provider lock while allowing model switches.
@@ -260,7 +274,7 @@ Expose provider-aware model listings and rearrange the chat UI: Provider dropdow
 
 ### 4. Codex chat pathway (no MCP/tools yet)
 
-- Task Status: **__in_progress__**
+- Task Status: ****in_progress****
 - Git Commits: **fc25d98, d219f01**
 
 #### Overview
@@ -279,8 +293,8 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 1. [x] Implement Codex chat provider in `server/src/routes/chat.ts` (or new `chatCodex.ts`): accept provider/model/threadId; start/resume Codex thread via SDK; stream deltas as SSE frames (`token/final/complete/error`); block send if detection failed.
    - SSE mapping example:
    ```ts
-   res.write(`data: ${JSON.stringify({type:'token',content:delta})}\n\n`);
-   res.write(`data: ${JSON.stringify({type:'final',message})}\n\n`);
+   res.write(`data: ${JSON.stringify({ type: 'token', content: delta })}\n\n`);
+   res.write(`data: ${JSON.stringify({ type: 'final', message })}\n\n`);
    res.write(`data: {"type":"complete"}\n\n`);
    ```
 2. [x] Client send: in `client/src/hooks/useChatStream.ts`, include `provider/model/threadId` in payload; store Codex `threadId` per conversation; block provider change mid-conversation; allow model change.
@@ -292,7 +306,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 8. [x] Test (build): `npm run build --workspace client` — ensure chat UI changes compile.
 9. [x] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
 10. [x] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
-11. [ ] Ensure Codex runs from within the trusted `/data` folder when invoked by setting `workingDirectory: '/data'` on Codex thread options (TS SDK maps this to `--cd /data`), so the git trust check passes without needing `--skip-git-repo-check`.
+11. [x] Ensure Codex runs from within the trusted `/data` folder when invoked by setting `workingDirectory: '/data'` on Codex thread options (TS SDK maps this to `--cd /data`), so the git trust check passes without needing `--skip-git-repo-check`.
 
 #### Testing
 
@@ -306,21 +320,19 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 8. [ ] Using the Playwright mcp tool, perform Manual Codex chat smoke: start a new Codex conversation, confirm threadId reuse on a second turn, verify SSE rendering without tools/citations
 9. [x] `npm run compose:down`
 
-
-
 #### Implementation notes
 
 - Added Codex branch to `/chat` with threadId-aware SSE (`thread` + `complete` carrying ids), detection gating, and injectable codexFactory for tests; LM Studio logging now includes provider context.
 - Client chat stream now carries provider/threadId, reuses Codex threads instead of replaying history, and keeps tools/citations hidden for Codex; provider UI shows a warning when Codex is unavailable and enables Codex send when available.
 - New tests: server `chat-codex.test.ts` (mocked Codex CLI/threadId and unavailable path) and client provider test covering Codex threadId reuse; docs updated (README/design) for Codex chat availability and thread reuse.
+- Codex threads now start/resume with `workingDirectory` set from `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR` (default `/data`) so the CLI runs inside the trusted mount without needing `--skip-git-repo-check`; reran server/client builds, server/client tests, compose build/up/down, and full e2e after the change. Manual Codex MCP smoke remains pending because Codex auth/config are not available here.
 - Commands run: lint/format, server/client builds, server/client tests, full e2e suite, compose:build/up/down. Manual Codex smoke via Playwright MCP was not run (Codex auth/config not present in this environment).
 
 ---
 
-
 ### 5. Expose existing tools via MCP server
 
-- Task Status: **__to_do__**
+- Task Status: ****to_do****
 - Git Commits: **to_do**
 
 #### Overview
@@ -370,7 +382,7 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 ### 6. Codex + MCP tool usage in chat (SYSTEM_CONTEXT injection)
 
-- Task Status: **__to_do__**
+- Task Status: ****to_do****
 - Git Commits: **to_do**
 
 #### Overview
@@ -410,7 +422,6 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 8. [ ] Using the Playwright mcp tool, Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
 9. [ ] `npm run compose:down`
 
-
 #### Implementation notes
 
 - Capture how SYSTEM_CONTEXT is injected (server-side to avoid client replay) and any prompt wording.
@@ -420,7 +431,7 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
 
 ### 7. Codex guidance copy and disabled-state UX
 
-- Task Status: **__to_do__**
+- Task Status: ****to_do****
 - Git Commits: **to_do**
 
 #### Overview
@@ -436,7 +447,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 #### Subtasks
 
 1. [ ] Define exact wording/location for Codex login/setup guidance in README (host + Docker) and add it.
-   - Insert under `README.md` -> `## Codex (CLI)` the text: "Install CLI: npm install -g @openai/codex. Login: codex login (host) or docker compose run --rm server sh -lc 'codex login'. Set CODEINFO_CODEX_HOME=./codex (mounted to /app/codex). If CLI/auth/config missing, Codex shows disabled." 
+   - Insert under `README.md` -> `## Codex (CLI)` the text: "Install CLI: npm install -g @openai/codex. Login: codex login (host) or docker compose run --rm server sh -lc 'codex login'. Set CODEINFO_CODEX_HOME=./codex (mounted to /app/codex). If CLI/auth/config missing, Codex shows disabled."
 2. [ ] Add UI guidance when Codex is disabled (e.g., inline banner/tooltip near Provider dropdown) explaining prerequisites (CLI install, login, config/mount) with links to README anchors.
 3. [ ] Ensure disabled-state copy covers both host and Docker paths (CODEINFO_CODEX_HOME, config seeding, auth login).
 4. [ ] Update tests: client RTL (add/extend `chatPage.provider.test.tsx`) to assert disabled-state banner/tooltip renders with required guidance text and links when Codex unavailable.
@@ -462,7 +473,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 8. Final validation and release checklist
 
-- Task Status: **__to_do__**
+- Task Status: ****to_do****
 - Git Commits: **to_do**
 
 #### Overview
@@ -498,7 +509,7 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

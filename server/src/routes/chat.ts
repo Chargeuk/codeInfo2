@@ -205,10 +205,20 @@ export function createChatRouter({
 
       try {
         const codex = codexFactory();
+        const codexWorkingDirectory =
+          process.env.CODEX_WORKDIR ??
+          process.env.CODEINFO_CODEX_WORKDIR ??
+          '/data';
         const thread =
           typeof threadId === 'string' && threadId.length > 0
-            ? codex.resumeThread(threadId, { model })
-            : codex.startThread({ model });
+            ? codex.resumeThread(threadId, {
+                model,
+                workingDirectory: codexWorkingDirectory,
+              })
+            : codex.startThread({
+                model,
+                workingDirectory: codexWorkingDirectory,
+              });
 
         let activeThreadId = thread.id ?? threadId ?? null;
         let finalText = '';

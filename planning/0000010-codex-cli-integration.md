@@ -292,6 +292,7 @@ Enable chatting with Codex via the SDK using the selected provider/model, stream
 8. [x] Test (build): `npm run build --workspace client` — ensure chat UI changes compile.
 9. [x] Test (server integration/unit): add `server/src/test/integration/chat-codex.test.ts` with mocked SDK covering SSE frames, threadId reuse, and detection-failure blocking; purpose: Codex path works without tools.
 10. [x] Test (client RTL): extend `client/src/test/chatPage.stream.test.tsx` (or new) to verify provider=Codex sends threadId, prevents provider change mid-convo, and disables on detection failure; purpose: client gating behaves.
+11. [ ] Ensure Codex runs from within the trusted `/data` folder when invoked by setting `workingDirectory: '/data'` on Codex thread options (TS SDK maps this to `--cd /data`), so the git trust check passes without needing `--skip-git-repo-check`.
 
 #### Testing
 

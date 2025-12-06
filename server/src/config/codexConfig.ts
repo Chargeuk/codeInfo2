@@ -3,7 +3,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { CodexOptions } from '@openai/codex-sdk';
 
-const defaultHome = process.env.CODEINFO_CODEX_HOME ?? './codex';
 const defaultCodexConfig = `# Codex configuration for CodeInfo2
 # Copy of this file is placed in CODEINFO_CODEX_HOME (default ./codex) on server startup when missing.
 
@@ -22,6 +21,7 @@ codeinfo_docker = { url = "http://server:5010/mcp" }
 `;
 
 export function getCodexHome(): string {
+  const defaultHome = process.env.CODEINFO_CODEX_HOME ?? './codex';
   return path.resolve(defaultHome);
 }
 

@@ -383,6 +383,10 @@ export function createChatRouter({
 
         for await (const event of events) {
           if (cancelled || isStreamClosed(res)) break;
+          baseLogger.info(
+            { requestId, provider, model, eventType: event.type },
+            'codex event',
+          );
           switch (event.type) {
             case 'thread.started': {
               emitThreadId(event.thread_id);
@@ -404,7 +408,7 @@ export function createChatRouter({
                 | { type?: string; text?: string }
                 | undefined;
 
-              if (item?.type === 'agent_reasoning') {
+              if (item?.type === 'reasoning') {
                 const text = (item as { text?: string }).text ?? '';
                 const delta = text.slice(reasoningText.length);
                 if (delta) {

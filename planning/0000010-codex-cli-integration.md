@@ -527,7 +527,7 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
 9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 10. [x] Adjust MCP tool responses to match Codex expectations: in `server/src/mcp/server.ts`, change tool result wrapping to return a single `content` item of `type: "text"` with JSON stringified payload (Codex rejects `application/json`). Ensure both ListIngestedRepositories and VectorSearch paths use the new shape.
-11. [x] Implement MCP resource endpoints to satisfy Codex probes: add `resources/list` and `resources/listTemplates` handlers in `server/src/mcp/server.ts` returning empty arrays (or mapped resources/templates when available) with  JSON-RPC success envelopes.
+11. [x] Implement MCP resource endpoints to satisfy Codex probes: add `resources/list` and `resources/listTemplates` handlers in `server/src/mcp/server.ts` returning empty arrays (or mapped resources/templates when available) with JSON-RPC success envelopes.
 12. [x] Server regression tests for Codex MCP compatibility: add integration tests in `server/src/test/integration/mcp-server.codex-compat.test.ts` covering (a) tools/call returns text content and parses, (b) resources/list/resources/listTemplates return 200 with empty arrays.
 13. [x] E2E regression for Codex MCP tool call: extend or add Playwright spec (e.g., `e2e/chat-codex-mcp.spec.ts`) that mocks Codex availability and asserts a Codex chat turn successfully renders tool blocks/citations (no "Unexpected response type"), using mock SSE that includes `tool-result` payload from the MCP server.
 

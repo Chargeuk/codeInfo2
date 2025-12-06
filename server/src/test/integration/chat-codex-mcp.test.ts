@@ -86,7 +86,7 @@ class MockThread {
       yield {
         type: 'item.updated',
         item: {
-          type: 'agent_reasoning',
+          type: 'reasoning',
           id: 'reason-1',
           text: 'Thinking about the answer',
         },

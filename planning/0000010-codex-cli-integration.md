@@ -771,4 +771,4 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 - Captured final screenshots: chat Codex/MCP (`0000010-09-chat-codex-mcp.png`), logs (`0000010-09-logs.png`), and ingest (`0000010-09-ingest.png`).
 - Reviewed README/design/projectStructure and found no updates needed after validation.
 - PR summary: Final validation for Story 0000010 completed (builds, lint/format, server+client tests, docker + e2e, manual Codex MCP smoke). Codex enablement confirmed with CLI install/login using `CODEINFO_CODEX_HOME=./codex`, compose host-auth copy, MCP endpoints live, and Codex chat showing tool calls/citations.
-- Document any deviations/known limitations (e.g., Codex unavailable in CI).
+- Known limitation: Codex CLI/auth may be unavailable in CI, so Codex-dependent checks remain best-effort/skipped there.

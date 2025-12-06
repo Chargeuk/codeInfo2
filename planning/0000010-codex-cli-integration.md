@@ -556,7 +556,7 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 ### 8. Codex thinking visibility (parity with LM Studio)
 
 - Task Status: **done**
-- Git Commits: 9354a55
+- Git Commits: 9354a55, 5948fbc
 
 #### Overview
 

@@ -3,10 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { CodexOptions } from '@openai/codex-sdk';
 
-const defaultCodexConfig = `# Codex configuration for CodeInfo2
-# Copy of this file is placed in CODEINFO_CODEX_HOME (default ./codex) on server startup when missing.
-
-model = "gpt-5.1-codex-max"
+const defaultCodexConfig = `model = "gpt-5.1-codex-max"
 model_reasoning_effort = "high"
 
 [features]
@@ -14,10 +11,30 @@ web_search_request = true
 view_image_tool = true
 
 [mcp_servers]
-# Host (local dev)
-codeinfo_host = { url = "http://localhost:5010/mcp" }
-# Docker (compose)
-codeinfo_docker = { url = "http://server:5010/mcp" }
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866']
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:5010/mcp"]
+startup_timeout_sec = 60
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"
 `;
 
 export function getCodexHome(): string {

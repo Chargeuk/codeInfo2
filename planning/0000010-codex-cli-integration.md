@@ -564,9 +564,9 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 #### Documentation Locations
 
-- Codex streamed event shapes (`agent_reasoning`, `agent_message`): Codex SDK docs / session logs
-- Client reasoning UI: `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`
-- Server chat routing: `server/src/routes/chat.ts`
+- Codex TypeScript SDK streaming / event reference (runStreamed, reasoning items): https://github.com/openai/codex/blob/main/sdk/typescript/README.md
+- MCP/JSON-RPC event model (for tool + reasoning envelopes): https://modelcontextprotocol.io/specification/2024-11-05/index#json-rpc-methods
+- React streaming/side-effects guidance (for client handling of streamed analysis): https://react.dev/reference/react/useEffect
 - plan_format.md (process)
 
 #### Subtasks

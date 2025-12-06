@@ -605,7 +605,7 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 ### 9. Codex host-auth import (one-way bootstrap)
 
 - Task Status: **done**
-- Git Commits: **10f88fc**
+- Git Commits: **10f88fc, a7f18b0**
 
 #### Overview
 

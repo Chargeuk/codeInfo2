@@ -76,14 +76,18 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 7. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.sandbox.default.test.tsx` covering render + default value + helper text; add `client/src/test/chatPage.flags.sandbox.payload.test.tsx` asserting payload contains chosen value only for codex; add `client/src/test/chatPage.flags.sandbox.reset.test.tsx` asserting provider change/New conversation resets to default.
 8. [ ] Docs: README.md — Chat/Codex section: describe Sandbox mode selector, enum options, default `workspace-write`, and LM Studio ignore note; include a one-line payload example showing `sandboxMode` in the request.
 9. [ ] Docs: design.md — duplicate the same sandbox description and default in the chat/Codex subsection so a dev sees it even without README.
-10. [ ] Lint/format: run `npm run lint --workspaces` or package-scoped lint after code changes.
+10. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (Codex mocks acceptable)
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -118,7 +122,7 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
    - include reset behaviour in the reset test file if not covered elsewhere.
 7. [ ] Docs: README.md — add a bullet in the Chat/Codex section for “Network access” with default `true`, what it does, and that LM Studio ignores it; show a JSON snippet with `"networkAccessEnabled": false`.
 8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
-9. [ ] Lint/format touched packages after edits.
+9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -126,6 +130,10 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -157,7 +165,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.websearch.default.test.tsx` (render + default + helper), `client/src/test/chatPage.flags.websearch.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
 7. [ ] Docs: README.md — Chat/Codex section bullet for Web search with default `true`, what it enables, LM Studio ignore note, plus a JSON example showing `"webSearchEnabled": false`.
 8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
-9. [ ] Lint/format after changes.
+9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -165,6 +173,10 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -197,7 +209,7 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.approval.default.test.tsx` (render + default), `client/src/test/chatPage.flags.approval.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
 7. [ ] Docs: README.md — add approval policy bullet with enum options and default `on-failure`, note LM Studio ignore, and include a JSON example showing `"approvalPolicy": "always"`.
 8. [ ] Docs: design.md — duplicate the approval description/default/ignore note.
-9. [ ] Lint/format after edits.
+9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -205,6 +217,10 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -237,7 +253,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.reasoning.default.test.tsx` (render + default), `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (payload include/exclude + reset behaviour).
 7. [ ] Docs: README.md — add reasoning effort bullet with options and default `high`, LM Studio ignore note, and a JSON example showing `"modelReasoningEffort": "low"`.
 8. [ ] Docs: design.md — duplicate the reasoning description/default/ignore note.
-9. [ ] Lint/format after edits.
+9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -245,6 +261,10 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -275,7 +295,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 7. [ ] Docs update - design.md: duplicate the same flag list/defaults/ignore note and UI placement under Provider/Model row (even if repeated from README).
 8. [ ] Docs update - projectStructure.md: add any new files (e.g., `client/src/components/chat/CodexFlagsPanel.tsx`, new test files) with brief comments.
 9. [ ] Screenshots: capture after running `npm run compose:up` or local dev — store in `test-results/screenshots/` with names `0000011-06-flags-panel.png` (show Codex flags panel open) and `0000011-06-codex-send.png` (show a Codex message sent with non-default flag values visible). Ensure files are committed.
-10. [ ] PR summary: draft a bullet list summarizing changes across all tasks (server validation/forwarding, client UI/state, tests, docs, screenshots) to be used as PR description; place summary in Implementation notes.
+10. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -285,7 +305,8 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Using the Playwright mcp tool, Manual UI check for this story's acceptance & implemented functionality
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 

@@ -495,6 +495,8 @@ Expose our existing tooling (ListIngestedRepositories, VectorSearch) as an MCP s
 
 Enable Codex chats to use our MCP tools to answer repository questions. Inject the shared SYSTEM_CONTEXT at the start of Codex conversations, instructing the model to call MCP tools to gather answers. Ensure Codex requests route through the MCP server and that tool results flow back to the client (citations/tool blocks) when available.
 
+Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail because our MCP server returns tool results as `content: [{ type: "application/json", json: {...} }]`, which the Codex client reports as `Unexpected response type`. Codex also probes `resources/list` (and templates) and receives `-32601 Method not found` because we only implement `initialize` / `tools/list` / `tools/call`. This combination leads Codex to surface “ListIngestedRepositories not available” despite the tool working via direct HTTP. Fixes required: return tool results as text content and add minimal `resources/list` / `resources/listTemplates` handlers.
+
 #### Documentation Locations
 
 - SYSTEM_CONTEXT and Codex MCP tools: https://github.com/openai/codex/blob/main/docs/agents_md.md
@@ -524,6 +526,10 @@ Enable Codex chats to use our MCP tools to answer repository questions. Inject t
    - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
 8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
 9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+10. [ ] Adjust MCP tool responses to match Codex expectations: in `server/src/mcp/server.ts`, change tool result wrapping to return a single `content` item of `type: "text"` with JSON stringified payload (Codex rejects `application/json`). Ensure both ListIngestedRepositories and VectorSearch paths use the new shape.
+11. [ ] Implement MCP resource endpoints to satisfy Codex probes: add `resources/list` and `resources/listTemplates` handlers in `server/src/mcp/server.ts` returning empty arrays (or mapped resources/templates when available) with  JSON-RPC success envelopes.
+12. [ ] Server regression tests for Codex MCP compatibility: add integration tests in `server/src/test/integration/mcp-server.codex-compat.test.ts` covering (a) tools/call returns text content and parses, (b) resources/list/resources/listTemplates return 200 with empty arrays.
+13. [ ] E2E regression for Codex MCP tool call: extend or add Playwright spec (e.g., `e2e/chat-codex-mcp.spec.ts`) that mocks Codex availability and asserts a Codex chat turn successfully renders tool blocks/citations (no "Unexpected response type"), using mock SSE that includes `tool-result` payload from the MCP server.
 
 #### Testing
 

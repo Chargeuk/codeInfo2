@@ -22,10 +22,10 @@ npm install
 ## Codex (CLI)
 
 - Install CLI (host): `npm install -g @openai/codex`
-- Login (host): `codex login`
-- Login (docker): `docker compose run --rm server sh -lc "codex login"`
-- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker)
-- If the CLI, `auth.json`, or `config.toml` are missing, Codex stays disabled; detection logs at startup report what is missing.
+- Login (host): `CODEX_HOME=./codex codex login` (or let it default to `~/.codex`)
+- Compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `CODEINFO_CODEX_HOME=/app/codex` if the container auth is missing, so no separate container login is needed.
+- Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start.
+- If the CLI, `auth.json`, or `config.toml` are missing (and no host auth is available to copy), Codex stays disabled; detection logs at startup report what is missing.
 - Codex chat threads run with `workingDirectory=/data` and `skipGitRepoCheck:true`; MCP tools are required and are discovered via `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` entries seeded into `config.toml`.
 
 ### MCP for Codex

@@ -1,9 +1,10 @@
+import path from 'path';
 import { getAppInfo } from '@codeinfo2/common';
 import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
-import { ensureCodexConfigSeeded } from './config/codexConfig.js';
+import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
@@ -21,9 +22,15 @@ import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
+import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 
 config();
 ensureCodexConfigSeeded();
+ensureCodexAuthFromHost({
+  containerHome: getCodexHome(),
+  hostHome: path.resolve('/host/codex'),
+  logger: baseLogger,
+});
 const codexDetection = detectCodex();
 const app = express();
 app.use(cors());

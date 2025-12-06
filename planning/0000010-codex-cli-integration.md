@@ -571,13 +571,14 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 #### Subtasks
 
-1. [ ] Server: update Codex streaming loop in `server/src/routes/chat.ts` to map `agent_reasoning` events into SSE frames consumed by the client (matching LM Studio analysis handling) while preserving existing tool events.
-2. [ ] Client: adjust `client/src/hooks/useChatStream.ts` to surface Codex reasoning frames in the thought-process accordion/spinner, provider-agnostic.
-3. [ ] Test (server, integration): add/extend `server/src/test/integration/chat-codex-mcp.test.ts` to include a streamed `agent_reasoning` event; assert SSE emits reasoning frames alongside tokens/finals.
-4. [ ] Test (client, RTL): update `client/src/test/chatPage.reasoning.test.tsx` (or new spec) to simulate Codex reasoning frames and verify the thought-process accordion appears and shows the reasoning text.
-5. [ ] Test (client, hook-level): update `client/src/test/useChatStream.reasoning.test.tsx` to ensure the hook routes Codex reasoning frames into the analysis buffer without affecting final text.
-6. [ ] Test (e2e, Playwright mock): add `e2e/chat-codex-reasoning.spec.ts` with mocked Codex SSE (thread + agent_reasoning + final) and assert the UI renders the thinking accordion and expandable reasoning text.
-7. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspaces`.
+1. [ ] Server (code change, file: `server/src/routes/chat.ts`): in the Codex `runStreamed` loop, handle `item.updated|item.completed` where `item.type === "agent_reasoning"` by emitting an SSE frame like `{ type: 'analysis', content: <text> }` (or tokens into the analysis buffer) before any tool/assistant handling. Keep tool events and assistant text behaviour unchanged. Add a short inline comment explaining that Codex reasoning maps to the client analysis stream. Read: Codex SDK streaming docs; existing LM Studio reasoning handling in this file for parity.
+2. [ ] Client hook (code change, file: `client/src/hooks/useChatStream.ts`): extend SSE parser to accept `type === 'analysis'` frames from Codex and route them into the hidden analysis buffer that drives the “Thought process” accordion/spinner (same logic used for LM Studio). Ensure provider-agnostic handling so LM Studio behaviour stays the same. Read: existing analysis handling branches in this hook.
+3. [ ] Client UI (code change, file: `client/src/pages/ChatPage.tsx`): verify/adjust the thought-process accordion to show when analysis text exists for Codex as well as LM Studio; no layout changes, just ensure the flag is provider-agnostic. Duplicate any gating logic locally so it cannot be missed.
+4. [ ] Test (server, integration, file: `server/src/test/integration/chat-codex-mcp.test.ts` or new sibling): add a streamed `agent_reasoning` item to the mocked Codex event list and assert the SSE stream includes an `analysis` frame with the reasoning text before the final message.
+5. [ ] Test (client, hook-level, file: `client/src/test/useChatStream.reasoning.test.tsx`): add a Codex provider case that feeds an `analysis` SSE frame and assert the hook exposes analysis text and leaves final text unchanged.
+6. [ ] Test (client, RTL, file: `client/src/test/chatPage.reasoning.test.tsx`): render ChatPage with provider=Codex and mocked SSE including `analysis` → verify the “Thought process” accordion appears, shows the reasoning text, and the spinner stops when the final frame arrives.
+7. [ ] Test (e2e, Playwright mock, file: `e2e/chat-codex-reasoning.spec.ts`): mock `/chat` SSE for Codex to send thread → analysis → token → final → complete; assert the UI shows the thought-process accordion, can expand to reveal reasoning, and still renders the final assistant bubble.
+8. [ ] Lint/format/build: run `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build --workspaces` after code/test changes.
 
 #### Testing
 

@@ -757,7 +757,7 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
+8. [ ] Using the Playwright mcp tool, Manual UI check: codex is available, & returns information when you ask what repositories are available & then you ask a question about one of them
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

@@ -553,7 +553,47 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 
 ---
 
-### 8. Codex guidance copy and disabled-state UX
+### 8. Codex thinking visibility (parity with LM Studio)
+
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio reasoning is shown. Codex `agent_reasoning` events appear in session logs but are dropped by the server SSE stream, so the UI never renders a thinking accordion for Codex. This task forwards Codex reasoning through SSE and displays it without changing tool/citation behaviour.
+
+#### Documentation Locations
+
+- Codex streamed event shapes (`agent_reasoning`, `agent_message`): Codex SDK docs / session logs
+- Client reasoning UI: `client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`
+- Server chat routing: `server/src/routes/chat.ts`
+- plan_format.md (process)
+
+#### Subtasks
+
+1. [ ] Server: update Codex streaming loop in `server/src/routes/chat.ts` to map `agent_reasoning` events into SSE frames consumed by the client (matching LM Studio analysis handling) while preserving existing tool events.
+2. [ ] Client: adjust `client/src/hooks/useChatStream.ts` to surface Codex reasoning frames in the thought-process accordion/spinner, provider-agnostic.
+3. [ ] Tests (server): extend `server/src/test/integration/chat-codex-mcp.test.ts` (or new) with a streamed `agent_reasoning` event and assert SSE includes reasoning content.
+4. [ ] Tests (client): extend `client/src/test/chatPage.reasoning.test.tsx` (or new) to verify Codex provider renders thinking when reasoning frames arrive.
+5. [ ] E2E: add/extend Playwright spec (e.g., `e2e/chat-codex-reasoning.spec.ts`) with mocked Codex SSE including reasoning, asserting the thought-process accordion appears and expands.
+6. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspaces`
+2. [ ] `npm run test --workspace server -- chat-codex-mcp.test.ts`
+3. [ ] `npm run test --workspace client -- chatPage.reasoning.test.tsx`
+4. [ ] `E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-codex-reasoning.spec.ts --reporter=list`
+5. [ ] `npm run e2e` (full suite) if time permits or when Codex available.
+
+#### Implementation notes
+
+- Keep Codex tool/citation behaviour unchanged; only surface reasoning text.
+- Ensure SSE frame shape aligns with existing client reasoning parser to avoid double-rendering.
+
+---
+
+### 9. Codex guidance copy and disabled-state UX
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: 193d83d, 963c9a5
@@ -602,7 +642,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ---
 
-### 9. Final validation and release checklist
+### 10. Final validation and release checklist
 
 - Task Status: \***\*to_do\*\***
 - Git Commits: 193d83d, 963c9a5

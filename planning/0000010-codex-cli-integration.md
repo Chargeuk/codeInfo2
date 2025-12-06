@@ -556,7 +556,7 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 ### 8. Codex thinking visibility (parity with LM Studio)
 
 - Task Status: **done**
-- Git Commits: 9354a55, 5948fbc
+- Git Commits: 9354a55, 5948fbc, af820cf
 
 #### Overview
 
@@ -595,7 +595,7 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 #### Implementation notes
 
-- Codex runStreamed now emits `analysis` frames when `agent_reasoning` arrives, reusing the client analysis stream pathway.
+- Codex runStreamed now emits `analysis` frames when `agent_reasoning` (and now `reasoning`) arrives, reusing the client analysis stream pathway so Codex thought text renders in the UI (af820cf).
 - Client hook accepts `analysis` SSE frames for all providers and normalises state back to final mode so subsequent tokens land in the visible reply; codex streams now keep the thought accordion populated.
 - Added Codex-specific reasoning coverage at unit (useChatStream), RTL (ChatPage), integration (chat-codex-mcp), and e2e (chat-codex-reasoning) levels; e2e mock stream also seeds analysis markers to mirror server behaviour.
 - Maintained UI gating while confirming the thought-process block is provider-agnostic; provider/model selection mocks expanded to include Codex variants.

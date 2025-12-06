@@ -619,15 +619,35 @@ Add a one-way bootstrap path for the server container to copy Codex auth from th
 
 #### Subtasks
 
-1. [ ] Compose: add volume `${CODEX_HOME:-$HOME/.codex}:/host/codex:ro` so host Codex auth is always mounted read-only into the container.
-2. [ ] E2E compose: add the same volume mount to `docker-compose.e2e.yml` so mock/e2e runs can reuse host Codex auth.
-3. [ ] Server startup helper: if `CODEINFO_CODEX_HOME/auth.json` is missing and `/host/codex/auth.json` exists, copy it once into CODEINFO_CODEX_HOME; never overwrite if already present; log info/warning about the source.
-4. [ ] Documentation (README): add host-auth bootstrap instructions, required envs, and the one-way/non-overwriting behavior.
-5. [ ] Documentation (design.md): note the host-auth bootstrap flow, mount path, and copy behavior in the Codex/MCP section.
-6. [ ] Test (server unit): add mock-fs coverage for the copy helper to ensure it copies when container auth is missing and host auth exists, and skips when container auth exists.
-7. [ ] Test (server integration, optional): add a small integration/smoke that exercises startup copy with real fs temp dirs to confirm the one-way behavior.
-8. [ ] Test (manual/compose smoke): document a manual check running `npm run compose:up` with the host mount to verify container auth appears after start.
-9. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspace server`.
+1. [ ] Compose (docker-compose.yml): under `services.server.volumes`, add:
+   ```yaml
+   - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+   - ./codex:/app/codex
+   ```
+   so host Codex auth is always mounted read-only and the repo-local CODEINFO_CODEX_HOME remains at `/app/codex`.
+2. [ ] E2E compose (docker-compose.e2e.yml): add the same two volume lines under `services.server.volumes` to mirror main compose for mock/e2e runs.
+3. [ ] Server startup helper (new file `server/src/utils/codexAuthCopy.ts` or existing `server/src/config/codex.ts`): implement `ensureCodexAuthFromHost({ containerHome, hostHome, logger })` that:
+   - if `${containerHome}/auth.json` exists → return without changes;
+   - else if `${hostHome}/auth.json` exists → copy it to `${containerHome}/auth.json`, preserving perms where possible; log source and success;
+   - else log that no host auth was found; never overwrite existing container auth.
+   Wire this into `server/src/index.ts` startup before Codex detection so the copy runs once at boot.
+4. [ ] Documentation (README, section `## Codex (CLI)`): add explicit host-login-only flow:
+   - Install: `npm install -g @openai/codex`
+   - Host login writing to host home: `CODEX_HOME=./codex codex login` (or default `~/.codex`)
+   - Compose mounts `${CODEX_HOME:-$HOME/.codex} -> /host/codex` and copies into `/app/codex` if missing, so no separate container login is needed.
+   - Note one-way, non-overwriting behavior and disabled state if CLI/auth/config absent and no host auth to copy.
+5. [ ] Documentation (design.md, Codex/MCP section): add a short paragraph plus a small flow bullet list describing host auth at `/host/codex` being copied to `/app/codex` on startup when missing, and that `/app/codex` remains the primary home.
+6. [ ] Test (server unit, `server/src/test/unit/codexAuthCopy.test.ts`): mock-fs cases:
+   - copies host auth when container auth missing;
+   - skips copy when container auth exists;
+   - logs “host missing” when neither exists.
+7. [ ] Test (server integration, optional, `server/src/test/integration/codexAuthCopy.integration.test.ts`): use temp dirs to assert real copy occurs once and does not overwrite existing container auth.
+8. [ ] Test (manual/compose smoke): steps to document and perform:
+   - ensure host has a valid auth at `${CODEX_HOME:-$HOME/.codex}/auth.json` (e.g., `CODEX_HOME=./codex codex login`);
+   - run `npm run compose:build && npm run compose:up`;
+   - exec into server container `docker compose exec server ls -l /app/codex` and confirm `auth.json` exists;
+   - bring down with `npm run compose:down`.
+9. [ ] Lint/format/build: run `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspace server`.
 
 #### Testing
 

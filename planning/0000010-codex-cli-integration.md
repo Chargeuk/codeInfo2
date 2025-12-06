@@ -725,7 +725,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 ### 11. Final validation and release checklist
 
 - Task Status: __done__
-- Git Commits: 6908e0a, 975fc99, 39f3d56
+- Git Commits: 6908e0a, 975fc99, 39f3d56, 10494a3, 06a3efa
 
 #### Overview
 

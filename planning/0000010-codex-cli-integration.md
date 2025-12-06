@@ -604,8 +604,8 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 ### 9. Codex guidance copy and disabled-state UX
 
-- Task Status: \***\*to_do\*\***
-- Git Commits: 193d83d, 963c9a5
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 
@@ -653,8 +653,8 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 10. Final validation and release checklist
 
-- Task Status: \***\*to_do\*\***
-- Git Commits: 193d83d, 963c9a5
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
 

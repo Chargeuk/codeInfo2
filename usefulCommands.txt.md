@@ -10,7 +10,7 @@ in various tasks you have a single subtask to update multiple markdown documents
 
 some of the tasks look quite big, could they be split up without loosing any information?
 
-some tasks have Document Locations that reference the existing codebase. This is incorrect. The Dcoument Locations sections should reference external locations, such as website documentation or context7 mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this.
+some tasks have Document Locations that reference the existing codebase. This is incorrect. The Dcoument Locations sections should reference external locations, such as website documentation or context7 or deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this.
 
 in various tasks you have a single subtask for a number of tests to write. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
 

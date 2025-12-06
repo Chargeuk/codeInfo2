@@ -582,11 +582,16 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 #### Testing
 
-1. [ ] `npm run build --workspaces`
-2. [ ] `npm run test --workspace server -- chat-codex-mcp.test.ts`
-3. [ ] `npm run test --workspace client -- chatPage.reasoning.test.tsx`
-4. [ ] `E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-codex-reasoning.spec.ts --reporter=list`
-5. [ ] `npm run e2e` (full suite) if time permits or when Codex available.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-codex-reasoning.spec.ts --reporter=list`
+6. [ ] `npm run e2e`
+7. [ ] `npm run compose:build`
+8. [ ] `npm run compose:up`
+9. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -628,15 +633,15 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Testing
 
-1. [x] `npm run build --workspace server`
-2. [x] `npm run build --workspace client`
-3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client`
-5. [x] `npm run e2e`
-6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
 8. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
-9. [x] `npm run compose:down`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -672,14 +677,15 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 
 #### Testing
 
-1. [x] `npm run build --workspace server`
-2. [x] `npm run build --workspace client`
-3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client`
-5. [x] `npm run e2e`
-6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
-8. [ ] `npm run compose:down`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

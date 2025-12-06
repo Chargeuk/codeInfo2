@@ -223,6 +223,7 @@ export function createChatRouter({
 
         let activeThreadId = thread.id ?? threadId ?? null;
         let finalText = '';
+        let reasoningText = '';
 
         const systemContext = SYSTEM_CONTEXT.trim();
         const userText = messages
@@ -402,6 +403,17 @@ export function createChatRouter({
                 | CodexToolCallItem
                 | { type?: string; text?: string }
                 | undefined;
+
+              if (item?.type === 'agent_reasoning') {
+                const text = (item as { text?: string }).text ?? '';
+                const delta = text.slice(reasoningText.length);
+                if (delta) {
+                  // Codex reasoning feeds the client analysis stream (parity with LM Studio).
+                  writeEvent(res, { type: 'analysis', content: delta });
+                  reasoningText = text;
+                }
+                break;
+              }
 
               if (item?.type === 'mcp_tool_call') {
                 if (event.type === 'item.completed') {

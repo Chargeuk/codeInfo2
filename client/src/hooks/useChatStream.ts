@@ -837,6 +837,21 @@ export function useChatStream(model?: string, provider?: string) {
                 continue;
               }
 
+              if (
+                event.type === 'analysis' &&
+                typeof event.content === 'string'
+              ) {
+                const next = parseReasoning(
+                  { ...reasoning, mode: 'analysis', analysisStreaming: true },
+                  event.content,
+                  { flushAll: true },
+                );
+                const normalized = { ...next, mode: 'final' as const };
+                reasoning = normalized;
+                applyReasoning(normalized);
+                continue;
+              }
+
               if (event.type === 'token' && typeof event.content === 'string') {
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(

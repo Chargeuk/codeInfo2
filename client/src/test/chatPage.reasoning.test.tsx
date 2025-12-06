@@ -41,35 +41,76 @@ const routes = [
 
 const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
 
-function mockChatFetch(stream: ReadableStream<Uint8Array>) {
+type ProviderEntry = {
+  id: string;
+  label: string;
+  available: boolean;
+  toolsAvailable?: boolean;
+  reason?: string;
+};
+
+type ModelResponse = {
+  provider: string;
+  available: boolean;
+  toolsAvailable?: boolean;
+  models: Array<{ key: string; displayName: string; type?: string }>;
+};
+
+function mockChatFetch(
+  stream: ReadableStream<Uint8Array>,
+  options: {
+    providers?: ProviderEntry[];
+    models?: Record<string, ModelResponse>;
+  } = {},
+) {
+  const providers: ProviderEntry[] =
+    options.providers ??
+    ([
+      {
+        id: 'lmstudio',
+        label: 'LM Studio',
+        available: true,
+        toolsAvailable: true,
+      },
+    ] as ProviderEntry[]);
+
+  const modelMap: Record<string, ModelResponse> = {
+    lmstudio: {
+      provider: 'lmstudio',
+      available: true,
+      toolsAvailable: true,
+      models: modelList,
+    },
+    ...(options.models ?? {}),
+  };
+
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/chat/providers')) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-          ],
-        }),
+        json: async () => ({ providers }),
       }) as unknown as Response;
     }
     if (href.includes('/chat/models')) {
+      const providerParam = new URL(href, 'http://localhost').searchParams.get(
+        'provider',
+      );
+      const providerId = providerParam || 'lmstudio';
+      const response =
+        modelMap[providerId] ??
+        modelMap.lmstudio ??
+        ({
+          provider: providerId,
+          available: false,
+          toolsAvailable: false,
+          models: [],
+        } satisfies ModelResponse);
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: modelList,
-        }),
+        json: async () => response,
       }) as unknown as Response;
     }
     if (href.includes('/chat')) {
@@ -221,6 +262,33 @@ function streamWithToolGapNoNewText() {
   });
 }
 
+function streamWithCodexAnalysisFrames() {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          'data: {"type":"analysis","content":"Codex thinking."}\n\n',
+        ),
+      );
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode('data: {"type":"token","content":"Final"}\n\n'),
+        );
+      }, 50);
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"Final"}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      }, 120);
+    },
+  });
+}
+
 describe('Chat reasoning collapse', () => {
   it('collapses analysis with spinner and streams final separately', async () => {
     mockChatFetch(streamWithReasoningFrames());
@@ -315,6 +383,67 @@ describe('Chat reasoning collapse', () => {
       toolRow.compareDocumentPosition(answer) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('shows Codex thought process when analysis frames stream', async () => {
+    mockChatFetch(streamWithCodexAnalysisFrames(), {
+      providers: [
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      models: {
+        codex: {
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            { key: 'gpt-5.1-codex-max', displayName: 'gpt-5.1-codex-max' },
+          ],
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByLabelText('Provider');
+    await user.click(providerSelect);
+    await user.click(await screen.findByText('OpenAI Codex'));
+
+    const modelSelect = await screen.findByLabelText('Model');
+    await user.click(modelSelect);
+    await user.click(
+      await screen.findByRole('option', { name: 'gpt-5.1-codex-max' }),
+    );
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Explain' } });
+    await waitFor(() => expect(screen.getByTestId('chat-send')).toBeEnabled());
+
+    await act(async () => {
+      await user.click(screen.getByTestId('chat-send'));
+    });
+
+    await screen.findByTestId('think-toggle');
+
+    await waitFor(() => expect(screen.getByText(/Final/)).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('think-toggle'));
+    expect(screen.getByTestId('think-content')).toHaveTextContent(
+      'Codex thinking.',
+    );
+    expect(screen.queryByTestId('think-spinner')).toBeNull();
   });
 
   it('keeps thinking spinner off during tool-only waits once visible text exists', async () => {

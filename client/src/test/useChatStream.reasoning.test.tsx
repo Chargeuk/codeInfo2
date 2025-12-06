@@ -17,11 +17,13 @@ beforeEach(() => {
 function Wrapper({
   prompt,
   onUpdate,
+  provider = 'lmstudio',
 }: {
   prompt: string;
   onUpdate: (messages: ChatMessage[]) => void;
+  provider?: string;
 }) {
-  const { messages, send } = useChatStream('m1', 'lmstudio');
+  const { messages, send } = useChatStream('m1', provider);
 
   useEffect(() => {
     onUpdate(messages);
@@ -105,6 +107,33 @@ const multiAnalysisFinalStream = () => {
   });
 };
 
+const codexAnalysisStream = () => {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          'data: {"type":"analysis","content":"Thinking with Codex."}\n\n',
+        ),
+      );
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode('data: {"type":"token","content":"Answer"}\n\n'),
+        );
+      }, 10);
+      setTimeout(() => {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"type":"final","message":{"role":"assistant","content":"Answer"}}\n\n',
+          ),
+        );
+        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
+        controller.close();
+      }, 20);
+    },
+  });
+};
+
 describe('useChatStream reasoning parsing', () => {
   it('splits Harmony analysis/final into hidden and visible buffers', async () => {
     const onUpdate = jest.fn();
@@ -181,5 +210,23 @@ describe('useChatStream reasoning parsing', () => {
     const assistant = latest.find((msg) => msg.role === 'assistant');
     expect(assistant?.think).toContain('First part.');
     expect(assistant?.think).toContain('Second part.');
+  });
+
+  it('parses analysis SSE frames for Codex provider', async () => {
+    const onUpdate = jest.fn();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: codexAnalysisStream(),
+    });
+
+    render(<Wrapper prompt="codex" onUpdate={onUpdate} provider="codex" />);
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = latest.find((msg) => msg.role === 'assistant');
+      expect(assistant?.think).toContain('Thinking with Codex.');
+      expect(assistant?.content).toContain('Answer');
+    });
   });
 });

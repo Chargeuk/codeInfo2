@@ -84,6 +84,15 @@ class MockThread {
       } as unknown as ThreadEvent;
 
       yield {
+        type: 'item.updated',
+        item: {
+          type: 'agent_reasoning',
+          id: 'reason-1',
+          text: 'Thinking about the answer',
+        },
+      } as unknown as ThreadEvent;
+
+      yield {
         type: 'item.completed',
         item: { type: 'agent_message', text: 'Here you go' },
       } as ThreadEvent;
@@ -191,8 +200,20 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
   assert.ok(Array.isArray(resultPayload?.results));
   assert.ok(Array.isArray(resultPayload?.files));
 
+  const analysisIndex = frames.findIndex((f) => f.type === 'analysis');
+  assert.notEqual(analysisIndex, -1, 'analysis frame should be present');
+  assert.match(
+    String((frames[analysisIndex] as { content?: unknown }).content ?? ''),
+    /Thinking about the answer/,
+  );
+
   const finalFrame = frames.find((f) => f.type === 'final');
   assert.ok(finalFrame);
+  const finalIndex = frames.findIndex((f) => f.type === 'final');
+  assert.ok(
+    analysisIndex === -1 || analysisIndex < finalIndex,
+    'analysis should arrive before final frame',
+  );
 
   assert.ok(mockCodex.lastThread?.lastPrompt);
   assert.ok(

@@ -59,8 +59,8 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 
 #### Documentation Locations
 - Codex exec flags: https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
-- Codex `SandboxMode` enum: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
-- design.md (chat/MCP flow)
+- Codex `threadOptions` enums: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
+- MUI Select API: https://mui.com/material-ui/react-select/
 
 #### Subtasks
 1. [ ] Server (`server/src/routes/chat.ts` + `server/src/routes/chatValidators.ts`): extend the Codex request schema to accept `sandboxMode` (enum import from `@openai/codex-sdk/dist/threadOptions`). Default to `workspace-write` when omitted; reject when provider≠codex. Forward via the Codex options object, e.g.
@@ -113,7 +113,8 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 
 #### Documentation Locations
 - Codex exec flags: https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
-- design.md (compose/env and Codex flow)
+- Codex `threadOptions` enums: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
+- MUI Switch API: https://mui.com/material-ui/react-switch/
 
 #### Subtasks
 1. [ ] Server (`server/src/routes/chat.ts` + validator file): accept optional boolean `networkAccessEnabled` when provider=codex; default `true`; reject/strip for LM Studio. Forward in Codex options: `networkAccessEnabled: body.networkAccessEnabled ?? true`.
@@ -156,7 +157,8 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 
 #### Documentation Locations
 - Codex exec flags: https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
-- design.md (chat tooling)
+- Codex `threadOptions` enums: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
+- MUI Switch API: https://mui.com/material-ui/react-switch/
 
 #### Subtasks
 1. [ ] Server (`server/src/routes/chat.ts` + validator): optional `webSearchEnabled` boolean when provider=codex; default `true`; reject/strip for LM Studio; forward to Codex options: `webSearchEnabled: body.webSearchEnabled ?? true`.
@@ -199,7 +201,8 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 
 #### Documentation Locations
 - Codex `ApprovalMode` enum: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
-- exec flags reference
+- Codex exec flags reference: https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
+- MUI Select API: https://mui.com/material-ui/react-select/
 
 #### Subtasks
 1. [ ] Server (`server/src/routes/chat.ts` + validator): accept optional `approvalPolicy` enum (import `ApprovalMode` from `threadOptions`); default `on-failure`; reject/strip for LM Studio; forward to Codex options.
@@ -246,7 +249,8 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 
 #### Documentation Locations
 - Codex `ModelReasoningEffort` enum: https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
-- exec flags reference
+- Codex exec flags reference: https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
+- MUI Select API: https://mui.com/material-ui/react-select/
 
 #### Subtasks
 1. [ ] Server (`server/src/routes/chat.ts` + validator): optional `modelReasoningEffort` enum (import `ModelReasoningEffort` from `threadOptions`); default `high`; reject/strip for LM Studio; forward to Codex options.
@@ -292,8 +296,10 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 Validate all Codex flag controls end-to-end, ensure docs and structure are up to date, and prepare PR summary/screenshots per plan_format guidance.
 
 #### Documentation Locations
-- README.md, design.md, projectStructure.md
-- plan_format.md final-task expectations
+- Docker Compose reference: https://docs.docker.com/compose/
+- Playwright docs: https://playwright.dev/docs/intro
+- Jest docs: https://jestjs.io/docs/getting-started
+- npm workspaces scripts reference: https://docs.npmjs.com/cli/v9/using-npm/workspaces
 
 #### Subtasks
 1. [ ] Build server: `npm run build --workspace server`

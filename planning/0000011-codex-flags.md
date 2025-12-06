@@ -63,33 +63,20 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server (`server/src/routes/chat.ts` + `server/src/routes/chatValidators.ts`): extend the Codex request schema to accept `sandboxMode` (enum import from `@openai/codex-sdk/dist/threadOptions`). Default to `workspace-write` when omitted; reject when provider≠codex. Forward via the Codex options object, e.g.
-   ```ts
-   const sandboxMode = body.sandboxMode ?? SandboxMode.WorkspaceWrite;
-   const codexOpts = { ...baseOpts, sandboxMode };
-   ```
-2. [ ] Server test (integration, `server/src/test/integration/chat-codex-mcp.test.ts`): missing -> default `workspace-write` forwarded to mocked Codex call args.
-3. [ ] Server test (integration, same file): invalid enum value -> HTTP 400 with clear error message.
-4. [ ] Server test (integration, same file): explicit valid enum -> Codex call args include chosen value; SSE reflects forwarding.
-5. [ ] Client UI (`client/src/pages/ChatPage.tsx`, new `client/src/components/chat/CodexFlagsPanel.tsx` under Provider/Model row): render dropdown populated from API enum values; default shows `workspace-write`; helper text “Controls Codex sandbox permissions (ignored for LM Studio)”. Example snippet:
-   ```tsx
-   <FormControl fullWidth size="small">
-     <InputLabel>Sandbox mode</InputLabel>
-     <Select value={sandboxMode} label="Sandbox mode" onChange={(e) => setSandboxMode(e.target.value as SandboxMode)}>
-       {sandboxModes.map((mode) => (
-         <MenuItem key={mode} value={mode}>{mode}</MenuItem>
-       ))}
-     </Select>
-     <FormHelperText>Controls Codex sandbox permissions (ignored for LM Studio).</FormHelperText>
-   </FormControl>
-   ```
-6. [ ] Client state (`client/src/hooks/useChatStream.ts` or send payload builder): include `sandboxMode` only for provider=codex; reset to default on provider switch/New conversation; persist within active Codex session.
-7. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.default.test.tsx`): assert dropdown renders with API enum options and default selection `workspace-write`.
-8. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.payload.test.tsx`): assert selecting another option puts it in the send payload for codex only.
-9. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.reset.test.tsx`): assert provider change/New conversation resets to default.
-10. [ ] Docs: README.md — add Codex sandbox selector description, default `workspace-write`, and note LM Studio ignores it.
-11. [ ] Docs: design.md — mirror the above detail in the chat/Codex section (duplicate intentionally).
-12. [ ] Lint/format touched packages.
+1. [ ] Server validation update (`server/src/routes/chatValidators.ts`): extend schema to include optional `sandboxMode` using `SandboxMode` from `@openai/codex-sdk/dist/threadOptions`; default `SandboxMode.WorkspaceWrite` when absent; if present while `provider !== 'codex'`, log a warning and strip it instead of erroring. Include payload examples in comments for juniors.
+2. [ ] Server handler update (`server/src/routes/chat.ts`): when `provider === 'codex'`, add `sandboxMode` (with default) to Codex options; when provider is LM Studio drop the field and log a warning about ignoring Codex-only flags.
+3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+   - omitted `sandboxMode` -> Codex call receives `SandboxMode.WorkspaceWrite`.
+   - invalid string -> HTTP 400 with clear message and no Codex call.
+   - explicit `SandboxMode.FullAccess` (or any non-default enum) -> forwarded to Codex call options; SSE stream completes.
+   - LM Studio request with `sandboxMode` -> 200 OK, flag not forwarded, warning logged/asserted.
+4. [ ] Client component: create `client/src/components/chat/CodexFlagsPanel.tsx` exporting a panel rendered immediately under the Provider/Model row in `client/src/pages/ChatPage.tsx`; include a `Select` populated from enum values returned by the provider, label “Sandbox mode”, helper text “Controls Codex sandbox permissions (ignored for LM Studio).”
+5. [ ] Client wiring: in `ChatPage.tsx` pass the sandbox state/handlers into `CodexFlagsPanel`; ensure the panel renders only when `provider === 'codex'` but the state lives alongside other chat form state so it survives within a Codex session.
+6. [ ] Client state/payload (`client/src/hooks/useChatStream.ts` send builder): include `sandboxMode` in the POST body only when provider is codex; default to `SandboxMode.WorkspaceWrite` on initial load and when the provider switches away and back or when “New conversation” is clicked.
+7. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.sandbox.default.test.tsx` covering render + default value + helper text; add `client/src/test/chatPage.flags.sandbox.payload.test.tsx` asserting payload contains chosen value only for codex; add `client/src/test/chatPage.flags.sandbox.reset.test.tsx` asserting provider change/New conversation resets to default.
+8. [ ] Docs: README.md — Chat/Codex section: describe Sandbox mode selector, enum options, default `workspace-write`, and LM Studio ignore note; include a one-line payload example showing `sandboxMode` in the request.
+9. [ ] Docs: design.md — duplicate the same sandbox description and default in the chat/Codex subsection so a dev sees it even without README.
+10. [ ] Lint/format: run `npm run lint --workspaces` or package-scoped lint after code changes.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -117,23 +104,21 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
-1. [ ] Server (`server/src/routes/chat.ts` + validator file): accept optional boolean `networkAccessEnabled` when provider=codex; default `true`; reject/strip for LM Studio. Forward in Codex options: `networkAccessEnabled: body.networkAccessEnabled ?? true`.
-2. [ ] Server test (integration, `server/src/test/integration/chat-codex-mcp.test.ts`): default true when omitted, forwarded to Codex call.
-3. [ ] Server test (integration, same file): explicit false forwarded; LM Studio requests reject/strip param.
-4. [ ] Client UI (Codex flags panel): add MUI `Switch` labeled “Enable network access”; helper text about sandbox networking risk; default ON. Example:
-   ```tsx
-   <FormControlLabel
-     control={<Switch checked={networkAccessEnabled} onChange={(e) => setNetworkAccessEnabled(e.target.checked)} />}
-     label="Enable network access"
-   />
-   <FormHelperText>Allows Codex sandbox network access (ignored for LM Studio).</FormHelperText>
-   ```
-5. [ ] Client state/payload: include only for provider=codex; reset to default on provider switch/New conversation.
-6. [ ] Client test (RTL, `client/src/test/chatPage.flags.network.default.test.tsx`): default ON and helper text present.
-7. [ ] Client test (RTL, `client/src/test/chatPage.flags.network.payload.test.tsx`): toggling OFF removes/adds value in payload appropriately and omitted for LM Studio.
-8. [ ] Docs: README.md — add network access toggle description, default `true`, LM Studio ignore.
-9. [ ] Docs: design.md — same network access detail and default, duplicated intentionally.
-10. [ ] Lint/format touched packages.
+1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `networkAccessEnabled`; default `true`; if present with non-codex provider, log a warning and strip it instead of erroring; keep examples in comments.
+2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `networkAccessEnabled` (default `true`) in Codex options; when provider is LM Studio, drop the field and log the ignore.
+3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+   - omitted -> Codex call args show `networkAccessEnabled: true`.
+   - explicit false -> Codex call receives `false`.
+   - LM Studio request containing the field -> succeeds (no 400), flag absent from LM Studio call, warning logged/asserted.
+4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` with label “Enable network access” and helper text “Allows Codex sandbox network access (ignored for LM Studio)”; default checked.
+5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `networkAccessEnabled` in chat state, include in payload only for codex, reset to `true` on provider change or New conversation; keep current value while staying on Codex provider.
+6. [ ] Client tests (RTL):
+   - `client/src/test/chatPage.flags.network.default.test.tsx` verifies default ON + helper text.
+   - `client/src/test/chatPage.flags.network.payload.test.tsx` ensures payload carries the boolean for codex and is absent for LM Studio.
+   - include reset behaviour in the reset test file if not covered elsewhere.
+7. [ ] Docs: README.md — add a bullet in the Chat/Codex section for “Network access” with default `true`, what it does, and that LM Studio ignores it; show a JSON snippet with `"networkAccessEnabled": false`.
+8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
+9. [ ] Lint/format touched packages after edits.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -161,23 +146,18 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
-1. [ ] Server (`server/src/routes/chat.ts` + validator): optional `webSearchEnabled` boolean when provider=codex; default `true`; reject/strip for LM Studio; forward to Codex options: `webSearchEnabled: body.webSearchEnabled ?? true`.
-2. [ ] Server test (integration, `server/src/test/integration/chat-codex-mcp.test.ts`): default true when omitted, forwarded to Codex call.
-3. [ ] Server test (integration, same file): explicit false forwarded; LM Studio requests reject/strip param.
-4. [ ] Client UI (Codex flags panel): MUI `Switch` “Enable web search”; helper text about data usage; default ON. Example:
-   ```tsx
-   <FormControlLabel
-     control={<Switch checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} />}
-     label="Enable web search"
-   />
-   <FormHelperText>Allows Codex to issue web search requests (ignored for LM Studio).</FormHelperText>
-   ```
-5. [ ] Client state/payload: include only for provider=codex; reset to default on provider switch/New conversation.
-6. [ ] Client test (RTL, `client/src/test/chatPage.flags.websearch.default.test.tsx`): default ON and helper text present.
-7. [ ] Client test (RTL, `client/src/test/chatPage.flags.websearch.payload.test.tsx`): toggling OFF affects payload appropriately and omitted for LM Studio.
-8. [ ] Docs: README.md — add web search toggle description, default `true`, LM Studio ignore.
-9. [ ] Docs: design.md — same web search detail and default (duplicate intentionally).
-10. [ ] Lint/format touched packages.
+1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `webSearchEnabled`; default `true`; if provided for a non-codex provider, log a warning and strip it (no 400); include examples in comments.
+2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, add `webSearchEnabled` (default `true`) to Codex options; when provider is LM Studio, drop the field and log that it was ignored.
+3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+   - omitted -> Codex call gets `webSearchEnabled: true`.
+   - explicit false -> Codex call gets `false`.
+   - LM Studio with the flag -> succeeds (no 400), flag not forwarded, warning logged/asserted.
+4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` labeled “Enable web search” with helper “Allows Codex to issue web search requests (ignored for LM Studio)”; default checked.
+5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): track `webSearchEnabled`, include it in payload only for codex, default to true, reset to true on provider change or New conversation.
+6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.websearch.default.test.tsx` (render + default + helper), `client/src/test/chatPage.flags.websearch.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
+7. [ ] Docs: README.md — Chat/Codex section bullet for Web search with default `true`, what it enables, LM Studio ignore note, plus a JSON example showing `"webSearchEnabled": false`.
+8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
+9. [ ] Lint/format after changes.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -205,27 +185,19 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server (`server/src/routes/chat.ts` + validator): accept optional `approvalPolicy` enum (import `ApprovalMode` from `threadOptions`); default `on-failure`; reject/strip for LM Studio; forward to Codex options.
-2. [ ] Server test (integration, `server/src/test/integration/chat-codex-mcp.test.ts`): default `on-failure` when omitted; forwarded to Codex call.
-3. [ ] Server test (integration, same file): invalid enum -> 400; valid value forwarded.
-4. [ ] Client UI (Codex flags panel): dropdown from API enum values; default `on-failure`; helper text explaining policies. Example:
-   ```tsx
-   <FormControl fullWidth size="small">
-     <InputLabel>Approval policy</InputLabel>
-     <Select value={approvalPolicy} label="Approval policy" onChange={(e) => setApprovalPolicy(e.target.value as ApprovalMode)}>
-       {approvalModes.map((mode) => (
-         <MenuItem key={mode} value={mode}>{mode}</MenuItem>
-       ))}
-     </Select>
-     <FormHelperText>Codex action approval behaviour (default on-failure; ignored for LM Studio).</FormHelperText>
-   </FormControl>
-   ```
-5. [ ] Client state/payload: include only for provider=codex; reset on provider switch/New conversation.
-6. [ ] Client test (RTL, `client/src/test/chatPage.flags.approval.default.test.tsx`): default `on-failure`, options rendered.
-7. [ ] Client test (RTL, `client/src/test/chatPage.flags.approval.payload.test.tsx`): selected value included in payload for codex only; omitted for LM Studio.
-8. [ ] Docs: README.md — add approval policy options, default `on-failure`, LM Studio ignore.
-9. [ ] Docs: design.md — mirror approval options/default and ignore note (duplicate intentionally).
-10. [ ] Lint/format touched packages.
+1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional `approvalPolicy` enum using `ApprovalMode` from `@openai/codex-sdk/dist/threadOptions`; default `ApprovalMode.OnFailure`; if provided for non-codex provider, log a warning and strip instead of erroring; keep enum values listed for copy/paste.
+2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `approvalPolicy` (default applied) in Codex options; for LM Studio drop the field and log an ignore.
+3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+   - omitted -> Codex call receives `ApprovalMode.OnFailure`.
+   - invalid value -> 400 and Codex not invoked.
+   - explicit valid value -> forwarded to Codex call options and reflected in captured args.
+   - LM Studio with `approvalPolicy` -> succeeds, field absent from LM Studio call, warning logged/asserted.
+4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Select` labeled “Approval policy” listing enum options, default `on-failure`, helper “Codex action approval behaviour (ignored for LM Studio).” Place in the Codex panel under Provider/Model.
+5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `approvalPolicy`, include only for codex payloads, reset to default on provider change or New conversation, keep current choice within active Codex session.
+6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.approval.default.test.tsx` (render + default), `client/src/test/chatPage.flags.approval.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
+7. [ ] Docs: README.md — add approval policy bullet with enum options and default `on-failure`, note LM Studio ignore, and include a JSON example showing `"approvalPolicy": "always"`.
+8. [ ] Docs: design.md — duplicate the approval description/default/ignore note.
+9. [ ] Lint/format after edits.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -253,27 +225,19 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server (`server/src/routes/chat.ts` + validator): optional `modelReasoningEffort` enum (import `ModelReasoningEffort` from `threadOptions`); default `high`; reject/strip for LM Studio; forward to Codex options.
-2. [ ] Server test (integration, `server/src/test/integration/chat-codex-mcp.test.ts`): default `high` when omitted; forwarded to Codex call.
-3. [ ] Server test (integration, same file): invalid enum -> 400; valid value forwarded.
-4. [ ] Client UI (Codex flags panel): dropdown from API enum values; default `high`; helper text on cost/quality. Example:
-   ```tsx
-   <FormControl fullWidth size="small">
-     <InputLabel>Reasoning effort</InputLabel>
-     <Select value={modelReasoningEffort} label="Reasoning effort" onChange={(e) => setModelReasoningEffort(e.target.value as ModelReasoningEffort)}>
-       {reasoningEfforts.map((effort) => (
-         <MenuItem key={effort} value={effort}>{effort}</MenuItem>
-       ))}
-     </Select>
-     <FormHelperText>Higher effort may improve quality at more cost (ignored for LM Studio).</FormHelperText>
-   </FormControl>
-   ```
-5. [ ] Client state/payload: include only for provider=codex; reset on provider switch/New conversation.
-6. [ ] Client test (RTL, `client/src/test/chatPage.flags.reasoning.default.test.tsx`): default `high`, options rendered.
-7. [ ] Client test (RTL, `client/src/test/chatPage.flags.reasoning.payload.test.tsx`): selected value included in payload for codex only; omitted/reset for LM Studio.
-8. [ ] Docs: README.md — add reasoning effort options, default `high`, LM Studio ignore.
-9. [ ] Docs: design.md — mirror reasoning effort details and ignore note (duplicate intentionally).
-10. [ ] Lint/format touched packages.
+1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional `modelReasoningEffort` enum using `ModelReasoningEffort` from `@openai/codex-sdk/dist/threadOptions`; default `ModelReasoningEffort.High`; if provided for non-codex provider, log a warning and strip instead of erroring; list enum options inline for copy/paste.
+2. [ ] Server handler (`server/src/routes/chat.ts`): forward `modelReasoningEffort` (default applied) in Codex options when provider is codex; drop and log ignore for LM Studio requests.
+3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+   - omitted -> Codex call includes `modelReasoningEffort: ModelReasoningEffort.High`.
+   - invalid -> 400 and no Codex call.
+   - explicit `low|medium|high` -> forwarded to Codex call options.
+   - LM Studio with the field -> succeeds, field not forwarded, warning logged/asserted.
+4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add `Select` labeled “Reasoning effort” with enum options, default `high`, helper “Higher effort may improve quality at more cost (ignored for LM Studio).”
+5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): store `modelReasoningEffort`, send only for codex, default to `high`, reset to default on provider change or New conversation while preserving within active Codex sessions.
+6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.reasoning.default.test.tsx` (render + default), `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (payload include/exclude + reset behaviour).
+7. [ ] Docs: README.md — add reasoning effort bullet with options and default `high`, LM Studio ignore note, and a JSON example showing `"modelReasoningEffort": "low"`.
+8. [ ] Docs: design.md — duplicate the reasoning description/default/ignore note.
+9. [ ] Lint/format after edits.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -302,16 +266,16 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 - npm workspaces reference (workspace build/test commands): https://docs.npmjs.com/cli/v9/using-npm/workspaces
 
 #### Subtasks
-1. [ ] Build server: `npm run build --workspace server`
-2. [ ] Build client: `npm run build --workspace client`
-3. [ ] Clean docker build: `npm run compose:build`
-4. [ ] Start compose and health-check: `npm run compose:up`, verify `curl http://localhost:5010/health` and client root, then `npm run compose:down`
-5. [ ] Run tests: `npm run test --workspace server`; `npm run test --workspace client`; `npm run e2e`
-6. [ ] Docs: README.md — finalize Codex flag controls (defaults, UI placement), commands if added.
-7. [ ] Docs: design.md — mirror Codex flags behaviour, defaults, and UI placement (duplicate intentionally).
-8. [ ] Docs: projectStructure.md — add/adjust any new files (e.g., CodexFlagsPanel) created in this story.
-9. [ ] Capture screenshots to `test-results/screenshots/0000011-06-*.png` showing Codex flags panel (under Provider/Model row) and a successful Codex request with flags applied.
-10. [ ] Prepare PR summary capturing all changes across tasks.
+1. [ ] Build server: `npm run build --workspace server` (confirm succeeds after all flag changes).
+2. [ ] Build client: `npm run build --workspace client` (ensures new CodexFlagsPanel and wiring compile).
+3. [ ] Clean docker build: `npm run compose:build` to verify images still build with new code.
+4. [ ] Start compose: `npm run compose:up`; verify `curl http://localhost:5010/health` returns 200 and open client root (http://localhost:5001) loads; then `npm run compose:down`.
+5. [ ] Tests: run `npm run test --workspace server`, `npm run test --workspace client`, and `npm run e2e` (confirm Codex flag-related specs pass); record results in Implementation notes.
+6. [ ] Docs update - README.md: in Chat/Codex section, list each flag (sandboxMode, networkAccessEnabled, webSearchEnabled, approvalPolicy, modelReasoningEffort), defaults, LM Studio ignore note, and include one JSON request example showing all flags.
+7. [ ] Docs update - design.md: duplicate the same flag list/defaults/ignore note and UI placement under Provider/Model row (even if repeated from README).
+8. [ ] Docs update - projectStructure.md: add any new files (e.g., `client/src/components/chat/CodexFlagsPanel.tsx`, new test files) with brief comments.
+9. [ ] Screenshots: capture after running `npm run compose:up` or local dev — store in `test-results/screenshots/` with names `0000011-06-flags-panel.png` (show Codex flags panel open) and `0000011-06-codex-send.png` (show a Codex message sent with non-default flag values visible). Ensure files are committed.
+10. [ ] PR summary: draft a bullet list summarizing changes across all tasks (server validation/forwarding, client UI/state, tests, docs, screenshots) to be used as PR description; place summary in Implementation notes.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

@@ -45,6 +45,16 @@ const routes = [
 ];
 
 const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
+const providerPayload = {
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+  ],
+};
 
 function streamWithMermaid() {
   const encoder = new TextEncoder();
@@ -75,17 +85,40 @@ function streamWithMermaid() {
 
 describe('Chat mermaid rendering', () => {
   it('renders mermaid diagrams and strips script tags', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => providerPayload,
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: modelList,
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: streamWithMermaid(),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => modelList,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        body: streamWithMermaid(),
-      });
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
 
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });

@@ -110,7 +110,7 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 ### 2. System context update hook
 
-- status: __in_progress__
+- status: **in_progress**
 - Git Commits: 18cad00, f3e748e
 
 #### Overview
@@ -272,6 +272,7 @@ Occasionally the streamed “Thought process” block disappears or never shows 
 8. [x] `npm run e2e`
 
 #### Implementation notes
+
 - Reproduced the missing-think issue with a mock stream sending analysis tokens then a final payload containing both analysis and final; prior parsing reset the analysis buffer because the final handler re-initialized reasoning state.
 - Adjusted final-frame parsing to reuse the existing reasoning state and dedupe analysis so repeated Harmony analysis text collapses while still preserving earlier bursts and pending fragments.
 - Added `multiAnalysisFinalStream` regression in `useChatStream.reasoning.test.tsx` and tightened thinking timer behaviour to re-evaluate immediately after tool results so the placeholder returns on long gaps; fixed server chat history length by removing the extra `chat.append` during streaming.
@@ -279,4 +280,3 @@ Occasionally the streamed “Thought process” block disappears or never shows 
 - Testing completed in order: server tests, client tests, compose build/up/down, and full e2e (ingest cancel/re-embed/remove still intentionally skipped in fixtures). Additional fix ensures LM Studio history stays at the provided message count.
 
 ---
-

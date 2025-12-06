@@ -14,8 +14,11 @@ services:
     env_file:
       - server/.env.e2e
     volumes:
+      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - ./e2e/fixtures:/fixtures:ro
+      - ./e2e/fixtures/repo:/data:ro
+      - ./codex:/app/codex
     depends_on:
       chroma-e2e:
         condition: service_started

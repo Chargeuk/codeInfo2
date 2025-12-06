@@ -1,8 +1,10 @@
-import type { ChatModelInfo } from '@codeinfo2/common';
+import type { ChatModelInfo, ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { getCodexDetection } from '../providers/codexRegistry.js';
+import { getMcpStatus } from '../providers/mcpStatus.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
@@ -32,8 +34,42 @@ export function createChatModelsRouter({
     return kind !== 'embedding' && kind !== 'vector';
   };
 
-  router.get('/models', async (_req, res) => {
+  router.get('/models', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
+    const provider = (req.query.provider as string | undefined)?.toLowerCase();
+
+    if (provider === 'codex') {
+      const detection = getCodexDetection();
+      const mcp = await getMcpStatus();
+      const codexModels: ChatModelInfo[] = [
+        {
+          key: 'gpt-5.1-codex-max',
+          displayName: 'gpt-5.1-codex-max',
+          type: 'codex',
+        },
+        {
+          key: 'gpt-5.1-codex-mini',
+          displayName: 'gpt-5.1-codex-mini',
+          type: 'codex',
+        },
+        {
+          key: 'gpt-5.1',
+          displayName: 'gpt-5.1',
+          type: 'codex',
+        },
+      ];
+
+      const response: ChatModelsResponse = {
+        provider: 'codex',
+        available: detection.available,
+        toolsAvailable: detection.available && mcp.available,
+        reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
+        models: detection.available ? codexModels : [],
+      };
+
+      return res.json(response);
+    }
+
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
@@ -50,7 +86,13 @@ export function createChatModelsRouter({
         { requestId, baseUrl: safeBase },
         'chat models invalid baseUrl',
       );
-      return res.status(503).json({ error: 'lmstudio unavailable' });
+      return res.status(503).json({
+        error: 'lmstudio unavailable',
+        provider: 'lmstudio',
+        available: false,
+        toolsAvailable: false,
+        models: [],
+      });
     }
 
     append({
@@ -73,6 +115,13 @@ export function createChatModelsRouter({
           type: model.type,
         }));
 
+      const response: ChatModelsResponse = {
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mapped,
+      };
+
       append({
         level: 'info',
         message: 'chat models fetch success',
@@ -85,7 +134,7 @@ export function createChatModelsRouter({
         { requestId, baseUrl: safeBase, models: mapped.length },
         'chat models fetch success',
       );
-      res.json(mapped);
+      res.json(response);
     } catch (err) {
       const error = (err as Error).message ?? 'lmstudio unavailable';
       append({
@@ -100,7 +149,13 @@ export function createChatModelsRouter({
         { requestId, baseUrl: safeBase, error },
         'chat models fetch failed',
       );
-      res.status(503).json({ error: 'lmstudio unavailable' });
+      res.status(503).json({
+        error: 'lmstudio unavailable',
+        provider: 'lmstudio',
+        available: false,
+        toolsAvailable: false,
+        models: [],
+      });
     }
   });
 

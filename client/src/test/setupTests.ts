@@ -87,7 +87,44 @@ if (!global.fetch) {
 }
 
 // Default fetch mock for tests; individual tests can override as needed.
-(global.fetch as jest.Mock).mockImplementation(async () => ({
-  ok: true,
-  json: async () => ({ version: '0.0.0', app: 'server' }),
-}));
+(global.fetch as jest.Mock).mockImplementation(
+  async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url.includes('/chat/providers')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      } as Response;
+    }
+    if (url.includes('/chat/models')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            { key: 'm1', displayName: 'Model 1', type: 'gguf' },
+            { key: 'embed', displayName: 'Embedding Model', type: 'embedding' },
+          ],
+        }),
+      } as Response;
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ version: '0.0.0', app: 'server' }),
+    } as Response;
+  },
+);

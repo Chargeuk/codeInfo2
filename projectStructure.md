@@ -87,6 +87,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolDetails.test.tsx ? tool detail UI (parameters, repos, vector files, errors)
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
+|     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
@@ -113,6 +114,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ index.ts â€” barrel exports
 â”‚     â”œâ”€ lmstudio.ts â€” LM Studio DTOs/types
 â”‚     â”œâ”€ logging.ts â€” LogEntry/LogLevel DTO + isLogEntry guard
+â”‚     â”œâ”€ systemContext.ts — shared SYSTEM_CONTEXT prompt exported to client/server
 â”‚     â””â”€ versionInfo.ts â€” VersionInfo DTO
 â”œâ”€ e2e/ â€” Playwright specs
 â”‚  â”œâ”€ fixtures/
@@ -150,6 +152,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
+â”‚     â”‚  â”œâ”€ chatProviders.ts — lists chat providers with availability flags
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
 â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
 â”‚     â”‚  â”œâ”€ ingestCancel.ts — POST /ingest/cancel/:runId cancels active ingest and cleans vectors
@@ -230,7 +233,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route SSE wiring with mocked LM Studio tools
-â”‚        |  â””â”€ chat-vectorsearch-locked-model.test.ts â€” chat SSE error/success flows when vector search lock/enbedding availability changes
+â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat SSE error/success flows when vector search lock/enbedding availability changes
+â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat SSE flow, thread reuse, availability gating
+â”‚        |  â””â”€ chat-codex-mcp.test.ts — Codex MCP tool-call SSE mapping and SYSTEM_CONTEXT injection
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/

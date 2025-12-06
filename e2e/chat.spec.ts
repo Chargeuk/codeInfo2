@@ -8,6 +8,7 @@ const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
 const preferredChatModel = 'openai/gpt-oss-20b';
+const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 const skipIfUnreachable = async (page: Page) => {
   try {
@@ -34,13 +35,58 @@ test('chat streams end-to-end', async ({ page }) => {
   ];
 
   if (useMockChat) {
-    await page.route('**/chat/models', (route) =>
+    await page.route('**/chat/providers', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(mockModels),
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: false,
+              toolsAvailable: false,
+              reason: codexReason,
+            },
+          ],
+        }),
       }),
     );
+    await page.route('**/chat/models', (route) => {
+      const url = new URL(route.request().url());
+      const provider = url.searchParams.get('provider') ?? 'lmstudio';
+
+      if (provider === 'codex') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            provider: 'codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+            models: [],
+          }),
+        });
+      }
+
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: mockModels,
+        }),
+      });
+    });
     await page.route('**/chat', (route) => {
       if (route.request().method() !== 'POST') {
         return route.continue();
@@ -62,7 +108,10 @@ test('chat streams end-to-end', async ({ page }) => {
       if (!modelsRes.ok()) {
         test.skip(`LM Studio models not reachable (${modelsRes.status()})`);
       }
-      models = (await modelsRes.json()) as ChatModel[];
+      const data = await modelsRes.json();
+      models = Array.isArray(data)
+        ? (data as ChatModel[])
+        : ((data as { models?: ChatModel[] }).models ?? []);
     } catch {
       test.skip('LM Studio models not reachable (request failed)');
     }

@@ -9,6 +9,7 @@ import {
   CircularProgress,
   FormControl,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Select,
@@ -23,7 +24,14 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Markdown from '../components/Markdown';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
@@ -34,17 +42,27 @@ import useChatStream, {
 
 export default function ChatPage() {
   const {
+    providers,
+    provider,
+    setProvider,
+    providerReason,
+    available: providerAvailable,
+    toolsAvailable,
     models,
     selected,
     setSelected,
     errorMessage,
+    providerErrorMessage,
     isLoading,
     isError,
     isEmpty,
-    refresh,
+    refreshModels,
+    refreshProviders,
   } = useChatModel();
-  const { messages, status, isStreaming, send, stop, reset } =
-    useChatStream(selected);
+  const { messages, status, isStreaming, send, stop, reset } = useChatStream(
+    selected,
+    provider,
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
@@ -53,9 +71,37 @@ export default function ChatPage() {
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
     {},
   );
-  const controlsDisabled = isLoading || isError || isEmpty || !selected;
+  const providerLocked = messages.length > 0;
+  const providerIsCodex = provider === 'codex';
+  const codexProvider = useMemo(
+    () => providers.find((p) => p.id === 'codex'),
+    [providers],
+  );
+  const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
+  const showCodexUnavailable = providerIsCodex
+    ? !providerAvailable
+    : codexUnavailable;
+  const showCodexToolsMissing =
+    providerIsCodex && providerAvailable && !toolsAvailable;
+  const showCodexReady = providerIsCodex && providerAvailable && toolsAvailable;
+  const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
+  const controlsDisabled =
+    isLoading ||
+    isError ||
+    isEmpty ||
+    !selected ||
+    !providerAvailable ||
+    (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
   const showStop = isSending;
+  const combinedError =
+    providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
+  const retryFetch = useCallback(() => {
+    void refreshProviders();
+    if (provider) {
+      void refreshModels(provider);
+    }
+  }, [provider, refreshModels, refreshProviders]);
 
   const orderedMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
@@ -406,7 +452,7 @@ export default function ChatPage() {
           <Stack direction="row" spacing={1} alignItems="center">
             <CircularProgress size={18} />
             <Typography variant="body2" color="text.secondary">
-              Loading models...
+              Loading chat providers and models...
             </Typography>
           </Stack>
         )}
@@ -414,80 +460,175 @@ export default function ChatPage() {
           <Alert
             severity="error"
             action={
-              <Button color="inherit" size="small" onClick={refresh}>
+              <Button color="inherit" size="small" onClick={retryFetch}>
                 Retry
               </Button>
             }
           >
-            {errorMessage ?? 'Unable to load chat models.'}
+            {combinedError}
           </Alert>
         )}
         {!isLoading && !isError && isEmpty && (
           <Alert severity="info">
-            No chat-capable models available from LM Studio.
+            No chat-capable models available for this provider.
           </Alert>
         )}
         <form onSubmit={handleSubmit}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            alignItems="stretch"
-          >
-            <FormControl sx={{ minWidth: 260 }} disabled={controlsDisabled}>
-              <InputLabel id="chat-model-label">Model</InputLabel>
-              <Select
-                labelId="chat-model-label"
-                id="chat-model-select"
-                label="Model"
-                value={selected ?? ''}
-                onChange={(event) => setSelected(event.target.value)}
-                displayEmpty
-              >
-                {models.map((model) => (
-                  <MenuItem key={model.key} value={model.key}>
-                    {model.displayName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              label="Message"
-              placeholder="Type your prompt"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              disabled={controlsDisabled}
-              inputProps={{ 'data-testid': 'chat-input' }}
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              data-testid="chat-send"
-              disabled={controlsDisabled || isSending || !input.trim()}
+          <Stack spacing={1.5}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems="stretch"
             >
-              Send
-            </Button>
-            {showStop && (
-              <Button
-                type="button"
-                variant="outlined"
-                color="warning"
-                onClick={handleStop}
-                data-testid="chat-stop"
+              <FormControl
+                sx={{ minWidth: 220 }}
+                disabled={isLoading || providerLocked}
               >
-                Stop
-              </Button>
+                <InputLabel id="chat-provider-label">Provider</InputLabel>
+                <Select
+                  labelId="chat-provider-label"
+                  id="chat-provider-select"
+                  label="Provider"
+                  value={provider ?? ''}
+                  onChange={(event) => setProvider(event.target.value)}
+                  displayEmpty
+                  data-testid="provider-select"
+                >
+                  {providers.map((entry) => (
+                    <MenuItem
+                      key={entry.id}
+                      value={entry.id}
+                      disabled={!entry.available}
+                    >
+                      {entry.label}
+                      {!entry.available ? ' (unavailable)' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl
+                sx={{ minWidth: 260, flex: 1 }}
+                disabled={isLoading || isError || isEmpty || !providerAvailable}
+              >
+                <InputLabel id="chat-model-label">Model</InputLabel>
+                <Select
+                  labelId="chat-model-label"
+                  id="chat-model-select"
+                  label="Model"
+                  value={selected ?? ''}
+                  onChange={(event) => setSelected(event.target.value)}
+                  displayEmpty
+                  data-testid="model-select"
+                >
+                  {models.map((model) => (
+                    <MenuItem key={model.key} value={model.key}>
+                      {model.displayName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent="flex-end"
+                sx={{ minWidth: { xs: '100%', sm: 220 } }}
+              >
+                <Button
+                  type="button"
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleNewConversation}
+                  disabled={isLoading}
+                  fullWidth
+                >
+                  New conversation
+                </Button>
+              </Stack>
+            </Stack>
+
+            {showCodexUnavailable ? (
+              <Alert severity="warning" data-testid="codex-unavailable-banner">
+                OpenAI Codex is unavailable. Install the CLI (`npm install -g
+                @openai/codex`), log in with `CODEX_HOME=./codex codex login`
+                (or your `~/.codex`), and ensure `./codex/config.toml` is
+                seeded. Compose mounts{' '}
+                <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to `/host/codex`
+                and copies `auth.json` into `/app/codex` when missing, so
+                container logins are not required. See the guidance in{' '}
+                <Link
+                  href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  README ▸ Codex (CLI)
+                </Link>
+                .
+                {providerIsCodex || codexProvider?.reason
+                  ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
+                  : ''}
+              </Alert>
+            ) : null}
+            {showCodexToolsMissing && (
+              <Alert severity="warning" data-testid="codex-tools-banner">
+                Codex requires MCP tools. Ensure `config.toml` lists the `/mcp`
+                endpoints and that tools are enabled, then retry once the
+                CLI/auth/config prerequisites above are satisfied.
+              </Alert>
             )}
-            <Button
-              type="button"
-              variant="outlined"
-              color="secondary"
-              onClick={handleNewConversation}
-              disabled={isLoading}
+            {showCodexReady && (
+              <Alert severity="info" data-testid="codex-ready-banner">
+                Codex chats are enabled with MCP tools. Threads reuse returned
+                thread IDs so conversations can continue across turns.
+              </Alert>
+            )}
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
             >
-              New conversation
-            </Button>
+              <TextField
+                inputRef={inputRef}
+                fullWidth
+                multiline
+                minRows={2}
+                label="Message"
+                placeholder="Type your prompt"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                disabled={controlsDisabled}
+                inputProps={{ 'data-testid': 'chat-input' }}
+                helperText={
+                  providerIsCodex && (!providerAvailable || !toolsAvailable)
+                    ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
+                    : undefined
+                }
+              />
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <Button
+                  type="submit"
+                  variant="contained"
+                  data-testid="chat-send"
+                  disabled={controlsDisabled || isSending || !input.trim()}
+                >
+                  Send
+                </Button>
+                {showStop && (
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    color="warning"
+                    onClick={handleStop}
+                    data-testid="chat-stop"
+                  >
+                    Stop
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
           </Stack>
         </form>
         {isSending && (
@@ -505,18 +646,27 @@ export default function ChatPage() {
               sx={{ height: '100%' }}
             >
               <CircularProgress size={20} />
-              <Typography color="text.secondary">Loading models...</Typography>
+              <Typography color="text.secondary">
+                Loading chat providers and models...
+              </Typography>
             </Stack>
           )}
           {isError && (
-            <Typography color="error.main">
-              {errorMessage ?? 'Failed to load chat models. Please retry.'}
-            </Typography>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={retryFetch}>
+                  Retry
+                </Button>
+              }
+            >
+              {combinedError}
+            </Alert>
           )}
           {!isLoading && !isError && isEmpty && (
             <Typography color="text.secondary">
-              No chat-capable models available. Add a supported LLM in LM
-              Studio, then retry.
+              No chat-capable models for this provider. Add a supported model or
+              switch providers, then retry.
             </Typography>
           )}
           {!isLoading && !isError && !isEmpty && (
@@ -532,8 +682,9 @@ export default function ChatPage() {
                 const isErrorBubble = message.kind === 'error';
                 const isStatusBubble = message.kind === 'status';
                 const isUser = message.role === 'user';
-                const hasCitations = !!message.citations?.length;
-                const segments = message.segments?.length
+                const hasCitations =
+                  activeToolsAvailable && !!message.citations?.length;
+                const baseSegments = message.segments?.length
                   ? message.segments
                   : ([
                       {
@@ -541,12 +692,17 @@ export default function ChatPage() {
                         kind: 'text' as const,
                         content: message.content ?? '',
                       },
-                      ...(message.tools?.map((tool) => ({
-                        id: `${message.id}-${tool.id}`,
-                        kind: 'tool' as const,
-                        tool,
-                      })) ?? []),
+                      ...(activeToolsAvailable
+                        ? (message.tools?.map((tool) => ({
+                            id: `${message.id}-${tool.id}`,
+                            kind: 'tool' as const,
+                            tool,
+                          })) ?? [])
+                        : []),
                     ] as const);
+                const segments = activeToolsAvailable
+                  ? baseSegments
+                  : baseSegments.filter((segment) => segment.kind === 'text');
                 return (
                   <Stack
                     key={message.id}

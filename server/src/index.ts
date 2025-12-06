@@ -1,12 +1,17 @@
+import path from 'path';
 import { getAppInfo } from '@codeinfo2/common';
 import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
-import { createRequestLogger } from './logger.js';
+import { baseLogger, createRequestLogger } from './logger.js';
+import { createMcpRouter } from './mcp/server.js';
+import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
+import { createChatProvidersRouter } from './routes/chatProviders.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
 import { createIngestModelsRouter } from './routes/ingestModels.js';
 import { createIngestReembedRouter } from './routes/ingestReembed.js';
@@ -17,18 +22,30 @@ import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
+import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 
 config();
+ensureCodexConfigSeeded();
+ensureCodexAuthFromHost({
+  containerHome: getCodexHome(),
+  hostHome: path.resolve('/host/codex'),
+  logger: baseLogger,
+});
+const codexDetection = detectCodex();
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(createRequestLogger());
+baseLogger.info({ codexDetection }, 'Codex detection summary');
+const PORT = process.env.PORT ?? '5010';
+const mcpHostUrl = `http://localhost:${PORT}/mcp`;
+const mcpDockerUrl = `http://server:${PORT}/mcp`;
+baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
   if (requestId) res.locals.requestId = requestId;
   next();
 });
-const PORT = process.env.PORT ?? '5010';
 const clientFactory = (baseUrl: string) => getClient(baseUrl);
 
 app.get('/health', (_req, res) => {
@@ -48,6 +65,7 @@ app.get('/info', (_req, res) => {
 
 app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
+app.use('/chat', createChatProvidersRouter());
 app.use('/chat', createChatModelsRouter({ clientFactory }));
 app.use('/', createIngestStartRouter({ clientFactory }));
 app.use('/', createIngestModelsRouter({ clientFactory }));
@@ -58,6 +76,7 @@ app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 app.use('/', createToolsIngestedReposRouter());
 app.use('/', createToolsVectorSearchRouter());
+app.use('/', createMcpRouter());
 
 const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
 

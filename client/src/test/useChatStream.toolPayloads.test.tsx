@@ -23,7 +23,7 @@ function Wrapper({
   stream: ReadableStream<Uint8Array>;
   onUpdate: (messages: ChatMessage[]) => void;
 }) {
-  const { messages, send } = useChatStream('m1');
+  const { messages, send } = useChatStream('m1', 'lmstudio');
 
   useEffect(() => {
     onUpdate(messages);

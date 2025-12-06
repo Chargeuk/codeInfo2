@@ -52,7 +52,8 @@ type StreamEvent =
       message?: { role?: string; content?: string };
       roundIndex?: number;
     }
-  | { type: 'complete' }
+  | { type: 'complete'; threadId?: string | null }
+  | { type: 'thread'; threadId?: string | null }
   | { type: 'error'; message?: string }
   | {
       type: 'tool-request' | 'tool-result';
@@ -147,7 +148,10 @@ const initialReasoningState = (): ReasoningState => ({
 const parseReasoning = (
   current: ReasoningState,
   chunk: string,
-  { flushAll = false }: { flushAll?: boolean } = {},
+  {
+    flushAll = false,
+    dedupeAnalysis = false,
+  }: { flushAll?: boolean; dedupeAnalysis?: boolean } = {},
 ): ReasoningState => {
   let pending = current.pending + chunk;
   let analysis = current.analysis;
@@ -158,6 +162,9 @@ const parseReasoning = (
   const appendText = (text: string) => {
     if (!text) return;
     if (mode === 'analysis') {
+      if (dedupeAnalysis && text && analysis.endsWith(text)) {
+        return;
+      }
       analysis += text;
     } else {
       final += text;
@@ -249,13 +256,29 @@ const isVectorPayloadString = (content: string) => {
   }
 };
 
-export function useChatStream(model?: string) {
+export function useChatStream(model?: string, provider?: string) {
   const log = useRef(createLogger('client')).current;
+  const threadIdRef = useRef<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
-      log(level, message, { channel: 'client-chat', ...context }),
-    [log],
+      log(level, message, {
+        channel: 'client-chat',
+        provider,
+        model,
+        ...(threadIdRef.current ? { threadId: threadIdRef.current } : {}),
+        ...context,
+      }),
+    [log, model, provider],
   );
+  useEffect(() => {
+    threadIdRef.current = threadId;
+  }, [threadId]);
+
+  useEffect(() => {
+    setThreadId(null);
+    threadIdRef.current = null;
+  }, [provider]);
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const statusRef = useRef<Status>('idle');
@@ -323,6 +346,8 @@ export function useChatStream(model?: string) {
     updateMessages(() => []);
     finishStreaming();
     lastVisibleTextAtRef.current = null;
+    setThreadId(null);
+    threadIdRef.current = null;
   }, [finishStreaming, updateMessages]);
 
   const handleErrorBubble = useCallback(
@@ -374,7 +399,7 @@ export function useChatStream(model?: string) {
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || status === 'sending' || !model) {
+      if (!trimmed || status === 'sending' || !model || !provider) {
         return;
       }
 
@@ -394,15 +419,19 @@ export function useChatStream(model?: string) {
 
       // TODO: replace placeholder SYSTEM_CONTEXT when system prompt text is supplied.
       const systemContext = SYSTEM_CONTEXT.trim();
+      const shouldIncludeHistory = provider !== 'codex';
 
-      const systemMessages = systemContext
-        ? [{ role: 'system', content: systemContext }]
+      const systemMessages =
+        systemContext && shouldIncludeHistory
+          ? [{ role: 'system', content: systemContext }]
+          : [];
+
+      const payloadMessages = shouldIncludeHistory
+        ? messagesRef.current
+            .filter((msg) => !msg.kind)
+            .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
+            .map((msg) => ({ role: msg.role, content: msg.content }))
         : [];
-
-      const payloadMessages = messagesRef.current
-        .filter((msg) => !msg.kind)
-        .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
-        .map((msg) => ({ role: msg.role, content: msg.content }));
 
       const assistantId = makeId();
       let reasoning = initialReasoningState();
@@ -693,12 +722,16 @@ export function useChatStream(model?: string) {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
+            provider,
             model,
             messages: [
               ...systemMessages,
               ...payloadMessages,
               { role: 'user', content: trimmed },
             ],
+            ...(provider === 'codex' && threadIdRef.current
+              ? { threadId: threadIdRef.current }
+              : {}),
           }),
           signal: controller.signal,
         });
@@ -725,6 +758,16 @@ export function useChatStream(model?: string) {
             const payload = trimmedLine.replace(/^data:\s*/, '');
             try {
               const event = JSON.parse(payload) as StreamEvent;
+              if (event.type === 'thread') {
+                if (event.threadId) {
+                  setThreadId(event.threadId);
+                  threadIdRef.current = event.threadId;
+                  logWithChannel('info', 'chat thread assigned', {
+                    threadId: event.threadId,
+                  });
+                }
+                continue;
+              }
               if (isToolEvent(event)) {
                 const status: ToolCall['status'] =
                   event.type === 'tool-request'
@@ -794,6 +837,21 @@ export function useChatStream(model?: string) {
                 continue;
               }
 
+              if (
+                event.type === 'analysis' &&
+                typeof event.content === 'string'
+              ) {
+                const next = parseReasoning(
+                  { ...reasoning, mode: 'analysis', analysisStreaming: true },
+                  event.content,
+                  { flushAll: true },
+                );
+                const normalized = { ...next, mode: 'final' as const };
+                reasoning = normalized;
+                applyReasoning(normalized);
+                continue;
+              }
+
               if (event.type === 'token' && typeof event.content === 'string') {
                 completeAwaitingToolsOnAssistantOutput();
                 applyReasoning(
@@ -836,41 +894,15 @@ export function useChatStream(model?: string) {
                   continue;
                 }
                 completeAwaitingToolsOnAssistantOutput();
-                const parsedFinal = parseReasoning(reasoning, finalContent, {
-                  flushAll: true,
-                });
-                const mergedAnalysis = (() => {
-                  if (!parsedFinal.analysis) return reasoning.analysis;
-                  if (!reasoning.analysis) {
-                    const half = parsedFinal.analysis.length / 2;
-                    const first = parsedFinal.analysis.slice(0, half);
-                    if (
-                      parsedFinal.analysis.length % 2 === 0 &&
-                      parsedFinal.analysis === first.repeat(2)
-                    ) {
-                      return first;
-                    }
-                    return parsedFinal.analysis;
-                  }
-                  const delta = parsedFinal.analysis.slice(
-                    reasoning.analysis.length,
-                  );
-                  const trimmedDelta = delta.startsWith(reasoning.analysis)
-                    ? delta.slice(reasoning.analysis.length)
-                    : delta;
-                  return reasoning.analysis + trimmedDelta;
-                })();
-                applyReasoning({
-                  ...reasoning,
-                  pending: parsedFinal.pending,
-                  mode: parsedFinal.mode,
-                  analysisStreaming: parsedFinal.analysisStreaming,
-                  analysis: mergedAnalysis,
-                  final:
-                    parsedFinal.final.length >= reasoning.final.length
-                      ? parsedFinal.final
-                      : reasoning.final,
-                });
+                const parsedFinal = parseReasoning(
+                  reasoning,
+                  finalText.length > 0 ? '' : finalContent,
+                  {
+                    flushAll: true,
+                    dedupeAnalysis: true,
+                  },
+                );
+                applyReasoning(parsedFinal);
                 setAssistantThinking(false);
                 toolEchoGuards.clear();
                 maybeMarkComplete();
@@ -890,6 +922,10 @@ export function useChatStream(model?: string) {
                 setAssistantStatus('failed');
                 setAssistantThinking(false);
               } else if (event.type === 'complete') {
+                if ('threadId' in event && event.threadId) {
+                  setThreadId(event.threadId);
+                  threadIdRef.current = event.threadId;
+                }
                 completeFrameSeen = true;
                 const completed = parseReasoning(reasoning, '', {
                   flushAll: true,
@@ -928,10 +964,12 @@ export function useChatStream(model?: string) {
       handleErrorBubble,
       logWithChannel,
       model,
+      provider,
       status,
       stop,
       updateMessages,
       clearThinkingTimer,
+      setThreadId,
     ],
   );
 

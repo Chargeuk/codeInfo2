@@ -724,7 +724,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 11. Final validation and release checklist
 
-- Task Status: **to_do**
+- Task Status: __in_progress__
 - Git Commits: **to_do**
 
 #### Overview

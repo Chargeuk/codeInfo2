@@ -604,8 +604,8 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 ### 9. Codex host-auth import (one-way bootstrap)
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **done**
+- Git Commits: **10f88fc**
 
 #### Overview
 
@@ -662,7 +662,11 @@ Add a one-way bootstrap path for the server container to copy Codex auth from th
 
 #### Implementation notes
 
-- Keep container CODEX_HOME as the primary source; do not copy back to host. Ensure logs clearly state when a copy was made and from which path. Guard against overwriting existing container auth.
+- Added host Codex volume mounts to `docker-compose.yml` and `docker-compose.e2e.yml` so `/host/codex` is always available alongside `/app/codex`.
+- New helper `ensureCodexAuthFromHost` copies `auth.json` from `/host/codex` into `/app/codex` only when missing, with logging and no overwrite; wired into server startup before Codex detection.
+- README now documents host-login-only flow (mount + copy) and notes no container login is required; design.md documents the bootstrap flow in the Codex/MCP section.
+- Added unit + integration tests for the copy helper covering copy/skip/no-overwrite paths; manual compose smoke verified `/app/codex/auth.json` exists after `compose:up`.
+- e2e suite run completed with one failing test (`chat-codex-trust` expectation mismatch on Codex reply text); other tests passed. Compose builds/up/down completed with host auth mount.
 
 ---
 

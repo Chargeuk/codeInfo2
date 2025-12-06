@@ -672,8 +672,8 @@ Add a one-way bootstrap path for the server container to copy Codex auth from th
 
 ### 10. Codex guidance copy and disabled-state UX
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **done**
+- Git Commits: **66af489**
 
 #### Overview
 

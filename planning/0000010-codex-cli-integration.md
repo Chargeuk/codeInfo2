@@ -602,7 +602,51 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 ---
 
-### 9. Codex guidance copy and disabled-state UX
+### 9. Codex host-auth import (one-way bootstrap)
+
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add a one-way bootstrap path for the server container to copy Codex auth from the host’s existing CODEX_HOME into the repo-local CODEINFO_CODEX_HOME to avoid double login. If the container auth is missing, and `/host/codex/auth.json` exists, copy it once (no overwrite).
+
+#### Documentation Locations
+
+- Codex CLI home/auth location: https://github.com/openai/codex/blob/main/docs/getting_started.md
+- MCP requirements (for context): https://github.com/openai/codex/blob/main/docs/agents_md.md
+- plan_format.md (process)
+
+#### Subtasks
+
+1. [ ] Compose: add volume `${CODEX_HOME:-$HOME/.codex}:/host/codex:ro` so host Codex auth is always mounted read-only into the container.
+2. [ ] E2E compose: add the same volume mount to `docker-compose.e2e.yml` so mock/e2e runs can reuse host Codex auth.
+3. [ ] Server startup helper: if `CODEINFO_CODEX_HOME/auth.json` is missing and `/host/codex/auth.json` exists, copy it once into CODEINFO_CODEX_HOME; never overwrite if already present; log info/warning about the source.
+4. [ ] Documentation (README): add host-auth bootstrap instructions, required envs, and the one-way/non-overwriting behavior.
+5. [ ] Documentation (design.md): note the host-auth bootstrap flow, mount path, and copy behavior in the Codex/MCP section.
+6. [ ] Test (server unit): add mock-fs coverage for the copy helper to ensure it copies when container auth is missing and host auth exists, and skips when container auth exists.
+7. [ ] Test (server integration, optional): add a small integration/smoke that exercises startup copy with real fs temp dirs to confirm the one-way behavior.
+8. [ ] Test (manual/compose smoke): document a manual check running `npm run compose:up` with the host mount to verify container auth appears after start.
+9. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspace server`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client` (sanity)
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (sanity)
+5. [ ] `npm run e2e` (should remain unaffected; import only runs when host auth is mounted)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up` (with host auth mount) to validate copy
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Keep container CODEX_HOME as the primary source; do not copy back to host. Ensure logs clearly state when a copy was made and from which path. Guard against overwriting existing container auth.
+
+---
+
+### 10. Codex guidance copy and disabled-state UX
 
 - Task Status: **to_do**
 - Git Commits: **to_do**
@@ -619,12 +663,12 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Subtasks
 
-1. [ ] README (`## Codex (CLI)`): add final guidance text including:
+1. [ ] README (`## Codex (CLI)`): update guidance to reflect host-login-only flow with the new host-auth mount/copy:
    - Install: `npm install -g @openai/codex`
-   - Login host: `codex login`
-   - Login docker: `docker compose run --rm server sh -lc "codex login"`
+   - Login host (writes to host CODEX_HOME, e.g., `CODEX_HOME=./codex codex login` or default `~/.codex`)
+   - Compose will mount `${CODEX_HOME:-$HOME/.codex}` into `/host/codex` and copy into container `CODEINFO_CODEX_HOME` if missing, so no separate container login is needed.
    - Home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex`); seeded from `config.toml.example` per Task 1; skipGitRepoCheck/workingDirectory defaults from Task 4.
-   - Disabled behaviour: Codex appears disabled with banner if CLI/auth/config missing.
+   - Disabled behaviour: Codex appears disabled with banner if CLI/auth/config are absent and no host auth is available to copy.
 2. [ ] UI banner/tooltip (ChatPage near Provider select):
    - Mention all prerequisites above, including Docker mount path and seeded config.
    - Link to README anchor `#codex-cli`.
@@ -651,7 +695,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ---
 
-### 10. Final validation and release checklist
+### 11. Final validation and release checklist
 
 - Task Status: **to_do**
 - Git Commits: **to_do**

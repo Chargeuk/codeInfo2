@@ -573,10 +573,11 @@ Surface Codex “thinking”/analysis text in the chat UI the same way LM Studio
 
 1. [ ] Server: update Codex streaming loop in `server/src/routes/chat.ts` to map `agent_reasoning` events into SSE frames consumed by the client (matching LM Studio analysis handling) while preserving existing tool events.
 2. [ ] Client: adjust `client/src/hooks/useChatStream.ts` to surface Codex reasoning frames in the thought-process accordion/spinner, provider-agnostic.
-3. [ ] Tests (server): extend `server/src/test/integration/chat-codex-mcp.test.ts` (or new) with a streamed `agent_reasoning` event and assert SSE includes reasoning content.
-4. [ ] Tests (client): extend `client/src/test/chatPage.reasoning.test.tsx` (or new) to verify Codex provider renders thinking when reasoning frames arrive.
-5. [ ] E2E: add/extend Playwright spec (e.g., `e2e/chat-codex-reasoning.spec.ts`) with mocked Codex SSE including reasoning, asserting the thought-process accordion appears and expands.
-6. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspaces`.
+3. [ ] Test (server, integration): add/extend `server/src/test/integration/chat-codex-mcp.test.ts` to include a streamed `agent_reasoning` event; assert SSE emits reasoning frames alongside tokens/finals.
+4. [ ] Test (client, RTL): update `client/src/test/chatPage.reasoning.test.tsx` (or new spec) to simulate Codex reasoning frames and verify the thought-process accordion appears and shows the reasoning text.
+5. [ ] Test (client, hook-level): update `client/src/test/useChatStream.reasoning.test.tsx` to ensure the hook routes Codex reasoning frames into the analysis buffer without affecting final text.
+6. [ ] Test (e2e, Playwright mock): add `e2e/chat-codex-reasoning.spec.ts` with mocked Codex SSE (thread + agent_reasoning + final) and assert the UI renders the thinking accordion and expandable reasoning text.
+7. [ ] Lint/format/build: `npm run lint --workspaces`; `npm run format:check --workspaces`; `npm run build --workspaces`.
 
 #### Testing
 

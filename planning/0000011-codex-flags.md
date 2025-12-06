@@ -87,8 +87,9 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 7. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.default.test.tsx`): assert dropdown renders with API enum options and default selection `workspace-write`.
 8. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.payload.test.tsx`): assert selecting another option puts it in the send payload for codex only.
 9. [ ] Client test (RTL, `client/src/test/chatPage.flags.sandbox.reset.test.tsx`): assert provider change/New conversation resets to default.
-10. [ ] Docs: README.md and design.md describe sandbox selector, default `workspace-write`, LM Studio ignore (duplicate explicitly in both docs sections).
-11. [ ] Lint/format touched packages.
+10. [ ] Docs: README.md — add Codex sandbox selector description, default `workspace-write`, and note LM Studio ignores it.
+11. [ ] Docs: design.md — mirror the above detail in the chat/Codex section (duplicate intentionally).
+12. [ ] Lint/format touched packages.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -129,8 +130,9 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 5. [ ] Client state/payload: include only for provider=codex; reset to default on provider switch/New conversation.
 6. [ ] Client test (RTL, `client/src/test/chatPage.flags.network.default.test.tsx`): default ON and helper text present.
 7. [ ] Client test (RTL, `client/src/test/chatPage.flags.network.payload.test.tsx`): toggling OFF removes/adds value in payload appropriately and omitted for LM Studio.
-8. [ ] Docs: README/design repeat default `true` and LM Studio ignore.
-9. [ ] Lint/format touched packages.
+8. [ ] Docs: README.md — add network access toggle description, default `true`, LM Studio ignore.
+9. [ ] Docs: design.md — same network access detail and default, duplicated intentionally.
+10. [ ] Lint/format touched packages.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -171,8 +173,9 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 5. [ ] Client state/payload: include only for provider=codex; reset to default on provider switch/New conversation.
 6. [ ] Client test (RTL, `client/src/test/chatPage.flags.websearch.default.test.tsx`): default ON and helper text present.
 7. [ ] Client test (RTL, `client/src/test/chatPage.flags.websearch.payload.test.tsx`): toggling OFF affects payload appropriately and omitted for LM Studio.
-8. [ ] Docs: README/design repeat default `true` and LM Studio ignore.
-9. [ ] Lint/format touched packages.
+8. [ ] Docs: README.md — add web search toggle description, default `true`, LM Studio ignore.
+9. [ ] Docs: design.md — same web search detail and default (duplicate intentionally).
+10. [ ] Lint/format touched packages.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -217,8 +220,9 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 5. [ ] Client state/payload: include only for provider=codex; reset on provider switch/New conversation.
 6. [ ] Client test (RTL, `client/src/test/chatPage.flags.approval.default.test.tsx`): default `on-failure`, options rendered.
 7. [ ] Client test (RTL, `client/src/test/chatPage.flags.approval.payload.test.tsx`): selected value included in payload for codex only; omitted for LM Studio.
-8. [ ] Docs: README/design repeat options, default `on-failure`, LM Studio ignore.
-9. [ ] Lint/format touched packages.
+8. [ ] Docs: README.md — add approval policy options, default `on-failure`, LM Studio ignore.
+9. [ ] Docs: design.md — mirror approval options/default and ignore note (duplicate intentionally).
+10. [ ] Lint/format touched packages.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -263,8 +267,9 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 5. [ ] Client state/payload: include only for provider=codex; reset on provider switch/New conversation.
 6. [ ] Client test (RTL, `client/src/test/chatPage.flags.reasoning.default.test.tsx`): default `high`, options rendered.
 7. [ ] Client test (RTL, `client/src/test/chatPage.flags.reasoning.payload.test.tsx`): selected value included in payload for codex only; omitted/reset for LM Studio.
-8. [ ] Docs: README/design repeat options, default `high`, LM Studio ignore.
-9. [ ] Lint/format touched packages.
+8. [ ] Docs: README.md — add reasoning effort options, default `high`, LM Studio ignore.
+9. [ ] Docs: design.md — mirror reasoning effort details and ignore note (duplicate intentionally).
+10. [ ] Lint/format touched packages.
 
 #### Testing
 1. [ ] `npm run build --workspace server`
@@ -296,9 +301,11 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 3. [ ] Clean docker build: `npm run compose:build`
 4. [ ] Start compose and health-check: `npm run compose:up`, verify `curl http://localhost:5010/health` and client root, then `npm run compose:down`
 5. [ ] Run tests: `npm run test --workspace server`; `npm run test --workspace client`; `npm run e2e`
-6. [ ] Update README/design/projectStructure with final flag support details and any new files.
-7. [ ] Capture screenshots to `test-results/screenshots/0000011-06-*.png` showing Codex flags panel (under Provider/Model row) and a successful Codex request with flags applied.
-8. [ ] Prepare PR summary capturing all changes across tasks.
+6. [ ] Docs: README.md — finalize Codex flag controls (defaults, UI placement), commands if added.
+7. [ ] Docs: design.md — mirror Codex flags behaviour, defaults, and UI placement (duplicate intentionally).
+8. [ ] Docs: projectStructure.md — add/adjust any new files (e.g., CodexFlagsPanel) created in this story.
+9. [ ] Capture screenshots to `test-results/screenshots/0000011-06-*.png` showing Codex flags panel (under Provider/Model row) and a successful Codex request with flags applied.
+10. [ ] Prepare PR summary capturing all changes across tasks.
 
 #### Testing
 1. [ ] `npm run build --workspace server`

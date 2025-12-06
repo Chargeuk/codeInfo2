@@ -526,10 +526,10 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
    - design.md: add a short Codex+MCP flow note/diagram near the chat tooling section.
 8. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
 9. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
-10. [ ] Adjust MCP tool responses to match Codex expectations: in `server/src/mcp/server.ts`, change tool result wrapping to return a single `content` item of `type: "text"` with JSON stringified payload (Codex rejects `application/json`). Ensure both ListIngestedRepositories and VectorSearch paths use the new shape.
-11. [ ] Implement MCP resource endpoints to satisfy Codex probes: add `resources/list` and `resources/listTemplates` handlers in `server/src/mcp/server.ts` returning empty arrays (or mapped resources/templates when available) with  JSON-RPC success envelopes.
-12. [ ] Server regression tests for Codex MCP compatibility: add integration tests in `server/src/test/integration/mcp-server.codex-compat.test.ts` covering (a) tools/call returns text content and parses, (b) resources/list/resources/listTemplates return 200 with empty arrays.
-13. [ ] E2E regression for Codex MCP tool call: extend or add Playwright spec (e.g., `e2e/chat-codex-mcp.spec.ts`) that mocks Codex availability and asserts a Codex chat turn successfully renders tool blocks/citations (no "Unexpected response type"), using mock SSE that includes `tool-result` payload from the MCP server.
+10. [x] Adjust MCP tool responses to match Codex expectations: in `server/src/mcp/server.ts`, change tool result wrapping to return a single `content` item of `type: "text"` with JSON stringified payload (Codex rejects `application/json`). Ensure both ListIngestedRepositories and VectorSearch paths use the new shape.
+11. [x] Implement MCP resource endpoints to satisfy Codex probes: add `resources/list` and `resources/listTemplates` handlers in `server/src/mcp/server.ts` returning empty arrays (or mapped resources/templates when available) with  JSON-RPC success envelopes.
+12. [x] Server regression tests for Codex MCP compatibility: add integration tests in `server/src/test/integration/mcp-server.codex-compat.test.ts` covering (a) tools/call returns text content and parses, (b) resources/list/resources/listTemplates return 200 with empty arrays.
+13. [x] E2E regression for Codex MCP tool call: extend or add Playwright spec (e.g., `e2e/chat-codex-mcp.spec.ts`) that mocks Codex availability and asserts a Codex chat turn successfully renders tool blocks/citations (no "Unexpected response type"), using mock SSE that includes `tool-result` payload from the MCP server.
 
 #### Testing
 
@@ -540,7 +540,7 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
+8. [x] Using the Playwright mcp tool, Manual: Codex chat with provider=Codex, verify tool calls occur (List repos, Vector search), tool blocks/citations render, and SYSTEM_CONTEXT is honored.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -549,6 +549,7 @@ Current issue discovered (2025-12-06): Codex MCP calls to `code_info` fail becau
 - Codex `mcp_tool_call` events emit `tool-request`/`tool-result` SSE with parameters/result/errorTrimmed, feeding citations/tool blocks for Codex alongside LM Studio.
 - config seeding now appends `[mcp_servers.codeinfo_host|codeinfo_docker]` to existing `codex/config.toml` if missing; example TOML drops command-based MCP entries.
 - Manual Playwright MCP smoke (Testing step 8) not yet run; requires interactive MCP tool to verify live Codex tool calls.
+- MCP server now returns tool results as `text` content (JSON stringified) and implements `resources/list` + `resources/listTemplates` to satisfy Codex probes; added server integration coverage plus Playwright mock Codex MCP spec (`e2e/chat-codex-mcp.spec.ts`, runnable with `E2E_USE_MOCK_CHAT=true`).
 
 ---
 

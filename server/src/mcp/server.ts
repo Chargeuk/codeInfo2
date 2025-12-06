@@ -236,6 +236,14 @@ export function createMcpRouter(
       return res.json(jsonRpcResult(id, { tools: toolDefinitions }));
     }
 
+    if (method === 'resources/list') {
+      return res.json(jsonRpcResult(id, { resources: [] }));
+    }
+
+    if (method === 'resources/listTemplates') {
+      return res.json(jsonRpcResult(id, { resourceTemplates: [] }));
+    }
+
     if (method === 'tools/call') {
       if (!isObject(body.params)) {
         return res.json(invalidParams(id, 'params must be an object'));
@@ -258,7 +266,7 @@ export function createMcpRouter(
           );
           return res.json(
             jsonRpcResult(id, {
-              content: [{ type: 'application/json', json: payload }],
+              content: [{ type: 'text', text: JSON.stringify(payload) }],
             }),
           );
         }
@@ -285,7 +293,7 @@ export function createMcpRouter(
           );
           return res.json(
             jsonRpcResult(id, {
-              content: [{ type: 'application/json', json: payload }],
+              content: [{ type: 'text', text: JSON.stringify(payload) }],
             }),
           );
         }

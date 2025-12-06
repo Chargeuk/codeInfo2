@@ -101,8 +101,9 @@ test('tools/call executes ListIngestedRepositories', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.id, 3);
   const content = res.body.result.content[0];
-  assert.equal(content.type, 'application/json');
-  assert.equal(content.json.repos[0].id, 'repo-1');
+  assert.equal(content.type, 'text');
+  const parsed = JSON.parse(content.text as string);
+  assert.equal(parsed.repos[0].id, 'repo-1');
 });
 
 test('tools/call validates VectorSearch arguments', async () => {

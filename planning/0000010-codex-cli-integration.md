@@ -687,35 +687,38 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 #### Subtasks
 
-1. [ ] README (`## Codex (CLI)`): update guidance to reflect host-login-only flow with the new host-auth mount/copy:
+1. [x] README (`## Codex (CLI)`): update guidance to reflect host-login-only flow with the new host-auth mount/copy:
    - Install: `npm install -g @openai/codex`
    - Login host (writes to host CODEX_HOME, e.g., `CODEX_HOME=./codex codex login` or default `~/.codex`)
    - Compose will mount `${CODEX_HOME:-$HOME/.codex}` into `/host/codex` and copy into container `CODEINFO_CODEX_HOME` if missing, so no separate container login is needed.
    - Home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex`); seeded from `config.toml.example` per Task 1; skipGitRepoCheck/workingDirectory defaults from Task 4.
    - Disabled behaviour: Codex appears disabled with banner if CLI/auth/config are absent and no host auth is available to copy.
-2. [ ] UI banner/tooltip (ChatPage near Provider select):
+2. [x] UI banner/tooltip (ChatPage near Provider select):
    - Mention all prerequisites above, including Docker mount path and seeded config.
    - Link to README anchor `#codex-cli`.
    - Note that tools are required and will be enabled once MCP is configured (Task 7).
-3. [ ] Disabled-state logic: ensure banner appears whenever Codex detection says unavailable (no CLI/auth/config) and hides when available.
-4. [ ] Tests: extend `client/src/test/chatPage.provider.test.tsx` to assert banner text, link href, and that Send stays disabled when Codex unavailable but enables when available. Command: `npm run test --workspace client -- chatPage.provider.test.tsx`.
-5. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+3. [x] Disabled-state logic: ensure banner appears whenever Codex detection says unavailable (no CLI/auth/config) and hides when available.
+4. [x] Tests: extend `client/src/test/chatPage.provider.test.tsx` to assert banner text, link href, and that Send stays disabled when Codex unavailable but enables when available. Command: `npm run test --workspace client -- chatPage.provider.test.tsx`.
+5. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, Manual UI check: disabled Codex state shows guidance; README renders instructions.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Capture final copy text for reuse in future stories.
+- Updated README Codex section to emphasize host-only login, compose auth copy, seeded config, and MCP requirements.
+- Chat page now shows richer Codex guidance banner (with README link, mount paths, config reminders) plus clearer MCP/tools/ready banners and helper text.
+- Client provider/tool tests extended for new banners, disabled-send behaviour, and Codex enablement; e2e Codex trust spec now accepts real assistant text while still validating trust-error handling.
+- Captured manual Playwright screenshot for disabled Codex guidance at `test-results/screenshots/0000010-09-codex-guidance.png` using routed providers/models.
 
 ---
 

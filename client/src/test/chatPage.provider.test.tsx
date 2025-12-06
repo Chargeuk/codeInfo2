@@ -1,6 +1,6 @@
 import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -199,6 +199,83 @@ function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
   });
 }
 
+function mockCodexToolsMissing() {
+  const stream = makeStream([
+    { type: 'final', message: { role: 'assistant', content: 'ok' } },
+    { type: 'complete' },
+  ]);
+
+  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    const href = typeof url === 'string' ? url : url.toString();
+    if (href.includes('/chat/providers')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: true,
+              toolsAvailable: false,
+              reason: 'MCP tools missing',
+            },
+          ],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/models') && href.includes('provider=codex')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: false,
+          reason: 'MCP tools missing',
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+          ],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/models')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        body: stream,
+      }) as unknown as Response;
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }) as unknown as Response;
+  });
+}
+
 describe('Chat provider selection', () => {
   it('shows Codex as unavailable with guidance banner', async () => {
     mockChatApis();
@@ -218,13 +295,37 @@ describe('Chat provider selection', () => {
     expect(codexOption).toHaveAttribute('aria-disabled', 'true');
     await userEvent.keyboard('{Escape}');
 
-    const banner = await screen.findByText(/openai codex is unavailable/i, {
-      exact: false,
-    });
-    expect(banner).toBeInTheDocument();
+    const banner = await screen.findByTestId('codex-unavailable-banner');
+    expect(banner).toHaveTextContent('Compose mounts');
+    const link = within(banner).getByRole('link', { name: /codex \(cli\)/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('#codex-cli'));
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
     await waitFor(() => expect(modelSelect).toHaveTextContent('Model 1'));
+  });
+
+  it('keeps Codex disabled when tools are unavailable', async () => {
+    mockCodexToolsMissing();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    const toolsBanner = await screen.findByTestId('codex-tools-banner');
+    expect(toolsBanner).toBeInTheDocument();
+
+    const input = await screen.findByTestId('chat-input');
+    expect(input).toBeDisabled();
+    const sendButton = screen.getByTestId('chat-send');
+    expect(sendButton).toBeDisabled();
   });
 
   it('locks the provider after sending the first message', async () => {
@@ -282,6 +383,7 @@ describe('Chat provider selection', () => {
 
     await userEvent.clear(input);
     await userEvent.type(input, 'Hello Codex');
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await userEvent.click(sendButton);
     });

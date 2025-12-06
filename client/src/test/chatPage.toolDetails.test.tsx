@@ -399,8 +399,7 @@ describe('Chat tool detail rendering', () => {
     const sendButton = screen.getByTestId('chat-send');
 
     await waitFor(() => expect(sendButton).toBeDisabled());
-    expect(
-      screen.getByText(/Codex requires MCP tools to run/i),
-    ).toBeInTheDocument();
+    const toolsBanner = await screen.findByTestId('codex-tools-banner');
+    expect(toolsBanner).toHaveTextContent('Codex requires MCP tools');
   });
 });

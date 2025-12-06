@@ -9,6 +9,7 @@ import {
   CircularProgress,
   FormControl,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Select,
@@ -77,6 +78,12 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
+  const showCodexUnavailable = providerIsCodex
+    ? !providerAvailable
+    : codexUnavailable;
+  const showCodexToolsMissing =
+    providerIsCodex && providerAvailable && !toolsAvailable;
+  const showCodexReady = providerIsCodex && providerAvailable && toolsAvailable;
   const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
   const controlsDisabled =
     isLoading ||
@@ -542,24 +549,37 @@ export default function ChatPage() {
               </Stack>
             </Stack>
 
-            {(providerIsCodex && !providerAvailable) || codexUnavailable ? (
-              <Alert severity="warning">
+            {showCodexUnavailable ? (
+              <Alert severity="warning" data-testid="codex-unavailable-banner">
                 OpenAI Codex is unavailable. Install the CLI (`npm install -g
-                @openai/codex`), run `codex login`, and ensure
-                `./codex/config.toml` + `auth.json` exist.
+                @openai/codex`), log in with `CODEX_HOME=./codex codex login`
+                (or your `~/.codex`), and ensure `./codex/config.toml` is
+                seeded. Compose mounts{' '}
+                <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to `/host/codex`
+                and copies `auth.json` into `/app/codex` when missing, so
+                container logins are not required. See the guidance in{' '}
+                <Link
+                  href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  README ▸ Codex (CLI)
+                </Link>
+                .
                 {providerIsCodex || codexProvider?.reason
                   ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
                   : ''}
               </Alert>
             ) : null}
-            {providerIsCodex && providerAvailable && !toolsAvailable && (
-              <Alert severity="warning">
-                Codex requires MCP tools to run. Ensure config.toml lists the
-                /mcp endpoint and that tools are enabled, then retry.
+            {showCodexToolsMissing && (
+              <Alert severity="warning" data-testid="codex-tools-banner">
+                Codex requires MCP tools. Ensure `config.toml` lists the `/mcp`
+                endpoints and that tools are enabled, then retry once the
+                CLI/auth/config prerequisites above are satisfied.
               </Alert>
             )}
-            {providerIsCodex && providerAvailable && toolsAvailable && (
-              <Alert severity="info">
+            {showCodexReady && (
+              <Alert severity="info" data-testid="codex-ready-banner">
                 Codex chats are enabled with MCP tools. Threads reuse returned
                 thread IDs so conversations can continue across turns.
               </Alert>

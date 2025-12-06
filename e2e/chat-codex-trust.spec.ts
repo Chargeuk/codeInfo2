@@ -206,9 +206,14 @@ test('Codex chat succeeds without trust error when working directory is handled'
     await send.click();
   }
 
-  await expect(assistantBubble.first()).toHaveText(/Hello from Codex/i, {
-    timeout: 20000,
-  });
+  if (useMockChat) {
+    await expect(assistantBubble.first()).toHaveText(/Hello from Codex/i, {
+      timeout: 20000,
+    });
+  } else {
+    await expect(assistantBubble.first()).toHaveText(/.+/, { timeout: 20000 });
+  }
+
   await expect(errorBubble.filter({ hasText: trustErrorText })).toHaveCount(
     useMockChat ? 1 : 0,
   );

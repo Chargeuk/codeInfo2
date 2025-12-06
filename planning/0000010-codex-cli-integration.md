@@ -724,8 +724,8 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 11. Final validation and release checklist
 
-- Task Status: __in_progress__
-- Git Commits: **to_do**
+- Task Status: __done__
+- Git Commits: 6908e0a, TBD
 
 #### Overview
 
@@ -739,27 +739,36 @@ Cross-check acceptance criteria, run full builds/tests (including Docker/e2e whe
 
 #### Subtasks
 
-1. [ ] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
-2. [ ] Tests: `npm run test --workspace server`; `npm run test --workspace client`.
-3. [ ] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
-4. [ ] Docker: clean build `npm run compose:build`; start `npm run compose:up`; verify health (`curl http://localhost:5010/health`, `curl http://localhost:5001`), then `npm run compose:down`.
-5. [ ] e2e: `npm run e2e` (note Codex skips if CLI unavailable). If Codex CLI available, run manual MCP smoke: `curl -X POST http://localhost:5010/mcp ...list_tools` and one Codex chat turn via `/chat` to confirm tools.
-6. [ ] Docs: update `README.md` (final Codex/MCP steps, commands added), `design.md` (chat + MCP flow, UI changes), `projectStructure.md` (new MCP files/tests/fixtures).
-7. [ ] Screenshots: capture to `test-results/screenshots/0000010-09-<name>.png` per plan_format—include chat with Codex+MCP (if available) and core pages (logs/ingest) showing healthy state.
-8. [ ] PR summary: in this plan’s Implementation notes, add a concise story-wide summary plus Codex enablement instructions; reuse it for the PR comment.
+1. [x] Builds: `npm run build --workspace server`; `npm run build --workspace client`.
+2. [x] Tests: `npm run test --workspace server`; `npm run test --workspace client`.
+3. [x] Lint/format: `npm run lint --workspaces`; `npm run format:check --workspaces`.
+4. [x] Docker: clean build `npm run compose:build`; start `npm run compose:up`; verify health (`curl http://localhost:5010/health`, `curl http://localhost:5001`), then `npm run compose:down`.
+5. [x] e2e: `npm run e2e` (note Codex skips if CLI unavailable). If Codex CLI available, run manual MCP smoke: `curl -X POST http://localhost:5010/mcp ...list_tools` and one Codex chat turn via `/chat` to confirm tools.
+6. [x] Docs: update `README.md` (final Codex/MCP steps, commands added), `design.md` (chat + MCP flow, UI changes), `projectStructure.md` (new MCP files/tests/fixtures).
+7. [x] Screenshots: capture to `test-results/screenshots/0000010-09-<name>.png` per plan_format—include chat with Codex+MCP (if available) and core pages (logs/ingest) showing healthy state.
+8. [x] PR summary: in this plan’s Implementation notes, add a concise story-wide summary plus Codex enablement instructions; reuse it for the PR comment.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check: codex is available, & returns information when you ask what repositories are available & then you ask a question about one of them
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, Manual UI check: codex is available, & returns information when you ask what repositories are available & then you ask a question about one of them
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Ran server and client production builds successfully to start the final validation checklist.
+- Completed full server (unit + Cucumber) and client Jest suites; all passed with existing warnings only.
+- Lint and format checks across all workspaces passed without changes.
+- Rebuilt Docker images, brought the compose stack up, verified server/client health endpoints (200/ok), and brought the stack back down cleanly.
+- Ran full e2e suite (21 passed, 5 expected skips including Codex MCP mock and ingest cancel/re-embed/remove variants) via compose:e2e flow.
+- Confirmed MCP server via curl list-tools and executed a live Codex chat turn hitting ListIngestedRepositories with tool-result/citations.
+- Captured final screenshots: chat Codex/MCP (`0000010-09-chat-codex-mcp.png`), logs (`0000010-09-logs.png`), and ingest (`0000010-09-ingest.png`).
+- Reviewed README/design/projectStructure and found no updates needed after validation.
+- PR summary: Final validation for Story 0000010 completed (builds, lint/format, server+client tests, docker + e2e, manual Codex MCP smoke). Codex enablement confirmed with CLI install/login using `CODEINFO_CODEX_HOME=./codex`, compose host-auth copy, MCP endpoints live, and Codex chat showing tool calls/citations.
 - Document any deviations/known limitations (e.g., Codex unavailable in CI).

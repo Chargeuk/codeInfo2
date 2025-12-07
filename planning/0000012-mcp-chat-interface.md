@@ -29,9 +29,9 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 
 - Limits: no additional limits beyond current server behaviour (no explicit caps on tokens/chunks/concurrency/timeout for this MCP).
 - Repo access: no per-repo allow/deny lists are required for this MCP.
-- How should the MCP advertise unavailability when Codex is missing (empty tool list vs explicit error response)?
 - Streaming shape: QueryRepository should stream, but only include thinking information and the final answer (no token-by-token partials).
 - Defaults: sandbox, approval, network, and web-search flags should mirror the web (UI) defaults, but be configurable via server environment variables for this MCP.
+- Unavailability signalling: when Codex is missing, `tools/list` and `tools/call` should return a JSON-RPC error (e.g., code -32001, `CODEX_UNAVAILABLE`, clear message) instead of an empty tool list; avoid LM Studio fallback and keep the signal consistent even if Codex drops mid-run.
 
 ## Implementation Plan
 

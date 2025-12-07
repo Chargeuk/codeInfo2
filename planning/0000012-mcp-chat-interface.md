@@ -22,7 +22,8 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 
 ## Decisions (so far)
 
-- Default provider/model: prefer **Codex** with model **gpt-5.1-codex-max** and **high** reasoning effort when Codex is available; LM Studio remains fallback.
+- Provider support: this MCP is **Codex-only**. If Codex is unavailable, the MCP endpoint should expose no tools (or surface a clear disabled/availability error) rather than falling back to LM Studio.
+- Default model/effort: **gpt-5.1-codex-max** with **high** reasoning effort.
 
 ## Questions
 
@@ -30,6 +31,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 - Should QueryRepository stream tokens or return a single final message?
 - What limits should apply (max tokens per answer, max chunks per query, max concurrent requests, timeout)?
 - Do we need per-repo allow/deny lists for this MCP?
+- How should the MCP advertise unavailability when Codex is missing (empty tool list vs explicit error response)?
 
 ## Implementation Plan
 

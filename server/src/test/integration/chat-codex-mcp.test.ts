@@ -8,6 +8,7 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import { query, resetStore } from '../../logStore.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 
@@ -143,6 +144,7 @@ beforeEach(() => {
     configPresent: false,
     reason: 'not detected',
   });
+  resetStore();
 });
 
 test('codex chat injects system context and emits MCP tool request/result', async () => {
@@ -227,6 +229,138 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'prompt should include user text',
   );
 
+  assert.equal(
+    mockCodex.lastStartOptions?.sandboxMode,
+    'workspace-write',
+    'default sandbox mode should be workspace-write',
+  );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
+});
+
+test('codex chat rejects invalid sandbox mode early', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let codexFactoryCalled = 0;
+  const codexFactory = () => {
+    codexFactoryCalled += 1;
+    return new MockCodex('thread-invalid');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      sandboxMode: 'not-a-mode',
+    })
+    .expect(400);
+
+  assert.match(
+    String((res.body as { message?: unknown })?.message ?? ''),
+    /sandboxMode/i,
+  );
+  assert.equal(
+    codexFactoryCalled,
+    0,
+    'codexFactory should not be invoked on invalid sandbox input',
+  );
+});
+
+test('codex chat forwards non-default sandbox mode to codex thread', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-custom-sandbox');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      sandboxMode: 'danger-full-access',
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.sandboxMode,
+    'danger-full-access',
+    'explicit sandbox mode should be forwarded',
+  );
+});
+
+test('lmstudio requests ignore codex-only sandbox flag but log a warning', async () => {
+  const originalBaseUrl = process.env.LMSTUDIO_BASE_URL;
+  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  try {
+    const app = express();
+    app.use(express.json());
+    const lmClient = {
+      llm: {
+        model: async () => ({
+          act: async () => undefined,
+        }),
+      },
+    } as unknown as LMStudioClient;
+    app.use(
+      '/chat',
+      createChatRouter({
+        clientFactory: () => lmClient,
+        codexFactory: () => new MockCodex(),
+      }),
+    );
+
+    await request(app)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'llama-3',
+        messages: [{ role: 'user', content: 'hello' }],
+        sandboxMode: 'read-only',
+      })
+      .expect(200);
+
+    const warnings = query({
+      level: ['warn'],
+      source: ['server'],
+    });
+    const hasSandboxWarning = warnings.some((entry) =>
+      `${entry.message} ${JSON.stringify(entry.context ?? {})}`.includes(
+        'sandboxMode',
+      ),
+    );
+    assert.equal(
+      hasSandboxWarning,
+      true,
+      'should log a warning when sandboxMode is ignored for lmstudio',
+    );
+  } finally {
+    process.env.LMSTUDIO_BASE_URL = originalBaseUrl;
+  }
 });

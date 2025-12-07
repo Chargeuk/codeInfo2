@@ -63,34 +63,38 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server validation update (`server/src/routes/chatValidators.ts`): extend schema to include optional `sandboxMode` using `SandboxMode` from `@openai/codex-sdk/dist/threadOptions`; default `SandboxMode.WorkspaceWrite` when absent; if present while `provider !== 'codex'`, log a warning and strip it instead of erroring. Include payload examples in comments for juniors.
-2. [ ] Server handler update (`server/src/routes/chat.ts`): when `provider === 'codex'`, add `sandboxMode` (with default) to Codex options; when provider is LM Studio drop the field and log a warning about ignoring Codex-only flags.
-3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+1. [x] Server validation update (`server/src/routes/chatValidators.ts`): extend schema to include optional `sandboxMode` using `SandboxMode` from `@openai/codex-sdk/dist/threadOptions`; default `SandboxMode.WorkspaceWrite` when absent; if present while `provider !== 'codex'`, log a warning and strip it instead of erroring. Include payload examples in comments for juniors.
+2. [x] Server handler update (`server/src/routes/chat.ts`): when `provider === 'codex'`, add `sandboxMode` (with default) to Codex options; when provider is LM Studio drop the field and log a warning about ignoring Codex-only flags.
+3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
    - omitted `sandboxMode` -> Codex call receives `SandboxMode.WorkspaceWrite`.
    - invalid string -> HTTP 400 with clear message and no Codex call.
    - explicit `SandboxMode.FullAccess` (or any non-default enum) -> forwarded to Codex call options; SSE stream completes.
    - LM Studio request with `sandboxMode` -> 200 OK, flag not forwarded, warning logged/asserted.
-4. [ ] Client component: create `client/src/components/chat/CodexFlagsPanel.tsx` exporting a panel rendered immediately under the Provider/Model row in `client/src/pages/ChatPage.tsx`; include a `Select` populated from enum values returned by the provider, label “Sandbox mode”, helper text “Controls Codex sandbox permissions (ignored for LM Studio).”
-5. [ ] Client wiring: in `ChatPage.tsx` pass the sandbox state/handlers into `CodexFlagsPanel`; ensure the panel renders only when `provider === 'codex'` but the state lives alongside other chat form state so it survives within a Codex session.
-6. [ ] Client state/payload (`client/src/hooks/useChatStream.ts` send builder): include `sandboxMode` in the POST body only when provider is codex; default to `SandboxMode.WorkspaceWrite` on initial load and when the provider switches away and back or when “New conversation” is clicked.
-7. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.sandbox.default.test.tsx` covering render + default value + helper text; add `client/src/test/chatPage.flags.sandbox.payload.test.tsx` asserting payload contains chosen value only for codex; add `client/src/test/chatPage.flags.sandbox.reset.test.tsx` asserting provider change/New conversation resets to default.
-8. [ ] Docs: README.md — Chat/Codex section: describe Sandbox mode selector, enum options, default `workspace-write`, and LM Studio ignore note; include a one-line payload example showing `sandboxMode` in the request.
-9. [ ] Docs: design.md — duplicate the same sandbox description and default in the chat/Codex subsection so a dev sees it even without README.
-10. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+4. [x] Client component: create `client/src/components/chat/CodexFlagsPanel.tsx` exporting a panel rendered immediately under the Provider/Model row in `client/src/pages/ChatPage.tsx`; include a `Select` populated from enum values returned by the provider, label “Sandbox mode”, helper text “Controls Codex sandbox permissions (ignored for LM Studio).”
+5. [x] Client wiring: in `ChatPage.tsx` pass the sandbox state/handlers into `CodexFlagsPanel`; ensure the panel renders only when `provider === 'codex'` but the state lives alongside other chat form state so it survives within a Codex session.
+6. [x] Client state/payload (`client/src/hooks/useChatStream.ts` send builder): include `sandboxMode` in the POST body only when provider is codex; default to `SandboxMode.WorkspaceWrite` on initial load and when the provider switches away and back or when “New conversation” is clicked.
+7. [x] Client tests (RTL): add `client/src/test/chatPage.flags.sandbox.default.test.tsx` covering render + default value + helper text; add `client/src/test/chatPage.flags.sandbox.payload.test.tsx` asserting payload contains chosen value only for codex; add `client/src/test/chatPage.flags.sandbox.reset.test.tsx` asserting provider change/New conversation resets to default.
+8. [x] Docs: README.md — Chat/Codex section: describe Sandbox mode selector, enum options, default `workspace-write`, and LM Studio ignore note; include a one-line payload example showing `sandboxMode` in the request.
+9. [x] Docs: design.md — duplicate the same sandbox description and default in the chat/Codex subsection so a dev sees it even without README.
+10. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added `chatValidators` to sanitize chat bodies, apply Codex sandbox defaults, and log warnings when Codex-only flags appear on non-Codex providers; chat route now uses the validator, logs warnings, and forwards sandboxMode into thread options.
+- Extended Codex integration tests to cover default/invalid/custom sandbox values and LM Studio ignore+warning; reordered imports to satisfy lint.
+- Client now renders a Codex flags accordion with sandbox select, manages sandbox state/reset on provider changes and new conversation, and sends sandboxMode on Codex requests; useChatStream accepts Codex flags; three RTL suites cover default render, payload inclusion, and reset flows.
+- Docs updated (README/design) to describe the Codex flags panel, options, default, and LM Studio ignore note; projectStructure lists new files/tests.
+- Testing: server+client builds/tests, e2e suite, compose:build/up/down all ran; manual UI check via Playwright MCP not yet executed (call out separately if needed).
 
 ---
 

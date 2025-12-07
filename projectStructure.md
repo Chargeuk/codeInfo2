@@ -46,6 +46,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ assets/react.svg â€” React logo asset
 â”‚     â”œâ”€ components/
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
+|     |  |  |- chat/
+|     |  |  |  └─ CodexFlagsPanel.tsx — Codex-only flags accordion with sandbox select
 |     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
@@ -87,6 +89,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
 |     |     |- chatPage.toolDetails.test.tsx ? tool detail UI (parameters, repos, vector files, errors)
 |     |     |- chatPage.reasoning.test.tsx ? Harmony/think reasoning collapse spinner + toggle
+|     |     |- chatPage.flags.sandbox.default.test.tsx ? Codex flags panel renders with default sandbox and helper
+|     |     |- chatPage.flags.sandbox.payload.test.tsx ? sandbox flag sent only for Codex payloads
+|     |     |- chatPage.flags.sandbox.reset.test.tsx ? sandbox flag resets on provider change or new conversation
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
@@ -151,6 +156,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ chatStream.ts — SSE helper for chat streaming
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
+â”‚     â”‚  â”œâ”€ chatValidators.ts — chat request validation + Codex-only flag stripping/defaults
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ chatProviders.ts — lists chat providers with availability flags
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info

@@ -111,10 +111,11 @@ Expose the single MCP tool `codebase_question(question, repository?)` that runs 
 
 #### Subtasks
 1. [ ] Define input schema: required `question`, optional `repository`, optional `limit` (<=20) aligned with vector search defaults.
-2. [ ] Wire Codex chat invocation reusing existing system prompt + flags (workingDirectory=/data, skipGitRepoCheck:true); ensure no LM Studio fallback.
-3. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload.
-4. [ ] Shape the response as single `text` content containing JSON { answer, citations, modelId, repository } and ensure errors surface via JSON-RPC.
-5. [ ] Run lint/format for touched modules.
+2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the MCP schema so Codex surfaces it.
+3. [ ] Wire Codex chat invocation reusing existing system prompt + flags (workingDirectory=/data, skipGitRepoCheck:true); ensure no LM Studio fallback.
+4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload.
+5. [ ] Shape the response as single `text` content containing JSON { answer, citations, modelId, repository } and ensure errors surface via JSON-RPC.
+6. [ ] Run lint/format for touched modules.
 
 #### Testing
 1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with citations present when vector data exists.

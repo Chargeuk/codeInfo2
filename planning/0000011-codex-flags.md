@@ -149,8 +149,8 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 
 ### 3. Web search toggle (`--config features.web_search_request`)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: ac53a52, b71e46d
 
 #### Overview
 Expose Codex web search enable/disable as a per-request flag, defaulting to enabled (`true`).

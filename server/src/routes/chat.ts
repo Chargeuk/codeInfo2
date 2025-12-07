@@ -370,6 +370,17 @@ export function createChatRouter({
             name: item.name,
             parameters,
           });
+          baseLogger.info(
+            {
+              requestId,
+              provider,
+              model,
+              callId,
+              itemKeys: Object.keys(item ?? {}),
+              toolName: item.name ?? null,
+            },
+            'codex tool call observed',
+          );
           writeEvent(res, {
             type: 'tool-request',
             callId,

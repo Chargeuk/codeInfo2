@@ -330,3 +330,48 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 - Verified Codex flags docs already captured all five options, defaults, LM Studio ignore note, and a combined JSON example in README; design and projectStructure remained accurate so no content changes were required.
 - Captured required screenshots with Playwright against the running compose stack: `test-results/screenshots/0000011-06-flags-panel.png` (panel open) and `0000011-06-codex-send.png` (Codex send with non-default flags toggled off/on-request/low + danger-full-access).
 - Main compose health checked via `curl http://localhost:5010/health` and client root responded 200; services were torn down after validation. E2E compose lifecycle also run cleanly (build/up/test/down) on ports 6001/6010.
+
+---
+
+### 7. Codex tool name visibility
+
+- Task Status: __in_progress__
+- Git Commits: **to_do**
+
+#### Overview
+
+Codex chats show tool call results/parameters but the tool **name** is blank in the UI, unlike LM Studio. Live docker-stack reproduction shows Codex SSE `tool-request` frames include `callId` and parameters but no `name`; server log search also showed no tool-event entries, suggesting Codex MCP events omit the tool name. Added temporary logging to capture Codex tool call metadata when observed.
+
+#### Documentation Locations
+
+- `server/src/routes/chat.ts` (Codex event handling + tool streaming)
+- Codex MCP tool events shape (`mcp_tool_call` items) via live `/chat` SSE and server logs
+- Client tool rendering: `client/src/hooks/useChatStream.ts`, `client/src/components/chat` tool detail UI
+
+#### Subtasks
+
+1. [x] Reproduce via running docker stack: send Codex chat that triggers MCP tool; capture SSE to confirm missing `name` in `tool-request` frames (callId `item_1`, stage `started`, parameters present, no name).
+2. [x] Add info-level logging in Codex tool request emitter to record callId, item keys, and `toolName` when observed (helps confirm whether Codex SDK supplies the name).
+3. [ ] Inspect new logs while reproducing to see if `item.name` ever arrives; capture sample payloads in Implementation notes.
+4. [ ] If Codex events omit name, derive it from tool registry/`item.tool_name`/`item.arguments?.tool` and emit `name` in SSE/tool context so UI matches LM Studio.
+5. [ ] Add server tests covering Codex tool-request with/without name (ensure fallback populates name and UI renders).
+6. [ ] Add client RTL expectations that Codex tool calls show the tool name like LM Studio.
+7. [ ] Run required tests: `npm run build --workspace server`, `npm run test --workspace server`, `npm run build --workspace client`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down` (update statuses), plus any targeted e2e if streaming changes.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Live Codex call (docker stack) produced SSE `tool-request` with `callId:"item_1"`, `stage:"started"`, parameters present, **no `name`**; subsequent `tool-result` also lacked a name. UI therefore cannot display the tool name.
+- Server log search showed no `chat tool event` entries; Codex events currently log only `codex event` lines. Added info log in `emitCodexToolRequest` to capture callId/name/item keys for visibility when reproducing.
+- Next step: inspect new logs to see if `item.name` is ever set; if not, derive name from MCP tool metadata and include it in streamed `tool-request` / `tool-result` payloads for Codex so parity with LM Studio is restored.

@@ -1,32 +1,46 @@
+import { InvalidParamsError, ToolNotFoundError } from './errors.js';
+import {
+  CODEBASE_QUESTION_TOOL_NAME,
+  codebaseQuestionDefinition,
+  runCodebaseQuestion,
+  type CodebaseQuestionDeps,
+} from './tools/codebaseQuestion.js';
+import type { ToolDefinition } from './types.js';
+
 export type ToolListResult = { tools: ToolDefinition[] };
 
-export type ToolDefinition = {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-};
+export { InvalidParamsError, ToolNotFoundError };
 
-export class InvalidParamsError extends Error {
-  data?: unknown;
-  constructor(message: string, data?: unknown) {
-    super(message);
-    this.name = 'InvalidParamsError';
-    this.data = data;
-  }
+type CallToolDeps = CodebaseQuestionDeps;
+
+const defaultDeps: Partial<CallToolDeps> = {};
+
+export function setToolDeps(overrides: Partial<CallToolDeps>) {
+  Object.assign(defaultDeps, overrides);
 }
 
-export class ToolNotFoundError extends Error {
-  constructor(name: string) {
-    super(`Tool not found: ${name}`);
-    this.name = 'ToolNotFoundError';
+export function resetToolDeps() {
+  for (const key of Object.keys(defaultDeps)) {
+    delete (defaultDeps as Record<string, unknown>)[key];
   }
 }
 
 export async function listTools(): Promise<ToolListResult> {
-  return { tools: [] };
+  return { tools: [codebaseQuestionDefinition()] };
 }
 
-export async function callTool(name: string, args?: unknown) {
-  void args;
+export async function callTool(
+  name: string,
+  args?: unknown,
+  deps?: Partial<CallToolDeps>,
+) {
+  if (name === CODEBASE_QUESTION_TOOL_NAME) {
+    const mergedDeps = {
+      ...defaultDeps,
+      ...deps,
+    } satisfies Partial<CallToolDeps>;
+    return runCodebaseQuestion(args, mergedDeps);
+  }
+
   throw new ToolNotFoundError(name);
 }

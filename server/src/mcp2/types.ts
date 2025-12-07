@@ -1,5 +1,11 @@
 export type JsonRpcId = string | number | null;
 
+export type ToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
 export interface JsonRpcRequest {
   jsonrpc: '2.0';
   id?: JsonRpcId;

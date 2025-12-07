@@ -164,7 +164,7 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 - Jest docs (Context7): `/jestjs/jest` for unit/integration tests of codebase_question.
 
 #### Subtasks
-1. [ ] Define input schema (file + code): edit `server/src/mcp2/tools/codebaseQuestion.ts` to validate params with Zod:
+1. [x] Define input schema (file + code): edit `server/src/mcp2/tools/codebaseQuestion.ts` to validate params with Zod:
    ```ts
    const paramsSchema = z.object({
      question: z.string().min(1),
@@ -172,43 +172,46 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
    });
    ```
    Reject extras; on validation failure return JSON-RPC -32602. Command: `npm run lint --workspace server`.
-2. [ ] Tool description: in `server/src/mcp2/tools/list.ts` (or router list handler) set description/parameter help to the provided sentence so Codex surfaces it. Command: `npm run format:check --workspace server`.
-3. [ ] Orchestration wiring (file + snippet): in `server/src/mcp2/tools/codebaseQuestion.ts` call existing chat pipeline with defaults (model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true) and pass conversationId through:
+2. [x] Tool description: in `server/src/mcp2/tools/list.ts` (or router list handler) set description/parameter help to the provided sentence so Codex surfaces it. Command: `npm run format:check --workspace server`.
+3. [x] Orchestration wiring (file + snippet): in `server/src/mcp2/tools/codebaseQuestion.ts` call existing chat pipeline with defaults (model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true) and pass conversationId through:
    ```ts
    const chatResult = await runCodexChat({ question, conversationId, defaults, vectorSearchClient });
    const { segments, modelId, conversationId: nextConversationId } = chatResult;
    ```
    Keep vector limits internal. Command: `npm run lint --workspace server`.
-4. [ ] Segment assembly (ordered): ensure `runCodexChat` (or adapter layer) builds ordered `segments` with types `thinking`, `vector_summary` (files: relPath, match, chunks, lines), and `answer`, preserving stream order. No citations. Command: `npm run lint --workspace server`.
-5. [ ] Response shaping (code + example): shape `tools/call` result as single text content:
+4. [x] Segment assembly (ordered): ensure `runCodexChat` (or adapter layer) builds ordered `segments` with types `thinking`, `vector_summary` (files: relPath, match, chunks, lines), and `answer`, preserving stream order. No citations. Command: `npm run lint --workspace server`.
+5. [x] Response shaping (code + example): shape `tools/call` result as single text content:
    ```ts
    const payload = { segments, conversationId: nextConversationId, modelId };
    return jsonRpcResult(id, { content: [{ type: 'text', text: JSON.stringify(payload) }] });
    ```
    Example JSON (ordered segments) stays as shown in the plan. Command: `npm run format:check --workspace server`.
-6. [ ] Tests scaffolding (files): create
+6. [x] Tests scaffolding (files): create
    - `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    Use Jest (Context7 `/jestjs/jest`) and fixtures matching the example payload. Command after adding: `npm run test --workspace server` (or targeted jest if available).
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
+7. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
 
 #### Testing (separate subtasks)
-1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
-2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking, vector_summary, answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
-3. [ ] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
-4. [ ] `npm run build --workspace server`
-5. [ ] `npm run build --workspace client`
-6. [ ] `npm run test --workspace server`
-7. [ ] `npm run test --workspace client`
-8. [ ] `npm run e2e`
-9. [ ] `npm run compose:build`
-10. [ ] `npm run compose:up`
-11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-12. [ ] `npm run compose:down`
+1. [x] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
+2. [x] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking, vector_summary, answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
+3. [x] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
+4. [x] `npm run build --workspace server`
+5. [x] `npm run build --workspace client`
+6. [x] `npm run test --workspace server`
+7. [x] `npm run test --workspace client`
+8. [x] `npm run e2e`
+9. [x] `npm run compose:build`
+10. [x] `npm run compose:up`
+11. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+12. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added Codex-only `codebase_question` tool with strict Zod validation, default Codex thread options (workspace-write sandbox, on-failure approval, network/web search on, reasoning high), and prompt wiring that preserves conversationId threading.
+- Stream parser now collects ordered segments (thinking deltas, vector_summary aggregation with relPath/match/chunk/line counts, and final answer) and returns JSON-stringified text content for MCP compatibility.
+- Introduced test hooks to inject mock Codex factories, expanded tool list/call routing, and added dedicated unit tests for validation, happy path, and Codex-unavailable cases; updated server scripts to include new test glob.
+- Ran full builds/tests (server, client, e2e), main compose build/up/down, and captured manual UI screenshots at `test-results/screenshots/0000012-02-home.png` and `test-results/screenshots/0000012-02-chat.png` while the stack was up.
 
 ---
 

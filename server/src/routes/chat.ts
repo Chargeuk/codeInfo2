@@ -233,6 +233,7 @@ export function createChatRouter({
           networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
           webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
           approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
+          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
         };
 
         const thread =

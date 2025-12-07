@@ -96,6 +96,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.flags.network.payload.test.tsx ? network flag omitted for LM Studio, forwarded/reset for Codex payloads
 |     |     |- chatPage.flags.websearch.default.test.tsx ? Codex web search toggle defaults to enabled with helper copy
 |     |     |- chatPage.flags.websearch.payload.test.tsx ? web search flag omitted for LM Studio, forwarded/reset for Codex payloads
+|     |     |- chatPage.flags.approval.default.test.tsx ? Codex approval policy select default and helper
+|     |     |- chatPage.flags.approval.payload.test.tsx ? approval policy omitted for LM Studio and forwarded/reset for Codex
+|     |     |- chatPage.flags.reasoning.default.test.tsx ? Codex reasoning effort select default and helper
+|     |     |- chatPage.flags.reasoning.payload.test.tsx ? reasoning effort omitted for LM Studio and forwarded/reset for Codex
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping

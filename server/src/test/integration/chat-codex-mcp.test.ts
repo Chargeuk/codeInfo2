@@ -485,6 +485,117 @@ test('codex chat rejects invalid approvalPolicy input early', async () => {
   );
 });
 
+test('codex chat defaults modelReasoningEffort when omitted', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-default-reasoning');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.modelReasoningEffort,
+    'high',
+    'modelReasoningEffort should default to high',
+  );
+});
+
+test('codex chat rejects invalid modelReasoningEffort input early', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let codexFactoryCalled = 0;
+  const codexFactory = () => {
+    codexFactoryCalled += 1;
+    return new MockCodex('thread-invalid-reasoning');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      modelReasoningEffort: 'extreme',
+    })
+    .expect(400);
+
+  assert.match(
+    String((res.body as { message?: unknown })?.message ?? ''),
+    /modelReasoningEffort/i,
+  );
+  assert.equal(
+    codexFactoryCalled,
+    0,
+    'codexFactory should not be invoked on invalid modelReasoningEffort',
+  );
+});
+
+test('codex chat forwards modelReasoningEffort flag to codex thread', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-reasoning');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      modelReasoningEffort: 'low',
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.modelReasoningEffort,
+    'low',
+    'explicit modelReasoningEffort should be forwarded',
+  );
+});
+
 test('codex chat forwards approvalPolicy flag to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -621,6 +732,7 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
         networkAccessEnabled: false,
         webSearchEnabled: false,
         approvalPolicy: 'never',
+        modelReasoningEffort: 'medium',
       })
       .expect(200);
 
@@ -646,6 +758,10 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
     assert.ok(
       warningText.includes('approvalPolicy'),
       'should log a warning when approvalPolicy is ignored for lmstudio',
+    );
+    assert.ok(
+      warningText.includes('modelReasoningEffort'),
+      'should log a warning when modelReasoningEffort is ignored for lmstudio',
     );
   } finally {
     process.env.LMSTUDIO_BASE_URL = originalBaseUrl;

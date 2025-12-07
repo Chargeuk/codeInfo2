@@ -39,6 +39,7 @@ import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
   ApprovalPolicy,
+  ModelReasoningEffort,
   SandboxMode,
   ToolCitation,
   ToolCall,
@@ -65,6 +66,7 @@ export default function ChatPage() {
   } = useChatModel();
   const defaultSandboxMode: SandboxMode = 'workspace-write';
   const defaultApprovalPolicy: ApprovalPolicy = 'on-failure';
+  const defaultModelReasoningEffort: ModelReasoningEffort = 'high';
   const defaultNetworkAccessEnabled = true;
   const defaultWebSearchEnabled = true;
   const [sandboxMode, setSandboxMode] =
@@ -72,6 +74,8 @@ export default function ChatPage() {
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     defaultApprovalPolicy,
   );
+  const [modelReasoningEffort, setModelReasoningEffort] =
+    useState<ModelReasoningEffort>(defaultModelReasoningEffort);
   const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
     defaultNetworkAccessEnabled,
   );
@@ -81,7 +85,13 @@ export default function ChatPage() {
   const { messages, status, isStreaming, send, stop, reset } = useChatStream(
     selected,
     provider,
-    { sandboxMode, approvalPolicy, networkAccessEnabled, webSearchEnabled },
+    {
+      sandboxMode,
+      approvalPolicy,
+      modelReasoningEffort,
+      networkAccessEnabled,
+      webSearchEnabled,
+    },
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
@@ -164,6 +174,7 @@ export default function ChatPage() {
     setToolOpen({});
     setSandboxMode(defaultSandboxMode);
     setApprovalPolicy(defaultApprovalPolicy);
+    setModelReasoningEffort(defaultModelReasoningEffort);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
   };
@@ -173,6 +184,7 @@ export default function ChatPage() {
     setProvider(nextProvider);
     setSandboxMode(defaultSandboxMode);
     setApprovalPolicy(defaultApprovalPolicy);
+    setModelReasoningEffort(defaultModelReasoningEffort);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
   };
@@ -588,6 +600,8 @@ export default function ChatPage() {
                 onSandboxModeChange={(value) => setSandboxMode(value)}
                 approvalPolicy={approvalPolicy}
                 onApprovalPolicyChange={setApprovalPolicy}
+                modelReasoningEffort={modelReasoningEffort}
+                onModelReasoningEffortChange={setModelReasoningEffort}
                 networkAccessEnabled={networkAccessEnabled}
                 onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                 webSearchEnabled={webSearchEnabled}

@@ -255,33 +255,36 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional `modelReasoningEffort` enum using `ModelReasoningEffort` from `@openai/codex-sdk/dist/threadOptions`; default `ModelReasoningEffort.High`; if provided for non-codex provider, log a warning and strip instead of erroring; list enum options inline for copy/paste.
-2. [ ] Server handler (`server/src/routes/chat.ts`): forward `modelReasoningEffort` (default applied) in Codex options when provider is codex; drop and log ignore for LM Studio requests.
-3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional `modelReasoningEffort` enum using `ModelReasoningEffort` from `@openai/codex-sdk/dist/threadOptions`; default `ModelReasoningEffort.High`; if provided for non-codex provider, log a warning and strip instead of erroring; list enum options inline for copy/paste.
+2. [x] Server handler (`server/src/routes/chat.ts`): forward `modelReasoningEffort` (default applied) in Codex options when provider is codex; drop and log ignore for LM Studio requests.
+3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
    - omitted -> Codex call includes `modelReasoningEffort: ModelReasoningEffort.High`.
    - invalid -> 400 and no Codex call.
    - explicit `low|medium|high` -> forwarded to Codex call options.
    - LM Studio with the field -> succeeds, field not forwarded, warning logged/asserted.
-4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add `Select` labeled “Reasoning effort” with enum options, default `high`, helper “Higher effort may improve quality at more cost (ignored for LM Studio).”
-5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): store `modelReasoningEffort`, send only for codex, default to `high`, reset to default on provider change or New conversation while preserving within active Codex sessions.
-6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.reasoning.default.test.tsx` (render + default), `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (payload include/exclude + reset behaviour).
-7. [ ] Docs: README.md — add reasoning effort bullet with options and default `high`, LM Studio ignore note, and a JSON example showing `"modelReasoningEffort": "low"`.
-8. [ ] Docs: design.md — duplicate the reasoning description/default/ignore note.
-9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+4. [x] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add `Select` labeled “Reasoning effort” with enum options, default `high`, helper “Higher effort may improve quality at more cost (ignored for LM Studio).”
+5. [x] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): store `modelReasoningEffort`, send only for codex, default to `high`, reset to default on provider change or New conversation while preserving within active Codex sessions.
+6. [x] Client tests (RTL): add `client/src/test/chatPage.flags.reasoning.default.test.tsx` (render + default), `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (payload include/exclude + reset behaviour).
+7. [x] Docs: README.md — add reasoning effort bullet with options and default `high`, LM Studio ignore note, and a JSON example showing `"modelReasoningEffort": "low"`.
+8. [x] Docs: design.md — duplicate the reasoning description/default/ignore note.
+9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added `modelReasoningEffort` validation/defaulting to `chatValidators` with Codex-only warnings and forwarded the flag in `chat.ts` thread options; updated LM Studio ignore warnings and Codex integration tests for default/invalid/explicit cases.
+- Codex flags panel now includes a reasoning effort select (high/medium/low) with state/reset wiring through `ChatPage` and `useChatStream`; payload builder sends the flag only for Codex.
+- New RTL coverage (`chatPage.flags.reasoning.*`) verifies default rendering, payload inclusion/exclusion, and reset; README/design docs updated plus projectStructure entries.
+- Ran lint + format checks, server/client builds, server and client test suites, full Playwright e2e (21 passed/5 skipped), compose:build/up/down, and captured manual UI screenshot `test-results/screenshots/0000011-05-reasoning.png` while Codex flags panel was open.
 
 ---
 

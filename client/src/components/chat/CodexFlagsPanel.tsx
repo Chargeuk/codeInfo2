@@ -13,13 +13,19 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
-import type { ApprovalPolicy, SandboxMode } from '../../hooks/useChatStream';
+import type {
+  ApprovalPolicy,
+  ModelReasoningEffort,
+  SandboxMode,
+} from '../../hooks/useChatStream';
 
 type Props = {
   sandboxMode: SandboxMode;
   onSandboxModeChange: (value: SandboxMode) => void;
   approvalPolicy: ApprovalPolicy;
   onApprovalPolicyChange: (value: ApprovalPolicy) => void;
+  modelReasoningEffort: ModelReasoningEffort;
+  onModelReasoningEffortChange: (value: ModelReasoningEffort) => void;
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -40,11 +46,22 @@ const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
   { value: 'untrusted', label: 'Untrusted' },
 ];
 
+const reasoningOptions: Array<{
+  value: ModelReasoningEffort;
+  label: string;
+}> = [
+  { value: 'high', label: 'High (default)' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+
 export default function CodexFlagsPanel({
   sandboxMode,
   onSandboxModeChange,
   approvalPolicy,
   onApprovalPolicyChange,
+  modelReasoningEffort,
+  onModelReasoningEffortChange,
   networkAccessEnabled,
   onNetworkAccessEnabledChange,
   webSearchEnabled,
@@ -95,6 +112,34 @@ export default function CodexFlagsPanel({
             </Select>
             <FormHelperText>
               Controls Codex sandbox permissions (ignored for LM Studio).
+            </FormHelperText>
+          </FormControl>
+
+          <FormControl size="small" fullWidth disabled={disabled}>
+            <InputLabel id="codex-reasoning-effort-label">
+              Reasoning effort
+            </InputLabel>
+            <Select
+              labelId="codex-reasoning-effort-label"
+              id="codex-reasoning-effort-select"
+              label="Reasoning effort"
+              value={modelReasoningEffort}
+              onChange={(event) =>
+                onModelReasoningEffortChange(
+                  event.target.value as ModelReasoningEffort,
+                )
+              }
+              data-testid="reasoning-effort-select"
+            >
+              {reasoningOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              Higher effort may improve quality at more cost (ignored for LM
+              Studio).
             </FormHelperText>
           </FormControl>
 

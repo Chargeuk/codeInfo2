@@ -14,11 +14,14 @@ export type ApprovalPolicy =
   | 'on-failure'
   | 'untrusted';
 
+export type ModelReasoningEffort = 'low' | 'medium' | 'high';
+
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
   approvalPolicy?: ApprovalPolicy;
   networkAccessEnabled?: boolean;
   webSearchEnabled?: boolean;
+  modelReasoningEffort?: ModelReasoningEffort;
 };
 
 export type ChatMessage = {
@@ -93,6 +96,7 @@ const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
 const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';
 const DEFAULT_NETWORK_ACCESS_ENABLED = true;
 const DEFAULT_WEB_SEARCH_ENABLED = true;
+const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -753,6 +757,11 @@ export function useChatStream(
           provider === 'codex'
             ? (codexFlags?.approvalPolicy ?? DEFAULT_APPROVAL_POLICY)
             : undefined;
+        const modelReasoningEffort =
+          provider === 'codex'
+            ? (codexFlags?.modelReasoningEffort ??
+              DEFAULT_MODEL_REASONING_EFFORT)
+            : undefined;
         const networkAccessEnabled =
           provider === 'codex'
             ? (codexFlags?.networkAccessEnabled ??
@@ -771,6 +780,7 @@ export function useChatStream(
                   : {}),
                 sandboxMode,
                 approvalPolicy,
+                modelReasoningEffort,
                 networkAccessEnabled,
                 webSearchEnabled,
               }
@@ -1023,6 +1033,7 @@ export function useChatStream(
       provider,
       codexFlags?.sandboxMode,
       codexFlags?.approvalPolicy,
+      codexFlags?.modelReasoningEffort,
       codexFlags?.networkAccessEnabled,
       codexFlags?.webSearchEnabled,
       status,

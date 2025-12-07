@@ -230,6 +230,7 @@ export function createChatRouter({
           workingDirectory: codexWorkingDirectory,
           skipGitRepoCheck: true,
           sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
+          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
         };
 
         const thread =

@@ -4,11 +4,13 @@ import {
   AccordionDetails,
   AccordionSummary,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Typography,
 } from '@mui/material';
 import type { SandboxMode } from '../../hooks/useChatStream';
@@ -16,6 +18,8 @@ import type { SandboxMode } from '../../hooks/useChatStream';
 type Props = {
   sandboxMode: SandboxMode;
   onSandboxModeChange: (value: SandboxMode) => void;
+  networkAccessEnabled: boolean;
+  onNetworkAccessEnabledChange: (value: boolean) => void;
   disabled?: boolean;
 };
 
@@ -28,6 +32,8 @@ const sandboxOptions: Array<{ value: SandboxMode; label: string }> = [
 export default function CodexFlagsPanel({
   sandboxMode,
   onSandboxModeChange,
+  networkAccessEnabled,
+  onNetworkAccessEnabledChange,
   disabled,
 }: Props) {
   return (
@@ -76,6 +82,26 @@ export default function CodexFlagsPanel({
               Controls Codex sandbox permissions (ignored for LM Studio).
             </FormHelperText>
           </FormControl>
+
+          <Stack spacing={0.25}>
+            <FormControlLabel
+              control={
+                <Switch
+                  color="primary"
+                  checked={networkAccessEnabled}
+                  onChange={(event) =>
+                    onNetworkAccessEnabledChange(event.target.checked)
+                  }
+                  disabled={disabled}
+                  inputProps={{ 'data-testid': 'network-access-switch' }}
+                />
+              }
+              label="Enable network access"
+            />
+            <FormHelperText sx={{ ml: 0 }}>
+              Allows Codex sandbox network access (ignored for LM Studio).
+            </FormHelperText>
+          </Stack>
         </Stack>
       </AccordionDetails>
     </Accordion>

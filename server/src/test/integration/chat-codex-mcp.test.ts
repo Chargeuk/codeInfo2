@@ -234,6 +234,11 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'workspace-write',
     'default sandbox mode should be workspace-write',
   );
+  assert.equal(
+    mockCodex.lastStartOptions?.networkAccessEnabled,
+    true,
+    'default network access should be true',
+  );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
 });
@@ -280,6 +285,48 @@ test('codex chat rejects invalid sandbox mode early', async () => {
   );
 });
 
+test('codex chat rejects invalid networkAccessEnabled input early', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let codexFactoryCalled = 0;
+  const codexFactory = () => {
+    codexFactoryCalled += 1;
+    return new MockCodex('thread-invalid-network');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      networkAccessEnabled: 'yes',
+    })
+    .expect(400);
+
+  assert.match(
+    String((res.body as { message?: unknown })?.message ?? ''),
+    /networkAccessEnabled/i,
+  );
+  assert.equal(
+    codexFactoryCalled,
+    0,
+    'codexFactory should not be invoked on invalid networkAccessEnabled',
+  );
+});
+
 test('codex chat forwards non-default sandbox mode to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -315,6 +362,41 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
   );
 });
 
+test('codex chat forwards networkAccessEnabled flag to codex thread', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-network');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      networkAccessEnabled: false,
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.networkAccessEnabled,
+    false,
+    'explicit networkAccessEnabled should be forwarded',
+  );
+});
+
 test('lmstudio requests ignore codex-only sandbox flag but log a warning', async () => {
   const originalBaseUrl = process.env.LMSTUDIO_BASE_URL;
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
@@ -343,6 +425,7 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
         model: 'llama-3',
         messages: [{ role: 'user', content: 'hello' }],
         sandboxMode: 'read-only',
+        networkAccessEnabled: false,
       })
       .expect(200);
 
@@ -350,15 +433,16 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
       level: ['warn'],
       source: ['server'],
     });
-    const hasSandboxWarning = warnings.some((entry) =>
-      `${entry.message} ${JSON.stringify(entry.context ?? {})}`.includes(
-        'sandboxMode',
-      ),
-    );
-    assert.equal(
-      hasSandboxWarning,
-      true,
+    const warningText = warnings
+      .map((entry) => `${entry.message} ${JSON.stringify(entry.context ?? {})}`)
+      .join(' ');
+    assert.ok(
+      warningText.includes('sandboxMode'),
       'should log a warning when sandboxMode is ignored for lmstudio',
+    );
+    assert.ok(
+      warningText.includes('networkAccessEnabled'),
+      'should log a warning when networkAccessEnabled is ignored for lmstudio',
     );
   } finally {
     process.env.LMSTUDIO_BASE_URL = originalBaseUrl;

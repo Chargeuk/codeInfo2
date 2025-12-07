@@ -113,35 +113,37 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
-1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `networkAccessEnabled`; default `true`; if present with non-codex provider, log a warning and strip it instead of erroring; keep examples in comments.
-2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `networkAccessEnabled` (default `true`) in Codex options; when provider is LM Studio, drop the field and log the ignore.
-3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `networkAccessEnabled`; default `true`; if present with non-codex provider, log a warning and strip it instead of erroring; keep examples in comments.
+2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `networkAccessEnabled` (default `true`) in Codex options; when provider is LM Studio, drop the field and log the ignore.
+3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
    - omitted -> Codex call args show `networkAccessEnabled: true`.
    - explicit false -> Codex call receives `false`.
    - LM Studio request containing the field -> succeeds (no 400), flag absent from LM Studio call, warning logged/asserted.
-4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` with label “Enable network access” and helper text “Allows Codex sandbox network access (ignored for LM Studio)”; default checked.
-5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `networkAccessEnabled` in chat state, include in payload only for codex, reset to `true` on provider change or New conversation; keep current value while staying on Codex provider.
-6. [ ] Client tests (RTL):
+4. [x] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` with label “Enable network access” and helper text “Allows Codex sandbox network access (ignored for LM Studio)”; default checked.
+5. [x] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `networkAccessEnabled` in chat state, include in payload only for codex, reset to `true` on provider change or New conversation; keep current value while staying on Codex provider.
+6. [x] Client tests (RTL):
    - `client/src/test/chatPage.flags.network.default.test.tsx` verifies default ON + helper text.
    - `client/src/test/chatPage.flags.network.payload.test.tsx` ensures payload carries the boolean for codex and is absent for LM Studio.
    - include reset behaviour in the reset test file if not covered elsewhere.
-7. [ ] Docs: README.md — add a bullet in the Chat/Codex section for “Network access” with default `true`, what it does, and that LM Studio ignores it; show a JSON snippet with `"networkAccessEnabled": false`.
-8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
-9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+7. [x] Docs: README.md — add a bullet in the Chat/Codex section for “Network access” with default `true`, what it does, and that LM Studio ignores it; show a JSON snippet with `"networkAccessEnabled": false`.
+8. [x] Docs: design.md — duplicate the same description/default/ignore note.
+9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added server validation for `networkAccessEnabled` with defaults/warnings and forwarded flag into Codex thread options; integration tests cover default, invalid, explicit false, and LM Studio ignore paths.
+- Codex flags panel now includes a network access switch, wired through chat state/reset and Codex payloads so LM Studio requests omit the flag; new RTL suites cover default render, payload include/exclude, and reset to default.
+- Docs (README/design) now list the network access flag and example payload; lint/format + full test matrix (server/client builds & tests, e2e, compose build/up/down, manual Playwright MCP UI check) completed.
 
 ---
 

@@ -10,6 +10,7 @@ export type SandboxMode =
 
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
+  networkAccessEnabled?: boolean;
 };
 
 export type ChatMessage = {
@@ -81,6 +82,7 @@ const serverBase =
   'http://localhost:5010';
 
 const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
+const DEFAULT_NETWORK_ACCESS_ENABLED = true;
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -737,6 +739,11 @@ export function useChatStream(
           provider === 'codex'
             ? (codexFlags?.sandboxMode ?? DEFAULT_SANDBOX_MODE)
             : undefined;
+        const networkAccessEnabled =
+          provider === 'codex'
+            ? (codexFlags?.networkAccessEnabled ??
+              DEFAULT_NETWORK_ACCESS_ENABLED)
+            : undefined;
 
         const codexPayload =
           provider === 'codex'
@@ -745,6 +752,7 @@ export function useChatStream(
                   ? { threadId: threadIdRef.current }
                   : {}),
                 sandboxMode,
+                networkAccessEnabled,
               }
             : {};
 
@@ -994,6 +1002,7 @@ export function useChatStream(
       model,
       provider,
       codexFlags?.sandboxMode,
+      codexFlags?.networkAccessEnabled,
       status,
       stop,
       updateMessages,

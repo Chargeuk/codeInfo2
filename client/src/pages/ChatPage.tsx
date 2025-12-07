@@ -63,12 +63,16 @@ export default function ChatPage() {
     refreshProviders,
   } = useChatModel();
   const defaultSandboxMode: SandboxMode = 'workspace-write';
+  const defaultNetworkAccessEnabled = true;
   const [sandboxMode, setSandboxMode] =
     useState<SandboxMode>(defaultSandboxMode);
+  const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
+    defaultNetworkAccessEnabled,
+  );
   const { messages, status, isStreaming, send, stop, reset } = useChatStream(
     selected,
     provider,
-    { sandboxMode },
+    { sandboxMode, networkAccessEnabled },
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
@@ -150,12 +154,14 @@ export default function ChatPage() {
     setThinkOpen({});
     setToolOpen({});
     setSandboxMode(defaultSandboxMode);
+    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
   };
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
     setSandboxMode(defaultSandboxMode);
+    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
   };
 
   const toggleThink = (id: string) => {
@@ -567,6 +573,8 @@ export default function ChatPage() {
               <CodexFlagsPanel
                 sandboxMode={sandboxMode}
                 onSandboxModeChange={(value) => setSandboxMode(value)}
+                networkAccessEnabled={networkAccessEnabled}
+                onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                 disabled={controlsDisabled}
               />
             )}

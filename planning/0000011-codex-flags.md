@@ -371,7 +371,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 ### 7. Codex tool name visibility
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits: 443e243
 
 #### Overview
 

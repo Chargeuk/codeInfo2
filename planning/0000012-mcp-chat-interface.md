@@ -17,7 +17,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 - Server picks sensible defaults for Codex model, sandbox/approval/network/search flags, and limits so MCP callers need minimal parameters; no LM Studio fallback is ever used.
 - Tool results use a single `content` item of type `text` containing JSON-stringified payloads (per Codex MCP requirements).
 - Existing MCP server and HTTP APIs continue to function unchanged; enabling the new MCP does not regress current chat or tooling flows.
-- Availability fallback: the new MCP server must start even when Codex is unavailable, but every `tools/list`/`tools/call` request must return a clear JSON-RPC error (e.g., code -32001 `CODEX_UNAVAILABLE`) rather than exposing empty tools or falling back to LM Studio; health signalling should match this behaviour.
+- Availability fallback: the new MCP server must start even when Codex is unavailable, but every `tools/list`/`tools/call` request must return a clear JSON-RPC error (e.g., code -32001 `CODE_INFO_LLM_UNAVAILABLE`) rather than exposing empty tools or falling back to LM Studio; health signalling should match this behaviour.
 
 ## Out Of Scope
 
@@ -103,7 +103,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 3. [ ] Implement JSON-RPC handlers in `server/src/mcp2/router.ts`:
    - Methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`.
    - Envelope shape: `{ jsonrpc: "2.0", id, result }` or `{ jsonrpc: "2.0", id, error: { code, message } }`.
-   - Error codes: `-32001` message `CODEX_UNAVAILABLE` when Codex missing; `-32601` method not found; `-32602` invalid params.
+   - Error codes: `-32001` message `CODE_INFO_LLM_UNAVAILABLE` when Codex missing; `-32601` method not found; `-32602` invalid params.
    - `tools/list` returns `[ { name: "codebase_question", description: <text>, parameters: {...schema...} } ]` only when Codex available.
 4. [ ] Add availability guard in `server/src/mcp2/codexAvailability.ts` (or inline) reusing existing Codex detection helper (same one the chat router uses). `tools/list` and `tools/call` must short-circuit with `CODEX_UNAVAILABLE` when unavailable.
 5. [ ] Wire `server/src/index.ts` to start the new MCP server alongside the existing HTTP server and existing MCP; ensure graceful shutdown hooks close it:
@@ -115,7 +115,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after changes.
 
 #### Testing
-1. [ ] Unit: `tools/list` returns `CODEX_UNAVAILABLE` (-32001) when Codex is missing and only then; `resources/list`/`resources/listTemplates` return empty arrays.
+1. [ ] Unit: `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing and only then; `resources/list`/`resources/listTemplates` return empty arrays.
 2. [ ] Integration: start server locally (`npm run dev --workspace server`), confirm `/health` works and new MCP port accepts `initialize` + `tools/list` using curl:
    ```sh
    curl -X POST http://localhost:5011/ -H 'content-type: application/json' \
@@ -168,7 +168,7 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 #### Testing
 1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with answer/thinking only (no citations) and returns a conversationId; verify the supplied conversationId threads the follow-up call.
 2. [ ] Unit: validation errors for missing question / bad limit map to -32602.
-3. [ ] Integration: Codex-unavailable path returns `CODEX_UNAVAILABLE` error for `tools/call`.
+3. [ ] Integration: Codex-unavailable path returns `CODE_INFO_LLM_UNAVAILABLE` error for `tools/call`.
 
 #### Implementation notes
 - 

@@ -24,6 +24,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 
 - Provider support: this MCP is **Codex-only**. If Codex is unavailable, the MCP endpoint should expose no tools (or surface a clear disabled/availability error) rather than falling back to LM Studio.
 - Default model/effort: **gpt-5.1-codex-max** with **high** reasoning effort.
+- MCP port: configurable via environment variable, default **5011**.
 
 ## Questions
 

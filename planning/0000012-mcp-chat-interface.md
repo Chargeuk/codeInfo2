@@ -133,7 +133,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Git Commits: __to_do__
 
 #### Overview
-Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return only thinking + final text (no citations) plus the conversationId to continue the thread. Tool results must be JSON-stringified text content.
+Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return only thinking + final text (no citations) plus the conversationId to continue the thread. Vector/search limits remain internal—no limit parameter is exposed. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations (external)
 - JSON-RPC 2.0 specification (tools/list, tools/call envelopes & errors): https://www.jsonrpc.org/specification
@@ -143,31 +143,30 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 - Jest docs (Context7): `/jestjs/jest` for unit/integration tests of codebase_question.
 
 #### Subtasks
-1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `conversationId` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
+1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `conversationId` (string). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
    ```ts
    const paramsSchema = z.object({
      question: z.string().min(1),
-     conversationId: z.string().min(1).optional(),
-     limit: z.number().int().min(1).max(20).optional()
+     conversationId: z.string().min(1).optional()
    });
    ```
 2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the tool schema so Codex surfaces it (set on `tools/list` output and the tool definition used in `tools/call`).
-3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Pass `conversationId` through to Codex so threads continue when provided and return any new/continued id. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts` and reuse vector search helper if available. Pseudocode:
+3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Pass `conversationId` through to Codex so threads continue when provided and return any new/continued id. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts`; keep vector search limits internal (no exposed params). Pseudocode:
    ```ts
-   const chatResult = await runCodexChat({ question, limit, conversationId, defaults, vectorSearchClient });
+   const chatResult = await runCodexChat({ question, conversationId, defaults, vectorSearchClient });
    const { answer, thinking, modelId, conversationId: nextConversationId } = chatResult;
    ```
 4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result`; buffer thinking/final internally and do not forward intermediate tokens. Ensure streaming only sends think/final (no token chunks) before packaging final result.
-5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, thinking, modelId, limitUsed, conversationId: nextConversationId }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
+5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, thinking, modelId, conversationId: nextConversationId }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
    ```json
-   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"answer\":\"...\",\"thinking\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"limitUsed\":5,\"conversationId\":\"thread-123\"}" } ] } }
+   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"answer\":\"...\",\"thinking\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"conversationId\":\"thread-123\"}" } ] } }
    ```
 6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
 7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
-2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns JSON-stringified `{answer, thinking, modelId, limitUsed, conversationId}` with no citations; verify provided conversationId threads a follow-up call.
+2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns JSON-stringified `{answer, thinking, modelId, conversationId}` with no citations; verify provided conversationId threads a follow-up call.
 3. [ ] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
 
 #### Implementation notes

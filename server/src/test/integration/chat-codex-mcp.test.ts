@@ -409,6 +409,117 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
   );
 });
 
+test('codex chat defaults approvalPolicy when omitted', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-default-approval');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.approvalPolicy,
+    'on-failure',
+    'approvalPolicy should default to on-failure',
+  );
+});
+
+test('codex chat rejects invalid approvalPolicy input early', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  let codexFactoryCalled = 0;
+  const codexFactory = () => {
+    codexFactoryCalled += 1;
+    return new MockCodex('thread-invalid-approval');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      approvalPolicy: 'sometimes',
+    })
+    .expect(400);
+
+  assert.match(
+    String((res.body as { message?: unknown })?.message ?? ''),
+    /approvalPolicy/i,
+  );
+  assert.equal(
+    codexFactoryCalled,
+    0,
+    'codexFactory should not be invoked on invalid approvalPolicy',
+  );
+});
+
+test('codex chat forwards approvalPolicy flag to codex thread', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-approval');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+      approvalPolicy: 'on-request',
+    })
+    .expect(200);
+
+  assert.equal(
+    mockCodex.lastStartOptions?.approvalPolicy,
+    'on-request',
+    'explicit approvalPolicy should be forwarded',
+  );
+});
+
 test('codex chat forwards networkAccessEnabled flag to codex thread', async () => {
   setCodexDetection({
     available: true,
@@ -509,6 +620,7 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
         sandboxMode: 'read-only',
         networkAccessEnabled: false,
         webSearchEnabled: false,
+        approvalPolicy: 'never',
       })
       .expect(200);
 
@@ -530,6 +642,10 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
     assert.ok(
       warningText.includes('webSearchEnabled'),
       'should log a warning when webSearchEnabled is ignored for lmstudio',
+    );
+    assert.ok(
+      warningText.includes('approvalPolicy'),
+      'should log a warning when approvalPolicy is ignored for lmstudio',
     );
   } finally {
     process.env.LMSTUDIO_BASE_URL = originalBaseUrl;

@@ -38,6 +38,7 @@ import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
+  ApprovalPolicy,
   SandboxMode,
   ToolCitation,
   ToolCall,
@@ -63,10 +64,14 @@ export default function ChatPage() {
     refreshProviders,
   } = useChatModel();
   const defaultSandboxMode: SandboxMode = 'workspace-write';
+  const defaultApprovalPolicy: ApprovalPolicy = 'on-failure';
   const defaultNetworkAccessEnabled = true;
   const defaultWebSearchEnabled = true;
   const [sandboxMode, setSandboxMode] =
     useState<SandboxMode>(defaultSandboxMode);
+  const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
+    defaultApprovalPolicy,
+  );
   const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
     defaultNetworkAccessEnabled,
   );
@@ -76,7 +81,7 @@ export default function ChatPage() {
   const { messages, status, isStreaming, send, stop, reset } = useChatStream(
     selected,
     provider,
-    { sandboxMode, networkAccessEnabled, webSearchEnabled },
+    { sandboxMode, approvalPolicy, networkAccessEnabled, webSearchEnabled },
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
@@ -158,6 +163,7 @@ export default function ChatPage() {
     setThinkOpen({});
     setToolOpen({});
     setSandboxMode(defaultSandboxMode);
+    setApprovalPolicy(defaultApprovalPolicy);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
   };
@@ -166,6 +172,7 @@ export default function ChatPage() {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
     setSandboxMode(defaultSandboxMode);
+    setApprovalPolicy(defaultApprovalPolicy);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
   };
@@ -579,6 +586,8 @@ export default function ChatPage() {
               <CodexFlagsPanel
                 sandboxMode={sandboxMode}
                 onSandboxModeChange={(value) => setSandboxMode(value)}
+                approvalPolicy={approvalPolicy}
+                onApprovalPolicyChange={setApprovalPolicy}
                 networkAccessEnabled={networkAccessEnabled}
                 onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                 webSearchEnabled={webSearchEnabled}

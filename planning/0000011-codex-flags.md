@@ -196,7 +196,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 
 ### 4. Approval policy selector (`--config approval_policy`)
 
-- Task Status: __to_do__
+- Task Status: __done__
 - Git Commits: __to_do__
 
 #### Overview
@@ -208,33 +208,36 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
-1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional `approvalPolicy` enum using `ApprovalMode` from `@openai/codex-sdk/dist/threadOptions`; default `ApprovalMode.OnFailure`; if provided for non-codex provider, log a warning and strip instead of erroring; keep enum values listed for copy/paste.
-2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `approvalPolicy` (default applied) in Codex options; for LM Studio drop the field and log an ignore.
-3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
-   - omitted -> Codex call receives `ApprovalMode.OnFailure`.
-   - invalid value -> 400 and Codex not invoked.
-   - explicit valid value -> forwarded to Codex call options and reflected in captured args.
-   - LM Studio with `approvalPolicy` -> succeeds, field absent from LM Studio call, warning logged/asserted.
-4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Select` labeled “Approval policy” listing enum options, default `on-failure`, helper “Codex action approval behaviour (ignored for LM Studio).” Place in the Codex panel under Provider/Model.
-5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `approvalPolicy`, include only for codex payloads, reset to default on provider change or New conversation, keep current choice within active Codex session.
-6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.approval.default.test.tsx` (render + default), `client/src/test/chatPage.flags.approval.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
-7. [ ] Docs: README.md — add approval policy bullet with enum options and default `on-failure`, note LM Studio ignore, and include a JSON example showing `"approvalPolicy": "always"`.
-8. [ ] Docs: design.md — duplicate the approval description/default/ignore note.
-9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional `approvalPolicy` enum using `ApprovalMode` from `@openai/codex-sdk/dist/threadOptions`; default `ApprovalMode.OnFailure`; if provided for non-codex provider, log a warning and strip instead of erroring; keep enum values listed for copy/paste.
+2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `approvalPolicy` (default applied) in Codex options; for LM Studio drop the field and log an ignore.
+3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+    - omitted -> Codex call receives `ApprovalMode.OnFailure`.
+    - invalid value -> 400 and Codex not invoked.
+    - explicit valid value -> forwarded to Codex call options and reflected in captured args.
+    - LM Studio with `approvalPolicy` -> succeeds, field absent from LM Studio call, warning logged/asserted.
+4. [x] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Select` labeled “Approval policy” listing enum options, default `on-failure`, helper “Codex action approval behaviour (ignored for LM Studio).” Place in the Codex panel under Provider/Model.
+5. [x] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `approvalPolicy`, include only for codex payloads, reset to default on provider change or New conversation, keep current choice within active Codex session.
+6. [x] Client tests (RTL): add `client/src/test/chatPage.flags.approval.default.test.tsx` (render + default), `client/src/test/chatPage.flags.approval.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
+7. [x] Docs: README.md — add approval policy bullet with enum options and default `on-failure`, note LM Studio ignore, and include a JSON example showing `"approvalPolicy": "always"`.
+8. [x] Docs: design.md — duplicate the approval description/default/ignore note.
+9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added `approvalPolicy` validation/default (`on-failure`) to `chatValidators` with Codex-only warnings and forwarded the flag in `chat.ts`.
+- Expanded Codex integration coverage for approvalPolicy (default, invalid, explicit, LM Studio ignore) and LM Studio warning assertions; README/design updated with new flag/default + request example (now using valid enum `on-request`).
+- Client: CodexFlagsPanel now includes approval select; ChatPage and useChatStream manage/reset approval policy and send it only for Codex; new RTL suites cover default render/payload/reset.
+- Builds/lint/format completed; server/client unit/integration/Jest suites pass; Playwright e2e run succeeds after separate e2e:test; compose:build/up/down verified via curl health check. Manual UI check done via Playwright MCP (compose stack), switched to Codex, toggled network/web search, changed approval policy to "On request"; screenshot captured in-session for evidence.
 
 ---
 

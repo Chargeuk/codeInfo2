@@ -8,8 +8,15 @@ export type SandboxMode =
   | 'workspace-write'
   | 'danger-full-access';
 
+export type ApprovalPolicy =
+  | 'never'
+  | 'on-request'
+  | 'on-failure'
+  | 'untrusted';
+
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
+  approvalPolicy?: ApprovalPolicy;
   networkAccessEnabled?: boolean;
   webSearchEnabled?: boolean;
 };
@@ -83,6 +90,7 @@ const serverBase =
   'http://localhost:5010';
 
 const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
+const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';
 const DEFAULT_NETWORK_ACCESS_ENABLED = true;
 const DEFAULT_WEB_SEARCH_ENABLED = true;
 
@@ -741,6 +749,10 @@ export function useChatStream(
           provider === 'codex'
             ? (codexFlags?.sandboxMode ?? DEFAULT_SANDBOX_MODE)
             : undefined;
+        const approvalPolicy =
+          provider === 'codex'
+            ? (codexFlags?.approvalPolicy ?? DEFAULT_APPROVAL_POLICY)
+            : undefined;
         const networkAccessEnabled =
           provider === 'codex'
             ? (codexFlags?.networkAccessEnabled ??
@@ -758,6 +770,7 @@ export function useChatStream(
                   ? { threadId: threadIdRef.current }
                   : {}),
                 sandboxMode,
+                approvalPolicy,
                 networkAccessEnabled,
                 webSearchEnabled,
               }
@@ -1009,6 +1022,7 @@ export function useChatStream(
       model,
       provider,
       codexFlags?.sandboxMode,
+      codexFlags?.approvalPolicy,
       codexFlags?.networkAccessEnabled,
       codexFlags?.webSearchEnabled,
       status,

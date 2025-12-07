@@ -13,11 +13,13 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
-import type { SandboxMode } from '../../hooks/useChatStream';
+import type { ApprovalPolicy, SandboxMode } from '../../hooks/useChatStream';
 
 type Props = {
   sandboxMode: SandboxMode;
   onSandboxModeChange: (value: SandboxMode) => void;
+  approvalPolicy: ApprovalPolicy;
+  onApprovalPolicyChange: (value: ApprovalPolicy) => void;
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -31,9 +33,18 @@ const sandboxOptions: Array<{ value: SandboxMode; label: string }> = [
   { value: 'danger-full-access', label: 'Danger full access' },
 ];
 
+const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
+  { value: 'on-failure', label: 'On failure (default)' },
+  { value: 'on-request', label: 'On request' },
+  { value: 'never', label: 'Never (auto-approve)' },
+  { value: 'untrusted', label: 'Untrusted' },
+];
+
 export default function CodexFlagsPanel({
   sandboxMode,
   onSandboxModeChange,
+  approvalPolicy,
+  onApprovalPolicyChange,
   networkAccessEnabled,
   onNetworkAccessEnabledChange,
   webSearchEnabled,
@@ -126,6 +137,31 @@ export default function CodexFlagsPanel({
               Allows Codex to issue web search requests (ignored for LM Studio).
             </FormHelperText>
           </Stack>
+
+          <FormControl size="small" fullWidth disabled={disabled}>
+            <InputLabel id="codex-approval-policy-label">
+              Approval policy
+            </InputLabel>
+            <Select
+              labelId="codex-approval-policy-label"
+              id="codex-approval-policy-select"
+              label="Approval policy"
+              value={approvalPolicy}
+              onChange={(event) =>
+                onApprovalPolicyChange(event.target.value as ApprovalPolicy)
+              }
+              data-testid="approval-policy-select"
+            >
+              {approvalOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              Codex action approval behaviour (ignored for LM Studio).
+            </FormHelperText>
+          </FormControl>
         </Stack>
       </AccordionDetails>
     </Accordion>

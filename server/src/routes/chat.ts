@@ -232,6 +232,7 @@ export function createChatRouter({
           sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
           networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
           webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
+          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
         };
 
         const thread =

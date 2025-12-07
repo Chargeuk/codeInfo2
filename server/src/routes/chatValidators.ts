@@ -1,9 +1,10 @@
-import type { SandboxMode } from '@openai/codex-sdk';
+import type { ApprovalMode, SandboxMode } from '@openai/codex-sdk';
 
 const DEFAULT_PROVIDER = 'lmstudio';
 const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
 const DEFAULT_NETWORK_ACCESS_ENABLED = true;
 const DEFAULT_WEB_SEARCH_ENABLED = true;
+const DEFAULT_APPROVAL_POLICY: ApprovalMode = 'on-failure';
 
 type Provider = 'codex' | 'lmstudio';
 
@@ -28,6 +29,7 @@ export type ValidatedChatRequest = {
     sandboxMode?: SandboxMode;
     networkAccessEnabled?: boolean;
     webSearchEnabled?: boolean;
+    approvalPolicy?: ApprovalMode;
   };
   warnings: string[];
 };
@@ -47,6 +49,13 @@ const sandboxModes: SandboxMode[] = [
   'workspace-write',
   'danger-full-access',
 ] as SandboxMode[];
+
+const approvalPolicies: ApprovalMode[] = [
+  'never',
+  'on-request',
+  'on-failure',
+  'untrusted',
+] as ApprovalMode[];
 
 export function validateChatRequest(
   body: ChatRequestBody | unknown,
@@ -84,8 +93,8 @@ export function validateChatRequest(
   const codexFlags: ValidatedChatRequest['codexFlags'] = {};
 
   // Example payloads for juniors:
-  // { provider: 'codex', model: 'gpt-5.1-codex', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'danger-full-access', networkAccessEnabled: false, webSearchEnabled: false }
-  // { provider: 'lmstudio', model: 'llama-3', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'read-only', networkAccessEnabled: true, webSearchEnabled: true } // Codex flags are ignored with warnings
+  // { provider: 'codex', model: 'gpt-5.1-codex', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'danger-full-access', networkAccessEnabled: false, webSearchEnabled: false, approvalPolicy: 'never' }
+  // { provider: 'lmstudio', model: 'llama-3', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'read-only', networkAccessEnabled: true, webSearchEnabled: true, approvalPolicy: 'on-failure' } // Codex flags are ignored with warnings
 
   const sandboxMode = body.sandboxMode;
   if (sandboxMode !== undefined) {
@@ -138,6 +147,27 @@ export function validateChatRequest(
     }
   } else if (provider === 'codex') {
     codexFlags.webSearchEnabled = DEFAULT_WEB_SEARCH_ENABLED;
+  }
+
+  const approvalPolicy = body.approvalPolicy;
+  if (approvalPolicy !== undefined) {
+    if (
+      typeof approvalPolicy !== 'string' ||
+      !approvalPolicies.includes(approvalPolicy as ApprovalMode)
+    ) {
+      throw new ChatValidationError(
+        `approvalPolicy must be one of: ${approvalPolicies.join(', ')}`,
+      );
+    }
+    if (provider !== 'codex') {
+      warnings.push(
+        `approvalPolicy is Codex-only and was ignored for provider "${provider}"`,
+      );
+    } else {
+      codexFlags.approvalPolicy = approvalPolicy as ApprovalMode;
+    }
+  } else if (provider === 'codex') {
+    codexFlags.approvalPolicy = DEFAULT_APPROVAL_POLICY;
   }
 
   return {

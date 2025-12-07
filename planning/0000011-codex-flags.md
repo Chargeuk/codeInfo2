@@ -197,7 +197,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 ### 4. Approval policy selector (`--config approval_policy`)
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: 8875810
 
 #### Overview
 Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never`) via UI, validated server-side.
@@ -230,7 +230,7 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [x] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
+8. [x] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -277,7 +277,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -319,7 +319,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this story's acceptance & implemented functionality. Do NOT miss this step!
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

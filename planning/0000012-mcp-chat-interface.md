@@ -82,40 +82,50 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Jest docs (Context7): `/jestjs/jest` for unit/integration test APIs.
 
 #### Subtasks
-1. [ ] Add `MCP_PORT` (default 5011) to server config:
-   - Edit `server/.env` to include `MCP_PORT=5011` (keep comment explaining Codex-only MCP).
-   - Add typed getter in `server/src/config.ts` (create file if missing):
+1. [ ] Config wiring (file paths + command):
+   - Edit `server/.env`: add `MCP_PORT=5011` with a comment "Codex-only MCP JSON-RPC port".
+   - Edit/create `server/src/config.ts`:
      ```ts
      export const MCP_PORT = Number(process.env.MCP_PORT ?? 5011);
      ```
-   - Mention `MCP_PORT` in README env table.
-2. [ ] Create new entry files under `server/src/mcp2/` (keep original MCP untouched):
-   - `server/src/mcp2/server.ts`: starts HTTP server on `MCP_PORT` and exports `startMcp2Server()` / `stopMcp2Server()`.
-   - `server/src/mcp2/router.ts`: JSON-RPC dispatcher wired to `http.createServer` request handler.
-   - `server/src/mcp2/types.ts`: types for JSON-RPC request/response envelopes and error helper.
-   Use this skeleton in `router.ts`:
+   - Command to run now: `npm run format:check --workspace server`.
+2. [ ] Create MCP v2 server files (explicit paths + starter code):
+   - `server/src/mcp2/server.ts`:
+     ```ts
+     import http from 'http';
+     import { MCP_PORT } from '../config.js';
+     import { handleRpc } from './router.js';
+
+     let server: http.Server;
+     export function startMcp2Server() {
+       server = http.createServer(handleRpc);
+       server.listen(MCP_PORT);
+       return server;
+     }
+     export function stopMcp2Server() {
+       return new Promise<void>((resolve) => server?.close(() => resolve()));
+     }
+     ```
+   - `server/src/mcp2/types.ts`: define `JsonRpcRequest`, `JsonRpcResponse`, `jsonRpcError(code,message)`, `jsonRpcResult(id,result)`.
+   - Command to run after creating: `npm run lint --workspace server`.
+3. [ ] Router skeleton (ordered code block): edit `server/src/mcp2/router.ts`:
    ```ts
    import { IncomingMessage, ServerResponse } from 'http';
    import { jsonRpcError, jsonRpcResult } from './types.js';
+   import { isCodexAvailable } from './codexAvailability.js';
+   import { listTools, callTool } from './tools.js';
 
    export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
-     // parse body, switch on method, call handlers
+     // parse JSON body, switch on method, return jsonRpcResult/error
    }
    ```
-3. [ ] Implement JSON-RPC handlers in `server/src/mcp2/router.ts`:
-   - Methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`.
-   - Envelope shape: `{ jsonrpc: "2.0", id, result }` or `{ jsonrpc: "2.0", id, error: { code, message } }`.
-   - Error codes: `-32001` message `CODE_INFO_LLM_UNAVAILABLE` when Codex missing; `-32601` method not found; `-32602` invalid params.
-   - `tools/list` returns `[ { name: "codebase_question", description: <text>, parameters: {...schema...} } ]` only when Codex available.
-4. [ ] Add availability guard in `server/src/mcp2/codexAvailability.ts` (or inline) reusing existing Codex detection helper (same one the chat router uses). `tools/list` and `tools/call` must short-circuit with `CODEX_UNAVAILABLE` when unavailable.
-5. [ ] Wire `server/src/index.ts` to start the new MCP server alongside the existing HTTP server and existing MCP; ensure graceful shutdown hooks close it:
-   ```ts
-   const mcp2 = await startMcp2Server();
-   process.on('SIGINT', async () => { await mcp2.stop(); process.exit(0); });
-   ```
-   Keep `/health` behaviour unchanged.
-6. [ ] Update `design.md` with a new mermaid diagram showing the second MCP entrypoint (port 5011) and JSON-RPC flow; cite the mermaid syntax reference.
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after changes.
+   Methods to implement: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`.
+   Error codes: `-32001` message `CODE_INFO_LLM_UNAVAILABLE`; `-32601` method not found; `-32602` invalid params.
+   Command after edit: `npm run lint --workspace server`.
+4. [ ] Availability guard: create `server/src/mcp2/codexAvailability.ts` using existing chat Codex detection helper (import from its module). `tools/list`/`tools/call` must return `CODE_INFO_LLM_UNAVAILABLE` when false. Command: `npm run lint --workspace server`.
+5. [ ] Bootstrap: edit `server/src/index.ts` to call `startMcp2Server()` and on SIGINT call `stopMcp2Server()`; keep `/health` untouched. Command: `npm run lint --workspace server`.
+6. [ ] Design doc: update `design.md` with a mermaid diagram showing HTTP server, existing MCP, and new MCP (port 5011) flow; cite `/mermaid-js/mermaid` syntax. Command: `npm run format:check --workspaces`.
+7. [ ] Final check for this task: run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/router.list.unavailable.test.ts): `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing; `resources/list` and `resources/listTemplates` return empty arrays.
@@ -143,26 +153,34 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 - Jest docs (Context7): `/jestjs/jest` for unit/integration tests of codebase_question.
 
 #### Subtasks
-1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `conversationId` (string). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
+1. [ ] Define input schema (file + code): edit `server/src/mcp2/tools/codebaseQuestion.ts` to validate params with Zod:
    ```ts
    const paramsSchema = z.object({
      question: z.string().min(1),
      conversationId: z.string().min(1).optional()
    });
    ```
-2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the tool schema so Codex surfaces it (set on `tools/list` output and the tool definition used in `tools/call`).
-3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Pass `conversationId` through to Codex so threads continue when provided and return any new/continued id. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts`; keep vector search limits internal (no exposed params). Pseudocode:
+   Reject extras; on validation failure return JSON-RPC -32602. Command: `npm run lint --workspace server`.
+2. [ ] Tool description: in `server/src/mcp2/tools/list.ts` (or router list handler) set description/parameter help to the provided sentence so Codex surfaces it. Command: `npm run format:check --workspace server`.
+3. [ ] Orchestration wiring (file + snippet): in `server/src/mcp2/tools/codebaseQuestion.ts` call existing chat pipeline with defaults (model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true) and pass conversationId through:
    ```ts
    const chatResult = await runCodexChat({ question, conversationId, defaults, vectorSearchClient });
-   const { answer, thinking, modelId, conversationId: nextConversationId } = chatResult;
+   const { segments, modelId, conversationId: nextConversationId } = chatResult;
    ```
-4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result`; buffer thinking/final internally and do not forward intermediate tokens. Preserve the order of thinking, vector-summary, and answer segments when assembling the final payload (use segment objects with a `type` discriminator).
-5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ segments, conversationId: nextConversationId, modelId }) }` where `segments` preserves order, e.g., `[ { type:"thinking", text:"..." }, { type:"vector_summary", files:[{relPath, match, chunks, lines}] }, { type:"answer", text:"..." } ]`. Set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
-   ```json
-   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"vector_summary\",\"files\":[{\"relPath\":\"src/file.ts\",\"match\":0.42,\"chunks\":2,\"lines\":120}]},{\"type\":\"answer\",\"text\":\"...\"}],\"modelId\":\"gpt-5.1-codex-max\",\"conversationId\":\"thread-123\"}" } ] } }
+   Keep vector limits internal. Command: `npm run lint --workspace server`.
+4. [ ] Segment assembly (ordered): ensure `runCodexChat` (or adapter layer) builds ordered `segments` with types `thinking`, `vector_summary` (files: relPath, match, chunks, lines), and `answer`, preserving stream order. No citations. Command: `npm run lint --workspace server`.
+5. [ ] Response shaping (code + example): shape `tools/call` result as single text content:
+   ```ts
+   const payload = { segments, conversationId: nextConversationId, modelId };
+   return jsonRpcResult(id, { content: [{ type: 'text', text: JSON.stringify(payload) }] });
    ```
-6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
+   Example JSON (ordered segments) stays as shown in the plan. Command: `npm run format:check --workspace server`.
+6. [ ] Tests scaffolding (files): create
+   - `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+   - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+   - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+   Use Jest (Context7 `/jestjs/jest`) and fixtures matching the example payload. Command after adding: `npm run test --workspace server` (or targeted jest if available).
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task.
 
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
@@ -192,9 +210,12 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 #### Subtasks
 1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.
 2. [ ] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
-3. [ ] Update README.md: add MCP port/env (`MCP_PORT`), usage section for `codebase_question` with JSON-RPC curl example and response shape (answer/thinking/conversationId), and the new unavailable code `CODE_INFO_LLM_UNAVAILABLE`.
-4. [ ] Update design.md: document final MCP flow, defaults, error handling, conversationId threading, and include a sample request/response snippet.
-5. [ ] Update projectStructure.md: add new files under `server/src/mcp2` (server.ts, router.ts, types.ts, tools/codebaseQuestion.ts, tests) and note the 5011 port.
+3. [ ] Update README.md (exact items):
+   - Add `MCP_PORT` to env table.
+   - Add a "MCP (codebase_question)" section with JSON-RPC curl example and response shape (ordered segments + conversationId, error code `CODE_INFO_LLM_UNAVAILABLE`).
+   Command: `npm run format:check --workspaces`.
+4. [ ] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
+5. [ ] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
 6. [ ] Capture Implementation notes and commit hashes; mark task done.
 4. [ ] Capture Implementation notes and commit hashes; mark task done.
 

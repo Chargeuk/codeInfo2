@@ -114,15 +114,10 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
    Keep `/health` behaviour unchanged.
 6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after changes.
 
-#### Testing
-1. [ ] Unit: `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing and only then; `resources/list`/`resources/listTemplates` return empty arrays.
-2. [ ] Integration: start server locally (`npm run dev --workspace server`), confirm `/health` works and new MCP port accepts `initialize` + `tools/list` using curl:
-   ```sh
-   curl -X POST http://localhost:5011/ -H 'content-type: application/json' \
-     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
-   ```
-   then tools/list.
-3. [ ] Lint/format: `npm run lint --workspace server` and `npm run format:check --workspace server`.
+#### Testing (separate subtasks)
+1. [ ] Unit test (server/src/test/mcp2/router.list.unavailable.test.ts): `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing; `resources/list` and `resources/listTemplates` return empty arrays.
+2. [ ] Integration test (server/src/test/mcp2/router.list.happy.test.ts): start server (`npm run dev --workspace server`), call `initialize` then `tools/list` on port 5011; assert single tool returned and `/health` still OK.
+3. [ ] Formatting/lint check: run `npm run lint --workspace server` and `npm run format:check --workspace server` (document command output expected to be clean).
 
 #### Implementation notes
 - 
@@ -165,10 +160,10 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
 7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
-#### Testing
-1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with answer/thinking only (no citations) and returns a conversationId; verify the supplied conversationId threads the follow-up call.
-2. [ ] Unit: validation errors for missing question / bad limit map to -32602.
-3. [ ] Integration: Codex-unavailable path returns `CODE_INFO_LLM_UNAVAILABLE` error for `tools/call`.
+#### Testing (separate subtasks)
+1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
+2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns JSON-stringified `{answer, thinking, modelId, limitUsed, conversationId}` with no citations; verify provided conversationId threads a follow-up call.
+3. [ ] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
 
 #### Implementation notes
 - 
@@ -194,10 +189,10 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 3. [ ] Update README.md (env, port 5011, curl example for `codebase_question`), design.md (MCP flow diagram + sample request/response), and projectStructure.md (list new `server/src/mcp2/*` files) **in this task**, even if previously noted elsewhere.
 4. [ ] Capture Implementation notes and commit hashes; mark task done.
 
-#### Testing
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run test --workspace server`
-3. [ ] Manual: start server, call `tools/list` and `codebase_question` via JSON-RPC on port 5011 (Codex available) and verify behaviour when Codex disabled.
+#### Testing (separate subtasks)
+1. [ ] Repo-wide lint (command): `npm run lint --workspaces`.
+2. [ ] Server test suite (command): `npm run test --workspace server` (covers new MCP tests).
+3. [ ] Manual verification: start server (`npm run dev --workspace server`), call `initialize`, `tools/list`, and `codebase_question` on port 5011 with and without Codex availability to observe `CODE_INFO_LLM_UNAVAILABLE` behaviour.
 
 #### Implementation notes
 - 

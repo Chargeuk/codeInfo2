@@ -440,6 +440,21 @@ sequenceDiagram
 - Errors follow JSON-RPC envelopes: validation maps to -32602, method-not-found to -32601, and domain errors map to 404/409/503 codes in the `error` object.
 - `config.toml.example` seeds `[mcp_servers]` entries for host (`http://localhost:5010/mcp`) and docker (`http://server:5010/mcp`) so Codex can call the MCP server directly.
 
+### Codex-only MCP v2 (port 5011)
+
+- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex-only availability checks. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of empty tools. Resource listings return empty arrays for compatibility.
+- Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
+
+```mermaid
+flowchart LR
+  Browser/Agent -- HTTP 5010 --> Express
+  Express -->|/mcp| MCP1
+  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-only MCP]
+  MCP2 -->|tools/list| Codex
+  MCP2 -->|tools/call| Codex
+  MCP1 -->|ListIngestedRepositories / VectorSearch| LMStudio
+```
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.

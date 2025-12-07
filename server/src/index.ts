@@ -8,6 +8,7 @@ import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
+import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
 import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
@@ -79,9 +80,15 @@ app.use('/', createToolsVectorSearchRouter());
 app.use('/', createMcpRouter());
 
 const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
+startMcp2Server();
 
 const shutdown = async (signal: NodeJS.Signals) => {
   console.log(`Received ${signal}, closing LM Studio clients...`);
+  try {
+    await stopMcp2Server();
+  } catch (err) {
+    console.error('Failed to close MCP v2 server', err);
+  }
   try {
     await closeAll();
   } catch (err) {

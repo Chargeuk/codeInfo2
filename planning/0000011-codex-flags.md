@@ -51,7 +51,7 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 
 ### 1. Sandbox mode selector (`--sandbox`)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

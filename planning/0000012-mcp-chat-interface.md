@@ -80,16 +80,48 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - README.md (MCP ports/env defaults)
 
 #### Subtasks
-1. [ ] Add `MCP_PORT` (default 5011) to server config: update `server/.env` + `server/.env.local` comment, add a typed getter in `server/src/config` (create if missing) or inline in `server/src/index.ts`, and document in `README.md` env section.
-2. [ ] Create new entry files under `server/src/mcp2/`: `server.ts` (HTTP server on `MCP_PORT`), `router.ts` (JSON-RPC dispatch), and `types.ts` (JSON-RPC request/response shapes). Keep existing MCP untouched. Export a start/stop function so `server/src/index.ts` can call it.
-3. [ ] Implement JSON-RPC handlers (`initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`) in `server/src/mcp2/router.ts`. Return envelopes `{ jsonrpc: "2.0", id, result|error }`; use error code `-32001` + message `CODEX_UNAVAILABLE` when Codex is missing.
-4. [ ] Add availability guard in `server/src/mcp2/codexAvailability.ts` (or inline) that checks Codex CLI/auth/config status using the existing Codex detection helper used by the main chat flow; have `tools/list` return the single tool only when available, otherwise error.
-5. [ ] Wire `server/src/index.ts` to start the new MCP server alongside the existing HTTP server and existing MCP; ensure graceful shutdown hooks close the new server (listen/close). Keep current `/health` unaffected.
+1. [ ] Add `MCP_PORT` (default 5011) to server config:
+   - Edit `server/.env` to include `MCP_PORT=5011` (keep comment explaining Codex-only MCP).
+   - Add typed getter in `server/src/config.ts` (create file if missing):
+     ```ts
+     export const MCP_PORT = Number(process.env.MCP_PORT ?? 5011);
+     ```
+   - Mention `MCP_PORT` in README env table.
+2. [ ] Create new entry files under `server/src/mcp2/` (keep original MCP untouched):
+   - `server/src/mcp2/server.ts`: starts HTTP server on `MCP_PORT` and exports `startMcp2Server()` / `stopMcp2Server()`.
+   - `server/src/mcp2/router.ts`: JSON-RPC dispatcher wired to `http.createServer` request handler.
+   - `server/src/mcp2/types.ts`: types for JSON-RPC request/response envelopes and error helper.
+   Use this skeleton in `router.ts`:
+   ```ts
+   import { IncomingMessage, ServerResponse } from 'http';
+   import { jsonRpcError, jsonRpcResult } from './types.js';
+
+   export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
+     // parse body, switch on method, call handlers
+   }
+   ```
+3. [ ] Implement JSON-RPC handlers in `server/src/mcp2/router.ts`:
+   - Methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`.
+   - Envelope shape: `{ jsonrpc: "2.0", id, result }` or `{ jsonrpc: "2.0", id, error: { code, message } }`.
+   - Error codes: `-32001` message `CODEX_UNAVAILABLE` when Codex missing; `-32601` method not found; `-32602` invalid params.
+   - `tools/list` returns `[ { name: "codebase_question", description: <text>, parameters: {...schema...} } ]` only when Codex available.
+4. [ ] Add availability guard in `server/src/mcp2/codexAvailability.ts` (or inline) reusing existing Codex detection helper (same one the chat router uses). `tools/list` and `tools/call` must short-circuit with `CODEX_UNAVAILABLE` when unavailable.
+5. [ ] Wire `server/src/index.ts` to start the new MCP server alongside the existing HTTP server and existing MCP; ensure graceful shutdown hooks close it:
+   ```ts
+   const mcp2 = await startMcp2Server();
+   process.on('SIGINT', async () => { await mcp2.stop(); process.exit(0); });
+   ```
+   Keep `/health` behaviour unchanged.
 6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after changes.
 
 #### Testing
 1. [ ] Unit: `tools/list` returns `CODEX_UNAVAILABLE` (-32001) when Codex is missing and only then; `resources/list`/`resources/listTemplates` return empty arrays.
-2. [ ] Integration: start server locally (`npm run dev --workspace server`), confirm `/health` works and new MCP port accepts `initialize` + `tools/list` (when Codex available simulate/flag) using curl/postman.
+2. [ ] Integration: start server locally (`npm run dev --workspace server`), confirm `/health` works and new MCP port accepts `initialize` + `tools/list` using curl:
+   ```sh
+   curl -X POST http://localhost:5011/ -H 'content-type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+   ```
+   then tools/list.
 3. [ ] Lint/format: `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Implementation notes
@@ -111,12 +143,22 @@ Expose the single MCP tool `codebase_question(question)` that runs the existing 
 - projectStructure.md (new tool module files under `server/src/mcp2`)
 
 #### Subtasks
-1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure.
-2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the tool schema so Codex surfaces it.
-3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts` and reuse vector search helper if available.
+1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
+   ```ts
+   const paramsSchema = z.object({ question: z.string().min(1), limit: z.number().int().min(1).max(20).optional() });
+   ```
+2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the tool schema so Codex surfaces it (set on `tools/list` output and the tool definition used in `tools/call`).
+3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts` and reuse vector search helper if available. Pseudocode:
+   ```ts
+   const chatResult = await runCodexChat({ question, limit, defaults, vectorSearchClient });
+   const { answer, citations, modelId } = chatResult;
+   ```
 4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload; include citations array in the returned JSON. Ensure streaming only sends think/final (no token chunks) before packaging final result.
-5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, citations, modelId, limitUsed }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602).
-6. [ ] Add unit helpers/mocks under `server/src/test` if needed to simulate Codex + vector search; keep code in `server/src/mcp2/tools/__tests__/`.
+5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, citations, modelId, limitUsed }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
+   ```json
+   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"answer\":\"...\",\"citations\":[...],\"modelId\":\"gpt-5.1-codex-max\",\"limitUsed\":5}" } ] } }
+   ```
+6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
 7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
 #### Testing

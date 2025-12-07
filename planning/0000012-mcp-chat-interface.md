@@ -13,7 +13,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 ## Acceptance Criteria
 
 - A dedicated MCP server process (separate port/endpoint from the current MCP) is available from the Node server.
-- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question`, answers using the existing vector search + chat pipeline, and returns citations where possible. No other tools are exposed.
+- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question`, answers using the existing vector search + chat pipeline, and returns only the LLM text output plus optional thinking summary (no citations). No other tools are exposed.
 - Server picks sensible defaults for Codex model, sandbox/approval/network/search flags, and limits so MCP callers need minimal parameters; no LM Studio fallback is ever used.
 - Tool results use a single `content` item of type `text` containing JSON-stringified payloads (per Codex MCP requirements).
 - Existing MCP server and HTTP APIs continue to function unchanged; enabling the new MCP does not regress current chat or tooling flows.
@@ -135,7 +135,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Git Commits: __to_do__
 
 #### Overview
-Expose the single MCP tool `codebase_question(question)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and surface citations from vector search. Tool results must be JSON-stringified text content.
+Expose the single MCP tool `codebase_question(question)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return only thinking + final text (no citations). Tool results must be JSON-stringified text content.
 
 #### Documentation Locations
 - design.md (describe query flow and defaults, include sample JSON-RPC request/response)
@@ -151,18 +151,18 @@ Expose the single MCP tool `codebase_question(question)` that runs the existing 
 3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts` and reuse vector search helper if available. Pseudocode:
    ```ts
    const chatResult = await runCodexChat({ question, limit, defaults, vectorSearchClient });
-   const { answer, citations, modelId } = chatResult;
+   const { answer, thinking, modelId } = chatResult;
    ```
-4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload; include citations array in the returned JSON. Ensure streaming only sends think/final (no token chunks) before packaging final result.
-5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, citations, modelId, limitUsed }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
+4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result`; buffer thinking/final internally and do not forward intermediate tokens. Ensure streaming only sends think/final (no token chunks) before packaging final result.
+5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, thinking, modelId, limitUsed }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
    ```json
-   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"answer\":\"...\",\"citations\":[...],\"modelId\":\"gpt-5.1-codex-max\",\"limitUsed\":5}" } ] } }
+   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"answer\":\"...\",\"thinking\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"limitUsed\":5}" } ] } }
    ```
 6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
 7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
 #### Testing
-1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with citations present when vector data exists.
+1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with answer/thinking only (no citations) when vector data exists.
 2. [ ] Unit: validation errors for missing question / bad limit map to -32602.
 3. [ ] Integration: Codex-unavailable path returns `CODEX_UNAVAILABLE` error for `tools/call`.
 

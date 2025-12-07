@@ -362,12 +362,31 @@ export function createChatRouter({
           return { message: String(err) };
         };
 
+        const deriveCodexToolName = (
+          item: CodexToolCallItem,
+        ): string | undefined => {
+          const args = (item as { arguments?: Record<string, unknown> })
+            .arguments;
+          const argTool =
+            args && typeof args === 'object' && typeof args.tool === 'string'
+              ? args.tool
+              : undefined;
+          return (
+            item.name ||
+            (item as { tool_name?: string }).tool_name ||
+            (item as { tool?: string }).tool ||
+            argTool ||
+            undefined
+          );
+        };
+
         const emitCodexToolRequest = (item: CodexToolCallItem) => {
           if (item.type !== 'mcp_tool_call') return;
           const callId = item.id ?? `codex-tool-${Date.now()}`;
+          const name = deriveCodexToolName(item);
           const parameters = parseCodexToolParameters(item);
           codexToolCtx.set(String(callId), {
-            name: item.name,
+            name,
             parameters,
           });
           baseLogger.info(
@@ -377,14 +396,15 @@ export function createChatRouter({
               model,
               callId,
               itemKeys: Object.keys(item ?? {}),
-              toolName: item.name ?? null,
+              toolName: name ?? null,
+              item,
             },
             'codex tool call observed',
           );
           writeEvent(res, {
             type: 'tool-request',
             callId,
-            name: item.name,
+            name,
             stage: 'started',
             parameters,
           });
@@ -396,7 +416,7 @@ export function createChatRouter({
           const stored = codexToolCtx.get(String(callId));
           const parameters =
             stored?.parameters ?? parseCodexToolParameters(item);
-          const name = item.name ?? stored?.name;
+          const name = stored?.name ?? deriveCodexToolName(item);
           const payload = parseCodexToolResult(item);
           const error = (item.result as { error?: unknown } | undefined)?.error;
           const errorTrimmed = trimCodexError(error);
@@ -416,7 +436,18 @@ export function createChatRouter({
         for await (const event of events) {
           if (cancelled || isStreamClosed(res)) break;
           baseLogger.info(
-            { requestId, provider, model, eventType: event.type },
+            {
+              requestId,
+              provider,
+              model,
+              eventType: event.type,
+              itemType:
+                (event as { item?: { type?: unknown } })?.item?.type ?? null,
+              itemKeys: Object.keys(
+                ((event as { item?: Record<string, unknown> }).item ??
+                  {}) as Record<string, unknown>,
+              ),
+            },
             'codex event',
           );
           switch (event.type) {

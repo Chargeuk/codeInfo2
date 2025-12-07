@@ -1,9 +1,11 @@
 # Story 0000011 – Codex CLI flag controls
 
 ## Description
+
 Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts`) as optional, per-request controls that appear only when the provider is **OpenAI Codex**. The server should accept these options, forward them to Codex calls, and ignore them for LM Studio. The client should surface a dedicated Codex settings panel so users can toggle/choose values per message without breaking existing defaults.
 
 ## Acceptance Criteria
+
 - When provider=Codex, the chat UI shows a collapsible "Codex flags" panel with controls for each supported flag: sandbox mode, network access, web search, approval policy, and model reasoning effort, rendered immediately below the Provider/Model row.
 - Server `/chat` accepts the corresponding optional parameters only for provider=codex and passes them through to the Codex exec/SDK options; LM Studio requests ignore them safely.
 - Each flag is validated on the server (enum/boolean/array/file) with clear error responses; invalid inputs never reach the Codex CLI.
@@ -12,6 +14,7 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 - Documentation (README/design) and plan tasks list which flags are intentionally **not** exposed (`--model`, `--cd`, `--add-dir`, `--skip-git-repo-check`, `--output-schema`, `AbortSignal`, base URL override, API key override, images).
 
 ## Out Of Scope
+
 - Changing the default Codex model selection or LM Studio behaviour.
 - Persisting Codex flag choices across browser sessions (in-memory only unless later requested).
 - API key overrides (leave current behaviour unchanged).
@@ -20,6 +23,7 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 - Any new MCP tools.
 
 ## Questions / Decisions
+
 1. Enum sources: surface the full enum option sets for `SandboxMode`, `ApprovalMode`, and `ModelReasoningEffort` directly from the Codex SDK (`threadOptions` types) instead of hard-coding values.
 2. Defaults (per stakeholder):
    - `approvalPolicy` default → `on-failure`.
@@ -33,6 +37,7 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 # Implementation Plan
 
 ## Instructions
+
 1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
 2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
 3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit & push that change, and only then begin implementation.
@@ -51,18 +56,21 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 
 ### 1. Sandbox mode selector (`--sandbox`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 16aa978
 
 #### Overview
+
 Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to the server Codex call; LM Studio must ignore the parameter.
 
 #### Documentation Locations
+
 - Codex exec flags (source of supported CLI options): https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
 - Codex `threadOptions` enums (authoritative enum names/values): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
+
 1. [x] Server validation update (`server/src/routes/chatValidators.ts`): extend schema to include optional `sandboxMode` using `SandboxMode` from `@openai/codex-sdk/dist/threadOptions`; default `SandboxMode.WorkspaceWrite` when absent; if present while `provider !== 'codex'`, log a warning and strip it instead of erroring. Include payload examples in comments for juniors.
 2. [x] Server handler update (`server/src/routes/chat.ts`): when `provider === 'codex'`, add `sandboxMode` (with default) to Codex options; when provider is LM Studio drop the field and log a warning about ignoring Codex-only flags.
 3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
@@ -79,6 +87,7 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 10. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -90,6 +99,7 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `chatValidators` to sanitize chat bodies, apply Codex sandbox defaults, and log warnings when Codex-only flags appear on non-Codex providers; chat route now uses the validator, logs warnings, and forwards sandboxMode into thread options.
 - Extended Codex integration tests to cover default/invalid/custom sandbox values and LM Studio ignore+warning; reordered imports to satisfy lint.
 - Client now renders a Codex flags accordion with sandbox select, manages sandbox state/reset on provider changes and new conversation, and sends sandboxMode on Codex requests; useChatStream accepts Codex flags; three RTL suites cover default render, payload inclusion, and reset flows.
@@ -101,18 +111,21 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 
 ### 2. Network access toggle (`--config sandbox_workspace_write.network_access`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: ed78cd9, 27c74f9
 
 #### Overview
+
 Allow users to enable/disable network access for Codex sandboxes per request; server forwards boolean to Codex.
 
 #### Documentation Locations
+
 - Codex exec flags (source of supported CLI options): https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
 - Codex `threadOptions` enums (authoritative enum names/values): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
+
 1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `networkAccessEnabled`; default `true`; if present with non-codex provider, log a warning and strip it instead of erroring; keep examples in comments.
 2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `networkAccessEnabled` (default `true`) in Codex options; when provider is LM Studio, drop the field and log the ignore.
 3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
@@ -130,6 +143,7 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -141,6 +155,7 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added server validation for `networkAccessEnabled` with defaults/warnings and forwarded flag into Codex thread options; integration tests cover default, invalid, explicit false, and LM Studio ignore paths.
 - Codex flags panel now includes a network access switch, wired through chat state/reset and Codex payloads so LM Studio requests omit the flag; new RTL suites cover default render, payload include/exclude, and reset to default.
 - Docs (README/design) now list the network access flag and example payload; lint/format + full test matrix (server/client builds & tests, e2e, compose build/up/down, manual Playwright MCP UI check) completed.
@@ -149,18 +164,21 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 
 ### 3. Web search toggle (`--config features.web_search_request`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: ac53a52, b71e46d
 
 #### Overview
+
 Expose Codex web search enable/disable as a per-request flag, defaulting to enabled (`true`).
 
 #### Documentation Locations
+
 - Codex exec flags (source of supported CLI options): https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
 - Codex `threadOptions` enums (authoritative enum names/values): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
+
 1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `webSearchEnabled`; default `true`; if provided for a non-codex provider, log a warning and strip it (no 400); include examples in comments.
 2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, add `webSearchEnabled` (default `true`) to Codex options; when provider is LM Studio, drop the field and log that it was ignored.
 3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
@@ -175,6 +193,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -186,6 +205,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `webSearchEnabled` validation/defaulting in `chatValidators` with Codex-only warnings; thread options in `chat.ts` now forward the flag (default true) alongside sandbox/network.
 - Integration coverage extended for default/invalid/explicit Codex web search paths and LM Studio ignore warnings.
 - Codex flags panel now includes a web search switch; chat state resets to defaults on provider change/new conversation while preserving within active Codex sessions; payload builder sends the flag only for Codex.
@@ -196,25 +216,28 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 
 ### 4. Approval policy selector (`--config approval_policy`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 8875810
 
 #### Overview
+
 Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never`) via UI, validated server-side.
 
 #### Documentation Locations
+
 - Codex `ApprovalMode` enum (authoritative values): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
 - Codex exec flags reference (how approval maps into CLI/exec): https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
+
 1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional `approvalPolicy` enum using `ApprovalMode` from `@openai/codex-sdk/dist/threadOptions`; default `ApprovalMode.OnFailure`; if provided for non-codex provider, log a warning and strip instead of erroring; keep enum values listed for copy/paste.
 2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, forward `approvalPolicy` (default applied) in Codex options; for LM Studio drop the field and log an ignore.
 3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
-    - omitted -> Codex call receives `ApprovalMode.OnFailure`.
-    - invalid value -> 400 and Codex not invoked.
-    - explicit valid value -> forwarded to Codex call options and reflected in captured args.
-    - LM Studio with `approvalPolicy` -> succeeds, field absent from LM Studio call, warning logged/asserted.
+   - omitted -> Codex call receives `ApprovalMode.OnFailure`.
+   - invalid value -> 400 and Codex not invoked.
+   - explicit valid value -> forwarded to Codex call options and reflected in captured args.
+   - LM Studio with `approvalPolicy` -> succeeds, field absent from LM Studio call, warning logged/asserted.
 4. [x] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Select` labeled “Approval policy” listing enum options, default `on-failure`, helper “Codex action approval behaviour (ignored for LM Studio).” Place in the Codex panel under Provider/Model.
 5. [x] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): hold `approvalPolicy`, include only for codex payloads, reset to default on provider change or New conversation, keep current choice within active Codex session.
 6. [x] Client tests (RTL): add `client/src/test/chatPage.flags.approval.default.test.tsx` (render + default), `client/src/test/chatPage.flags.approval.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
@@ -223,6 +246,7 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -234,6 +258,7 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `approvalPolicy` validation/default (`on-failure`) to `chatValidators` with Codex-only warnings and forwarded the flag in `chat.ts`.
 - Expanded Codex integration coverage for approvalPolicy (default, invalid, explicit, LM Studio ignore) and LM Studio warning assertions; README/design updated with new flag/default + request example (now using valid enum `on-request`).
 - Client: CodexFlagsPanel now includes approval select; ChatPage and useChatStream manage/reset approval policy and send it only for Codex; new RTL suites cover default render/payload/reset.
@@ -243,18 +268,21 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 
 ### 5. Model reasoning effort (`--config model_reasoning_effort`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 2522233
 
 #### Overview
+
 Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex requests, with validation and default `high`.
 
 #### Documentation Locations
+
 - Codex `ModelReasoningEffort` enum (authoritative values): https://github.com/openai/codex/blob/main/sdk/typescript/src/threadOptions.ts
 - Codex exec flags reference (how reasoning effort maps into CLI/exec): https://github.com/openai/codex/blob/main/sdk/typescript/src/exec.ts
 - MUI Select API (dropdown component used in UI): https://mui.com/material-ui/react-select/
 
 #### Subtasks
+
 1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional `modelReasoningEffort` enum using `ModelReasoningEffort` from `@openai/codex-sdk/dist/threadOptions`; default `ModelReasoningEffort.High`; if provided for non-codex provider, log a warning and strip instead of erroring; list enum options inline for copy/paste.
 2. [x] Server handler (`server/src/routes/chat.ts`): forward `modelReasoningEffort` (default applied) in Codex options when provider is codex; drop and log ignore for LM Studio requests.
 3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
@@ -270,6 +298,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -281,6 +310,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `modelReasoningEffort` validation/defaulting to `chatValidators` with Codex-only warnings and forwarded the flag in `chat.ts` thread options; updated LM Studio ignore warnings and Codex integration tests for default/invalid/explicit cases.
 - Codex flags panel now includes a reasoning effort select (high/medium/low) with state/reset wiring through `ChatPage` and `useChatStream`; payload builder sends the flag only for Codex.
 - New RTL coverage (`chatPage.flags.reasoning.*`) verifies default rendering, payload inclusion/exclusion, and reset; README/design docs updated plus projectStructure entries.
@@ -290,19 +320,22 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 
 ### 6. Final validation and release checklist
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: e2c0c1a, a6c7e77
 
 #### Overview
+
 Validate all Codex flag controls end-to-end, ensure docs and structure are up to date, and prepare PR summary/screenshots per plan_format guidance.
 
 #### Documentation Locations
+
 - Docker Compose reference (build/up/down commands used in validation): https://docs.docker.com/compose/
 - Playwright docs (e2e tests and screenshots): https://playwright.dev/docs/intro
 - Jest docs (client/server unit tests): https://jestjs.io/docs/getting-started
 - npm workspaces reference (workspace build/test commands): https://docs.npmjs.com/cli/v9/using-npm/workspaces
 
 #### Subtasks
+
 1. [x] Build server: `npm run build --workspace server` (confirm succeeds after all flag changes).
 2. [x] Build client: `npm run build --workspace client` (ensures new CodexFlagsPanel and wiring compile).
 3. [x] Clean docker build: `npm run compose:build` to verify images still build with new code.
@@ -315,6 +348,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 10. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -326,6 +360,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Re-ran full validation commands: server build/tests, client build/tests (React act warnings remain expected from MUI focus/transition), e2e suite (24 passed, 2 skipped), compose:build/up/down for main stack, and lint/format across all workspaces.
 - Verified Codex flags docs already captured all five options, defaults, LM Studio ignore note, and a combined JSON example in README; design and projectStructure remained accurate so no content changes were required.
 - Captured required screenshots with Playwright against the running compose stack: `test-results/screenshots/0000011-06-flags-panel.png` (panel open) and `0000011-06-codex-send.png` (Codex send with non-default flags toggled off/on-request/low + danger-full-access).
@@ -335,7 +370,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 
 ### 7. Codex tool name visibility
 
-- Task Status: __in_progress__
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -352,26 +387,27 @@ Codex chats show tool call results/parameters but the tool **name** is blank in 
 
 1. [x] Reproduce via running docker stack: send Codex chat that triggers MCP tool; capture SSE to confirm missing `name` in `tool-request` frames (callId `item_1`, stage `started`, parameters present, no name).
 2. [x] Add info-level logging in Codex tool request emitter to record callId, item keys, and `toolName` when observed (helps confirm whether Codex SDK supplies the name).
-3. [ ] Inspect new logs while reproducing to see if `item.name` ever arrives; capture sample payloads in Implementation notes.
-4. [ ] If Codex events omit name, derive it from tool registry/`item.tool_name`/`item.arguments?.tool` and emit `name` in SSE/tool context so UI matches LM Studio.
-5. [ ] Add server tests covering Codex tool-request with/without name (ensure fallback populates name and UI renders).
-6. [ ] Add client RTL expectations that Codex tool calls show the tool name like LM Studio.
-7. [ ] Run required tests: `npm run build --workspace server`, `npm run test --workspace server`, `npm run build --workspace client`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down` (update statuses), plus any targeted e2e if streaming changes.
+3. [x] Inspect new logs while reproducing to see if `item.name` ever arrives; capture sample payloads in Implementation notes.
+4. [x] If Codex events omit name, derive it from tool registry/`item.tool_name`/`item.arguments?.tool` and emit `name` in SSE/tool context so UI matches LM Studio.
+5. [x] Add server tests covering Codex tool-request with/without name (ensure fallback populates name and UI renders).
+6. [x] Add client RTL expectations that Codex tool calls show the tool name like LM Studio (covered by `chatPage.toolDetails.test.tsx` Codex tool result case; name now present via server fallback so UI renders `VectorSearch · Success`).
+7. [x] Run required tests: `npm run build --workspace server`, `npm run test --workspace server`, `npm run build --workspace client`, `npm run test --workspace client`, `npm run compose:build`, `npm run compose:up`, `npm run compose:down` (update statuses), plus targeted e2e after streaming changes.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Live Codex call (docker stack) produced SSE `tool-request` with `callId:"item_1"`, `stage:"started"`, parameters present, **no `name`**; subsequent `tool-result` also lacked a name. UI therefore cannot display the tool name.
-- Server log search showed no `chat tool event` entries; Codex events currently log only `codex event` lines. Added info log in `emitCodexToolRequest` to capture callId/name/item keys for visibility when reproducing.
-- Next step: inspect new logs to see if `item.name` is ever set; if not, derive name from MCP tool metadata and include it in streamed `tool-request` / `tool-result` payloads for Codex so parity with LM Studio is restored.
+- Live Codex stack repro showed SSE `tool-request` without `name`; after adding fallback derivation (`item.name` → `tool_name` → `tool` → `arguments.tool`) the server now streams the derived name and UI displays `VectorSearch · Success` for Codex tool calls.
+- Added info-level Codex tool-call logging (callId, item keys, derived toolName) so server logs capture when Codex supplies/omits names; `codex event` log now reports itemType/itemKeys for every Codex event.
+- Integration tests now cover missing-name Codex tool calls; `npm run test --workspace server` passes (build + unit/integration + Cucumber). Client RTL already asserts Codex tool rows render names (`chatPage.toolDetails.test.tsx`), so UI parity is covered.
+- Full test matrix rerun on this change set: server build/test, client build/test, e2e, compose:build, compose:up (health 200), manual UI check via running stack confirmed tool names present, then compose:down. Client MUI act warnings remain expected.

@@ -15,9 +15,11 @@ import { createChatRouter } from '../../routes/chat.js';
 class MockThread {
   id: string | null;
   lastPrompt?: string;
+  omitName: boolean;
 
-  constructor(id: string) {
+  constructor(id: string, opts: { omitName?: boolean } = {}) {
     this.id = id;
+    this.omitName = opts.omitName ?? false;
   }
 
   async runStreamed(
@@ -25,64 +27,67 @@ class MockThread {
   ): Promise<{ events: AsyncGenerator<ThreadEvent> }> {
     this.lastPrompt = input;
     const threadId = this.id;
+    const omitName = this.omitName;
     async function* generator(): AsyncGenerator<ThreadEvent> {
+      const baseTool = {
+        type: 'mcp_tool_call',
+        id: 'tool-1',
+        server: 'codeinfo_host',
+        tool: 'VectorSearch',
+        status: 'started',
+        arguments: { query: 'hello', limit: 3 },
+      };
+
       yield {
         type: 'item.started',
-        item: {
-          type: 'mcp_tool_call',
-          id: 'tool-1',
-          name: 'VectorSearch',
-          server: 'codeinfo_host',
-          tool: 'VectorSearch',
-          status: 'started',
-          arguments: { query: 'hello', limit: 3 },
+        item: omitName
+          ? (baseTool as unknown)
+          : ({ ...baseTool, name: 'VectorSearch' } as unknown),
+      } as ThreadEvent;
+
+      const completedTool = {
+        ...baseTool,
+        status: 'completed',
+        result: {
+          content: [
+            {
+              type: 'application/json',
+              json: {
+                results: [
+                  {
+                    repo: 'repo',
+                    relPath: 'src/index.ts',
+                    containerPath: '/data/repo/src/index.ts',
+                    hostPath: '/host/repo/src/index.ts',
+                    score: 0.9,
+                    chunk: 'chunk text',
+                    chunkId: 'c1',
+                    modelId: 'embed-1',
+                  },
+                ],
+                files: [
+                  {
+                    hostPath: '/host/repo/src/index.ts',
+                    highestMatch: 0.9,
+                    chunkCount: 1,
+                    lineCount: 1,
+                    repo: 'repo',
+                    modelId: 'embed-1',
+                  },
+                ],
+                modelId: 'embed-1',
+              },
+            },
+          ],
         },
-      } as unknown as ThreadEvent;
+      };
 
       yield {
         type: 'item.completed',
-        item: {
-          type: 'mcp_tool_call',
-          id: 'tool-1',
-          name: 'VectorSearch',
-          server: 'codeinfo_host',
-          tool: 'VectorSearch',
-          status: 'completed',
-          arguments: { query: 'hello', limit: 3 },
-          result: {
-            content: [
-              {
-                type: 'application/json',
-                json: {
-                  results: [
-                    {
-                      repo: 'repo',
-                      relPath: 'src/index.ts',
-                      containerPath: '/data/repo/src/index.ts',
-                      hostPath: '/host/repo/src/index.ts',
-                      score: 0.9,
-                      chunk: 'chunk text',
-                      chunkId: 'c1',
-                      modelId: 'embed-1',
-                    },
-                  ],
-                  files: [
-                    {
-                      hostPath: '/host/repo/src/index.ts',
-                      highestMatch: 0.9,
-                      chunkCount: 1,
-                      lineCount: 1,
-                      repo: 'repo',
-                      modelId: 'embed-1',
-                    },
-                  ],
-                  modelId: 'embed-1',
-                },
-              },
-            ],
-          },
-        },
-      } as unknown as ThreadEvent;
+        item: omitName
+          ? (completedTool as unknown)
+          : ({ ...completedTool, name: 'VectorSearch' } as unknown),
+      } as ThreadEvent;
 
       yield {
         type: 'item.updated',
@@ -114,20 +119,22 @@ class MockCodex {
   lastStartOptions?: CodexThreadOptions;
   lastResumeOptions?: CodexThreadOptions;
   lastThread?: MockThread;
+  threadOpts?: { omitName?: boolean };
 
-  constructor(id = 'thread-mcp') {
+  constructor(id = 'thread-mcp', threadOpts?: { omitName?: boolean }) {
     this.id = id;
+    this.threadOpts = threadOpts;
   }
 
   startThread(opts?: CodexThreadOptions) {
     this.lastStartOptions = opts;
-    this.lastThread = new MockThread(this.id);
+    this.lastThread = new MockThread(this.id, this.threadOpts);
     return this.lastThread;
   }
 
   resumeThread(threadId: string, opts?: CodexThreadOptions) {
     this.lastResumeOptions = opts;
-    this.lastThread = new MockThread(threadId);
+    this.lastThread = new MockThread(threadId, this.threadOpts);
     return this.lastThread;
   }
 }
@@ -246,6 +253,50 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
   );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
+});
+
+test('codex tool requests fall back to tool name when Codex omits name field', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-mcp', { omitName: true });
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      provider: 'codex',
+      model: 'gpt-5.1-codex-max',
+      messages: [{ role: 'user', content: 'Find the index file' }],
+    })
+    .expect(200);
+
+  const frames = res.text
+    .split('\n\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => JSON.parse(line.replace(/^data:\s*/, '')));
+
+  const toolRequest = frames.find((f) => f.type === 'tool-request');
+  assert.ok(toolRequest, 'tool-request frame should exist');
+  assert.equal((toolRequest as { callId?: string }).callId, 'tool-1');
+  assert.equal((toolRequest as { name?: string }).name, 'VectorSearch');
+
+  const toolResult = frames.find((f) => f.type === 'tool-result');
+  assert.ok(toolResult, 'tool-result frame should exist');
+  assert.equal((toolResult as { callId?: string }).callId, 'tool-1');
+  assert.equal((toolResult as { name?: string }).name, 'VectorSearch');
 });
 
 test('codex chat rejects invalid sandbox mode early', async () => {

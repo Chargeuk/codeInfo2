@@ -75,9 +75,9 @@ Follow the standard plan workflow (copied from `plan_format.md`):
 Add the second MCP server endpoint on its own port (default 5011) within the existing Node process, with JSON-RPC methods `initialize`, `tools/list`, `tools/call`, and stubs for `resources/list` + `resources/listTemplates` (empty arrays). Ensure Codex availability gating returns a clear `CODEX_UNAVAILABLE` (-32001) error instead of empty tool lists.
 
 #### Documentation Locations (external)
-- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
-- Node.js HTTP server docs (request/response handling): https://nodejs.org/api/http.html
-- OpenAI MCP interoperability notes (tool/result content rules): https://platform.openai.com/docs/assistants/tools?context=mcp
+- JSON-RPC 2.0 specification (to follow envelope/params/error codes): https://www.jsonrpc.org/specification
+- Node.js HTTP server docs (for createServer + request parsing): https://nodejs.org/api/http.html
+- OpenAI MCP tool/result format rules (single text content item, tool list shape): https://platform.openai.com/docs/assistants/tools?context=mcp
 
 #### Subtasks
 1. [ ] Add `MCP_PORT` (default 5011) to server config:
@@ -133,9 +133,9 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return only thinking + final text (no citations) plus the conversationId to continue the thread. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations (external)
-- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
-- Zod schema docs (validation patterns): https://zod.dev/?id=basic-usage
-- OpenAI MCP tool content rules (single text content item): https://platform.openai.com/docs/assistants/tools?context=mcp
+- JSON-RPC 2.0 specification (tools/list, tools/call envelopes & errors): https://www.jsonrpc.org/specification
+- Zod schema docs (parameter validation patterns): https://zod.dev/?id=basic-usage
+- OpenAI MCP tool content rules (single text content item, tool definition fields): https://platform.openai.com/docs/assistants/tools?context=mcp
 
 #### Subtasks
 1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `conversationId` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
@@ -179,9 +179,9 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 Verify the end-to-end MCP server works without regressing existing endpoints. Refresh documentation and structure maps to include the new MCP entrypoint and tools.
 
 #### Documentation Locations (external)
-- README style (GitHub Markdown guide): https://docs.github.com/en/get-started/writing-on-github
-- Mermaid & diagrams reference (if needed for flow): https://mermaid.js.org/intro/
-- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- README/Markdown guidance (structure/examples): https://docs.github.com/en/get-started/writing-on-github
+- Mermaid diagrams (if adding flow visuals): https://mermaid.js.org/intro/
+- JSON-RPC 2.0 specification (to document sample requests/responses): https://www.jsonrpc.org/specification
 
 #### Subtasks
 1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.

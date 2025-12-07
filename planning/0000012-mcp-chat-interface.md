@@ -79,6 +79,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Node.js HTTP server docs (for createServer + request parsing): https://nodejs.org/api/http.html
 - OpenAI MCP tool/result format rules (single text content item, tool list shape): https://platform.openai.com/docs/assistants/tools?context=mcp
 - Mermaid diagrams (Context7): `/mermaid-js/mermaid` for any new flow diagrams added to design.md.
+- Jest docs (Context7): `/jestjs/jest` for unit/integration test APIs.
 
 #### Subtasks
 1. [ ] Add `MCP_PORT` (default 5011) to server config:
@@ -139,6 +140,7 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 - Zod schema docs (parameter validation patterns): https://zod.dev/?id=basic-usage
 - OpenAI MCP tool content rules (single text content item, tool definition fields): https://platform.openai.com/docs/assistants/tools?context=mcp
 - Mermaid diagrams (Context7): `/mermaid-js/mermaid` for any flow added to design.md describing codebase_question.
+- Jest docs (Context7): `/jestjs/jest` for unit/integration tests of codebase_question.
 
 #### Subtasks
 1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `conversationId` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure. Add inline Zod schema example:
@@ -185,6 +187,8 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 - README/Markdown guidance (structure/examples): https://docs.github.com/en/get-started/writing-on-github
 - Mermaid diagrams (Context7): `/mermaid-js/mermaid` for documenting the final MCP flow in design.md.
 - JSON-RPC 2.0 specification (to document sample requests/responses): https://www.jsonrpc.org/specification
+- Jest docs (Context7): `/jestjs/jest` for any referenced Jest examples in docs.
+- Cucumber guides (for any BDD mentions): https://cucumber.io/docs/guides/
 
 #### Subtasks
 1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.

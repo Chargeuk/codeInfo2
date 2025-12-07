@@ -186,7 +186,10 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 #### Subtasks
 1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.
 2. [ ] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
-3. [ ] Update README.md (env, port 5011, curl example for `codebase_question`), design.md (MCP flow diagram + sample request/response), and projectStructure.md (list new `server/src/mcp2/*` files) **in this task**, even if previously noted elsewhere.
+3. [ ] Update README.md: add MCP port/env (`MCP_PORT`), usage section for `codebase_question` with JSON-RPC curl example and response shape (answer/thinking/conversationId), and the new unavailable code `CODE_INFO_LLM_UNAVAILABLE`.
+4. [ ] Update design.md: document final MCP flow, defaults, error handling, conversationId threading, and include a sample request/response snippet.
+5. [ ] Update projectStructure.md: add new files under `server/src/mcp2` (server.ts, router.ts, types.ts, tools/codebaseQuestion.ts, tests) and note the 5011 port.
+6. [ ] Capture Implementation notes and commit hashes; mark task done.
 4. [ ] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing (separate subtasks)

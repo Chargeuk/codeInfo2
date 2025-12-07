@@ -150,7 +150,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 
 ### 2. Implement codebase_question tool (chat + vector search bridge)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

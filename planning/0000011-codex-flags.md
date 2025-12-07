@@ -101,8 +101,8 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 
 ### 2. Network access toggle (`--config sandbox_workspace_write.network_access`)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: ed78cd9, 27c74f9
 
 #### Overview
 Allow users to enable/disable network access for Codex sandboxes per request; server forwards boolean to Codex.

@@ -13,7 +13,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 ## Acceptance Criteria
 
 - A dedicated MCP server process (separate port/endpoint from the current MCP) is available from the Node server.
-- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question` and optional `conversationId`, answers using the existing vector search + chat pipeline, and returns only the LLM text output plus optional thinking segments (no citations). The response must include a `conversationId` to support follow-up turns and must preserve the ordering of thinking and answering as emitted (do not coalesce all thinking into one block). No other tools are exposed.
+- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question` and optional `conversationId`, answers using the existing vector search + chat pipeline, and returns only the LLM text output plus optional thinking segments and minimal vector-search summaries (no full citations). The response must include a `conversationId` to support follow-up turns and must preserve the ordering of thinking, vector summaries, and answering as emitted (do not coalesce by type). No other tools are exposed.
 - Server picks sensible defaults for Codex model, sandbox/approval/network/search flags, and limits so MCP callers need minimal parameters; no LM Studio fallback is ever used.
 - Tool results use a single `content` item of type `text` containing JSON-stringified payloads (per Codex MCP requirements).
 - Existing MCP server and HTTP APIs continue to function unchanged; enabling the new MCP does not regress current chat or tooling flows.
@@ -133,7 +133,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Git Commits: __to_do__
 
 #### Overview
-Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return only thinking + final text (no citations) plus the conversationId to continue the thread. Preserve the chronological order of thinking and answer segments as emitted—do not coalesce all thinking into one block. Vector/search limits remain internal—no limit parameter is exposed. Tool results must be JSON-stringified text content.
+Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return ordered segments combining thinking, minimal vector-search summaries, and final text (no full citations) plus the conversationId to continue the thread. Preserve the chronological order of segments as emitted—do not coalesce by type. Vector/search limits remain internal—no limit parameter is exposed. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations (external)
 - JSON-RPC 2.0 specification (tools/list, tools/call envelopes & errors): https://www.jsonrpc.org/specification
@@ -156,17 +156,17 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
    const chatResult = await runCodexChat({ question, conversationId, defaults, vectorSearchClient });
    const { answer, thinking, modelId, conversationId: nextConversationId } = chatResult;
    ```
-4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result`; buffer thinking/final internally and do not forward intermediate tokens. Preserve the order of thinking and answer segments when assembling the final payload (e.g., an array of segments with type `thinking` or `answer`).
-5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ segments, conversationId: nextConversationId, modelId }) }` where `segments` preserves order, e.g., `[ { type:"thinking", text:"..." }, { type:"answer", text:"..." } ]`. Set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
+4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result`; buffer thinking/final internally and do not forward intermediate tokens. Preserve the order of thinking, vector-summary, and answer segments when assembling the final payload (use segment objects with a `type` discriminator).
+5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ segments, conversationId: nextConversationId, modelId }) }` where `segments` preserves order, e.g., `[ { type:"thinking", text:"..." }, { type:"vector_summary", files:[{relPath, match, chunks, lines}] }, { type:"answer", text:"..." } ]`. Set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602). Example response body:
    ```json
-   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"answer\",\"text\":\"...\"}],\"modelId\":\"gpt-5.1-codex-max\",\"conversationId\":\"thread-123\"}" } ] } }
+   { "jsonrpc":"2.0", "id":1, "result": { "content": [ { "type":"text", "text":"{\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"vector_summary\",\"files\":[{\"relPath\":\"src/file.ts\",\"match\":0.42,\"chunks\":2,\"lines\":120}]},{\"type\":\"answer\",\"text\":\"...\"}],\"modelId\":\"gpt-5.1-codex-max\",\"conversationId\":\"thread-123\"}" } ] } }
    ```
 6. [ ] Add unit helpers/mocks under `server/src/test/mcp2/tools/codebaseQuestion.test.ts` (or similar) to simulate Codex + vector search; include a fixture JSON-RPC request/response snapshot for juniors.
 7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
-2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking/answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
+2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking, vector_summary, answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
 3. [ ] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
 
 #### Implementation notes

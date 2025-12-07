@@ -20,9 +20,12 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 - Frontend changes; this story is server-only wiring.
 - Authentication/authorization for the new MCP (assume same open access as current internal tools).
 
+## Decisions (so far)
+
+- Default provider/model: prefer **Codex** with model **gpt-5.1-codex-max** and **high** reasoning effort when Codex is available; LM Studio remains fallback.
+
 ## Questions
 
-- Which provider/model should the MCP use by default (Codex vs LM Studio) when both are available?
 - What sandbox/approval/network/web-search defaults should apply for MCP calls (may differ from UI defaults)?
 - Should QueryRepository stream tokens or return a single final message?
 - What limits should apply (max tokens per answer, max chunks per query, max concurrent requests, timeout)?

@@ -290,7 +290,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 
 ### 6. Final validation and release checklist
 
-- Task Status: __in_progress__
+- Task Status: __done__
 - Git Commits: __to_do__
 
 #### Overview
@@ -303,27 +303,30 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 - npm workspaces reference (workspace build/test commands): https://docs.npmjs.com/cli/v9/using-npm/workspaces
 
 #### Subtasks
-1. [ ] Build server: `npm run build --workspace server` (confirm succeeds after all flag changes).
-2. [ ] Build client: `npm run build --workspace client` (ensures new CodexFlagsPanel and wiring compile).
-3. [ ] Clean docker build: `npm run compose:build` to verify images still build with new code.
-4. [ ] Start compose: `npm run compose:up`; verify `curl http://localhost:5010/health` returns 200 and open client root (http://localhost:5001) loads; then `npm run compose:down`.
-5. [ ] Tests: run `npm run test --workspace server`, `npm run test --workspace client`, and `npm run e2e` (confirm Codex flag-related specs pass); record results in Implementation notes.
-6. [ ] Docs update - README.md: in Chat/Codex section, list each flag (sandboxMode, networkAccessEnabled, webSearchEnabled, approvalPolicy, modelReasoningEffort), defaults, LM Studio ignore note, and include one JSON request example showing all flags.
-7. [ ] Docs update - design.md: duplicate the same flag list/defaults/ignore note and UI placement under Provider/Model row (even if repeated from README).
-8. [ ] Docs update - projectStructure.md: add any new files (e.g., `client/src/components/chat/CodexFlagsPanel.tsx`, new test files) with brief comments.
-9. [ ] Screenshots: capture after running `npm run compose:up` or local dev — store in `test-results/screenshots/` with names `0000011-06-flags-panel.png` (show Codex flags panel open) and `0000011-06-codex-send.png` (show a Codex message sent with non-default flag values visible). Ensure files are committed.
-10. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+1. [x] Build server: `npm run build --workspace server` (confirm succeeds after all flag changes).
+2. [x] Build client: `npm run build --workspace client` (ensures new CodexFlagsPanel and wiring compile).
+3. [x] Clean docker build: `npm run compose:build` to verify images still build with new code.
+4. [x] Start compose: `npm run compose:up`; verify `curl http://localhost:5010/health` returns 200 and open client root (http://localhost:5001) loads; then `npm run compose:down`.
+5. [x] Tests: run `npm run test --workspace server`, `npm run test --workspace client`, and `npm run e2e` (confirm Codex flag-related specs pass); record results in Implementation notes.
+6. [x] Docs update - README.md: in Chat/Codex section, list each flag (sandboxMode, networkAccessEnabled, webSearchEnabled, approvalPolicy, modelReasoningEffort), defaults, LM Studio ignore note, and include one JSON request example showing all flags.
+7. [x] Docs update - design.md: duplicate the same flag list/defaults/ignore note and UI placement under Provider/Model row (even if repeated from README).
+8. [x] Docs update - projectStructure.md: add any new files (e.g., `client/src/components/chat/CodexFlagsPanel.tsx`, new test files) with brief comments.
+9. [x] Screenshots: capture after running `npm run compose:up` or local dev — store in `test-results/screenshots/` with names `0000011-06-flags-panel.png` (show Codex flags panel open) and `0000011-06-codex-send.png` (show a Codex message sent with non-default flag values visible). Ensure files are committed.
+10. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the story and save screenshots. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the story and save screenshots. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Re-ran full validation commands: server build/tests, client build/tests (React act warnings remain expected from MUI focus/transition), e2e suite (24 passed, 2 skipped), compose:build/up/down for main stack, and lint/format across all workspaces.
+- Verified Codex flags docs already captured all five options, defaults, LM Studio ignore note, and a combined JSON example in README; design and projectStructure remained accurate so no content changes were required.
+- Captured required screenshots with Playwright against the running compose stack: `test-results/screenshots/0000011-06-flags-panel.png` (panel open) and `0000011-06-codex-send.png` (Codex send with non-default flags toggled off/on-request/low + danger-full-access).
+- Main compose health checked via `curl http://localhost:5010/health` and client root responded 200; services were torn down after validation. E2E compose lifecycle also run cleanly (build/up/test/down) on ports 6001/6010.

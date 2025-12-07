@@ -27,7 +27,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 
 ## Questions
 
-- What limits should apply (max tokens per answer, max chunks per query, max concurrent requests, timeout)?
+- Limits: no additional limits beyond current server behaviour (no explicit caps on tokens/chunks/concurrency/timeout for this MCP).
 - Repo access: no per-repo allow/deny lists are required for this MCP.
 - How should the MCP advertise unavailability when Codex is missing (empty tool list vs explicit error response)?
 - Streaming shape: QueryRepository should stream, but only include thinking information and the final answer (no token-by-token partials).

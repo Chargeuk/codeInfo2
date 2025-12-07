@@ -243,8 +243,8 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 
 ### 5. Model reasoning effort (`--config model_reasoning_effort`)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 2522233
 
 #### Overview
 Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex requests, with validation and default `high`.

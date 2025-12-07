@@ -80,16 +80,17 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - README.md (MCP ports/env defaults)
 
 #### Subtasks
-1. [ ] Add server config/env wiring for `MCP_PORT` defaulting to 5011; ensure it is documented and validated.
-2. [ ] Create MCP router/handler module exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`, returning JSON-RPC 2.0 envelopes.
-3. [ ] Implement Codex-availability guard that short-circuits `tools/list`/`tools/call` with `CODEX_UNAVAILABLE` error when Codex CLI/auth/config are missing, while still allowing other methods to respond.
-4. [ ] Wire server bootstrap to start the new MCP listener without affecting existing MCP/HTTP endpoints; include graceful shutdown hooks.
-5. [ ] Update lint/format if new files added; run root lint for touched areas.
+1. [ ] Add `MCP_PORT` (default 5011) to server config: update `server/.env` + `server/.env.local` comment, add a typed getter in `server/src/config` (create if missing) or inline in `server/src/index.ts`, and document in `README.md` env section.
+2. [ ] Create new entry files under `server/src/mcp2/`: `server.ts` (HTTP server on `MCP_PORT`), `router.ts` (JSON-RPC dispatch), and `types.ts` (JSON-RPC request/response shapes). Keep existing MCP untouched. Export a start/stop function so `server/src/index.ts` can call it.
+3. [ ] Implement JSON-RPC handlers (`initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`) in `server/src/mcp2/router.ts`. Return envelopes `{ jsonrpc: "2.0", id, result|error }`; use error code `-32001` + message `CODEX_UNAVAILABLE` when Codex is missing.
+4. [ ] Add availability guard in `server/src/mcp2/codexAvailability.ts` (or inline) that checks Codex CLI/auth/config status using the existing Codex detection helper used by the main chat flow; have `tools/list` return the single tool only when available, otherwise error.
+5. [ ] Wire `server/src/index.ts` to start the new MCP server alongside the existing HTTP server and existing MCP; ensure graceful shutdown hooks close the new server (listen/close). Keep current `/health` unaffected.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after changes.
 
 #### Testing
-1. [ ] Unit: handler returns empty tools + proper error code when Codex unavailable.
-2. [ ] Unit/integration: `resources/list` and `resources/listTemplates` return empty arrays and do not throw.
-3. [ ] Integration: server starts both MCP endpoints concurrently; existing `/health` remains OK.
+1. [ ] Unit: `tools/list` returns `CODEX_UNAVAILABLE` (-32001) when Codex is missing and only then; `resources/list`/`resources/listTemplates` return empty arrays.
+2. [ ] Integration: start server locally (`npm run dev --workspace server`), confirm `/health` works and new MCP port accepts `initialize` + `tools/list` (when Codex available simulate/flag) using curl/postman.
+3. [ ] Lint/format: `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Implementation notes
 - 
@@ -105,17 +106,18 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 Expose the single MCP tool `codebase_question(question)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and surface citations from vector search. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations
-- design.md (describe query flow and defaults)
-- README.md (how to call the tool + defaults)
-- projectStructure.md (new tool module, any helper files)
+- design.md (describe query flow and defaults, include sample JSON-RPC request/response)
+- README.md (how to call the tool + defaults, curl example)
+- projectStructure.md (new tool module files under `server/src/mcp2`)
 
 #### Subtasks
-1. [ ] Define input schema: required `question`, optional `limit` (<=20) aligned with vector search defaults.
-2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the MCP schema so Codex surfaces it.
-3. [ ] Wire Codex chat invocation reusing existing system prompt + flags (workingDirectory=/data, skipGitRepoCheck:true); ensure no LM Studio fallback.
-4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload.
-5. [ ] Shape the response as single `text` content containing JSON { answer, citations, modelId } and ensure errors surface via JSON-RPC.
-6. [ ] Run lint/format for touched modules.
+1. [ ] Define input schema in `server/src/mcp2/tools/codebaseQuestion.ts`: required `question` (string), optional `limit` (number, default 5, max 20). Reject extras; emit JSON-RPC -32602 on validation failure.
+2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the tool schema so Codex surfaces it.
+3. [ ] Wire Codex chat invocation (no LM Studio fallback) using existing chat pipeline utilities: set defaults model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true. Place orchestration in `server/src/mcp2/tools/codebaseQuestion.ts` and reuse vector search helper if available.
+4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload; include citations array in the returned JSON. Ensure streaming only sends think/final (no token chunks) before packaging final result.
+5. [ ] Shape the `tools/call` result as single `content` item `{ type: "text", text: JSON.stringify({ answer, citations, modelId, limitUsed }) }` and set proper JSON-RPC envelope; add error mapping for Codex unavailable (-32001) and validation (-32602).
+6. [ ] Add unit helpers/mocks under `server/src/test` if needed to simulate Codex + vector search; keep code in `server/src/mcp2/tools/__tests__/`.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after code changes.
 
 #### Testing
 1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with citations present when vector data exists.
@@ -142,8 +144,8 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 
 #### Subtasks
 1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.
-2. [ ] Smoke: start server and confirm both MCP endpoints respond; check `/health` remains ok.
-3. [ ] Update README.md, design.md, projectStructure.md with final MCP details and file additions.
+2. [ ] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
+3. [ ] Update README.md (env, port 5011, curl example for `codebase_question`), design.md (MCP flow diagram + sample request/response), and projectStructure.md (list new `server/src/mcp2/*` files) **in this task**, even if previously noted elsewhere.
 4. [ ] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing

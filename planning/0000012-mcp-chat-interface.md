@@ -69,7 +69,7 @@ Follow the standard plan workflow (copied from `plan_format.md`):
 ### 1. Scaffold Codex-only MCP server entrypoint
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: a067088
 
 #### Overview
 Add the second MCP server endpoint on its own port (default 5011) within the existing Node process, with JSON-RPC methods `initialize`, `tools/list`, `tools/call`, and stubs for `resources/list` + `resources/listTemplates` (empty arrays). Ensure Codex availability gating returns a clear `CODEX_UNAVAILABLE` (-32001) error instead of empty tool lists.

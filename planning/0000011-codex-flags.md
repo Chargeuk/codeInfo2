@@ -51,8 +51,8 @@ Expose the remaining Codex CLI execution flags (from `sdk/typescript/src/exec.ts
 
 ### 1. Sandbox mode selector (`--sandbox`)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 16aa978
 
 #### Overview
 Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to the server Codex call; LM Studio must ignore the parameter.
@@ -86,7 +86,7 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+8. [x] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -94,7 +94,8 @@ Expose Codex `sandboxMode` choices in the UI (Codex-only) and forward them to th
 - Extended Codex integration tests to cover default/invalid/custom sandbox values and LM Studio ignore+warning; reordered imports to satisfy lint.
 - Client now renders a Codex flags accordion with sandbox select, manages sandbox state/reset on provider changes and new conversation, and sends sandboxMode on Codex requests; useChatStream accepts Codex flags; three RTL suites cover default render, payload inclusion, and reset flows.
 - Docs updated (README/design) to describe the Codex flags panel, options, default, and LM Studio ignore note; projectStructure lists new files/tests.
-- Testing: server+client builds/tests, e2e suite, compose:build/up/down all ran; manual UI check via Playwright MCP not yet executed (call out separately if needed).
+- Testing: server+client builds/tests, e2e suite, compose:build/up/down all ran.
+- Manual UI check completed via Playwright MCP against `http://localhost:5001/chat`: switched provider to OpenAI Codex, verified Codex flags accordion renders with sandbox default `workspace-write` helper, and confirmed compose stack brought up/down cleanly for the check.
 
 ---
 
@@ -136,7 +137,7 @@ Allow users to enable/disable network access for Codex sandboxes per request; se
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -179,7 +180,7 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -223,7 +224,7 @@ Let users pick Codex approval policy per request (e.g., `auto`, `always`, `never
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -267,7 +268,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality
+8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -309,7 +310,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this story's acceptance & implemented functionality
+8. [ ] Using the Playwright mcp tool, Manual UI check for this story's acceptance & implemented functionality. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

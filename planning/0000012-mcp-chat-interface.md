@@ -8,8 +8,6 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 
 - **Tool result shape:** Codex rejected MCP tool responses wrapped as `content: [{ type: "application/json", json: {...} }]` with “Unexpected response type.” The fix was to return a single `content` item of `type: "text"` containing a JSON-stringified payload. Apply the same text response shape for all tools here.
 - **Required resource methods:** Codex probes `resources/list` and `resources/listTemplates`; when unimplemented it raised `Method not found` and marked tools unavailable. Implement both (empty arrays are fine) alongside `initialize`/`tools/list`/`tools/call`.
-- **Trust guard:** Codex tool calls failed with “Not inside a trusted directory and --skip-git-repo-check was not specified.” Passing `workingDirectory: "/data"` and `skipGitRepoCheck: true` in thread options resolved this; keep these defaults for the new MCP-backed flow.
-- **Config seeding:** Codex only discovered the MCP after `[mcp_servers.codeinfo_host|codeinfo_docker]` entries were added to `config.toml` (host and docker URLs). Ensure the new MCP URL/port (default 5011) is seeded the same way.
 - **SSE/tool mapping:** Codex emits `mcp_tool_call` items; server must bridge them to `tool-request` / `tool-result` SSE frames so clients see tool blocks/citations. Preserve this mapping for the new MCP endpoint.
 
 ## Acceptance Criteria

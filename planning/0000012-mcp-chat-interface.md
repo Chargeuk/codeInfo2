@@ -13,7 +13,7 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 ## Acceptance Criteria
 
 - A dedicated MCP server process (separate port/endpoint from the current MCP) is available from the Node server.
-- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question` and optional `repository` id, answers using the existing vector search + chat pipeline, and returns citations where possible. No other tools are exposed.
+- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question`, answers using the existing vector search + chat pipeline, and returns citations where possible. No other tools are exposed.
 - Server picks sensible defaults for Codex model, sandbox/approval/network/search flags, and limits so MCP callers need minimal parameters; no LM Studio fallback is ever used.
 - Tool results use a single `content` item of type `text` containing JSON-stringified payloads (per Codex MCP requirements).
 - Existing MCP server and HTTP APIs continue to function unchanged; enabling the new MCP does not regress current chat or tooling flows.
@@ -102,7 +102,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Git Commits: __to_do__
 
 #### Overview
-Expose the single MCP tool `codebase_question(question, repository?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and surface citations from vector search. Tool results must be JSON-stringified text content.
+Expose the single MCP tool `codebase_question(question)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and surface citations from vector search. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations
 - design.md (describe query flow and defaults)
@@ -110,16 +110,16 @@ Expose the single MCP tool `codebase_question(question, repository?)` that runs 
 - projectStructure.md (new tool module, any helper files)
 
 #### Subtasks
-1. [ ] Define input schema: required `question`, optional `repository`, optional `limit` (<=20) aligned with vector search defaults.
+1. [ ] Define input schema: required `question`, optional `limit` (<=20) aligned with vector search defaults.
 2. [ ] Set human-readable tool description and parameter help text to: "Ask any question about a codebase for an LLM to search and answer. The LLM has access to a vectorised set of codebases and you can ask it to name them. If you ask a question about a specific codebase, then the LLM restricts the search to only vectorised data for that repository." Apply this to the MCP schema so Codex surfaces it.
 3. [ ] Wire Codex chat invocation reusing existing system prompt + flags (workingDirectory=/data, skipGitRepoCheck:true); ensure no LM Studio fallback.
 4. [ ] Map Codex `mcp_tool_call` events to SSE `tool-request/result` and capture vector search citations in the final payload.
-5. [ ] Shape the response as single `text` content containing JSON { answer, citations, modelId, repository } and ensure errors surface via JSON-RPC.
+5. [ ] Shape the response as single `text` content containing JSON { answer, citations, modelId } and ensure errors surface via JSON-RPC.
 6. [ ] Run lint/format for touched modules.
 
 #### Testing
 1. [ ] Unit/integration: happy path streams think/final and yields JSON-stringified result with citations present when vector data exists.
-2. [ ] Unit: validation errors for missing question / bad limit / unknown repo map to -32602.
+2. [ ] Unit: validation errors for missing question / bad limit map to -32602.
 3. [ ] Integration: Codex-unavailable path returns `CODEX_UNAVAILABLE` error for `tools/call`.
 
 #### Implementation notes

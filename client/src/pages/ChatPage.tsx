@@ -64,15 +64,19 @@ export default function ChatPage() {
   } = useChatModel();
   const defaultSandboxMode: SandboxMode = 'workspace-write';
   const defaultNetworkAccessEnabled = true;
+  const defaultWebSearchEnabled = true;
   const [sandboxMode, setSandboxMode] =
     useState<SandboxMode>(defaultSandboxMode);
   const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
     defaultNetworkAccessEnabled,
   );
+  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(
+    defaultWebSearchEnabled,
+  );
   const { messages, status, isStreaming, send, stop, reset } = useChatStream(
     selected,
     provider,
-    { sandboxMode, networkAccessEnabled },
+    { sandboxMode, networkAccessEnabled, webSearchEnabled },
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
@@ -155,6 +159,7 @@ export default function ChatPage() {
     setToolOpen({});
     setSandboxMode(defaultSandboxMode);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
+    setWebSearchEnabled(defaultWebSearchEnabled);
   };
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
@@ -162,6 +167,7 @@ export default function ChatPage() {
     setProvider(nextProvider);
     setSandboxMode(defaultSandboxMode);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
+    setWebSearchEnabled(defaultWebSearchEnabled);
   };
 
   const toggleThink = (id: string) => {
@@ -575,6 +581,8 @@ export default function ChatPage() {
                 onSandboxModeChange={(value) => setSandboxMode(value)}
                 networkAccessEnabled={networkAccessEnabled}
                 onNetworkAccessEnabledChange={setNetworkAccessEnabled}
+                webSearchEnabled={webSearchEnabled}
+                onWebSearchEnabledChange={setWebSearchEnabled}
                 disabled={controlsDisabled}
               />
             )}

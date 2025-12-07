@@ -20,6 +20,8 @@ type Props = {
   onSandboxModeChange: (value: SandboxMode) => void;
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
+  webSearchEnabled: boolean;
+  onWebSearchEnabledChange: (value: boolean) => void;
   disabled?: boolean;
 };
 
@@ -34,6 +36,8 @@ export default function CodexFlagsPanel({
   onSandboxModeChange,
   networkAccessEnabled,
   onNetworkAccessEnabledChange,
+  webSearchEnabled,
+  onWebSearchEnabledChange,
   disabled,
 }: Props) {
   return (
@@ -100,6 +104,26 @@ export default function CodexFlagsPanel({
             />
             <FormHelperText sx={{ ml: 0 }}>
               Allows Codex sandbox network access (ignored for LM Studio).
+            </FormHelperText>
+          </Stack>
+
+          <Stack spacing={0.25}>
+            <FormControlLabel
+              control={
+                <Switch
+                  color="primary"
+                  checked={webSearchEnabled}
+                  onChange={(event) =>
+                    onWebSearchEnabledChange(event.target.checked)
+                  }
+                  disabled={disabled}
+                  inputProps={{ 'data-testid': 'web-search-switch' }}
+                />
+              }
+              label="Enable web search"
+            />
+            <FormHelperText sx={{ ml: 0 }}>
+              Allows Codex to issue web search requests (ignored for LM Studio).
             </FormHelperText>
           </Stack>
         </Stack>

@@ -92,6 +92,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.flags.sandbox.default.test.tsx ? Codex flags panel renders with default sandbox and helper
 |     |     |- chatPage.flags.sandbox.payload.test.tsx ? sandbox flag sent only for Codex payloads
 |     |     |- chatPage.flags.sandbox.reset.test.tsx ? sandbox flag resets on provider change or new conversation
+|     |     |- chatPage.flags.network.default.test.tsx ? Codex network access toggle defaults to enabled with helper copy
+|     |     |- chatPage.flags.network.payload.test.tsx ? network flag omitted for LM Studio, forwarded/reset for Codex payloads
+|     |     |- chatPage.flags.websearch.default.test.tsx ? Codex web search toggle defaults to enabled with helper copy
+|     |     |- chatPage.flags.websearch.payload.test.tsx ? web search flag omitted for LM Studio, forwarded/reset for Codex payloads
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping

@@ -11,6 +11,7 @@ export type SandboxMode =
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
   networkAccessEnabled?: boolean;
+  webSearchEnabled?: boolean;
 };
 
 export type ChatMessage = {
@@ -83,6 +84,7 @@ const serverBase =
 
 const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
 const DEFAULT_NETWORK_ACCESS_ENABLED = true;
+const DEFAULT_WEB_SEARCH_ENABLED = true;
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -744,6 +746,10 @@ export function useChatStream(
             ? (codexFlags?.networkAccessEnabled ??
               DEFAULT_NETWORK_ACCESS_ENABLED)
             : undefined;
+        const webSearchEnabled =
+          provider === 'codex'
+            ? (codexFlags?.webSearchEnabled ?? DEFAULT_WEB_SEARCH_ENABLED)
+            : undefined;
 
         const codexPayload =
           provider === 'codex'
@@ -753,6 +759,7 @@ export function useChatStream(
                   : {}),
                 sandboxMode,
                 networkAccessEnabled,
+                webSearchEnabled,
               }
             : {};
 
@@ -1003,6 +1010,7 @@ export function useChatStream(
       provider,
       codexFlags?.sandboxMode,
       codexFlags?.networkAccessEnabled,
+      codexFlags?.webSearchEnabled,
       status,
       stop,
       updateMessages,

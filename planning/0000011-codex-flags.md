@@ -161,32 +161,36 @@ Expose Codex web search enable/disable as a per-request flag, defaulting to enab
 - MUI Switch API (toggle component used in UI): https://mui.com/material-ui/react-switch/
 
 #### Subtasks
-1. [ ] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `webSearchEnabled`; default `true`; if provided for a non-codex provider, log a warning and strip it (no 400); include examples in comments.
-2. [ ] Server handler (`server/src/routes/chat.ts`): when provider is codex, add `webSearchEnabled` (default `true`) to Codex options; when provider is LM Studio, drop the field and log that it was ignored.
-3. [ ] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
+1. [x] Server validation (`server/src/routes/chatValidators.ts`): add optional boolean `webSearchEnabled`; default `true`; if provided for a non-codex provider, log a warning and strip it (no 400); include examples in comments.
+2. [x] Server handler (`server/src/routes/chat.ts`): when provider is codex, add `webSearchEnabled` (default `true`) to Codex options; when provider is LM Studio, drop the field and log that it was ignored.
+3. [x] Server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`):
    - omitted -> Codex call gets `webSearchEnabled: true`.
    - explicit false -> Codex call gets `false`.
    - LM Studio with the flag -> succeeds (no 400), flag not forwarded, warning logged/asserted.
-4. [ ] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` labeled “Enable web search” with helper “Allows Codex to issue web search requests (ignored for LM Studio)”; default checked.
-5. [ ] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): track `webSearchEnabled`, include it in payload only for codex, default to true, reset to true on provider change or New conversation.
-6. [ ] Client tests (RTL): add `client/src/test/chatPage.flags.websearch.default.test.tsx` (render + default + helper), `client/src/test/chatPage.flags.websearch.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
-7. [ ] Docs: README.md — Chat/Codex section bullet for Web search with default `true`, what it enables, LM Studio ignore note, plus a JSON example showing `"webSearchEnabled": false`.
-8. [ ] Docs: design.md — duplicate the same description/default/ignore note.
-9. [ ] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+4. [x] Client UI (`client/src/components/chat/CodexFlagsPanel.tsx`): add a `Switch` labeled “Enable web search” with helper “Allows Codex to issue web search requests (ignored for LM Studio)”; default checked.
+5. [x] Client wiring/state (`client/src/pages/ChatPage.tsx` + `client/src/hooks/useChatStream.ts`): track `webSearchEnabled`, include it in payload only for codex, default to true, reset to true on provider change or New conversation.
+6. [x] Client tests (RTL): add `client/src/test/chatPage.flags.websearch.default.test.tsx` (render + default + helper), `client/src/test/chatPage.flags.websearch.payload.test.tsx` (payload include/exclude), and cover reset behaviour.
+7. [x] Docs: README.md — Chat/Codex section bullet for Web search with default `true`, what it enables, LM Studio ignore note, plus a JSON example showing `"webSearchEnabled": false`.
+8. [x] Docs: design.md — duplicate the same description/default/ignore note.
+9. [x] Lint/format: Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the Playwright mcp tool, Manual UI check for this task's implemented functionality. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Added `webSearchEnabled` validation/defaulting in `chatValidators` with Codex-only warnings; thread options in `chat.ts` now forward the flag (default true) alongside sandbox/network.
+- Integration coverage extended for default/invalid/explicit Codex web search paths and LM Studio ignore warnings.
+- Codex flags panel now includes a web search switch; chat state resets to defaults on provider change/new conversation while preserving within active Codex sessions; payload builder sends the flag only for Codex.
+- New RTL suites (`chatPage.flags.websearch.*`) cover default render/helper text, payload inclusion/exclusion, and reset behaviour; README + design describe the new toggle and payload example; projectStructure updated.
+- Lint + format checks clean; builds/tests run: server build/test, client build/test, full e2e suite (5 skipped per existing tags), compose build/up/down. Manual UI check via Playwright MCP captured `test-results/screenshots/0000011-03-websearch.png` confirming both network and web search toggles default to enabled for Codex.
 
 ---
 

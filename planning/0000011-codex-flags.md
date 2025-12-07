@@ -290,7 +290,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 
 ### 6. Final validation and release checklist
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

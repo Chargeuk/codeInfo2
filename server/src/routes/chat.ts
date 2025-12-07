@@ -19,6 +19,7 @@ import { createLmStudioTools } from '../lmstudio/tools.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
@@ -106,11 +107,38 @@ export function createChatRouter({
 
   router.post('/', async (req, res) => {
     const requestId = res.locals.requestId as string | undefined;
-    const { model, messages, provider: rawProvider, threadId } = req.body ?? {};
-    const provider =
-      typeof rawProvider === 'string' && rawProvider.length > 0
-        ? rawProvider
-        : 'lmstudio';
+    const rawBody = req.body ?? {};
+    const rawSize = JSON.stringify(rawBody).length;
+    if (rawSize > maxClientBytes) {
+      return res.status(400).json({ error: 'payload too large' });
+    }
+
+    let validatedBody;
+    try {
+      validatedBody = validateChatRequest(rawBody);
+    } catch (err) {
+      if (err instanceof ChatValidationError) {
+        return res
+          .status(400)
+          .json({ error: 'invalid request', message: err.message });
+      }
+      throw err;
+    }
+
+    const { model, messages, provider, threadId, codexFlags, warnings } =
+      validatedBody;
+
+    warnings.forEach((warning) => {
+      append({
+        level: 'warn',
+        message: 'chat codex flag ignored',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: { provider, warning },
+      });
+      baseLogger.warn({ requestId, provider, warning }, 'chat flag ignored');
+    });
     const controller = new AbortController();
     let ended = false;
     let completed = false;
@@ -121,19 +149,6 @@ export function createChatRouter({
       ended = true;
       endStream(res);
     };
-
-    if (
-      typeof model !== 'string' ||
-      !Array.isArray(messages) ||
-      typeof provider !== 'string'
-    ) {
-      return res.status(400).json({ error: 'invalid request' });
-    }
-
-    const rawSize = JSON.stringify(req.body ?? {}).length;
-    if (rawSize > maxClientBytes) {
-      return res.status(400).json({ error: 'payload too large' });
-    }
 
     if (provider === 'codex') {
       const detection = getCodexDetection();
@@ -214,6 +229,11 @@ export function createChatRouter({
           model,
           workingDirectory: codexWorkingDirectory,
           skipGitRepoCheck: true,
+          sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
+          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
+          webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
+          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
+          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
         };
 
         const thread =
@@ -226,12 +246,13 @@ export function createChatRouter({
         let reasoningText = '';
 
         const systemContext = SYSTEM_CONTEXT.trim();
-        const userText = messages
-          .filter(
-            (msg: { role?: unknown }) =>
-              msg?.role === 'user' || msg?.role === undefined,
-          )
-          .map((msg: { content?: unknown }) =>
+        const typedMessages = messages as Array<{
+          role?: unknown;
+          content?: unknown;
+        }>;
+        const userText = typedMessages
+          .filter((msg) => msg?.role === 'user' || msg?.role === undefined)
+          .map((msg) =>
             typeof msg?.content === 'string'
               ? msg.content
               : JSON.stringify(msg?.content ?? ''),
@@ -341,18 +362,49 @@ export function createChatRouter({
           return { message: String(err) };
         };
 
+        const deriveCodexToolName = (
+          item: CodexToolCallItem,
+        ): string | undefined => {
+          const args = (item as { arguments?: Record<string, unknown> })
+            .arguments;
+          const argTool =
+            args && typeof args === 'object' && typeof args.tool === 'string'
+              ? args.tool
+              : undefined;
+          return (
+            item.name ||
+            (item as { tool_name?: string }).tool_name ||
+            (item as { tool?: string }).tool ||
+            argTool ||
+            undefined
+          );
+        };
+
         const emitCodexToolRequest = (item: CodexToolCallItem) => {
           if (item.type !== 'mcp_tool_call') return;
           const callId = item.id ?? `codex-tool-${Date.now()}`;
+          const name = deriveCodexToolName(item);
           const parameters = parseCodexToolParameters(item);
           codexToolCtx.set(String(callId), {
-            name: item.name,
+            name,
             parameters,
           });
+          baseLogger.info(
+            {
+              requestId,
+              provider,
+              model,
+              callId,
+              itemKeys: Object.keys(item ?? {}),
+              toolName: name ?? null,
+              item,
+            },
+            'codex tool call observed',
+          );
           writeEvent(res, {
             type: 'tool-request',
             callId,
-            name: item.name,
+            name,
             stage: 'started',
             parameters,
           });
@@ -364,7 +416,7 @@ export function createChatRouter({
           const stored = codexToolCtx.get(String(callId));
           const parameters =
             stored?.parameters ?? parseCodexToolParameters(item);
-          const name = item.name ?? stored?.name;
+          const name = stored?.name ?? deriveCodexToolName(item);
           const payload = parseCodexToolResult(item);
           const error = (item.result as { error?: unknown } | undefined)?.error;
           const errorTrimmed = trimCodexError(error);
@@ -384,7 +436,18 @@ export function createChatRouter({
         for await (const event of events) {
           if (cancelled || isStreamClosed(res)) break;
           baseLogger.info(
-            { requestId, provider, model, eventType: event.type },
+            {
+              requestId,
+              provider,
+              model,
+              eventType: event.type,
+              itemType:
+                (event as { item?: { type?: unknown } })?.item?.type ?? null,
+              itemKeys: Object.keys(
+                ((event as { item?: Record<string, unknown> }).item ??
+                  {}) as Record<string, unknown>,
+              ),
+            },
             'codex event',
           );
           switch (event.type) {
@@ -655,7 +718,7 @@ export function createChatRouter({
       });
 
       const tools = [...lmStudioTools];
-      const chat = Chat.from(messages);
+      const chat = Chat.from(messages as Parameters<typeof Chat.from>[0]);
       let finalCount = 0;
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;

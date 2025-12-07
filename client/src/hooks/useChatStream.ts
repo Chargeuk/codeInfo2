@@ -3,6 +3,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { SYSTEM_CONTEXT } from '../constants/systemContext';
 import { createLogger } from '../logging/logger';
 
+export type SandboxMode =
+  | 'read-only'
+  | 'workspace-write'
+  | 'danger-full-access';
+
+export type ApprovalPolicy =
+  | 'never'
+  | 'on-request'
+  | 'on-failure'
+  | 'untrusted';
+
+export type ModelReasoningEffort = 'low' | 'medium' | 'high';
+
+export type CodexFlagState = {
+  sandboxMode?: SandboxMode;
+  approvalPolicy?: ApprovalPolicy;
+  networkAccessEnabled?: boolean;
+  webSearchEnabled?: boolean;
+  modelReasoningEffort?: ModelReasoningEffort;
+};
+
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -70,6 +91,12 @@ const serverBase =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta).env?.VITE_API_URL) ??
   'http://localhost:5010';
+
+const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
+const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';
+const DEFAULT_NETWORK_ACCESS_ENABLED = true;
+const DEFAULT_WEB_SEARCH_ENABLED = true;
+const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -256,7 +283,11 @@ const isVectorPayloadString = (content: string) => {
   }
 };
 
-export function useChatStream(model?: string, provider?: string) {
+export function useChatStream(
+  model?: string,
+  provider?: string,
+  codexFlags?: CodexFlagState,
+) {
   const log = useRef(createLogger('client')).current;
   const threadIdRef = useRef<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -718,6 +749,43 @@ export function useChatStream(model?: string, provider?: string) {
       };
 
       try {
+        const sandboxMode =
+          provider === 'codex'
+            ? (codexFlags?.sandboxMode ?? DEFAULT_SANDBOX_MODE)
+            : undefined;
+        const approvalPolicy =
+          provider === 'codex'
+            ? (codexFlags?.approvalPolicy ?? DEFAULT_APPROVAL_POLICY)
+            : undefined;
+        const modelReasoningEffort =
+          provider === 'codex'
+            ? (codexFlags?.modelReasoningEffort ??
+              DEFAULT_MODEL_REASONING_EFFORT)
+            : undefined;
+        const networkAccessEnabled =
+          provider === 'codex'
+            ? (codexFlags?.networkAccessEnabled ??
+              DEFAULT_NETWORK_ACCESS_ENABLED)
+            : undefined;
+        const webSearchEnabled =
+          provider === 'codex'
+            ? (codexFlags?.webSearchEnabled ?? DEFAULT_WEB_SEARCH_ENABLED)
+            : undefined;
+
+        const codexPayload =
+          provider === 'codex'
+            ? {
+                ...(threadIdRef.current
+                  ? { threadId: threadIdRef.current }
+                  : {}),
+                sandboxMode,
+                approvalPolicy,
+                modelReasoningEffort,
+                networkAccessEnabled,
+                webSearchEnabled,
+              }
+            : {};
+
         const res = await fetch(new URL('/chat', serverBase).toString(), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -729,9 +797,7 @@ export function useChatStream(model?: string, provider?: string) {
               ...payloadMessages,
               { role: 'user', content: trimmed },
             ],
-            ...(provider === 'codex' && threadIdRef.current
-              ? { threadId: threadIdRef.current }
-              : {}),
+            ...codexPayload,
           }),
           signal: controller.signal,
         });
@@ -965,6 +1031,11 @@ export function useChatStream(model?: string, provider?: string) {
       logWithChannel,
       model,
       provider,
+      codexFlags?.sandboxMode,
+      codexFlags?.approvalPolicy,
+      codexFlags?.modelReasoningEffort,
+      codexFlags?.networkAccessEnabled,
+      codexFlags?.webSearchEnabled,
       status,
       stop,
       updateMessages,

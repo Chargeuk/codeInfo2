@@ -24,6 +24,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import {
   FormEvent,
   useCallback,
@@ -33,9 +34,13 @@ import {
   useState,
 } from 'react';
 import Markdown from '../components/Markdown';
+import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
+  ApprovalPolicy,
+  ModelReasoningEffort,
+  SandboxMode,
   ToolCitation,
   ToolCall,
 } from '../hooks/useChatStream';
@@ -59,9 +64,34 @@ export default function ChatPage() {
     refreshModels,
     refreshProviders,
   } = useChatModel();
+  const defaultSandboxMode: SandboxMode = 'workspace-write';
+  const defaultApprovalPolicy: ApprovalPolicy = 'on-failure';
+  const defaultModelReasoningEffort: ModelReasoningEffort = 'high';
+  const defaultNetworkAccessEnabled = true;
+  const defaultWebSearchEnabled = true;
+  const [sandboxMode, setSandboxMode] =
+    useState<SandboxMode>(defaultSandboxMode);
+  const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
+    defaultApprovalPolicy,
+  );
+  const [modelReasoningEffort, setModelReasoningEffort] =
+    useState<ModelReasoningEffort>(defaultModelReasoningEffort);
+  const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
+    defaultNetworkAccessEnabled,
+  );
+  const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(
+    defaultWebSearchEnabled,
+  );
   const { messages, status, isStreaming, send, stop, reset } = useChatStream(
     selected,
     provider,
+    {
+      sandboxMode,
+      approvalPolicy,
+      modelReasoningEffort,
+      networkAccessEnabled,
+      webSearchEnabled,
+    },
   );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
@@ -142,6 +172,21 @@ export default function ChatPage() {
     inputRef.current?.focus();
     setThinkOpen({});
     setToolOpen({});
+    setSandboxMode(defaultSandboxMode);
+    setApprovalPolicy(defaultApprovalPolicy);
+    setModelReasoningEffort(defaultModelReasoningEffort);
+    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
+    setWebSearchEnabled(defaultWebSearchEnabled);
+  };
+
+  const handleProviderChange = (event: SelectChangeEvent<string>) => {
+    const nextProvider = event.target.value;
+    setProvider(nextProvider);
+    setSandboxMode(defaultSandboxMode);
+    setApprovalPolicy(defaultApprovalPolicy);
+    setModelReasoningEffort(defaultModelReasoningEffort);
+    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
+    setWebSearchEnabled(defaultWebSearchEnabled);
   };
 
   const toggleThink = (id: string) => {
@@ -490,7 +535,7 @@ export default function ChatPage() {
                   id="chat-provider-select"
                   label="Provider"
                   value={provider ?? ''}
-                  onChange={(event) => setProvider(event.target.value)}
+                  onChange={handleProviderChange}
                   displayEmpty
                   data-testid="provider-select"
                 >
@@ -548,6 +593,22 @@ export default function ChatPage() {
                 </Button>
               </Stack>
             </Stack>
+
+            {providerIsCodex && (
+              <CodexFlagsPanel
+                sandboxMode={sandboxMode}
+                onSandboxModeChange={(value) => setSandboxMode(value)}
+                approvalPolicy={approvalPolicy}
+                onApprovalPolicyChange={setApprovalPolicy}
+                modelReasoningEffort={modelReasoningEffort}
+                onModelReasoningEffortChange={setModelReasoningEffort}
+                networkAccessEnabled={networkAccessEnabled}
+                onNetworkAccessEnabledChange={setNetworkAccessEnabled}
+                webSearchEnabled={webSearchEnabled}
+                onWebSearchEnabledChange={setWebSearchEnabled}
+                disabled={controlsDisabled}
+              />
+            )}
 
             {showCodexUnavailable ? (
               <Alert severity="warning" data-testid="codex-unavailable-banner">

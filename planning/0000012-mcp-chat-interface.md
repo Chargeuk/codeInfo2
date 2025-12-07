@@ -13,11 +13,10 @@ Expose a new MCP server (running on its own port) that mirrors the existing chat
 ## Acceptance Criteria
 
 - A dedicated MCP server process (separate port/endpoint from the current MCP) is available from the Node server.
-- Tool: **ListRepositories** returns all ingestable/ingested repositories with identifiers and host/container paths suitable for citations.
-- Tool: **QueryRepository** accepts a natural-language question plus repo identifier and returns an answer grounded in repo content (using existing vector search + chat pipeline) with citations where possible.
-- Server picks sensible defaults for Codex/LM Studio provider selection, model, sandbox/approval/network/search flags, and limits (tokens/chunks) so MCP callers need minimal parameters.
+- Single tool: **codebase_question** (Codex-only) that accepts a natural-language `question` and optional `repository` id, answers using the existing vector search + chat pipeline, and returns citations where possible. No other tools are exposed.
+- Server picks sensible defaults for Codex model, sandbox/approval/network/search flags, and limits so MCP callers need minimal parameters; no LM Studio fallback is ever used.
+- Tool results use a single `content` item of type `text` containing JSON-stringified payloads (per Codex MCP requirements).
 - Existing MCP server and HTTP APIs continue to function unchanged; enabling the new MCP does not regress current chat or tooling flows.
-- Security and resource limits: no additional caps beyond the current server defaults (Codex access is prepaid/authenticated, so extra rate/size limits are not required for this MCP endpoint).
 - Availability fallback: the new MCP server must start even when Codex is unavailable, but every `tools/list`/`tools/call` request must return a clear JSON-RPC error (e.g., code -32001 `CODEX_UNAVAILABLE`) rather than exposing empty tools or falling back to LM Studio; health signalling should match this behaviour.
 
 ## Out Of Scope
@@ -97,42 +96,13 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 
 ---
 
-### 2. Implement ListRepositories tool
+### 2. Implement codebase_question tool (chat + vector search bridge)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
-Expose `ListRepositories` over the new MCP, reusing `/tools/ingested-repos` logic to return repo id/name/description plus host & container paths, counts, last ingest, locked model, and host path warning flags.
-
-#### Documentation Locations
-- design.md (MCP tools section)
-- projectStructure.md (note new MCP tool file)
-- README.md (MCP tool summary)
-
-#### Subtasks
-1. [ ] Reuse or wrap existing ingest repo listing service for MCP response; ensure mapping to JSON-RPC `content` as single `text` item with JSON string payload.
-2. [ ] Add schema/validation to enforce no params; ensure errors surface with JSON-RPC codes.
-3. [ ] Ensure host path warnings propagate in tool output for citations.
-4. [ ] Update lint/format; keep tool export registered in `tools/list`.
-
-#### Testing
-1. [ ] Unit: successful ListRepositories returns expected fields and text-wrapped JSON content.
-2. [ ] Unit: validation rejects unexpected params with -32602.
-3. [ ] Integration: Codex-available path lists tools and executes ListRepositories end-to-end.
-
-#### Implementation notes
-- 
-
----
-
-### 3. Implement QueryRepository tool (chat + vector search bridge)
-
-- Task Status: __to_do__
-- Git Commits: __to_do__
-
-#### Overview
-Expose `QueryRepository(question, repository?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking), and surface citations from vector search. Tool results must be JSON-stringified text content.
+Expose the single MCP tool `codebase_question(question, repository?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and surface citations from vector search. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations
 - design.md (describe query flow and defaults)
@@ -156,7 +126,7 @@ Expose `QueryRepository(question, repository?)` that runs the existing chat pipe
 
 ---
 
-### 4. Final validation and documentation sweep
+### 3. Final validation and documentation sweep
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -178,7 +148,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 #### Testing
 1. [ ] `npm run lint --workspaces`
 2. [ ] `npm run test --workspace server`
-3. [ ] Manual: start server, call `tools/list` and `ListRepositories`/`QueryRepository` via JSON-RPC on port 5011 (Codex available) and verify behaviour when Codex disabled.
+3. [ ] Manual: start server, call `tools/list` and `codebase_question` via JSON-RPC on port 5011 (Codex available) and verify behaviour when Codex disabled.
 
 #### Implementation notes
 - 

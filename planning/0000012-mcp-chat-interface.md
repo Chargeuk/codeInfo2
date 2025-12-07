@@ -150,8 +150,8 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 
 ### 2. Implement codebase_question tool (chat + vector search bridge)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: b4db0a20fb4d6588c4e4e1d76fe5c6cceaa309e9
 
 #### Overview
 Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return ordered segments combining thinking, minimal vector-search summaries, and final text (no full citations) plus the conversationId to continue the thread. Preserve the chronological order of segments as emitted—do not coalesce by type. Vector/search limits remain internal—no limit parameter is exposed. Tool results must be JSON-stringified text content.

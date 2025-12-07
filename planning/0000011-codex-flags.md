@@ -322,7 +322,7 @@ Validate all Codex flag controls end-to-end, ensure docs and structure are up to
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for this task's implemented functionality and save screenshots. Do NOT miss this step!
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the story and save screenshots. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

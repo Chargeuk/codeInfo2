@@ -130,7 +130,15 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/router.list.unavailable.test.ts): `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing; `resources/list` and `resources/listTemplates` return empty arrays.
 2. [ ] Integration test (server/src/test/mcp2/router.list.happy.test.ts): start server (`npm run dev --workspace server`), call `initialize` then `tools/list` on port 5011; assert single tool returned and `/health` still OK.
-3. [ ] Formatting/lint check: run `npm run lint --workspace server` and `npm run format:check --workspace server` (document command output expected to be clean).
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:build`
+9. [ ] `npm run compose:up`
+10. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -180,12 +188,21 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
    - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    Use Jest (Context7 `/jestjs/jest`) and fixtures matching the example payload. Command after adding: `npm run test --workspace server` (or targeted jest if available).
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
 
 #### Testing (separate subtasks)
 1. [ ] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
 2. [ ] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking, vector_summary, answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
 3. [ ] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
+4. [ ] `npm run build --workspace server`
+5. [ ] `npm run build --workspace client`
+6. [ ] `npm run test --workspace server`
+7. [ ] `npm run test --workspace client`
+8. [ ] `npm run e2e`
+9. [ ] `npm run compose:build`
+10. [ ] `npm run compose:up`
+11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 
@@ -216,13 +233,22 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
    Command: `npm run format:check --workspaces`.
 4. [ ] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
 5. [ ] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
-6. [ ] Capture Implementation notes and commit hashes; mark task done.
-4. [ ] Capture Implementation notes and commit hashes; mark task done.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
+7. [ ] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing (separate subtasks)
 1. [ ] Repo-wide lint (command): `npm run lint --workspaces`.
 2. [ ] Server test suite (command): `npm run test --workspace server` (covers new MCP tests).
 3. [ ] Manual verification: start server (`npm run dev --workspace server`), call `initialize`, `tools/list`, and `codebase_question` on port 5011 with and without Codex availability to observe `CODE_INFO_LLM_UNAVAILABLE` behaviour.
+4. [ ] `npm run build --workspace server`
+5. [ ] `npm run build --workspace client`
+6. [ ] `npm run test --workspace server`
+7. [ ] `npm run test --workspace client`
+8. [ ] `npm run e2e`
+9. [ ] `npm run compose:build`
+10. [ ] `npm run compose:up`
+11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+12. [ ] `npm run compose:down`
 
 #### Implementation notes
 - 

@@ -9,6 +9,7 @@ services:
     image: codeinfo2-server-e2e
     ports:
       - '6010:5010'
+      - '6011:5011'
     networks:
       - internal_e2e
     env_file:

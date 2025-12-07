@@ -6,6 +6,7 @@ services:
     image: codeinfo2-server
     ports:
       - '5010:5010'
+      - '5011:5011'
     networks:
       - internal
     env_file:

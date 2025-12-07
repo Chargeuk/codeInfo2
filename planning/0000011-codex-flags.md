@@ -291,7 +291,7 @@ Expose Codex `modelReasoningEffort` enum (e.g., `low|medium|high`) for Codex req
 ### 6. Final validation and release checklist
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: e2c0c1a, a6c7e77
 
 #### Overview
 Validate all Codex flag controls end-to-end, ensure docs and structure are up to date, and prepare PR summary/screenshots per plan_format guidance.

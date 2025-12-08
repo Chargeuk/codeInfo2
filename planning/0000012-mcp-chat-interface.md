@@ -217,7 +217,7 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 
 ### 3. Final validation and documentation sweep
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

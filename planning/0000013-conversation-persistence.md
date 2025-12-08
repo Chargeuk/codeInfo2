@@ -76,8 +76,19 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 #### Subtasks
 1. [ ] Add `MONGO_URI` to `server/.env` and `server/.env.e2e` with the exact value `mongodb://host.docker.internal:27517/db?directConnection=true`; add a commented placeholder to `server/.env.local` for overrides. Duplicate the same key in `server/.env.example` if it exists.
 2. [ ] Update `docker-compose.yml`, `docker-compose.e2e.yml`, and `server/src/test/compose/docker-compose.chroma.yml` server service environment blocks to pass `MONGO_URI` through (use the same value as above). Keep existing healthchecks untouched.
-3. [ ] Create `server/src/mongo/connection.ts` exporting `connectMongo(uri: string): Promise<void>` and `disconnectMongo(): Promise<void>` using `mongoose.connect`; log success/failure with `pino` (`server/src/logger.ts`) and set `mongoose.set('strictQuery', true)`.
-4. [ ] In `server/src/index.ts`, import and call `connectMongo(process.env.MONGO_URI!)` before starting the HTTP server; on SIGINT/SIGTERM call `disconnectMongo()` alongside existing shutdown hooks. If `MONGO_URI` is missing, log an error and `process.exit(1)`.
+3. [ ] Create `server/src/mongo/connection.ts` exporting `connectMongo(uri: string): Promise<void>` and `disconnectMongo(): Promise<void>` using `mongoose.connect`; log success/failure with `pino` (`server/src/logger.ts`) and set `mongoose.set('strictQuery', true)`. Example:
+   ```ts
+   export async function connectMongo(uri: string) {
+     mongoose.set('strictQuery', true);
+     await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+     logger.info({ uri }, 'Mongo connected');
+   }
+   export async function disconnectMongo() {
+     await mongoose.connection.close();
+     logger.info('Mongo disconnected');
+   }
+   ```
+4. [ ] In `server/src/index.ts`, import and call `connectMongo(process.env.MONGO_URI!)` before starting the HTTP server; on SIGINT/SIGTERM call `disconnectMongo()` alongside existing shutdown hooks. If `MONGO_URI` is missing, log an error and `process.exit(1)`. Ensure shutdown awaits both LM Studio cleanup and `disconnectMongo()`.
 5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix any errors.
 
 #### Testing
@@ -105,11 +116,11 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 #### Subtasks
 1. [ ] Create `server/src/mongo/conversation.ts` exporting a Mongoose model with fields: `_id: string` (conversationId), `provider: 'lmstudio' | 'codex'`, `model: string`, `title: string`, `flags: Record<string, unknown>`, `createdAt: Date`, `updatedAt: Date`, `lastMessageAt: Date`, `archivedAt: Date | null` (default null). Add index on `{ archivedAt: 1, lastMessageAt: -1 }`.
 2. [ ] Create `server/src/mongo/turn.ts` exporting a model with fields: `conversationId: string` (ref to Conversation `_id`), `role: 'user' | 'assistant' | 'system'`, `content: string`, `model: string`, `provider: string`, `toolCalls: object | null`, `status: 'ok' | 'stopped' | 'failed'`, `createdAt: Date`. Add index on `{ conversationId: 1, createdAt: -1 }`.
-3. [ ] Add a repository helper file `server/src/mongo/repo.ts` with functions: `createConversation`, `updateConversationMeta`, `archiveConversation`, `restoreConversation`, `appendTurn`, `listConversations({ limit, cursor, includeArchived })`, `listTurns({ conversationId, limit, cursor })`. Include JSDoc and types.
+3. [ ] Add a repository helper file `server/src/mongo/repo.ts` with functions: `createConversation`, `updateConversationMeta`, `archiveConversation`, `restoreConversation`, `appendTurn`, `listConversations({ limit, cursor, includeArchived })`, `listTurns({ conversationId, limit, cursor })`. Include JSDoc and types; ensure list uses `archivedAt` filter and sorts by `lastMessageAt desc` for conversations, `createdAt desc` for turns.
 4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
-1. [ ] Add Jest unit tests in `server/src/test/unit/mongo-schemas.test.ts` verifying required fields, defaults (archivedAt null), and index presence using `mongoose.model.schema.indexes()`.
+1. [ ] Add Jest unit tests in `server/src/test/unit/mongo-schemas.test.ts` verifying required fields, defaults (archivedAt null), and index presence using `mongoose.model.schema.indexes()`. Use test Mongo URI from env; drop collections after each test.
 2. [ ] `npm run test --workspace server`.
 
 #### Implementation notes
@@ -131,12 +142,18 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 
 #### Subtasks
 1. [ ] Create `server/src/routes/conversations.ts` with Express router and register it in `server/src/index.ts`.
-2. [ ] Implement `GET /conversations?archived=false&limit=20&cursor=<lastMessageAt>` returning `{ items: ConversationSummary[], nextCursor?: string }` sorted by `lastMessageAt desc`; default limit 20.
+2. [ ] Implement `GET /conversations?archived=false&limit=20&cursor=<lastMessageAt>` returning `{ items: ConversationSummary[], nextCursor?: string }` sorted by `lastMessageAt desc`; default limit 20. Example response:
+   ```json
+   { "items":[{ "conversationId":"abc123","title":"Fix tests","provider":"lmstudio","model":"llama-3","lastMessageAt":"2025-12-08T10:00:00Z","archived":false }], "nextCursor":"2025-12-08T09:59:00Z" }
+   ```
 3. [ ] Implement `POST /conversations` accepting `{ provider, model, title?, flags? }` and returning `{ conversationId }`; create Conversation row.
 4. [ ] Implement `POST /conversations/:id/archive` and `/conversations/:id/restore` toggling `archivedAt`; return `{ status: 'ok' }`.
-5. [ ] Implement `GET /conversations/:id/turns?limit=50&cursor=<createdAt>` returning newest-first turns with `{ items, nextCursor? }`; default limit 50.
+5. [ ] Implement `GET /conversations/:id/turns?limit=50&cursor=<createdAt>` returning newest-first turns with `{ items, nextCursor? }`; default limit 50. Example:
+   ```json
+   { "items":[{ "role":"assistant","content":"hi","createdAt":"..."},{ "role":"user","content":"hello","createdAt":"..."}], "nextCursor":"2025-12-08T08:00:00Z" }
+   ```
 6. [ ] Implement `POST /conversations/:id/turns` accepting `{ role, content, model, provider, toolCalls?, status }`; append turn and update `lastMessageAt`.
-7. [ ] Validate all inputs with zod, return 400 on validation errors, 404 on missing conversation, 410 if archived when append requested.
+7. [ ] Validate all inputs with zod, return 400 on validation errors, 404 on missing conversation, 410 if archived when append requested. Document error bodies: `{ "error": "validation_error", "details": [...] }`, `{ "error": "not_found" }`, `{ "error": "archived" }`.
 8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
@@ -166,6 +183,9 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
 3. [ ] Before calling the model, load turns from Mongo (newest-first, then reverse to chronological) and pass to the existing chat pipeline instead of client-supplied history.
 4. [ ] After each request, append user and assistant turns (including tool calls/status) to Mongo and update `lastMessageAt`.
 5. [ ] Run `npm run lint --workspace server` and `npm run test --workspace server` (add/adjust chat tests).
+6. [ ] Add request/response examples to comments:
+   - Request: `{ "conversationId": "abc123", "model": "llama-3", "provider": "lmstudio", "message": "Hi there", "flags": { "sandboxMode":"workspace-write" } }`
+   - Error when history is sent: 400 `{ "error": "conversationId required; history is loaded server-side" }`
 
 #### Testing
 1. [ ] Add/extend integration tests in `server/src/test/integration/chat-mongo.test.ts` for LM Studio and Codex to verify persistence, history loading, and rejection of client history payloads.
@@ -193,6 +213,10 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 2. [ ] Persist a Turn for the user question and a Turn for the assistant answer; include tool calls, status, and thinking/vector summary payloads in `toolCalls` or metadata field.
 3. [ ] If the conversation is archived, return an error (410) indicating it must be restored before use.
 4. [ ] Run `npm run lint --workspace server` and `npm run test --workspace server`.
+5. [ ] Add inline example of the stored turn shape in comments:
+   ```json
+   { "conversationId":"thread-1","role":"assistant","content":"Answer","provider":"codex","model":"gpt-5.1-codex-max","toolCalls":[...],"status":"ok","createdAt":"..." }
+   ```
 
 #### Testing
 1. [ ] Add `server/src/test/mcp2/codebaseQuestion.persistence.test.ts` to verify create/update, archived rejection, and stored payload structure.
@@ -218,9 +242,9 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 #### Subtasks
 1. [ ] Create a new sidebar component (e.g., `client/src/components/chat/ConversationList.tsx`) with infinite scroll (page size 20) calling `GET /conversations`; include toggle to show archived and buttons to archive/restore.
 2. [ ] Add a hook `client/src/hooks/useConversations.ts` to wrap list/scroll logic and expose `loadMore`, `archive`, `restore`.
-3. [ ] Add a hook `client/src/hooks/useConversationTurns.ts` to fetch turns newest-first (limit 50) and load older on scroll-up; binds to chat transcript.
-4. [ ] Update `client/src/pages/ChatPage.tsx` (and `useChatStream.ts`) to send only `{ conversationId, message }` (no history) for both providers; ensure conversationId is required and created when user clicks “New conversation”.
-5. [ ] Show an inline banner in ChatPage when persistence is unavailable (from Task 7 flag) and disable archive UI in that state.
+3. [ ] Add a hook `client/src/hooks/useConversationTurns.ts` to fetch turns newest-first (limit 50) and load older on scroll-up; trigger `loadOlder` when the transcript scroll is within ~200px of the top; stop when `nextCursor` is undefined. Bind to chat transcript.
+4. [ ] Update `client/src/pages/ChatPage.tsx` (and `useChatStream.ts`) to send only `{ conversationId, message }` (no history) for both providers; ensure conversationId is required and created when user clicks “New conversation”. Default title = first user message trimmed to 80 chars.
+5. [ ] Show an inline banner in ChatPage when persistence is unavailable (from Task 7 flag) and disable archive UI in that state. Banner copy: “Conversation history unavailable — messages won’t be stored until Mongo reconnects.”
 6. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
 
 #### Testing
@@ -279,6 +303,7 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 5. [ ] Update design.md with persistence flow/diagrams.
 6. [ ] Update projectStructure.md for new files.
 7. [ ] Create PR-style summary of all changes across tasks.
+8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Testing
 1. [ ] Run client Jest tests.

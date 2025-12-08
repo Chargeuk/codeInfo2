@@ -137,8 +137,9 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 Expose REST endpoints to list conversations (paginated, newest-first, archived toggle), create conversation, append turn, fetch turns paginated newest-first with load-older support, and archive/restore.
 
 #### Documentation Locations
-- Express router patterns: existing `server/src/routes`
-- Pagination patterns: Context7 `/mongodb/docs`
+- Express docs: Context7 `/expressjs/express`
+- Zod validation: Context7 `/colinhacks/zod`
+- MongoDB pagination patterns: Context7 `/mongodb/docs`
 
 #### Subtasks
 1. [ ] Create `server/src/routes/conversations.ts` with Express router and register it in `server/src/index.ts`.
@@ -177,8 +178,9 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) creates/updates conversations and turns, and requests accept conversation id instead of full history.
 
 #### Documentation Locations
-- Existing chat routes: `server/src/routes/chat.ts`
-- Current chat hooks in client for payload shape.
+- Express docs: Context7 `/expressjs/express`
+- Zod validation: Context7 `/colinhacks/zod`
+- JSON streaming patterns (general): MDN fetch streaming https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
 
 #### Subtasks
 1. [ ] Update `server/src/routes/chat.ts` validation to require `conversationId` for both providers; reject requests that send a messages history payload with 400 and a clear error.
@@ -209,8 +211,9 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
 Persist MCP conversations on port 5011 so `codebase_question` creates/updates conversation/turn records using Codex thread id.
 
 #### Documentation Locations
-- MCP server files: `server/src/mcp2`
-- Mongoose helpers from Tasks 1–2
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- MCP tool/result shape: OpenAI MCP docs (Context7 `/openai/mcp`)
+- Mongoose usage: Context7 `/mongoosejs/mongoose`
 
 #### Subtasks
 1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, after receiving Codex response, upsert Conversation (id = threadId) with provider `codex`, model, flags; create if missing.
@@ -240,8 +243,9 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 Add left-hand conversation list (newest-first, infinite scroll), archive toggle/view/restore, and load turns lazily; send only conversation id + new message in chat requests for both providers.
 
 #### Documentation Locations
-- React/MUI components: use MUI MCP tool
-- Client chat hooks: `client/src/hooks/useChatStream.ts`, `useChatModel.ts`
+- React docs: https://react.dev/learn
+- MUI components: use MUI MCP tool (select correct version)
+- Infinite scroll patterns: MDN IntersectionObserver https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
 
 #### Subtasks
 1. [ ] Create a new sidebar component (e.g., `client/src/components/chat/ConversationList.tsx`) with infinite scroll (page size 20) calling `GET /conversations`; include toggle to show archived and buttons to archive/restore.
@@ -272,7 +276,8 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 Detect Mongo unavailability and surface a banner in the client indicating conversations won’t be stored while allowing chat to proceed.
 
 #### Documentation Locations
-- Existing status handling in chat pages/logs.
+- React docs: https://react.dev/learn
+- MUI components: use MUI MCP tool (Alert/Banner)
 
 #### Subtasks
 1. [ ] Extend `GET /health` (or add `/health/persistence`) to include `mongoConnected: boolean` based on Mongoose connection state.

@@ -443,6 +443,7 @@ sequenceDiagram
 ### Codex-only MCP v2 (port 5011)
 
 - A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex-only availability checks. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of empty tools. Resource listings return empty arrays for compatibility.
+- `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
 
 ```mermaid

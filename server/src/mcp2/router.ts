@@ -1,4 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
+import serverPackage from '../../package.json' with { type: 'json' };
 import { isCodexAvailable } from './codexAvailability.js';
 import {
   InvalidParamsError,
@@ -18,6 +19,11 @@ const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
 const PARSE_ERROR_CODE = -32700;
 const CODE_INFO_LLM_UNAVAILABLE = -32001;
+const PROTOCOL_VERSION = '2024-11-05';
+const SERVER_INFO = {
+  name: 'codeinfo2-mcp',
+  version: serverPackage.version ?? '0.0.0',
+};
 
 export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
@@ -44,7 +50,13 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
   const method = message.method;
 
   if (method === 'initialize') {
-    send(jsonRpcResult(id, { capabilities: {} }));
+    send(
+      jsonRpcResult(id, {
+        protocolVersion: PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: SERVER_INFO,
+      }),
+    );
     return;
   }
 

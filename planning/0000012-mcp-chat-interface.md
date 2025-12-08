@@ -265,7 +265,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 
 ### 4. Fix MCP initialize handshake (protocolVersion + serverInfo)
 
-- Task Status: __to_do__
+- Task Status: __done__
 - Git Commits: __to_do__
 
 #### Overview
@@ -279,24 +279,27 @@ Codex TUI/mcp-remote rejects our MCP v2 `initialize` response because it omits r
 
 #### Subtasks
 
-1. [ ] Update `server/src/mcp2/router.ts` `initialize` branch to include `protocolVersion` and `serverInfo { name, version }` (use server package version or constant) while keeping capabilities—mirror the shape used in `server/src/mcp/server.ts` (existing MCP v1 initialize) as the reference.
-2. [ ] Add/adjust tests validating the initialize payload and preventing regressions when Codex is unavailable.
-3. [ ] Run `npm run lint --workspace server` and `npm run test --workspace server`.
-4. [ ] Update design.md/projectStructure.md if behaviour or files change; README only if usage/env notes need adjustment.
+1. [x] Update `server/src/mcp2/router.ts` `initialize` branch to include `protocolVersion` and `serverInfo { name, version }` (use server package version or constant) while keeping capabilities—mirror the shape used in `server/src/mcp/server.ts` (existing MCP v1 initialize) as the reference.
+2. [x] Add/adjust tests validating the initialize payload and preventing regressions when Codex is unavailable.
+3. [x] Run `npm run lint --workspace server` and `npm run test --workspace server`.
+4. [x] Update design.md/projectStructure.md if behaviour or files change; README only if usage/env notes need adjustment.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] run MCP `initialize` via curl/Codex TUI, confirm no Zod error and tools/list succeeds.
-10. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [x] run MCP `initialize` via curl/Codex TUI, confirm no Zod error and tools/list succeeds.
+10. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Fill in after implementation with chosen `protocolVersion` value and source of `serverInfo.version`.
+- `initialize` now mirrors MCP v1: returns `protocolVersion` `2024-11-05`, capabilities `{ tools: { listChanged: false } }`, and `serverInfo` `{ name: "codeinfo2-mcp", version: 0.0.1 }` sourced from the server package. Added a dedicated unit test for the handshake (including Codex-unavailable path).
+- Updated `design.md` to call out the handshake fields and `projectStructure.md` to include the new initialize test. Lint + server/client builds/tests pass; curl against `http://localhost:5011` confirms `initialize` and `tools/list` succeed with the new shape.
+- End-to-end: reran `npm run e2e` with a CLI timeout of ~180s to accommodate image rebuilds; all scenarios now pass (24 passed, 2 skipped Codex mocks). Keep the longer timeout for CI/local reruns to avoid premature termination.
+- Manual UI screenshots while compose stack was up: `test-results/screenshots/0000012-04-home.png`, `test-results/screenshots/0000012-04-chat.png`.

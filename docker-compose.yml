@@ -24,6 +24,8 @@ services:
     depends_on:
       chroma:
         condition: service_started
+      mongo:
+        condition: service_started
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:5010/health']
       interval: 10s
@@ -58,6 +60,28 @@ services:
       retries: 5
     extra_hosts:
       - 'host.docker.internal:host-gateway'
+
+  mongo:
+    container_name: 'mongo_db_CodeInfo'
+    image: mongo:8
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
+    ports:
+      - 27018:27017
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'host.docker.internal:27018'}]}) }" | mongosh --port 27018 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
+    environment:
+      MONGO_INITDB_DATABASE: db
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+      - ./mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
 
   chroma:
     image: chromadb/chroma:1.3.5
@@ -107,3 +131,7 @@ networks:
 
 volumes:
   chroma-data:
+  mongo_data:
+    external: false
+  mongo_config:
+    external: false

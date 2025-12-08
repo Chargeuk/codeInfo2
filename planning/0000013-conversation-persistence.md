@@ -99,7 +99,7 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
 9. [x] `npm run compose:down`
 
 #### Implementation notes

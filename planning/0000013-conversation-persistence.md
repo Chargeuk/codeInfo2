@@ -62,8 +62,8 @@ This is a list of steps that must be copied into each new plan. It instructs how
 
 ### 1. Mongo connection setup
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 8e9b31f, 0c1e025, 1e850b0
 
 #### Overview
 Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it into app startup, and ensure compose/e2e configs pass the URI to the server.

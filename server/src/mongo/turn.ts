@@ -1,4 +1,6 @@
-import { Schema, HydratedDocument, Model, model, models } from 'mongoose';
+import mongoose, { type HydratedDocument, type Model } from 'mongoose';
+
+const { Schema, model, models } = mongoose;
 
 export type TurnRole = 'user' | 'assistant' | 'system';
 export type TurnStatus = 'ok' | 'stopped' | 'failed';

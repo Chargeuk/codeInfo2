@@ -159,8 +159,8 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 
 ### 3. Conversation list and turn APIs
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **done**
+- Git Commits: 4dbd026
 
 #### Overview
 

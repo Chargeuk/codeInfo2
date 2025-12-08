@@ -260,3 +260,36 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 - Documented the new Codex-only MCP port and `codebase_question` tool flow across README (env + JSON-RPC examples) and design.md (defaults, segment ordering, mermaid diagram), aligning docs with the implemented behaviour.
 - Extended projectStructure.md with the `server/src/mcp2` tree (router, availability guard, tools, codebaseQuestion) to keep the repo map current.
 - Completed full validation runs: lint/workspaces, server+client builds/tests, e2e suite, main compose build/up/down, and manual MCP/API smoke (with/without Codex) plus screenshots saved at `test-results/screenshots/0000012-03-home.png` and `test-results/screenshots/0000012-03-chat.png` using Playwright MCP + headless Chromium.
+
+---
+
+### 4. Fix MCP initialize handshake (protocolVersion + serverInfo)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Codex TUI/mcp-remote rejects our MCP v2 `initialize` response because it omits required `protocolVersion` and `serverInfo` fields, throwing a Zod validation error and preventing tools/list. Return a fully compliant handshake so Codex and other MCP clients can connect.
+
+#### Documentation Locations
+
+- MCP initialize schema (protocolVersion/serverInfo requirements): OpenAI MCP docs
+- JSON-RPC 2.0 specification (envelope rules): https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Update `server/src/mcp2/router.ts` `initialize` branch to include `protocolVersion` and `serverInfo { name, version }` (use server package version or constant) while keeping capabilities—mirror the shape used in `server/src/mcp/server.ts` (existing MCP v1 initialize) as the reference.
+2. [ ] Add/adjust tests validating the initialize payload and preventing regressions when Codex is unavailable.
+3. [ ] Run `npm run lint --workspace server` and `npm run test --workspace server`.
+4. [ ] Update design.md/projectStructure.md if behaviour or files change; README only if usage/env notes need adjustment.
+
+#### Testing
+
+1. [ ] `npm run lint --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Manual: start server (`npm run dev --workspace server`), run MCP `initialize` via curl/Codex TUI, confirm no Zod error and tools/list succeeds.
+
+#### Implementation notes
+
+- Fill in after implementation with chosen `protocolVersion` value and source of `serverInfo.version`.

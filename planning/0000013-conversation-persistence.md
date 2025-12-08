@@ -92,9 +92,15 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix any errors.
 
 #### Testing
-1. [ ] Command: `npm run test --workspace server` (sanity check with Mongo connection in place).
-2. [ ] Manual: `docker compose up server mongo` and verify server log shows "Mongo connected".
-3. [ ] Manual: `npm run e2e:up` to confirm e2e server connects to Mongo (healthcheck passes).
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - Details after implementation.
@@ -120,8 +126,16 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
-1. [ ] Unit: `server/src/test/unit/mongo-schemas.test.ts` — verify required fields, defaults (archivedAt null), and index presence via `schema.indexes()`. Use test Mongo URI; drop collections after each test.
-2. [ ] Command: `npm run test --workspace server`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 - Details after implementation.
@@ -162,7 +176,15 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 2. [ ] API (supertest): `server/src/test/routes/conversations.list.test.ts` — covers GET /conversations pagination, archived filter, nextCursor.
 3. [ ] API (supertest): `server/src/test/routes/conversations.turns.test.ts` — covers GET/POST /conversations/:id/turns pagination, archived rejection (410), validation errors.
 4. [ ] API (supertest): `server/src/test/routes/conversations.archive.test.ts` — covers archive/restore endpoints and list visibility.
-5. [ ] Command: `npm run test --workspace server`.
+5. [ ] `npm run build --workspace server`
+6. [ ] `npm run build --workspace client`
+7. [ ] `npm run test --workspace server`
+8. [ ] `npm run test --workspace client`
+9. [ ] `npm run compose:build`
+10. [ ] `npm run compose:up`
+11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+12. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 - Details after implementation.
@@ -193,9 +215,16 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
    - Error when history is sent: 400 `{ "error": "conversationId required; history is loaded server-side" }`
 
 #### Testing
-1. [ ] Integration: `server/src/test/integration/chat-mongo.lmstudio.test.ts` — LM Studio chat uses Mongo-backed history, rejects client history payload, persists turns.
-2. [ ] Integration: `server/src/test/integration/chat-mongo.codex.test.ts` — Codex chat uses Mongo-backed history, rejects client history payload, persists turns.
-3. [ ] Command: `npm run test --workspace server`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 - Details after implementation.
@@ -226,8 +255,16 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
    ```
 
 #### Testing
-1. [ ] MCP integration: `server/src/test/mcp2/codebaseQuestion.persistence.test.ts` — verifies create/update of conversation/turns, archived rejection (410), stored payload structure (tool calls/thinking).
-2. [ ] Command: `npm run test --workspace server`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 - Details after implementation.
@@ -260,7 +297,16 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 2. [ ] RTL: `client/src/test/chatTurnsLazyLoad.test.tsx` — turns load newest-first, load older triggers near top, stops when no cursor.
 3. [ ] RTL: `client/src/test/chatSendPayload.test.tsx` — chat send payload contains conversationId only (no history) for both providers; title fallback 80 chars.
 4. [ ] RTL: `client/src/test/chatPersistenceBanner.test.tsx` — banner shows when mongoConnected=false and disables archive controls.
-5. [ ] Command: `npm run test --workspace client`.
+5. [ ] `npm run build --workspace server`
+6. [ ] `npm run build --workspace client`
+7. [ ] `npm run test --workspace server`
+8. [ ] `npm run test --workspace client`
+9. [ ] `npm run e2e`
+10. [ ] `npm run compose:build`
+11. [ ] `npm run compose:up`
+12. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+13. [ ] `npm run compose:down`
+
 
 #### Implementation notes
 - Details after implementation.
@@ -285,8 +331,15 @@ Detect Mongo unavailability and surface a banner in the client indicating conver
 3. [ ] Run `npm run lint --workspaces` and `npm run test --workspace client`.
 
 #### Testing
-1. [ ] Server unit: `server/src/test/unit/health.mongo.test.ts` — simulate disconnected Mongo and assert `/health` (or `/health/persistence`) returns `mongoConnected=false`.
-2. [ ] Client RTL: `client/src/test/chatPersistenceBanner.test.tsx` — verify banner copy and disabled controls when `mongoConnected=false`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - Details after implementation.
@@ -318,11 +371,15 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Testing
-1. [ ] Command: `npm run test --workspace client` (RTL).
-2. [ ] Command: `npm run test --workspace server` (unit + integration + Cucumber).
-3. [ ] Command: restart docker environment (`npm run compose:down && npm run compose:up`).
-4. [ ] Command: `npm run e2e`.
-5. [ ] Manual: Use Playwright MCP tool to check app; save screenshots to `test-results/screenshots/0000013-08-<name>.png`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 - Details after implementation.

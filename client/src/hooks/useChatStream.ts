@@ -439,6 +439,7 @@ export function useChatStream(
       controllerRef.current = controller;
       setIsStreaming(true);
       setStatus('sending');
+      statusRef.current = 'sending';
 
       const userMessage: ChatMessage = {
         id: makeId(),
@@ -495,18 +496,10 @@ export function useChatStream(
         );
       };
 
-      const computeWaitingForVisibleText = () => {
-        const now = Date.now();
-        const hasVisibleText = finalText.length > 0;
-        const lastVisible = lastVisibleTextAtRef.current;
-        const isIdleOver1s = !lastVisible || now - lastVisible >= 1000;
-
-        return (
-          statusRef.current === 'sending' &&
-          (!hasVisibleText || isIdleOver1s) &&
-          pendingToolResults.size === 0
-        );
-      };
+      const computeWaitingForVisibleText = () =>
+        statusRef.current === 'sending' &&
+        finalText.length === 0 &&
+        pendingToolResults.size === 0;
 
       const scheduleThinkingTimer = () => {
         clearThinkingTimer();

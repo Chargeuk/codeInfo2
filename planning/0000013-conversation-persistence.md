@@ -95,18 +95,19 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client` (fails in chatPage.stream thinking placeholder)
-5. [x] `npm run e2e` (builds OK; compose up failed with `codeinfo2-server-e2e` exit)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 - Added `MONGO_URI` to server envs (.env, .env.e2e, placeholder in .env.local) and threaded it into docker-compose (main/e2e) so containers receive the Mongo URI consistently.
 - Created `server/src/mongo/connection.ts` with strictQuery, connection, and teardown logging; server startup now fails fast when `MONGO_URI` is missing and awaits Mongo disconnect on shutdown alongside LM Studio and MCP servers.
 - Added the `mongoose` dependency to the server workspace after the first e2e build surfaced the missing package.
-- Tests: server build/lint/format and server unit/integration/Cucumber pass; client Jest currently fails in `chatPage.stream` (thinking placeholder expectations) — pre-existing; `npm run e2e` now builds images but `docker compose ... up` failed because `codeinfo2-server-e2e` exited during startup (needs follow-up).
+- Client chat thinking logic adjusted so the placeholder only shows before the first visible assistant text and status tracking updates `statusRef` immediately when sending; fixed the previously failing `chatPage.stream` tests.
+- Tests: server build/lint/format pass; client Jest now passes; `npm run e2e` green; main `compose:build`/`compose:up`/`compose:down` executed successfully. Manual UI verification via playwright-mcp is still outstanding for this task.
 
 ---
 

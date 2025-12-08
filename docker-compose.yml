@@ -16,6 +16,7 @@ services:
       # Override to use host.docker.internal for ChromaDB
       - CHROMA_URL=http://host.docker.internal:8000
       - CODEINFO_CODEX_HOME=/app/codex
+      - MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
     volumes:
       - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs

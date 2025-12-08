@@ -286,9 +286,16 @@ Codex TUI/mcp-remote rejects our MCP v2 `initialize` response because it omits r
 
 #### Testing
 
-1. [ ] `npm run lint --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] Manual: start server (`npm run dev --workspace server`), run MCP `initialize` via curl/Codex TUI, confirm no Zod error and tools/list succeeds.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [ ] run MCP `initialize` via curl/Codex TUI, confirm no Zod error and tools/list succeeds.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

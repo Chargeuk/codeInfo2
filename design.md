@@ -440,6 +440,44 @@ sequenceDiagram
 - Errors follow JSON-RPC envelopes: validation maps to -32602, method-not-found to -32601, and domain errors map to 404/409/503 codes in the `error` object.
 - `config.toml.example` seeds `[mcp_servers]` entries for host (`http://localhost:5010/mcp`) and docker (`http://server:5010/mcp`) so Codex can call the MCP server directly.
 
+### Codex-only MCP v2 (port 5011)
+
+- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex-only availability checks. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of empty tools. Resource listings return empty arrays for compatibility.
+- `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
+- Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
+
+```mermaid
+flowchart LR
+  Browser/Agent -- HTTP 5010 --> Express
+  Express -->|/mcp| MCP1
+  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-only MCP]
+  MCP2 -->|tools/list| Codex
+  MCP2 -->|tools/call| Codex
+  MCP1 -->|ListIngestedRepositories / VectorSearch| LMStudio
+```
+
+### MCP `codebase_question` flow (Codex-only)
+
+- Tool: `codebase_question(question, conversationId?)` exposed only on the MCP v2 server (port 5011). Defaults: model `gpt-5.1-codex-max`, `modelReasoningEffort=high`, `sandboxMode=workspace-write`, `approvalPolicy=on-failure`, `networkAccessEnabled=true`, `webSearchEnabled=true`, `workingDirectory=/data`, `skipGitRepoCheck=true`.
+- Behaviour: streams Codex with vector search tools, assembles ordered `segments` (`thinking` text deltas, `vector_summary` aggregates with relPath/match/chunk/line counts, and `answer`) and returns a single `content` item of type `text` containing JSON `{ conversationId, modelId, segments }`. Order is preserved as emitted (no coalescing).
+- Error handling: when Codex is unavailable, `tools/list` and `tools/call` return `CODE_INFO_LLM_UNAVAILABLE` (-32001). Resource methods still return empty arrays. No LM Studio fallback is attempted.
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant MCP2 as MCP v2 (5011)
+  participant Codex
+  participant Tools as Vector tools
+
+  Agent->>MCP2: tools/call codebase_question {question, conversationId?}
+  MCP2->>Codex: run chat (defaults: gpt-5.1-codex-max, high effort)
+  Codex->>Tools: ListIngestedRepositories / VectorSearch
+  Tools-->>Codex: repo list + chunks
+  Codex-->>MCP2: thinking + vector summaries + answer
+  MCP2-->>Agent: JSON-RPC result with text content {conversationId, modelId, segments[]}
+  Note over MCP2: if Codex unavailable → error -32001 CODE_INFO_LLM_UNAVAILABLE
+```
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.

@@ -176,6 +176,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
+â”‚     â”œâ”€ mcp2/ — Codex-only MCP v2 server on port 5011
+â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources)
+â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
+â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
+â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
+â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
+â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging Codex chat + vector search
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
@@ -244,6 +252,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
+â”‚           â”œâ”€ mcp2-router-initialize.test.ts â€” MCP v2 initialize handshake protocol/serverInfo coverage
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route SSE wiring with mocked LM Studio tools

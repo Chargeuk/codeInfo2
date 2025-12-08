@@ -170,8 +170,17 @@ export async function clearLockedModel(options?: {
   if (!vectorsCollection && options?.recreateIfMissing === false) {
     return;
   }
-  const col = (await getVectorsCollection()) as unknown as MinimalCollection;
-  await col.modify({ metadata: { lockedModelId: null } });
+  try {
+    const col = (await getVectorsCollection()) as unknown as MinimalCollection;
+    await col.modify({ metadata: { lockedModelId: null } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('ChromaNotFoundError')) {
+      baseLogger.info('clearLockedModel skipped; collection missing');
+      return;
+    }
+    throw err;
+  }
 }
 
 function resetCachedCollections() {

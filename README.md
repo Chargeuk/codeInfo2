@@ -135,8 +135,35 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - `npm run test --workspace server` (builds + unit tests first, then Cucumber; Chroma comes from the Testcontainers compose hook—no mock CHROMA_URL path)
 - Ingest Cucumber tests run against a real Chroma via Testcontainers; Docker must be running and will publish Chroma on host port 18000 (if busy, the hook falls back to a random host port and logs it). For manual debugging, `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (teardown with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
 - Configure `PORT` via `server/.env` (override with `server/.env.local` if needed)
+- Env: `PORT` (default 5010), `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`), `MCP_PORT` (Codex-only MCP JSON-RPC, default 5011)
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 - **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
+
+## MCP (codebase_question)
+
+- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}` (Codex-only; returns `CODE_INFO_LLM_UNAVAILABLE` -32001 if Codex is not available).
+- Tool: `codebase_question` with params `{ question: string; conversationId?: string }` (conversationId threads follow-up turns). Responses are a single `content` item of type `text` containing JSON with ordered segments (`thinking`, `vector_summary`, `answer`), `conversationId`, and `modelId`.
+- Example call:
+  ```sh
+  curl -s -X POST http://localhost:5011 \
+    -H 'content-type: application/json' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"codebase_question","arguments":{"question":"What does this project do?"}}}'
+  ```
+- Example response shape:
+  ```json
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"vector_summary\",\"file\":\"...\"},{\"type\":\"answer\",\"text\":\"...\"}]}"
+        }
+      ]
+    }
+  }
+  ```
 
 ### Logging endpoints
 

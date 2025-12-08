@@ -119,7 +119,7 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 ### 2. Conversation schemas
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits: cef47aa
 
 #### Overview
 

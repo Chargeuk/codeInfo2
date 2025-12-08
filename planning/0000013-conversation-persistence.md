@@ -9,7 +9,9 @@ Add MongoDB (via the latest Mongoose) to persist chat conversations so sessions 
 - MongoDB connection configured in the server using the latest Mongoose; connection settings documented and env-driven.
 - Conversation model: unique conversation id (Codex uses thread id), provider enum, created/updated timestamps; turn model references conversation, stores role/content/timestamp.
 - Server exposes APIs to create conversation, append turn, fetch paginated history, and list conversations ordered newest-first; Codex/LM Studio both resume using just the conversation id.
+- MCP (port 5011) conversations are persisted as well: calls to `codebase_question` create/update the same conversation/turn records, using the Codex thread id as the conversation id.
 - Client chat page shows a left-hand conversation history (newest first) and loads turns lazily from the server; sending a message only sends conversation id + new text for both providers.
+- Frontend chat requests (Codex and LM Studio) will send only the conversation id and next message—never the full history—since the server will load turns from MongoDB.
 - Existing chat behaviour (streaming, stop, flags, citations) remains unchanged aside from persistence; e2e/tests updated to cover persisted flows.
 
 ## Out Of Scope
@@ -25,10 +27,16 @@ Add MongoDB (via the latest Mongoose) to persist chat conversations so sessions 
 ## Questions
 
 - What MongoDB deployment target do we assume for dev/e2e (Docker service vs. external URI)? → **Use local MongoDB via Docker for dev and e2e.**
+- Connection string/env: use `MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true` (align e2e/Cucumber as needed).
 - Do we cap stored turns or add TTL/retention controls? → **No; store turns indefinitely for this story.**
 - Should we support soft-delete/archiving for conversations? → **Yes; include soft-delete/archiving support.**
 - What payload size limits should apply per turn? → **None for this story; keep it simple unless future need arises.**
 - Do we need optimistic locking for concurrent writes from multiple tabs? → **No; out of scope for this story.**
+- Conversation metadata fields: include title/label, provider, model, flags, lastMessageAt, and createdAt.
+- Soft-delete UX: hide archived conversations by default with an option to list and restore.
+- Turn payload contents: store role/content plus model id, provider, tool calls, and status so sessions can be fully restored.
+- Failure mode if Mongo is down: allow chat to proceed but show a banner that conversations will not be stored.
+- Pagination: conversation list loads 20 at a time with infinite scroll; turn fetch returns newest-first and auto-loads older turns when scrolling up.
 
 # Implementation Plan
 

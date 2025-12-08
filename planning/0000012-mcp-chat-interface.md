@@ -231,30 +231,32 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 - Cucumber guides (for any BDD mentions): https://cucumber.io/docs/guides/
 
 #### Subtasks
-1. [ ] Run `npm run lint --workspaces` and `npm run test --workspace server`.
-2. [ ] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
-3. [ ] Update README.md (exact items):
+1. [x] Run `npm run lint --workspaces` and `npm run test --workspace server`.
+2. [x] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
+3. [x] Update README.md (exact items):
    - Add `MCP_PORT` to env table.
    - Add a "MCP (codebase_question)" section with JSON-RPC curl example and response shape (ordered segments + conversationId, error code `CODE_INFO_LLM_UNAVAILABLE`).
    Command: `npm run format:check --workspaces`.
-4. [ ] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
-5. [ ] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
+4. [x] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
+5. [x] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
+6. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
 7. [ ] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing (separate subtasks)
-1. [ ] Repo-wide lint (command): `npm run lint --workspaces`.
-2. [ ] Server test suite (command): `npm run test --workspace server` (covers new MCP tests).
-3. [ ] Manual verification: start server (`npm run dev --workspace server`), call `initialize`, `tools/list`, and `codebase_question` on port 5011 with and without Codex availability to observe `CODE_INFO_LLM_UNAVAILABLE` behaviour.
-4. [ ] `npm run build --workspace server`
-5. [ ] `npm run build --workspace client`
-6. [ ] `npm run test --workspace server`
-7. [ ] `npm run test --workspace client`
-8. [ ] `npm run e2e`
-9. [ ] `npm run compose:build`
-10. [ ] `npm run compose:up`
-11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
-12. [ ] `npm run compose:down`
+1. [x] Repo-wide lint (command): `npm run lint --workspaces`.
+2. [x] Server test suite (command): `npm run test --workspace server` (covers new MCP tests).
+3. [x] Manual verification: start server (`npm run dev --workspace server`), call `initialize`, `tools/list`, and `codebase_question` on port 5011 with and without Codex availability to observe `CODE_INFO_LLM_UNAVAILABLE` behaviour.
+4. [x] `npm run build --workspace server`
+5. [x] `npm run build --workspace client`
+6. [x] `npm run test --workspace server`
+7. [x] `npm run test --workspace client`
+8. [x] `npm run e2e`
+9. [x] `npm run compose:build`
+10. [x] `npm run compose:up`
+11. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+12. [x] `npm run compose:down`
 
 #### Implementation notes
-- 
+- Documented the new Codex-only MCP port and `codebase_question` tool flow across README (env + JSON-RPC examples) and design.md (defaults, segment ordering, mermaid diagram), aligning docs with the implemented behaviour.
+- Extended projectStructure.md with the `server/src/mcp2` tree (router, availability guard, tools, codebaseQuestion) to keep the repo map current.
+- Completed full validation runs: lint/workspaces, server+client builds/tests, e2e suite, main compose build/up/down, and manual MCP/API smoke (with/without Codex) plus screenshots saved at `test-results/screenshots/0000012-03-home.png` and `test-results/screenshots/0000012-03-chat.png` using Playwright MCP + headless Chromium.

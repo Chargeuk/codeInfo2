@@ -159,7 +159,7 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 
 ### 3. Conversation list and turn APIs
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

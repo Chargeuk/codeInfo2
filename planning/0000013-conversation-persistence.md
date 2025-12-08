@@ -311,9 +311,9 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 1. [ ] Build the server.
 2. [ ] Build the client.
 3. [ ] Perform a clean docker build.
-4. [ ] Update README.md with Mongo/persistence commands/env.
-5. [ ] Update design.md with persistence flow/diagrams.
-6. [ ] Update projectStructure.md for new files.
+4. [ ] Update README.md: add `MONGO_URI` env description, Docker compose Mongo notes, and brief usage of conversation history.
+5. [ ] Update design.md: add persistence flow/mermaid diagram, note Mongo failover banner, and conversation/turn schema summary.
+6. [ ] Update projectStructure.md: list new Mongo files (connection.ts, conversation.ts, turn.ts, repo.ts, routes) and new client hooks/components.
 7. [ ] Create PR-style summary of all changes across tasks.
 8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 

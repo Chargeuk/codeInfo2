@@ -266,7 +266,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 ### 4. Fix MCP initialize handshake (protocolVersion + serverInfo)
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: 4c6c203
 
 #### Overview
 

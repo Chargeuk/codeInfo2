@@ -217,8 +217,8 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 
 ### 3. Final validation and documentation sweep
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 7cbf1ad, e1c65d8
 
 #### Overview
 Verify the end-to-end MCP server works without regressing existing endpoints. Refresh documentation and structure maps to include the new MCP entrypoint and tools.
@@ -240,7 +240,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 4. [x] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
 5. [x] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
 6. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
-7. [ ] Capture Implementation notes and commit hashes; mark task done.
+7. [x] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing (separate subtasks)
 1. [x] Repo-wide lint (command): `npm run lint --workspaces`.

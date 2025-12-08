@@ -67,6 +67,8 @@ services:
     command: ['mongod', '--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
     ports:
       - 27517:27017
+    networks:
+      - internal
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:

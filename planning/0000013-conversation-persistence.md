@@ -92,9 +92,9 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix any errors.
 
 #### Testing
-1. [ ] `npm run test --workspace server` (should pass with Mongo connected; no new tests yet).
-2. [ ] `docker compose up server mongo` and observe server logs show successful Mongo connection.
-3. [ ] `npm run e2e:up` to verify the e2e server connects to Mongo without failing healthcheck.
+1. [ ] Command: `npm run test --workspace server` (sanity check with Mongo connection in place).
+2. [ ] Manual: `docker compose up server mongo` and verify server log shows "Mongo connected".
+3. [ ] Manual: `npm run e2e:up` to confirm e2e server connects to Mongo (healthcheck passes).
 
 #### Implementation notes
 - Details after implementation.
@@ -120,8 +120,8 @@ Define Mongoose models/schemas for Conversation and Turn including required meta
 4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
-1. [ ] Add Jest unit tests in `server/src/test/unit/mongo-schemas.test.ts` verifying required fields, defaults (archivedAt null), and index presence using `mongoose.model.schema.indexes()`. Use test Mongo URI from env; drop collections after each test.
-2. [ ] `npm run test --workspace server`.
+1. [ ] Unit: `server/src/test/unit/mongo-schemas.test.ts` — verify required fields, defaults (archivedAt null), and index presence via `schema.indexes()`. Use test Mongo URI; drop collections after each test.
+2. [ ] Command: `npm run test --workspace server`.
 
 #### Implementation notes
 - Details after implementation.
@@ -157,8 +157,11 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
-1. [ ] Add supertest suite `server/src/test/routes/conversations.api.test.ts` covering create/list/archive/restore/list turns/append with pagination and archived rejection.
-2. [ ] `npm run test --workspace server`.
+1. [ ] API (supertest): `server/src/test/routes/conversations.create.test.ts` — covers POST /conversations happy/validation.
+2. [ ] API (supertest): `server/src/test/routes/conversations.list.test.ts` — covers GET /conversations pagination, archived filter, nextCursor.
+3. [ ] API (supertest): `server/src/test/routes/conversations.turns.test.ts` — covers GET/POST /conversations/:id/turns pagination, archived rejection (410), validation errors.
+4. [ ] API (supertest): `server/src/test/routes/conversations.archive.test.ts` — covers archive/restore endpoints and list visibility.
+5. [ ] Command: `npm run test --workspace server`.
 
 #### Implementation notes
 - Details after implementation.
@@ -188,8 +191,9 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
    - Error when history is sent: 400 `{ "error": "conversationId required; history is loaded server-side" }`
 
 #### Testing
-1. [ ] Add/extend integration tests in `server/src/test/integration/chat-mongo.test.ts` for LM Studio and Codex to verify persistence, history loading, and rejection of client history payloads.
-2. [ ] `npm run test --workspace server`.
+1. [ ] Integration: `server/src/test/integration/chat-mongo.lmstudio.test.ts` — LM Studio chat uses Mongo-backed history, rejects client history payload, persists turns.
+2. [ ] Integration: `server/src/test/integration/chat-mongo.codex.test.ts` — Codex chat uses Mongo-backed history, rejects client history payload, persists turns.
+3. [ ] Command: `npm run test --workspace server`.
 
 #### Implementation notes
 - Details after implementation.
@@ -219,8 +223,8 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
    ```
 
 #### Testing
-1. [ ] Add `server/src/test/mcp2/codebaseQuestion.persistence.test.ts` to verify create/update, archived rejection, and stored payload structure.
-2. [ ] `npm run test --workspace server`.
+1. [ ] MCP integration: `server/src/test/mcp2/codebaseQuestion.persistence.test.ts` — verifies create/update of conversation/turns, archived rejection (410), stored payload structure (tool calls/thinking).
+2. [ ] Command: `npm run test --workspace server`.
 
 #### Implementation notes
 - Details after implementation.
@@ -248,8 +252,11 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 6. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
 
 #### Testing
-1. [ ] Add RTL tests (`client/src/test/chatSidebar.test.tsx`, `chatTurnsLazyLoad.test.tsx`, `chatSendPayload.test.tsx`) covering list/restore/archive, infinite scroll, lazy turn loading, and payload shape (no history).
-2. [ ] `npm run test --workspace client`.
+1. [ ] RTL: `client/src/test/chatSidebar.test.tsx` — conversation list renders, infinite scroll, archive/restore toggles.
+2. [ ] RTL: `client/src/test/chatTurnsLazyLoad.test.tsx` — turns load newest-first, load older triggers near top, stops when no cursor.
+3. [ ] RTL: `client/src/test/chatSendPayload.test.tsx` — chat send payload contains conversationId only (no history) for both providers; title fallback 80 chars.
+4. [ ] RTL: `client/src/test/chatPersistenceBanner.test.tsx` — banner shows when mongoConnected=false and disables archive controls.
+5. [ ] Command: `npm run test --workspace client`.
 
 #### Implementation notes
 - Details after implementation.
@@ -273,8 +280,8 @@ Detect Mongo unavailability and surface a banner in the client indicating conver
 3. [ ] Run `npm run lint --workspaces` and `npm run test --workspace client`.
 
 #### Testing
-1. [ ] Add server test `server/src/test/unit/health.mongo.test.ts` simulating disconnected state.
-2. [ ] Add client RTL test `client/src/test/chatPersistenceBanner.test.tsx` verifying banner and disabled history controls.
+1. [ ] Server unit: `server/src/test/unit/health.mongo.test.ts` — simulate disconnected Mongo and assert `/health` (or `/health/persistence`) returns `mongoConnected=false`.
+2. [ ] Client RTL: `client/src/test/chatPersistenceBanner.test.tsx` — verify banner copy and disabled controls when `mongoConnected=false`.
 
 #### Implementation notes
 - Details after implementation.
@@ -306,11 +313,11 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Testing
-1. [ ] Run client Jest tests.
-2. [ ] Run server Cucumber tests.
-3. [ ] Restart the docker environment.
-4. [ ] Run the e2e tests.
-5. [ ] Use Playwright MCP tool to manually check the app; save screenshots to ./test-results/screenshots/ with naming convention.
+1. [ ] Command: `npm run test --workspace client` (RTL).
+2. [ ] Command: `npm run test --workspace server` (unit + integration + Cucumber).
+3. [ ] Command: restart docker environment (`npm run compose:down && npm run compose:up`).
+4. [ ] Command: `npm run e2e`.
+5. [ ] Manual: Use Playwright MCP tool to check app; save screenshots to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Implementation notes
 - Details after implementation.

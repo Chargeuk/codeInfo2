@@ -62,18 +62,21 @@ This is a list of steps that must be copied into each new plan. It instructs how
 
 ### 1. Mongo connection setup
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 8e9b31f, 0c1e025, 1e850b0
 
 #### Overview
+
 Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it into app startup, and ensure compose/e2e configs pass the URI to the server.
 
 #### Documentation Locations
+
 - MongoDB connection strings: Context7 `/mongodb/docs`
 - Mongoose connection API: Context7 `/mongoosejs/mongoose`
 - Docker Compose env docs: https://docs.docker.com/compose/environment-variables/envvars-precedence/
 
 #### Subtasks
+
 1. [x] Add `MONGO_URI` to `server/.env` and `server/.env.e2e` with the exact value `mongodb://host.docker.internal:27517/db?directConnection=true`; add a commented placeholder to `server/.env.local` for overrides. Duplicate the same key in `server/.env.example` if it exists.
 2. [x] Update `docker-compose.yml`, `docker-compose.e2e.yml`, and `server/src/test/compose/docker-compose.chroma.yml` server service environment blocks to pass `MONGO_URI` through (use the same value as above). Keep existing healthchecks untouched.
 3. [x] Create `server/src/mongo/connection.ts` exporting `connectMongo(uri: string): Promise<void>` and `disconnectMongo(): Promise<void>` using `mongoose.connect`; log success/failure with `pino` (`server/src/logger.ts`) and set `mongoose.set('strictQuery', true)`. Example:
@@ -92,6 +95,7 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 5. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix any errors.
 
 #### Testing
+
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
@@ -103,6 +107,7 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `MONGO_URI` to server envs (.env, .env.e2e, placeholder in .env.local) and threaded it into docker-compose (main/e2e) so containers receive the Mongo URI consistently.
 - Created `server/src/mongo/connection.ts` with strictQuery, connection, and teardown logging; server startup now fails fast when `MONGO_URI` is missing and awaits Mongo disconnect on shutdown alongside LM Studio and MCP servers.
 - Added the `mongoose` dependency to the server workspace after the first e2e build surfaced the missing package.
@@ -113,69 +118,97 @@ Introduce server-side Mongo connection using the agreed `MONGO_URI` env, wire it
 
 ### 2. Conversation schemas
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **done**
+- Git Commits: **to_do**
 
 #### Overview
+
 Define Mongoose models/schemas for Conversation and Turn including required metadata and soft-delete flags.
 
 #### Documentation Locations
+
 - Mongoose schema/types: Context7 `/mongoosejs/mongoose`
 - MongoDB TTL/soft-delete patterns: Context7 `/mongodb/docs`
 
 #### Subtasks
-1. [ ] Create `server/src/mongo/conversation.ts` exporting a Mongoose model with fields: `_id: string` (conversationId), `provider: 'lmstudio' | 'codex'`, `model: string`, `title: string`, `flags: Record<string, unknown>`, `createdAt: Date`, `updatedAt: Date`, `lastMessageAt: Date`, `archivedAt: Date | null` (default null). Add index on `{ archivedAt: 1, lastMessageAt: -1 }`.
-2. [ ] Create `server/src/mongo/turn.ts` exporting a model with fields: `conversationId: string` (ref to Conversation `_id`), `role: 'user' | 'assistant' | 'system'`, `content: string`, `model: string`, `provider: string`, `toolCalls: object | null`, `status: 'ok' | 'stopped' | 'failed'`, `createdAt: Date`. Add index on `{ conversationId: 1, createdAt: -1 }`.
-3. [ ] Add a repository helper file `server/src/mongo/repo.ts` with functions: `createConversation`, `updateConversationMeta`, `archiveConversation`, `restoreConversation`, `appendTurn`, `listConversations({ limit, cursor, includeArchived })`, `listTurns({ conversationId, limit, cursor })`. Include JSDoc and types; ensure list uses `archivedAt` filter and sorts by `lastMessageAt desc` for conversations, `createdAt desc` for turns.
-4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+
+1. [x] Create `server/src/mongo/conversation.ts` exporting a Mongoose model with fields: `_id: string` (conversationId), `provider: 'lmstudio' | 'codex'`, `model: string`, `title: string`, `flags: Record<string, unknown>`, `createdAt: Date`, `updatedAt: Date`, `lastMessageAt: Date`, `archivedAt: Date | null` (default null). Add index on `{ archivedAt: 1, lastMessageAt: -1 }`.
+2. [x] Create `server/src/mongo/turn.ts` exporting a model with fields: `conversationId: string` (ref to Conversation `_id`), `role: 'user' | 'assistant' | 'system'`, `content: string`, `model: string`, `provider: string`, `toolCalls: object | null`, `status: 'ok' | 'stopped' | 'failed'`, `createdAt: Date`. Add index on `{ conversationId: 1, createdAt: -1 }`.
+3. [x] Add a repository helper file `server/src/mongo/repo.ts` with functions: `createConversation`, `updateConversationMeta`, `archiveConversation`, `restoreConversation`, `appendTurn`, `listConversations({ limit, cursor, includeArchived })`, `listTurns({ conversationId, limit, cursor })`. Include JSDoc and types; ensure list uses `archivedAt` filter and sorts by `lastMessageAt desc` for conversations, `createdAt desc` for turns.
+4. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] `npm run compose:down`
 
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-- Details after implementation.
+
+- Added `server/src/mongo/conversation.ts` and `turn.ts` using string conversation ids, timestamps, archivedAt, and indexes to support archived + recency queries.
+- Built `server/src/mongo/repo.ts` repository helpers for create/update/archive/restore, turn append, and paginated list methods (cursor on lastMessageAt/createdAt) with lean queries.
+- Ran lint/format and full test suite: server build/tests, client build/tests, e2e, compose builds/up/down; captured manual UI screenshot at `test-results/screenshots/0000013-02-home.png` via playwright-mcp while stack was up.
 
 ---
 
 ### 3. Conversation list and turn APIs
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 Expose REST endpoints to list conversations (paginated, newest-first, archived toggle), create conversation, append turn, fetch turns paginated newest-first with load-older support, and archive/restore.
 
 #### Documentation Locations
+
 - Express docs: Context7 `/expressjs/express`
 - Zod validation: Context7 `/colinhacks/zod`
 - MongoDB pagination patterns: Context7 `/mongodb/docs`
 
 #### Subtasks
+
 1. [ ] Create `server/src/routes/conversations.ts` with Express router and register it in `server/src/index.ts`.
 2. [ ] Implement `GET /conversations?archived=false&limit=20&cursor=<lastMessageAt>` returning `{ items: ConversationSummary[], nextCursor?: string }` sorted by `lastMessageAt desc`; default limit 20. Example response:
    ```json
-   { "items":[{ "conversationId":"abc123","title":"Fix tests","provider":"lmstudio","model":"llama-3","lastMessageAt":"2025-12-08T10:00:00Z","archived":false }], "nextCursor":"2025-12-08T09:59:00Z" }
+   {
+     "items": [
+       {
+         "conversationId": "abc123",
+         "title": "Fix tests",
+         "provider": "lmstudio",
+         "model": "llama-3",
+         "lastMessageAt": "2025-12-08T10:00:00Z",
+         "archived": false
+       }
+     ],
+     "nextCursor": "2025-12-08T09:59:00Z"
+   }
    ```
 3. [ ] Implement `POST /conversations` accepting `{ provider, model, title?, flags? }` and returning `{ conversationId }`; create Conversation row.
 4. [ ] Implement `POST /conversations/:id/archive` and `/conversations/:id/restore` toggling `archivedAt`; return `{ status: 'ok' }`.
 5. [ ] Implement `GET /conversations/:id/turns?limit=50&cursor=<createdAt>` returning newest-first turns with `{ items, nextCursor? }`; default limit 50. Example:
    ```json
-   { "items":[{ "role":"assistant","content":"hi","createdAt":"..."},{ "role":"user","content":"hello","createdAt":"..."}], "nextCursor":"2025-12-08T08:00:00Z" }
+   {
+     "items": [
+       { "role": "assistant", "content": "hi", "createdAt": "..." },
+       { "role": "user", "content": "hello", "createdAt": "..." }
+     ],
+     "nextCursor": "2025-12-08T08:00:00Z"
+   }
    ```
 6. [ ] Implement `POST /conversations/:id/turns` accepting `{ role, content, model, provider, toolCalls?, status }`; append turn and update `lastMessageAt`.
 7. [ ] Validate all inputs with zod, return 400 on validation errors, 404 on missing conversation, 410 if archived when append requested. Document error bodies: `{ "error": "validation_error", "details": [...] }`, `{ "error": "not_found" }`, `{ "error": "archived" }`.
 8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
+
 1. [ ] API (supertest): `server/src/test/routes/conversations.create.test.ts` — covers POST /conversations happy/validation.
 2. [ ] API (supertest): `server/src/test/routes/conversations.list.test.ts` — covers GET /conversations pagination, archived filter, nextCursor.
 3. [ ] API (supertest): `server/src/test/routes/conversations.turns.test.ts` — covers GET/POST /conversations/:id/turns pagination, archived rejection (410), validation errors.
@@ -189,26 +222,29 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 11. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
 12. [ ] `npm run compose:down`
 
-
 #### Implementation notes
+
 - Details after implementation.
 
 ---
 
 ### 4. Chat pipeline persistence (LM Studio + Codex HTTP)
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) creates/updates conversations and turns, and requests accept conversation id instead of full history.
 
 #### Documentation Locations
+
 - Express docs: Context7 `/expressjs/express`
 - Zod validation: Context7 `/colinhacks/zod`
 - JSON streaming patterns (general): MDN fetch streaming https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
 
 #### Subtasks
+
 1. [ ] Update `server/src/routes/chat.ts` validation to require `conversationId` for both providers; reject requests that send a messages history payload with 400 and a clear error.
 2. [ ] On first turn for a new `conversationId`, create Conversation using provider/model/title (use first user message as title fallback).
 3. [ ] Before calling the model, load turns from Mongo (newest-first, then reverse to chronological) and pass to the existing chat pipeline instead of client-supplied history.
@@ -219,6 +255,7 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
    - Error when history is sent: 400 `{ "error": "conversationId required; history is loaded server-side" }`
 
 #### Testing
+
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
@@ -229,26 +266,29 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
 8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
-
 #### Implementation notes
+
 - Details after implementation.
 
 ---
 
 ### 5. MCP persistence (codebase_question)
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 Persist MCP conversations on port 5011 so `codebase_question` creates/updates conversation/turn records using Codex thread id.
 
 #### Documentation Locations
+
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
 - MCP tool/result shape: OpenAI MCP docs (Context7 `/openai/mcp`)
 - Mongoose usage: Context7 `/mongoosejs/mongoose`
 
 #### Subtasks
+
 1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, after receiving Codex response, upsert Conversation (id = threadId) with provider `codex`, model, flags; create if missing.
 2. [ ] Persist a Turn for the user question and a Turn for the assistant answer; include tool calls, status, and thinking/vector summary payloads in `toolCalls` or metadata field.
 3. [ ] If the conversation is archived, return an error (410) indicating it must be restored before use.
@@ -259,6 +299,7 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
    ```
 
 #### Testing
+
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
@@ -269,26 +310,29 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
 9. [ ] `npm run compose:down`
 
-
 #### Implementation notes
+
 - Details after implementation.
 
 ---
 
 ### 6. Client conversation history UI
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 Add left-hand conversation list (newest-first, infinite scroll), archive toggle/view/restore, and load turns lazily; send only conversation id + new message in chat requests for both providers.
 
 #### Documentation Locations
+
 - React docs: https://react.dev/learn
 - MUI components: use MUI MCP tool (select correct version)
 - Infinite scroll patterns: MDN IntersectionObserver https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
 
 #### Subtasks
+
 1. [ ] Create a new sidebar component (e.g., `client/src/components/chat/ConversationList.tsx`) with infinite scroll (page size 20) calling `GET /conversations`; include toggle to show archived and buttons to archive/restore.
 2. [ ] Add a hook `client/src/hooks/useConversations.ts` to wrap list/scroll logic and expose `loadMore`, `archive`, `restore`.
 3. [ ] Add a hook `client/src/hooks/useConversationTurns.ts` to fetch turns newest-first (limit 50) and load older on scroll-up; trigger `loadOlder` when the transcript scroll is within ~200px of the top; stop when `nextCursor` is undefined. Bind to chat transcript.
@@ -297,6 +341,7 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 6. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
 
 #### Testing
+
 1. [ ] RTL: `client/src/test/chatSidebar.test.tsx` — conversation list renders, infinite scroll, archive/restore toggles.
 2. [ ] RTL: `client/src/test/chatTurnsLazyLoad.test.tsx` — turns load newest-first, load older triggers near top, stops when no cursor.
 3. [ ] RTL: `client/src/test/chatSendPayload.test.tsx` — chat send payload contains conversationId only (no history) for both providers; title fallback 80 chars.
@@ -311,30 +356,34 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 12. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
 13. [ ] `npm run compose:down`
 
-
 #### Implementation notes
+
 - Details after implementation.
 
 ---
 
 ### 7. Persistence availability banner
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 Detect Mongo unavailability and surface a banner in the client indicating conversations won’t be stored while allowing chat to proceed.
 
 #### Documentation Locations
+
 - React docs: https://react.dev/learn
 - MUI components: use MUI MCP tool (Alert/Banner)
 
 #### Subtasks
+
 1. [ ] Extend `GET /health` (or add `/health/persistence`) to include `mongoConnected: boolean` based on Mongoose connection state.
 2. [ ] Update client health fetch (add a small hook, e.g., `usePersistenceStatus`) and render a persistent banner on ChatPage when `mongoConnected=false`; hide/disable conversation list controls in that state.
 3. [ ] Run `npm run lint --workspaces` and `npm run test --workspace client`.
 
 #### Testing
+
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
@@ -346,25 +395,29 @@ Detect Mongo unavailability and surface a banner in the client indicating conver
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
+
 - Details after implementation.
 
 ---
 
 ### 8. Final validation and documentation sweep
 
-- Task Status: __to_do__
-- Git Commits: __to_do__
+- Task Status: **to_do**
+- Git Commits: **to_do**
 
 #### Overview
+
 End-to-end validation, docs updates (README/design/projectStructure), and screenshots per story requirements.
 
 #### Documentation Locations
+
 - Docker/Compose: Context7 `/docker/docs`
 - Playwright: Context7 `/microsoft/playwright`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber: https://cucumber.io/docs/guides/
 
 #### Subtasks
+
 1. [ ] Build the server.
 2. [ ] Build the client.
 3. [ ] Perform a clean docker build.
@@ -375,6 +428,7 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Testing
+
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
@@ -386,4 +440,5 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
+
 - Details after implementation.

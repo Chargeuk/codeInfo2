@@ -2,11 +2,23 @@
 
 ## Description
 
-Unify the server-side chat execution paths so LM Studio and Codex share the same abstractions and so LM Studio can be exposed through the MCP v2 interface. Introduce a `ChatInterface` base abstraction that centralises shared concerns (conversation persistence, streaming adapters, flags handling), then implement provider-specific subclasses (e.g., `ChatInterfaceLMStudio`, `ChatInterfaceCodex`) chosen via a factory for both REST and MCP callers. The end result keeps current behaviour for existing providers while enabling LM Studio via MCP without duplicating logic or scattering provider-specific conditionals.
+Unify the server-side chat execution paths so LM Studio and Codex share the same abstractions and so LM Studio can be exposed through the MCP v2 interface. Introduce a `ChatInterface` base abstraction that centralises shared concerns (conversation persistence, streaming adapters, flags handling), then implement provider-specific subclasses (e.g., `ChatInterfaceLMStudio`, `ChatInterfaceCodex`) chosen via a factory for both REST and MCP callers. The end result keeps current behaviour for existing providers while enabling LM Studio via MCP without duplicating logic or scattering provider-specific conditionals. Provider-specific configuration (timeouts, model maps, quirks) stays inside each subclass; the factory merely selects the subclass from a static provider list.
 
 ### MCP response handling (answered)
 
 MCP v2 response format stays unchanged (single JSON-RPC result with ordered `segments`). We will wrap the streaming `ChatInterface` output in an MCP-specific responder/adapter that buffers the event stream (tokens, tool events, finals) into the existing MCP payload shape, then returns once complete. The wrapper is transport-specific, while the provider-specific derived classes (`ChatInterfaceLMStudio`, `ChatInterfaceCodex`) remain streaming-first; any new provider gains MCP support automatically via this wrapper without MCP-specific code in the provider class.
+
+### Streaming adapter location (answered)
+
+Streaming/response adapter logic will live in the base `ChatInterface` for now (overridable by subclasses if absolutely required). If additional transports emerge later, we can refactor into pluggable responders, but initial implementation prioritises simplicity.
+
+### Capability discovery (answered)
+
+The factory will use a simple static provider list to decide which subclasses are available; runtime health checks can be added later if needed.
+
+### MCP payload compatibility (answered)
+
+MCP output must remain byte-for-byte compatible with today’s segments format. The MCP wrapper will transform the normalized streaming output from `ChatInterface` (LM Studio or Codex) into that format and drop unused fields.
 
 ## Acceptance Criteria
 

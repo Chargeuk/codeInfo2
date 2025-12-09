@@ -188,11 +188,13 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 2. [ ] Update `server/src/routes/chat.ts`:
    - For provider `lmstudio`, call `getChatInterface('lmstudio')` and stream normalized events through the SSE helper.
    - Remove LM Studio–specific conditional branches replaced by the interface.
-3. [ ] Integration test (LM Studio tool/citation parity) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
-   - Assert tool results include `hostPath`, `relPath`, `chunk`; status chip reaches Complete only after tool results.
-4. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (existing files):
+3. [ ] Integration test (LM Studio tool/citation content) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
+   - Assert tool results include `hostPath`, `relPath`, `chunk` values from normalized tool events.
+4. [ ] Integration test (LM Studio status gating) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
+   - Assert status chip reaches Complete only after tool results arrive.
+5. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (existing files):
    - Adjust mocks only if response shape changed; otherwise ensure tests still pass unchanged.
-5. [ ] Run lint/format for touched files.
+6. [ ] Run lint/format for touched files.
 
 #### Testing
 
@@ -237,10 +239,11 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`):
    - Obtain interface via `getChatInterface('codex')`, attach MCP wrapper, remove old Codex-specific assembly code.
    - Ensure archived-conversation checks remain.
-3. [ ] Integration test (MCP Codex payload match) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
+3. [ ] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
    - Compare payload to current MCP structure (snapshot or explicit fields).
+4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
    - Verify segment order and absence of extra fields.
-4. [ ] Run lint/format for touched files.
+5. [ ] Run lint/format for touched files.
 
 #### Testing
 
@@ -281,9 +284,11 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 1. [ ] Add LM Studio to factory static map for MCP usage; keep unsupported-provider error intact.
 2. [ ] Update MCP handler to accept provider `lmstudio` and use MCP wrapper to produce current segments JSON.
-3. [ ] Integration test (MCP LM Studio payload) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
-   - Mock LM Studio stream to emit token + tool + final; assert MCP payload matches Codex-style segments (no extra fields).
-4. [ ] Run lint/format for touched files.
+3. [ ] Integration test (MCP LM Studio payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
+   - Mock LM Studio stream to emit token + tool + final; snapshot payload matches Codex-style segments.
+4. [ ] Integration test (MCP LM Studio segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
+   - Verify segment order and absence of extra fields.
+5. [ ] Run lint/format for touched files.
 
 #### Testing
 

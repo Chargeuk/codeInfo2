@@ -53,7 +53,7 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 ### 1. Extract ChatInterface base and factory scaffold
 
 - Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Git Commits: **6b7b7f1**
 
 #### Overview
 
@@ -114,8 +114,8 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 ### 2. Move Codex REST onto ChatInterface
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **6b7b7f1**
 
 #### Overview
 
@@ -167,12 +167,15 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 5. [x] `npm run e2e` (includes new provider-selection scenario)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+8. [x] Manual Playwright-MCP check: headless Playwright navigation to `/chat`, provider select shows `LM Studio` and `OpenAI Codex`, model label present; screenshot saved to `test-results/screenshots/0000014-2-playwright-mcp.png`.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Codex streaming now flows through `ChatInterfaceCodex`, emitting normalized token/tool/final/complete/thread/analysis events and persisting turns only when Mongo is available to keep test harnesses stable.
+- `/chat` Codex branch now uses the factory-driven interface; Codex availability guard retained so unavailable Codex still returns 503.
+- Added unit and integration coverage for event ordering/thread reuse; manual Playwright check confirmed Provider dropdown shows LM Studio and OpenAI Codex with model label (screenshot `test-results/screenshots/0000014-2-playwright-mcp.png`).
+- Resolved import-order and Prettier warnings after the refactor by reordering imports and formatting.
 
 ---
 

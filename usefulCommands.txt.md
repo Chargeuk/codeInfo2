@@ -2,7 +2,7 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Tasks:
-do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated.
+do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links.
 
 do you feel the todo task's subtasks are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
 
@@ -14,7 +14,7 @@ some tasks have Document Locations that reference the existing codebase. This is
 
 in various tasks you have a single subtask for a number of tests to write. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
 
-It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it.
+It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 or DeepWiki or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it.
 
 some tasks do not have a final subtask to fix linting and prettier (format)
 
@@ -31,6 +31,8 @@ every task needs a final testing step (not subtask) to ensure the docker environ
 
 ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7.
 
+Ensure that any task adding files has a subtask to explicitly update projectStructure.md.
+
 please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task
 
 Execution:
@@ -38,7 +40,7 @@ I want to see if you can run a seperate codex agent. Please try to run the follo
 
 I want you to get other codex agents to implement all remaining tasks of the current story sequentially, and to get back to me with information about how this way of working went. This should be possible if you execute the following command for each task in sequence once the previous task is completed, adjusting the appropriate task number and story plan name for each task. Note that you must not try to run multiple agents at the same time, run an agent for the next task, when that is complete, run a new agent for the task after, and so on until all tasks are complete. each agent could take up to 35 minutes to complete a task: codex exec -s danger-full-access "Please read Agents.md and follow it's instructions. Once done you must work through Task [Task Number & name] of planning/[current planning document].md, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done."
 
-Please work through Task 8 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works.
+Please work through Task 9 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works.
 
 please create a pr comment that summarises the changes along with bullet points
 

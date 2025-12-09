@@ -89,7 +89,7 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
    - Expect calling with `'unknown'` throws `UnsupportedProviderError` with message/code.
 8. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
-9. [ ] Run lint/format for touched areas.
+9. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -153,7 +153,7 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts` (docs: Jest):
    - Mock Codex client to emit token/final/error; assert normalized events fire.
 7. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
-8. [ ] Run lint/format for touched files.
+8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -216,7 +216,7 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 5. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (docs: Jest):
    - Adjust mocks only if response shape changed; otherwise ensure tests still pass unchanged.
 6. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`.
-7. [ ] Run lint/format for touched files.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -278,7 +278,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Verify segment order and absence of extra fields.
 5. [ ] Update `projectStructure.md` to list `server/src/chat/responders/McpResponder.ts`.
-6. [ ] Run lint/format for touched files.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -342,7 +342,7 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 4. [ ] Integration test (LM Studio MCP segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Assert segment order is correct and no extra fields are present.
 5. [ ] Update `projectStructure.md` if new MCP-related files/entries were added/renamed in this task.
-6. [ ] Run lint/format for touched files.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -395,7 +395,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 5. [ ] Unit test (unsupported provider MCP) `server/src/test/unit/mcp-unsupported-provider.test.ts` (docs: Jest):
    - Call MCP handler with bad provider; expect JSON-RPC error with code/message.
 6. [ ] Update `projectStructure.md` if file entries changed during cleanup.
-7. [ ] Run lint/format for touched files.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -442,7 +442,7 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
    - Add one-line note that REST/MCP both use conversationId-only payloads (no full history).
 3. [ ] Update `projectStructure.md` (docs: Markdown guide):
    - Add entries for `server/src/chat/interfaces/ChatInterface.ts`, `ChatInterfaceCodex.ts`, `ChatInterfaceLMStudio.ts`, `server/src/chat/factory.ts`, `server/src/chat/responders/McpResponder.ts`.
-4. [ ] Run lint/format for docs if applicable (e.g., `npm run format -- --write design.md README.md projectStructure.md`).
+4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -487,6 +487,7 @@ Run the full validation suite to confirm behaviour parity across REST and MCP fo
    - REST `/chat` with bad provider returns clear error; MCP JSON-RPC returns error with code/message.
 4. [ ] Summarize changes/results in Implementation notes:
    - List key behaviour parity findings, MCP compatibility confirmation, and any follow-ups.
+5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 

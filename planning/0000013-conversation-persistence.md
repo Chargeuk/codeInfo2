@@ -463,3 +463,46 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 - PR summary: finished conversation persistence story (Mongo-backed history for LM Studio/Codex, archive/restore, lazy turn loads) with health-driven banner, refreshed docs (README Mongo env + chat persistence, design persistence flow diagram, projectStructure updates), and captured manual screenshots at `test-results/screenshots/0000013-08-home.png` and `0000013-08-chat.png`.
 - Verification: server/client builds, server/client test suites, full e2e suite, clean compose build/up/down, manual UI pass on running stack via Playwright CLI screenshots.
 - Notes: main and e2e compose runs started Mongo/Chroma stacks successfully; Codex and LM Studio available during manual check.
+
+---
+
+### 9. Fix historical conversation provider/desync bug
+
+- Task Status: **to_do**
+- Git Commits: **to_do**
+
+#### Overview
+
+Selecting a historical conversation keeps the provider dropdown on the previously chosen provider (e.g., LM Studio) instead of switching to the conversation’s provider (e.g., Codex). Transcript can also stay blank after “New conversation” followed by re-selecting history. Logging shows selection and turn fetches occur, but provider/model state isn’t synced to the selected conversation, leaving the UI locked to a stale provider and sometimes hiding history.
+
+#### Documentation Locations
+
+- React Testing Library: Context7 `/testing-library/react`
+- Playwright: Context7 `/microsoft/playwright`
+- React hooks/state patterns: https://react.dev/learn
+
+#### Subtasks
+
+1. [ ] Add failing RTL test reproducing current behaviour: start on LM Studio, click a Codex conversation; expect provider shows Codex and transcript renders stored turns (currently fails: provider stays LM Studio).
+2. [ ] Add failing Playwright e2e: seed one LM and one Codex conversation, click Codex conversation, assert provider lock shows Codex and turns are visible; currently expected to fail.
+3. [ ] Update chat selection flow to set provider (and model) from the selected conversation before locking; ensure provider lock reflects the conversation’s provider.
+4. [ ] Ensure “New conversation” resets defaults but re-selecting a historical conversation rehydrates provider/model and loads turns.
+5. [ ] Adjust provider lock logic to depend on the active conversation’s provider, not prior UI state; keep Codex tools availability gating intact.
+6. [ ] Remove temporary debug logging once tests pass; keep minimal diagnostics only if still needed.
+7. [ ] Run lint/format and update docs if behaviour/UI wiring changes (design.md/projectStructure.md if needed).
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- To be filled during implementation.

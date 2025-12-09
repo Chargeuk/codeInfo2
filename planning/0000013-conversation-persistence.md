@@ -420,7 +420,7 @@ Detect Mongo unavailability and surface a banner in the client indicating conver
 
 ### 8. Final validation and documentation sweep
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

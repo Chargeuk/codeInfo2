@@ -196,7 +196,8 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
     .post('/chat')
     .send({
       model: 'dummy-model',
-      messages: [{ role: 'user', content: 'hello' }],
+      conversationId: 'conv-integration-tools',
+      message: 'hello',
     })
     .expect(200);
 
@@ -304,7 +305,8 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
     .post('/chat')
     .send({
       model: 'dummy-model',
-      messages: [{ role: 'user', content: 'hello' }],
+      conversationId: 'conv-tools-wire-2',
+      message: 'hello',
     })
     .expect(200);
 
@@ -355,7 +357,8 @@ test('chat route emits tool-result with error details when a tool call fails', a
     .post('/chat')
     .send({
       model: 'dummy-model',
-      messages: [{ role: 'user', content: 'hello' }],
+      conversationId: 'conv-tools-wire-3',
+      message: 'hello',
     })
     .expect(200);
 
@@ -427,7 +430,8 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
     .post('/chat')
     .send({
       model: 'dummy-model',
-      messages: [{ role: 'user', content: 'hello' }],
+      conversationId: 'conv-tools-wire-4',
+      message: 'hello',
     })
     .expect(200);
 
@@ -512,7 +516,8 @@ test('chat route suppresses assistant tool payload echo while emitting tool-resu
     .post('/chat')
     .send({
       model: 'dummy-model',
-      messages: [{ role: 'user', content: 'hello' }],
+      conversationId: 'conv-tools-wire-5',
+      message: 'hello',
     })
     .expect(200);
 

@@ -15,6 +15,8 @@ type Provider = 'codex' | 'lmstudio';
 
 export type ChatRequestBody = {
   model?: unknown;
+  message?: unknown;
+  conversationId?: unknown;
   messages?: unknown;
   provider?: unknown;
   threadId?: unknown;
@@ -27,7 +29,8 @@ export type ChatRequestBody = {
 
 export type ValidatedChatRequest = {
   model: string;
-  messages: unknown[];
+  message: string;
+  conversationId: string;
   provider: Provider;
   threadId?: string;
   codexFlags: {
@@ -76,14 +79,28 @@ export function validateChatRequest(
     throw new ChatValidationError('request body must be an object');
   }
 
+  if (body.messages !== undefined) {
+    throw new ChatValidationError(
+      'conversationId required; history is loaded server-side',
+    );
+  }
+
   const model = body.model;
   if (typeof model !== 'string' || model.trim().length === 0) {
     throw new ChatValidationError('model is required');
   }
 
-  const messages = body.messages;
-  if (!Array.isArray(messages)) {
-    throw new ChatValidationError('messages must be an array');
+  const message = body.message;
+  if (typeof message !== 'string' || message.trim().length === 0) {
+    throw new ChatValidationError('message is required');
+  }
+
+  const conversationId = body.conversationId;
+  if (
+    typeof conversationId !== 'string' ||
+    conversationId.trim().length === 0
+  ) {
+    throw new ChatValidationError('conversationId is required');
   }
 
   const rawProvider = body.provider;
@@ -208,7 +225,8 @@ export function validateChatRequest(
 
   return {
     model,
-    messages,
+    message,
+    conversationId,
     provider,
     threadId,
     codexFlags,

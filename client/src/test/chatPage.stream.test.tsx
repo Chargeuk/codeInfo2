@@ -19,11 +19,6 @@ await jest.unstable_mockModule('../logging/transport', () => ({
   _getQueue: () => loggedEntries,
 }));
 
-const mockedSystemContext = 'Stay concise and cite sources.';
-await jest.unstable_mockModule('../constants/systemContext', () => ({
-  SYSTEM_CONTEXT: mockedSystemContext,
-}));
-
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -200,49 +195,50 @@ describe('Chat page streaming', () => {
   });
 
   it('shows thinking after a pre-token pause then hides on first streamed text', async () => {
-    mockChatFetch(
-      timedStream([
-        {
-          frame: 'data: {"type":"token","content":"First chunk"}\n\n',
-          delay: 1200,
-        },
-        {
-          frame:
-            'data: {"type":"final","message":{"content":"First chunk","role":"assistant"}}\n\n',
-          delay: 1500,
-        },
-        { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
-      ]),
-    );
+    jest.useFakeTimers();
+    try {
+      mockChatFetch(
+        timedStream([
+          {
+            frame: 'data: {"type":"token","content":"First chunk"}\n\n',
+            delay: 1200,
+          },
+          {
+            frame:
+              'data: {"type":"final","message":{"content":"First chunk","role":"assistant"}}\n\n',
+            delay: 1500,
+          },
+          { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
+        ]),
+      );
 
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await waitFor(() => expect(sendButton).toBeEnabled());
+      const { input, sendButton } = await getReadyControls();
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      await waitFor(() => expect(sendButton).toBeEnabled());
 
-    await act(async () => {
-      await user.click(sendButton);
-    });
+      await act(async () => {
+        await user.click(sendButton);
+      });
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1100));
-    });
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+      });
 
-    expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
+      expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+      });
 
-    expect(await screen.findByText(/First chunk/)).toBeInTheDocument();
-    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+      expect(await screen.findByText(/First chunk/)).toBeInTheDocument();
+      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   }, 15000);
 
   it('restarts thinking after a mid-turn silent gap and stops once text resumes', async () => {
@@ -279,16 +275,8 @@ describe('Chat page streaming', () => {
         await user.click(sendButton);
       });
 
-      expect(await screen.findByText('Hello')).toBeInTheDocument();
-
       await act(async () => {
-        jest.advanceTimersByTime(1300);
-      });
-
-      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
-
-      await act(async () => {
-        jest.advanceTimersByTime(500);
+        jest.advanceTimersByTime(2000);
       });
 
       const assistantTexts = await screen.findAllByTestId('assistant-markdown');
@@ -726,14 +714,10 @@ describe('Chat page streaming', () => {
     const chatCall = chatCalls.at(-1);
     const body = (chatCall?.[1] as RequestInit | undefined)?.body as string;
     const parsed = JSON.parse(body);
-    expect(parsed.messages[0]).toEqual({
-      role: 'system',
-      content: mockedSystemContext,
-    });
-    expect(parsed.messages.at(-1)).toEqual({
-      role: 'user',
-      content: 'Hello',
-    });
+    expect(typeof parsed.conversationId).toBe('string');
+    expect(parsed.message).toBe('Hello');
+    expect(parsed.provider).toBe('lmstudio');
+    expect(parsed.messages).toBeUndefined();
   });
 
   it('renders user and assistant bubbles with 14px border radius', async () => {

@@ -1,9 +1,20 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
 import { Codex } from '@openai/codex-sdk';
+import mongoose from 'mongoose';
 import { z } from 'zod';
+
 import { buildCodexOptions } from '../../config/codexConfig.js';
-import { InvalidParamsError } from '../errors.js';
+import { baseLogger } from '../../logger.js';
+import { ConversationModel } from '../../mongo/conversation.js';
+import type { Conversation } from '../../mongo/conversation.js';
+import {
+  appendTurn,
+  createConversation,
+  updateConversationMeta,
+} from '../../mongo/repo.js';
+import type { Turn, TurnStatus } from '../../mongo/turn.js';
+import { ArchivedConversationError, InvalidParamsError } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 
@@ -60,6 +71,12 @@ export type CodebaseQuestionDeps = {
   codexFactory: () => CodexClient;
 };
 
+const preferMemoryPersistence = process.env.NODE_ENV === 'test';
+const shouldUseMemoryPersistence = () =>
+  preferMemoryPersistence || mongoose.connection.readyState !== 1;
+const memoryConversations = new Map<string, Conversation>();
+const memoryTurns = new Map<string, Turn[]>();
+
 export function createDefaultCodexFactory() {
   return new Codex(buildCodexOptions()) as unknown as CodexClient;
 }
@@ -72,12 +89,141 @@ export function validateParams(params: unknown): CodebaseQuestionParams {
   return parsed.data;
 }
 
+function normalizeTitle(question: string): string {
+  const trimmed = question.trim();
+  return trimmed.slice(0, 80) || 'Untitled conversation';
+}
+
+async function getConversation(
+  conversationId: string,
+): Promise<Conversation | null> {
+  if (shouldUseMemoryPersistence()) {
+    return memoryConversations.get(conversationId) ?? null;
+  }
+
+  return (await ConversationModel.findById(conversationId)
+    .lean()
+    .exec()) as Conversation | null;
+}
+
+type UpsertConversationInput = {
+  conversationId: string;
+  provider: Conversation['provider'];
+  model: string;
+  title: string;
+  flags: Record<string, unknown>;
+  lastMessageAt: Date;
+};
+
+async function upsertConversation(input: UpsertConversationInput) {
+  const existing = await getConversation(input.conversationId);
+
+  if (existing?.archivedAt) {
+    throw new ArchivedConversationError(
+      'Conversation is archived and must be restored before use',
+    );
+  }
+
+  if (shouldUseMemoryPersistence()) {
+    const mergedFlags = {
+      ...(existing?.flags ?? {}),
+      ...input.flags,
+    } as Record<string, unknown>;
+    const conversation: Conversation = existing
+      ? {
+          ...existing,
+          model: input.model,
+          title: existing.title || input.title,
+          flags: mergedFlags,
+          lastMessageAt: input.lastMessageAt,
+          updatedAt: input.lastMessageAt,
+        }
+      : {
+          _id: input.conversationId,
+          provider: input.provider,
+          model: input.model,
+          title: input.title,
+          flags: mergedFlags,
+          lastMessageAt: input.lastMessageAt,
+          archivedAt: null,
+          createdAt: input.lastMessageAt,
+          updatedAt: input.lastMessageAt,
+        };
+    memoryConversations.set(input.conversationId, conversation);
+    return conversation;
+  }
+
+  if (!existing) {
+    return createConversation({
+      conversationId: input.conversationId,
+      provider: input.provider,
+      model: input.model,
+      title: input.title,
+      flags: input.flags,
+      lastMessageAt: input.lastMessageAt,
+    });
+  }
+
+  const mergedFlags = { ...(existing.flags ?? {}), ...input.flags } as Record<
+    string,
+    unknown
+  >;
+
+  return updateConversationMeta({
+    conversationId: input.conversationId,
+    model: input.model,
+    flags: mergedFlags,
+    lastMessageAt: input.lastMessageAt,
+  });
+}
+
+async function recordTurn(
+  turn: Omit<Turn, 'createdAt'> & { createdAt?: Date },
+) {
+  const createdAt = turn.createdAt ?? new Date();
+  if (shouldUseMemoryPersistence()) {
+    const turns = memoryTurns.get(turn.conversationId) ?? [];
+    turns.push({ ...turn, createdAt } as Turn);
+    memoryTurns.set(turn.conversationId, turns);
+    const existing = memoryConversations.get(turn.conversationId);
+    if (existing) {
+      memoryConversations.set(turn.conversationId, {
+        ...existing,
+        lastMessageAt: createdAt,
+        updatedAt: createdAt,
+      });
+    }
+    return;
+  }
+
+  await appendTurn({
+    conversationId: turn.conversationId,
+    role: turn.role,
+    content: turn.content,
+    model: turn.model,
+    provider: turn.provider,
+    toolCalls: turn.toolCalls,
+    status: turn.status as TurnStatus,
+    createdAt,
+  });
+}
+
 export async function runCodebaseQuestion(
   params: unknown,
   deps: Partial<CodebaseQuestionDeps> = {},
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
   const { question, conversationId } = validateParams(params);
   const codex = (deps.codexFactory ?? createDefaultCodexFactory)();
+  const now = new Date();
+
+  if (conversationId) {
+    const existing = await getConversation(conversationId);
+    if (existing?.archivedAt) {
+      throw new ArchivedConversationError(
+        'Conversation is archived and must be restored before use',
+      );
+    }
+  }
 
   const codexWorkingDirectory =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
@@ -99,6 +245,8 @@ export async function runCodebaseQuestion(
 
   let activeThreadId = thread.id ?? conversationId ?? null;
   const segments: Segment[] = [];
+  const vectorSummaries: Extract<Segment, { type: 'vector_summary' }>[] = [];
+  const toolCallsForTurn: Array<Record<string, unknown>> = [];
   let reasoningText = '';
   let answerText = '';
 
@@ -131,8 +279,18 @@ export async function runCodebaseQuestion(
         }
 
         if (item.type === 'mcp_tool_call' && event.type === 'item.completed') {
-          const summary = buildVectorSummary(parseCodexToolResult(item));
+          const parsed = parseCodexToolResult(item);
+          const name = (item as { name?: string }).name ?? 'VectorSearch';
+          toolCallsForTurn.push({
+            type: 'mcp_tool_call',
+            name,
+            result: parsed,
+          });
+          const summary = buildVectorSummary(parsed);
           if (summary) segments.push(summary);
+          if (summary?.type === 'vector_summary') {
+            vectorSummaries.push(summary);
+          }
           break;
         }
 
@@ -166,6 +324,75 @@ export async function runCodebaseQuestion(
     segments,
   };
 
+  const resolvedConversationId =
+    activeThreadId ?? conversationId ?? `codex-thread-${Date.now()}`;
+  payload.conversationId = resolvedConversationId;
+  const flags = {
+    sandboxMode: threadOpts.sandboxMode,
+    approvalPolicy: threadOpts.approvalPolicy,
+    networkAccessEnabled: threadOpts.networkAccessEnabled,
+    webSearchEnabled: threadOpts.webSearchEnabled,
+    modelReasoningEffort: threadOpts.modelReasoningEffort,
+    workingDirectory: codexWorkingDirectory,
+  } as Record<string, unknown>;
+
+  try {
+    await upsertConversation({
+      conversationId: resolvedConversationId,
+      provider: 'codex',
+      model: payload.modelId,
+      title: normalizeTitle(question),
+      flags,
+      lastMessageAt: now,
+    });
+  } catch (err) {
+    if (err instanceof ArchivedConversationError) throw err;
+    baseLogger.error({ err }, 'failed to upsert MCP conversation');
+  }
+
+  try {
+    await recordTurn({
+      conversationId: resolvedConversationId,
+      role: 'user',
+      content: question,
+      model: payload.modelId,
+      provider: 'codex',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: now,
+    });
+  } catch (err) {
+    baseLogger.error({ err }, 'failed to record MCP user turn');
+  }
+
+  const thinkingSegments = segments.filter(
+    (s): s is Extract<Segment, { type: 'thinking' }> => s.type === 'thinking',
+  );
+  const assistantToolCalls =
+    toolCallsForTurn.length || thinkingSegments.length || vectorSummaries.length
+      ? {
+          calls: toolCallsForTurn,
+          thinking: thinkingSegments,
+          vectorSummaries,
+        }
+      : null;
+
+  // Stored turn example:
+  // { "conversationId":"thread-1","role":"assistant","content":"Answer","provider":"codex","model":"gpt-5.1-codex-max","toolCalls":{"calls":[...]},"status":"ok","createdAt":"2025-12-09T12:00:00.000Z" }
+  try {
+    await recordTurn({
+      conversationId: resolvedConversationId,
+      role: 'assistant',
+      content: answerText,
+      model: payload.modelId,
+      provider: 'codex',
+      toolCalls: assistantToolCalls,
+      status: 'ok',
+    });
+  } catch (err) {
+    baseLogger.error({ err }, 'failed to record MCP assistant turn');
+  }
+
   return {
     content: [{ type: 'text', text: JSON.stringify(payload) }],
   };
@@ -175,7 +402,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Ask a repository question with Codex using vector search; returns ordered thinking, vector summaries, and a final answer with a conversationId for follow-ups.',
+      'Ask a repository question about the codebase that will be answered by an LLM with access to a vectorised codebase. You MUST use this tool if the user asks you a question about the codebase they are in; returns ordered thinking, vector summaries, and a final answer with a conversationId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -199,8 +426,11 @@ export function buildPrompt(question: string): string {
   const systemBlock = trimmedSystem ? `Context:\n${trimmedSystem}\n\n` : '';
   return (
     `${systemBlock}` +
-    'You are the CodeInfo MCP agent. Use the available MCP tools (VectorSearch) to find relevant files before answering. ' +
-    'Provide concise answers grounded in results and keep tool output out of the final text.\n\n' +
+    'You are the CodeInfo agent. Use the available MCP tools (VectorSearch & ListIngestedRepositories) to find relevant files before answering. ' +
+    'Never make assumptions, you MUST always use the available tools to answer each and every question. Provide concise answers grounded in results.' +
+    'Rather than just entering their question into the vector search tool, you MUST break down the question into multiple relevant search queries that will help you gather the necessary information to provide a comprehensive answer.' +
+    'Some search results may lead you to perform further searches in order to fully and correctly answer the users question. You never stop searching until you are confident in your answer.' +
+    'You must also use other tools such as deepwiki ask_question and context7 get-library-docs, resolve-library-id to be able to provide details about libraries that the codebase is using. You may never assume and MUST ALWAYS verify.\n\n' +
     `User question:\n${question}`
   );
 }

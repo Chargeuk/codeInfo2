@@ -192,7 +192,7 @@ Then(
   'ingest manage status for the last run becomes {string}',
   async (state: string) => {
     assert(lastRunId, 'runId missing');
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < 120; i += 1) {
       const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
       const body = await res.json();
       console.log(

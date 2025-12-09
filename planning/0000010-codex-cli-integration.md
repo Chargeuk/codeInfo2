@@ -630,7 +630,7 @@ Add a one-way bootstrap path for the server container to copy Codex auth from th
    - if `${containerHome}/auth.json` exists → return without changes;
    - else if `${hostHome}/auth.json` exists → copy it to `${containerHome}/auth.json`, preserving perms where possible; log source and success;
    - else log that no host auth was found; never overwrite existing container auth.
-   Wire this into `server/src/index.ts` startup before Codex detection so the copy runs once at boot.
+     Wire this into `server/src/index.ts` startup before Codex detection so the copy runs once at boot.
 4. [x] Documentation (README, section `## Codex (CLI)`): add explicit host-login-only flow:
    - Install: `npm install -g @openai/codex`
    - Host login writing to host home: `CODEX_HOME=./codex codex login` (or default `~/.codex`)
@@ -724,7 +724,7 @@ Finalize and implement the user-facing guidance for Codex: login instructions pl
 
 ### 11. Final validation and release checklist
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 6908e0a, 975fc99, 39f3d56, 10494a3, 06a3efa
 
 #### Overview

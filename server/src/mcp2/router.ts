@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
 import { isCodexAvailable } from './codexAvailability.js';
 import {
+  ArchivedConversationError,
   InvalidParamsError,
   ToolNotFoundError,
   callTool,
@@ -115,6 +116,11 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     } catch (err) {
       if (err instanceof InvalidParamsError) {
         send(jsonRpcError(id, INVALID_PARAMS_CODE, err.message, err.data));
+        return;
+      }
+
+      if (err instanceof ArchivedConversationError) {
+        send(jsonRpcError(id, err.code, err.message));
         return;
       }
 

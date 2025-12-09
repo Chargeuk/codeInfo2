@@ -152,6 +152,16 @@ beforeEach(() => {
     reason: 'not detected',
   });
   resetStore();
+  conversationCounter = 0;
+});
+
+let conversationCounter = 0;
+const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
+  provider: 'codex',
+  model: 'gpt-5.1-codex-max',
+  conversationId: `conv-codex-${++conversationCounter}`,
+  message: 'Find the index file',
+  ...overrides,
 });
 
 test('codex chat injects system context and emits MCP tool request/result', async () => {
@@ -174,11 +184,7 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-    })
+    .send(buildCodexBody({ conversationId: 'thread-mcp' }))
     .expect(200);
 
   const frames = res.text
@@ -275,11 +281,7 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-    })
+    .send(buildCodexBody())
     .expect(200);
 
   const frames = res.text
@@ -322,12 +324,7 @@ test('codex chat rejects invalid sandbox mode early', async () => {
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      sandboxMode: 'not-a-mode',
-    })
+    .send(buildCodexBody({ sandboxMode: 'not-a-mode' }))
     .expect(400);
 
   assert.match(
@@ -364,12 +361,7 @@ test('codex chat rejects invalid networkAccessEnabled input early', async () => 
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      networkAccessEnabled: 'yes',
-    })
+    .send(buildCodexBody({ networkAccessEnabled: 'yes' }))
     .expect(400);
 
   assert.match(
@@ -406,12 +398,7 @@ test('codex chat rejects invalid webSearchEnabled input early', async () => {
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      webSearchEnabled: 'yes',
-    })
+    .send(buildCodexBody({ webSearchEnabled: 'yes' }))
     .expect(400);
 
   assert.match(
@@ -445,12 +432,7 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
 
   await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      sandboxMode: 'danger-full-access',
-    })
+    .send(buildCodexBody({ sandboxMode: 'danger-full-access' }))
     .expect(200);
 
   assert.equal(
@@ -478,14 +460,7 @@ test('codex chat defaults approvalPolicy when omitted', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app)
-    .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-    })
-    .expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(200);
 
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
@@ -517,12 +492,7 @@ test('codex chat rejects invalid approvalPolicy input early', async () => {
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      approvalPolicy: 'sometimes',
-    })
+    .send(buildCodexBody({ approvalPolicy: 'sometimes' }))
     .expect(400);
 
   assert.match(
@@ -554,14 +524,7 @@ test('codex chat defaults modelReasoningEffort when omitted', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app)
-    .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-    })
-    .expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(200);
 
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
@@ -593,12 +556,7 @@ test('codex chat rejects invalid modelReasoningEffort input early', async () => 
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      modelReasoningEffort: 'extreme',
-    })
+    .send(buildCodexBody({ modelReasoningEffort: 'extreme' }))
     .expect(400);
 
   assert.match(
@@ -632,12 +590,7 @@ test('codex chat forwards modelReasoningEffort flag to codex thread', async () =
 
   await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      modelReasoningEffort: 'low',
-    })
+    .send(buildCodexBody({ modelReasoningEffort: 'low' }))
     .expect(200);
 
   assert.equal(
@@ -667,12 +620,7 @@ test('codex chat forwards approvalPolicy flag to codex thread', async () => {
 
   await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      approvalPolicy: 'on-request',
-    })
+    .send(buildCodexBody({ approvalPolicy: 'on-request' }))
     .expect(200);
 
   assert.equal(
@@ -702,12 +650,7 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
 
   await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      networkAccessEnabled: false,
-    })
+    .send(buildCodexBody({ networkAccessEnabled: false }))
     .expect(200);
 
   assert.equal(
@@ -737,12 +680,7 @@ test('codex chat forwards webSearchEnabled flag to codex thread', async () => {
 
   await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Find the index file' }],
-      webSearchEnabled: false,
-    })
+    .send(buildCodexBody({ webSearchEnabled: false }))
     .expect(200);
 
   assert.equal(
@@ -778,7 +716,8 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
       .send({
         provider: 'lmstudio',
         model: 'llama-3',
-        messages: [{ role: 'user', content: 'hello' }],
+        conversationId: 'conv-lmstudio-ignore-codex-flags',
+        message: 'hello',
         sandboxMode: 'read-only',
         networkAccessEnabled: false,
         webSearchEnabled: false,

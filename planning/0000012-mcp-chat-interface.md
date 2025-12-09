@@ -68,13 +68,15 @@ Follow the standard plan workflow (copied from `plan_format.md`):
 
 ### 1. Scaffold Codex-only MCP server entrypoint
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: a067088
 
 #### Overview
+
 Add the second MCP server endpoint on its own port (default 5011) within the existing Node process, with JSON-RPC methods `initialize`, `tools/list`, `tools/call`, and stubs for `resources/list` + `resources/listTemplates` (empty arrays). Ensure Codex availability gating returns a clear `CODEX_UNAVAILABLE` (-32001) error instead of empty tool lists.
 
 #### Documentation Locations (external)
+
 - JSON-RPC 2.0 specification (to follow envelope/params/error codes): https://www.jsonrpc.org/specification
 - Node.js HTTP server docs (for createServer + request parsing): https://nodejs.org/api/http.html
 - OpenAI MCP tool/result format rules (single text content item, tool list shape): https://platform.openai.com/docs/assistants/tools?context=mcp
@@ -82,6 +84,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 - Jest docs (Context7): `/jestjs/jest` for unit/integration test APIs.
 
 #### Subtasks
+
 1. [x] Config wiring (file paths + command):
    - Edit `server/.env`: add `MCP_PORT=5011` with a comment "Codex-only MCP JSON-RPC port".
    - Edit/create `server/src/config.ts`:
@@ -91,6 +94,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
    - Command to run now: `npm run format:check --workspace server`.
 2. [x] Create MCP v2 server files (explicit paths + starter code):
    - `server/src/mcp2/server.ts`:
+
      ```ts
      import http from 'http';
      import { MCP_PORT } from '../config.js';
@@ -106,9 +110,12 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
        return new Promise<void>((resolve) => server?.close(() => resolve()));
      }
      ```
+
    - `server/src/mcp2/types.ts`: define `JsonRpcRequest`, `JsonRpcResponse`, `jsonRpcError(code,message)`, `jsonRpcResult(id,result)`.
    - Command to run after creating: `npm run lint --workspace server`.
+
 3. [x] Router skeleton (ordered code block): edit `server/src/mcp2/router.ts`:
+
    ```ts
    import { IncomingMessage, ServerResponse } from 'http';
    import { jsonRpcError, jsonRpcResult } from './types.js';
@@ -119,15 +126,18 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
      // parse JSON body, switch on method, return jsonRpcResult/error
    }
    ```
+
    Methods to implement: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/listTemplates`.
    Error codes: `-32001` message `CODE_INFO_LLM_UNAVAILABLE`; `-32601` method not found; `-32602` invalid params.
    Command after edit: `npm run lint --workspace server`.
+
 4. [x] Availability guard: create `server/src/mcp2/codexAvailability.ts` using existing chat Codex detection helper (import from its module). `tools/list`/`tools/call` must return `CODE_INFO_LLM_UNAVAILABLE` when false. Command: `npm run lint --workspace server`.
 5. [x] Bootstrap: edit `server/src/index.ts` to call `startMcp2Server()` and on SIGINT call `stopMcp2Server()`; keep `/health` untouched. Command: `npm run lint --workspace server`.
 6. [x] Design doc: update `design.md` with a mermaid diagram showing HTTP server, existing MCP, and new MCP (port 5011) flow; cite `/mermaid-js/mermaid` syntax. Command: `npm run format:check --workspaces`.
 7. [x] Final check for this task: run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing (separate subtasks)
+
 1. [x] Unit test (server/src/test/mcp2/router.list.unavailable.test.ts): `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) when Codex is missing; `resources/list` and `resources/listTemplates` return empty arrays.
 2. [x] Integration test (server/src/test/mcp2/router.list.happy.test.ts): start server (`npm run dev --workspace server`), call `initialize` then `tools/list` on port 5011; assert single tool returned and `/health` still OK.
 3. [x] `npm run build --workspace server`
@@ -141,6 +151,7 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 11. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `MCP_PORT` env default (5011) and shared `server/src/config.ts` export, plus new `server/src/mcp2` server/router/types/tools stubs with Codex availability gating via `isCodexAvailable` (env override for tests). Startup now launches the Codex-only MCP listener alongside Express and shuts it down on signals.
 - Router handles initialize/tools/resources methods, returns `CODE_INFO_LLM_UNAVAILABLE` when Codex missing, and keeps empty resource lists for compatibility; doc flow updated in `design.md` with dual MCP mermaid diagram.
 - Guarded `clearLockedModel` to ignore missing collection `ChromaNotFoundError` to stabilize ingest cleanup.
@@ -150,13 +161,15 @@ Add the second MCP server endpoint on its own port (default 5011) within the exi
 
 ### 2. Implement codebase_question tool (chat + vector search bridge)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: b4db0a20fb4d6588c4e4e1d76fe5c6cceaa309e9
 
 #### Overview
+
 Expose the single MCP tool `codebase_question(question, conversationId?)` that runs the existing chat pipeline with Codex: default model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network+web search enabled. It should stream think/final only (no token chunking) and return ordered segments combining thinking, minimal vector-search summaries, and final text (no full citations) plus the conversationId to continue the thread. Preserve the chronological order of segments as emitted—do not coalesce by type. Vector/search limits remain internal—no limit parameter is exposed. Tool results must be JSON-stringified text content.
 
 #### Documentation Locations (external)
+
 - JSON-RPC 2.0 specification (tools/list, tools/call envelopes & errors): https://www.jsonrpc.org/specification
 - Zod schema docs (parameter validation patterns): https://zod.dev/?id=basic-usage
 - OpenAI MCP tool content rules (single text content item, tool definition fields): https://platform.openai.com/docs/assistants/tools?context=mcp
@@ -164,18 +177,24 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 - Jest docs (Context7): `/jestjs/jest` for unit/integration tests of codebase_question.
 
 #### Subtasks
+
 1. [x] Define input schema (file + code): edit `server/src/mcp2/tools/codebaseQuestion.ts` to validate params with Zod:
    ```ts
    const paramsSchema = z.object({
      question: z.string().min(1),
-     conversationId: z.string().min(1).optional()
+     conversationId: z.string().min(1).optional(),
    });
    ```
    Reject extras; on validation failure return JSON-RPC -32602. Command: `npm run lint --workspace server`.
 2. [x] Tool description: in `server/src/mcp2/tools/list.ts` (or router list handler) set description/parameter help to the provided sentence so Codex surfaces it. Command: `npm run format:check --workspace server`.
 3. [x] Orchestration wiring (file + snippet): in `server/src/mcp2/tools/codebaseQuestion.ts` call existing chat pipeline with defaults (model `gpt-5.1-codex-max`, reasoning `high`, sandbox `workspace-write`, approval `on-failure`, network/web search enabled, workingDirectory `/data`, skipGitRepoCheck true) and pass conversationId through:
    ```ts
-   const chatResult = await runCodexChat({ question, conversationId, defaults, vectorSearchClient });
+   const chatResult = await runCodexChat({
+     question,
+     conversationId,
+     defaults,
+     vectorSearchClient,
+   });
    const { segments, modelId, conversationId: nextConversationId } = chatResult;
    ```
    Keep vector limits internal. Command: `npm run lint --workspace server`.
@@ -183,17 +202,20 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 5. [x] Response shaping (code + example): shape `tools/call` result as single text content:
    ```ts
    const payload = { segments, conversationId: nextConversationId, modelId };
-   return jsonRpcResult(id, { content: [{ type: 'text', text: JSON.stringify(payload) }] });
+   return jsonRpcResult(id, {
+     content: [{ type: 'text', text: JSON.stringify(payload) }],
+   });
    ```
    Example JSON (ordered segments) stays as shown in the plan. Command: `npm run format:check --workspace server`.
 6. [x] Tests scaffolding (files): create
    - `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-   Use Jest (Context7 `/jestjs/jest`) and fixtures matching the example payload. Command after adding: `npm run test --workspace server` (or targeted jest if available).
+     Use Jest (Context7 `/jestjs/jest`) and fixtures matching the example payload. Command after adding: `npm run test --workspace server` (or targeted jest if available).
 7. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
 
 #### Testing (separate subtasks)
+
 1. [x] Unit test (server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts): missing question or bad limit returns JSON-RPC -32602.
 2. [x] Unit/integration test (server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts): happy path streams think/final, returns ordered `segments` array (thinking, vector_summary, answer) JSON-stringified with `modelId` and `conversationId`; verify provided conversationId threads a follow-up call and segment order is preserved.
 3. [x] Integration test (server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts): when Codex unavailable, `tools/call` returns `CODE_INFO_LLM_UNAVAILABLE` (-32001).
@@ -208,6 +230,7 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 12. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added Codex-only `codebase_question` tool with strict Zod validation, default Codex thread options (workspace-write sandbox, on-failure approval, network/web search on, reasoning high), and prompt wiring that preserves conversationId threading.
 - Stream parser now collects ordered segments (thinking deltas, vector_summary aggregation with relPath/match/chunk/line counts, and final answer) and returns JSON-stringified text content for MCP compatibility.
 - Introduced test hooks to inject mock Codex factories, expanded tool list/call routing, and added dedicated unit tests for validation, happy path, and Codex-unavailable cases; updated server scripts to include new test glob.
@@ -217,13 +240,15 @@ Expose the single MCP tool `codebase_question(question, conversationId?)` that r
 
 ### 3. Final validation and documentation sweep
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 7cbf1ad, e1c65d8
 
 #### Overview
+
 Verify the end-to-end MCP server works without regressing existing endpoints. Refresh documentation and structure maps to include the new MCP entrypoint and tools.
 
 #### Documentation Locations (external)
+
 - README/Markdown guidance (structure/examples): https://docs.github.com/en/get-started/writing-on-github
 - Mermaid diagrams (Context7): `/mermaid-js/mermaid` for documenting the final MCP flow in design.md.
 - JSON-RPC 2.0 specification (to document sample requests/responses): https://www.jsonrpc.org/specification
@@ -231,18 +256,20 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 - Cucumber guides (for any BDD mentions): https://cucumber.io/docs/guides/
 
 #### Subtasks
+
 1. [x] Run `npm run lint --workspaces` and `npm run test --workspace server`.
 2. [x] Smoke: start server (`npm run dev --workspace server`), call new MCP port with JSON-RPC `initialize` then `tools/list` and `tools/call` for `codebase_question`; confirm `/health` on main API still OK.
 3. [x] Update README.md (exact items):
    - Add `MCP_PORT` to env table.
    - Add a "MCP (codebase_question)" section with JSON-RPC curl example and response shape (ordered segments + conversationId, error code `CODE_INFO_LLM_UNAVAILABLE`).
-   Command: `npm run format:check --workspaces`.
+     Command: `npm run format:check --workspaces`.
 4. [x] Update design.md (flow + mermaid): add final MCP flow description, defaults, error handling, conversationId threading, ordered segments (thinking/vector_summary/answer), and a mermaid diagram using Context7 `/mermaid-js/mermaid`. Command: `npm run format:check --workspaces`.
 5. [x] Update projectStructure.md: list new `server/src/mcp2` files (server.ts, router.ts, types.ts, codexAvailability.ts, tools/codebaseQuestion.ts, tests) and mention port 5011. Command: `npm run format:check --workspaces`.
 6. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server` after all code for this task. fix any issues.
 7. [x] Capture Implementation notes and commit hashes; mark task done.
 
 #### Testing (separate subtasks)
+
 1. [x] Repo-wide lint (command): `npm run lint --workspaces`.
 2. [x] Server test suite (command): `npm run test --workspace server` (covers new MCP tests).
 3. [x] Manual verification: start server (`npm run dev --workspace server`), call `initialize`, `tools/list`, and `codebase_question` on port 5011 with and without Codex availability to observe `CODE_INFO_LLM_UNAVAILABLE` behaviour.
@@ -257,6 +284,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 12. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Documented the new Codex-only MCP port and `codebase_question` tool flow across README (env + JSON-RPC examples) and design.md (defaults, segment ordering, mermaid diagram), aligning docs with the implemented behaviour.
 - Extended projectStructure.md with the `server/src/mcp2` tree (router, availability guard, tools, codebaseQuestion) to keep the repo map current.
 - Completed full validation runs: lint/workspaces, server+client builds/tests, e2e suite, main compose build/up/down, and manual MCP/API smoke (with/without Codex) plus screenshots saved at `test-results/screenshots/0000012-03-home.png` and `test-results/screenshots/0000012-03-chat.png` using Playwright MCP + headless Chromium.
@@ -265,7 +293,7 @@ Verify the end-to-end MCP server works without regressing existing endpoints. Re
 
 ### 4. Fix MCP initialize handshake (protocolVersion + serverInfo)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 4c6c203
 
 #### Overview

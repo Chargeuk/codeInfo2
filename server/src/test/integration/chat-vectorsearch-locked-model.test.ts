@@ -192,9 +192,11 @@ test('chat SSE surfaces INGEST_REQUIRED when no locked model exists', async () =
       }) as unknown as LMStudioClient,
   );
 
-  const res = await request(app)
-    .post('/chat')
-    .send({ model: 'm', messages: [{ role: 'user', content: 'hello' }] });
+  const res = await request(app).post('/chat').send({
+    model: 'm',
+    conversationId: 'conv-vectorsearch-locked',
+    message: 'hello',
+  });
 
   const errorEvents = res.text
     .split('\n\n')
@@ -267,7 +269,11 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
 
   const res = await request(app)
     .post('/chat')
-    .send({ model: 'm', messages: [{ role: 'user', content: 'hello' }] })
+    .send({
+      model: 'm',
+      conversationId: 'conv-vectorsearch-locked-2',
+      message: 'hello',
+    })
     .expect(200);
 
   const events = res.text

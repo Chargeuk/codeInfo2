@@ -1,4 +1,8 @@
-import { InvalidParamsError, ToolNotFoundError } from './errors.js';
+import {
+  ArchivedConversationError,
+  InvalidParamsError,
+  ToolNotFoundError,
+} from './errors.js';
 import {
   CODEBASE_QUESTION_TOOL_NAME,
   codebaseQuestionDefinition,
@@ -9,7 +13,7 @@ import type { ToolDefinition } from './types.js';
 
 export type ToolListResult = { tools: ToolDefinition[] };
 
-export { InvalidParamsError, ToolNotFoundError };
+export { InvalidParamsError, ToolNotFoundError, ArchivedConversationError };
 
 type CallToolDeps = CodebaseQuestionDeps;
 

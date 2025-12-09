@@ -9,10 +9,16 @@ import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
+import {
+  connectMongo,
+  disconnectMongo,
+  isMongoConnected,
+} from './mongo/connection.js';
 import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
 import { createChatProvidersRouter } from './routes/chatProviders.js';
+import { createConversationsRouter } from './routes/conversations.js';
 import { createIngestCancelRouter } from './routes/ingestCancel.js';
 import { createIngestModelsRouter } from './routes/ingestModels.js';
 import { createIngestReembedRouter } from './routes/ingestReembed.js';
@@ -50,7 +56,12 @@ app.use((req, res, next) => {
 const clientFactory = (baseUrl: string) => getClient(baseUrl);
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime(), timestamp: Date.now() });
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    mongoConnected: isMongoConnected(),
+  });
 });
 
 app.get('/version', (_req, res) => {
@@ -68,6 +79,7 @@ app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
 app.use('/chat', createChatProvidersRouter());
 app.use('/chat', createChatModelsRouter({ clientFactory }));
+app.use('/', createConversationsRouter());
 app.use('/', createIngestStartRouter({ clientFactory }));
 app.use('/', createIngestModelsRouter({ clientFactory }));
 app.use('/', createIngestRootsRouter());
@@ -79,22 +91,45 @@ app.use('/', createToolsIngestedReposRouter());
 app.use('/', createToolsVectorSearchRouter());
 app.use('/', createMcpRouter());
 
-const server = app.listen(Number(PORT), () => console.log(`Server on ${PORT}`));
-startMcp2Server();
+let server: ReturnType<typeof app.listen> | undefined;
+
+const start = async () => {
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri) {
+    baseLogger.error('MONGO_URI is required but missing');
+    process.exit(1);
+  }
+  try {
+    await connectMongo(mongoUri);
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to connect to Mongo');
+    process.exit(1);
+  }
+
+  server = app.listen(Number(PORT), () => baseLogger.info(`Server on ${PORT}`));
+  startMcp2Server();
+};
+
+void start();
 
 const shutdown = async (signal: NodeJS.Signals) => {
-  console.log(`Received ${signal}, closing LM Studio clients...`);
+  baseLogger.info({ signal }, 'Shutting down services');
   try {
     await stopMcp2Server();
   } catch (err) {
-    console.error('Failed to close MCP v2 server', err);
+    baseLogger.error({ err }, 'Failed to close MCP v2 server');
   }
   try {
     await closeAll();
   } catch (err) {
-    console.error('Failed to close LM Studio clients', err);
+    baseLogger.error({ err }, 'Failed to close LM Studio clients');
+  }
+  try {
+    await disconnectMongo();
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to disconnect Mongo');
   } finally {
-    server.close(() => process.exit(0));
+    server?.close(() => process.exit(0));
   }
 };
 

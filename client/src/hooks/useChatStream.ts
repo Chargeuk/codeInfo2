@@ -1,6 +1,5 @@
 import { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SYSTEM_CONTEXT } from '../constants/systemContext';
 import { createLogger } from '../logging/logger';
 
 export type SandboxMode =
@@ -26,7 +25,7 @@ export type CodexFlagState = {
 
 export type ChatMessage = {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   kind?: 'error' | 'status';
   think?: string;
@@ -36,6 +35,7 @@ export type ChatMessage = {
   segments?: ChatSegment[];
   streamStatus?: 'processing' | 'complete' | 'failed';
   thinking?: boolean;
+  createdAt?: string;
 };
 
 export type ToolCitation = {
@@ -302,22 +302,38 @@ export function useChatStream(
       }),
     [log, model, provider],
   );
-  useEffect(() => {
-    threadIdRef.current = threadId;
-  }, [threadId]);
 
-  useEffect(() => {
-    setThreadId(null);
-    threadIdRef.current = null;
-  }, [provider]);
   const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const statusRef = useRef<Status>('idle');
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [conversationId, setConversationId] = useState<string>(() => makeId());
+  const conversationIdRef = useRef<string>(conversationId);
+  const suppressNextProviderResetRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVisibleTextAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    threadIdRef.current = threadId;
+  }, [threadId]);
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (suppressNextProviderResetRef.current) {
+      suppressNextProviderResetRef.current = false;
+      return;
+    }
+    setThreadId(null);
+    threadIdRef.current = null;
+    const nextConversationId = makeId();
+    setConversationId(nextConversationId);
+    conversationIdRef.current = nextConversationId;
+  }, [provider]);
 
   const clearThinkingTimer = useCallback(() => {
     if (thinkingTimerRef.current) {
@@ -379,7 +395,55 @@ export function useChatStream(
     lastVisibleTextAtRef.current = null;
     setThreadId(null);
     threadIdRef.current = null;
+    const nextConversationId = makeId();
+    setConversationId(nextConversationId);
+    conversationIdRef.current = nextConversationId;
+    return nextConversationId;
   }, [finishStreaming, updateMessages]);
+
+  const setConversation = useCallback(
+    (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+      console.info('[chat-stream] setConversation', {
+        nextConversationId,
+        clearMessages: Boolean(options?.clearMessages),
+      });
+      suppressNextProviderResetRef.current = true;
+      stop();
+      if (options?.clearMessages) {
+        updateMessages(() => []);
+      }
+      setThreadId(null);
+      threadIdRef.current = null;
+      setConversationId(nextConversationId);
+      conversationIdRef.current = nextConversationId;
+      console.info('[chat-stream] conversation set', {
+        conversationId: nextConversationId,
+      });
+    },
+    [stop, updateMessages],
+  );
+
+  const hydrateHistory = useCallback(
+    (
+      historyConversationId: string,
+      history: ChatMessage[],
+      mode: 'replace' | 'prepend' = 'replace',
+    ) => {
+      conversationIdRef.current = historyConversationId;
+      setConversationId(historyConversationId);
+      updateMessages((prev) => {
+        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
+        const seen = new Set<string>();
+        return next.filter((msg) => {
+          const key = msg.id;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      });
+    },
+    [updateMessages],
+  );
 
   const handleErrorBubble = useCallback(
     (message: string) => {
@@ -439,30 +503,20 @@ export function useChatStream(
       controllerRef.current = controller;
       setIsStreaming(true);
       setStatus('sending');
+      statusRef.current = 'sending';
 
       const userMessage: ChatMessage = {
         id: makeId(),
         role: 'user',
         content: trimmed,
+        createdAt: new Date().toISOString(),
       };
 
       updateMessages((prev) => [...prev, userMessage]);
 
-      // TODO: replace placeholder SYSTEM_CONTEXT when system prompt text is supplied.
-      const systemContext = SYSTEM_CONTEXT.trim();
-      const shouldIncludeHistory = provider !== 'codex';
-
-      const systemMessages =
-        systemContext && shouldIncludeHistory
-          ? [{ role: 'system', content: systemContext }]
-          : [];
-
-      const payloadMessages = shouldIncludeHistory
-        ? messagesRef.current
-            .filter((msg) => !msg.kind)
-            .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
-            .map((msg) => ({ role: msg.role, content: msg.content }))
-        : [];
+      const currentConversationId = conversationIdRef.current || makeId();
+      conversationIdRef.current = currentConversationId;
+      setConversationId(currentConversationId);
 
       const assistantId = makeId();
       let reasoning = initialReasoningState();
@@ -473,8 +527,13 @@ export function useChatStream(
       ];
       const toolsAwaitingAssistantOutput = new Set<string>();
       const pendingToolResults = new Set<string>();
+      let toolRequestsSeen = 0;
+      let toolResultsSeen = 0;
       const toolEchoGuards = new Set<string>();
       let completeFrameSeen = false;
+      let completeTimeout: ReturnType<typeof setTimeout> | null = null;
+      const COMPLETE_STATUS_DELAY_MS = 0;
+      const minProcessingUntil = Date.now();
       const logContentDecision = (reason: string, content: string) => {
         console.log('[chat-stream] content decision', { reason, content });
       };
@@ -496,14 +555,12 @@ export function useChatStream(
       };
 
       const computeWaitingForVisibleText = () => {
-        const now = Date.now();
-        const hasVisibleText = finalText.length > 0;
-        const lastVisible = lastVisibleTextAtRef.current;
-        const isIdleOver1s = !lastVisible || now - lastVisible >= 1000;
-
+        const hasVisibleText = segments.some(
+          (segment) => segment.kind === 'text' && segment.content.length > 0,
+        );
         return (
           statusRef.current === 'sending' &&
-          (!hasVisibleText || isIdleOver1s) &&
+          !hasVisibleText &&
           pendingToolResults.size === 0
         );
       };
@@ -538,18 +595,36 @@ export function useChatStream(
           segments,
           streamStatus: 'processing',
           thinking: false,
+          createdAt: new Date().toISOString(),
         },
       ]);
       lastVisibleTextAtRef.current = null;
       scheduleThinkingTimer();
 
+      // Yield so the initial "Processing" state can render before stream frames arrive.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       const maybeMarkComplete = () => {
         if (!completeFrameSeen) return;
-        if (pendingToolResults.size > 0) {
+        if (pendingToolResults.size > 0 || toolResultsSeen < toolRequestsSeen) {
           return;
         }
-        setAssistantStatus('complete');
-        setAssistantThinking(false);
+        if (completeTimeout) return;
+        const delay = Math.max(
+          COMPLETE_STATUS_DELAY_MS,
+          minProcessingUntil - Date.now(),
+        );
+        if (delay <= 0) {
+          setAssistantStatus('complete');
+          setAssistantThinking(false);
+          completeTimeout = null;
+          return;
+        }
+        completeTimeout = setTimeout(() => {
+          setAssistantStatus('complete');
+          setAssistantThinking(false);
+          completeTimeout = null;
+        }, delay);
       };
 
       const syncAssistantMessage = () => {
@@ -792,11 +867,8 @@ export function useChatStream(
           body: JSON.stringify({
             provider,
             model,
-            messages: [
-              ...systemMessages,
-              ...payloadMessages,
-              { role: 'user', content: trimmed },
-            ],
+            conversationId: currentConversationId,
+            message: trimmed,
             ...codexPayload,
           }),
           signal: controller.signal,
@@ -842,6 +914,7 @@ export function useChatStream(
                       ? 'error'
                       : 'done';
                 const id = event.callId ?? makeId();
+                const idStr = id.toString();
                 logWithChannel('info', 'chat tool event', {
                   type: event.type,
                   callId: id,
@@ -849,6 +922,11 @@ export function useChatStream(
                   stage: event.stage,
                 });
                 const applyResult = () => {
+                  if (event.type === 'tool-request') {
+                    toolRequestsSeen += 1;
+                  } else {
+                    toolResultsSeen += 1;
+                  }
                   const toolParameters =
                     event.parameters ??
                     (event.result &&
@@ -868,7 +946,7 @@ export function useChatStream(
                     errorFull: (event as { errorFull?: unknown }).errorFull,
                   });
                   if (event.type === 'tool-request') {
-                    pendingToolResults.add(id.toString());
+                    pendingToolResults.add(idStr);
                     toolsAwaitingAssistantOutput.add(id);
                     setAssistantThinking(false);
                     scheduleThinkingTimer();
@@ -876,7 +954,7 @@ export function useChatStream(
                   if (event.type === 'tool-result') {
                     const citations = extractCitations(event.result);
                     appendCitations(citations);
-                    pendingToolResults.delete(id.toString());
+                    pendingToolResults.delete(idStr);
                     toolsAwaitingAssistantOutput.delete(id);
                     toolEchoGuards.add(id.toString());
                     setAssistantThinking(computeWaitingForVisibleText());
@@ -1059,6 +1137,9 @@ export function useChatStream(
     send,
     stop,
     reset,
+    conversationId,
+    setConversation,
+    hydrateHistory,
   };
 }
 

@@ -285,13 +285,19 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 #### Subtasks
 
-1. [ ] Add LM Studio to factory static map for MCP usage (docs: MCP, JSON-RPC).
-2. [ ] Update MCP handler to accept provider `lmstudio` and use MCP wrapper to produce current segments JSON (docs: MCP, JSON-RPC).
-3. [ ] Integration test (MCP LM Studio payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
-   - Mock LM Studio stream to emit token + tool + final; snapshot payload matches Codex-style segments.
-4. [ ] Integration test (MCP LM Studio segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
-   - Verify segment order and absence of extra fields.
-5. [ ] Update `projectStructure.md` to list LM Studio MCP changes if new files/entries are added.
+1. [ ] Add LM Studio to factory map (docs: MCP, JSON-RPC):
+   - In `server/src/chat/factory.ts`, add `'lmstudio': () => new ChatInterfaceLMStudio()` to the provider map.
+   - Ensure `UnsupportedProviderError` still thrown for unknown providers.
+2. [ ] Update MCP handler to use factory for LM Studio (docs: MCP, JSON-RPC):
+   - In `server/src/mcp2/tools/codebaseQuestion.ts`, accept provider `lmstudio` when requested.
+   - Instantiate interface via `getChatInterface(provider)` and pipe normalized events to existing `McpResponder`.
+   - Keep archived-conversation guard unchanged.
+3. [ ] Integration test (LM Studio MCP payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
+   - Mock LM Studio stream to emit token + tool + final.
+   - Assert snapshot matches Codex-style segments (`thinking`, `vector_summary`, `answer` only).
+4. [ ] Integration test (LM Studio MCP segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
+   - Assert segment order is correct and no extra fields are present.
+5. [ ] Update `projectStructure.md` if new MCP-related files/entries were added/renamed in this task.
 6. [ ] Run lint/format for touched files.
 
 #### Testing
@@ -330,10 +336,22 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Subtasks
 
-1. [ ] In each subclass file (`ChatInterfaceCodex.ts`, `ChatInterfaceLMStudio.ts`), keep provider-specific config (timeouts, base URLs, model filters) local; ensure factory map just instantiates without passing config.
-2. [ ] Add shared `UnsupportedProviderError` in `server/src/chat/factory.ts` and reuse in REST and MCP handlers (adjust error handling in `chat.ts` and `mcp2` router to surface the same message/code).
-3. [ ] Remove obsolete provider conditionals/imports from `server/src/routes/chat.ts` and `server/src/mcp2/*` that the factory/interfaces now cover; list removed blocks in implementation notes.
-4. [ ] Run lint/format for touched files.
+1. [ ] Keep provider config in subclasses (docs: TS modules):
+   - Ensure `ChatInterfaceCodex.ts` and `ChatInterfaceLMStudio.ts` hold timeouts/base URLs/model filters locally.
+   - Verify `server/src/chat/factory.ts` simply instantiates classes without passing config args.
+2. [ ] Standardize `UnsupportedProviderError` (docs: MDN Errors, Express):
+   - Define/export `UnsupportedProviderError` in `server/src/chat/factory.ts` with code/message.
+   - Update REST `/chat` handler to map this error to HTTP 400 with the message.
+   - Update MCP router to map to JSON-RPC error with the same message/code.
+3. [ ] Remove obsolete conditionals/imports (docs: Express):
+   - In `server/src/routes/chat.ts`, delete legacy provider branching now covered by factory; note removed code blocks.
+   - In `server/src/mcp2/*`, delete duplicated provider checks handled by factory/McpResponder.
+4. [ ] Unit test (unsupported provider REST) `server/src/test/unit/chat-unsupported-provider.test.ts` (docs: Jest):
+   - Mock `/chat` call with bad provider; expect HTTP 400 and error message.
+5. [ ] Unit test (unsupported provider MCP) `server/src/test/unit/mcp-unsupported-provider.test.ts` (docs: Jest):
+   - Call MCP handler with bad provider; expect JSON-RPC error with code/message.
+6. [ ] Update `projectStructure.md` if file entries changed during cleanup.
+7. [ ] Run lint/format for touched files.
 
 #### Testing
 

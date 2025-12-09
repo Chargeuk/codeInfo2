@@ -450,6 +450,92 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
   assert.equal(finalEvent?.message?.content, 'after synthetic');
 });
 
+test('chat route emits complete after tool-result arrives', async () => {
+  const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+    opts.onRoundStart?.(0);
+
+    const vectorTool = tools.find((t) => t.name === 'VectorSearch');
+    if (!vectorTool) throw new Error('VectorSearch tool missing');
+    const toolCtx: ToolCallContext = {
+      status: () => undefined,
+      warn: () => undefined,
+      signal: new AbortController().signal,
+      callId: 3,
+    };
+    const toolResult = await (
+      vectorTool as unknown as {
+        implementation: (
+          params: unknown,
+          ctx: ToolCallContext,
+        ) => Promise<unknown>;
+      }
+    ).implementation({ query: 'ordering' }, toolCtx);
+
+    opts.onToolCallRequestStart?.(0, 3);
+    opts.onToolCallRequestNameReceived?.(0, 3, 'VectorSearch');
+    opts.onToolCallRequestEnd?.(0, 3, {
+      toolCallRequest: {
+        id: 'tool-3',
+        type: 'function',
+        arguments: { query: 'ordering' },
+        name: 'VectorSearch',
+      },
+    });
+    opts.onToolCallResult?.(0, 3, toolResult);
+
+    opts.onMessage?.({
+      data: {
+        role: 'assistant',
+        content: [{ type: 'text', text: '<|channel|>final<|message|>done' }],
+      },
+      mutable: true,
+    });
+
+    return Promise.resolve();
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send({
+      model: 'dummy-model',
+      conversationId: 'conv-tools-complete-order',
+      message: 'hello',
+    })
+    .expect(200);
+
+  const events = res.text
+    .split('\n\n')
+    .filter((chunk) => chunk.startsWith('data: '))
+    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+
+  const firstToolResultIndex = events.findIndex(
+    (e) => e.type === 'tool-result',
+  );
+  const firstCompleteIndex = events.findIndex((e) => e.type === 'complete');
+
+  assert.ok(firstToolResultIndex >= 0, 'expected tool-result event');
+  assert.ok(firstCompleteIndex >= 0, 'expected complete event');
+  assert.ok(
+    firstCompleteIndex > firstToolResultIndex,
+    'complete should be emitted after tool-result',
+  );
+});
+
 test('chat route suppresses assistant tool payload echo while emitting tool-result', async () => {
   const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
     opts.onRoundStart?.(0);

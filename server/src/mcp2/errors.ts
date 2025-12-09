@@ -13,3 +13,12 @@ export class ToolNotFoundError extends Error {
     this.name = 'ToolNotFoundError';
   }
 }
+
+export class ArchivedConversationError extends Error {
+  code: number;
+  constructor(message = 'conversation archived') {
+    super(message);
+    this.name = 'ArchivedConversationError';
+    this.code = 410;
+  }
+}

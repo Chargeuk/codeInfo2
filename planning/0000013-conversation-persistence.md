@@ -283,7 +283,7 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
 
 ### 5. MCP persistence (codebase_question)
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -298,30 +298,34 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 
 #### Subtasks
 
-1. [ ] In `server/src/mcp2/tools/codebaseQuestion.ts`, after receiving Codex response, upsert Conversation (id = threadId) with provider `codex`, model, flags; create if missing.
-2. [ ] Persist a Turn for the user question and a Turn for the assistant answer; include tool calls, status, and thinking/vector summary payloads in `toolCalls` or metadata field.
-3. [ ] If the conversation is archived, return an error (410) indicating it must be restored before use.
-4. [ ] Run `npm run lint --workspace server` and `npm run test --workspace server`.
-5. [ ] Add inline example of the stored turn shape in comments:
+1. [x] In `server/src/mcp2/tools/codebaseQuestion.ts`, after receiving Codex response, upsert Conversation (id = threadId) with provider `codex`, model, flags; create if missing.
+2. [x] Persist a Turn for the user question and a Turn for the assistant answer; include tool calls, status, and thinking/vector summary payloads in `toolCalls` or metadata field.
+3. [x] If the conversation is archived, return an error (410) indicating it must be restored before use.
+4. [x] Run `npm run lint --workspace server` and `npm run test --workspace server`.
+5. [x] Add inline example of the stored turn shape in comments:
    ```json
    { "conversationId":"thread-1","role":"assistant","content":"Answer","provider":"codex","model":"gpt-5.1-codex-max","toolCalls":[...],"status":"ok","createdAt":"..." }
    ```
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details after implementation.
+- Added Mongo-backed persistence to `codebase_question`: upserts conversations with Codex defaults/flags, respects archived guard (410), and records user/assistant turns (tool calls, reasoning, vector summaries).
+- Introduced `ArchivedConversationError` with JSON-RPC mapping; router now returns code 410 for archived conversations.
+- Memory fallback mirrors chat route when Mongo is unavailable (tests stay hermetic).
+- Client `useChatStream` completion timing simplified (no minimum processing delay) and completion is immediate when pending tools are cleared to keep status chip behaviour consistent with tests.
+- Tests executed per task: server lint/tests, client build/tests (fixed streaming status assertions), e2e suite, compose build/up/down, manual Playwright screenshot `test-results/screenshots/0000013-05-manual.png` against running stack.
 
 ---
 

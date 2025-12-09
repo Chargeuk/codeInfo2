@@ -481,7 +481,7 @@ export function useChatStream(
       let completeFrameSeen = false;
       let completeTimeout: ReturnType<typeof setTimeout> | null = null;
       const COMPLETE_STATUS_DELAY_MS = 0;
-      const minProcessingUntil = Date.now() + 1000;
+      const minProcessingUntil = Date.now();
       const logContentDecision = (reason: string, content: string) => {
         console.log('[chat-stream] content decision', { reason, content });
       };
@@ -555,14 +555,17 @@ export function useChatStream(
           COMPLETE_STATUS_DELAY_MS,
           minProcessingUntil - Date.now(),
         );
-        completeTimeout = setTimeout(
-          () => {
-            setAssistantStatus('complete');
-            setAssistantThinking(false);
-            completeTimeout = null;
-          },
-          delay > 0 ? delay : 0,
-        );
+        if (delay <= 0) {
+          setAssistantStatus('complete');
+          setAssistantThinking(false);
+          completeTimeout = null;
+          return;
+        }
+        completeTimeout = setTimeout(() => {
+          setAssistantStatus('complete');
+          setAssistantThinking(false);
+          completeTimeout = null;
+        }, delay);
       };
 
       const syncAssistantMessage = () => {

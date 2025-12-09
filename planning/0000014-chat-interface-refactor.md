@@ -68,27 +68,26 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 #### Subtasks
 
-1. [ ] Create `server/src/chat/interfaces/ChatInterface.ts` with:
-   - Exported normalized event types: `ChatTokenEvent { type:'token'; content:string }`, `ChatToolRequestEvent`, `ChatToolResultEvent`, `ChatFinalEvent`, `ChatCompleteEvent`, `ChatErrorEvent { message:string }`.
-   - Abstract class `ChatInterface` exposing `run(message: string, flags, conversationId, model): Promise<void>` plus protected hooks `emit(event)`, `loadHistory(conversationId)`, `persistTurn(...)`.
-   - Use Node EventEmitter (or a minimal internal emitter) to register listeners; include short code stub showing `on(eventType, handler)` usage.
-2. [ ] Create `server/src/chat/factory.ts`:
-   - Static provider map: `{ codex: () => new ChatInterfaceCodex(), lmstudio: () => new ChatInterfaceLMStudio() }` (use placeholder classes for now).
-   - Export `getChatInterface(provider: 'codex'|'lmstudio')` throwing a typed `UnsupportedProviderError`.
-   - Include code snippet in comments showing usage from routes.
-3. [ ] Add persistence wiring in `ChatInterface`:
-   - Import from `server/src/mongo/repo.ts`: `listTurns`, `appendTurn`, `updateConversationMeta`.
-   - Implement `loadHistory(conversationId)` -> calls `listTurns({conversationId, limit: Infinity, cursor: undefined})`.
-   - Implement `persistUser/assistant/tool turns` using `appendTurn`.
-   - Do not change routes yet—only base class helpers.
-4. [ ] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts`:
-   - Use a fake subclass to emit token/final/complete; assert listeners fire in order.
-5. [ ] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts`:
-   - Mock repo functions; assert `loadHistory` and `persistTurn` are called with correct arguments.
-6. [ ] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts`:
-   - Assert `getChatInterface('codex')` returns Codex placeholder instance.
-7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts`:
-   - Assert unsupported provider throws `UnsupportedProviderError` with code/message.
+1. [ ] Create `server/src/chat/interfaces/ChatInterface.ts` (docs: EventEmitter, TS classes, Streams, Jest):
+   - Export normalized event types: `ChatTokenEvent { type:'token'; content:string }`, `ChatToolRequestEvent { type:'tool-request'; name:string; callId:string; params:any }`, `ChatToolResultEvent { type:'tool-result'; callId:string; result:any }`, `ChatFinalEvent { type:'final'; content:string }`, `ChatCompleteEvent { type:'complete' }`, `ChatErrorEvent { type:'error'; message:string }`.
+   - Abstract class `ChatInterface` with `run(message: string, flags: any, conversationId: string, model: string): Promise<void>` and protected `emit(event)`, `loadHistory(conversationId)`, `persistTurn(turn)`.
+   - Include code stub showing `this.on('token', handler)` and `this.emit({ type:'token', content })`.
+2. [ ] Create `server/src/chat/factory.ts` (docs: TS modules, Jest):
+   - Static provider map: `{ codex: () => new ChatInterfaceCodex(), lmstudio: () => new ChatInterfaceLMStudio() }` (placeholder classes ok).
+   - Export `getChatInterface(provider: 'codex'|'lmstudio')` that throws `UnsupportedProviderError` when missing.
+   - Add comment snippet: `const chat = getChatInterface(provider);`.
+3. [ ] Add persistence wiring in `ChatInterface` (docs: Streams, Jest):
+   - Call `listTurns({ conversationId, limit: Infinity, cursor: undefined })` inside `loadHistory`.
+   - Call `appendTurn` for user/assistant/tool turns; call `updateConversationMeta` to bump `lastMessageAt`.
+   - No route changes yet.
+4. [ ] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
+   - Fake subclass emits token/final/complete; expect call order `['token','final','complete']`.
+5. [ ] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
+   - Mock repo; expect `loadHistory` and `persistTurn` invoked with conversationId and turn payload.
+6. [ ] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
+   - Expect `getChatInterface('codex')` returns Codex placeholder instance.
+7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
+   - Expect calling with `'unknown'` throws `UnsupportedProviderError` with message/code.
 8. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
 9. [ ] Run lint/format for touched areas.
 
@@ -129,19 +128,19 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 #### Subtasks
 
-1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceCodex.ts`:
+1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceCodex.ts` (docs: Express, SSE, JSON-RPC, Jest, Cucumber):
    - Use existing Codex client (see `server/src/mcp2/tools/codebaseQuestion.ts` for reference).
    - Map Codex stream to normalized events; ensure tool-call events map to `ChatToolRequestEvent/ChatToolResultEvent`.
    - Preserve Codex threadId and include in flags as today.
-2. [ ] Update `server/src/routes/chat.ts`:
+2. [ ] Update `server/src/routes/chat.ts` (docs: Express, SSE):
    - For provider `codex`, call `getChatInterface('codex')` and stream normalized events through the existing SSE helper (show snippet replacing previous Codex branch).
    - Remove history payload acceptance (already enforced), keep conversationId flow unchanged.
 3. [ ] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
-4. [ ] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts`:
+4. [ ] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber guides):
    - Assert SSE event order token -> tool request/result -> final -> complete.
-5. [ ] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts`:
+5. [ ] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber):
    - Assert threadId is returned and persisted (mock repo or DB check).
-6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts`:
+6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts` (docs: Jest):
    - Mock Codex client to emit token/final/error; assert normalized events fire.
 7. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
 8. [ ] Run lint/format for touched files.
@@ -183,18 +182,18 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 #### Subtasks
 
-1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`:
+1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` (docs: LM Studio SDK, SSE, TS unions, Jest, Cucumber):
    - Use LM Studio SDK calls currently in `server/src/routes/chat.ts` / `server/src/lmstudio/tools.ts`.
    - Map LM Studio tool events (ListIngestedRepositories, VectorSearch) to normalized tool request/result events with chunk/citation data preserved.
    - Emit tokens/final/complete per current behaviour.
-2. [ ] Update `server/src/routes/chat.ts`:
+2. [ ] Update `server/src/routes/chat.ts` (docs: Express, SSE):
    - For provider `lmstudio`, call `getChatInterface('lmstudio')` and stream normalized events through the SSE helper.
    - Remove LM Studio–specific conditional branches replaced by the interface.
-3. [ ] Integration test (LM Studio tool/citation content) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
+3. [ ] Integration test (LM Studio tool/citation content) `server/src/test/integration/chat-lmstudio-interface.test.ts` (docs: Jest, Cucumber):
    - Assert tool results include `hostPath`, `relPath`, `chunk` values from normalized tool events.
-4. [ ] Integration test (LM Studio status gating) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
+4. [ ] Integration test (LM Studio status gating) `server/src/test/integration/chat-lmstudio-interface.test.ts` (docs: Jest, Cucumber):
    - Assert status chip reaches Complete only after tool results arrive.
-5. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (existing files):
+5. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (docs: Jest):
    - Adjust mocks only if response shape changed; otherwise ensure tests still pass unchanged.
 6. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`.
 7. [ ] Run lint/format for touched files.
@@ -236,15 +235,15 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 #### Subtasks
 
-1. [ ] Implement MCP wrapper `server/src/chat/responders/McpResponder.ts`:
+1. [ ] Implement MCP wrapper `server/src/chat/responders/McpResponder.ts` (docs: MCP, JSON-RPC, Streams, Jest, Cucumber):
    - Accept normalized events and buffer into current MCP segments format: ordered `segments` with `thinking`, `vector_summary`, `answer`.
    - Drop unused fields; keep output identical to today’s Codex MCP JSON.
-2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`):
+2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`) (docs: MCP, JSON-RPC):
    - Obtain interface via `getChatInterface('codex')`, attach MCP wrapper, remove old Codex-specific assembly code.
    - Ensure archived-conversation checks remain.
-3. [ ] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
+3. [ ] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Compare payload to current MCP structure (snapshot or explicit fields).
-4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
+4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Verify segment order and absence of extra fields.
 5. [ ] Update `projectStructure.md` to list `server/src/chat/responders/McpResponder.ts`.
 6. [ ] Run lint/format for touched files.
@@ -286,13 +285,14 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 #### Subtasks
 
-1. [ ] Add LM Studio to factory static map for MCP usage; keep unsupported-provider error intact.
-2. [ ] Update MCP handler to accept provider `lmstudio` and use MCP wrapper to produce current segments JSON.
-3. [ ] Integration test (MCP LM Studio payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
+1. [ ] Add LM Studio to factory static map for MCP usage (docs: MCP, JSON-RPC).
+2. [ ] Update MCP handler to accept provider `lmstudio` and use MCP wrapper to produce current segments JSON (docs: MCP, JSON-RPC).
+3. [ ] Integration test (MCP LM Studio payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Mock LM Studio stream to emit token + tool + final; snapshot payload matches Codex-style segments.
-4. [ ] Integration test (MCP LM Studio segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
+4. [ ] Integration test (MCP LM Studio segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Verify segment order and absence of extra fields.
-5. [ ] Run lint/format for touched files.
+5. [ ] Update `projectStructure.md` to list LM Studio MCP changes if new files/entries are added.
+6. [ ] Run lint/format for touched files.
 
 #### Testing
 

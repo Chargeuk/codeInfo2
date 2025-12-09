@@ -308,6 +308,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 - `codebase_question` now uses the chat factory with injectable `codexFactory`, forces Codex availability when `MCP_FORCE_CODEX_AVAILABLE=true`, and drops legacy in-handler persistence/vector parsing in favour of the responder.
 - Factory accepts `codexFactory` and Codex interface skips persistence on request; added codex MCP integration tests for snapshot/order; updated projectStructure for responder and tests.
 - Lint/format fixed and passing; full test stack executed: server build+unit+integration+Cucumber, client build+Jest, full e2e suite, compose build/up/down, plus targeted compose up with attempted chat-codex-mcp Playwright run (spec is marked skipped upstream).
+- Gotchas/surprises: Codex detection was false in tests, so `codebase_question` now honors `MCP_FORCE_CODEX_AVAILABLE=true` and tests set detection explicitly. Codex mock types initially mismatched `CodexLike` (TurnOptions vs ThreadOptions) causing TSC errors; fixed by aligning mocks. Forgetting `skipPersistence` would double-write turns—kept flag explicit. ESLint import-order warnings surfaced after removing legacy helpers; fixed ordering. Manual MCP UI check needed a separate Playwright run (not covered by e2e) and saved screenshot `test-results/screenshots/0000014-04-manual-mcp.png`.
 
 ---
 

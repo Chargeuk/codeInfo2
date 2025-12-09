@@ -358,6 +358,7 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 - Mermaid diagrams: https://mermaid.js.org/intro/ — for the architecture diagram update.
 - Markdown basics: https://www.markdownguide.org/basic-syntax/ — to format README/projectStructure updates.
 - C4 Model overview: https://c4model.com/ — to structure architecture description if needed.
+- Mermaid docs via Context7: Context7 `/mermaid-js/mermaid` — for correct diagram syntax in `design.md`.
 
 #### Subtasks
 

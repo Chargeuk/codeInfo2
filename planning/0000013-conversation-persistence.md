@@ -284,7 +284,7 @@ Integrate persistence into existing chat flow so HTTP chat (LM Studio/Codex) cre
 ### 5. MCP persistence (codebase_question)
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits: 0a8a0a9
 
 #### Overview
 

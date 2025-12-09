@@ -371,16 +371,16 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 #### Subtasks
 
-1. [ ] Update `design.md`:
-   - Add a section “ChatInterface abstraction” describing base + factory + responders.
-   - Add/refresh mermaid diagram showing REST/MCP -> factory -> provider subclass -> responder (SSE/MCP).
-   - Note MCP payload compatibility and static provider list.
-2. [ ] Update `README.md`:
-   - Mention LM Studio now supported via MCP v2 using the shared ChatInterface.
-   - Briefly describe factory selection and that MCP output shape is unchanged.
-3. [ ] Update `projectStructure.md`:
+1. [ ] Update `design.md` (docs: Mermaid site + Context7 `/mermaid-js/mermaid`, Markdown guide):
+   - Add section “ChatInterface abstraction” describing base class, provider subclasses, factory, SSE responder, MCP wrapper.
+   - Insert/refresh mermaid diagram showing: REST/MCP entry → factory → provider subclass (Codex/LM Studio) → responder (SSE/MCP) → client; include conversationId/persistence notes.
+   - Mention MCP payload remains unchanged and provider list is static.
+2. [ ] Update `README.md` (docs: Markdown guide):
+   - Add short paragraph under features noting LM Studio now available via MCP v2 through the shared ChatInterface abstraction.
+   - Add one-line note that REST/MCP both use conversationId-only payloads (no full history).
+3. [ ] Update `projectStructure.md` (docs: Markdown guide):
    - Add entries for `server/src/chat/interfaces/ChatInterface.ts`, `ChatInterfaceCodex.ts`, `ChatInterfaceLMStudio.ts`, `server/src/chat/factory.ts`, `server/src/chat/responders/McpResponder.ts`.
-4. [ ] Run lint/format for docs if applicable.
+4. [ ] Run lint/format for docs if applicable (e.g., `npm run format -- --write design.md README.md projectStructure.md`).
 
 #### Testing
 
@@ -417,10 +417,14 @@ Run the full validation suite to confirm behaviour parity across REST and MCP fo
 
 #### Subtasks
 
-1. [ ] Verify MCP payload snapshots/compatibility for Codex and LM Studio (compare to stored fixtures from Task 4/5).
-2. [ ] Spot-check REST SSE behaviour for both providers (tokens, tools, status, citations) using existing e2e or manual curl + EventSource.
-3. [ ] Confirm unsupported-provider errors are clear in REST (`/chat`) and MCP (JSON-RPC error) when passing an unknown provider.
-4. [ ] Summarize changes and results in Implementation notes.
+1. [ ] Verify MCP payload snapshots/compatibility (docs: JSON-RPC, Jest):
+   - Re-run snapshots from `server/src/test/integration/mcp-codex-wrapper.test.ts` and `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`; confirm segments match expected shape.
+2. [ ] Spot-check REST SSE behaviour (docs: MDN SSE, Jest):
+   - Use `npm run e2e` or manual curl/EventSource to confirm token/tool/final/complete order and citations/status for Codex and LM Studio.
+3. [ ] Confirm unsupported-provider errors (docs: Express, JSON-RPC):
+   - REST `/chat` with bad provider returns clear error; MCP JSON-RPC returns error with code/message.
+4. [ ] Summarize changes/results in Implementation notes:
+   - List key behaviour parity findings, MCP compatibility confirmation, and any follow-ups.
 
 #### Testing
 

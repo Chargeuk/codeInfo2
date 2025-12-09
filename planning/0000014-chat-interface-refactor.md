@@ -61,9 +61,9 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 #### Documentation Locations
 
-- `design.md` (current chat flow and streaming details)
-- `projectStructure.md` (file locations)
-- plan_format instructions (this file)
+- Node.js EventEmitter docs: https://nodejs.org/api/events.html
+- TypeScript abstract classes/typing: https://www.typescriptlang.org/docs/handbook/2/classes.html
+- JSON streaming basics (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
 
 #### Subtasks
 
@@ -117,9 +117,9 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 #### Documentation Locations
 
-- `server/src/routes/chat.ts`
-- `server/src/mcp2` (for Codex behaviour reference)
-- `design.md` chat streaming section
+- Express routing: Context7 `/expressjs/express`
+- MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- JSON-RPC 2.0 spec (for Codex thread handling reference): https://www.jsonrpc.org/specification
 
 #### Subtasks
 
@@ -167,9 +167,9 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 #### Documentation Locations
 
-- `server/src/lmstudio/*`
-- `server/src/routes/chat.ts`
-- `design.md` LM Studio tools/streaming sections
+- LM Studio SDK docs (official): https://docs.lmstudio.ai/
+- SSE basics: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- TypeScript union types (for event mapping): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types
 
 #### Subtasks
 
@@ -215,8 +215,9 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 #### Documentation Locations
 
-- `server/src/mcp2/*` (current MCP flow and payload)
-- `design.md` MCP sections
+- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`)
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Streams to aggregation patterns (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
 
 #### Subtasks
 
@@ -260,8 +261,9 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 #### Documentation Locations
 
-- `server/src/mcp2/*`
-- `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`)
+- LM Studio SDK docs (official): https://docs.lmstudio.ai/
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
 
 #### Subtasks
 
@@ -300,9 +302,9 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Documentation Locations
 
-- `server/src/chat/factory.ts`
-- `server/src/chat/interfaces/*`
-- `design.md` (config notes)
+- TypeScript module exports & errors: https://www.typescriptlang.org/docs/handbook/modules.html
+- Error handling best practices (MDN JS Errors): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
+- Express error responses: Context7 `/expressjs/express`
 
 #### Subtasks
 
@@ -340,9 +342,9 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 #### Documentation Locations
 
-- `design.md`
-- `README.md`
-- `projectStructure.md`
+- Mermaid diagrams: https://mermaid.js.org/intro/
+- README style guidance (Markdown): https://www.markdownguide.org/basic-syntax/
+- Architecture documentation patterns: https://c4model.com/
 
 #### Subtasks
 
@@ -386,8 +388,9 @@ Run the full validation suite to confirm behaviour parity across REST and MCP fo
 
 #### Documentation Locations
 
-- This plan
-- `design.md` (for reference)
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- SSE behaviour reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- General test strategy (Jest): Context7 `/jestjs/jest`
 
 #### Subtasks
 

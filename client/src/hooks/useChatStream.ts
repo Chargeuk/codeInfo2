@@ -398,6 +398,10 @@ export function useChatStream(
 
   const setConversation = useCallback(
     (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+      console.info('[chat-stream] setConversation', {
+        nextConversationId,
+        clearMessages: Boolean(options?.clearMessages),
+      });
       stop();
       if (options?.clearMessages) {
         updateMessages(() => []);
@@ -406,6 +410,9 @@ export function useChatStream(
       threadIdRef.current = null;
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
+      console.info('[chat-stream] conversation set', {
+        conversationId: nextConversationId,
+      });
     },
     [stop, updateMessages],
   );

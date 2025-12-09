@@ -61,6 +61,8 @@ export function useConversationTurns(conversationId?: string): State {
   const fetchPage = useCallback(
     async (mode: Mode = 'replace') => {
       if (!conversationId) {
+        // Debug: no conversation selected; ensure state resets
+        console.info('[turns] reset (no conversationId)');
         setTurns([]);
         setLastPage([]);
         setLastMode(null);
@@ -72,6 +74,11 @@ export function useConversationTurns(conversationId?: string): State {
       controllerRef.current = controller;
       setIsLoading(true);
       try {
+        console.info('[turns] fetch start', {
+          conversationId,
+          mode,
+          cursor,
+        });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         if (mode === 'prepend' && cursor) search.set('cursor', cursor);
         const res = await fetch(
@@ -105,6 +112,13 @@ export function useConversationTurns(conversationId?: string): State {
             mode === 'prepend' ? [...chronological, ...prev] : chronological;
           return dedupeTurns(merged);
         });
+        console.info('[turns] fetch success', {
+          conversationId,
+          mode,
+          pageCount: chronological.length,
+          hasMore: Boolean(data.nextCursor),
+          nextCursor: data.nextCursor,
+        });
         setIsError(false);
         setError(undefined);
       } catch (err) {
@@ -129,7 +143,9 @@ export function useConversationTurns(conversationId?: string): State {
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-  }, [conversationId, fetchPage]);
+    // fetchPage depends on cursor; we only want to refetch when the conversation changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
 
   const loadOlder = useCallback(async () => {
     if (!hasMore || isLoading) return;

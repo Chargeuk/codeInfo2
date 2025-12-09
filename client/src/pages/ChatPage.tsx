@@ -166,6 +166,31 @@ export default function ChatPage() {
     loadOlder,
     reset: resetTurns,
   } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
+
+  useEffect(() => {
+    const debugState = {
+      activeConversationId,
+      persistenceUnavailable,
+      knownIds: Array.from(knownConversationIds),
+      shouldLoadTurns,
+      lastMode,
+      lastPageCount: lastPage.length,
+      lastPageFirst: lastPage[0]?.createdAt,
+      messageCount: messages.length,
+    };
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __chatDebug?: unknown }).__chatDebug = debugState;
+    }
+    console.info('[chat-history] load-turns-state', debugState);
+  }, [
+    activeConversationId,
+    knownConversationIds,
+    persistenceUnavailable,
+    shouldLoadTurns,
+    lastMode,
+    lastPage,
+    messages.length,
+  ]);
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexProvider = useMemo(
@@ -208,7 +233,9 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveConversationId(conversationId);
+    console.info('[chat-history] conversationId changed', { conversationId });
   }, [conversationId]);
 
   useEffect(() => {
@@ -301,9 +328,18 @@ export default function ChatPage() {
 
   const handleSelectConversation = (conversation: string) => {
     if (conversation === activeConversationId) return;
+    console.info('[chat-history] handleSelect', {
+      clickedId: conversation,
+      activeConversationId,
+    });
     const nextConversation = conversations.find(
       (c) => c.conversationId === conversation,
     );
+    console.info('[chat-history] selecting conversation', {
+      conversation,
+      provider: nextConversation?.provider,
+      model: nextConversation?.model,
+    });
     if (nextConversation?.provider && nextConversation.provider !== provider) {
       setProvider(nextConversation.provider);
     }
@@ -317,6 +353,12 @@ export default function ChatPage() {
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
+    setTimeout(() => {
+      console.info('[chat-history] post-select scheduled', {
+        clickedId: conversation,
+        activeConversationId: conversationId,
+      });
+    }, 0);
   };
 
   const handleArchive = async (id: string) => {
@@ -400,6 +442,12 @@ export default function ChatPage() {
     const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
+    console.info('[chat-history] hydrating turns', {
+      activeConversationId,
+      mode: lastMode,
+      count: lastPage.length,
+      first: lastPage[0]?.createdAt,
+    });
     if (lastMode === 'replace') {
       hydrateHistory(
         activeConversationId,

@@ -489,14 +489,18 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 4. [x] Ensure “New conversation” resets defaults but re-selecting a historical conversation rehydrates provider/model and loads turns.
 5. [x] Adjust provider lock logic to depend on the active conversation’s provider, not prior UI state; keep Codex tools availability gating intact.
 6. [x] Remove temporary debug logging once tests pass; keep minimal diagnostics only if still needed.
-7. [ ] Run lint/format and update docs if behaviour/UI wiring changes (design.md/projectStructure.md if needed).
+7. [x] Run lint/format and update docs if behaviour/UI wiring changes (design.md/projectStructure.md if needed).
+8. [ ] Make selection id authoritative: when a conversation row is clicked, immediately set the active conversation id to that row (no intermediate “new conversation” id). Files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`.
+9. [ ] Relax/load guard so hydration runs for the explicitly selected conversation even if `knownConversationIds` is not yet populated on the first click. Files: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversationTurns.ts`.
+10. [ ] Add regression coverage: RTL to assert single-click selection hydrates turns; Playwright e2e to assert transcript populates on first click (no double-click needed). Files: `client/src/test/chatPage.provider.conversationSelection.test.tsx`, `e2e/chat-provider-history.spec.ts`.
+11. [ ] Re-run full verification for Task 9 (lint, client/server tests, e2e, compose up/down, manual MCP check).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
 5. [ ] `npm run e2e` (includes new provider-selection scenario)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
@@ -505,4 +509,9 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 
 #### Implementation notes
 
-- To be filled during implementation.
+- Added RTL coverage to ensure selecting a Codex conversation switches the provider dropdown to Codex and renders stored turns; built Playwright e2e to seed LM + Codex conversations and assert provider/turn visibility (e2e still failing).
+- Synced provider/model to the selected conversation in `ChatPage` and lock logic now follows the active conversation; New Conversation keeps the previous provider/model selection while letting history reselection restore the saved provider.
+- Added history/persistence debug logging to ChatPage, useConversationTurns, useConversations, and Playwright to dump turns payloads plus `window.__chatDebug`.
+- Current finding: first click on a historical conversation clears the transcript but keeps the prior “new conversation” id as active, leaving `shouldLoadTurns=false`; turns API returns data, but hydration is skipped. Second click (after list/state catches up) sets the active id correctly, `shouldLoadTurns=true`, and the transcript hydrates. The fix will ensure the selected id is authoritative on first click and hydration isn’t gated by the stale active id/known set.
+- State trace from Playwright against the running stack: after first click, `window.__chatDebug` showed `activeConversationId` = newly-created id, `lastMode=null`, `messageCount=0`, `shouldLoadTurns=false` while network tab confirmed `/conversations/:id/turns` responded with two turns; second click flips `activeConversationId` to the selected history id, `shouldLoadTurns=true`, `lastMode='replace'`, and transcript populates immediately.
+- Latest e2e run (chat-provider-history) still failing: transcript stays at “Transcript will appear here...” after the first click; Playwright trace shows `activeConversationId` mutated to a fresh id (`3ece906a-...`) right after the click and `shouldLoadTurns=false` even though turn fetch 200 returned two turns for the selected history id.

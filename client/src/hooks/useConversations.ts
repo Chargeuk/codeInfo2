@@ -68,6 +68,11 @@ export function useConversations(): State {
       controllerRef.current = controller;
       setIsLoading(true);
       try {
+        console.info('[conversations] fetch start', {
+          mode,
+          includeArchived,
+          cursor,
+        });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         if (includeArchived) search.set('archived', 'true');
         if (mode === 'append' && cursor) search.set('cursor', cursor);
@@ -88,6 +93,11 @@ export function useConversations(): State {
             ? merged
             : merged.filter((item) => !item.archived);
           return dedupeAndSort(filtered);
+        });
+        console.info('[conversations] fetch success', {
+          mode,
+          received: items.length,
+          hasMore: Boolean(data.nextCursor),
         });
         setIsError(false);
         setError(undefined);
@@ -111,7 +121,9 @@ export function useConversations(): State {
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-  }, [includeArchived, fetchPage]);
+    // fetchPage depends on cursor; we only want to refetch when includeArchived toggles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [includeArchived]);
 
   const refresh = useCallback(async () => {
     setCursor(undefined);

@@ -189,12 +189,16 @@ describe('Chat page provider follows selected conversation', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    await screen.findByTestId('conversation-row');
+    await screen.findByText('Codex conversation');
 
     const providerSelect = screen.getByTestId('provider-select');
     expect(providerSelect).toHaveTextContent(/LM Studio/i);
 
-    const codexRow = await screen.findByText('Codex conversation');
+    const codexRowTitle = screen.getByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
     await userEvent.click(codexRow);
 
     await waitFor(() =>

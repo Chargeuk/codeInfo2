@@ -50,4 +50,322 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 
 ## Tasks
 
-Tasks will be added once scope questions are resolved.
+### 1. Extract ChatInterface base and factory scaffold
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Create the foundational `ChatInterface` abstraction with normalized streaming events and a static-provider factory. No provider logic changes yet; only scaffolding and unit coverage to prove the event flow and factory selection.
+
+#### Documentation Locations
+
+- `design.md` (current chat flow and streaming details)
+- `projectStructure.md` (file locations)
+- plan_format instructions (this file)
+
+#### Subtasks
+
+1. [ ] Create `server/src/chat/interfaces/ChatInterface.ts` defining normalized event types (token, tool-request/result, final, complete, error) and shared methods for loading/persisting turns, applying flags, and emitting events (use typed callbacks or an EventEmitter).
+2. [ ] Add `server/src/chat/factory.ts` with a static provider map (`codex`, `lmstudio`) returning the correct subclass (stub the subclasses for now). Include graceful unsupported-provider error.
+3. [ ] Wire shared persistence helpers in the base class to call existing Mongo repo functions (load turns by conversationId, append turns/tool calls, update lastMessageAt). Do not change route code yet.
+4. [ ] Add unit tests `server/src/test/unit/chat-interface-base.test.ts` covering event emission order, error propagation, and persistence hooks using fakes.
+5. [ ] Add unit tests `server/src/test/unit/chat-factory.test.ts` covering provider selection and unsupported-provider error.
+6. [ ] Run lint/format for touched areas.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 2. Move Codex REST onto ChatInterface
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the factory and base streaming events, preserving existing behaviour (tokens, tools, status, Codex threadId reuse).
+
+#### Documentation Locations
+
+- `server/src/routes/chat.ts`
+- `server/src/mcp2` (for Codex behaviour reference)
+- `design.md` chat streaming section
+
+#### Subtasks
+
+1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceCodex.ts` using the existing Codex client; map provider responses to normalized events.
+2. [ ] Update `/chat` route to obtain the Codex interface via the factory and emit SSE from normalized events (reuse current SSE helper).
+3. [ ] Remove Codex-specific conditionals from `chat.ts` now handled by the interface/factory.
+4. [ ] Ensure Codex threadId persistence and flags are preserved; add/adjust integration tests `server/src/test/integration/chat-codex-interface.test.ts`.
+5. [ ] Unit test Codex interface mapping (tokens, tool-request/result, final, complete, error).
+6. [ ] Run lint/format for touched files.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 3. Move LM Studio REST onto ChatInterface
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through the factory, and remove LM Studio conditionals while keeping tools/citations/status identical to current behaviour.
+
+#### Documentation Locations
+
+- `server/src/lmstudio/*`
+- `server/src/routes/chat.ts`
+- `design.md` LM Studio tools/streaming sections
+
+#### Subtasks
+
+1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` using the LM Studio SDK/tools; map SDK events to normalized events.
+2. [ ] Update `/chat` route to use factory for LM Studio path; remove LM-specific branching.
+3. [ ] Ensure tool payloads/citations/status chips match current REST behaviour; adjust integration tests or add `server/src/test/integration/chat-lmstudio-interface.test.ts`.
+4. [ ] Add/adjust RTL/e2e fixtures if needed to keep client expectations unchanged.
+5. [ ] Run lint/format for touched files.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 4. Build MCP wrapper and wire Codex through it
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Create the MCP responder/adapter that consumes normalized ChatInterface events and outputs the current MCP segments payload. Wire Codex MCP path to use factory + wrapper; ensure payload matches today’s shape.
+
+#### Documentation Locations
+
+- `server/src/mcp2/*` (current MCP flow and payload)
+- `design.md` MCP sections
+
+#### Subtasks
+
+1. [ ] Implement MCP wrapper (e.g., `server/src/chat/responders/McpResponder.ts`) that buffers normalized events into segments format used today, dropping unused fields.
+2. [ ] Update MCP Codex handler to instantiate the interface via factory and pass events through the MCP wrapper; remove old Codex-specific MCP handling duplication.
+3. [ ] Add compatibility tests `server/src/test/integration/mcp-codex-wrapper.test.ts` asserting payload equality with current contract (snapshot or explicit structure).
+4. [ ] Run lint/format for touched files.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 5. Enable LM Studio via MCP using the wrapper
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Allow the factory to return LM Studio for MCP requests, using the same wrapper to produce the existing segments format. Ensure tool/citation parity and backward compatibility.
+
+#### Documentation Locations
+
+- `server/src/mcp2/*`
+- `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+
+#### Subtasks
+
+1. [ ] Allow LM Studio in the static provider list for MCP path; ensure unsupported-provider handling remains clear.
+2. [ ] Wire MCP handler to select LM Studio when requested; feed events through the MCP wrapper.
+3. [ ] Add integration tests `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` verifying segments format matches Codex-style contract (drop unused fields).
+4. [ ] Run lint/format for touched files.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 6. Configuration and cleanup
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Keep provider-specific configs inside subclasses, static provider list in factory, and remove dead conditionals/imports introduced during the refactor. Add clear unsupported-provider error responses.
+
+#### Documentation Locations
+
+- `server/src/chat/factory.ts`
+- `server/src/chat/interfaces/*`
+- `design.md` (config notes)
+
+#### Subtasks
+
+1. [ ] Ensure provider config (timeouts, base URLs, model filters) lives in each subclass; factory stays a static selector.
+2. [ ] Add explicit unsupported-provider error shape reused by REST and MCP paths.
+3. [ ] Remove obsolete conditionals/imports from routes and MCP code paths now handled by factory/interfaces.
+4. [ ] Run lint/format for touched files.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 7. Documentation and diagrams
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, and LM Studio MCP support. Add/refresh diagrams as needed.
+
+#### Documentation Locations
+
+- `design.md`
+- `README.md`
+- `projectStructure.md`
+
+#### Subtasks
+
+1. [ ] Update `design.md` with the new architecture, factory flow, and MCP wrapper notes; include/update mermaid diagram.
+2. [ ] Update `README.md` with brief notes on the abstraction and LM Studio MCP availability.
+3. [ ] Update `projectStructure.md` to list new interface/factory/wrapper files.
+4. [ ] Run lint/format for docs if applicable.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 8. Final validation (story-level)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Run the full validation suite to confirm behaviour parity across REST and MCP for Codex and LM Studio after the refactor. Capture final notes.
+
+#### Documentation Locations
+
+- This plan
+- `design.md` (for reference)
+
+#### Subtasks
+
+1. [ ] Verify MCP payload snapshots/compatibility for Codex and LM Studio.
+2. [ ] Spot-check REST SSE behaviour for both providers (tokens, tools, status, citations).
+3. [ ] Confirm unsupported-provider errors are clear in REST and MCP.
+4. [ ] Summarize changes and results in Implementation notes.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.

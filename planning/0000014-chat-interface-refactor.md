@@ -27,7 +27,7 @@ MCP v2 response format stays unchanged (single JSON-RPC result with ordered `seg
 ## Questions
 
 - [Answered] Should MCP v2 responses share the same streaming adapter as REST, or keep MCP as single-response while reusing shared turn/metadata handling? → Keep MCP single-response format; use an MCP responder wrapper around the streaming `ChatInterface` to aggregate events into the current segment payload, so new providers work automatically with MCP.
-- Where should streaming adapters live: inside `ChatInterface` or as pluggable responders injected by the factory?
+- [Answered] Where should streaming adapters live: inside `ChatInterface` or as pluggable responders injected by the factory? → Keep it simple initially: place streaming/response adapter logic in the base `ChatInterface` (overridable by subclasses if required). If additional transports emerge later, refactor into pluggable responders at that point.
 - Do we want per-provider configuration (timeouts, model maps) centralised in the factory or alongside each subclass?
 - How should provider capability discovery be exposed to the factory (static list vs. runtime health checks)?
 - Any constraints on backwards compatibility of MCP payload shape when LM Studio is added (e.g., must segments mirror Codex output format)?

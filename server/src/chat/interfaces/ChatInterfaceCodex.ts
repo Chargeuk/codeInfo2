@@ -27,9 +27,22 @@ type CodexToolCallItem = {
   result?: { content?: unknown; error?: unknown };
 };
 
+export interface CodexLikeThread {
+  runStreamed: (
+    input: string,
+    opts?: CodexTurnOptions,
+  ) => Promise<{ events: AsyncGenerator<unknown> }>;
+}
+
+export interface CodexLike {
+  startThread: (opts?: CodexThreadOptions) => CodexLikeThread;
+  resumeThread: (id: string, opts?: CodexThreadOptions) => CodexLikeThread;
+}
+
 export class ChatInterfaceCodex extends ChatInterface {
   constructor(
-    private readonly codexFactory = () => new Codex(buildCodexOptions()),
+    private readonly codexFactory: () => CodexLike = () =>
+      new Codex(buildCodexOptions()) as unknown as CodexLike,
   ) {
     super();
   }
@@ -254,12 +267,13 @@ export class ChatInterfaceCodex extends ChatInterface {
     let reasoningText = '';
 
     try {
-      for await (const event of events) {
+      for await (const rawEvent of events as AsyncGenerator<unknown>) {
+        const event = rawEvent as Record<string, unknown>;
         if (signal?.aborted) {
           assistantStatus = 'stopped';
           break;
         }
-        switch (event.type) {
+        switch (event.type as string) {
           case 'thread.started':
             await emitThreadId((event as { thread_id?: string }).thread_id);
             break;

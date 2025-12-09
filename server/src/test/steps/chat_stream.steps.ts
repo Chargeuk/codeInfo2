@@ -76,7 +76,23 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(chatRequestFixture),
+    body: JSON.stringify({
+      provider:
+        (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
+      model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
+      conversationId: 'chat-fixture-conv',
+      message: Array.isArray(
+        (chatRequestFixture as { messages?: Array<{ content?: unknown }> })
+          .messages,
+      )
+        ? String(
+            (
+              chatRequestFixture as { messages?: Array<{ content?: unknown }> }
+            ).messages?.find((m) => (m as { role?: string }).role === 'user')
+              ?.content ?? 'Hello',
+          )
+        : 'Hello',
+    }),
   });
   statusCode = res.status;
   const reader = res.body?.getReader();
@@ -151,19 +167,37 @@ Then('tool events are logged to the log store', () => {
 When(
   'I POST to the chat endpoint with a two-message chat history',
   async () => {
+    const conversationId = 'chat-history-conv';
+
+    const first = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        model: 'model-1',
+        conversationId,
+        message: 'First question',
+      }),
+    });
+    const firstReader = first.body?.getReader();
+    if (firstReader) {
+      while (true) {
+        const { done } = await firstReader.read();
+        if (done) break;
+      }
+    }
+
     const res = await fetch(`${baseUrl}/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        provider: 'lmstudio',
         model: 'model-1',
-        messages: [
-          { role: 'user', content: 'First question' },
-          { role: 'assistant', content: 'First answer' },
-        ],
+        conversationId,
+        message: 'Second question',
       }),
     });
     statusCode = res.status;
-    // drain stream to let handlers run
     const reader = res.body?.getReader();
     if (!reader) return;
     while (true) {

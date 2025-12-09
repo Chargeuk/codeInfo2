@@ -71,6 +71,16 @@ beforeEach(() => {
     configPresent: false,
     reason: 'not detected',
   });
+  conversationSeq = 0;
+});
+
+let conversationSeq = 0;
+const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
+  provider: 'codex',
+  model: 'gpt-5.1-codex-max',
+  conversationId: `conv-codex-basic-${++conversationSeq}`,
+  message: 'Hi',
+  ...overrides,
 });
 
 test('codex chat streams token/final/complete with thread id', async () => {
@@ -92,11 +102,7 @@ test('codex chat streams token/final/complete with thread id', async () => {
 
   const res = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Hi' }],
-    })
+    .send(buildCodexBody({ conversationId: 'thread-abc' }))
     .expect(200);
 
   // Debug aid for SSE frames if this test fails
@@ -151,14 +157,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app)
-    .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'Hi' }],
-    })
-    .expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(200);
 
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
@@ -171,11 +170,7 @@ test('codex chat rejects when detection is unavailable', async () => {
 
   const resUnavailable = await request(app)
     .post('/chat')
-    .send({
-      provider: 'codex',
-      model: 'gpt-5.1-codex-max',
-      messages: [{ role: 'user', content: 'hi' }],
-    });
+    .send(buildCodexBody({ message: 'hi' }));
 
   assert.equal(resUnavailable.status, 503);
   assert.ok(resUnavailable.body.error?.includes('codex'));

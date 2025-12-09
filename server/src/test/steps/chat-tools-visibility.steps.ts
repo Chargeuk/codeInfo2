@@ -63,10 +63,23 @@ Given('chat visibility scenario {string}', (name: string) => {
 });
 
 When('I stream the chat endpoint with the chat request fixture', async () => {
+  const userMessage = Array.isArray(chatRequestFixture.messages)
+    ? String(
+        chatRequestFixture.messages.find(
+          (msg) => (msg as { role?: string }).role === 'user',
+        )?.content ?? 'Hello',
+      )
+    : 'Hello';
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(chatRequestFixture),
+    body: JSON.stringify({
+      provider:
+        (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
+      model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
+      conversationId: 'chat-visibility-fixture',
+      message: userMessage,
+    }),
   });
   statusCode = res.status;
   const reader = res.body?.getReader();

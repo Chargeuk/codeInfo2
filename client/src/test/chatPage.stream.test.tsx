@@ -19,11 +19,6 @@ await jest.unstable_mockModule('../logging/transport', () => ({
   _getQueue: () => loggedEntries,
 }));
 
-const mockedSystemContext = 'Stay concise and cite sources.';
-await jest.unstable_mockModule('../constants/systemContext', () => ({
-  SYSTEM_CONTEXT: mockedSystemContext,
-}));
-
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
 });
@@ -726,14 +721,10 @@ describe('Chat page streaming', () => {
     const chatCall = chatCalls.at(-1);
     const body = (chatCall?.[1] as RequestInit | undefined)?.body as string;
     const parsed = JSON.parse(body);
-    expect(parsed.messages[0]).toEqual({
-      role: 'system',
-      content: mockedSystemContext,
-    });
-    expect(parsed.messages.at(-1)).toEqual({
-      role: 'user',
-      content: 'Hello',
-    });
+    expect(typeof parsed.conversationId).toBe('string');
+    expect(parsed.message).toBe('Hello');
+    expect(parsed.provider).toBe('lmstudio');
+    expect(parsed.messages).toBeUndefined();
   });
 
   it('renders user and assistant bubbles with 14px border radius', async () => {

@@ -8,6 +8,7 @@ import type {
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
 import { Router, json } from 'express';
+import mongoose from 'mongoose';
 import {
   endStream,
   isStreamClosed,
@@ -18,6 +19,13 @@ import { buildCodexOptions } from '../config/codexConfig.js';
 import { createLmStudioTools } from '../lmstudio/tools.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
+import { ConversationModel, type Conversation } from '../mongo/conversation.js';
+import {
+  appendTurn,
+  createConversation,
+  updateConversationMeta,
+} from '../mongo/repo.js';
+import { TurnModel, type Turn, type TurnStatus } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
@@ -61,6 +69,12 @@ type LMMessage = {
   role?: string; // fallback
   content?: unknown; // fallback
 };
+
+const preferMemoryPersistence = process.env.NODE_ENV === 'test';
+const shouldUseMemoryPersistence = () =>
+  preferMemoryPersistence || mongoose.connection.readyState !== 1;
+const memoryConversations = new Map<string, Conversation>();
+const memoryTurns = new Map<string, Turn[]>();
 
 const isVectorPayload = (entry: unknown): boolean => {
   if (!entry || typeof entry !== 'object') return false;
@@ -106,6 +120,8 @@ export function createChatRouter({
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
   router.post('/', async (req, res) => {
+    // Request example: { "conversationId": "abc123", "model": "llama-3", "provider": "lmstudio", "message": "Hi there", "sandboxMode": "workspace-write" }
+    // History guard example error: 400 { "error": "invalid request", "message": "conversationId required; history is loaded server-side" }
     const requestId = res.locals.requestId as string | undefined;
     const rawBody = req.body ?? {};
     const rawSize = JSON.stringify(rawBody).length;
@@ -125,8 +141,187 @@ export function createChatRouter({
       throw err;
     }
 
-    const { model, messages, provider, threadId, codexFlags, warnings } =
-      validatedBody;
+    const {
+      model,
+      message,
+      provider,
+      conversationId,
+      threadId,
+      codexFlags,
+      warnings,
+    } = validatedBody;
+
+    const now = new Date();
+    const toolCallsForTurn: Array<Record<string, unknown>> = [];
+    let assistantContent = '';
+    let assistantStatus: TurnStatus = 'ok';
+    let assistantTurnRecorded = false;
+
+    const ensureConversation = async (): Promise<Conversation | null> => {
+      if (shouldUseMemoryPersistence()) {
+        const existing = memoryConversations.get(conversationId) ?? null;
+        if (existing?.archivedAt) {
+          res.status(410).json({ error: 'archived' });
+          return null;
+        }
+
+        if (!existing) {
+          const created: Conversation = {
+            _id: conversationId,
+            provider,
+            model,
+            title: message.trim().slice(0, 80) || 'Untitled conversation',
+            flags: provider === 'codex' ? { ...codexFlags } : {},
+            lastMessageAt: now,
+            archivedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          } as Conversation;
+          memoryConversations.set(conversationId, created);
+          return created;
+        }
+
+        const updated: Conversation = {
+          ...existing,
+          model,
+          flags:
+            provider === 'codex'
+              ? { ...(existing.flags ?? {}), ...codexFlags }
+              : existing.flags,
+          lastMessageAt: now,
+          updatedAt: now,
+        } as Conversation;
+        memoryConversations.set(conversationId, updated);
+        return updated;
+      }
+
+      const existing = (await ConversationModel.findById(conversationId)
+        .lean()
+        .exec()) as Conversation | null;
+      if (existing?.archivedAt) {
+        res.status(410).json({ error: 'archived' });
+        return null;
+      }
+
+      if (!existing) {
+        await createConversation({
+          conversationId,
+          provider,
+          model,
+          title: message.trim().slice(0, 80) || 'Untitled conversation',
+          flags: provider === 'codex' ? { ...codexFlags } : {},
+          lastMessageAt: now,
+        });
+        const created = (await ConversationModel.findById(conversationId)
+          .lean()
+          .exec()) as Conversation | null;
+        return created;
+      }
+
+      await updateConversationMeta({
+        conversationId,
+        model,
+        flags:
+          provider === 'codex'
+            ? { ...(existing.flags ?? {}), ...codexFlags }
+            : existing.flags,
+        lastMessageAt: now,
+      });
+      const updated = (await ConversationModel.findById(conversationId)
+        .lean()
+        .exec()) as Conversation | null;
+      return updated ?? existing;
+    };
+
+    const loadTurnsChronological = async (): Promise<Turn[]> =>
+      shouldUseMemoryPersistence()
+        ? [...(memoryTurns.get(conversationId) ?? [])]
+        : ((await TurnModel.find({ conversationId })
+            .sort({ createdAt: 1, _id: 1 })
+            .lean()
+            .exec()) as Turn[]);
+
+    const recordUserTurn = async () => {
+      if (shouldUseMemoryPersistence()) {
+        const turns = memoryTurns.get(conversationId) ?? [];
+        turns.push({
+          conversationId,
+          role: 'user',
+          content: message,
+          model,
+          provider,
+          toolCalls: null,
+          status: 'ok',
+          createdAt: now,
+        } as Turn);
+        memoryTurns.set(conversationId, turns);
+        const existing = memoryConversations.get(conversationId);
+        if (existing) {
+          memoryConversations.set(conversationId, {
+            ...existing,
+            lastMessageAt: now,
+            updatedAt: now,
+          });
+        }
+        return;
+      }
+      await appendTurn({
+        conversationId,
+        role: 'user',
+        content: message,
+        model,
+        provider,
+        toolCalls: null,
+        status: 'ok',
+        createdAt: now,
+      });
+    };
+
+    const recordAssistantTurn = async () => {
+      if (assistantTurnRecorded) return;
+      assistantTurnRecorded = true;
+      try {
+        if (shouldUseMemoryPersistence()) {
+          const turns = memoryTurns.get(conversationId) ?? [];
+          turns.push({
+            conversationId,
+            role: 'assistant',
+            content: assistantContent,
+            model,
+            provider,
+            toolCalls:
+              toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
+            status: assistantStatus,
+            createdAt: new Date(),
+          } as Turn);
+          memoryTurns.set(conversationId, turns);
+          const existing = memoryConversations.get(conversationId);
+          if (existing) {
+            memoryConversations.set(conversationId, {
+              ...existing,
+              lastMessageAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+          return;
+        }
+        await appendTurn({
+          conversationId,
+          role: 'assistant',
+          content: assistantContent,
+          model,
+          provider,
+          toolCalls:
+            toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
+          status: assistantStatus,
+        });
+      } catch (err) {
+        baseLogger.error(
+          { requestId, provider, model, conversationId, err },
+          'failed to record assistant turn',
+        );
+      }
+    };
 
     warnings.forEach((warning) => {
       append({
@@ -149,6 +344,12 @@ export function createChatRouter({
       ended = true;
       endStream(res);
     };
+
+    const existingConversation = await ensureConversation();
+    if (!existingConversation) return;
+
+    const storedTurns = await loadTurnsChronological();
+    await recordUserTurn();
 
     if (provider === 'codex') {
       const detection = getCodexDetection();
@@ -225,6 +426,10 @@ export function createChatRouter({
           process.env.CODEX_WORKDIR ??
           process.env.CODEINFO_CODEX_WORKDIR ??
           '/data';
+        const conversationThreadId =
+          threadId ??
+          (existingConversation.flags?.threadId as string | undefined) ??
+          null;
         const codexThreadOptions: CodexThreadOptions = {
           model,
           workingDirectory: codexWorkingDirectory,
@@ -237,30 +442,31 @@ export function createChatRouter({
         };
 
         const thread =
-          typeof threadId === 'string' && threadId.length > 0
-            ? codex.resumeThread(threadId, codexThreadOptions)
+          typeof conversationThreadId === 'string' &&
+          conversationThreadId.length > 0
+            ? codex.resumeThread(conversationThreadId, codexThreadOptions)
             : codex.startThread(codexThreadOptions);
 
-        let activeThreadId = thread.id ?? threadId ?? null;
+        let activeThreadId = thread.id ?? conversationThreadId ?? null;
         let finalText = '';
         let reasoningText = '';
+        const priorTurns = storedTurns.map((turn) => ({
+          role: turn.role,
+          content: turn.content,
+        }));
+        const promptHistory = [
+          ...priorTurns,
+          { role: 'user', content: message },
+        ];
 
         const systemContext = SYSTEM_CONTEXT.trim();
-        const typedMessages = messages as Array<{
-          role?: unknown;
-          content?: unknown;
-        }>;
-        const userText = typedMessages
-          .filter((msg) => msg?.role === 'user' || msg?.role === undefined)
-          .map((msg) =>
-            typeof msg?.content === 'string'
-              ? msg.content
-              : JSON.stringify(msg?.content ?? ''),
-          )
+        const userText = promptHistory
+          .filter((entry) => entry.role === 'user')
+          .map((entry) => entry.content)
           .join('\n\n');
 
         const prompt =
-          !threadId && systemContext
+          !conversationThreadId && systemContext
             ? `Context:\n${systemContext}\n\nUser:\n${userText}`
             : userText;
 
@@ -272,6 +478,29 @@ export function createChatRouter({
           if (!incoming || activeThreadId === incoming) return;
           activeThreadId = incoming;
           writeEvent(res, { type: 'thread', threadId: incoming });
+          if (shouldUseMemoryPersistence()) {
+            const existing = memoryConversations.get(conversationId);
+            if (existing) {
+              memoryConversations.set(conversationId, {
+                ...existing,
+                flags: { ...(existing.flags ?? {}), threadId: incoming },
+                updatedAt: new Date(),
+              });
+            }
+            return;
+          }
+          updateConversationMeta({
+            conversationId,
+            flags: {
+              ...(existingConversation.flags ?? {}),
+              threadId: incoming,
+            },
+          }).catch((err) =>
+            baseLogger.error(
+              { requestId, provider, model, err },
+              'failed to persist codex thread id',
+            ),
+          );
         };
 
         emitThreadId(activeThreadId);
@@ -421,6 +650,15 @@ export function createChatRouter({
           const error = (item.result as { error?: unknown } | undefined)?.error;
           const errorTrimmed = trimCodexError(error);
 
+          toolCallsForTurn.push({
+            callId,
+            name,
+            parameters,
+            result: payload,
+            stage: error ? 'error' : 'success',
+            error: errorTrimmed ?? undefined,
+          });
+
           writeEvent(res, {
             type: 'tool-result',
             callId,
@@ -494,6 +732,7 @@ export function createChatRouter({
               const delta = text.slice(finalText.length);
               if (delta) {
                 writeEvent(res, { type: 'token', content: delta });
+                assistantContent += delta;
               }
               finalText = text;
               if (event.type === 'item.completed') {
@@ -538,6 +777,7 @@ export function createChatRouter({
           }
           completed = true;
           writeEvent(res, { type: 'complete', threadId: activeThreadId });
+          assistantContent = finalText;
         }
 
         append({
@@ -546,29 +786,45 @@ export function createChatRouter({
           timestamp: new Date().toISOString(),
           source: 'server',
           requestId,
-          context: { provider, model, threadId: activeThreadId },
+          context: {
+            provider,
+            model,
+            threadId: activeThreadId,
+            conversationId,
+          },
         });
         baseLogger.info(
-          { requestId, provider, model, threadId: activeThreadId },
+          {
+            requestId,
+            provider,
+            model,
+            threadId: activeThreadId,
+            conversationId,
+          },
           'chat stream complete',
         );
       } catch (err) {
         const message =
           (err as Error | undefined)?.message ?? 'codex unavailable';
         writeEvent(res, { type: 'error', message });
+        assistantStatus = cancelled ? 'stopped' : 'failed';
         append({
           level: 'error',
           message: 'chat stream failed',
           timestamp: new Date().toISOString(),
           source: 'server',
           requestId,
-          context: { provider, model, error: message },
+          context: { provider, model, conversationId, error: message },
         });
         baseLogger.error(
-          { requestId, provider, model, error: message },
+          { requestId, provider, model, conversationId, error: message },
           'chat stream failed',
         );
       } finally {
+        if (cancelled && assistantContent === '') {
+          assistantStatus = 'stopped';
+        }
+        await recordAssistantTurn();
         endIfOpen();
       }
 
@@ -718,7 +974,17 @@ export function createChatRouter({
       });
 
       const tools = [...lmStudioTools];
-      const chat = Chat.from(messages as Parameters<typeof Chat.from>[0]);
+      const chatHistory = [
+        ...(SYSTEM_CONTEXT.trim()
+          ? [{ role: 'system', content: SYSTEM_CONTEXT.trim() }]
+          : []),
+        ...storedTurns.map((turn) => ({
+          role: turn.role,
+          content: turn.content,
+        })),
+        { role: 'user', content: message },
+      ];
+      const chat = Chat.from(chatHistory as Parameters<typeof Chat.from>[0]);
       let finalCount = 0;
       const writeIfOpen = (payload: unknown) => {
         if (cancelled || isStreamClosed(res)) return;
@@ -1011,6 +1277,9 @@ export function createChatRouter({
           content?: string;
           roundIndex?: number;
         }) => {
+          if (typeof fragment.content === 'string') {
+            assistantContent += fragment.content;
+          }
           writeIfOpen({
             type: 'token',
             content: fragment.content,
@@ -1068,6 +1337,16 @@ export function createChatRouter({
                   typeof callId === 'number'
                     ? parseToolParameters(callId, parsed)
                     : undefined,
+              });
+              toolCallsForTurn.push({
+                callId,
+                name,
+                parameters:
+                  typeof callId === 'number'
+                    ? parseToolParameters(callId, parsed)
+                    : undefined,
+                result: parsed,
+                stage: 'success',
               });
             }
           };
@@ -1174,6 +1453,7 @@ export function createChatRouter({
               message: { role: 'assistant', content: text },
               roundIndex: currentRound,
             });
+            assistantContent = text;
             return;
           }
 
@@ -1327,6 +1607,12 @@ export function createChatRouter({
             stage: 'error',
             error,
           });
+          toolCallsForTurn.push({
+            callId,
+            name: toolNames.get(callId),
+            stage: 'error',
+            error: trimError(error),
+          });
         },
         onToolCallResult: (
           roundIndex: number,
@@ -1362,6 +1648,13 @@ export function createChatRouter({
           emitToolResult(roundIndex, callId, name, payload, {
             parameters: parseToolParameters(callId, info),
           });
+          toolCallsForTurn.push({
+            callId,
+            name,
+            parameters: parseToolParameters(callId, info),
+            result: payload,
+            stage: 'success',
+          });
         },
       };
 
@@ -1374,7 +1667,7 @@ export function createChatRouter({
       await prediction;
 
       if (cancelled || req.aborted) {
-        return;
+        assistantStatus = 'stopped';
       }
       if (finalCount === 0) {
         writeIfOpen({
@@ -1395,32 +1688,47 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model, provider },
+        context: { baseUrl: safeBase, model, provider, conversationId },
       });
       baseLogger.info(
-        { requestId, baseUrl: safeBase, model, provider },
+        { requestId, baseUrl: safeBase, model, provider, conversationId },
         'chat stream complete',
       );
     } catch (err) {
       const message =
         (err as Error | undefined)?.message ?? 'lmstudio unavailable';
       writeEvent(res, { type: 'error', message });
+      assistantStatus = cancelled ? 'stopped' : 'failed';
       append({
         level: 'error',
         message: 'chat stream failed',
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, model, provider, error: message },
+        context: {
+          baseUrl: safeBase,
+          model,
+          provider,
+          conversationId,
+          error: message,
+        },
       });
       baseLogger.error(
-        { requestId, baseUrl: safeBase, model, provider, error: message },
+        {
+          requestId,
+          baseUrl: safeBase,
+          model,
+          provider,
+          conversationId,
+          error: message,
+        },
         'chat stream failed',
       );
     } finally {
       toolCtx.clear();
       toolArgs.clear();
       toolRequestIdToCallId.clear();
+      await recordAssistantTurn();
       endIfOpen();
     }
   });

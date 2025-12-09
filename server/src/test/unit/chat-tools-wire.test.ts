@@ -37,9 +37,11 @@ test('chat router injects LM Studio tools into act call', async () => {
 
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
 
-  const res = await request(app)
-    .post('/chat')
-    .send({ model: 'demo', messages: [{ role: 'user', content: 'hi' }] });
+  const res = await request(app).post('/chat').send({
+    model: 'demo',
+    conversationId: 'conv-unit-1',
+    message: 'hi',
+  });
 
   assert.equal(res.status, 200);
   assert.equal(toolFactory.mock.calls.length, 1);

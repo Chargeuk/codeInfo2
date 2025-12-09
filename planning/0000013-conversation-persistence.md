@@ -484,7 +484,7 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 #### Subtasks
 
 1. [x] Add failing RTL test reproducing current behaviour: start on LM Studio, click a Codex conversation; expect provider shows Codex and transcript renders stored turns (currently fails: provider stays LM Studio).
-2. [ ] Add failing Playwright e2e: seed one LM and one Codex conversation, click Codex conversation, assert provider lock shows Codex and turns are visible; currently expected to fail.
+2. [x] Add failing Playwright e2e: seed one LM and one Codex conversation, click Codex conversation, assert provider lock shows Codex and turns are visible; currently expected to fail.
 3. [ ] Update chat selection flow to set provider (and model) from the selected conversation before locking; ensure provider lock reflects the conversation’s provider.
 4. [ ] Ensure “New conversation” resets defaults but re-selecting a historical conversation rehydrates provider/model and loads turns.
 5. [ ] Adjust provider lock logic to depend on the active conversation’s provider, not prior UI state; keep Codex tools availability gating intact.

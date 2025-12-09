@@ -310,6 +310,7 @@ export function useChatStream(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string>(() => makeId());
   const conversationIdRef = useRef<string>(conversationId);
+  const suppressNextProviderResetRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVisibleTextAtRef = useRef<number | null>(null);
@@ -323,6 +324,10 @@ export function useChatStream(
   }, [conversationId]);
 
   useEffect(() => {
+    if (suppressNextProviderResetRef.current) {
+      suppressNextProviderResetRef.current = false;
+      return;
+    }
     setThreadId(null);
     threadIdRef.current = null;
     const nextConversationId = makeId();
@@ -402,6 +407,7 @@ export function useChatStream(
         nextConversationId,
         clearMessages: Boolean(options?.clearMessages),
       });
+      suppressNextProviderResetRef.current = true;
       stop();
       if (options?.clearMessages) {
         updateMessages(() => []);

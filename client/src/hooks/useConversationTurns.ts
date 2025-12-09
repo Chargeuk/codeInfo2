@@ -41,7 +41,7 @@ export function useConversationTurns(conversationId?: string): State {
   const [turns, setTurns] = useState<StoredTurn[]>([]);
   const [lastPage, setLastPage] = useState<StoredTurn[]>([]);
   const [lastMode, setLastMode] = useState<Mode | null>(null);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -77,10 +77,13 @@ export function useConversationTurns(conversationId?: string): State {
         console.info('[turns] fetch start', {
           conversationId,
           mode,
-          cursor,
+          cursor: cursorRef.current,
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
-        if (mode === 'prepend' && cursor) search.set('cursor', cursor);
+        const cursorToUse = mode === 'prepend' ? cursorRef.current : undefined;
+        if (mode === 'prepend' && cursorToUse) {
+          search.set('cursor', cursorToUse);
+        }
         const res = await fetch(
           new URL(
             `/conversations/${conversationId}/turns?${search.toString()}`,
@@ -106,7 +109,7 @@ export function useConversationTurns(conversationId?: string): State {
         setLastPage(chronological);
         setLastMode(mode);
         setHasMore(Boolean(data.nextCursor));
-        setCursor(data.nextCursor);
+        cursorRef.current = data.nextCursor;
         setTurns((prev) => {
           const merged =
             mode === 'prepend' ? [...chronological, ...prev] : chronological;
@@ -132,20 +135,18 @@ export function useConversationTurns(conversationId?: string): State {
         setIsLoading(false);
       }
     },
-    [conversationId, cursor, dedupeTurns],
+    [conversationId, dedupeTurns],
   );
 
   useEffect(() => {
     setTurns([]);
     setLastPage([]);
     setLastMode(null);
-    setCursor(undefined);
+    cursorRef.current = undefined;
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-    // fetchPage depends on cursor; we only want to refetch when the conversation changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
+  }, [conversationId, fetchPage]);
 
   const loadOlder = useCallback(async () => {
     if (!hasMore || isLoading) return;
@@ -156,7 +157,6 @@ export function useConversationTurns(conversationId?: string): State {
     setTurns([]);
     setLastPage([]);
     setLastMode(null);
-    setCursor(undefined);
     setHasMore(false);
     setIsError(false);
     setError(undefined);

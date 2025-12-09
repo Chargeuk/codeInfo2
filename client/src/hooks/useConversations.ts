@@ -39,7 +39,7 @@ const PAGE_SIZE = 20;
 export function useConversations(): State {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [includeArchived, setIncludeArchived] = useState(false);
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -71,11 +71,12 @@ export function useConversations(): State {
         console.info('[conversations] fetch start', {
           mode,
           includeArchived,
-          cursor,
+          cursor: cursorRef.current,
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         if (includeArchived) search.set('archived', 'true');
-        if (mode === 'append' && cursor) search.set('cursor', cursor);
+        const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
+        if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
         const res = await fetch(
           new URL(`/conversations?${search.toString()}`, serverBase).toString(),
           { signal: controller.signal },
@@ -86,7 +87,7 @@ export function useConversations(): State {
         const data = (await res.json()) as ApiResponse;
         const items = Array.isArray(data.items) ? data.items : [];
         setHasMore(Boolean(data.nextCursor));
-        setCursor(data.nextCursor);
+        cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
           const filtered = includeArchived
@@ -112,21 +113,20 @@ export function useConversations(): State {
         setIsLoading(false);
       }
     },
-    [includeArchived, cursor, dedupeAndSort],
+    [includeArchived, dedupeAndSort],
   );
 
   useEffect(() => {
-    setCursor(undefined);
+    cursorRef.current = undefined;
+    cursorRef.current = undefined;
     setConversations([]);
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-    // fetchPage depends on cursor; we only want to refetch when includeArchived toggles
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [includeArchived]);
+  }, [fetchPage, includeArchived]);
 
   const refresh = useCallback(async () => {
-    setCursor(undefined);
+    cursorRef.current = undefined;
     await fetchPage('replace');
   }, [fetchPage]);
 

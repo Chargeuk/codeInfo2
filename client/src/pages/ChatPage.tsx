@@ -233,7 +233,6 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveConversationId(conversationId);
     console.info('[chat-history] conversationId changed', { conversationId });
   }, [conversationId]);

@@ -80,11 +80,13 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
    - Implement `loadHistory(conversationId)` -> calls `listTurns({conversationId, limit: Infinity, cursor: undefined})`.
    - Implement `persistUser/assistant/tool turns` using `appendTurn`.
    - Do not change routes yet—only base class helpers.
-4. [ ] Add unit tests `server/src/test/unit/chat-interface-base.test.ts`:
-   - Use a fake subclass to emit token/final/complete and assert listener order.
-   - Mock repo functions to ensure `loadHistory` and `persistTurn` are called with correct args.
-5. [ ] Add unit tests `server/src/test/unit/chat-factory.test.ts`:
-   - Assert `getChatInterface('codex')` returns instance of placeholder Codex class.
+4. [ ] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts`:
+   - Use a fake subclass to emit token/final/complete; assert listeners fire in order.
+5. [ ] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts`:
+   - Mock repo functions; assert `loadHistory` and `persistTurn` are called with correct arguments.
+6. [ ] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts`:
+   - Assert `getChatInterface('codex')` returns Codex placeholder instance.
+7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts`:
    - Assert unsupported provider throws `UnsupportedProviderError` with code/message.
 6. [ ] Run lint/format for touched areas.
 
@@ -131,11 +133,12 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
    - For provider `codex`, call `getChatInterface('codex')` and stream normalized events through the existing SSE helper (show snippet replacing previous Codex branch).
    - Remove history payload acceptance (already enforced), keep conversationId flow unchanged.
 3. [ ] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
-4. [ ] Add/adjust integration tests `server/src/test/integration/chat-codex-interface.test.ts`:
-   - Assert SSE event order (token -> tool request/result -> final -> complete).
-   - Assert threadId is returned and persisted (check DB or mock repo).
-5. [ ] Add unit test `server/src/test/unit/chat-interface-codex.test.ts`:
-   - Mock Codex client to emit token/final/error and assert normalized events fired.
+4. [ ] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts`:
+   - Assert SSE event order token -> tool request/result -> final -> complete.
+5. [ ] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts`:
+   - Assert threadId is returned and persisted (mock repo or DB check).
+6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts`:
+   - Mock Codex client to emit token/final/error; assert normalized events fire.
 6. [ ] Run lint/format for touched files.
 
 #### Testing
@@ -180,10 +183,10 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 2. [ ] Update `server/src/routes/chat.ts`:
    - For provider `lmstudio`, call `getChatInterface('lmstudio')` and stream normalized events through the SSE helper.
    - Remove LM Studio–specific conditional branches replaced by the interface.
-3. [ ] Ensure citations/status parity:
-   - Integration test `server/src/test/integration/chat-lmstudio-interface.test.ts` asserting tool results include `hostPath`, `relPath`, `chunk`, and status chip reaches Complete only after tool results.
-4. [ ] Update/confirm client fixtures if needed:
-   - RTL/e2e remain passing; adjust mocks in `client/src/test/chatPage...` if response shape changed (should remain same).
+3. [ ] Integration test (LM Studio tool/citation parity) `server/src/test/integration/chat-lmstudio-interface.test.ts`:
+   - Assert tool results include `hostPath`, `relPath`, `chunk`; status chip reaches Complete only after tool results.
+4. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (existing files):
+   - Adjust mocks only if response shape changed; otherwise ensure tests still pass unchanged.
 5. [ ] Run lint/format for touched files.
 
 #### Testing
@@ -227,9 +230,9 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`):
    - Obtain interface via `getChatInterface('codex')`, attach MCP wrapper, remove old Codex-specific assembly code.
    - Ensure archived-conversation checks remain.
-3. [ ] Add compatibility tests `server/src/test/integration/mcp-codex-wrapper.test.ts`:
-   - Snapshot or explicit structure comparison to current MCP payload.
-   - Verify order of segments and absence of extra fields.
+3. [ ] Integration test (MCP Codex payload match) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
+   - Compare payload to current MCP structure (snapshot or explicit fields).
+   - Verify segment order and absence of extra fields.
 4. [ ] Run lint/format for touched files.
 
 #### Testing
@@ -269,8 +272,8 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 1. [ ] Add LM Studio to factory static map for MCP usage; keep unsupported-provider error intact.
 2. [ ] Update MCP handler to accept provider `lmstudio` and use MCP wrapper to produce current segments JSON.
-3. [ ] Add integration tests `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
-   - Mock LM Studio stream to emit token + tool + final; assert resulting MCP payload matches Codex-style segments (no extra fields).
+3. [ ] Integration test (MCP LM Studio payload) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`:
+   - Mock LM Studio stream to emit token + tool + final; assert MCP payload matches Codex-style segments (no extra fields).
 4. [ ] Run lint/format for touched files.
 
 #### Testing

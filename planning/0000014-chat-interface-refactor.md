@@ -315,7 +315,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 ### 5. Enable LM Studio via MCP using the wrapper
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **681cc35**
 
 #### Overview
 

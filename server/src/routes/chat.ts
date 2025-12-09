@@ -1,21 +1,16 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { LLMActionOpts, LMStudioClient } from '@lmstudio/sdk';
 import { Chat } from '@lmstudio/sdk';
-import { Codex } from '@openai/codex-sdk';
-import type {
-  ThreadEvent as CodexThreadEvent,
-  ThreadOptions as CodexThreadOptions,
-  TurnOptions as CodexTurnOptions,
-} from '@openai/codex-sdk';
 import { Router, json } from 'express';
 import mongoose from 'mongoose';
+import { getChatInterface } from '../chat/factory.js';
+import { ChatInterfaceCodex } from '../chat/interfaces/ChatInterfaceCodex.js';
 import {
   endStream,
   isStreamClosed,
   startStream,
   writeEvent,
 } from '../chatStream.js';
-import { buildCodexOptions } from '../config/codexConfig.js';
 import { createLmStudioTools } from '../lmstudio/tools.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
@@ -32,18 +27,16 @@ import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 type ToolFactory = typeof createLmStudioTools;
-
-type CodexThread = {
+type CodexThreadLike = {
   id: string | null;
   runStreamed: (
     input: string,
-    opts?: CodexTurnOptions,
-  ) => Promise<{ events: AsyncGenerator<CodexThreadEvent> }>;
+    opts?: unknown,
+  ) => Promise<{ events: AsyncGenerator<unknown> }>;
 };
-
 type CodexFactory = () => {
-  startThread: (opts?: CodexThreadOptions) => CodexThread;
-  resumeThread: (id: string, opts?: CodexThreadOptions) => CodexThread;
+  startThread: (opts?: unknown) => CodexThreadLike;
+  resumeThread: (id: string, opts?: unknown) => CodexThreadLike;
 };
 
 type LMContentItem =
@@ -109,7 +102,7 @@ export const getContentItems = (message: unknown): LMContentItem[] => {
 export function createChatRouter({
   clientFactory,
   toolFactory = createLmStudioTools,
-  codexFactory = () => new Codex(buildCodexOptions()),
+  codexFactory,
 }: {
   clientFactory: ClientFactory;
   toolFactory?: ToolFactory;
@@ -420,366 +413,103 @@ export function createChatRouter({
       });
       baseLogger.info({ requestId, provider, model }, 'chat stream start');
 
+      const chat = codexFactory
+        ? new ChatInterfaceCodex(codexFactory)
+        : (getChatInterface('codex') as ChatInterfaceCodex);
+
+      let assistantContent = '';
+      let assistantStatus: TurnStatus = 'ok';
+      let activeThreadId =
+        threadId ??
+        (existingConversation.flags?.threadId as string | undefined) ??
+        null;
+      const toolCallsForTurn: Array<Record<string, unknown>> = [];
+
+      chat.on('token', (ev) => {
+        if (cancelled) return;
+        writeEvent(res, { type: 'token', content: ev.content });
+        assistantContent += ev.content;
+      });
+
+      chat.on('analysis', (ev) => {
+        if (cancelled) return;
+        writeEvent(res, { type: 'analysis', content: ev.content });
+      });
+
+      chat.on('tool-request', (ev) => {
+        if (cancelled) return;
+        writeEvent(res, {
+          type: 'tool-request',
+          callId: ev.callId,
+          name: ev.name,
+          stage: ev.stage ?? 'started',
+          parameters: ev.params,
+        });
+      });
+
+      chat.on('tool-result', (ev) => {
+        if (cancelled) return;
+        toolCallsForTurn.push({
+          callId: ev.callId,
+          name: ev.name,
+          parameters: ev.params,
+          result: ev.result,
+          stage: ev.stage,
+          error: ev.error ?? undefined,
+        });
+        writeEvent(res, {
+          type: 'tool-result',
+          callId: ev.callId,
+          name: ev.name,
+          stage: ev.stage,
+          parameters: ev.params,
+          result: ev.result,
+          errorTrimmed: ev.error ?? undefined,
+        });
+      });
+
+      chat.on('final', (ev) => {
+        if (cancelled) return;
+        assistantContent = ev.content;
+        writeEvent(res, {
+          type: 'final',
+          message: { role: 'assistant', content: ev.content },
+        });
+      });
+
+      chat.on('thread', (ev) => {
+        activeThreadId = ev.threadId;
+        writeEvent(res, { type: 'thread', threadId: ev.threadId });
+      });
+
+      chat.on('complete', (ev) => {
+        completed = true;
+        const tid = ev.threadId ?? activeThreadId;
+        writeEvent(res, { type: 'complete', threadId: tid });
+        activeThreadId = tid ?? activeThreadId;
+      });
+
+      chat.on('error', (ev) => {
+        assistantStatus = cancelled ? 'stopped' : 'failed';
+        writeEvent(res, { type: 'error', message: ev.message });
+      });
+
       try {
-        const codex = codexFactory();
-        const codexWorkingDirectory =
-          process.env.CODEX_WORKDIR ??
-          process.env.CODEINFO_CODEX_WORKDIR ??
-          '/data';
-        const conversationThreadId =
-          threadId ??
-          (existingConversation.flags?.threadId as string | undefined) ??
-          null;
-        const codexThreadOptions: CodexThreadOptions = {
+        await (chat as ChatInterfaceCodex).run(
+          message,
+          {
+            threadId: activeThreadId,
+            codexFlags,
+            requestId,
+            signal: controller.signal,
+          },
+          conversationId,
           model,
-          workingDirectory: codexWorkingDirectory,
-          skipGitRepoCheck: true,
-          sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
-          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
-          webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
-          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
-          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
-        };
-
-        const thread =
-          typeof conversationThreadId === 'string' &&
-          conversationThreadId.length > 0
-            ? codex.resumeThread(conversationThreadId, codexThreadOptions)
-            : codex.startThread(codexThreadOptions);
-
-        let activeThreadId = thread.id ?? conversationThreadId ?? null;
-        let finalText = '';
-        let reasoningText = '';
-        const priorTurns = storedTurns.map((turn) => ({
-          role: turn.role,
-          content: turn.content,
-        }));
-        const promptHistory = [
-          ...priorTurns,
-          { role: 'user', content: message },
-        ];
-
-        const systemContext = SYSTEM_CONTEXT.trim();
-        const userText = promptHistory
-          .filter((entry) => entry.role === 'user')
-          .map((entry) => entry.content)
-          .join('\n\n');
-
-        const prompt =
-          !conversationThreadId && systemContext
-            ? `Context:\n${systemContext}\n\nUser:\n${userText}`
-            : userText;
-
-        const { events } = await thread.runStreamed(prompt, {
-          signal: controller.signal,
-        } as CodexTurnOptions);
-
-        const emitThreadId = (incoming?: string | null) => {
-          if (!incoming || activeThreadId === incoming) return;
-          activeThreadId = incoming;
-          writeEvent(res, { type: 'thread', threadId: incoming });
-          if (shouldUseMemoryPersistence()) {
-            const existing = memoryConversations.get(conversationId);
-            if (existing) {
-              memoryConversations.set(conversationId, {
-                ...existing,
-                flags: { ...(existing.flags ?? {}), threadId: incoming },
-                updatedAt: new Date(),
-              });
-            }
-            return;
-          }
-          updateConversationMeta({
-            conversationId,
-            flags: {
-              ...(existingConversation.flags ?? {}),
-              threadId: incoming,
-            },
-          }).catch((err) =>
-            baseLogger.error(
-              { requestId, provider, model, err },
-              'failed to persist codex thread id',
-            ),
-          );
-        };
-
-        emitThreadId(activeThreadId);
-
-        type CodexToolCallItem = {
-          type?: string;
-          id?: string;
-          name?: string;
-          arguments?: unknown;
-          status?: string;
-          result?: { content?: unknown; error?: unknown };
-        };
-
-        const codexToolCtx = new Map<
-          string,
-          { name?: string; parameters?: unknown }
-        >();
-
-        const parseCodexToolParameters = (item: CodexToolCallItem): unknown => {
-          const raw =
-            (item as { arguments?: unknown; args?: unknown }).arguments ??
-            (item as { args?: unknown }).args;
-          if (raw === undefined) return undefined;
-          if (typeof raw === 'string') {
-            try {
-              return JSON.parse(raw);
-            } catch {
-              return raw;
-            }
-          }
-          return raw;
-        };
-
-        const pickContent = (content?: unknown): unknown | null => {
-          if (!Array.isArray(content)) return null;
-          const jsonEntry = content.find(
-            (entry) =>
-              entry &&
-              typeof entry === 'object' &&
-              (entry as { type?: string }).type === 'application/json' &&
-              'json' in (entry as Record<string, unknown>),
-          ) as { json?: unknown } | undefined;
-          if (jsonEntry && 'json' in jsonEntry) {
-            return jsonEntry.json as unknown;
-          }
-
-          const textEntry = content.find(
-            (entry) =>
-              entry &&
-              typeof entry === 'object' &&
-              (entry as { type?: string }).type === 'text' &&
-              typeof (entry as { text?: unknown }).text === 'string',
-          ) as { text?: string } | undefined;
-
-          if (textEntry?.text) {
-            try {
-              return JSON.parse(textEntry.text);
-            } catch {
-              return textEntry.text;
-            }
-          }
-
-          return null;
-        };
-
-        const parseCodexToolResult = (item: CodexToolCallItem): unknown => {
-          const content = (item.result as { content?: unknown } | undefined)
-            ?.content;
-          const picked = pickContent(content);
-          if (picked !== null) return picked;
-          if ((item.result as { error?: unknown } | undefined)?.error) {
-            return { error: (item.result as { error?: unknown }).error };
-          }
-          return item.result ?? null;
-        };
-
-        const trimCodexError = (
-          err: unknown,
-        ): { code?: string; message: string } | null => {
-          if (!err) return null;
-          if (typeof err === 'object') {
-            const obj = err as Record<string, unknown>;
-            const message =
-              typeof obj.message === 'string' ? obj.message : String(err);
-            const code = typeof obj.code === 'string' ? obj.code : undefined;
-            return { code, message };
-          }
-          return { message: String(err) };
-        };
-
-        const deriveCodexToolName = (
-          item: CodexToolCallItem,
-        ): string | undefined => {
-          const args = (item as { arguments?: Record<string, unknown> })
-            .arguments;
-          const argTool =
-            args && typeof args === 'object' && typeof args.tool === 'string'
-              ? args.tool
-              : undefined;
-          return (
-            item.name ||
-            (item as { tool_name?: string }).tool_name ||
-            (item as { tool?: string }).tool ||
-            argTool ||
-            undefined
-          );
-        };
-
-        const emitCodexToolRequest = (item: CodexToolCallItem) => {
-          if (item.type !== 'mcp_tool_call') return;
-          const callId = item.id ?? `codex-tool-${Date.now()}`;
-          const name = deriveCodexToolName(item);
-          const parameters = parseCodexToolParameters(item);
-          codexToolCtx.set(String(callId), {
-            name,
-            parameters,
-          });
-          baseLogger.info(
-            {
-              requestId,
-              provider,
-              model,
-              callId,
-              itemKeys: Object.keys(item ?? {}),
-              toolName: name ?? null,
-              item,
-            },
-            'codex tool call observed',
-          );
-          writeEvent(res, {
-            type: 'tool-request',
-            callId,
-            name,
-            stage: 'started',
-            parameters,
-          });
-        };
-
-        const emitCodexToolResult = (item: CodexToolCallItem) => {
-          if (item.type !== 'mcp_tool_call') return;
-          const callId = item.id ?? 'codex-tool';
-          const stored = codexToolCtx.get(String(callId));
-          const parameters =
-            stored?.parameters ?? parseCodexToolParameters(item);
-          const name = stored?.name ?? deriveCodexToolName(item);
-          const payload = parseCodexToolResult(item);
-          const error = (item.result as { error?: unknown } | undefined)?.error;
-          const errorTrimmed = trimCodexError(error);
-
-          toolCallsForTurn.push({
-            callId,
-            name,
-            parameters,
-            result: payload,
-            stage: error ? 'error' : 'success',
-            error: errorTrimmed ?? undefined,
-          });
-
-          writeEvent(res, {
-            type: 'tool-result',
-            callId,
-            name,
-            stage: error ? 'error' : 'success',
-            parameters,
-            result: payload,
-            errorTrimmed: errorTrimmed ?? undefined,
-            errorFull: error ?? undefined,
-          });
-        };
-
-        for await (const event of events) {
-          if (cancelled || isStreamClosed(res)) break;
-          baseLogger.info(
-            {
-              requestId,
-              provider,
-              model,
-              eventType: event.type,
-              itemType:
-                (event as { item?: { type?: unknown } })?.item?.type ?? null,
-              itemKeys: Object.keys(
-                ((event as { item?: Record<string, unknown> }).item ??
-                  {}) as Record<string, unknown>,
-              ),
-            },
-            'codex event',
-          );
-          switch (event.type) {
-            case 'thread.started': {
-              emitThreadId(event.thread_id);
-              break;
-            }
-            case 'item.started': {
-              const item = (event as { item?: unknown })?.item as
-                | CodexToolCallItem
-                | undefined;
-              if (item?.type === 'mcp_tool_call') {
-                emitCodexToolRequest(item);
-              }
-              break;
-            }
-            case 'item.updated':
-            case 'item.completed': {
-              const item = (event as { item?: unknown })?.item as
-                | CodexToolCallItem
-                | { type?: string; text?: string }
-                | undefined;
-
-              if (item?.type === 'reasoning') {
-                const text = (item as { text?: string }).text ?? '';
-                const delta = text.slice(reasoningText.length);
-                if (delta) {
-                  // Codex reasoning feeds the client analysis stream (parity with LM Studio).
-                  writeEvent(res, { type: 'analysis', content: delta });
-                  reasoningText = text;
-                }
-                break;
-              }
-
-              if (item?.type === 'mcp_tool_call') {
-                if (event.type === 'item.completed') {
-                  emitCodexToolResult(item);
-                }
-                break;
-              }
-
-              if (!item || item.type !== 'agent_message') break;
-              const text = (item as { text?: string }).text ?? '';
-              const delta = text.slice(finalText.length);
-              if (delta) {
-                writeEvent(res, { type: 'token', content: delta });
-                assistantContent += delta;
-              }
-              finalText = text;
-              if (event.type === 'item.completed') {
-                writeEvent(res, {
-                  type: 'final',
-                  message: { role: 'assistant', content: finalText },
-                });
-              }
-              break;
-            }
-            case 'turn.failed': {
-              const message = (event as { error?: { message?: string } })?.error
-                ?.message;
-              writeEvent(res, {
-                type: 'error',
-                message: message ?? 'codex turn failed',
-              });
-              break;
-            }
-            case 'error': {
-              writeEvent(res, {
-                type: 'error',
-                message: (event as { message?: string })?.message,
-              });
-              break;
-            }
-            case 'turn.completed': {
-              emitThreadId(activeThreadId);
-              break;
-            }
-            default:
-              break;
-          }
-        }
-
-        if (!isStreamClosed(res)) {
-          if (finalText.length === 0) {
-            writeEvent(res, {
-              type: 'final',
-              message: { role: 'assistant', content: '' },
-            });
-          }
+        );
+        if (!completed && !isStreamClosed(res)) {
           completed = true;
           writeEvent(res, { type: 'complete', threadId: activeThreadId });
-          assistantContent = finalText;
         }
-
         append({
           level: 'info',
           message: 'chat stream complete',
@@ -804,27 +534,33 @@ export function createChatRouter({
           'chat stream complete',
         );
       } catch (err) {
-        const message =
+        const messageText =
           (err as Error | undefined)?.message ?? 'codex unavailable';
-        writeEvent(res, { type: 'error', message });
         assistantStatus = cancelled ? 'stopped' : 'failed';
+        writeEvent(res, { type: 'error', message: messageText });
         append({
           level: 'error',
           message: 'chat stream failed',
           timestamp: new Date().toISOString(),
           source: 'server',
           requestId,
-          context: { provider, model, conversationId, error: message },
+          context: { provider, model, conversationId, error: messageText },
         });
         baseLogger.error(
-          { requestId, provider, model, conversationId, error: message },
+          { requestId, provider, model, conversationId, error: messageText },
           'chat stream failed',
         );
       } finally {
         if (cancelled && assistantContent === '') {
           assistantStatus = 'stopped';
         }
-        await recordAssistantTurn();
+        // Codex class already persisted assistant turn; we still emit status bubble when stopped.
+        if (assistantStatus === 'stopped') {
+          writeEvent(res, {
+            type: 'error',
+            message: 'generation stopped',
+          });
+        }
         endIfOpen();
       }
 

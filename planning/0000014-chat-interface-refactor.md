@@ -131,11 +131,11 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 #### Subtasks
 
-1. [ ] Implement `server/src/chat/interfaces/ChatInterfaceCodex.ts` (docs: Express, SSE, JSON-RPC, Jest, Cucumber):
+1. [x] Implement `server/src/chat/interfaces/ChatInterfaceCodex.ts` (docs: Express, SSE, JSON-RPC, Jest, Cucumber):
    - Use existing Codex client (see `server/src/mcp2/tools/codebaseQuestion.ts` for reference).
    - Map Codex stream to normalized events; ensure tool-call events map to `ChatToolRequestEvent/ChatToolResultEvent`.
    - Preserve Codex threadId and include in flags as today.
-2. [ ] Update `server/src/routes/chat.ts` (docs: Express, SSE):
+2. [x] Update `server/src/routes/chat.ts` (docs: Express, SSE):
    - Replace Codex branch with:
      ```ts
      const chat = getChatInterface('codex');
@@ -148,27 +148,27 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
      await chat.run(message, flags, conversationId, model);
      ```
    - Remove history payload acceptance (already enforced); keep conversationId flow unchanged.
-3. [ ] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
-4. [ ] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber guides):
-   - Assert SSE event order token -> tool request/result -> final -> complete.
-5. [ ] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber):
-   - Assert threadId is returned and persisted (mock repo or DB check).
-6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts` (docs: Jest):
-   - Mock Codex client to emit token/final/error; assert normalized events fire.
-7. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
-8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+3. [x] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
+4. [x] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber guides):
+    - Assert SSE event order token -> tool request/result -> final -> complete.
+5. [x] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber):
+    - Assert threadId is returned and persisted (mock repo or DB check).
+6. [x] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts` (docs: Jest):
+    - Mock Codex client to emit token/final/error; assert normalized events fire.
+7. [x] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
+8. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 

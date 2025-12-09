@@ -169,6 +169,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
 â”‚     â”‚  â””â”€ interfaces/ChatInterface.ts — base chat abstraction with normalized events and persistence helpers
+â”‚     â”‚  â””â”€ interfaces/ChatInterfaceCodex.ts — Codex provider implementation emitting normalized chat events
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
 â”‚     â”‚  â”œâ”€ chatValidators.ts — chat request validation + Codex-only flag stripping/defaults

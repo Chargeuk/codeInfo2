@@ -17,12 +17,17 @@ export interface ChatToolRequestEvent {
   name: string;
   callId: string;
   params: unknown;
+  stage?: 'started';
 }
 
 export interface ChatToolResultEvent {
   type: 'tool-result';
   callId: string;
   result: unknown;
+  name?: string;
+  params?: unknown;
+  stage?: 'success' | 'error';
+  error?: { code?: string; message: string } | null;
 }
 
 export interface ChatFinalEvent {
@@ -32,11 +37,22 @@ export interface ChatFinalEvent {
 
 export interface ChatCompleteEvent {
   type: 'complete';
+  threadId?: string | null;
 }
 
 export interface ChatErrorEvent {
   type: 'error';
   message: string;
+}
+
+export interface ChatAnalysisEvent {
+  type: 'analysis';
+  content: string;
+}
+
+export interface ChatThreadEvent {
+  type: 'thread';
+  threadId: string;
 }
 
 export type ChatEvent =
@@ -45,7 +61,9 @@ export type ChatEvent =
   | ChatToolResultEvent
   | ChatFinalEvent
   | ChatCompleteEvent
-  | ChatErrorEvent;
+  | ChatErrorEvent
+  | ChatAnalysisEvent
+  | ChatThreadEvent;
 
 type EventType = ChatEvent['type'];
 

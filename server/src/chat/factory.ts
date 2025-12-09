@@ -1,15 +1,10 @@
 import { ChatInterface } from './interfaces/ChatInterface.js';
+import { ChatInterfaceCodex } from './interfaces/ChatInterfaceCodex.js';
 
 export class UnsupportedProviderError extends Error {
   constructor(provider: string) {
     super(`Unsupported chat provider: ${provider}`);
     this.name = 'UnsupportedProviderError';
-  }
-}
-
-class ChatInterfaceCodex extends ChatInterface {
-  async run(): Promise<void> {
-    throw new Error('ChatInterfaceCodex not implemented');
   }
 }
 

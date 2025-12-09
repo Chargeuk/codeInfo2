@@ -182,7 +182,7 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 ### 3. Move LM Studio REST onto ChatInterface
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **ecfc75f**
 
 #### Overview
 

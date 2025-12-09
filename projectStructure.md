@@ -47,7 +47,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ components/
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
 |     |  |  |- chat/
-|     |  |  |  └─ CodexFlagsPanel.tsx — Codex-only flags accordion with sandbox select
+|     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
+|     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
 |     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
@@ -64,6 +65,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
+|     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
+|     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
+|     |  |- usePersistenceStatus.ts ? polls /health for mongoConnected banner flag
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
@@ -167,6 +171,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ chatValidators.ts — chat request validation + Codex-only flag stripping/defaults
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ chatProviders.ts — lists chat providers with availability flags
+â”‚     â”‚  â”œâ”€ conversations.ts — list/create/archive/restore conversations and turns append/list
 â”‚     â”‚  â”œâ”€ ingestModels.ts — GET /ingest/models embedding models list + lock info
 â”‚     â”‚  â”œâ”€ ingestRoots.ts — GET /ingest/roots listing embedded roots and lock state
 â”‚     â”‚  â”œâ”€ ingestCancel.ts — POST /ingest/cancel/:runId cancels active ingest and cleans vectors
@@ -176,6 +181,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
+â”‚     â”œâ”€ mongo/
+â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
+â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, flags, lastMessageAt, archivedAt)
+â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
+â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp2/ — Codex-only MCP v2 server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources)

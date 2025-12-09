@@ -436,27 +436,29 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 
 #### Subtasks
 
-1. [ ] Build the server.
-2. [ ] Build the client.
-3. [ ] Perform a clean docker build.
-4. [ ] Update README.md: add `MONGO_URI` env description, Docker compose Mongo notes, and brief usage of conversation history.
-5. [ ] Update design.md: add persistence flow/mermaid diagram, note Mongo failover banner, and conversation/turn schema summary.
-6. [ ] Update projectStructure.md: list new Mongo files (connection.ts, conversation.ts, turn.ts, repo.ts, routes) and new client hooks/components.
-7. [ ] Create PR-style summary of all changes across tasks.
-8. [ ] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
+1. [x] Build the server.
+2. [x] Build the client.
+3. [x] Perform a clean docker build.
+4. [x] Update README.md: add `MONGO_URI` env description, Docker compose Mongo notes, and brief usage of conversation history.
+5. [x] Update design.md: add persistence flow/mermaid diagram, note Mongo failover banner, and conversation/turn schema summary.
+6. [x] Update projectStructure.md: list new Mongo files (connection.ts, conversation.ts, turn.ts, repo.ts, routes) and new client hooks/components.
+7. [x] Create PR-style summary of all changes across tasks.
+8. [x] Capture Playwright MCP screenshots saved to `test-results/screenshots/0000013-08-<name>.png`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the whole story and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details after implementation.
+- PR summary: finished conversation persistence story (Mongo-backed history for LM Studio/Codex, archive/restore, lazy turn loads) with health-driven banner, refreshed docs (README Mongo env + chat persistence, design persistence flow diagram, projectStructure updates), and captured manual screenshots at `test-results/screenshots/0000013-08-home.png` and `0000013-08-chat.png`.
+- Verification: server/client builds, server/client test suites, full e2e suite, clean compose build/up/down, manual UI pass on running stack via Playwright CLI screenshots.
+- Notes: main and e2e compose runs started Mongo/Chroma stacks successfully; Codex and LM Studio available during manual check.

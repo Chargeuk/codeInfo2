@@ -28,6 +28,33 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.
 - Dockerfile (multi-stage, Node 22 slim) builds server from workspace; `.dockerignore` excludes tests and dev artifacts while keeping `.env` defaults. Build with `docker build -f server/Dockerfile -t codeinfo2-server .`, run with `docker run --rm -p 5010:5010 codeinfo2-server`.
 
+## Conversation persistence (MongoDB)
+
+- MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
+- Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
+- HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
+- MCP tool `codebase_question` mirrors the same persistence, upserting conversations by Codex `threadId` and storing user/assistant turns (including tool calls and reasoning summaries) unless the conversation is archived.
+- `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Mongo
+  participant Provider as LM Studio/Codex
+
+  Client->>Server: POST /chat {conversationId, message, provider, model}
+  Server->>Mongo: load turns for conversationId
+  Mongo-->>Server: turns (chronological)
+  Server->>Provider: stream chat with loaded history + flags
+  Provider-->>Server: tokens/tool calls/final
+  Server->>Mongo: append user + assistant turns, update lastMessageAt
+  Server-->>Client: SSE tokens + final + complete
+  alt Mongo down
+    Server-->>Client: banner via /health mongoConnected=false (chat still streams)
+  end
+```
+
 ## Client skeleton
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.

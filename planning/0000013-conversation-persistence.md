@@ -504,7 +504,7 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 5. [x] `npm run e2e` (includes new provider-selection scenario)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -513,4 +513,4 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 - Suppressed provider-change auto-reset in `useChatStream` when a conversation is explicitly selected, making the clicked id authoritative on first click; `shouldLoadTurns` guard now loads only known conversations, skipping brand-new ids to avoid clearing history.
 - Turn/conversation fetch hooks now use cursor refs (no stale cursor dependency), abort correctly on resets, and avoid unused eslint-disable directives.
 - Manual debug logs retained at info level for selection/turn loading and `window.__chatDebug` snapshot; kept to aid further investigation if needed.
-- Full verification run: lint, client tests, server tests, e2e (compose build/up/down). Manual MCP UI spot-check still pending if required.
+- Full verification run: lint, client tests, server tests, e2e (compose build/up/down). Manual MCP UI spot-check completed via @playwright/mcp: first-click on Codex/LM histories switches provider immediately and hydrates transcript; after New Conversation, reselection hydrates on first click.

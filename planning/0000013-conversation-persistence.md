@@ -331,7 +331,7 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 
 ### 6. Client conversation history UI
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: **to_do**
 
 #### Overview
@@ -346,32 +346,34 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 
 #### Subtasks
 
-1. [ ] Create a new sidebar component (e.g., `client/src/components/chat/ConversationList.tsx`) with infinite scroll (page size 20) calling `GET /conversations`; include toggle to show archived and buttons to archive/restore.
-2. [ ] Add a hook `client/src/hooks/useConversations.ts` to wrap list/scroll logic and expose `loadMore`, `archive`, `restore`.
-3. [ ] Add a hook `client/src/hooks/useConversationTurns.ts` to fetch turns newest-first (limit 50) and load older on scroll-up; trigger `loadOlder` when the transcript scroll is within ~200px of the top; stop when `nextCursor` is undefined. Bind to chat transcript.
-4. [ ] Update `client/src/pages/ChatPage.tsx` (and `useChatStream.ts`) to send only `{ conversationId, message }` (no history) for both providers; ensure conversationId is required and created when user clicks “New conversation”. Default title = first user message trimmed to 80 chars.
-5. [ ] Show an inline banner in ChatPage when persistence is unavailable (from Task 7 flag) and disable archive UI in that state. Banner copy: “Conversation history unavailable — messages won’t be stored until Mongo reconnects.”
-6. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
+1. [x] Create a new sidebar component (e.g., `client/src/components/chat/ConversationList.tsx`) with infinite scroll (page size 20) calling `GET /conversations`; include toggle to show archived and buttons to archive/restore.
+2. [x] Add a hook `client/src/hooks/useConversations.ts` to wrap list/scroll logic and expose `loadMore`, `archive`, `restore`.
+3. [x] Add a hook `client/src/hooks/useConversationTurns.ts` to fetch turns newest-first (limit 50) and load older on scroll-up; trigger `loadOlder` when the transcript scroll is within ~200px of the top; stop when `nextCursor` is undefined. Bind to chat transcript.
+4. [x] Update `client/src/pages/ChatPage.tsx` (and `useChatStream.ts`) to send only `{ conversationId, message }` (no history) for both providers; ensure conversationId is required and created when user clicks “New conversation”. Default title = first user message trimmed to 80 chars.
+5. [x] Show an inline banner in ChatPage when persistence is unavailable (from Task 7 flag) and disable archive UI in that state. Banner copy: “Conversation history unavailable — messages won’t be stored until Mongo reconnects.”
+6. [x] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
 
 #### Testing
 
-1. [ ] RTL: `client/src/test/chatSidebar.test.tsx` — conversation list renders, infinite scroll, archive/restore toggles.
-2. [ ] RTL: `client/src/test/chatTurnsLazyLoad.test.tsx` — turns load newest-first, load older triggers near top, stops when no cursor.
-3. [ ] RTL: `client/src/test/chatSendPayload.test.tsx` — chat send payload contains conversationId only (no history) for both providers; title fallback 80 chars.
-4. [ ] RTL: `client/src/test/chatPersistenceBanner.test.tsx` — banner shows when mongoConnected=false and disables archive controls.
-5. [ ] `npm run build --workspace server`
-6. [ ] `npm run build --workspace client`
-7. [ ] `npm run test --workspace server`
-8. [ ] `npm run test --workspace client`
-9. [ ] `npm run e2e`
-10. [ ] `npm run compose:build`
-11. [ ] `npm run compose:up`
-12. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-13. [ ] `npm run compose:down`
+1. [x] RTL: `client/src/test/chatSidebar.test.tsx` — conversation list renders, infinite scroll, archive/restore toggles.
+2. [x] RTL: `client/src/test/chatTurnsLazyLoad.test.tsx` — turns load newest-first, load older triggers near top, stops when no cursor.
+3. [x] RTL: `client/src/test/chatSendPayload.test.tsx` — chat send payload contains conversationId only (no history) for both providers; title fallback 80 chars.
+4. [x] RTL: `client/src/test/chatPersistenceBanner.test.tsx` — banner shows when mongoConnected=false and disables archive controls.
+5. [x] `npm run build --workspace server`
+6. [x] `npm run build --workspace client`
+7. [x] `npm run test --workspace server`
+8. [x] `npm run test --workspace client`
+9. [x] `npm run e2e`
+10. [x] `npm run compose:build`
+11. [x] `npm run compose:up`
+12. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+13. [x] `npm run compose:down`
 
 #### Implementation notes
-
-- Details after implementation.
+- Added conversation sidebar component with archive/restore controls and infinite scroll backed by the new conversations hook.
+- Built `useConversations`, `useConversationTurns`, and `usePersistenceStatus` hooks plus transcript lazy-load wiring and persistence banner in `ChatPage`/`useChatStream`.
+- ChatPage now hydrates stored turns, disables archive UI when persistence is unavailable, and scroll-loads older turns; conversation send path stays `{ conversationId, message }` only.
+- Lint + format for client completed. Stream thinking placeholder now derives from visible segments and tests are stabilized with fake timers; full client + server suites, e2e, compose builds/up/down, and manual Playwright MCP screenshot (`test-results/screenshots/0000013-06-manual.png`) are done.
 
 ---
 

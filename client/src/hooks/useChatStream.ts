@@ -25,7 +25,7 @@ export type CodexFlagState = {
 
 export type ChatMessage = {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   kind?: 'error' | 'status';
   think?: string;
@@ -35,6 +35,7 @@ export type ChatMessage = {
   segments?: ChatSegment[];
   streamStatus?: 'processing' | 'complete' | 'failed';
   thinking?: boolean;
+  createdAt?: string;
 };
 
 export type ToolCitation = {
@@ -392,7 +393,44 @@ export function useChatStream(
     const nextConversationId = makeId();
     setConversationId(nextConversationId);
     conversationIdRef.current = nextConversationId;
+    return nextConversationId;
   }, [finishStreaming, updateMessages]);
+
+  const setConversation = useCallback(
+    (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+      stop();
+      if (options?.clearMessages) {
+        updateMessages(() => []);
+      }
+      setThreadId(null);
+      threadIdRef.current = null;
+      setConversationId(nextConversationId);
+      conversationIdRef.current = nextConversationId;
+    },
+    [stop, updateMessages],
+  );
+
+  const hydrateHistory = useCallback(
+    (
+      historyConversationId: string,
+      history: ChatMessage[],
+      mode: 'replace' | 'prepend' = 'replace',
+    ) => {
+      conversationIdRef.current = historyConversationId;
+      setConversationId(historyConversationId);
+      updateMessages((prev) => {
+        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
+        const seen = new Set<string>();
+        return next.filter((msg) => {
+          const key = msg.id;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      });
+    },
+    [updateMessages],
+  );
 
   const handleErrorBubble = useCallback(
     (message: string) => {
@@ -458,6 +496,7 @@ export function useChatStream(
         id: makeId(),
         role: 'user',
         content: trimmed,
+        createdAt: new Date().toISOString(),
       };
 
       updateMessages((prev) => [...prev, userMessage]);
@@ -502,10 +541,16 @@ export function useChatStream(
         );
       };
 
-      const computeWaitingForVisibleText = () =>
-        statusRef.current === 'sending' &&
-        finalText.length === 0 &&
-        pendingToolResults.size === 0;
+      const computeWaitingForVisibleText = () => {
+        const hasVisibleText = segments.some(
+          (segment) => segment.kind === 'text' && segment.content.length > 0,
+        );
+        return (
+          statusRef.current === 'sending' &&
+          !hasVisibleText &&
+          pendingToolResults.size === 0
+        );
+      };
 
       const scheduleThinkingTimer = () => {
         clearThinkingTimer();
@@ -537,6 +582,7 @@ export function useChatStream(
           segments,
           streamStatus: 'processing',
           thinking: false,
+          createdAt: new Date().toISOString(),
         },
       ]);
       lastVisibleTextAtRef.current = null;
@@ -1078,6 +1124,9 @@ export function useChatStream(
     send,
     stop,
     reset,
+    conversationId,
+    setConversation,
+    hydrateHistory,
   };
 }
 

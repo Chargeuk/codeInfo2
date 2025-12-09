@@ -469,7 +469,7 @@ End-to-end validation, docs updates (README/design/projectStructure), and screen
 ### 9. Fix historical conversation provider/desync bug
 
 - Task Status: **in_progress**
-- Git Commits: **to_do**
+- Git Commits: 319e318
 
 #### Overview
 

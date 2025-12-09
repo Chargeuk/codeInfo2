@@ -234,8 +234,8 @@ Expose REST endpoints to list conversations (paginated, newest-first, archived t
 
 ### 4. Chat pipeline persistence (LM Studio + Codex HTTP)
 
-- Task Status: **in_progress**
-- Git Commits: **to_do**
+- Task Status: **done**
+- Git Commits: be24ac3
 
 #### Overview
 

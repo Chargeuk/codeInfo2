@@ -488,7 +488,7 @@ Selecting a historical conversation keeps the provider dropdown on the previousl
 3. [x] Update chat selection flow to set provider (and model) from the selected conversation before locking; ensure provider lock reflects the conversation’s provider.
 4. [x] Ensure “New conversation” resets defaults but re-selecting a historical conversation rehydrates provider/model and loads turns.
 5. [x] Adjust provider lock logic to depend on the active conversation’s provider, not prior UI state; keep Codex tools availability gating intact.
-6. [ ] Remove temporary debug logging once tests pass; keep minimal diagnostics only if still needed.
+6. [x] Remove temporary debug logging once tests pass; keep minimal diagnostics only if still needed.
 7. [ ] Run lint/format and update docs if behaviour/UI wiring changes (design.md/projectStructure.md if needed).
 
 #### Testing

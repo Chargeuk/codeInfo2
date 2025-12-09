@@ -202,16 +202,7 @@ export function ConversationList({
                 >
                   <ListItemButton
                     selected={selected}
-                    onClick={() => {
-                      console.info('ConversationList:onSelect', {
-                        id: conversation.conversationId,
-                        title: conversation.title,
-                        provider: conversation.provider,
-                        disabled,
-                        selected,
-                      });
-                      onSelect(conversation.conversationId);
-                    }}
+                    onClick={() => onSelect(conversation.conversationId)}
                     disabled={disabled}
                     data-testid="conversation-row"
                     sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}

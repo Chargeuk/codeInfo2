@@ -275,12 +275,6 @@ export default function ChatPage() {
     setModelReasoningEffort(defaultModelReasoningEffort);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
-    const defaultProvider =
-      providers.find((p) => p.available)?.id ?? providers[0]?.id;
-    if (defaultProvider) {
-      setProvider(defaultProvider);
-    }
-    setSelected(undefined);
   };
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
@@ -306,13 +300,6 @@ export default function ChatPage() {
   };
 
   const handleSelectConversation = (conversation: string) => {
-    console.info('ChatPage:handleSelectConversation', {
-      conversation,
-      activeConversationId,
-      provider,
-      messagesLength: messages.length,
-      providerLocked,
-    });
     if (conversation === activeConversationId) return;
     const nextConversation = conversations.find(
       (c) => c.conversationId === conversation,

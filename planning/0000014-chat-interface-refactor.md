@@ -133,8 +133,18 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
    - Map Codex stream to normalized events; ensure tool-call events map to `ChatToolRequestEvent/ChatToolResultEvent`.
    - Preserve Codex threadId and include in flags as today.
 2. [ ] Update `server/src/routes/chat.ts` (docs: Express, SSE):
-   - For provider `codex`, call `getChatInterface('codex')` and stream normalized events through the existing SSE helper (show snippet replacing previous Codex branch).
-   - Remove history payload acceptance (already enforced), keep conversationId flow unchanged.
+   - Replace Codex branch with:
+     ```ts
+     const chat = getChatInterface('codex');
+     chat.on('token', ev => sse.send(ev));
+     chat.on('tool-request', ev => sse.send(ev));
+     chat.on('tool-result', ev => sse.send(ev));
+     chat.on('final', ev => sse.send(ev));
+     chat.on('complete', ev => sse.send(ev));
+     chat.on('error', ev => sse.send(ev));
+     await chat.run(message, flags, conversationId, model);
+     ```
+   - Remove history payload acceptance (already enforced); keep conversationId flow unchanged.
 3. [ ] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
 4. [ ] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber guides):
    - Assert SSE event order token -> tool request/result -> final -> complete.
@@ -187,7 +197,17 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
    - Map LM Studio tool events (ListIngestedRepositories, VectorSearch) to normalized tool request/result events with chunk/citation data preserved.
    - Emit tokens/final/complete per current behaviour.
 2. [ ] Update `server/src/routes/chat.ts` (docs: Express, SSE):
-   - For provider `lmstudio`, call `getChatInterface('lmstudio')` and stream normalized events through the SSE helper.
+   - Replace LM Studio branch with:
+     ```ts
+     const chat = getChatInterface('lmstudio');
+     chat.on('token', ev => sse.send(ev));
+     chat.on('tool-request', ev => sse.send(ev));
+     chat.on('tool-result', ev => sse.send(ev));
+     chat.on('final', ev => sse.send(ev));
+     chat.on('complete', ev => sse.send(ev));
+     chat.on('error', ev => sse.send(ev));
+     await chat.run(message, flags, conversationId, model);
+     ```
    - Remove LM Studio–specific conditional branches replaced by the interface.
 3. [ ] Integration test (LM Studio tool/citation content) `server/src/test/integration/chat-lmstudio-interface.test.ts` (docs: Jest, Cucumber):
    - Assert tool results include `hostPath`, `relPath`, `chunk` values from normalized tool events.
@@ -239,7 +259,19 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
    - Accept normalized events and buffer into current MCP segments format: ordered `segments` with `thinking`, `vector_summary`, `answer`.
    - Drop unused fields; keep output identical to today’s Codex MCP JSON.
 2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`) (docs: MCP, JSON-RPC):
-   - Obtain interface via `getChatInterface('codex')`, attach MCP wrapper, remove old Codex-specific assembly code.
+   - Replace manual assembly with:
+     ```ts
+     const chat = getChatInterface('codex');
+     const responder = new McpResponder();
+     chat.on('token', ev => responder.handle(ev));
+     chat.on('tool-request', ev => responder.handle(ev));
+     chat.on('tool-result', ev => responder.handle(ev));
+     chat.on('final', ev => responder.handle(ev));
+     chat.on('complete', ev => responder.handle(ev));
+     chat.on('error', ev => responder.handle(ev));
+     await chat.run(params.question, flags, conversationId, model);
+     return responder.toResult(); // JSON-RPC result payload
+     ```
    - Ensure archived-conversation checks remain.
 3. [ ] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Compare payload to current MCP structure (snapshot or explicit fields).
@@ -289,8 +321,20 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
    - In `server/src/chat/factory.ts`, add `'lmstudio': () => new ChatInterfaceLMStudio()` to the provider map.
    - Ensure `UnsupportedProviderError` still thrown for unknown providers.
 2. [ ] Update MCP handler to use factory for LM Studio (docs: MCP, JSON-RPC):
-   - In `server/src/mcp2/tools/codebaseQuestion.ts`, accept provider `lmstudio` when requested.
-   - Instantiate interface via `getChatInterface(provider)` and pipe normalized events to existing `McpResponder`.
+   - In `server/src/mcp2/tools/codebaseQuestion.ts`, allow `provider === 'lmstudio'`.
+   - Instantiate via:
+     ```ts
+     const chat = getChatInterface(provider);
+     const responder = new McpResponder();
+     chat.on('token', ev => responder.handle(ev));
+     chat.on('tool-request', ev => responder.handle(ev));
+     chat.on('tool-result', ev => responder.handle(ev));
+     chat.on('final', ev => responder.handle(ev));
+     chat.on('complete', ev => responder.handle(ev));
+     chat.on('error', ev => responder.handle(ev));
+     await chat.run(params.question, flags, conversationId, model);
+     return responder.toResult();
+     ```
    - Keep archived-conversation guard unchanged.
 3. [ ] Integration test (LM Studio MCP payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Mock LM Studio stream to emit token + tool + final.

@@ -1,7 +1,10 @@
 import { LMStudioClient } from '@lmstudio/sdk';
 import { createLmStudioTools } from '../lmstudio/tools.js';
 import { ChatInterface } from './interfaces/ChatInterface.js';
-import { ChatInterfaceCodex } from './interfaces/ChatInterfaceCodex.js';
+import {
+  ChatInterfaceCodex,
+  type CodexLike,
+} from './interfaces/ChatInterfaceCodex.js';
 import { ChatInterfaceLMStudio } from './interfaces/ChatInterfaceLMStudio.js';
 
 export class UnsupportedProviderError extends Error {
@@ -12,6 +15,7 @@ export class UnsupportedProviderError extends Error {
 }
 
 type ProviderFactory = (deps?: {
+  codexFactory?: () => CodexLike;
   clientFactory?: (baseUrl: string) => LMStudioClient;
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
@@ -22,7 +26,7 @@ const defaultLmStudioClientFactory = (baseUrl: string) =>
   new LMStudioClient({ baseUrl });
 
 const providerMap: Record<string, ProviderFactory> = {
-  codex: () => new ChatInterfaceCodex(),
+  codex: (deps) => new ChatInterfaceCodex(deps?.codexFactory),
   lmstudio: (deps) =>
     new ChatInterfaceLMStudio(
       deps?.clientFactory ?? defaultLmStudioClientFactory,
@@ -33,6 +37,7 @@ const providerMap: Record<string, ProviderFactory> = {
 export function getChatInterface(
   provider: string,
   deps?: {
+    codexFactory?: () => CodexLike;
     clientFactory?: (baseUrl: string) => LMStudioClient;
     toolFactory?: (opts: Record<string, unknown>) => {
       tools: ReadonlyArray<unknown>;

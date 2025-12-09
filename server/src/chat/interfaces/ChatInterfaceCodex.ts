@@ -16,6 +16,7 @@ type CodexRunFlags = {
   codexFlags?: Partial<CodexThreadOptions>;
   requestId?: string;
   signal?: AbortSignal;
+  skipPersistence?: boolean;
 };
 
 type CodexToolCallItem = {
@@ -53,8 +54,8 @@ export class ChatInterfaceCodex extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { threadId, codexFlags, requestId, signal } = (flags ??
-      {}) as CodexRunFlags;
+    const { threadId, codexFlags, requestId, signal, skipPersistence } =
+      (flags ?? {}) as CodexRunFlags;
     const detection = getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
@@ -356,7 +357,7 @@ export class ChatInterfaceCodex extends ChatInterface {
         // explicit stopped bubble
         assistantStatus = 'stopped';
       }
-      if (mongoose.connection.readyState === 1) {
+      if (!skipPersistence && mongoose.connection.readyState === 1) {
         const toolCallsPayload =
           toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null;
         await this.persistTurn({

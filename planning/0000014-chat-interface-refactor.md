@@ -265,10 +265,10 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 #### Subtasks
 
-1. [ ] Implement MCP wrapper `server/src/chat/responders/McpResponder.ts` (docs: MCP, JSON-RPC, Streams, Jest, Cucumber):
+1. [x] Implement MCP wrapper `server/src/chat/responders/McpResponder.ts` (docs: MCP, JSON-RPC, Streams, Jest, Cucumber):
    - Accept normalized events and buffer into current MCP segments format: ordered `segments` with `thinking`, `vector_summary`, `answer`.
    - Drop unused fields; keep output identical to today’s Codex MCP JSON.
-2. [ ] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`) (docs: MCP, JSON-RPC):
+2. [x] Update MCP Codex handler (`server/src/mcp2/tools/codebaseQuestion.ts`) (docs: MCP, JSON-RPC):
    - Replace manual assembly with:
      ```ts
      const chat = getChatInterface('codex');
@@ -283,24 +283,24 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
      return responder.toResult(); // JSON-RPC result payload
      ```
    - Ensure archived-conversation checks remain.
-3. [ ] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
+3. [x] Integration test (MCP Codex payload snapshot) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Compare payload to current MCP structure (snapshot or explicit fields).
-4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
+4. [x] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts` (docs: Jest, Cucumber):
    - Verify segment order and absence of extra fields.
-5. [ ] Update `projectStructure.md` to list `server/src/chat/responders/McpResponder.ts`.
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+5. [x] Update `projectStructure.md` to list `server/src/chat/responders/McpResponder.ts`.
+6. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 

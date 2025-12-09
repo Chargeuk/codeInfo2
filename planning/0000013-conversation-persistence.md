@@ -379,7 +379,7 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 
 ### 7. Persistence availability banner
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits: **to_do**
 
 #### Overview

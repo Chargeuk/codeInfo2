@@ -89,7 +89,8 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
    - Assert `getChatInterface('codex')` returns Codex placeholder instance.
 7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts`:
    - Assert unsupported provider throws `UnsupportedProviderError` with code/message.
-6. [ ] Run lint/format for touched areas.
+8. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
+9. [ ] Run lint/format for touched areas.
 
 #### Testing
 
@@ -142,7 +143,8 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
    - Assert threadId is returned and persisted (mock repo or DB check).
 6. [ ] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts`:
    - Mock Codex client to emit token/final/error; assert normalized events fire.
-6. [ ] Run lint/format for touched files.
+7. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
+8. [ ] Run lint/format for touched files.
 
 #### Testing
 
@@ -194,7 +196,8 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
    - Assert status chip reaches Complete only after tool results arrive.
 5. [ ] RTL/E2E fixture check `client/src/test/chatPage...` (existing files):
    - Adjust mocks only if response shape changed; otherwise ensure tests still pass unchanged.
-6. [ ] Run lint/format for touched files.
+6. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`.
+7. [ ] Run lint/format for touched files.
 
 #### Testing
 
@@ -243,7 +246,8 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
    - Compare payload to current MCP structure (snapshot or explicit fields).
 4. [ ] Integration test (MCP Codex segment order/fields) `server/src/test/integration/mcp-codex-wrapper.test.ts`:
    - Verify segment order and absence of extra fields.
-5. [ ] Run lint/format for touched files.
+5. [ ] Update `projectStructure.md` to list `server/src/chat/responders/McpResponder.ts`.
+6. [ ] Run lint/format for touched files.
 
 #### Testing
 

@@ -370,6 +370,7 @@ Add left-hand conversation list (newest-first, infinite scroll), archive toggle/
 13. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added conversation sidebar component with archive/restore controls and infinite scroll backed by the new conversations hook.
 - Built `useConversations`, `useConversationTurns`, and `usePersistenceStatus` hooks plus transcript lazy-load wiring and persistence banner in `ChatPage`/`useChatStream`.
 - ChatPage now hydrates stored turns, disables archive UI when persistence is unavailable, and scroll-loads older turns; conversation send path stays `{ conversationId, message }` only.

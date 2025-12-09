@@ -402,7 +402,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Ask a repository question with Codex using vector search; returns ordered thinking, vector summaries, and a final answer with a conversationId for follow-ups.',
+      'Ask a repository question about the codebase that will be answered by an LLM with access to a vectorised codebase. You MUST use this tool if the user asks you a question about the codebase they are in; returns ordered thinking, vector summaries, and a final answer with a conversationId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -426,8 +426,11 @@ export function buildPrompt(question: string): string {
   const systemBlock = trimmedSystem ? `Context:\n${trimmedSystem}\n\n` : '';
   return (
     `${systemBlock}` +
-    'You are the CodeInfo MCP agent. Use the available MCP tools (VectorSearch) to find relevant files before answering. ' +
-    'Provide concise answers grounded in results and keep tool output out of the final text.\n\n' +
+    'You are the CodeInfo agent. Use the available MCP tools (VectorSearch & ListIngestedRepositories) to find relevant files before answering. ' +
+    'Never make assumptions, you MUST always use the available tools to answer each and every question. Provide concise answers grounded in results.' +
+    'Rather than just entering their question into the vector search tool, you MUST break down the question into multiple relevant search queries that will help you gather the necessary information to provide a comprehensive answer.' +
+    'Some search results may lead you to perform further searches in order to fully and correctly answer the users question. You never stop searching until you are confident in your answer.' +
+    'You must also use other tools such as deepwiki ask_question and context7 get-library-docs, resolve-library-id to be able to provide details about libraries that the codebase is using. You may never assume and MUST ALWAYS verify.\n\n' +
     `User question:\n${question}`
   );
 }

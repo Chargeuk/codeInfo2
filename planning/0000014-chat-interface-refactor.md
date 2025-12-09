@@ -248,7 +248,7 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 ### 4. Build MCP wrapper and wire Codex through it
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

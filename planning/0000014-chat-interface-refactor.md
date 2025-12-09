@@ -64,6 +64,7 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 - Node.js EventEmitter docs: https://nodejs.org/api/events.html — for emitting/handling normalized chat events.
 - TypeScript abstract classes/typing: https://www.typescriptlang.org/docs/handbook/2/classes.html — to define the base `ChatInterface`.
 - JSON streaming basics (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API — to understand streaming event flows used by the interface.
+- Jest testing guide: Context7 `/jestjs/jest` — for writing unit tests in this task.
 
 #### Subtasks
 
@@ -122,6 +123,8 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 - Express routing: Context7 `/expressjs/express` — to correctly update the `/chat` route.
 - MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to map normalized events to SSE.
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — for Codex threadId handling and error shapes.
+- Jest testing guide: Context7 `/jestjs/jest` — for unit/integration tests in this task.
+- Cucumber guides: https://cucumber.io/docs/guides/ — if integration coverage uses Cucumber features.
 
 #### Subtasks
 
@@ -173,6 +176,8 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 - LM Studio SDK docs: https://docs.lmstudio.ai/ — to call LM Studio and interpret tool events.
 - MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to stream normalized events to SSE.
 - TypeScript union types: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types — to map LM Studio events into normalized event unions.
+- Jest testing guide: Context7 `/jestjs/jest` — for unit/integration/RTL tests.
+- Cucumber guides: https://cucumber.io/docs/guides/ — if LM Studio integration uses Cucumber features.
 
 #### Subtasks
 
@@ -221,6 +226,8 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 - MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`) — to keep MCP responder compliant.
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to shape MCP responses/errors.
 - MDN Streams API: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API — for buffering normalized stream into segments.
+- Jest testing guide: Context7 `/jestjs/jest` — for unit/integration tests of MCP wrapper.
+- Cucumber guides: https://cucumber.io/docs/guides/ — if MCP integration tests use Cucumber.
 
 #### Subtasks
 
@@ -267,6 +274,8 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 - MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`) — for MCP call format.
 - LM Studio SDK docs: https://docs.lmstudio.ai/ — to mock/drive LM Studio stream in MCP.
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to ensure LM Studio MCP responses follow the spec.
+- Jest testing guide: Context7 `/jestjs/jest` — for integration/unit tests.
+- Cucumber guides: https://cucumber.io/docs/guides/ — if Cucumber coverage is added.
 
 #### Subtasks
 
@@ -308,6 +317,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 - TypeScript modules/exports: https://www.typescriptlang.org/docs/handbook/modules.html — for shared errors/factory exports.
 - MDN JS Errors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error — to structure `UnsupportedProviderError`.
 - Express error handling: Context7 `/expressjs/express` — to surface unsupported-provider errors in REST.
+- Jest testing guide: Context7 `/jestjs/jest` — for any unit tests added in cleanup.
 
 #### Subtasks
 

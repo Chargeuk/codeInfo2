@@ -248,8 +248,8 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 ### 4. Build MCP wrapper and wire Codex through it
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **1e82b4f**
 
 #### Overview
 
@@ -304,7 +304,10 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Added `McpResponder` to buffer normalized chat events into MCP segments (thinking/vector_summary/answer) and capture tool results; codex MCP now routes through ChatInterface with `skipPersistence` to avoid double writes.
+- `codebase_question` now uses the chat factory with injectable `codexFactory`, forces Codex availability when `MCP_FORCE_CODEX_AVAILABLE=true`, and drops legacy in-handler persistence/vector parsing in favour of the responder.
+- Factory accepts `codexFactory` and Codex interface skips persistence on request; added codex MCP integration tests for snapshot/order; updated projectStructure for responder and tests.
+- Lint/format fixed and passing; full test stack executed: server build+unit+integration+Cucumber, client build+Jest, full e2e suite, compose build/up/down, plus targeted compose up with attempted chat-codex-mcp Playwright run (spec is marked skipped upstream).
 
 ---
 

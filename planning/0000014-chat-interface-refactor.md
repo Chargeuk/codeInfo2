@@ -68,44 +68,47 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 #### Subtasks
 
-1. [ ] Create `server/src/chat/interfaces/ChatInterface.ts` (docs: EventEmitter, TS classes, Streams, Jest):
+1. [x] Create `server/src/chat/interfaces/ChatInterface.ts` (docs: EventEmitter, TS classes, Streams, Jest):
    - Export normalized event types: `ChatTokenEvent { type:'token'; content:string }`, `ChatToolRequestEvent { type:'tool-request'; name:string; callId:string; params:any }`, `ChatToolResultEvent { type:'tool-result'; callId:string; result:any }`, `ChatFinalEvent { type:'final'; content:string }`, `ChatCompleteEvent { type:'complete' }`, `ChatErrorEvent { type:'error'; message:string }`.
    - Abstract class `ChatInterface` with `run(message: string, flags: any, conversationId: string, model: string): Promise<void>` and protected `emit(event)`, `loadHistory(conversationId)`, `persistTurn(turn)`.
    - Include code stub showing `this.on('token', handler)` and `this.emit({ type:'token', content })`.
-2. [ ] Create `server/src/chat/factory.ts` (docs: TS modules, Jest):
+2. [x] Create `server/src/chat/factory.ts` (docs: TS modules, Jest):
    - Static provider map: `{ codex: () => new ChatInterfaceCodex(), lmstudio: () => new ChatInterfaceLMStudio() }` (placeholder classes ok).
    - Export `getChatInterface(provider: 'codex'|'lmstudio')` that throws `UnsupportedProviderError` when missing.
    - Add comment snippet: `const chat = getChatInterface(provider);`.
-3. [ ] Add persistence wiring in `ChatInterface` (docs: Streams, Jest):
+3. [x] Add persistence wiring in `ChatInterface` (docs: Streams, Jest):
    - Call `listTurns({ conversationId, limit: Infinity, cursor: undefined })` inside `loadHistory`.
    - Call `appendTurn` for user/assistant/tool turns; call `updateConversationMeta` to bump `lastMessageAt`.
    - No route changes yet.
-4. [ ] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
+4. [x] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
    - Fake subclass emits token/final/complete; expect call order `['token','final','complete']`.
-5. [ ] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
+5. [x] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
    - Mock repo; expect `loadHistory` and `persistTurn` invoked with conversationId and turn payload.
-6. [ ] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
+6. [x] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
    - Expect `getChatInterface('codex')` returns Codex placeholder instance.
-7. [ ] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
+7. [x] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
    - Expect calling with `'unknown'` throws `UnsupportedProviderError` with message/code.
-8. [ ] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
-9. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+8. [x] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
+9. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Added `ChatInterface` base with discriminated event unions, history/turn helpers using repo persistence, and typed emit/on helpers.
+- Created `getChatInterface` factory with `UnsupportedProviderError` plus placeholder Codex/LM Studio subclasses; added unit coverage for factory selection/unsupported paths.
+- Added unit coverage for base event ordering and helper invocation via subclass spies; updated projectStructure with new chat files.
+- Lint/format pass completed; full test matrix run: server/client builds, server/client tests, full e2e (main and compose), manual UI screenshots (home/chat) saved to `test-results/screenshots/0000014-1-*.png`, compose up/down.
 
 ---
 

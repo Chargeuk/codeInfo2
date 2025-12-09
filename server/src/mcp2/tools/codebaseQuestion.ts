@@ -26,6 +26,8 @@ const paramsSchema = z
   .object({
     question: z.string().min(1),
     conversationId: z.string().min(1).optional(),
+    provider: z.enum(['codex', 'lmstudio']).optional(),
+    model: z.string().min(1).optional(),
   })
   .strict();
 
@@ -58,6 +60,10 @@ export type CodebaseQuestionResult = {
 
 export type CodebaseQuestionDeps = {
   codexFactory?: () => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
+  clientFactory?: (baseUrl: string) => import('@lmstudio/sdk').LMStudioClient;
+  toolFactory?: (opts: Record<string, unknown>) => {
+    tools: ReadonlyArray<unknown>;
+  };
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -89,7 +95,11 @@ export async function runCodebaseQuestion(
   params: unknown,
   deps: Partial<CodebaseQuestionDeps> = {},
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
-  const { question, conversationId } = validateParams(params);
+  const parsed = validateParams(params);
+  const question = parsed.question;
+  const conversationId = parsed.conversationId;
+  const provider = parsed.provider ?? 'codex';
+  const requestedModel = parsed.model;
 
   if (conversationId) {
     const existing = await getConversation(conversationId);
@@ -125,8 +135,10 @@ export async function runCodebaseQuestion(
     });
   }
 
-  const chat = getChatInterface('codex', {
+  const chat = getChatInterface(provider, {
     codexFactory: deps.codexFactory,
+    clientFactory: deps.clientFactory,
+    toolFactory: deps.toolFactory,
   });
   const responder = new McpResponder();
 
@@ -137,17 +149,48 @@ export async function runCodebaseQuestion(
   chat.on('thread', (ev: ChatThreadEvent) => responder.handle(ev));
   chat.on('error', (ev) => responder.handle(ev));
 
-  const resolvedConversationId = conversationId ?? `codex-thread-${Date.now()}`;
+  const resolvedConversationId =
+    conversationId ??
+    `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
-  await chat.run(
-    question,
-    { threadId: conversationId, codexFlags: threadOpts, skipPersistence: true },
-    resolvedConversationId,
-    threadOpts.model ?? 'gpt-5.1-codex-max',
-  );
+  if (provider === 'codex') {
+    await chat.run(
+      question,
+      {
+        threadId: conversationId,
+        codexFlags: threadOpts,
+        skipPersistence: true,
+      },
+      resolvedConversationId,
+      threadOpts.model ?? 'gpt-5.1-codex-max',
+    );
+  } else {
+    const lmstudioModel =
+      requestedModel ??
+      process.env.MCP_LMSTUDIO_MODEL ??
+      process.env.LMSTUDIO_DEFAULT_MODEL ??
+      'gpt-3.1';
+    const baseUrl =
+      process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+
+    await chat.run(
+      question,
+      {
+        baseUrl,
+        skipPersistence: true,
+      },
+      resolvedConversationId,
+      lmstudioModel,
+    );
+  }
 
   const payload: CodebaseQuestionResult = responder.toResult(
-    threadOpts.model ?? 'gpt-5.1-codex-max',
+    provider === 'codex'
+      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+      : (requestedModel ??
+          process.env.MCP_LMSTUDIO_MODEL ??
+          process.env.LMSTUDIO_DEFAULT_MODEL ??
+          'gpt-3.1'),
     resolvedConversationId,
   );
 
@@ -175,6 +218,17 @@ export function codebaseQuestionDefinition() {
         conversationId: {
           type: 'string',
           description: 'Optional conversation/thread id for follow-up turns.',
+        },
+        provider: {
+          type: 'string',
+          enum: ['codex', 'lmstudio'],
+          description:
+            'Optional chat provider to use; defaults to codex when omitted.',
+        },
+        model: {
+          type: 'string',
+          description:
+            'Optional model id for the selected provider. For codex, defaults to gpt-5.1-codex-max. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
         },
       },
     },

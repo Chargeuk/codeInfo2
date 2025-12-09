@@ -85,6 +85,7 @@ type LmStudioRunFlags = {
   baseUrl?: string;
   signal?: AbortSignal;
   history?: Array<{ role?: string; content?: unknown }>;
+  skipPersistence?: boolean;
 };
 
 export class ChatInterfaceLMStudio extends ChatInterface {
@@ -103,7 +104,8 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
+    const { requestId, baseUrl, signal, skipPersistence } = (flags ??
+      {}) as LmStudioRunFlags;
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -725,7 +727,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       toolCtx.clear();
       toolArgs.clear();
       toolRequestIdToCallId.clear();
-      if (!shouldUseMemoryPersistence()) {
+      if (!shouldUseMemoryPersistence() && !skipPersistence) {
         await this.persistTurn({
           conversationId,
           role: 'assistant',

@@ -314,7 +314,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 ### 5. Enable LM Studio via MCP using the wrapper
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -331,10 +331,10 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 #### Subtasks
 
-1. [ ] Add LM Studio to factory map (docs: MCP, JSON-RPC):
+1. [x] Add LM Studio to factory map (docs: MCP, JSON-RPC):
    - In `server/src/chat/factory.ts`, add `'lmstudio': () => new ChatInterfaceLMStudio()` to the provider map.
    - Ensure `UnsupportedProviderError` still thrown for unknown providers.
-2. [ ] Update MCP handler to use factory for LM Studio (docs: MCP, JSON-RPC):
+2. [x] Update MCP handler to use factory for LM Studio (docs: MCP, JSON-RPC):
    - In `server/src/mcp2/tools/codebaseQuestion.ts`, allow `provider === 'lmstudio'`.
    - Instantiate via:
      ```ts
@@ -350,29 +350,32 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
      return responder.toResult();
      ```
    - Keep archived-conversation guard unchanged.
-3. [ ] Integration test (LM Studio MCP payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
+3. [x] Integration test (LM Studio MCP payload snapshot) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Mock LM Studio stream to emit token + tool + final.
    - Assert snapshot matches Codex-style segments (`thinking`, `vector_summary`, `answer` only).
-4. [ ] Integration test (LM Studio MCP segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
+4. [x] Integration test (LM Studio MCP segment order/fields) `server/src/test/integration/mcp-lmstudio-wrapper.test.ts` (docs: Jest, Cucumber):
    - Assert segment order is correct and no extra fields are present.
-5. [ ] Update `projectStructure.md` if new MCP-related files/entries were added/renamed in this task.
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+5. [x] Update `projectStructure.md` if new MCP-related files/entries were added/renamed in this task.
+6. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Added LM Studio option to MCP `codebase_question` params (provider/model), routed through chat factory with skipPersistence and baseUrl defaults, and set LM Studio model fallback envs.
+- LM Studio ChatInterface now honors `skipPersistence` to avoid double writes during MCP use.
+- MCP LM Studio integration tests cover snapshot/segment order using mocked LM Studio client via injected factories; projectStructure updated accordingly.
+- Ran lint/format (server), full build/test matrices (server/client), e2e suite, compose build/up/down, and manual provider/history check via e2e provider-history coverage while compose stack was up.
 
 ---
 

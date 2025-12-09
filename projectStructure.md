@@ -275,6 +275,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat SSE error/success flows when vector search lock/enbedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat SSE flow, thread reuse, availability gating
 â”‚        |  â”œâ”€ chat-codex-mcp.test.ts — Codex MCP tool-call SSE mapping and SYSTEM_CONTEXT injection
+â”‚        |  â”œâ”€ mcp-lmstudio-wrapper.test.ts — LM Studio MCP segments snapshot/order coverage
 â”‚        |  â””â”€ mcp-codex-wrapper.test.ts — MCP responder segments snapshot/order coverage for Codex
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged

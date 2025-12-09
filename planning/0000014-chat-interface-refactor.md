@@ -52,7 +52,7 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 
 ### 1. Extract ChatInterface base and factory scaffold
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

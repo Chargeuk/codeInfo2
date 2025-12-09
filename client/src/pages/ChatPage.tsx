@@ -144,6 +144,13 @@ export default function ChatPage() {
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+  const selectedConversation = useMemo(
+    () =>
+      conversations.find(
+        (conversation) => conversation.conversationId === activeConversationId,
+      ),
+    [activeConversationId, conversations],
+  );
   const shouldLoadTurns = Boolean(
     activeConversationId &&
       !persistenceUnavailable &&
@@ -159,7 +166,7 @@ export default function ChatPage() {
     loadOlder,
     reset: resetTurns,
   } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
-  const providerLocked = messages.length > 0;
+  const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexProvider = useMemo(
     () => providers.find((p) => p.id === 'codex'),
@@ -203,6 +210,20 @@ export default function ChatPage() {
   useEffect(() => {
     setActiveConversationId(conversationId);
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!selectedConversation?.provider) return;
+    if (selectedConversation.provider !== provider) {
+      setProvider(selectedConversation.provider);
+    }
+  }, [provider, selectedConversation, setProvider]);
+
+  useEffect(() => {
+    if (!selectedConversation?.model) return;
+    if (models.some((model) => model.key === selectedConversation.model)) {
+      setSelected(selectedConversation.model);
+    }
+  }, [models, selectedConversation, setSelected]);
 
   useEffect(
     () => () => {
@@ -254,6 +275,12 @@ export default function ChatPage() {
     setModelReasoningEffort(defaultModelReasoningEffort);
     setNetworkAccessEnabled(defaultNetworkAccessEnabled);
     setWebSearchEnabled(defaultWebSearchEnabled);
+    const defaultProvider =
+      providers.find((p) => p.available)?.id ?? providers[0]?.id;
+    if (defaultProvider) {
+      setProvider(defaultProvider);
+    }
+    setSelected(undefined);
   };
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
@@ -287,6 +314,18 @@ export default function ChatPage() {
       providerLocked,
     });
     if (conversation === activeConversationId) return;
+    const nextConversation = conversations.find(
+      (c) => c.conversationId === conversation,
+    );
+    if (nextConversation?.provider && nextConversation.provider !== provider) {
+      setProvider(nextConversation.provider);
+    }
+    if (
+      nextConversation?.model &&
+      models.some((model) => model.key === nextConversation.model)
+    ) {
+      setSelected(nextConversation.model);
+    }
     stop();
     resetTurns();
     setConversation(conversation, { clearMessages: true });

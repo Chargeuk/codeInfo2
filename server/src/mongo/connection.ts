@@ -11,3 +11,7 @@ export async function disconnectMongo() {
   await mongoose.connection.close();
   logger.info('Mongo disconnected');
 }
+
+export function isMongoConnected(): boolean {
+  return mongoose.connection.readyState === 1;
+}

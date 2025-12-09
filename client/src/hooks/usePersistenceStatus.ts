@@ -32,14 +32,13 @@ export function usePersistenceStatus(): State {
       }
       const data = (await res.json()) as { mongoConnected?: boolean };
       const connected =
-        typeof data.mongoConnected === 'boolean' ? data.mongoConnected : true;
+        typeof data.mongoConnected === 'boolean' ? data.mongoConnected : null;
       setMongoConnected(connected);
       setError(undefined);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       setError((err as Error).message);
-      // Default to true so banner only shows when explicitly reported as false.
-      setMongoConnected(true);
+      setMongoConnected(null);
     } finally {
       if (controllerRef.current === controller) {
         controllerRef.current = null;

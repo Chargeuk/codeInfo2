@@ -393,25 +393,28 @@ Detect Mongo unavailability and surface a banner in the client indicating conver
 
 #### Subtasks
 
-1. [ ] Extend `GET /health` (or add `/health/persistence`) to include `mongoConnected: boolean` based on Mongoose connection state.
-2. [ ] Update client health fetch (add a small hook, e.g., `usePersistenceStatus`) and render a persistent banner on ChatPage when `mongoConnected=false`; hide/disable conversation list controls in that state.
-3. [ ] Run `npm run lint --workspaces` and `npm run test --workspace client`.
+1. [x] Extend `GET /health` (or add `/health/persistence`) to include `mongoConnected: boolean` based on Mongoose connection state.
+2. [x] Update client health fetch (add a small hook, e.g., `usePersistenceStatus`) and render a persistent banner on ChatPage when `mongoConnected=false`; hide/disable conversation list controls in that state.
+3. [x] Run `npm run lint --workspaces` and `npm run test --workspace client`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Using the playwright-mcp tool, perform a manual UI check for every implemented functionality within the task and save screenshots against the previously started docker stack. Do NOT miss this step!
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details after implementation.
+- `/health` now reports `mongoConnected` using the live Mongoose connection state so the client can surface persistence availability accurately.
+- `usePersistenceStatus` keeps `mongoConnected` nullable and refreshable, showing the banner only when the server explicitly reports `false` while leaving controls enabled during errors.
+- ChatPage continues to gate conversation list/archiving based on the persistence flag and shows a Retry action; no banner appears while Mongo is healthy.
+- Tests executed for this task: repo-wide lint, client Jest, server tests (second run green after initial ingest cancel/dry-run flake), full e2e suite, compose build/up/down; manual UI screenshot saved to `test-results/screenshots/0000013-07-persistence.png`.
 
 ---
 

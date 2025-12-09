@@ -9,7 +9,11 @@ import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
-import { connectMongo, disconnectMongo } from './mongo/connection.js';
+import {
+  connectMongo,
+  disconnectMongo,
+  isMongoConnected,
+} from './mongo/connection.js';
 import { detectCodex } from './providers/codexDetection.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
@@ -52,7 +56,12 @@ app.use((req, res, next) => {
 const clientFactory = (baseUrl: string) => getClient(baseUrl);
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime(), timestamp: Date.now() });
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    mongoConnected: isMongoConnected(),
+  });
 });
 
 app.get('/version', (_req, res) => {

@@ -332,7 +332,7 @@ Persist MCP conversations on port 5011 so `codebase_question` creates/updates co
 ### 6. Client conversation history UI
 
 - Task Status: **done**
-- Git Commits: **to_do**
+- Git Commits: bb67dc0
 
 #### Overview
 

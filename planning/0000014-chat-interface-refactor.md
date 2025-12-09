@@ -30,7 +30,7 @@ MCP v2 response format stays unchanged (single JSON-RPC result with ordered `seg
 - [Answered] Where should streaming adapters live: inside `ChatInterface` or as pluggable responders injected by the factory? → Keep it simple initially: place streaming/response adapter logic in the base `ChatInterface` (overridable by subclasses if required). If additional transports emerge later, refactor into pluggable responders at that point.
 - [Answered] Do we want per-provider configuration (timeouts, model maps) centralised in the factory or alongside each subclass? → Keep provider-specific configuration inside each provider subclass; the factory simply selects the subclass so adding a new provider doesn’t require edits in multiple places.
 - [Answered] How should provider capability discovery be exposed to the factory (static list vs. runtime health checks)? → Use a simple static list for now to keep complexity low; revisit runtime health checks if/when needed.
-- Any constraints on backwards compatibility of MCP payload shape when LM Studio is added (e.g., must segments mirror Codex output format)?
+- [Answered] Any constraints on backwards compatibility of MCP payload shape when LM Studio is added (e.g., must segments mirror Codex output format)? → Keep the MCP payload shape exactly as today. The MCP wrapper should transform the normalized streaming output from `ChatInterface` (LM Studio or Codex) into the current segments format, dropping any fields not used in the existing contract.
 
 ## Implementation Plan
 

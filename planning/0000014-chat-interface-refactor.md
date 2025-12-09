@@ -61,9 +61,9 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 #### Documentation Locations
 
-- Node.js EventEmitter docs: https://nodejs.org/api/events.html
-- TypeScript abstract classes/typing: https://www.typescriptlang.org/docs/handbook/2/classes.html
-- JSON streaming basics (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
+- Node.js EventEmitter docs: https://nodejs.org/api/events.html — for emitting/handling normalized chat events.
+- TypeScript abstract classes/typing: https://www.typescriptlang.org/docs/handbook/2/classes.html — to define the base `ChatInterface`.
+- JSON streaming basics (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API — to understand streaming event flows used by the interface.
 
 #### Subtasks
 
@@ -119,9 +119,9 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 #### Documentation Locations
 
-- Express routing: Context7 `/expressjs/express`
-- MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
-- JSON-RPC 2.0 spec (for Codex thread handling reference): https://www.jsonrpc.org/specification
+- Express routing: Context7 `/expressjs/express` — to correctly update the `/chat` route.
+- MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to map normalized events to SSE.
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — for Codex threadId handling and error shapes.
 
 #### Subtasks
 
@@ -170,9 +170,9 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 #### Documentation Locations
 
-- LM Studio SDK docs (official): https://docs.lmstudio.ai/
-- SSE basics: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
-- TypeScript union types (for event mapping): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types
+- LM Studio SDK docs: https://docs.lmstudio.ai/ — to call LM Studio and interpret tool events.
+- MDN Server-Sent Events: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to stream normalized events to SSE.
+- TypeScript union types: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types — to map LM Studio events into normalized event unions.
 
 #### Subtasks
 
@@ -218,9 +218,9 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 #### Documentation Locations
 
-- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`)
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-- Streams to aggregation patterns (MDN Streams API): https://developer.mozilla.org/en-US/docs/Web/API/Streams_API
+- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`) — to keep MCP responder compliant.
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to shape MCP responses/errors.
+- MDN Streams API: https://developer.mozilla.org/en-US/docs/Web/API/Streams_API — for buffering normalized stream into segments.
 
 #### Subtasks
 
@@ -264,9 +264,9 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 #### Documentation Locations
 
-- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`)
-- LM Studio SDK docs (official): https://docs.lmstudio.ai/
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- MCP protocol: OpenAI MCP docs (Context7 `/openai/mcp`) — for MCP call format.
+- LM Studio SDK docs: https://docs.lmstudio.ai/ — to mock/drive LM Studio stream in MCP.
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to ensure LM Studio MCP responses follow the spec.
 
 #### Subtasks
 
@@ -305,9 +305,9 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Documentation Locations
 
-- TypeScript module exports & errors: https://www.typescriptlang.org/docs/handbook/modules.html
-- Error handling best practices (MDN JS Errors): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error
-- Express error responses: Context7 `/expressjs/express`
+- TypeScript modules/exports: https://www.typescriptlang.org/docs/handbook/modules.html — for shared errors/factory exports.
+- MDN JS Errors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error — to structure `UnsupportedProviderError`.
+- Express error handling: Context7 `/expressjs/express` — to surface unsupported-provider errors in REST.
 
 #### Subtasks
 
@@ -345,9 +345,9 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 #### Documentation Locations
 
-- Mermaid diagrams: https://mermaid.js.org/intro/
-- README style guidance (Markdown): https://www.markdownguide.org/basic-syntax/
-- Architecture documentation patterns: https://c4model.com/
+- Mermaid diagrams: https://mermaid.js.org/intro/ — for the architecture diagram update.
+- Markdown basics: https://www.markdownguide.org/basic-syntax/ — to format README/projectStructure updates.
+- C4 Model overview: https://c4model.com/ — to structure architecture description if needed.
 
 #### Subtasks
 
@@ -391,9 +391,9 @@ Run the full validation suite to confirm behaviour parity across REST and MCP fo
 
 #### Documentation Locations
 
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-- SSE behaviour reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
-- General test strategy (Jest): Context7 `/jestjs/jest`
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to verify MCP payloads/errors.
+- SSE reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to validate REST SSE behaviour.
+- Jest testing guide: Context7 `/jestjs/jest` — for writing/maintaining unit/integration tests.
 
 #### Subtasks
 

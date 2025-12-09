@@ -71,6 +71,11 @@ export function useConversationTurns(conversationId?: string): State {
       const controller = new AbortController();
       controllerRef.current = controller;
       setIsLoading(true);
+      console.info('useConversationTurns:fetchPage:start', {
+        conversationId,
+        mode,
+        cursor,
+      });
       try {
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         if (mode === 'prepend' && cursor) search.set('cursor', cursor);
@@ -105,12 +110,24 @@ export function useConversationTurns(conversationId?: string): State {
             mode === 'prepend' ? [...chronological, ...prev] : chronological;
           return dedupeTurns(merged);
         });
+        console.info('useConversationTurns:fetchPage:success', {
+          conversationId,
+          mode,
+          fetched: chronological.length,
+          hasMore: Boolean(data.nextCursor),
+          nextCursor: data.nextCursor,
+        });
         setIsError(false);
         setError(undefined);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         setIsError(true);
         setError((err as Error).message);
+        console.error('useConversationTurns:fetchPage:error', {
+          conversationId,
+          mode,
+          message: (err as Error).message,
+        });
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
@@ -127,6 +144,9 @@ export function useConversationTurns(conversationId?: string): State {
     setLastMode(null);
     setCursor(undefined);
     setHasMore(false);
+    console.info('useConversationTurns:conversationChanged', {
+      conversationId,
+    });
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
   }, [conversationId, fetchPage]);

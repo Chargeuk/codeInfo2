@@ -279,6 +279,13 @@ export default function ChatPage() {
   };
 
   const handleSelectConversation = (conversation: string) => {
+    console.info('ChatPage:handleSelectConversation', {
+      conversation,
+      activeConversationId,
+      provider,
+      messagesLength: messages.length,
+      providerLocked,
+    });
     if (conversation === activeConversationId) return;
     stop();
     resetTurns();

@@ -373,13 +373,64 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 #### Implementation notes
 
 - Added LM Studio option to MCP `codebase_question` params (provider/model), routed through chat factory with skipPersistence and baseUrl defaults, and set LM Studio model fallback envs.
-- LM Studio ChatInterface now honors `skipPersistence` to avoid double writes during MCP use.
-- MCP LM Studio integration tests cover snapshot/segment order using mocked LM Studio client via injected factories; projectStructure updated accordingly.
+- LM Studio ChatInterface now honors `skipPersistence` so MCP runs do not persist turns; MCP conversations therefore don’t appear in the client sidebar and LM Studio MCP sessions cannot be continued unless persistence is enabled. Codex MCP can still reuse provider threadId, but we intentionally keep Mongo clean for MCP.
+- MCP LM Studio integration tests cover snapshot/segment order using mocked LM Studio client via injected factories; projectStructure updated accordingly. I also verified live MCP calls myself (Codex default + LM Studio `openai/gpt-oss-20b`).
 - Ran lint/format (server), full build/test matrices (server/client), e2e suite, compose build/up/down, and manual provider/history check via e2e provider-history coverage while compose stack was up.
 
 ---
 
-### 6. Configuration and cleanup
+### 6. Persist MCP chats and add source metadata
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Store MCP conversations so LM Studio chats can be resumed, and track the request source for every conversation/turn. Remove the `skipPersistence` path for MCP runs so chat history is written, and introduce a new `source` enum (`REST` | `MCP`, default REST) on persisted chat metadata, ensuring DB accessors always populate it on read so the UI can display source alongside provider/model.
+
+#### Documentation Locations
+
+- Mongoose schemas: https://mongoosejs.com/docs/guide.html — for adding enum fields with defaults.
+- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html — for typed `source` values across DTOs.
+- Existing persistence layer: `server/src/mongo/repo.ts`, `conversation.ts`, `turn.ts`.
+- Client conversations UI: `client/src/hooks/useConversations.ts`, `client/src/pages/ChatPage.tsx` — to surface source next to provider/model.
+
+#### Subtasks
+
+1. [ ] Remove MCP `skipPersistence`: update MCP handler and ChatInterface flags so MCP runs persist turns; ensure Codex threadId persistence remains correct.
+2. [ ] Add `source` enum (`REST` | `MCP`, default `REST`) to conversation/turn schemas and DTOs; ensure repo helpers set it on insert and always populate on read (so returned data always has `source`).
+3. [ ] Update REST/MCP write paths to set `source` appropriately (REST => REST, MCP => MCP), including Codex and LM Studio providers.
+4. [ ] Extend client UI to display `source` alongside provider/model in conversation list and any detail views; ensure tests cover both values.
+5. [ ] Migration/data safety: ensure existing records default to `REST` when read; add guards so missing field does not break old data.
+6. [ ] Update tests (add/adjust as follows; mark each when written):
+   - [ ] **Unit** – `server/src/test/unit/repo-persistence-source.test.ts`: verify repo helpers set `source` default REST on insert, propagate `MCP` when provided, and normalize missing values on read.
+   - [ ] **Integration** – `server/src/test/integration/mcp-persistence.test.ts`: run MCP chat (Codex or LM Studio) and assert turns are persisted with `source: 'MCP'`, conversation listed with `source`, and can be resumed.
+   - [ ] **Integration** – `server/src/test/integration/rest-persistence-source.test.ts`: REST `/chat` flow persists turns with `source: 'REST'` and defaults when field absent in existing data.
+   - [ ] **Client RTL** – `client/src/test/chatPage.source.test.tsx`: conversation list renders `source` badge/label for REST and MCP items and falls back to REST when field missing.
+   - [ ] **Client RTL** – `client/src/test/useConversations.source.test.ts`: hook surfaces `source` in returned data and preserves it across pagination/refresh.
+   - [ ] **Project map** – update `projectStructure.md` entries for any new test files added above.
+7. [ ] Update architecture/flow diagrams: add or modify sequence/flow in `design.md` to show REST vs MCP paths, persistence, and `source` propagation (reference Mermaid docs via Context7 `/mermaid-js/mermaid`).
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 7. Configuration and cleanup
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -412,7 +463,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 5. [ ] Unit test (unsupported provider MCP) `server/src/test/unit/mcp-unsupported-provider.test.ts` (docs: Jest):
    - Call MCP handler with bad provider; expect JSON-RPC error with code/message.
 6. [ ] Update `projectStructure.md` if file entries changed during cleanup.
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -432,7 +483,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 ---
 
-### 7. Documentation and diagrams
+### 8. Documentation and diagrams
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -479,7 +530,7 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 ---
 
-### 8. Final validation (story-level)
+### 9. Final validation (story-level)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**

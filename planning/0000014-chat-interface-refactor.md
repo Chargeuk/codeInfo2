@@ -495,7 +495,51 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 ---
 
-### 8. Documentation and diagrams
+### 8. Persist user turns inside ChatInterface
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Move user-turn persistence into the shared `ChatInterface` so both REST and MCP calls write user messages through a single path. Remove duplicate user-turn writes from `/chat` and `codebaseQuestion`, keep source tagging (REST|MCP), and preserve memory-mode behavior.
+
+#### Documentation Locations
+
+- `server/src/chat/interfaces/ChatInterface.ts` — base interface utilities and event emission.
+- `server/src/routes/chat.ts` — current REST user-turn write path.
+- `server/src/mcp2/tools/codebaseQuestion.ts` — MCP user-turn write path.
+- `server/src/mongo/repo.ts` — `appendTurn` helper and in-memory fallbacks.
+
+#### Subtasks
+
+1. [ ] Add a base helper in `ChatInterface` to persist user turns (handles Mongo and memory mode; accepts source/provider/model).
+2. [ ] Update `ChatInterfaceCodex` and `ChatInterfaceLMStudio` to call the helper at `run` start; thread `source` through flags.
+3. [ ] Remove route-level user-turn writes from `/chat`; rely on interface persistence.
+4. [ ] Remove MCP-level user-turn writes from `codebaseQuestion`; rely on interface persistence.
+5. [ ] Ensure source tagging (`REST` | `MCP`) is preserved and defaults still backfill legacy data.
+6. [ ] Update or add unit/integration tests to cover single-write behavior for REST and MCP (no duplicates in Mongo/memory).
+7. [ ] Update `projectStructure.md` if files change.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (Codex and LM Studio history visibility)
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; populate once the task is executed.
+
+---
+
+### 9. Documentation and diagrams
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -542,51 +586,7 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 ---
 
-### 10. Persist user turns inside ChatInterface
-
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
-
-#### Overview
-
-Move user-turn persistence into the shared `ChatInterface` so both REST and MCP calls write user messages through a single path. Remove duplicate user-turn writes from `/chat` and `codebaseQuestion`, keep source tagging (REST|MCP), and preserve memory-mode behavior.
-
-#### Documentation Locations
-
-- `server/src/chat/interfaces/ChatInterface.ts` — base interface utilities and event emission.
-- `server/src/routes/chat.ts` — current REST user-turn write path.
-- `server/src/mcp2/tools/codebaseQuestion.ts` — MCP user-turn write path.
-- `server/src/mongo/repo.ts` — `appendTurn` helper and in-memory fallbacks.
-
-#### Subtasks
-
-1. [ ] Add a base helper in `ChatInterface` to persist user turns (handles Mongo and memory mode; accepts source/provider/model).
-2. [ ] Update `ChatInterfaceCodex` and `ChatInterfaceLMStudio` to call the helper at `run` start; thread `source` through flags.
-3. [ ] Remove route-level user-turn writes from `/chat`; rely on interface persistence.
-4. [ ] Remove MCP-level user-turn writes from `codebaseQuestion`; rely on interface persistence.
-5. [ ] Ensure source tagging (`REST` | `MCP`) is preserved and defaults still backfill legacy data.
-6. [ ] Update or add unit/integration tests to cover single-write behavior for REST and MCP (no duplicates in Mongo/memory).
-7. [ ] Update `projectStructure.md` if files change.
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (Codex and LM Studio history visibility)
-9. [ ] `npm run compose:down`
-
-#### Implementation notes
-
-- Start empty; populate once the task is executed.
-
----
-
-### 9. Final validation (story-level)
+### 10. Final validation (story-level)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**

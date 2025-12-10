@@ -3,13 +3,17 @@ import type { ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
-import { getChatInterface } from '../../chat/factory.js';
+import {
+  UnsupportedProviderError,
+  getChatInterface,
+} from '../../chat/factory.js';
 import type {
   ChatAnalysisEvent,
   ChatCompleteEvent,
   ChatFinalEvent,
   ChatThreadEvent,
   ChatToolResultEvent,
+  ChatInterface,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { ConversationModel } from '../../mongo/conversation.js';
@@ -65,6 +69,7 @@ export type CodebaseQuestionDeps = {
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
   };
+  chatFactory?: typeof getChatInterface;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
@@ -191,11 +196,20 @@ export async function runCodebaseQuestion(
     });
   }
 
-  const chat = getChatInterface(provider, {
-    codexFactory: deps.codexFactory,
-    clientFactory: deps.clientFactory,
-    toolFactory: deps.toolFactory,
-  });
+  let chat: ChatInterface;
+  const resolvedChatFactory = deps.chatFactory ?? getChatInterface;
+  try {
+    chat = resolvedChatFactory(provider, {
+      codexFactory: deps.codexFactory,
+      clientFactory: deps.clientFactory,
+      toolFactory: deps.toolFactory,
+    });
+  } catch (err) {
+    if (err instanceof UnsupportedProviderError) {
+      throw new InvalidParamsError(err.message);
+    }
+    throw err;
+  }
   const responder = new McpResponder();
 
   chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));

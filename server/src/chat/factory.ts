@@ -8,6 +8,8 @@ import {
 import { ChatInterfaceLMStudio } from './interfaces/ChatInterfaceLMStudio.js';
 
 export class UnsupportedProviderError extends Error {
+  readonly code = 'UNSUPPORTED_PROVIDER';
+
   constructor(provider: string) {
     super(`Unsupported chat provider: ${provider}`);
     this.name = 'UnsupportedProviderError';

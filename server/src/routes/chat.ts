@@ -1,12 +1,9 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
 import mongoose from 'mongoose';
-import { getChatInterface } from '../chat/factory.js';
-import {
-  ChatInterfaceCodex,
-  type CodexLike,
-} from '../chat/interfaces/ChatInterfaceCodex.js';
-import { ChatInterfaceLMStudio } from '../chat/interfaces/ChatInterfaceLMStudio.js';
+import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
+import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
+import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
 import {
   endStream,
   isStreamClosed,
@@ -77,10 +74,12 @@ export function createChatRouter({
   clientFactory,
   codexFactory,
   toolFactory,
+  chatFactory = getChatInterface,
 }: {
   clientFactory: ClientFactory;
   codexFactory?: CodexFactory;
   toolFactory?: ToolFactory;
+  chatFactory?: typeof getChatInterface;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -349,8 +348,6 @@ export function createChatRouter({
           .json({ error: 'codex unavailable', reason: detection.reason });
       }
 
-      startStream(res);
-
       const endIfOpen = () => {
         if (ended || isStreamClosed(res)) return;
         ended = true;
@@ -394,9 +391,20 @@ export function createChatRouter({
       });
       baseLogger.info({ requestId, provider, model }, 'chat stream start');
 
-      const chat = codexFactory
-        ? new ChatInterfaceCodex(codexFactory)
-        : (getChatInterface('codex') as ChatInterfaceCodex);
+      let chat: ChatInterface;
+      try {
+        chat = chatFactory('codex', { codexFactory });
+      } catch (err) {
+        if (err instanceof UnsupportedProviderError) {
+          return res.status(400).json({
+            error: 'unsupported provider',
+            message: err.message,
+          });
+        }
+        throw err;
+      }
+
+      startStream(res);
 
       let assistantContent = '';
       let assistantStatus: TurnStatus = 'ok';
@@ -476,7 +484,7 @@ export function createChatRouter({
       });
 
       try {
-        await (chat as ChatInterfaceCodex).run(
+        await chat.run(
           message,
           {
             threadId: activeThreadId,
@@ -581,8 +589,6 @@ export function createChatRouter({
       'chat stream start',
     );
 
-    startStream(res);
-
     const handleDisconnect = (reason: 'close' | 'aborted') => {
       if (completed) return;
       if (reason === 'close' && !controller.signal.aborted) return;
@@ -621,7 +627,29 @@ export function createChatRouter({
       cancelled = true;
     });
 
-    const lmChat = getChatInterface('lmstudio', { clientFactory, toolFactory });
+    let lmChat: ChatInterface;
+    try {
+      lmChat = chatFactory('lmstudio', { clientFactory, toolFactory });
+    } catch (err) {
+      if (err instanceof UnsupportedProviderError) {
+        append({
+          level: 'error',
+          message: 'unsupported provider',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: { provider },
+        });
+        baseLogger.error({ requestId, provider }, 'unsupported provider');
+        return res.status(400).json({
+          error: 'unsupported provider',
+          message: (err as Error).message,
+        });
+      }
+      throw err;
+    }
+
+    startStream(res);
     const toCallIdOut = (callId: string | number) => {
       const num = Number(callId);
       return Number.isFinite(num) && `${num}` === String(callId) ? num : callId;
@@ -732,7 +760,7 @@ export function createChatRouter({
       const historyForRun = shouldUseMemoryPersistence()
         ? chronologicalTurns
         : undefined;
-      await (lmChat as ChatInterfaceLMStudio).run(
+      await lmChat.run(
         message,
         {
           requestId,

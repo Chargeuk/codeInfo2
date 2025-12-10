@@ -457,34 +457,34 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Subtasks
 
-1. [ ] Keep provider config in subclasses (docs: TS modules):
+1. [x] Keep provider config in subclasses (docs: TS modules):
    - Ensure `ChatInterfaceCodex.ts` and `ChatInterfaceLMStudio.ts` hold timeouts/base URLs/model filters locally.
    - Verify `server/src/chat/factory.ts` simply instantiates classes without passing config args.
-2. [ ] Standardize `UnsupportedProviderError` (docs: MDN Errors, Express):
+2. [x] Standardize `UnsupportedProviderError` (docs: MDN Errors, Express):
    - Define/export `UnsupportedProviderError` in `server/src/chat/factory.ts` with code/message.
    - Update REST `/chat` handler to map this error to HTTP 400 with the message.
    - Update MCP router to map to JSON-RPC error with the same message/code.
-3. [ ] Remove obsolete conditionals/imports (docs: Express):
+3. [x] Remove obsolete conditionals/imports (docs: Express):
    - In `server/src/routes/chat.ts`, delete legacy provider branching now covered by factory; note removed code blocks.
    - In `server/src/mcp2/*`, delete duplicated provider checks handled by factory/McpResponder.
-4. [ ] Unit test (unsupported provider REST) `server/src/test/unit/chat-unsupported-provider.test.ts` (docs: Jest):
+4. [x] Unit test (unsupported provider REST) `server/src/test/unit/chat-unsupported-provider.test.ts` (docs: Jest):
    - Mock `/chat` call with bad provider; expect HTTP 400 and error message.
-5. [ ] Unit test (unsupported provider MCP) `server/src/test/unit/mcp-unsupported-provider.test.ts` (docs: Jest):
+5. [x] Unit test (unsupported provider MCP) `server/src/test/unit/mcp-unsupported-provider.test.ts` (docs: Jest):
    - Call MCP handler with bad provider; expect JSON-RPC error with code/message.
-6. [ ] Update `projectStructure.md` if file entries changed during cleanup.
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+6. [x] Update `projectStructure.md` if file entries changed during cleanup.
+7. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
 5. [ ] `npm run e2e` (includes new provider-selection scenario)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -523,14 +523,14 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client` (includes new RTL spec)
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

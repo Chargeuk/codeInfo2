@@ -524,7 +524,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 8. [ ] **Integration test (MCP)** – update/add `server/src/test/integration/mcp-persistence.test.ts`: call `codebase_question` via MCP; assert a single user turn persisted with `source: 'MCP'`, no duplicates, and conversation resumes correctly. (docs: JSON-RPC spec, Jest API)
 9. [ ] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
 10. [ ] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
-
+11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 #### Testing
 
 1. [ ] `npm run build --workspace server`

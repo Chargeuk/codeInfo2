@@ -390,18 +390,24 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
 
 #### Documentation Locations
 
-- Mongoose schemas: https://mongoosejs.com/docs/guide.html — for adding enum fields with defaults.
-- TypeScript discriminated unions: https://www.typescriptlang.org/docs/handbook/2/narrowing.html — for typed `source` values across DTOs.
-- Existing persistence layer: `server/src/mongo/repo.ts`, `conversation.ts`, `turn.ts`.
-- Client conversations UI: `client/src/hooks/useConversations.ts`, `client/src/pages/ChatPage.tsx` — to surface source next to provider/model.
+- Mongoose schema enums & defaults: https://mongoosejs.com/docs/guide.html#enums  
+- TypeScript enums/unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#enums  
+- JSON RPC context (MCP): https://www.jsonrpc.org/specification  
+- React Testing Library docs (client RTL tests): https://testing-library.com/docs/react-testing-library/intro  
+- Mermaid reference (for design.md diagrams): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
 1. [ ] Remove MCP `skipPersistence`: update MCP handler and ChatInterface flags so MCP runs persist turns; ensure Codex threadId persistence remains correct.
+   - Files to edit/read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
 2. [ ] Add `source` enum (`REST` | `MCP`, default `REST`) to conversation/turn schemas and DTOs; ensure repo helpers set it on insert and always populate on read (so returned data always has `source`).
+   - Files to edit/read: `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/src/mongo/repo.ts`, shared DTOs if any.
 3. [ ] Update REST/MCP write paths to set `source` appropriately (REST => REST, MCP => MCP), including Codex and LM Studio providers.
+   - Files to edit/read: `server/src/routes/chat.ts`, `server/src/chat/interfaces/*.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`.
 4. [ ] Extend client UI to display `source` alongside provider/model in conversation list and any detail views; ensure tests cover both values.
+   - Files to edit/read: `client/src/hooks/useConversations.ts`, `client/src/pages/ChatPage.tsx`, any UI components that render provider/model badges.
 5. [ ] Migration/data safety: ensure existing records default to `REST` when read; add guards so missing field does not break old data.
+   - Files to edit/read: `server/src/mongo/repo.ts`, any serializers/DTO mappers; consider a backfill helper if needed.
 6. [ ] Update tests (add/adjust as follows; mark each when written):
    - [ ] **Unit** – `server/src/test/unit/repo-persistence-source.test.ts`: verify repo helpers set `source` default REST on insert, propagate `MCP` when provided, and normalize missing values on read.
    - [ ] **Integration** – `server/src/test/integration/mcp-persistence.test.ts`: run MCP chat (Codex or LM Studio) and assert turns are persisted with `source: 'MCP'`, conversation listed with `source`, and can be resumed.

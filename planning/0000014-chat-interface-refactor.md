@@ -441,8 +441,8 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
 
 ### 7. Configuration and cleanup
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **2f22316**
 
 #### Overview
 
@@ -488,7 +488,10 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Added a coded `UnsupportedProviderError` and routed both REST `/chat` and MCP `codebase_question` through injectable chat factories so unsupported providers map cleanly to 400 / JSON-RPC invalid params errors.
+- Moved LM Studio chat instantiation ahead of SSE header writes to avoid double-header failures, and shared the factory plumbing between codex/LM Studio without direct subclass imports.
+- Extended `CodebaseQuestionDeps` and tool defaults with `chatFactory`, plus new REST/MCP unit tests that force factory failures; refreshed projectStructure and plan checkboxes accordingly.
+- Ran server/client builds, server/client unit/integration/RTL suites, full e2e (with compose e2e stack), main compose build/up/down, and lint/format checks after the changes.
 
 ---
 

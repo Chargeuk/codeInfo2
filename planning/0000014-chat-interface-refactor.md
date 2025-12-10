@@ -513,13 +513,13 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 #### Subtasks
 
-1. [ ] Implement `ChatInterface.run(...)` in the base class to persist the user turn (Mongo or memory) then call `await this.execute(...)`; add abstract `execute` with the same signature.
-2. [ ] Rename provider `run` methods to `execute` in `ChatInterfaceCodex` and `ChatInterfaceLMStudio`; ensure flags include `source` and provider/model.
-3. [ ] Remove route-level user-turn writes from `/chat`; rely solely on `ChatInterface.run`.
-4. [ ] Remove MCP-level user-turn writes from `codebaseQuestion`; rely solely on `ChatInterface.run`.
-5. [ ] Keep source tagging (`REST` | `MCP`) and legacy defaulting intact after the refactor.
-6. [ ] Add/refresh unit and integration tests to assert single user-turn write for REST and MCP paths (no duplicates when Mongo is up or down).
-7. [ ] Update `projectStructure.md` if files change.
+1. [ ] Implement base `run` + abstract `execute` in `server/src/chat/interfaces/ChatInterface.ts` (docs: TS abstract classes https://www.typescriptlang.org/docs/handbook/2/classes.html, Mongoose helpers in `server/src/mongo/repo.ts`). `run` should: load flags (provider/model/source), call existing persistence helper to append the **user** turn (Mongo or in-memory), then `return await this.execute(message, flags, conversationId, model)`. Add `protected abstract execute(message: string, flags: ChatFlags, conversationId: string, model: string): Promise<void>;`.
+2. [ ] Update providers to implement `execute` instead of `run` in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` (docs: provider files themselves + TS abstract classes link above). Ensure their signatures match the new abstract method and they no longer write the user turn.
+3. [ ] Remove REST-layer user-turn writes from `server/src/routes/chat.ts` (docs: Express routing https://expressjs.com/en/guide/routing.html, SSE in `server/src/chatStream.ts`). The route should just resolve the chat via `chatFactory`, call `await chat.run(...)`, and rely on the base class for persistence.
+4. [ ] Remove MCP-layer user-turn writes from `server/src/mcp2/tools/codebaseQuestion.ts` (docs: JSON-RPC https://www.jsonrpc.org/specification). The handler should delegate to `chat.run(...)` from the factory; no direct `appendTurn` calls remain.
+5. [ ] Verify source tagging (`REST` | `MCP`) remains: check `server/src/mongo/repo.ts` and ensure flags passed into `run` still include `source`; keep legacy defaulting for missing source values (docs: Mongoose enums https://mongoosejs.com/docs/guide.html#enum).
+6. [ ] Add/update tests to assert a single user-turn write for REST and MCP paths (docs: Jest https://jestjs.io/docs/api). Suggested files: `server/src/test/integration/rest-persistence-source.test.ts`, `server/src/test/integration/mcp-persistence.test.ts`, and a new unit test for `ChatInterface.run` calling `execute` once with persisted user turn when Mongo is up and when in-memory mode is used.
+7. [ ] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
 
 #### Testing
 

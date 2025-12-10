@@ -504,28 +504,28 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 #### Subtasks
 
-1. [ ] Implement base `run` + abstract `execute` in `server/src/chat/interfaces/ChatInterface.ts` (docs: TS abstract classes https://www.typescriptlang.org/docs/handbook/2/classes.html, Mongoose helpers in `server/src/mongo/repo.ts`). `run` should: load flags (provider/model/source), call existing persistence helper to append the **user** turn (Mongo or in-memory), then `return await this.execute(message, flags, conversationId, model)`. Add `protected abstract execute(message: string, flags: ChatFlags, conversationId: string, model: string): Promise<void>;`.
-2. [ ] Update providers to implement `execute` instead of `run` in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` (docs: provider files themselves + TS abstract classes link above). Ensure their signatures match the new abstract method and they no longer write the user turn.
-3. [ ] Remove REST-layer user-turn writes from `server/src/routes/chat.ts` (docs: Express routing https://expressjs.com/en/guide/routing.html, SSE in `server/src/chatStream.ts`). The route should just resolve the chat via `chatFactory`, call `await chat.run(...)`, and rely on the base class for persistence.
-4. [ ] Remove MCP-layer user-turn writes from `server/src/mcp2/tools/codebaseQuestion.ts` (docs: JSON-RPC https://www.jsonrpc.org/specification). The handler should delegate to `chat.run(...)` from the factory; no direct `appendTurn` calls remain.
-5. [ ] Verify source tagging (`REST` | `MCP`) remains: check `server/src/mongo/repo.ts` and ensure flags passed into `run` still include `source`; keep legacy defaulting for missing source values (docs: Mongoose enums https://mongoosejs.com/docs/guide.html#enum).
-6. [ ] **Unit test** – `server/src/test/unit/chat-interface-run-persistence.test.ts`: mock `appendTurn`/memory path and `execute`; assert `run` persists a single user turn then calls `execute` exactly once, both when Mongo is available and when in-memory fallback is used. (docs: Jest API)
-7. [ ] **Integration test (REST)** – update/add `server/src/test/integration/rest-persistence-source.test.ts`: POST `/chat` with provider `lmstudio` (mocked); assert exactly one user turn is written, `source: 'REST'` is set, and no duplicate user turns are created after the refactor. (docs: Jest API, Express routing)
-8. [ ] **Integration test (MCP)** – update/add `server/src/test/integration/mcp-persistence.test.ts`: call `codebase_question` via MCP; assert a single user turn persisted with `source: 'MCP'`, no duplicates, and conversation resumes correctly. (docs: JSON-RPC spec, Jest API)
-9. [ ] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
-10. [ ] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
+1. [x] Implement base `run` + abstract `execute` in `server/src/chat/interfaces/ChatInterface.ts` (docs: TS abstract classes https://www.typescriptlang.org/docs/handbook/2/classes.html, Mongoose helpers in `server/src/mongo/repo.ts`). `run` should: load flags (provider/model/source), call existing persistence helper to append the **user** turn (Mongo or in-memory), then `return await this.execute(message, flags, conversationId, model)`. Add `protected abstract execute(message: string, flags: ChatFlags, conversationId: string, model: string): Promise<void>;`.
+2. [x] Update providers to implement `execute` instead of `run` in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` (docs: provider files themselves + TS abstract classes link above). Ensure their signatures match the new abstract method and they no longer write the user turn.
+3. [x] Remove REST-layer user-turn writes from `server/src/routes/chat.ts` (docs: Express routing https://expressjs.com/en/guide/routing.html, SSE in `server/src/chatStream.ts`). The route should just resolve the chat via `chatFactory`, call `await chat.run(...)`, and rely on the base class for persistence.
+4. [x] Remove MCP-layer user-turn writes from `server/src/mcp2/tools/codebaseQuestion.ts` (docs: JSON-RPC https://www.jsonrpc.org/specification). The handler should delegate to `chat.run(...)` from the factory; no direct `appendTurn` calls remain.
+5. [x] Verify source tagging (`REST` | `MCP`) remains: check `server/src/mongo/repo.ts` and ensure flags passed into `run` still include `source`; keep legacy defaulting for missing source values (docs: Mongoose enums https://mongoosejs.com/docs/guide.html#enum).
+6. [x] **Unit test** – `server/src/test/unit/chat-interface-run-persistence.test.ts`: mock `appendTurn`/memory path and `execute`; assert `run` persists a single user turn then calls `execute` exactly once, both when Mongo is available and when in-memory fallback is used. (docs: Jest API)
+7. [x] **Integration test (REST)** – update/add `server/src/test/integration/rest-persistence-source.test.ts`: POST `/chat` with provider `lmstudio` (mocked); assert exactly one user turn is written, `source: 'REST'` is set, and no duplicate user turns are created after the refactor. (docs: Jest API, Express routing)
+8. [x] **Integration test (MCP)** – update/add `server/src/test/integration/mcp-persistence.test.ts`: call `codebase_question` via MCP; assert a single user turn persisted with `source: 'MCP'`, no duplicates, and conversation resumes correctly. (docs: JSON-RPC spec, Jest API)
+9. [x] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
+10. [x] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
 11. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (Codex and LM Studio history visibility)
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (Codex and LM Studio history visibility)
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -535,33 +535,76 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 ---
 
-### 9. Documentation and diagrams
+### 9. Base-driven assistant persistence
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, and LM Studio MCP support. Add/refresh diagrams as needed.
+Move assistant/tool persistence into `ChatInterface` by having the base subscribe to its own emitted events during `run`, buffer tokens/finals/tool-results, derive status, and write the assistant turn automatically (Mongo or memory fallback). Providers only need to emit normalized events; no manual persistTurn calls. Ensure threadId updates still work and duplicate writes are impossible.
 
 #### Documentation Locations
 
-- Mermaid diagrams: https://mermaid.js.org/intro/ — for the architecture diagram update.
-- Markdown basics: https://www.markdownguide.org/basic-syntax/ — to format README/projectStructure updates.
-- C4 Model overview: https://c4model.com/ — to structure architecture description if needed.
-- Mermaid docs via Context7: Context7 `/mermaid-js/mermaid` — for correct diagram syntax in `design.md`.
+- TypeScript EventEmitter docs: https://nodejs.org/api/events.html
+- Jest docs: Context7 `/jestjs/jest`
+- Express routing guide: https://expressjs.com/en/guide/routing.html
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Mongoose enums/defaults: https://mongoosejs.com/docs/guide.html#enum
 
 #### Subtasks
 
-1. [ ] Update `design.md` (docs: Mermaid site + Context7 `/mermaid-js/mermaid`, Markdown guide):
-   - Add section “ChatInterface abstraction” describing base class, provider subclasses, factory, SSE responder, MCP wrapper.
-   - Insert/refresh mermaid diagram showing: REST/MCP entry → factory → provider subclass (Codex/LM Studio) → responder (SSE/MCP) → client; include conversationId/persistence notes.
-   - Mention MCP payload remains unchanged and provider list is static.
-2. [ ] Update `README.md` (docs: Markdown guide):
-   - Add short paragraph under features noting LM Studio now available via MCP v2 through the shared ChatInterface abstraction.
-   - Add one-line note that REST/MCP both use conversationId-only payloads (no full history).
-3. [ ] Update `projectStructure.md` (docs: Markdown guide):
-   - Add entries for `server/src/chat/interfaces/ChatInterface.ts`, `ChatInterfaceCodex.ts`, `ChatInterfaceLMStudio.ts`, `server/src/chat/factory.ts`, `server/src/chat/responders/McpResponder.ts`.
+1. [ ] Base buffering & listeners (server/src/chat/interfaces/ChatInterface.ts)  
+   - Read: EventEmitter docs, TS abstract classes, Mongoose enums.  
+   - In `run`, add temporary listeners for `token`, `final`, `tool-result`, `error`, `complete`; buffer `tokenBuffer`, `finalContent`, `toolCalls`, derive `status` (failed/error, stopped on abort + no text). Respect `skipPersistence` and `shouldUseMemoryPersistence`.
+2. [ ] Implement `persistAssistantTurn` helper (same file)  
+   - Use `persistTurn` (server/src/mongo/repo.ts) or memory store (server/src/chat/memoryPersistence.ts); single-write guard; write `content` (prefer finalContent else tokenBuffer), `toolCalls`, `status`, `provider/model/source`, bump `lastMessageAt`.
+3. [ ] Refactor providers to rely on base (server/src/chat/interfaces/ChatInterfaceCodex.ts, ChatInterfaceLMStudio.ts)  
+   - Remove assistant `persistTurn` blocks; keep event emissions and threadId updates. Ensure normalized events still fire.
+4. [ ] Unit tests for buffering/persistence  
+   - Add/extend `server/src/test/unit/chat-interface-base.test.ts` or new spec; cover token-only, final present, tool-result, error/abort, single-write guard, memory fallback. Use Jest docs.
+5. [ ] Integration tests (Codex + LM Studio)  
+   - Add/extend `server/src/test/integration/chat-codex.test.ts` and `chat-lmstudio-interface.test.ts` (or new files): mock streams to emit token/final/tool-result; assert exactly one assistant turn with toolCalls persisted per send, and no duplicates when history exists.
+6. [ ] Update `projectStructure.md` with any new helpers/tests from this task.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run e2e`
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check (Codex and LM Studio history visibility)
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Start empty; update after each subtask/test.
+
+---
+
+### 10. Documentation and diagrams
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Document the base-managed persistence flow: ChatInterface buffers its own events, auto-persists assistant/tool data, and providers just emit normalized events. Update repo docs and diagrams to reflect this, LM Studio MCP availability, and conversationId-only payloads.
+
+#### Documentation Locations
+
+- Mermaid diagrams: https://mermaid.js.org/intro/
+- Markdown basics: https://www.markdownguide.org/basic-syntax/
+- C4 Model overview: https://c4model.com/
+- Mermaid docs via Context7: Context7 `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Update `design.md`: add “ChatInterface event buffering & persistence” section with mermaid diagram (REST/MCP → factory → provider emits events → base buffers → persist Mongo/memory → SSE/MCP responder → client). Note threadId updates and duplicate-write guard.
+2. [ ] Update `README.md`: mention base-managed assistant persistence, conversationId-only payloads, LM Studio MCP availability via shared abstraction.
+3. [ ] Update `projectStructure.md`: include new helpers/tests (`server/src/chat/memoryPersistence.ts`, buffering helper, `chat-interface-run-persistence.test.ts`, `rest-persistence-source.test.ts`, any new integration specs from Task 9).
 4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
@@ -569,11 +612,11 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+8. [ ] Manual Playwright-MCP check (Codex & LM Studio history visibility)
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -582,32 +625,28 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 ---
 
-### 10. Final validation (story-level)
+### 11. Final validation (story-level)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Run the full validation suite to confirm behaviour parity across REST and MCP for Codex and LM Studio after the refactor. Capture final notes.
+Validate end-to-end after the base-managed assistant persistence changes: confirm single-turn writes (user + assistant) for REST and MCP providers, correct toolCalls, threadId handling, SSE ordering, and error paths. Ensure unsupported-provider and snapshot contracts still hold.
 
 #### Documentation Locations
 
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification — to verify MCP payloads/errors.
-- SSE reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events — to validate REST SSE behaviour.
-- Jest testing guide: Context7 `/jestjs/jest` — for writing/maintaining unit/integration tests.
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- SSE reference: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+- Jest testing guide: Context7 `/jestjs/jest`
 
 #### Subtasks
 
-1. [ ] Verify MCP payload snapshots/compatibility (docs: JSON-RPC, Jest):
-   - Re-run snapshots from `server/src/test/integration/mcp-codex-wrapper.test.ts` and `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`; confirm segments match expected shape.
-2. [ ] Spot-check REST SSE behaviour (docs: MDN SSE, Jest):
-   - Use `npm run e2e` or manual curl/EventSource to confirm token/tool/final/complete order and citations/status for Codex and LM Studio.
-3. [ ] Confirm unsupported-provider errors (docs: Express, JSON-RPC):
-   - REST `/chat` with bad provider returns clear error; MCP JSON-RPC returns error with code/message.
-4. [ ] Summarize changes/results in Implementation notes:
-   - List key behaviour parity findings, MCP compatibility confirmation, and any follow-ups.
-5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+1. [ ] Re-run MCP snapshots (`server/src/test/integration/mcp-codex-wrapper.test.ts`, `mcp-lmstudio-wrapper.test.ts`) and confirm segments unchanged after base buffering.
+2. [ ] REST SSE spot-check: curl/EventSource (or e2e) to verify token → tool-request/result → final → complete order and that exactly one assistant turn is persisted per send for both providers.
+3. [ ] Persistence parity check: call `/chat` (LM Studio) and MCP `codebase_question` (Codex) against Mongo and assert one user + one assistant turn per message with `toolCalls` when tools fire; repeat with Mongo down to ensure memory fallback still responds without errors.
+4. [ ] Confirm unsupported-provider errors still 400 (REST) / JSON-RPC error (MCP).
+5. [ ] Summarize validation results in Implementation notes; note any follow-ups.
 
 #### Testing
 
@@ -615,7 +654,7 @@ Run the full validation suite to confirm behaviour parity across REST and MCP fo
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
+5. [ ] `npm run e2e` (includes provider-selection scenario)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.

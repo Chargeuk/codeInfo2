@@ -502,7 +502,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 #### Overview
 
-Move user-turn persistence into the shared `ChatInterface` so both REST and MCP calls write user messages through a single path. Remove duplicate user-turn writes from `/chat` and `codebaseQuestion`, keep source tagging (REST|MCP), and preserve memory-mode behavior.
+Move user-turn persistence into the shared `ChatInterface` so both REST and MCP calls write user messages through a single path. Implement `run` in the base class to persist user turns before delegating to a new abstract `execute` method implemented by providers. Remove duplicate user-turn writes from `/chat` and `codebaseQuestion`, keep source tagging (REST|MCP), and preserve memory-mode behavior.
 
 #### Documentation Locations
 
@@ -513,12 +513,12 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 #### Subtasks
 
-1. [ ] Add a base helper in `ChatInterface` to persist user turns (handles Mongo and memory mode; accepts source/provider/model).
-2. [ ] Update `ChatInterfaceCodex` and `ChatInterfaceLMStudio` to call the helper at `run` start; thread `source` through flags.
-3. [ ] Remove route-level user-turn writes from `/chat`; rely on interface persistence.
-4. [ ] Remove MCP-level user-turn writes from `codebaseQuestion`; rely on interface persistence.
-5. [ ] Ensure source tagging (`REST` | `MCP`) is preserved and defaults still backfill legacy data.
-6. [ ] Update or add unit/integration tests to cover single-write behavior for REST and MCP (no duplicates in Mongo/memory).
+1. [ ] Implement `ChatInterface.run(...)` in the base class to persist the user turn (Mongo or memory) then call `await this.execute(...)`; add abstract `execute` with the same signature.
+2. [ ] Rename provider `run` methods to `execute` in `ChatInterfaceCodex` and `ChatInterfaceLMStudio`; ensure flags include `source` and provider/model.
+3. [ ] Remove route-level user-turn writes from `/chat`; rely solely on `ChatInterface.run`.
+4. [ ] Remove MCP-level user-turn writes from `codebaseQuestion`; rely solely on `ChatInterface.run`.
+5. [ ] Keep source tagging (`REST` | `MCP`) and legacy defaulting intact after the refactor.
+6. [ ] Add/refresh unit and integration tests to assert single user-turn write for REST and MCP paths (no duplicates when Mongo is up or down).
 7. [ ] Update `projectStructure.md` if files change.
 
 #### Testing
@@ -570,14 +570,14 @@ Update docs to reflect the new ChatInterface abstraction, factory, MCP wrapper, 
 
 #### Testing
 
-1. [x] `npm run build --workspace server`
-2. [x] `npm run build --workspace client`
-3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client` (includes new RTL spec)
-5. [x] `npm run e2e` (includes new provider-selection scenario)
-6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
-8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client` (includes new RTL spec)
+5. [ ] `npm run e2e` (includes new provider-selection scenario)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

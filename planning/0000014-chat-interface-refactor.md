@@ -488,7 +488,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 ### 8. Persist user turns inside ChatInterface
 
 - Task Status: **__done__**
-- Git Commits: **24b0d9c**
+- Git Commits: **4fbce7e**
 
 #### Overview
 

@@ -5,12 +5,12 @@ import {
   type LLMActionOpts,
   type LMStudioClient,
 } from '@lmstudio/sdk';
-import mongoose from 'mongoose';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import type { TurnStatus } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
+import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
   ChatInterface,
   type ChatCompleteEvent,
@@ -99,7 +99,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     super();
   }
 
-  async run(
+  async execute(
     message: string,
     flags: Record<string, unknown>,
     conversationId: string,
@@ -117,10 +117,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       : undefined;
     const safeBase = baseUrl ?? process.env.LMSTUDIO_BASE_URL ?? '';
     const wsBase = toWebSocketUrl(safeBase);
-
-    const preferMemoryPersistence = process.env.NODE_ENV === 'test';
-    const shouldUseMemoryPersistence = () =>
-      preferMemoryPersistence || mongoose.connection.readyState !== 1;
 
     const storedTurns =
       history?.map((turn) => ({
@@ -201,6 +197,13 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       },
     });
 
+    const newestTurnStart = storedTurns.at(0);
+    const newestTurnEnd = storedTurns.at(-1);
+    const hasCurrentUser =
+      (newestTurnStart?.role === 'user' &&
+        newestTurnStart.content === message) ||
+      (newestTurnEnd?.role === 'user' && newestTurnEnd.content === message);
+
     const chatHistory = [
       ...(SYSTEM_CONTEXT.trim()
         ? [{ role: 'system', content: SYSTEM_CONTEXT.trim() }]
@@ -209,7 +212,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         role: turn.role,
         content: turn.content,
       })),
-      { role: 'user', content: message },
+      ...(hasCurrentUser ? [] : [{ role: 'user', content: message }]),
     ];
     const chat = Chat.from(chatHistory as Parameters<typeof Chat.from>[0]);
 

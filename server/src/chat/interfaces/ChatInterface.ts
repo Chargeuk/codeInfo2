@@ -6,7 +6,11 @@ import {
   type AppendTurnInput,
   type TurnSummary,
 } from '../../mongo/repo.js';
-import type { TurnSource } from '../../mongo/turn.js';
+import type { Turn, TurnSource, TurnStatus } from '../../mongo/turn.js';
+import {
+  recordMemoryTurn,
+  shouldUseMemoryPersistence,
+} from '../memoryPersistence.js';
 
 export interface ChatTokenEvent {
   type: 'token';
@@ -78,12 +82,58 @@ type Listener<T extends EventType> = (
  * the provider call in `run`.
  */
 export abstract class ChatInterface extends EventEmitter {
-  abstract run(
+  abstract execute(
     message: string,
     flags: Record<string, unknown>,
     conversationId: string,
     model: string,
   ): Promise<void>;
+
+  async run(
+    message: string,
+    flags: Record<string, unknown>,
+    conversationId: string,
+    model: string,
+  ): Promise<void> {
+    const source = ((flags ?? {}) as { source?: TurnSource }).source ?? 'REST';
+    const provider =
+      ((flags ?? {}) as { provider?: string }).provider ?? 'unknown';
+    const skipPersistence = Boolean(
+      (flags ?? {}) && (flags as { skipPersistence?: boolean }).skipPersistence,
+    );
+    const createdAt = new Date();
+    const userStatus: TurnStatus = 'ok';
+
+    if (!skipPersistence) {
+      if (shouldUseMemoryPersistence()) {
+        recordMemoryTurn({
+          conversationId,
+          role: 'user',
+          content: message,
+          model,
+          provider,
+          source,
+          toolCalls: null,
+          status: userStatus,
+          createdAt,
+        } as Turn);
+      } else {
+        await this.persistTurn({
+          conversationId,
+          role: 'user',
+          content: message,
+          model,
+          provider,
+          source,
+          toolCalls: null,
+          status: userStatus,
+          createdAt,
+        });
+      }
+    }
+
+    await this.execute(message, flags, conversationId, model);
+  }
 
   on<T extends EventType>(event: T, listener: Listener<T>): this {
     return super.on(event, listener);

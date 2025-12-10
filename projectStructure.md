@@ -168,9 +168,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ chatStream.ts — SSE helper for chat streaming
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
-â”‚     â”‚  â””â”€ interfaces/ChatInterface.ts — base chat abstraction with normalized events and persistence helpers
-â”‚     â”‚  â””â”€ interfaces/ChatInterfaceCodex.ts — Codex provider implementation emitting normalized chat events
-â”‚     â”‚  â””â”€ interfaces/ChatInterfaceLMStudio.ts — LM Studio provider implementation emitting normalized chat events
+â”‚     â”‚  â”œâ”€ memoryPersistence.ts — shared in-memory conversation/turn store for Mongo-down/test fallback
+â”‚     â”‚  â”œâ”€ interfaces/ChatInterface.ts — base chat abstraction with normalized events and persistence helpers
+â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceCodex.ts — Codex provider implementation emitting normalized chat events
+â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceLMStudio.ts — LM Studio provider implementation emitting normalized chat events
 â”‚     â”‚  â””â”€ responders/McpResponder.ts — buffers normalized chat events into MCP segments payload
 â”‚     â”œâ”€ routes/
 â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
@@ -265,6 +266,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-tools.test.ts â€” LM Studio tools schemas/logging + list/search outputs
 â”‚           â”œâ”€ chat-tools-wire.test.ts â€” chat router injects LM Studio tools into act calls
 â”‚           â”œâ”€ chat-unsupported-provider.test.ts — REST /chat returns 400 on unsupported provider error path
+â”‚           â”œâ”€ chat-interface-run-persistence.test.ts — ChatInterface.run persists user turn then delegates execute, with memory fallback coverage
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
@@ -280,6 +282,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ mcp-lmstudio-wrapper.test.ts — LM Studio MCP segments snapshot/order coverage
 â”‚        |  â””â”€ mcp-codex-wrapper.test.ts — MCP responder segments snapshot/order coverage for Codex
 â”‚        |  â”œâ”€ mcp-persistence.test.ts — MCP persistence source coverage (MCP chats stored with source metadata)
+â”‚        |  â”œâ”€ rest-persistence-source.test.ts — REST chat run stores a single user turn with source tracking in memory mode
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/

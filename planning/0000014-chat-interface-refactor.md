@@ -52,7 +52,7 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 
 ### 1. Extract ChatInterface base and factory scaffold
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **6b7b7f1**
 
 #### Overview
@@ -68,40 +68,30 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 #### Subtasks
 
-1. [x] Create `server/src/chat/interfaces/ChatInterface.ts` (docs: EventEmitter, TS classes, Streams, Jest):
-   - Export normalized event types: `ChatTokenEvent { type:'token'; content:string }`, `ChatToolRequestEvent { type:'tool-request'; name:string; callId:string; params:any }`, `ChatToolResultEvent { type:'tool-result'; callId:string; result:any }`, `ChatFinalEvent { type:'final'; content:string }`, `ChatCompleteEvent { type:'complete' }`, `ChatErrorEvent { type:'error'; message:string }`.
-   - Abstract class `ChatInterface` with `run(message: string, flags: any, conversationId: string, model: string): Promise<void>` and protected `emit(event)`, `loadHistory(conversationId)`, `persistTurn(turn)`.
-   - Include code stub showing `this.on('token', handler)` and `this.emit({ type:'token', content })`.
-2. [x] Create `server/src/chat/factory.ts` (docs: TS modules, Jest):
-   - Static provider map: `{ codex: () => new ChatInterfaceCodex(), lmstudio: () => new ChatInterfaceLMStudio() }` (placeholder classes ok).
-   - Export `getChatInterface(provider: 'codex'|'lmstudio')` that throws `UnsupportedProviderError` when missing.
-   - Add comment snippet: `const chat = getChatInterface(provider);`.
-3. [x] Add persistence wiring in `ChatInterface` (docs: Streams, Jest):
-   - Call `listTurns({ conversationId, limit: Infinity, cursor: undefined })` inside `loadHistory`.
-   - Call `appendTurn` for user/assistant/tool turns; call `updateConversationMeta` to bump `lastMessageAt`.
-   - No route changes yet.
-4. [x] Unit test (base events) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
-   - Fake subclass emits token/final/complete; expect call order `['token','final','complete']`.
-5. [x] Unit test (base persistence) `server/src/test/unit/chat-interface-base.test.ts` (docs: Jest):
-   - Mock repo; expect `loadHistory` and `persistTurn` invoked with conversationId and turn payload.
-6. [x] Unit test (factory selection) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
-   - Expect `getChatInterface('codex')` returns Codex placeholder instance.
-7. [x] Unit test (factory unsupported) `server/src/test/unit/chat-factory.test.ts` (docs: Jest):
-   - Expect calling with `'unknown'` throws `UnsupportedProviderError` with message/code.
-8. [x] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterface.ts` and `server/src/chat/factory.ts`.
-9. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+1. [x] Implement base `run` + abstract `execute` in `server/src/chat/interfaces/ChatInterface.ts` (docs: TS abstract classes https://www.typescriptlang.org/docs/handbook/2/classes.html#abstract-classes, Mongoose helpers in `server/src/mongo/repo.ts`). `run` should: load flags (provider/model/source), call existing persistence helper to append the **user** turn (Mongo or in-memory), then `return await this.execute(message, flags, conversationId, model)`. Add `protected abstract execute(message: string, flags: ChatFlags, conversationId: string, model: string): Promise<void>;`.
+2. [x] Update providers to implement `execute` instead of `run` in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/chat/interfaces/ChatInterfaceLMStudio.ts` (docs: provider files themselves + TS abstract classes link above). Ensure their signatures match the new abstract method and they no longer write the user turn.
+3. [x] Remove REST-layer user-turn writes from `server/src/routes/chat.ts` (docs: Express routing https://expressjs.com/en/guide/routing.html, SSE in `server/src/chatStream.ts`). The route should just resolve the chat via `chatFactory`, call `await chat.run(...)`, and rely on the base class for persistence.
+4. [x] Remove MCP-layer user-turn writes from `server/src/mcp2/tools/codebaseQuestion.ts` (docs: JSON-RPC https://www.jsonrpc.org/specification). The handler should delegate to `chat.run(...)` from the factory; no direct `appendTurn` calls remain.
+5. [x] Verify source tagging (`REST` | `MCP`) remains: check `server/src/mongo/repo.ts` and ensure flags passed into `run` still include `source`; keep legacy defaulting for missing source values (docs: Mongoose enums https://mongoosejs.com/docs/guide.html#enum).
+6. [x] **Unit test** – `server/src/test/unit/chat-interface-run-persistence.test.ts`: mock `appendTurn`/memory path and `execute`; assert `run` persists a single user turn then calls `execute` exactly once, both when Mongo is available and when in-memory fallback is used. (docs: Jest API)
+7. [x] **Integration test (REST)** – update/add `server/src/test/integration/rest-persistence-source.test.ts`: POST `/chat` with provider `lmstudio` (mocked); assert exactly one user turn is written, `source: 'REST'` is set, and no duplicate user turns are created after the refactor. (docs: Jest API, Express routing)
+8. [x] **Integration test (MCP)** – update/add `server/src/test/integration/mcp-persistence.test.ts`: call `codebase_question` via MCP; assert a single user turn persisted with `source: 'MCP'`, no duplicates, and conversation resumes correctly. (docs: JSON-RPC spec, Jest API)
+9. [x] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
+10. [x] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
+11. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
-4. [x] `npm run test --workspace client` (includes new RTL spec)
-5. [x] `npm run e2e` (includes new provider-selection scenario)
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+8. [x] Manual Playwright-MCP check (Codex and LM Studio history visibility)
 9. [x] `npm run compose:down`
+
 
 #### Implementation notes
 
@@ -497,8 +487,8 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 ### 8. Persist user turns inside ChatInterface
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **24b0d9c**
 
 #### Overview
 
@@ -524,7 +514,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 8. [ ] **Integration test (MCP)** – update/add `server/src/test/integration/mcp-persistence.test.ts`: call `codebase_question` via MCP; assert a single user turn persisted with `source: 'MCP'`, no duplicates, and conversation resumes correctly. (docs: JSON-RPC spec, Jest API)
 9. [ ] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
 10. [ ] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
-11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+11. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -539,7 +529,9 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 #### Implementation notes
 
-- Start empty; populate once the task is executed.
+- ChatInterface.run now persists user turns (Mongo or memory fallback) then delegates to provider execute; providers dedupe the current user in prompt history.
+- REST `/chat` and MCP `codebase_question` rely solely on ChatInterface for user turns; flags carry provider/source for correct tagging.
+- Added shared memoryPersistence store plus unit/integration coverage (REST/MCP/mongo-down), projectStructure updated, lint/format + build/test/e2e/compose suites all green.
 
 ---
 

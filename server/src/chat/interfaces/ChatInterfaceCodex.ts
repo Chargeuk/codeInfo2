@@ -49,7 +49,7 @@ export class ChatInterfaceCodex extends ChatInterface {
     super();
   }
 
-  async run(
+  async execute(
     message: string,
     flags: Record<string, unknown>,
     conversationId: string,
@@ -97,9 +97,13 @@ export class ChatInterfaceCodex extends ChatInterface {
       mongoose.connection.readyState === 1
         ? await this.loadHistory(conversationId)
         : [];
+    const hasCurrentUser =
+      priorTurns.length > 0 &&
+      priorTurns[0].role === 'user' &&
+      priorTurns[0].content === message;
     const promptHistory = [
       ...priorTurns.map((turn) => ({ role: turn.role, content: turn.content })),
-      { role: 'user', content: message },
+      ...(hasCurrentUser ? [] : [{ role: 'user', content: message }]),
     ];
 
     const systemContext = SYSTEM_CONTEXT.trim();

@@ -101,9 +101,18 @@ test('MCP chat persists conversation/turn with source MCP when persistence is av
     assert.ok(result.content[0]?.text);
     assert.equal(savedConversations.length > 0, true);
     const firstConversation = savedConversations[0] as Record<string, unknown>;
-    const firstTurn = savedTurns[0] as Record<string, unknown>;
     assert.equal(firstConversation.source, 'MCP');
-    assert.equal(firstTurn.source, 'MCP');
+    assert.equal(savedTurns.length, 2);
+    const userTurn = savedTurns.find(
+      (t) => (t as { role?: string }).role === 'user',
+    ) as Record<string, unknown>;
+    const assistantTurn = savedTurns.find(
+      (t) => (t as { role?: string }).role === 'assistant',
+    ) as Record<string, unknown>;
+    assert.ok(userTurn);
+    assert.ok(assistantTurn);
+    assert.equal(userTurn.source, 'MCP');
+    assert.equal(assistantTurn.source, 'MCP');
   } finally {
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,

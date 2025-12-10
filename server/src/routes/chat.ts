@@ -1,9 +1,14 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
-import mongoose from 'mongoose';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  recordMemoryTurn,
+  shouldUseMemoryPersistence,
+} from '../chat/memoryPersistence.js';
 import {
   endStream,
   isStreamClosed,
@@ -52,12 +57,6 @@ type LMMessage = {
   role?: string; // fallback
   content?: unknown; // fallback
 };
-
-const preferMemoryPersistence = process.env.NODE_ENV === 'test';
-const shouldUseMemoryPersistence = () =>
-  preferMemoryPersistence || mongoose.connection.readyState !== 1;
-const memoryConversations = new Map<string, Conversation>();
-const memoryTurns = new Map<string, Turn[]>();
 
 export const getMessageRole = (message: unknown): string | undefined => {
   const msg = message as LMMessage;
@@ -204,57 +203,18 @@ export function createChatRouter({
 
     const loadTurnsChronological = async (): Promise<Turn[]> =>
       shouldUseMemoryPersistence()
-        ? [...(memoryTurns.get(conversationId) ?? [])]
+        ? getMemoryTurns(conversationId)
         : ((await TurnModel.find({ conversationId })
             .sort({ createdAt: 1, _id: 1 })
             .lean()
             .exec()) as Turn[]);
-
-    const recordUserTurn = async () => {
-      if (shouldUseMemoryPersistence()) {
-        const turns = memoryTurns.get(conversationId) ?? [];
-        turns.push({
-          conversationId,
-          role: 'user',
-          content: message,
-          model,
-          provider,
-          source: 'REST',
-          toolCalls: null,
-          status: 'ok',
-          createdAt: now,
-        } as Turn);
-        memoryTurns.set(conversationId, turns);
-        const existing = memoryConversations.get(conversationId);
-        if (existing) {
-          memoryConversations.set(conversationId, {
-            ...existing,
-            lastMessageAt: now,
-            updatedAt: now,
-          });
-        }
-        return;
-      }
-      await appendTurn({
-        conversationId,
-        role: 'user',
-        content: message,
-        model,
-        provider,
-        source: 'REST',
-        toolCalls: null,
-        status: 'ok',
-        createdAt: now,
-      });
-    };
 
     const recordAssistantTurn = async () => {
       if (assistantTurnRecorded) return;
       assistantTurnRecorded = true;
       try {
         if (shouldUseMemoryPersistence()) {
-          const turns = memoryTurns.get(conversationId) ?? [];
-          turns.push({
+          recordMemoryTurn({
             conversationId,
             role: 'assistant',
             content: assistantContent,
@@ -266,15 +226,6 @@ export function createChatRouter({
             status: assistantStatus,
             createdAt: new Date(),
           } as Turn);
-          memoryTurns.set(conversationId, turns);
-          const existing = memoryConversations.get(conversationId);
-          if (existing) {
-            memoryConversations.set(conversationId, {
-              ...existing,
-              lastMessageAt: new Date(),
-              updatedAt: new Date(),
-            });
-          }
           return;
         }
         await appendTurn({
@@ -322,7 +273,6 @@ export function createChatRouter({
     if (!existingConversation) return;
 
     const chronologicalTurns = await loadTurnsChronological();
-    await recordUserTurn();
 
     if (provider === 'codex') {
       const detection = getCodexDetection();
@@ -487,6 +437,7 @@ export function createChatRouter({
         await chat.run(
           message,
           {
+            provider: 'codex',
             threadId: activeThreadId,
             codexFlags,
             requestId,
@@ -763,6 +714,7 @@ export function createChatRouter({
       await lmChat.run(
         message,
         {
+          provider,
           requestId,
           baseUrl,
           signal: controller.signal,

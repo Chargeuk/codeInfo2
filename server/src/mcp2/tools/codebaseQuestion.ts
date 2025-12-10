@@ -240,6 +240,7 @@ export async function runCodebaseQuestion(
     await chat.run(
       question,
       {
+        provider,
         threadId: conversationId,
         codexFlags: threadOpts,
         source: 'MCP',
@@ -259,6 +260,7 @@ export async function runCodebaseQuestion(
     await chat.run(
       question,
       {
+        provider,
         baseUrl,
         source: 'MCP',
       },

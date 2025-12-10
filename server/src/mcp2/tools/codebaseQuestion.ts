@@ -14,6 +14,7 @@ import type {
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
+import { createConversation } from '../../mongo/repo.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -91,6 +92,61 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
+async function ensureConversation(
+  conversationId: string,
+  provider: 'codex' | 'lmstudio',
+  model: string,
+  title: string,
+  flags?: Record<string, unknown>,
+): Promise<void> {
+  const now = new Date();
+  if (shouldUseMemoryPersistence()) {
+    const existing = memoryConversations.get(conversationId);
+    if (!existing) {
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider,
+        model,
+        title,
+        source: 'MCP',
+        flags: flags ?? {},
+        lastMessageAt: now,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      } as Conversation);
+    } else {
+      memoryConversations.set(conversationId, {
+        ...existing,
+        provider,
+        model,
+        flags: { ...(existing.flags ?? {}), ...(flags ?? {}) },
+        source: existing.source ?? 'MCP',
+        lastMessageAt: now,
+        updatedAt: now,
+      } as Conversation);
+    }
+    return;
+  }
+
+  const existing = (await ConversationModel.findById(conversationId)
+    .lean()
+    .exec()) as Conversation | null;
+  if (existing) {
+    return;
+  }
+
+  await createConversation({
+    conversationId,
+    provider,
+    model,
+    title,
+    source: 'MCP',
+    flags,
+    lastMessageAt: now,
+  });
+}
+
 export async function runCodebaseQuestion(
   params: unknown,
   deps: Partial<CodebaseQuestionDeps> = {},
@@ -153,13 +209,26 @@ export async function runCodebaseQuestion(
     conversationId ??
     `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
+  await ensureConversation(
+    resolvedConversationId,
+    provider,
+    provider === 'codex'
+      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+      : (requestedModel ??
+          process.env.MCP_LMSTUDIO_MODEL ??
+          process.env.LMSTUDIO_DEFAULT_MODEL ??
+          'gpt-3.1'),
+    question.trim().slice(0, 80) || 'Untitled conversation',
+    provider === 'codex' ? { ...threadOpts } : undefined,
+  );
+
   if (provider === 'codex') {
     await chat.run(
       question,
       {
         threadId: conversationId,
         codexFlags: threadOpts,
-        skipPersistence: true,
+        source: 'MCP',
       },
       resolvedConversationId,
       threadOpts.model ?? 'gpt-5.1-codex-max',
@@ -177,7 +246,7 @@ export async function runCodebaseQuestion(
       question,
       {
         baseUrl,
-        skipPersistence: true,
+        source: 'MCP',
       },
       resolvedConversationId,
       lmstudioModel,
@@ -193,8 +262,6 @@ export async function runCodebaseQuestion(
           'gpt-3.1'),
     resolvedConversationId,
   );
-
-  // Persistence is handled inside ChatInterface for REST; MCP skips to avoid double writes.
 
   return {
     content: [{ type: 'text', text: JSON.stringify(payload) }],

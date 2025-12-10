@@ -29,6 +29,7 @@ const createConversationSchema = z
     model: z.string().min(1),
     title: z.string().min(1).optional(),
     flags: z.record(z.unknown()).optional(),
+    source: z.enum(['REST', 'MCP']).optional(),
   })
   .strict();
 
@@ -51,6 +52,7 @@ const appendTurnSchema = z
     content: z.string().min(1),
     model: z.string().min(1),
     provider: z.string().min(1),
+    source: z.enum(['REST', 'MCP']).optional(),
     toolCalls: z.record(z.unknown()).nullable().optional(),
     status: z.enum(['ok', 'stopped', 'failed']),
   })
@@ -121,7 +123,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       });
     }
 
-    const { provider, model, title, flags } = parsed.data;
+    const { provider, model, title, flags, source } = parsed.data;
     const conversationId = crypto.randomUUID();
 
     try {
@@ -130,6 +132,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         provider,
         model,
         title: title ?? 'Untitled conversation',
+        source: source ?? 'REST',
         flags,
         lastMessageAt: new Date(),
       });
@@ -234,6 +237,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     const payload: AppendTurnInput = {
       conversationId: parsedParams.data.id,
       ...parsedBody.data,
+      source: parsedBody.data.source ?? 'REST',
       toolCalls: parsedBody.data.toolCalls ?? null,
     } satisfies AppendTurnInput;
 

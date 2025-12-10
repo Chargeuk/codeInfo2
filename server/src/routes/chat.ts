@@ -138,6 +138,7 @@ export function createChatRouter({
             provider,
             model,
             title: message.trim().slice(0, 80) || 'Untitled conversation',
+            source: 'REST',
             flags: provider === 'codex' ? { ...codexFlags } : {},
             lastMessageAt: now,
             archivedAt: null,
@@ -155,6 +156,7 @@ export function createChatRouter({
             provider === 'codex'
               ? { ...(existing.flags ?? {}), ...codexFlags }
               : existing.flags,
+          source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
         } as Conversation;
@@ -176,6 +178,7 @@ export function createChatRouter({
           provider,
           model,
           title: message.trim().slice(0, 80) || 'Untitled conversation',
+          source: 'REST',
           flags: provider === 'codex' ? { ...codexFlags } : {},
           lastMessageAt: now,
         });
@@ -217,6 +220,7 @@ export function createChatRouter({
           content: message,
           model,
           provider,
+          source: 'REST',
           toolCalls: null,
           status: 'ok',
           createdAt: now,
@@ -238,6 +242,7 @@ export function createChatRouter({
         content: message,
         model,
         provider,
+        source: 'REST',
         toolCalls: null,
         status: 'ok',
         createdAt: now,
@@ -256,6 +261,7 @@ export function createChatRouter({
             content: assistantContent,
             model,
             provider,
+            source: 'REST',
             toolCalls:
               toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
             status: assistantStatus,
@@ -278,6 +284,7 @@ export function createChatRouter({
           content: assistantContent,
           model,
           provider,
+          source: 'REST',
           toolCalls:
             toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
           status: assistantStatus,
@@ -476,6 +483,7 @@ export function createChatRouter({
             codexFlags,
             requestId,
             signal: controller.signal,
+            source: 'REST',
           },
           conversationId,
           model,
@@ -731,6 +739,7 @@ export function createChatRouter({
           baseUrl,
           signal: controller.signal,
           history: historyForRun,
+          source: 'REST',
         },
         conversationId,
         model,

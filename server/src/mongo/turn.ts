@@ -4,6 +4,7 @@ const { Schema, model, models } = mongoose;
 
 export type TurnRole = 'user' | 'assistant' | 'system';
 export type TurnStatus = 'ok' | 'stopped' | 'failed';
+export type TurnSource = 'REST' | 'MCP';
 
 export interface Turn {
   conversationId: string;
@@ -13,6 +14,7 @@ export interface Turn {
   provider: string;
   toolCalls: Record<string, unknown> | null;
   status: TurnStatus;
+  source: TurnSource;
   createdAt: Date;
 }
 
@@ -31,6 +33,7 @@ const turnSchema = new Schema<Turn>(
     provider: { type: String, required: true },
     toolCalls: { type: Schema.Types.Mixed, default: null },
     status: { type: String, enum: ['ok', 'stopped', 'failed'], required: true },
+    source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

@@ -24,7 +24,19 @@ class TestChatInterfaceCodex extends ChatInterfaceCodex {
   }
 
   protected override async loadHistory(): Promise<TurnSummary[]> {
-    return [];
+    return [
+      {
+        conversationId: 'conv-1',
+        role: 'user',
+        content: 'prev',
+        model: 'gpt-5',
+        provider: 'codex',
+        source: 'REST',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: new Date(),
+      },
+    ];
   }
 
   protected override async persistTurn(): Promise<void> {

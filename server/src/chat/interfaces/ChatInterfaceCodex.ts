@@ -17,6 +17,7 @@ type CodexRunFlags = {
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
+  source?: 'REST' | 'MCP';
 };
 
 type CodexToolCallItem = {
@@ -54,8 +55,14 @@ export class ChatInterfaceCodex extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { threadId, codexFlags, requestId, signal, skipPersistence } =
-      (flags ?? {}) as CodexRunFlags;
+    const {
+      threadId,
+      codexFlags,
+      requestId,
+      signal,
+      skipPersistence,
+      source = 'REST',
+    } = (flags ?? {}) as CodexRunFlags;
     const detection = getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
@@ -366,6 +373,7 @@ export class ChatInterfaceCodex extends ChatInterface {
           content: assistantContent,
           model,
           provider: 'codex',
+          source,
           toolCalls: toolCallsPayload,
           status: assistantStatus,
           createdAt: now,

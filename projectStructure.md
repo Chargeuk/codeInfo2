@@ -277,6 +277,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ chat-codex-mcp.test.ts — Codex MCP tool-call SSE mapping and SYSTEM_CONTEXT injection
 â”‚        |  â”œâ”€ mcp-lmstudio-wrapper.test.ts — LM Studio MCP segments snapshot/order coverage
 â”‚        |  â””â”€ mcp-codex-wrapper.test.ts — MCP responder segments snapshot/order coverage for Codex
+â”‚        |  â”œâ”€ mcp-persistence.test.ts — MCP persistence source coverage (MCP chats stored with source metadata)
 â”œâ”€ .husky/ â€” git hooks managed by Husky
 â”‚  â”œâ”€ pre-commit â€” runs lint-staged
 â”‚  â””â”€ _/
@@ -307,8 +308,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
   - server/src/test/features/ingest-start.feature — ingest start/status scenarios
   - server/src/test/steps/ingest-start.steps.ts — step defs for ingest start/status
   - server/src/test/features/ingest-start-body.feature — ingest start accepts JSON body
-  - server/src/test/features/ingest-roots-metadata.feature — roots endpoint ok without null metadata
-  - server/src/test/steps/ingest-start-body.steps.ts — step defs for JSON body ingest start
-  - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
-  - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
-  - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
+- server/src/test/features/ingest-roots-metadata.feature — roots endpoint ok without null metadata
+- server/src/test/steps/ingest-start-body.steps.ts — step defs for JSON body ingest start
+- server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
+- server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
+- server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
+- server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
+- server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
+- client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
+- client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

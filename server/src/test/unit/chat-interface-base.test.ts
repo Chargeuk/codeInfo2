@@ -25,7 +25,19 @@ class PersistChat extends ChatInterface {
     conversationId: string,
   ): Promise<TurnSummary[]> {
     this.historyCalls.push(conversationId);
-    return [];
+    return [
+      {
+        conversationId,
+        role: 'assistant',
+        content: 'prev',
+        model: 'model',
+        provider: 'codex',
+        source: 'REST',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: new Date(),
+      },
+    ];
   }
 
   protected override async persistTurn(input: {
@@ -35,9 +47,10 @@ class PersistChat extends ChatInterface {
     model: string;
     provider: string;
     status: TurnStatus;
+    source?: 'REST' | 'MCP';
   }): Promise<void> {
     this.persistCalls.push(
-      `${input.conversationId}:${input.content}:${input.model}:${input.provider}:${input.status}`,
+      `${input.conversationId}:${input.content}:${input.model}:${input.provider}:${input.status}:${input.source ?? 'REST'}`,
     );
   }
 
@@ -54,6 +67,7 @@ class PersistChat extends ChatInterface {
       content: message,
       model,
       provider: 'codex',
+      source: 'REST',
       status: 'ok' as TurnStatus,
     });
   }
@@ -78,5 +92,5 @@ test('persists history and turns via helpers', async () => {
 
   assert.deepEqual(chat.historyCalls, ['conv-2']);
   assert.equal(chat.persistCalls.length, 1);
-  assert.equal(chat.persistCalls[0], 'conv-2:hello:model-2:codex:ok');
+  assert.equal(chat.persistCalls[0], 'conv-2:hello:model-2:codex:ok:REST');
 });

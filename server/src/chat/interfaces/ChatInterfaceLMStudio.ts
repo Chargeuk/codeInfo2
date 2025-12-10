@@ -86,6 +86,7 @@ type LmStudioRunFlags = {
   signal?: AbortSignal;
   history?: Array<{ role?: string; content?: unknown }>;
   skipPersistence?: boolean;
+  source?: 'REST' | 'MCP';
 };
 
 export class ChatInterfaceLMStudio extends ChatInterface {
@@ -104,8 +105,13 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { requestId, baseUrl, signal, skipPersistence } = (flags ??
-      {}) as LmStudioRunFlags;
+    const {
+      requestId,
+      baseUrl,
+      signal,
+      skipPersistence,
+      source = 'REST',
+    } = (flags ?? {}) as LmStudioRunFlags;
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -734,6 +740,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
           content: assistantContent,
           model,
           provider: 'lmstudio',
+          source,
           toolCalls:
             toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
           status: assistantStatus,

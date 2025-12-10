@@ -6,6 +6,7 @@ import {
   type AppendTurnInput,
   type TurnSummary,
 } from '../../mongo/repo.js';
+import type { TurnSource } from '../../mongo/turn.js';
 
 export interface ChatTokenEvent {
   type: 'token';
@@ -100,7 +101,9 @@ export abstract class ChatInterface extends EventEmitter {
     return items;
   }
 
-  protected async persistTurn(input: AppendTurnInput): Promise<void> {
+  protected async persistTurn(
+    input: AppendTurnInput & { source?: TurnSource },
+  ): Promise<void> {
     const turn = await appendTurn(input);
     await updateConversationMeta({
       conversationId: input.conversationId,

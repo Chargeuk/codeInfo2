@@ -506,10 +506,11 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 #### Documentation Locations
 
-- `server/src/chat/interfaces/ChatInterface.ts` — base interface utilities and event emission.
-- `server/src/routes/chat.ts` — current REST user-turn write path.
-- `server/src/mcp2/tools/codebaseQuestion.ts` — MCP user-turn write path.
-- `server/src/mongo/repo.ts` — `appendTurn` helper and in-memory fallbacks.
+- TypeScript abstract classes: https://www.typescriptlang.org/docs/handbook/2/classes.html#abstract-classes
+- Express routing guide: https://expressjs.com/en/guide/routing.html
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- Mongoose enums/defaults: https://mongoosejs.com/docs/guide.html#enum
+- Jest API reference: https://jestjs.io/docs/api
 
 #### Subtasks
 

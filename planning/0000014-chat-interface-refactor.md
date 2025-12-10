@@ -408,15 +408,14 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
    - Files to edit/read: `client/src/hooks/useConversations.ts`, `client/src/pages/ChatPage.tsx`, any UI components that render provider/model badges.
 5. [ ] Migration/data safety: ensure existing records default to `REST` when read; add guards so missing field does not break old data.
    - Files to edit/read: `server/src/mongo/repo.ts`, any serializers/DTO mappers; consider a backfill helper if needed.
-6. [ ] Update tests (add/adjust as follows; mark each when written):
-   - [ ] **Unit** – `server/src/test/unit/repo-persistence-source.test.ts`: verify repo helpers set `source` default REST on insert, propagate `MCP` when provided, and normalize missing values on read.
-   - [ ] **Integration** – `server/src/test/integration/mcp-persistence.test.ts`: run MCP chat (Codex or LM Studio) and assert turns are persisted with `source: 'MCP'`, conversation listed with `source`, and can be resumed.
-   - [ ] **Integration** – `server/src/test/integration/rest-persistence-source.test.ts`: REST `/chat` flow persists turns with `source: 'REST'` and defaults when field absent in existing data.
-   - [ ] **Client RTL** – `client/src/test/chatPage.source.test.tsx`: conversation list renders `source` badge/label for REST and MCP items and falls back to REST when field missing.
-   - [ ] **Client RTL** – `client/src/test/useConversations.source.test.ts`: hook surfaces `source` in returned data and preserves it across pagination/refresh.
-   - [ ] **Project map** – update `projectStructure.md` entries for any new test files added above.
-7. [ ] Update architecture/flow diagrams: add or modify sequence/flow in `design.md` to show REST vs MCP paths, persistence, and `source` propagation (reference Mermaid docs via Context7 `/mermaid-js/mermaid`).
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+6. [ ] **Unit Test** – `server/src/test/unit/repo-persistence-source.test.ts`: verify repo helpers set `source` default REST on insert, propagate `MCP` when provided, and normalize missing values on read.
+7. [ ] **Integration Test** – `server/src/test/integration/mcp-persistence.test.ts`: run MCP chat (Codex or LM Studio) and assert turns are persisted with `source: 'MCP'`, conversation listed with `source`, and can be resumed.
+8. [ ] **Integration Test** – `server/src/test/integration/rest-persistence-source.test.ts`: REST `/chat` flow persists turns with `source: 'REST'` and defaults when field absent in existing data.
+9. [ ] **Client RTL Test** – `client/src/test/chatPage.source.test.tsx`: conversation list renders `source` badge/label for REST and MCP items and falls back to REST when field missing.
+10. [ ] **Client RTL Test** – `client/src/test/useConversations.source.test.ts`: hook surfaces `source` in returned data and preserves it across pagination/refresh.
+11. [ ] **Project map** – update `projectStructure.md` entries for any new test files added above.
+12. [ ] Update architecture/flow diagrams: add or modify sequence/flow in `design.md` to show REST vs MCP paths, persistence, and `source` propagation (reference Mermaid docs via Context7 `/mermaid-js/mermaid`).
+13. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`. fix any linting or prettier issues found.
 
 #### Testing
 

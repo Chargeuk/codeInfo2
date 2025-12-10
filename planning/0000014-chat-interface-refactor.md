@@ -480,10 +480,10 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes new provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
+5. [x] `npm run e2e` (includes new provider-selection scenario)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
 9. [x] `npm run compose:down`
 
 #### Implementation notes

@@ -382,7 +382,7 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 ### 6. Persist MCP chats and add source metadata
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **cbeea9f**
 
 #### Overview
 

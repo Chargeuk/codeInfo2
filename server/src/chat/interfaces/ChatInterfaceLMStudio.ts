@@ -8,7 +8,6 @@ import {
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
-import type { TurnStatus } from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
@@ -105,13 +104,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const {
-      requestId,
-      baseUrl,
-      signal,
-      skipPersistence,
-      source = 'REST',
-    } = (flags ?? {}) as LmStudioRunFlags;
+    const { requestId, baseUrl, signal } = (flags ?? {}) as LmStudioRunFlags;
     const history = Array.isArray((flags as LmStudioRunFlags)?.history)
       ? (flags as LmStudioRunFlags).history
       : undefined;
@@ -127,9 +120,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         ? []
         : await this.loadHistory(conversationId));
 
-    let assistantContent = '';
-    let assistantStatus: TurnStatus = 'ok';
-    const toolCallsForTurn: ChatToolResultEvent[] = [];
     const controller = new AbortController();
     if (signal) {
       signal.addEventListener('abort', () => controller.abort());
@@ -392,7 +382,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         stage: info?.stage ?? (info?.error ? 'error' : 'success'),
         error: errorTrimmed ?? undefined,
       };
-      toolCallsForTurn.push(event);
       emitIfNotCancelled(event);
     };
 
@@ -429,9 +418,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
           content?: string;
           roundIndex?: number;
         }) => {
-          if (typeof fragment.content === 'string') {
-            assistantContent += fragment.content;
-          }
           const tokenEvent: ChatTokenEvent = {
             type: 'token',
             content: fragment.content ?? '',
@@ -559,7 +545,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
               text = (message as { content?: string }).content ?? '';
             }
             emitToolResultsFromItems();
-            assistantContent = text;
             const finalEvent: ChatFinalEvent = { type: 'final', content: text };
             emitIfNotCancelled(finalEvent);
             return;
@@ -714,10 +699,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
 
       await prediction;
 
-      if (controller.signal.aborted || signal?.aborted) {
-        assistantStatus = 'stopped';
-      }
-
       const completeEvent: ChatCompleteEvent = { type: 'complete' };
       emitIfNotCancelled(completeEvent);
       toolCtx.clear();
@@ -726,7 +707,6 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     } catch (err) {
       const messageText =
         (err as Error | undefined)?.message ?? 'lmstudio unavailable';
-      assistantStatus = controller.signal.aborted ? 'stopped' : 'failed';
       const errorEvent: ChatErrorEvent = {
         type: 'error',
         message: messageText,
@@ -736,29 +716,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       toolCtx.clear();
       toolArgs.clear();
       toolRequestIdToCallId.clear();
-      if (!shouldUseMemoryPersistence() && !skipPersistence) {
-        await this.persistTurn({
-          conversationId,
-          role: 'assistant',
-          content: assistantContent,
-          model,
-          provider: 'lmstudio',
-          source,
-          toolCalls:
-            toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
-          status: assistantStatus,
-        }).catch((err) =>
-          baseLogger.error(
-            { err, conversationId },
-            'failed to persist lmstudio turn',
-          ),
-        );
-      } else {
-        baseLogger.info(
-          { conversationId },
-          'skipping lmstudio persistTurn (mongo not connected)',
-        );
-      }
+      // persistence handled by ChatInterface base
     }
   }
 }

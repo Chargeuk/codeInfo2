@@ -34,6 +34,9 @@ class PersistSpyChat extends ChatInterface {
 
   async execute(): Promise<void> {
     this.executeCalls += 1;
+    this.emitEvent({ type: 'token', content: 'partial' });
+    this.emitEvent({ type: 'final', content: 'assistant-reply' });
+    this.emitEvent({ type: 'complete' });
   }
 }
 
@@ -73,10 +76,17 @@ describe('ChatInterface.run persistence', () => {
     });
 
     assert.equal(chat.executeCalls, 1);
-    assert.equal(chat.persisted.length, 1);
+    assert.equal(chat.persisted.length, 2);
     assert.deepEqual(chat.persisted[0], {
       role: 'user',
       content: 'hello',
+      model: 'model-a',
+      provider: 'codex',
+      source: 'REST',
+    });
+    assert.deepEqual(chat.persisted[1], {
+      role: 'assistant',
+      content: 'assistant-reply',
       model: 'model-a',
       provider: 'codex',
       source: 'REST',

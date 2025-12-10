@@ -12,7 +12,7 @@ class StubChat extends ChatInterface {
   }
 }
 
-test('REST chat run stores a single user turn with source REST in memory mode', async () => {
+test('REST chat run stores user and assistant turns with source REST in memory mode', async () => {
   const originalEnv = process.env.NODE_ENV;
   const originalReady = mongoose.connection.readyState;
   Object.defineProperty(mongoose.connection, 'readyState', {
@@ -36,10 +36,12 @@ test('REST chat run stores a single user turn with source REST in memory mode', 
 
     const turns = memoryTurns.get(conversationId) ?? [];
     assert.equal(chat.executeCalls, 1);
-    assert.equal(turns.length, 1);
+    assert.equal(turns.length, 2);
     assert.equal(turns[0]?.role, 'user');
     assert.equal(turns[0]?.content, message);
     assert.equal(turns[0]?.source, 'REST');
+    assert.equal(turns[1]?.role, 'assistant');
+    assert.equal(turns[1]?.source, 'REST');
   } finally {
     Object.defineProperty(mongoose.connection, 'readyState', {
       value: originalReady,

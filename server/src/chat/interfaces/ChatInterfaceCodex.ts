@@ -55,14 +55,8 @@ export class ChatInterfaceCodex extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const {
-      threadId,
-      codexFlags,
-      requestId,
-      signal,
-      skipPersistence,
-      source = 'REST',
-    } = (flags ?? {}) as CodexRunFlags;
+    const { threadId, codexFlags, requestId, signal } = (flags ??
+      {}) as CodexRunFlags;
     const detection = getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
@@ -70,10 +64,6 @@ export class ChatInterfaceCodex extends ChatInterface {
       return;
     }
 
-    const now = new Date();
-    let assistantContent = '';
-    let assistantStatus: 'ok' | 'failed' | 'stopped' = 'ok';
-    const toolCallsForTurn: ChatToolResultEvent[] = [];
     let activeThreadId: string | null = threadId ?? null;
 
     const codexWorkingDirectory =
@@ -271,7 +261,6 @@ export class ChatInterfaceCodex extends ChatInterface {
         stage: error ? 'error' : 'success',
         error: errorTrimmed,
       };
-      toolCallsForTurn.push(resultEvent);
       this.emitEvent(resultEvent);
     };
 
@@ -282,7 +271,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       for await (const rawEvent of events as AsyncGenerator<unknown>) {
         const event = rawEvent as Record<string, unknown>;
         if (signal?.aborted) {
-          assistantStatus = 'stopped';
+          // stop requested
           break;
         }
         switch (event.type as string) {
@@ -323,7 +312,6 @@ export class ChatInterfaceCodex extends ChatInterface {
             const delta = text.slice(finalText.length);
             if (delta) {
               this.emitEvent({ type: 'token', content: delta });
-              assistantContent += delta;
             }
             finalText = text;
             if (event.type === 'item.completed') {
@@ -334,7 +322,6 @@ export class ChatInterfaceCodex extends ChatInterface {
           case 'turn.failed': {
             const message = (event as { error?: { message?: string } })?.error
               ?.message;
-            assistantStatus = 'failed';
             this.emitEvent({
               type: 'error',
               message: message ?? 'codex turn failed',
@@ -342,7 +329,6 @@ export class ChatInterfaceCodex extends ChatInterface {
             break;
           }
           case 'error': {
-            assistantStatus = 'failed';
             this.emitEvent({
               type: 'error',
               message:
@@ -361,38 +347,9 @@ export class ChatInterfaceCodex extends ChatInterface {
     } catch (err) {
       const messageText =
         (err as Error | undefined)?.message ?? 'codex unavailable';
-      assistantStatus = signal?.aborted ? 'stopped' : 'failed';
       this.emitEvent({ type: 'error', message: messageText });
     } finally {
-      if (assistantContent === '' && assistantStatus === 'stopped') {
-        // explicit stopped bubble
-        assistantStatus = 'stopped';
-      }
-      if (!skipPersistence && mongoose.connection.readyState === 1) {
-        const toolCallsPayload =
-          toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null;
-        await this.persistTurn({
-          conversationId,
-          role: 'assistant',
-          content: assistantContent,
-          model,
-          provider: 'codex',
-          source,
-          toolCalls: toolCallsPayload,
-          status: assistantStatus,
-          createdAt: now,
-        }).catch((err) =>
-          baseLogger.error(
-            { err, conversationId },
-            'failed to persist codex turn',
-          ),
-        );
-      } else {
-        baseLogger.info(
-          { conversationId },
-          'skipping codex persistTurn (mongo not connected)',
-        );
-      }
+      // persistence is handled by ChatInterface base
     }
   }
 }

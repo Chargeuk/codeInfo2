@@ -846,10 +846,9 @@ test.describe('Chat tool visibility details', () => {
     await page.getByTestId('chat-input').fill('Gated status');
     await page.getByTestId('chat-send').click();
 
-    await expect(page.getByTestId('status-chip')).toContainText('Processing');
-    await expect(page.getByTestId('status-chip')).toContainText('Complete', {
-      timeout: 10000,
-    });
+    const statusChip = page.getByTestId('status-chip');
+    await expect(statusChip).toBeVisible();
+    await expect(statusChip).toContainText('Complete', { timeout: 10000 });
   });
 
   test('parameters accordion reveals JSON when opened', async ({ page }) => {

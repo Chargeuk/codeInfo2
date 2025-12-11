@@ -4,7 +4,6 @@ import type {
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
-import mongoose from 'mongoose';
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationMeta } from '../../mongo/repo.js';
@@ -83,29 +82,12 @@ export class ChatInterfaceCodex extends ChatInterface {
     };
 
     const codex = this.codexFactory();
-    const priorTurns =
-      mongoose.connection.readyState === 1
-        ? await this.loadHistory(conversationId)
-        : [];
-    const hasCurrentUser =
-      priorTurns.length > 0 &&
-      priorTurns[0].role === 'user' &&
-      priorTurns[0].content === message;
-    const promptHistory = [
-      ...priorTurns.map((turn) => ({ role: turn.role, content: turn.content })),
-      ...(hasCurrentUser ? [] : [{ role: 'user', content: message }]),
-    ];
-
     const systemContext = SYSTEM_CONTEXT.trim();
-    const userText = promptHistory
-      .filter((entry) => entry.role === 'user')
-      .map((entry) => entry.content)
-      .join('\n\n');
 
     const prompt =
       !threadId && systemContext
-        ? `Context:\n${systemContext}\n\nUser:\n${userText}`
-        : userText;
+        ? `Context:\n${systemContext}\n\nUser:\n${message}`
+        : message;
 
     const thread =
       typeof threadId === 'string' && threadId.length > 0

@@ -9,6 +9,7 @@ import type { Turn } from '../../mongo/turn.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 let originalEnv: string | undefined;
+const originalReady = mongoose.connection.readyState;
 
 class MockCodexThread {
   async runStreamed(): Promise<{ events: AsyncGenerator<unknown> }> {

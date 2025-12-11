@@ -52,7 +52,7 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 
 ### 1. Extract ChatInterface base and factory scaffold
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **6b7b7f1**
 
 #### Overview
@@ -92,7 +92,6 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 8. [x] Manual Playwright-MCP check (Codex and LM Studio history visibility)
 9. [x] `npm run compose:down`
 
-
 #### Implementation notes
 
 - Added `ChatInterface` base with discriminated event unions, history/turn helpers using repo persistence, and typed emit/on helpers.
@@ -104,7 +103,7 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 ### 2. Move Codex REST onto ChatInterface
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **6b7b7f1**
 
 #### Overview
@@ -129,22 +128,22 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
    - Replace Codex branch with:
      ```ts
      const chat = getChatInterface('codex');
-     chat.on('token', ev => sse.send(ev));
-     chat.on('tool-request', ev => sse.send(ev));
-     chat.on('tool-result', ev => sse.send(ev));
-     chat.on('final', ev => sse.send(ev));
-     chat.on('complete', ev => sse.send(ev));
-     chat.on('error', ev => sse.send(ev));
+     chat.on('token', (ev) => sse.send(ev));
+     chat.on('tool-request', (ev) => sse.send(ev));
+     chat.on('tool-result', (ev) => sse.send(ev));
+     chat.on('final', (ev) => sse.send(ev));
+     chat.on('complete', (ev) => sse.send(ev));
+     chat.on('error', (ev) => sse.send(ev));
      await chat.run(message, flags, conversationId, model);
      ```
    - Remove history payload acceptance (already enforced); keep conversationId flow unchanged.
 3. [x] Remove Codex-specific conditionals now handled by factory (document which branches deleted in `chat.ts`).
 4. [x] Integration test (SSE order) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber guides):
-    - Assert SSE event order token -> tool request/result -> final -> complete.
+   - Assert SSE event order token -> tool request/result -> final -> complete.
 5. [x] Integration test (threadId persistence) `server/src/test/integration/chat-codex-interface.test.ts` (docs: Jest, Cucumber):
-    - Assert threadId is returned and persisted (mock repo or DB check).
+   - Assert threadId is returned and persisted (mock repo or DB check).
 6. [x] Unit test (event mapping) `server/src/test/unit/chat-interface-codex.test.ts` (docs: Jest):
-    - Mock Codex client to emit token/final/error; assert normalized events fire.
+   - Mock Codex client to emit token/final/error; assert normalized events fire.
 7. [x] Update `projectStructure.md` to list `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
 8. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
@@ -171,7 +170,7 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 ### 3. Move LM Studio REST onto ChatInterface
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **ecfc75f, 63e6c55**
 
 #### Overview
@@ -196,12 +195,12 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
    - Replace LM Studio branch with:
      ```ts
      const chat = getChatInterface('lmstudio');
-     chat.on('token', ev => sse.send(ev));
-     chat.on('tool-request', ev => sse.send(ev));
-     chat.on('tool-result', ev => sse.send(ev));
-     chat.on('final', ev => sse.send(ev));
-     chat.on('complete', ev => sse.send(ev));
-     chat.on('error', ev => sse.send(ev));
+     chat.on('token', (ev) => sse.send(ev));
+     chat.on('tool-request', (ev) => sse.send(ev));
+     chat.on('tool-result', (ev) => sse.send(ev));
+     chat.on('final', (ev) => sse.send(ev));
+     chat.on('complete', (ev) => sse.send(ev));
+     chat.on('error', (ev) => sse.send(ev));
      await chat.run(message, flags, conversationId, model);
      ```
    - Remove LM Studio–specific conditional branches replaced by the interface.
@@ -238,7 +237,7 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 ### 4. Build MCP wrapper and wire Codex through it
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **1e82b4f, d98a053**
 
 #### Overview
@@ -263,12 +262,12 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
      ```ts
      const chat = getChatInterface('codex');
      const responder = new McpResponder();
-     chat.on('token', ev => responder.handle(ev));
-     chat.on('tool-request', ev => responder.handle(ev));
-     chat.on('tool-result', ev => responder.handle(ev));
-     chat.on('final', ev => responder.handle(ev));
-     chat.on('complete', ev => responder.handle(ev));
-     chat.on('error', ev => responder.handle(ev));
+     chat.on('token', (ev) => responder.handle(ev));
+     chat.on('tool-request', (ev) => responder.handle(ev));
+     chat.on('tool-result', (ev) => responder.handle(ev));
+     chat.on('final', (ev) => responder.handle(ev));
+     chat.on('complete', (ev) => responder.handle(ev));
+     chat.on('error', (ev) => responder.handle(ev));
      await chat.run(params.question, flags, conversationId, model);
      return responder.toResult(); // JSON-RPC result payload
      ```
@@ -304,7 +303,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 ### 5. Enable LM Studio via MCP using the wrapper
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **681cc35**
 
 #### Overview
@@ -330,12 +329,12 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
      ```ts
      const chat = getChatInterface(provider);
      const responder = new McpResponder();
-     chat.on('token', ev => responder.handle(ev));
-     chat.on('tool-request', ev => responder.handle(ev));
-     chat.on('tool-result', ev => responder.handle(ev));
-     chat.on('final', ev => responder.handle(ev));
-     chat.on('complete', ev => responder.handle(ev));
-     chat.on('error', ev => responder.handle(ev));
+     chat.on('token', (ev) => responder.handle(ev));
+     chat.on('tool-request', (ev) => responder.handle(ev));
+     chat.on('tool-result', (ev) => responder.handle(ev));
+     chat.on('final', (ev) => responder.handle(ev));
+     chat.on('complete', (ev) => responder.handle(ev));
+     chat.on('error', (ev) => responder.handle(ev));
      await chat.run(params.question, flags, conversationId, model);
      return responder.toResult();
      ```
@@ -371,7 +370,7 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 ### 6. Persist MCP chats and add source metadata
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **cbeea9f**
 
 #### Overview
@@ -380,10 +379,10 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
 
 #### Documentation Locations
 
-- Mongoose schema enums & defaults: https://mongoosejs.com/docs/guide.html#enums  
-- TypeScript enums/unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#enums  
-- JSON RPC context (MCP): https://www.jsonrpc.org/specification  
-- React Testing Library docs (client RTL tests): https://testing-library.com/docs/react-testing-library/intro  
+- Mongoose schema enums & defaults: https://mongoosejs.com/docs/guide.html#enums
+- TypeScript enums/unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#enums
+- JSON RPC context (MCP): https://www.jsonrpc.org/specification
+- React Testing Library docs (client RTL tests): https://testing-library.com/docs/react-testing-library/intro
 - Mermaid reference (for design.md diagrams): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
@@ -431,7 +430,7 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
 
 ### 7. Configuration and cleanup
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **2f22316**
 
 #### Overview
@@ -487,7 +486,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 ### 8. Persist user turns inside ChatInterface
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **4fbce7e**
 
 #### Overview
@@ -515,6 +514,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 9. [x] **Integration test (Mongo down fallback)** – add or extend coverage to ensure when Mongo is unavailable the base `run` still records the user turn in the in-memory path without throwing and still calls `execute` once (reuse either REST or MCP harness). (docs: Jest API)
 10. [x] Update `projectStructure.md` entries if any file names change or new tests are added (docs: Markdown basics https://www.markdownguide.org/basic-syntax/).
 11. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -537,7 +537,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 ### 9. Base-driven assistant persistence
 
-- Task Status: **__done__**
+- Task Status: ****done****
 - Git Commits: **24b0d9c**
 
 #### Overview
@@ -554,16 +554,16 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 #### Subtasks
 
-1. [x] Base buffering & listeners (server/src/chat/interfaces/ChatInterface.ts)  
-   - Read: EventEmitter docs, TS abstract classes, Mongoose enums.  
+1. [x] Base buffering & listeners (server/src/chat/interfaces/ChatInterface.ts)
+   - Read: EventEmitter docs, TS abstract classes, Mongoose enums.
    - In `run`, add temporary listeners for `token`, `final`, `tool-result`, `error`, `complete`; buffer `tokenBuffer`, `finalContent`, `toolCalls`, derive `status` (failed/error, stopped on abort + no text). Respect `skipPersistence` and `shouldUseMemoryPersistence`.
-2. [x] Implement `persistAssistantTurn` helper (same file)  
+2. [x] Implement `persistAssistantTurn` helper (same file)
    - Use `persistTurn` (server/src/mongo/repo.ts) or memory store (server/src/chat/memoryPersistence.ts); single-write guard; write `content` (prefer finalContent else tokenBuffer), `toolCalls`, `status`, `provider/model/source`, bump `lastMessageAt`.
-3. [x] Refactor providers to rely on base (server/src/chat/interfaces/ChatInterfaceCodex.ts, ChatInterfaceLMStudio.ts)  
+3. [x] Refactor providers to rely on base (server/src/chat/interfaces/ChatInterfaceCodex.ts, ChatInterfaceLMStudio.ts)
    - Remove assistant `persistTurn` blocks; keep event emissions and threadId updates. Ensure normalized events still fire.
-4. [x] Unit tests for buffering/persistence  
+4. [x] Unit tests for buffering/persistence
    - Add/extend `server/src/test/unit/chat-interface-base.test.ts` or new spec; cover token-only, final present, tool-result, error/abort, single-write guard, memory fallback. Use Jest docs.
-5. [x] Integration tests (Codex + LM Studio)  
+5. [x] Integration tests (Codex + LM Studio)
    - Add/extend `server/src/test/integration/chat-codex.test.ts` and `chat-lmstudio-interface.test.ts` (or new files): mock streams to emit token/final/tool-result; assert exactly one assistant turn with toolCalls persisted per send, and no duplicates when history exists.
 6. [x] Update `projectStructure.md` with any new helpers/tests from this task.
 7. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
@@ -590,8 +590,8 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 ### 10. Documentation and diagrams
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: ****to_do****
+- Git Commits: ****to_do****
 
 #### Overview
 
@@ -635,8 +635,8 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 ### 11. Final validation (story-level)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: ****to_do****
+- Git Commits: ****to_do****
 
 #### Overview
 

@@ -112,13 +112,16 @@ export class ChatInterfaceLMStudio extends ChatInterface {
     const wsBase = toWebSocketUrl(safeBase);
 
     const storedTurns =
-      history?.map((turn) => ({
-        role: (turn as { role?: string }).role ?? 'assistant',
-        content: (turn as { content?: unknown }).content ?? '',
-      })) ??
+      history
+        ?.map((turn) => ({
+          role: (turn as { role?: string }).role ?? 'assistant',
+          content: (turn as { content?: unknown }).content ?? '',
+        }))
+        ?.reverse() ??
       (shouldUseMemoryPersistence()
         ? []
-        : await this.loadHistory(conversationId));
+        : await this.loadHistory(conversationId)
+      )?.reverse();
 
     const controller = new AbortController();
     if (signal) {
@@ -187,8 +190,8 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       },
     });
 
-    const newestTurnStart = storedTurns.at(0);
-    const newestTurnEnd = storedTurns.at(-1);
+    const newestTurnStart = storedTurns.at(-1);
+    const newestTurnEnd = storedTurns.at(0);
     const hasCurrentUser =
       (newestTurnStart?.role === 'user' &&
         newestTurnStart.content === message) ||

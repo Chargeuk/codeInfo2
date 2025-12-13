@@ -723,8 +723,8 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 ### 4. Refactor MCP v2 router (`server/src/mcp2/router.ts`) to use the shared core
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 87f1d7f, bff802b
 
 #### Overview
 
@@ -743,7 +743,7 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
 
 #### Subtasks
 
-1. [ ] Keep the transport-level behavior unchanged in `server/src/mcp2/router.ts`:
+1. [x] Keep the transport-level behavior unchanged in `server/src/mcp2/router.ts`:
    - Keep `readBody(req)` as-is.
    - Keep `JSON.parse` try/catch as-is so invalid JSON produces `jsonRpcError(null, -32700, "Parse error")`.
    - Keep response headers and `res.end(JSON.stringify(payload))` behavior as-is.
@@ -753,7 +753,7 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
      - Node `http` request/response handling: https://nodejs.org/api/http.html
      - JSON-RPC 2.0 “Parse error”: https://www.jsonrpc.org/specification
    - Non-negotiables: parse-error semantics and header/body handling must remain identical.
-2. [ ] Replace only the method-dispatch skeleton with the shared core dispatcher:
+2. [x] Replace only the method-dispatch skeleton with the shared core dispatcher:
    - After parsing `message`, delegate to `dispatch(...)` with handlers that:
      - return the current `initialize` payload (including `serverInfo.version` sourced from `package.json`).
      - return the current `resources/list` payload keys.
@@ -770,24 +770,24 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
      - Do not rename any resource keys or error messages.
      - Preserve `CODE_INFO_LLM_UNAVAILABLE (-32001)` gating exactly.
      - Keep tool ownership in `server/src/mcp2/tools.ts` and tool implementation in `server/src/mcp2/tools/*`.
-3. [ ] Keep `server/src/mcp2/types.ts` and `server/src/mcp2/errors.ts` in place unless you can prove (via tests) that moving them cannot change output shape.
+3. [x] Keep `server/src/mcp2/types.ts` and `server/src/mcp2/errors.ts` in place unless you can prove (via tests) that moving them cannot change output shape.
    - Docs to read (repeat): none required beyond JSON-RPC spec https://www.jsonrpc.org/specification
    - Files to read: `server/src/mcp2/types.ts`, `server/src/mcp2/errors.ts`
    - Non-negotiables: default to leaving these files where they are; this story is refactor-only and output-sensitive.
-4. [ ] Verify existing MCP v2 tests + any additions from Task 1 still pass:
+4. [x] Verify existing MCP v2 tests + any additions from Task 1 still pass:
    - If a test fails due to output differences, adjust the refactor to preserve original behavior.
    - Files to read: all MCP v2 contract tests listed in Task 1.
    - Files to edit: `server/src/mcp2/router.ts` (and only shared core files if the fix is truly infrastructure-only).
    - Docs to read (repeat): Node `node:test` https://nodejs.org/api/test.html
    - Non-negotiables: if a test fails due to wire-format changes, fix the implementation (don’t relax the tests).
-5. [ ] Update `projectStructure.md` (refactor-only) entry for `server/src/mcp2/router.ts`:
+5. [x] Update `projectStructure.md` (refactor-only) entry for `server/src/mcp2/router.ts`:
    - Add a note in its description that it now uses `server/src/mcpCommon/*` for shared guards/dispatch.
    - Keep the description clear that transport parsing (readBody/JSON.parse) + Codex gating remain owned by `server/src/mcp2/router.ts`.
    - Files to edit: `projectStructure.md`.
    - Docs to read (repeat, if unfamiliar with Markdown lists/code blocks): https://docs.github.com/en/get-started/writing-on-github
    - Files to read: `projectStructure.md`
    - Non-negotiables: only update descriptions; do not rename/move files.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read (repeat):
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -795,21 +795,25 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (MCP v2 contract + basic regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (MCP v2 contract + basic regressions):
    - Confirm `/chat` and `/logs` still render: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
    - Confirm MCP v2 (port `MCP_PORT`) still responds correctly to `initialize`, `tools/list`, and `tools/call` for `codebase_question` (and still returns `CODE_INFO_LLM_UNAVAILABLE` when expected) using the smoke commands in `README.md`.
    - Save at least one screenshot to `test-results/screenshots/` named `0000015-04-<name>.png`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Refactored `server/src/mcp2/router.ts` to use the shared `server/src/mcpCommon/dispatch.ts` dispatcher and `server/src/mcpCommon/guards.ts` type guard without changing any MCP v2 wire formats.
+- Kept transport ownership local to `router.ts` (readBody, JSON.parse try/catch mapping to `-32700 Parse error`, response headers, and `res.end(JSON.stringify(...))`).
+- Preserved Codex availability gating for `tools/list` and `tools/call`, including `CODE_INFO_LLM_UNAVAILABLE (-32001)` shape and message, and kept the v2 resource key naming (`resource_templates`) unchanged.
+- Verification run (2025-12-13): lint/format ok, server/client builds ok, server/client tests ok, `npm run e2e` ok, compose build/up/down ok; MCP v2 curl smoke for `initialize`/`tools/list`/`tools/call` ok; screenshots saved to `test-results/screenshots/0000015-04-chat.png` and `test-results/screenshots/0000015-04-logs.png`.
 
 ---
 

@@ -636,8 +636,8 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 ### 11. Final validation (story-level)
 
-- Task Status: ****in_progress****
-- Git Commits: ****to_do****
+- Task Status: ****done****
+- Git Commits: **52fb539, 70f029d, 0ce06b5, ca930b2**
 
 #### Overview
 
@@ -655,7 +655,7 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 2. [x] REST + MCP persistence parity smoke (Mongo up): create fresh conversations, run one request per provider, and verify exactly one `user` + one `assistant` turn is stored per send with correct `source` (`REST` vs `MCP`) and `toolCalls` populated when tools fire.
 3. [x] Mongo-down fallback smoke: stop Mongo, confirm `/health` reports `mongoConnected=false`, then verify REST `/chat` (LM Studio) still streams and MCP `codebase_question` still returns a valid segments payload (no 500s).
 4. [x] Unsupported-provider error paths: verify REST returns 400 for an invalid provider and MCP returns a JSON-RPC invalid params error when provider is invalid.
-5. [ ] Summarize results with timestamps, what was verified, and any follow-ups in Implementation notes.
+5. [x] Summarize results with timestamps, what was verified, and any follow-ups in Implementation notes.
 
 #### Testing
 
@@ -673,7 +673,7 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
    - `curl -s http://localhost:5010/health` (expect `mongoConnected=false`)
    - Repeat one REST `/chat` call (LM Studio) and one MCP call (Codex) and confirm both succeed.
    - `docker compose --env-file .env.docker.local start mongo`
-6. [ ] `npm run compose:down`
+6. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -683,3 +683,4 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 - Environment gotcha addressed: compose server was using stale `./codex/auth.json` and Codex failed token refresh; synced `codex/auth.json` from `$HOME/.codex/auth.json` and restarted the server container before continuing validation.
 - Mongo-down fallback verified (2025-12-13): stopped the compose `mongo` service, confirmed `/health` returned `mongoConnected=false`, then verified REST `/chat` (LM Studio) still streamed to `complete` and MCP `codebase_question` (Codex) still returned a valid segments payload; restarted `mongo` and confirmed `/health` returned `mongoConnected=true`.
 - Unsupported-provider errors verified (2025-12-13): REST `/chat` returns 400 for invalid provider; MCP v2 returns JSON-RPC invalid params (-32602) for invalid `provider` in `codebase_question`.
+- Follow-ups: consider documenting (or automatically syncing) the `./codex/auth.json` mount behavior so the compose server doesn’t get stuck using stale credentials; also be aware MCP Codex may return a `conversationId` derived from the Codex thread id which can differ from the caller-supplied id.

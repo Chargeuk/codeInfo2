@@ -34,7 +34,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - list all available agents
   - display agent descriptions when provided
   - run an instruction against an agent
-  - continue a prior run by reusing a `conversationId`
+  - continue a prior run by selecting a prior conversation (API uses `conversationId`)
   - render results in the same segment format as `codebase_question` (`thinking`, `vector_summary`, `answer`).
 - Agents page controls and behavior:
   - The top controls are limited to: agent selector dropdown, **Stop**, and **New conversation**.
@@ -46,6 +46,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 - Agent conversation separation:
   - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
   - Each agent conversation stores the agent identifier in conversation metadata as a top-level optional field (e.g. `conversation.agentName`).
+  - Agent conversations do **not** persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; those are fixed server defaults. `Conversation.flags` is reserved for Codex continuation metadata (e.g. `threadId`).
   - The existing Chat page conversation list shows only non-agent conversations (agentName absent).
   - The Agents page conversation list is filtered to only show conversations for the currently selected agent.
 - The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
@@ -75,6 +76,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 - Per-agent system prompt:
   - If `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/system_prompt.txt` exists, it is used as the agent system prompt for new conversations.
   - If it does not exist, the agent runs with no system prompt.
+  - Note: this is implemented as a first-turn instruction prefix (not a dedicated model “system” channel) to avoid changing Codex adapter plumbing.
 - Docker / Compose:
   - `codex_agents/` is mounted into the server container.
   - `CODEINFO_CODEX_AGENT_HOME` points to that mount path.
@@ -142,22 +144,18 @@ This is a prerequisite for everything else in this story.
 4. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` so the Codex SDK instance can be created with a specific Codex home:
    - extend the injected `codexFactory` signature to accept `{ codexHome?: string }` (or similar)
    - default behavior must remain unchanged (uses primary Codex home via existing env/defaults).
-5. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` to allow per-run system prompt control:
-   - add a flag (e.g. `systemPrompt?: string | null`) that, when provided on a new thread, is used instead of the global `SYSTEM_CONTEXT`
-   - passing an empty string must result in **no** system prompt for that run
-   - default behavior must remain unchanged for existing chat flows.
-6. [ ] Prevent Codex thread id updates from clobbering other conversation metadata:
+5. [ ] Prevent Codex thread id updates from clobbering other conversation metadata:
    - update the conversation flags update path used by `ChatInterfaceCodex` when persisting `threadId` so it merges into existing `flags` rather than replacing them
    - this must preserve any existing codex flags stored on the conversation (and other future keys)
    - add/extend tests proving `threadId` persistence does not drop existing flag keys.
-7. [ ] Add/extend unit tests to lock in the new API shape and safety:
+6. [ ] Add/extend unit tests to lock in the new API shape and safety:
    - `buildCodexOptions({ codexHome })` sets `env.CODEX_HOME` correctly
    - `detectCodex({ codexHome })` validates config/auth paths under that home
    - constructing two Codex factories with different homes does not require global env mutation.
-8. [ ] Update `design.md` describing:
+7. [ ] Update `design.md` describing:
    - primary Codex home vs agent Codex home
    - how Codex home is injected without `process.env` mutation.
-9. [ ] Run full linting for touched workspaces.
+8. [ ] Run full linting for touched workspaces.
 
 #### Testing
 
@@ -200,7 +198,8 @@ Important: auth seeding must run every time agent folders are read/checked (not 
 3. [ ] Implement auth seeding that runs on every discovery read:
    - copy `${CODEINFO_CODEX_HOME}/auth.json` to `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/auth.json` when missing
    - never overwrite an existing agent `auth.json`
-   - do not crash if auth is missing; surface an explicit “agent disabled” state instead.
+   - best-effort + lock-protected: use an in-process mutex so concurrent list calls don’t race writing `auth.json`
+   - do not crash if auth is missing or copy fails; surface explicit `disabled/warnings` state instead.
 4. [ ] Ensure `codex_agents/**/auth.json` is gitignored and not included in Docker build contexts.
 5. [ ] Update `README.md` with:
    - agent folder layout
@@ -322,13 +321,16 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
 3. [ ] Implement the handler by calling the shared `runAgentInstruction()` (from Task 4) used by MCP `run_agent_instruction`:
    - ensures discovery read + auth seeding runs on each call
    - uses per-agent Codex home injection (from Task 1)
-   - uses per-agent system prompt (`system_prompt.txt`) only for new conversations
+   - per-agent “system prompt” is implemented as a first-turn prefix:
+     - when starting a new conversation (no `conversationId`), if `${agentHome}/system_prompt.txt` exists, prefix the instruction with it (otherwise send instruction as-is)
+     - no changes to Codex prompt plumbing are required
    - persists the conversation with agent metadata (e.g. `conversation.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
    - `conversationId` semantics:
      - if `conversationId` is omitted, create a new conversation in Mongo with `provider: 'codex'`, default model, and `agentName`
      - if `conversationId` is provided, load that conversation and reject if it is archived
      - if `conversationId` is provided, reject if `conversation.agentName` is missing or does not match the route `agentName`
      - for Codex thread continuation, use `conversation.flags.threadId` as the Codex `threadId` and update it when Codex emits a new thread id
+   - do not persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; use fixed server defaults at runtime
    - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
 4. [ ] Response shape includes:
    - `agentName`
@@ -426,7 +428,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
    - Reuse `server/src/mcpCommon/*` dispatcher helpers
    - Ensure it is started/stopped from `server/src/index.ts` alongside the existing MCP v2 server.
 2. [ ] Implement tool registry:
-   - `list_agents` returns agent list by calling the shared `listAgents()` (Task 4)
+   - `list_agents` returns agent list by calling the shared `listAgents()` (Task 4); do not re-implement discovery here
    - `run_agent_instruction` runs an instruction for a named agent
 3. [ ] Define input schema for `run_agent_instruction`:
    - required: `agentName`, `instruction`
@@ -434,11 +436,9 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 4. [ ] Implement `run_agent_instruction` by reusing:
    - shared `runAgentInstruction()` (Task 4) so behavior matches REST `POST /agents/:agentName/run`
    - `McpResponder` so output segments match `codebase_question`
-   - conversation persistence with `source: 'MCP'` and conversation metadata capturing `agentName` plus per-agent codex flags.
+   - conversation persistence with `source: 'MCP'` and conversation metadata capturing `agentName` plus `flags.threadId` for Codex continuation.
    - conversationId semantics match Task 5 (conversationId is our id; Codex thread id is stored in `flags.threadId`).
-5. [ ] Per-agent system prompt:
-   - when starting a new conversation (no `conversationId`), use `${agentHome}/system_prompt.txt` if it exists; if it does not exist, do not use a system prompt
-   - do not affect existing chat/system context.
+5. [ ] Ensure the MCP tool uses the same per-agent first-turn prefix behavior as Task 5 (implemented inside the shared `runAgentInstruction()`).
 6. [ ] Add characterization tests for `5012` server:
    - tools/list returns exactly the two tools
    - run_agent_instruction returns segments and preserves conversationId across calls
@@ -487,6 +487,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
    - show an agent information block rendering the selected agent `description` (markdown) when present
    - reuse the existing conversation history panel component, but drive filtering from the selected agent (no extra filter UI in the panel)
    - reuse the existing message input + transcript rendering, but do not show provider/model selectors
+   - do not provide any manual “conversationId” input; continuation is via selecting a prior conversation from the list
 6. [ ] Add client tests (RTL/Jest):
    - renders agent list
    - shows agent description block when present

@@ -427,7 +427,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 ### 3. Agent discovery (filesystem list + optional description + system prompt presence)
 
 - Task Status: __in_progress__
-- Git Commits: __to_do__
+- Git Commits: fda15d4, b194fb6
 
 #### Overview
 
@@ -551,20 +551,26 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads with `CODEINFO_CODEX_AGENT_HOME` set; no console errors.
    - If agents UI is not implemented yet, confirm existing Chat UX still works end-to-end (send message, stop, reload).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Implemented filesystem discovery (`server/src/agents/discovery.ts`) keyed off `CODEINFO_CODEX_AGENT_HOME`, scanning only direct subfolders and requiring `config.toml`.
+- Added typed outputs (`server/src/agents/types.ts`) separating REST-safe summary fields from internal path metadata.
+- Added unit coverage (`server/src/test/unit/agents-discovery.test.ts`) for config inclusion/exclusion, `description.md` reading, and `system_prompt.txt` presence detection.
+- Updated `README.md` and `design.md` with agent folder conventions + a discovery Mermaid flow.
+- Updated `projectStructure.md` to list the new modules/tests.
+- Verification run: server build, client build, server tests, client tests, full `npm run e2e`, compose build/up/down. Compose `/chat` route was also checked via HTTP fetch during the manual step (no agent UI is expected yet in this task).
 
 ---
 

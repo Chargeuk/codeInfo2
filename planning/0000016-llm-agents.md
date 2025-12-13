@@ -577,7 +577,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 ### 4. Auth seeding for agents (runs on every discovery read)
 
 - Task Status: __in_progress__
-- Git Commits: __to_do__
+- Git Commits: aecdfef, 04867b7, b869052, e2442f7, ebcdf14, 6dadd72, f8acaa1, 02bdad5, fb9a817, 71acc0d
 
 #### Overview
 
@@ -709,20 +709,28 @@ This task implements that logic and wires it into the discovery read path so it 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; no console errors; normal chat still runs.
    - Verify no unexpected writes under `codex_agents/` when running the app without any agent discovery calls (auth seeding should be discovery-triggered and best-effort).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Added `server/src/agents/authSeed.ts` implementing `ensureAgentAuthSeeded(...)` as a best-effort, never-overwrite copy from the primary Codex home to each agent home.
+- Implemented an in-process per-agent lock to serialize concurrent seeding attempts and prevent flakey races when multiple requests trigger discovery simultaneously.
+- Wired auth seeding into `server/src/agents/discovery.ts` so it runs on every discovery read and surfaces failures as per-agent `warnings[]` (without failing discovery/listing).
+- Added unit coverage in `server/src/test/unit/agents-authSeed.test.ts` for copy/no-overwrite/concurrency.
+- Added a root `.dockerignore` rule set to ensure `codex/**/auth.json` and `codex_agents/**/auth.json` never enter Docker build contexts; also excluded `**/*.tsbuildinfo` so Docker builds cannot accidentally reuse stale TypeScript incremental state and skip emitting `dist/`.
+- Updated `server/Dockerfile` to build `common` before building `server` so fresh Docker builds always have common declarations available.
+- Updated `common/package.json` to publish a stable `types` entrypoint (`dist/index.d.ts`) for TypeScript consumers.
+- Updated `README.md`, `design.md` (Mermaid auth-seeding flow), and `projectStructure.md` accordingly.
 
 ---
 

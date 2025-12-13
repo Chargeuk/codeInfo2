@@ -8,6 +8,9 @@ export default [
       reportUnusedDisableDirectives: false,
     },
   },
+  {
+    ignores: ['**/dist/**', '**/coverage/**', '**/test-results/**'],
+  },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],

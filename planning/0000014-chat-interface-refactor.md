@@ -607,10 +607,10 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 #### Subtasks
 
-1. [ ] Update `design.md`: add “ChatInterface event buffering & persistence” section with mermaid diagram (REST/MCP → factory → provider emits events → base buffers → persist Mongo/memory → SSE/MCP responder → client). Note threadId updates and duplicate-write guard.
-2. [ ] Update `README.md`: mention base-managed assistant persistence, conversationId-only payloads, LM Studio MCP availability via shared abstraction.
-3. [ ] Update `projectStructure.md`: include new helpers/tests (`server/src/chat/memoryPersistence.ts`, buffering helper, `chat-interface-run-persistence.test.ts`, `rest-persistence-source.test.ts`, any new integration specs from Task 9).
-4. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
+1. [x] Update `design.md`: add “ChatInterface event buffering & persistence” section with mermaid diagram (REST/MCP → factory → provider emits events → base buffers → persist Mongo/memory → SSE/MCP responder → client). Note threadId updates and duplicate-write guard.
+2. [x] Update `README.md`: mention base-managed assistant persistence, conversationId-only payloads, LM Studio MCP availability via shared abstraction.
+3. [x] Update `projectStructure.md`: include new helpers/tests (`server/src/chat/memoryPersistence.ts`, buffering helper, `chat-interface-run-persistence.test.ts`, `rest-persistence-source.test.ts`, any new integration specs from Task 9).
+4. [x] Run `npm run lint --workspace server` and `npm run format:check --workspace server`.
 
 #### Testing
 
@@ -626,7 +626,10 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 #### Implementation notes
 
-- Start empty; update after each subtask/test.
+- Documented the shared chat abstraction in `design.md`, including the base-managed event buffering/persistence model and provider history gotchas (Codex threadId vs LM Studio replay).
+- Updated `README.md` MCP docs to reflect `provider`/`model` params and Codex-gated availability, and clarified that `/chat` uses conversationId-only payloads with server-side history/persistence.
+- Updated `projectStructure.md` MCP2 descriptions to reflect Codex-gated availability and LM Studio being an optional provider for `codebase_question`.
+- Lint fix: ESLint was scanning generated `dist/` declarations under workspaces; updated `eslint.config.js` to ignore `**/dist/**` (and common build/test output folders) so `npm run lint --workspace server` stays stable after builds.
 
 ---
 

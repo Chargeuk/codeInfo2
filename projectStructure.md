@@ -193,14 +193,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
-â”‚     â”œâ”€ mcp2/ — Codex-only MCP v2 server on port 5011
+â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources)
 â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
 â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
-â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging Codex chat + vector search
+â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests

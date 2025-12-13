@@ -11,6 +11,7 @@ export interface CreateConversationInput {
   provider: ConversationProvider;
   model: string;
   title: string;
+  agentName?: string;
   source?: ConversationSource;
   flags?: Record<string, unknown>;
   lastMessageAt?: Date;
@@ -56,6 +57,7 @@ export async function createConversation(
     provider: input.provider,
     model: input.model,
     title: input.title,
+    agentName: input.agentName,
     source: input.source ?? 'REST',
     flags: input.flags ?? {},
     lastMessageAt: input.lastMessageAt ?? new Date(),
@@ -140,6 +142,7 @@ export interface ConversationSummary {
   provider: ConversationProvider;
   model: string;
   title: string;
+  agentName?: string;
   source: ConversationSource;
   lastMessageAt: Date;
   archived: boolean;
@@ -170,6 +173,7 @@ export async function listConversations(
     provider: doc.provider,
     model: doc.model,
     title: doc.title,
+    agentName: doc.agentName,
     source: (doc as Conversation).source ?? 'REST',
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,

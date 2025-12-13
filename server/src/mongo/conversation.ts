@@ -10,6 +10,7 @@ export interface Conversation {
   provider: ConversationProvider;
   model: string;
   title: string;
+  agentName?: string;
   source: ConversationSource;
   flags: Record<string, unknown>;
   createdAt: Date;
@@ -26,6 +27,7 @@ const conversationSchema = new Schema<Conversation>(
     provider: { type: String, enum: ['lmstudio', 'codex'], required: true },
     model: { type: String, required: true },
     title: { type: String, required: true },
+    agentName: { type: String },
     source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     flags: { type: Schema.Types.Mixed, default: {} },
     lastMessageAt: { type: Date, required: true, default: () => new Date() },
@@ -35,6 +37,7 @@ const conversationSchema = new Schema<Conversation>(
 );
 
 conversationSchema.index({ archivedAt: 1, lastMessageAt: -1 });
+conversationSchema.index({ agentName: 1, archivedAt: 1, lastMessageAt: -1 });
 
 export const ConversationModel: Model<Conversation> =
   models.Conversation ||

@@ -336,7 +336,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 
 #### Subtasks
 
-1. [ ] Add `agentName?: string` to the Conversation model.
+1. [x] Add `agentName?: string` to the Conversation model.
    - Docs to read (this subtask):
      - Mongoose schema definitions: Context7 `/automattic/mongoose`
    - Files to read:
@@ -350,7 +350,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
        - `{ agentName: 1, archivedAt: 1, lastMessageAt: -1 }`
    - Verify:
      - `npm run build --workspace server`
-2. [ ] Thread `agentName` through repo helpers (create + list).
+2. [x] Thread `agentName` through repo helpers (create + list).
    - Docs to read (this subtask):
      - Mongoose `.lean()` usage: Context7 `/automattic/mongoose`
    - Files to read:
@@ -363,7 +363,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
      - Add optional `agentName?: string` to `ConversationSummary` and include it in `listConversations()` return items.
    - Verify:
      - `npm run build --workspace server`
-3. [ ] Add unit tests proving `agentName` mapping (no real DB required).
+3. [x] Add unit tests proving `agentName` mapping (no real DB required).
    - Docs to read (this subtask):
      - Node `node:test`: https://nodejs.org/api/test.html
    - Files to read (existing stubbing pattern):
@@ -375,7 +375,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
      - `listConversations()` returns an item where `agentName === 'coding_agent'`.
    - Verify:
      - `npm run test --workspace server`
-4. [ ] Update docs.
+4. [x] Update docs.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -383,14 +383,14 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
    - Implementation steps:
      - Document `Conversation.agentName?: string` and how it separates Chat vs Agents history.
      - Add/extend a Mermaid diagram showing the conversation model/persistence flow including the new `agentName` field and the “Chat = __none__ vs Agents = named agent” separation.
-5. [ ] Update `projectStructure.md` for schema/index changes.
+5. [x] Update `projectStructure.md` for schema/index changes.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
      - Ensure the architecture/docs inventory reflects new data model fields and any server-side schema/index adjustments.
    - Required updates:
      - Note the conversation model update location(s) and that conversations can now be tagged with `agentName`.
-6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+6. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

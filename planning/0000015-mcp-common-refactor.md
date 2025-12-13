@@ -82,8 +82,8 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Add characterization tests for both MCP servers
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: c05ed41, 27ef963
 
 #### Overview
 
@@ -453,6 +453,15 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 - `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
 - MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
+- Test updates/additions:
+  - Strengthened `/mcp` integration assertions in `server/src/test/integration/mcp-server.test.ts` (explicit error messages + data payloads).
+  - Strengthened MCP v2 `tools/list` contract assertion in `server/src/test/unit/mcp2-router-list-happy.test.ts` and `codebase_question` content encoding assertion in `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
+  - Added MCP v2 router characterization tests: `server/src/test/unit/mcp2-router-parse-error.test.ts`, `server/src/test/unit/mcp2-router-invalid-request.test.ts`, `server/src/test/unit/mcp2-router-method-not-found.test.ts`, `server/src/test/unit/mcp2-router-tool-not-found.test.ts`.
+- Verification run (2025-12-13):
+  - Builds: `npm run build --workspace server`, `npm run build --workspace client`.
+  - Tests: `npm run test --workspace server` (unit+integration+mcp2+cucumber), `npm run test --workspace client`, `npm run e2e` (passed).
+  - Compose: `npm run compose:build`, `npm run compose:up`, curl smoke for `/mcp` and MCP v2 `initialize`/`tools/list`, `npm run compose:down`.
+  - Screenshot saved locally (gitignored): `test-results/screenshots/0000015-01-mcp-contracts.png`.
 
 
 ---

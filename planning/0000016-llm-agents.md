@@ -127,11 +127,13 @@ This is a prerequisite for everything else in this story.
 
 #### Documentation Locations
 
-- Codex CLI + SDK usage (local repo docs):
-  - `README.md` (Codex config seed + env vars)
-  - `design.md` (MCP v2 + Codex details)
-- Node.js env + process model: Context7 `/nodejs/node`
-- TypeScript: Context7 `/microsoft/typescript`
+- Codex (SDK + local config):
+  - `node_modules/@openai/codex-sdk/README.md` (Threads, `runStreamed()`, and how Codex is configured via options/env like `CODEX_HOME`)
+  - `README.md` (app-level Codex config seeding + env vars used by this repo)
+  - `design.md` (how this repo wires Codex + MCP v2 + thread model)
+- Node.js: Context7 `/nodejs/node` (process/env behavior, `path`, `fs`, and concurrency constraints that make process-wide env mutation unsafe)
+- TypeScript: Context7 `/microsoft/typescript` (type-safe factory signatures and optional param threading)
+- Mongoose: Context7 `/automattic/mongoose` (required in this task for `$set` updates when persisting only `flags.threadId`)
 
 #### Subtasks
 
@@ -202,7 +204,7 @@ This is a prerequisite for everything else in this story.
      - Run `npm run lint --workspace server` (must exit 0).
 5. [ ] Make thread id persistence safe: update only `flags.threadId` without overwriting other `flags` keys.
    - Docs to read (this subtask):
-     - Mongoose update operators: Context7 `/mongoosejs/mongoose`
+     - Mongoose update operators: Context7 `/automattic/mongoose`
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/mongo/repo.ts`
@@ -281,7 +283,8 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 #### Documentation Locations
 
 - Conversation persistence overview: `design.md` (Conversation persistence section)
-- Mongoose schema basics: Context7 `/mongoosejs/mongoose`
+- Mongoose schema basics: Context7 `/automattic/mongoose`
+- Node `node:test` (unit test harness used by server tests in this task): https://nodejs.org/api/test.html
 - Existing persistence code:
   - `server/src/mongo/conversation.ts`
   - `server/src/mongo/repo.ts`
@@ -290,7 +293,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 
 1. [ ] Add `agentName?: string` to the Conversation model.
    - Docs to read (this subtask):
-     - Mongoose schema definitions: Context7 `/mongoosejs/mongoose`
+     - Mongoose schema definitions: Context7 `/automattic/mongoose`
    - Files to read:
      - `server/src/mongo/conversation.ts`
    - Files to edit:
@@ -304,7 +307,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
      - `npm run build --workspace server`
 2. [ ] Thread `agentName` through repo helpers (create + list).
    - Docs to read (this subtask):
-     - Mongoose `.lean()` usage: Context7 `/mongoosejs/mongoose`
+     - Mongoose `.lean()` usage: Context7 `/automattic/mongoose`
    - Files to read:
      - `server/src/mongo/repo.ts`
    - Files to edit:
@@ -781,6 +784,9 @@ Critical requirement: the REST path and MCP path must share the same implementat
   - `server/src/mcp2/tools/codebaseQuestion.ts` (McpResponder)
 - Codex defaults to copy (agents must not expose these as controls):
   - `server/src/routes/chatValidators.ts`
+- Codex SDK (how threads and streamed runs work; needed when wiring `threadId` and abort support):
+  - `node_modules/@openai/codex-sdk/README.md`
+- Node.js (AbortController/AbortSignal + `crypto.randomUUID()` + HTTP request lifecycle): Context7 `/nodejs/node`
 - Express: Context7 `/expressjs/express`
 - Supertest: Context7 `/ladjs/supertest`
 
@@ -933,14 +939,17 @@ Important semantics (must be implemented exactly):
   - `server/src/mongo/repo.ts` (`listConversations`)
 - Existing repo test stubbing pattern:
   - `server/src/test/unit/repo-persistence-source.test.ts`
-- Mongoose query patterns: Context7 `/mongoosejs/mongoose`
+- Express: Context7 `/expressjs/express` (this is an Express route; refer for query string parsing and handler patterns)
+- Mongoose query patterns: Context7 `/automattic/mongoose` (building the Mongo query for “no agent” vs “exact agent” filters)
+- Zod: Context7 `/colinhacks/zod` (query schema parsing/validation in `listConversationsQuerySchema`)
+- Zod website (official): https://zod.dev/ (quick reference for schemas/parse errors when validating query params)
 - Supertest: Context7 `/ladjs/supertest`
 
 #### Subtasks
 
 1. [ ] Add agent filter support to the repo query layer.
    - Docs to read (this subtask):
-     - Mongo `$exists` and `$or`: Context7 `/mongoosejs/mongoose`
+     - Mongo `$exists` and `$or`: Context7 `/automattic/mongoose`
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Implementation steps:
@@ -953,7 +962,7 @@ Important semantics (must be implemented exactly):
      - Keep cursor + archived behavior unchanged.
 2. [ ] Add agent filter support to the REST endpoint.
    - Docs to read (this subtask):
-     - Zod query parsing: https://zod.dev/
+     - Zod query parsing: Context7 `/colinhacks/zod` (primary) and https://zod.dev/ (official)
    - Files to edit:
      - `server/src/routes/conversations.ts`
    - Implementation steps:
@@ -1188,7 +1197,18 @@ Implementation constraint: reuse existing Chat page components where possible (e
   - `GET /agents` (Task 6)
   - `POST /agents/:agentName/run` (Task 7)
   - `GET /conversations?agentName=...` (Task 8)
-- MUI component references (required by AGENTS.md): use the MUI MCP tool
+- React Router (routing + navigation): Context7 `/remix-run/react-router` (the router config and navigation patterns used in `client/src/routes/router.tsx`)
+- React (state + effects): https://react.dev/ (hook behavior for page state, abort/reset logic, and derived UI)
+- MUI components (required by AGENTS.md):
+  - MUI MCP tool: use `https://llms.mui.com/material-ui/6.4.12/llms.txt` (project uses `@mui/material` `^6.4.1`; this is the closest pinned MUI v6 docs source)
+- Markdown rendering stack (for agent description + transcript markdown reuse):
+  - `react-markdown`: Context7 `/remarkjs/react-markdown` (how Markdown is rendered into React elements)
+  - `remark-gfm`: Context7 `/remarkjs/remark-gfm` (tables/task-lists/autolinks expected in descriptions and responses)
+  - `rehype-sanitize` (security/sanitization): `node_modules/rehype-sanitize/readme.md` (installed package docs used by `client/src/components/Markdown.tsx`)
+- Client testing:
+  - React Testing Library: Context7 `/testing-library/react-testing-library` (rendering + user interaction patterns for the new Agents page tests)
+  - Jest: Context7 `/jestjs/jest` (mocking `fetch`, assertions, and async test patterns)
+- Web Abort APIs (Stop button + agent change cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 
 #### Subtasks
 

@@ -7,12 +7,16 @@ import type {
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationMeta } from '../../mongo/repo.js';
+import { detectCodexForHome } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {
   threadId?: string | null;
   codexFlags?: Partial<CodexThreadOptions>;
+  codexHome?: string;
+  disableSystemContext?: boolean;
+  systemPrompt?: string;
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
@@ -54,9 +58,18 @@ export class ChatInterfaceCodex extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { threadId, codexFlags, requestId, signal } = (flags ??
-      {}) as CodexRunFlags;
-    const detection = getCodexDetection();
+    const {
+      threadId,
+      codexFlags,
+      requestId,
+      signal,
+      codexHome,
+      disableSystemContext,
+      systemPrompt,
+    } = (flags ?? {}) as CodexRunFlags;
+    const detection = codexHome
+      ? detectCodexForHome(codexHome)
+      : getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
       this.emitEvent({ type: 'error', message: msg });
@@ -81,12 +94,22 @@ export class ChatInterfaceCodex extends ChatInterface {
       modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
     };
 
-    const codex = this.codexFactory();
-    const systemContext = SYSTEM_CONTEXT.trim();
+    const codex = codexHome
+      ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)
+      : this.codexFactory();
+
+    const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT.trim();
+    const agentSystemPrompt = (systemPrompt ?? '').trim();
+
+    const promptSections: string[] = [];
+    if (!threadId && systemContext)
+      promptSections.push(`Context:\n${systemContext}`);
+    if (!threadId && agentSystemPrompt)
+      promptSections.push(`System:\n${agentSystemPrompt}`);
 
     const prompt =
-      !threadId && systemContext
-        ? `Context:\n${systemContext}\n\nUser:\n${message}`
+      !threadId && promptSections.length
+        ? `${promptSections.join('\n\n')}\n\nUser:\n${message}`
         : message;
 
     const thread =

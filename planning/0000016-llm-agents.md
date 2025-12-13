@@ -188,7 +188,7 @@ This is a prerequisite for everything else in this story.
        - continues to update the global cached detection via `setCodexDetection()` (as used today by `/chat` and MCP v2 availability checks)
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
-4. [ ] Update `ChatInterfaceCodex` to support agent runs safely (per-agent detection + per-agent system prompt, without leaking prompts into persisted user messages).
+4. [x] Update `ChatInterfaceCodex` to support agent runs safely (per-agent detection + per-agent system prompt, without leaking prompts into persisted user messages).
    - Docs to read (this subtask):
      - `design.md` (Codex usage + thread model)
      - `server/src/routes/chat.ts` (current Codex flow: conversationId vs threadId, and how flags are persisted/merged)
@@ -299,6 +299,7 @@ This is a prerequisite for everything else in this story.
 - Added codex-home helper functions in `server/src/config/codexConfig.ts` (`resolveCodexHome`, `getCodexConfigPathForHome`, `getCodexAuthPathForHome`) and updated existing getters to delegate, enabling per-home path computation without process env mutation.
 - Updated `buildCodexOptions()` to accept `{ codexHome?: string }` and inject `CODEX_HOME` into the Codex SDK options env without mutating `process.env`.
 - Added `detectCodexForHome(codexHome)` in `server/src/providers/codexDetection.ts` to validate CLI/auth/config for an arbitrary Codex home without mutating the process-wide cached detection used by `/chat`.
+- Extended `server/src/chat/interfaces/ChatInterfaceCodex.ts` run flags with `codexHome`, `disableSystemContext`, and `systemPrompt`, adding per-home preflight detection and first-turn prompt prefixing that does not affect persisted user turns.
 
 ---
 

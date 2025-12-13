@@ -37,17 +37,29 @@ trust_level = "trusted"
 trust_level = "trusted"
 `;
 
-export function getCodexHome(): string {
+export function resolveCodexHome(overrideHome?: string): string {
   const defaultHome = process.env.CODEINFO_CODEX_HOME ?? './codex';
-  return path.resolve(defaultHome);
+  return path.resolve(overrideHome ?? defaultHome);
+}
+
+export function getCodexConfigPathForHome(codexHome: string): string {
+  return path.join(codexHome, 'config.toml');
+}
+
+export function getCodexAuthPathForHome(codexHome: string): string {
+  return path.join(codexHome, 'auth.json');
+}
+
+export function getCodexHome(): string {
+  return resolveCodexHome();
 }
 
 export function getCodexConfigPath(): string {
-  return path.join(getCodexHome(), 'config.toml');
+  return getCodexConfigPathForHome(getCodexHome());
 }
 
 export function getCodexAuthPath(): string {
-  return path.join(getCodexHome(), 'auth.json');
+  return getCodexAuthPathForHome(getCodexHome());
 }
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));

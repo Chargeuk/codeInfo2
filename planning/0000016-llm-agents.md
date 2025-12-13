@@ -138,7 +138,7 @@ This is a prerequisite for everything else in this story.
 
 #### Subtasks
 
-1. [ ] Add explicit “Codex home override” helpers in `server/src/config/codexConfig.ts`.
+1. [x] Add explicit “Codex home override” helpers in `server/src/config/codexConfig.ts`.
    - Docs to read (this subtask):
      - `README.md` (Codex home + seeding behavior)
      - Node path APIs: Context7 `/nodejs/node`
@@ -296,6 +296,7 @@ This is a prerequisite for everything else in this story.
 
 #### Implementation notes
 
+- Added codex-home helper functions in `server/src/config/codexConfig.ts` (`resolveCodexHome`, `getCodexConfigPathForHome`, `getCodexAuthPathForHome`) and updated existing getters to delegate, enabling per-home path computation without process env mutation.
 
 ---
 

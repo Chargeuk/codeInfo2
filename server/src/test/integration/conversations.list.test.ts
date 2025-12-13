@@ -10,6 +10,7 @@ const baseItem: ConversationSummary = {
   provider: 'lmstudio',
   model: 'llama',
   title: 'Title',
+  source: 'REST',
   lastMessageAt: new Date('2025-01-01T00:00:00Z'),
   archived: false,
   flags: {},

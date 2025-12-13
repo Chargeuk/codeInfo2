@@ -31,9 +31,10 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ## Conversation persistence (MongoDB)
 
 - MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
+- Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
-- MCP tool `codebase_question` mirrors the same persistence, upserting conversations by Codex `threadId` and storing user/assistant turns (including tool calls and reasoning summaries) unless the conversation is archived.
+- MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 
 ```mermaid
@@ -460,6 +461,29 @@ sequenceDiagram
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
 - `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`; the response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
 
+### ChatInterface event buffering & persistence
+
+- The server unifies chat execution behind `ChatInterface` (`server/src/chat/interfaces/ChatInterface.ts`) with provider-specific subclasses (`ChatInterfaceCodex`, `ChatInterfaceLMStudio`) selected via `getChatInterface(provider)` (`server/src/chat/factory.ts`).
+- REST `/chat` and MCP v2 `codebase_question` both call `ChatInterface.run(message, flags, conversationId, model)` and subscribe to the same normalized event stream (`analysis`, `tool-result`, `final`, `complete`, `thread`, `error`).
+- Persistence is base-managed: `ChatInterface.run` persists the user turn first, then buffers emitted events (tokens/final/tool results), derives a final status, and persists a single assistant turn (including `toolCalls`) via Mongo or the in-memory `memoryPersistence` fallback (Mongo-down/test). The `source` field is set from flags (`REST` vs `MCP`) for UI attribution.
+- Provider history gotchas:
+  - Codex maintains its own thread history; the server sends only the latest user message and relies on a stored `threadId` to continue the conversation. When Codex emits a new thread id, it is persisted into the conversation flags (`threadId`) for follow-ups.
+  - LM Studio does not maintain remote thread state; the server loads stored turns for `conversationId` from persistence and sends them to the model in chronological order (oldest → newest).
+
+```mermaid
+flowchart TD
+  REST[REST: POST /chat (SSE)] --> Factory[getChatInterface(provider)]
+  MCP[MCP v2: tools/call codebase_question] --> Factory
+  Factory --> Codex[ChatInterfaceCodex]
+  Factory --> LM[ChatInterfaceLMStudio]
+  Codex --> Events[normalized chat events]
+  LM --> Events
+  Events --> Base[ChatInterface.run buffers + persists]
+  Base --> Persist[(MongoDB or memoryPersistence)]
+  Base --> SSE[SSE frames to client]
+  Base --> Mcp[McpResponder -> segments JSON]
+```
+
 ### MCP server (Codex tools)
 
 - POST `/mcp` implements MCP over JSON-RPC 2.0 with methods `initialize`, `tools/list`, and `tools/call` (protocol version `2024-11-05`).
@@ -467,9 +491,9 @@ sequenceDiagram
 - Errors follow JSON-RPC envelopes: validation maps to -32602, method-not-found to -32601, and domain errors map to 404/409/503 codes in the `error` object.
 - `config.toml.example` seeds `[mcp_servers]` entries for host (`http://localhost:5010/mcp`) and docker (`http://server:5010/mcp`) so Codex can call the MCP server directly.
 
-### Codex-only MCP v2 (port 5011)
+### Codex-gated MCP v2 (port 5011)
 
-- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex-only availability checks. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of empty tools. Resource listings return empty arrays for compatibility.
+- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex availability gating. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of tools. Resource listings return empty arrays for compatibility.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
 
@@ -477,30 +501,36 @@ sequenceDiagram
 flowchart LR
   Browser/Agent -- HTTP 5010 --> Express
   Express -->|/mcp| MCP1
-  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-only MCP]
+  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-gated MCP]
   MCP2 -->|tools/list| Codex
   MCP2 -->|tools/call| Codex
   MCP1 -->|ListIngestedRepositories / VectorSearch| LMStudio
 ```
 
-### MCP `codebase_question` flow (Codex-only)
+### MCP v2 `codebase_question` flow (Codex + optional LM Studio)
 
-- Tool: `codebase_question(question, conversationId?)` exposed only on the MCP v2 server (port 5011). Defaults: model `gpt-5.1-codex-max`, `modelReasoningEffort=high`, `sandboxMode=workspace-write`, `approvalPolicy=on-failure`, `networkAccessEnabled=true`, `webSearchEnabled=true`, `workingDirectory=/data`, `skipGitRepoCheck=true`.
-- Behaviour: streams Codex with vector search tools, assembles ordered `segments` (`thinking` text deltas, `vector_summary` aggregates with relPath/match/chunk/line counts, and `answer`) and returns a single `content` item of type `text` containing JSON `{ conversationId, modelId, segments }`. Order is preserved as emitted (no coalescing).
-- Error handling: when Codex is unavailable, `tools/list` and `tools/call` return `CODE_INFO_LLM_UNAVAILABLE` (-32001). Resource methods still return empty arrays. No LM Studio fallback is attempted.
+- Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). `provider` defaults to `codex` when omitted; `model` defaults per provider.
+- Behaviour: runs the selected `ChatInterface` and buffers normalized events into ordered MCP `segments` via `McpResponder` (`thinking`, `vector_summary`, `answer`), returning a single `content` item of type `text` containing JSON `{ conversationId, modelId, segments }`. The MCP transport remains single-response (not streaming).
+- Provider specifics:
+  - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
+  - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
+- Error handling: the MCP v2 server is Codex-gated; when Codex is unavailable, `tools/list` and `tools/call` return `CODE_INFO_LLM_UNAVAILABLE` (-32001) even if the requested provider is `lmstudio`.
 
 ```mermaid
 sequenceDiagram
   participant Agent
   participant MCP2 as MCP v2 (5011)
-  participant Codex
+  participant Chat as ChatInterface
+  participant Provider as Codex/LM Studio
   participant Tools as Vector tools
 
-  Agent->>MCP2: tools/call codebase_question {question, conversationId?}
-  MCP2->>Codex: run chat (defaults: gpt-5.1-codex-max, high effort)
-  Codex->>Tools: ListIngestedRepositories / VectorSearch
-  Tools-->>Codex: repo list + chunks
-  Codex-->>MCP2: thinking + vector summaries + answer
+  Agent->>MCP2: tools/call codebase_question {question, conversationId?, provider?, model?}
+  MCP2->>Chat: run(question, flags, conversationId, model)
+  Chat->>Provider: execute + stream events
+  Provider->>Tools: ListIngestedRepositories / VectorSearch (as needed)
+  Tools-->>Provider: repo list + chunks
+  Provider-->>Chat: analysis/tool/final/complete/thread events
+  Chat-->>MCP2: normalized events
   MCP2-->>Agent: JSON-RPC result with text content {conversationId, modelId, segments[]}
   Note over MCP2: if Codex unavailable → error -32001 CODE_INFO_LLM_UNAVAILABLE
 ```

@@ -1,0 +1,123 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import type {
+  ChatEvent,
+  ChatToolResultEvent,
+} from '../../chat/interfaces/ChatInterface.js';
+import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import type { TurnSummary } from '../../mongo/repo.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
+
+type MockThread = {
+  id: string | null;
+  runStreamed: () => Promise<{ events: AsyncGenerator<unknown> }>;
+};
+
+type MockCodexFactory = () => {
+  startThread: () => MockThread;
+  resumeThread: () => MockThread;
+};
+
+class TestChatInterfaceCodex extends ChatInterfaceCodex {
+  constructor(codexFactory: MockCodexFactory) {
+    super(codexFactory);
+  }
+
+  protected override async loadHistory(): Promise<TurnSummary[]> {
+    return [
+      {
+        conversationId: 'conv-1',
+        role: 'user',
+        content: 'prev',
+        model: 'gpt-5',
+        provider: 'codex',
+        source: 'REST',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: new Date(),
+      },
+    ];
+  }
+
+  protected override async persistTurn(): Promise<void> {
+    // no-op for unit isolation
+  }
+}
+
+describe('ChatInterfaceCodex', () => {
+  it('emits thread -> tool-request -> tool-result -> token -> final -> complete in order', async () => {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+    const emitted: ChatEvent[] = [];
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-1' };
+      yield {
+        type: 'item.started',
+        item: {
+          type: 'mcp_tool_call',
+          id: 'call-1',
+          name: 'VectorSearch',
+          arguments: '{"q":"hi"}',
+        },
+      };
+      yield {
+        type: 'item.completed',
+        item: {
+          type: 'mcp_tool_call',
+          id: 'call-1',
+          result: {
+            content: [{ type: 'application/json', json: { ok: true } }],
+          },
+        },
+      };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', text: 'Hello' },
+      };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'Hello' },
+      };
+      yield { type: 'turn.completed' };
+    };
+    const thread = {
+      id: 'tid-1',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    chat.on('thread', (e) => emitted.push(e));
+    chat.on('tool-request', (e) => emitted.push(e));
+    chat.on('tool-result', (e) => emitted.push(e));
+    chat.on('token', (e) => emitted.push(e));
+    chat.on('final', (e) => emitted.push(e));
+    chat.on('complete', (e) => emitted.push(e));
+
+    await chat.run('Hello', { threadId: null }, 'conv-1', 'gpt-5');
+
+    const order = emitted.map((e) => e.type);
+    assert.deepEqual(order, [
+      'thread',
+      'tool-request',
+      'tool-result',
+      'token',
+      'final',
+      'complete',
+    ]);
+
+    const toolResult = emitted.find((e) => e.type === 'tool-result') as
+      | ChatToolResultEvent
+      | undefined;
+    assert(toolResult);
+    assert.equal(toolResult.callId, 'call-1');
+    assert.equal(toolResult.stage, 'success');
+    assert.deepEqual(toolResult.result, { ok: true });
+  });
+});

@@ -139,6 +139,32 @@ test('codex chat streams token/final/complete with thread id', async () => {
   assert.equal(completeFrame?.threadId, 'thread-abc');
 });
 
+test('codex chat resumes existing thread when threadId supplied', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const mockCodex = new MockCodex('thread-resume');
+  const codexFactory = () => mockCodex;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ threadId: 'thread-resume' }))
+    .expect(200);
+
+  assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-5.1-codex-max');
+});
+
 test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
   setCodexDetection({
     available: true,

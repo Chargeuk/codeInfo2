@@ -24,6 +24,7 @@ export type ConversationListItem = {
   title: string;
   provider: string;
   model: string;
+  source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
 };
@@ -238,7 +239,8 @@ export function ConversationList({
                             color="text.secondary"
                             data-testid="conversation-meta"
                           >
-                            {conversation.provider} · {conversation.model}
+                            {conversation.provider} · {conversation.model} ·{' '}
+                            {conversation.source ?? 'REST'}
                           </Typography>
                           <Typography
                             variant="caption"

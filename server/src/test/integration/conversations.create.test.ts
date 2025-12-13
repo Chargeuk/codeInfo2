@@ -30,6 +30,7 @@ test('creates a conversation and returns generated id', async () => {
           provider: input.provider,
           model: input.model,
           title: input.title,
+          source: input.source ?? 'REST',
           flags: input.flags ?? {},
           createdAt: new Date(),
           updatedAt: new Date(),

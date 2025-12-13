@@ -10,6 +10,7 @@ export type ConversationSummary = {
   title: string;
   provider: string;
   model: string;
+  source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
   flags?: Record<string, unknown>;
@@ -85,7 +86,12 @@ export function useConversations(): State {
           throw new Error(`Failed to load conversations (${res.status})`);
         }
         const data = (await res.json()) as ApiResponse;
-        const items = Array.isArray(data.items) ? data.items : [];
+        const items = (Array.isArray(data.items) ? data.items : []).map(
+          (item) => ({
+            ...item,
+            source: item.source ?? 'REST',
+          }),
+        );
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {

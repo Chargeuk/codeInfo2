@@ -22,6 +22,7 @@ test('lists turns newest-first and returns nextCursor when full', async () => {
       content: 'hi',
       model: 'llama',
       provider: 'lmstudio',
+      source: 'REST',
       toolCalls: null,
       status: 'ok',
       createdAt: new Date('2025-01-01T10:00:00Z'),
@@ -32,6 +33,7 @@ test('lists turns newest-first and returns nextCursor when full', async () => {
       content: 'hello',
       model: 'llama',
       provider: 'lmstudio',
+      source: 'REST',
       toolCalls: null,
       status: 'ok',
       createdAt: new Date('2025-01-01T09:00:00Z'),
@@ -103,6 +105,7 @@ test('appends turn when conversation active', async () => {
   assert.equal(payload.conversationId, 'c1');
   assert.equal(payload.role, 'assistant');
   assert.equal(payload.content, 'hi there');
+  assert.equal((payload as { source?: string }).source, 'REST');
 });
 
 test('returns validation_error on bad body', async () => {

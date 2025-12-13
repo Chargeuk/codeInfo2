@@ -23,4 +23,4 @@ Feature: chat streaming endpoint
   Scenario: chat history is passed to LM Studio
     Given chat stream scenario "chat-fixture"
     When I POST to the chat endpoint with a two-message chat history
-    Then the LM Studio chat history length is 4
+    Then the LM Studio chat history length is 5

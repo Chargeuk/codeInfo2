@@ -135,6 +135,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 - Logging: structured pino logger using shared schema; log file at `./logs/server.log` with rotation (expanded in the Logging section added in Task 6).
 - LM Studio clients are pooled per base URL so chat/ingest routes reuse a single connection; SIGINT/SIGTERM triggers the pool to close cleanly before the process exits.
+- Chat execution is unified behind a `ChatInterface` abstraction: the client sends only `{ conversationId, message, provider, model }`, the server loads any stored turns, streams tokens/tool events, and persists user + assistant turns (including `toolCalls`) via MongoDB or an in-memory fallback when Mongo is down. Codex uses its own thread history (only the latest user message is submitted per turn) while LM Studio replays stored history.
 - `npm run dev --workspace server` (default port 5010)
 - `npm run build --workspace server`
 - `npm run start --workspace server`
@@ -147,8 +148,8 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 ## MCP (codebase_question)
 
-- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}` (Codex-only; returns `CODE_INFO_LLM_UNAVAILABLE` -32001 if Codex is not available).
-- Tool: `codebase_question` with params `{ question: string; conversationId?: string }` (conversationId threads follow-up turns). Responses are a single `content` item of type `text` containing JSON with ordered segments (`thinking`, `vector_summary`, `answer`), `conversationId`, and `modelId`.
+- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}` (Codex-gated; returns `CODE_INFO_LLM_UNAVAILABLE` -32001 if Codex is not available).
+- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with ordered segments (`thinking`, `vector_summary`, `answer`), `conversationId`, and `modelId`.
 - Example call:
   ```sh
   curl -s -X POST http://localhost:5011 \
@@ -164,7 +165,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
       "content": [
         {
           "type": "text",
-          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"vector_summary\",\"file\":\"...\"},{\"type\":\"answer\",\"text\":\"...\"}]}"
+          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"segments\":[{\"type\":\"thinking\",\"text\":\"...\"},{\"type\":\"vector_summary\",\"files\":[{\"path\":\"...\",\"chunks\":1,\"match\":0.42,\"lines\":12}]},{\"type\":\"answer\",\"text\":\"...\"}]}"
         }
       ]
     }

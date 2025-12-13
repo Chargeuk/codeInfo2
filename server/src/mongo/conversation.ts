@@ -3,12 +3,14 @@ import mongoose, { type HydratedDocument, type Model } from 'mongoose';
 const { Schema, model, models } = mongoose;
 
 export type ConversationProvider = 'lmstudio' | 'codex';
+export type ConversationSource = 'REST' | 'MCP';
 
 export interface Conversation {
   _id: string; // conversation id (Codex thread id for Codex provider)
   provider: ConversationProvider;
   model: string;
   title: string;
+  source: ConversationSource;
   flags: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -24,6 +26,7 @@ const conversationSchema = new Schema<Conversation>(
     provider: { type: String, enum: ['lmstudio', 'codex'], required: true },
     model: { type: String, required: true },
     title: { type: String, required: true },
+    source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     flags: { type: Schema.Types.Mixed, default: {} },
     lastMessageAt: { type: Date, required: true, default: () => new Date() },
     archivedAt: { type: Date, default: null },

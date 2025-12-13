@@ -1,19 +1,28 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
-import type { ThreadEvent, ThreadOptions } from '@openai/codex-sdk';
-import { Codex } from '@openai/codex-sdk';
+import type { ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
-import { buildCodexOptions } from '../../config/codexConfig.js';
-import { baseLogger } from '../../logger.js';
+import {
+  UnsupportedProviderError,
+  getChatInterface,
+} from '../../chat/factory.js';
+import type {
+  ChatAnalysisEvent,
+  ChatCompleteEvent,
+  ChatFinalEvent,
+  ChatThreadEvent,
+  ChatToolResultEvent,
+  ChatInterface,
+} from '../../chat/interfaces/ChatInterface.js';
+import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
+import { createConversation } from '../../mongo/repo.js';
 import {
-  appendTurn,
-  createConversation,
-  updateConversationMeta,
-} from '../../mongo/repo.js';
-import type { Turn, TurnStatus } from '../../mongo/turn.js';
+  getCodexDetection,
+  setCodexDetection,
+} from '../../providers/codexRegistry.js';
 import { ArchivedConversationError, InvalidParamsError } from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
@@ -22,25 +31,12 @@ const paramsSchema = z
   .object({
     question: z.string().min(1),
     conversationId: z.string().min(1).optional(),
+    provider: z.enum(['codex', 'lmstudio']).optional(),
+    model: z.string().min(1).optional(),
   })
   .strict();
 
 export type CodebaseQuestionParams = z.infer<typeof paramsSchema>;
-
-export type CodexThreadFactory = ReturnType<typeof createDefaultCodexFactory>;
-
-export type CodexThread = {
-  id: string | null;
-  runStreamed: (
-    input: string,
-    opts?: ThreadOptions,
-  ) => Promise<{ events: AsyncGenerator<unknown> }>;
-};
-
-export type CodexClient = {
-  startThread: (opts?: ThreadOptions) => CodexThread;
-  resumeThread: (id: string, opts?: ThreadOptions) => CodexThread;
-};
 
 export type Segment =
   | { type: 'thinking'; text: string }
@@ -68,18 +64,18 @@ export type CodebaseQuestionResult = {
 };
 
 export type CodebaseQuestionDeps = {
-  codexFactory: () => CodexClient;
+  codexFactory?: () => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
+  clientFactory?: (baseUrl: string) => import('@lmstudio/sdk').LMStudioClient;
+  toolFactory?: (opts: Record<string, unknown>) => {
+    tools: ReadonlyArray<unknown>;
+  };
+  chatFactory?: typeof getChatInterface;
 };
 
 const preferMemoryPersistence = process.env.NODE_ENV === 'test';
 const shouldUseMemoryPersistence = () =>
   preferMemoryPersistence || mongoose.connection.readyState !== 1;
 const memoryConversations = new Map<string, Conversation>();
-const memoryTurns = new Map<string, Turn[]>();
-
-export function createDefaultCodexFactory() {
-  return new Codex(buildCodexOptions()) as unknown as CodexClient;
-}
 
 export function validateParams(params: unknown): CodebaseQuestionParams {
   const parsed = paramsSchema.safeParse(params);
@@ -87,11 +83,6 @@ export function validateParams(params: unknown): CodebaseQuestionParams {
     throw new InvalidParamsError('Invalid params', parsed.error.format());
   }
   return parsed.data;
-}
-
-function normalizeTitle(question: string): string {
-  const trimmed = question.trim();
-  return trimmed.slice(0, 80) || 'Untitled conversation';
 }
 
 async function getConversation(
@@ -106,105 +97,58 @@ async function getConversation(
     .exec()) as Conversation | null;
 }
 
-type UpsertConversationInput = {
-  conversationId: string;
-  provider: Conversation['provider'];
-  model: string;
-  title: string;
-  flags: Record<string, unknown>;
-  lastMessageAt: Date;
-};
-
-async function upsertConversation(input: UpsertConversationInput) {
-  const existing = await getConversation(input.conversationId);
-
-  if (existing?.archivedAt) {
-    throw new ArchivedConversationError(
-      'Conversation is archived and must be restored before use',
-    );
-  }
-
+async function ensureConversation(
+  conversationId: string,
+  provider: 'codex' | 'lmstudio',
+  model: string,
+  title: string,
+  flags?: Record<string, unknown>,
+): Promise<void> {
+  const now = new Date();
   if (shouldUseMemoryPersistence()) {
-    const mergedFlags = {
-      ...(existing?.flags ?? {}),
-      ...input.flags,
-    } as Record<string, unknown>;
-    const conversation: Conversation = existing
-      ? {
-          ...existing,
-          model: input.model,
-          title: existing.title || input.title,
-          flags: mergedFlags,
-          lastMessageAt: input.lastMessageAt,
-          updatedAt: input.lastMessageAt,
-        }
-      : {
-          _id: input.conversationId,
-          provider: input.provider,
-          model: input.model,
-          title: input.title,
-          flags: mergedFlags,
-          lastMessageAt: input.lastMessageAt,
-          archivedAt: null,
-          createdAt: input.lastMessageAt,
-          updatedAt: input.lastMessageAt,
-        };
-    memoryConversations.set(input.conversationId, conversation);
-    return conversation;
-  }
-
-  if (!existing) {
-    return createConversation({
-      conversationId: input.conversationId,
-      provider: input.provider,
-      model: input.model,
-      title: input.title,
-      flags: input.flags,
-      lastMessageAt: input.lastMessageAt,
-    });
-  }
-
-  const mergedFlags = { ...(existing.flags ?? {}), ...input.flags } as Record<
-    string,
-    unknown
-  >;
-
-  return updateConversationMeta({
-    conversationId: input.conversationId,
-    model: input.model,
-    flags: mergedFlags,
-    lastMessageAt: input.lastMessageAt,
-  });
-}
-
-async function recordTurn(
-  turn: Omit<Turn, 'createdAt'> & { createdAt?: Date },
-) {
-  const createdAt = turn.createdAt ?? new Date();
-  if (shouldUseMemoryPersistence()) {
-    const turns = memoryTurns.get(turn.conversationId) ?? [];
-    turns.push({ ...turn, createdAt } as Turn);
-    memoryTurns.set(turn.conversationId, turns);
-    const existing = memoryConversations.get(turn.conversationId);
-    if (existing) {
-      memoryConversations.set(turn.conversationId, {
+    const existing = memoryConversations.get(conversationId);
+    if (!existing) {
+      memoryConversations.set(conversationId, {
+        _id: conversationId,
+        provider,
+        model,
+        title,
+        source: 'MCP',
+        flags: flags ?? {},
+        lastMessageAt: now,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      } as Conversation);
+    } else {
+      memoryConversations.set(conversationId, {
         ...existing,
-        lastMessageAt: createdAt,
-        updatedAt: createdAt,
-      });
+        provider,
+        model,
+        flags: { ...(existing.flags ?? {}), ...(flags ?? {}) },
+        source: existing.source ?? 'MCP',
+        lastMessageAt: now,
+        updatedAt: now,
+      } as Conversation);
     }
     return;
   }
 
-  await appendTurn({
-    conversationId: turn.conversationId,
-    role: turn.role,
-    content: turn.content,
-    model: turn.model,
-    provider: turn.provider,
-    toolCalls: turn.toolCalls,
-    status: turn.status as TurnStatus,
-    createdAt,
+  const existing = (await ConversationModel.findById(conversationId)
+    .lean()
+    .exec()) as Conversation | null;
+  if (existing) {
+    return;
+  }
+
+  await createConversation({
+    conversationId,
+    provider,
+    model,
+    title,
+    source: 'MCP',
+    flags,
+    lastMessageAt: now,
   });
 }
 
@@ -212,9 +156,11 @@ export async function runCodebaseQuestion(
   params: unknown,
   deps: Partial<CodebaseQuestionDeps> = {},
 ): Promise<{ content: [{ type: 'text'; text: string }] }> {
-  const { question, conversationId } = validateParams(params);
-  const codex = (deps.codexFactory ?? createDefaultCodexFactory)();
-  const now = new Date();
+  const parsed = validateParams(params);
+  const question = parsed.question;
+  const conversationId = parsed.conversationId;
+  const provider = parsed.provider ?? 'codex';
+  const requestedModel = parsed.model;
 
   if (conversationId) {
     const existing = await getConversation(conversationId);
@@ -239,159 +185,99 @@ export async function runCodebaseQuestion(
     modelReasoningEffort: 'high',
   } as ThreadOptions;
 
-  const thread = conversationId
-    ? codex.resumeThread(conversationId, threadOpts)
-    : codex.startThread(threadOpts);
+  if (
+    process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
+    !getCodexDetection().available
+  ) {
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+  }
 
-  let activeThreadId = thread.id ?? conversationId ?? null;
-  const segments: Segment[] = [];
-  const vectorSummaries: Extract<Segment, { type: 'vector_summary' }>[] = [];
-  const toolCallsForTurn: Array<Record<string, unknown>> = [];
-  let reasoningText = '';
-  let answerText = '';
-
-  const prompt = buildPrompt(question);
-  const { events } = await thread.runStreamed(prompt, {});
-
-  const addReasoning = (text: string | undefined) => {
-    if (!text) return;
-    const delta = text.slice(reasoningText.length);
-    if (!delta) return;
-    reasoningText = text;
-    segments.push({ type: 'thinking', text: delta });
-  };
-
-  for await (const event of events as AsyncGenerator<ThreadEvent>) {
-    switch (event.type) {
-      case 'thread.started':
-        if (event.thread_id) activeThreadId = event.thread_id;
-        break;
-      case 'item.updated':
-      case 'item.completed': {
-        const item = (event as { item?: unknown }).item as
-          | { type?: string; text?: string; result?: unknown }
-          | undefined;
-        if (!item) break;
-
-        if (item.type === 'reasoning') {
-          addReasoning(item.text);
-          break;
-        }
-
-        if (item.type === 'mcp_tool_call' && event.type === 'item.completed') {
-          const parsed = parseCodexToolResult(item);
-          const name = (item as { name?: string }).name ?? 'VectorSearch';
-          toolCallsForTurn.push({
-            type: 'mcp_tool_call',
-            name,
-            result: parsed,
-          });
-          const summary = buildVectorSummary(parsed);
-          if (summary) segments.push(summary);
-          if (summary?.type === 'vector_summary') {
-            vectorSummaries.push(summary);
-          }
-          break;
-        }
-
-        if (item.type === 'agent_message' && event.type === 'item.completed') {
-          const text = item.text ?? '';
-          if (text) {
-            answerText = text;
-            segments.push({ type: 'answer', text });
-          }
-        }
-        break;
-      }
-      case 'turn.completed': {
-        const turn = event as { thread_id?: string; threadId?: string };
-        const nextId = turn.thread_id ?? turn.threadId;
-        if (nextId) activeThreadId = nextId;
-        break;
-      }
-      default:
-        break;
+  let chat: ChatInterface;
+  const resolvedChatFactory = deps.chatFactory ?? getChatInterface;
+  try {
+    chat = resolvedChatFactory(provider, {
+      codexFactory: deps.codexFactory,
+      clientFactory: deps.clientFactory,
+      toolFactory: deps.toolFactory,
+    });
+  } catch (err) {
+    if (err instanceof UnsupportedProviderError) {
+      throw new InvalidParamsError(err.message);
     }
+    throw err;
   }
+  const responder = new McpResponder();
 
-  if (!segments.some((s) => s.type === 'answer')) {
-    segments.push({ type: 'answer', text: answerText });
-  }
-
-  const payload: CodebaseQuestionResult = {
-    conversationId: activeThreadId,
-    modelId: threadOpts.model ?? 'gpt-5.1-codex-max',
-    segments,
-  };
+  chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
+  chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
+  chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
+  chat.on('complete', (ev: ChatCompleteEvent) => responder.handle(ev));
+  chat.on('thread', (ev: ChatThreadEvent) => responder.handle(ev));
+  chat.on('error', (ev) => responder.handle(ev));
 
   const resolvedConversationId =
-    activeThreadId ?? conversationId ?? `codex-thread-${Date.now()}`;
-  payload.conversationId = resolvedConversationId;
-  const flags = {
-    sandboxMode: threadOpts.sandboxMode,
-    approvalPolicy: threadOpts.approvalPolicy,
-    networkAccessEnabled: threadOpts.networkAccessEnabled,
-    webSearchEnabled: threadOpts.webSearchEnabled,
-    modelReasoningEffort: threadOpts.modelReasoningEffort,
-    workingDirectory: codexWorkingDirectory,
-  } as Record<string, unknown>;
+    conversationId ??
+    `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
-  try {
-    await upsertConversation({
-      conversationId: resolvedConversationId,
-      provider: 'codex',
-      model: payload.modelId,
-      title: normalizeTitle(question),
-      flags,
-      lastMessageAt: now,
-    });
-  } catch (err) {
-    if (err instanceof ArchivedConversationError) throw err;
-    baseLogger.error({ err }, 'failed to upsert MCP conversation');
-  }
-
-  try {
-    await recordTurn({
-      conversationId: resolvedConversationId,
-      role: 'user',
-      content: question,
-      model: payload.modelId,
-      provider: 'codex',
-      toolCalls: null,
-      status: 'ok',
-      createdAt: now,
-    });
-  } catch (err) {
-    baseLogger.error({ err }, 'failed to record MCP user turn');
-  }
-
-  const thinkingSegments = segments.filter(
-    (s): s is Extract<Segment, { type: 'thinking' }> => s.type === 'thinking',
+  await ensureConversation(
+    resolvedConversationId,
+    provider,
+    provider === 'codex'
+      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+      : (requestedModel ??
+          process.env.MCP_LMSTUDIO_MODEL ??
+          process.env.LMSTUDIO_DEFAULT_MODEL ??
+          'gpt-3.1'),
+    question.trim().slice(0, 80) || 'Untitled conversation',
+    provider === 'codex' ? { ...threadOpts } : undefined,
   );
-  const assistantToolCalls =
-    toolCallsForTurn.length || thinkingSegments.length || vectorSummaries.length
-      ? {
-          calls: toolCallsForTurn,
-          thinking: thinkingSegments,
-          vectorSummaries,
-        }
-      : null;
 
-  // Stored turn example:
-  // { "conversationId":"thread-1","role":"assistant","content":"Answer","provider":"codex","model":"gpt-5.1-codex-max","toolCalls":{"calls":[...]},"status":"ok","createdAt":"2025-12-09T12:00:00.000Z" }
-  try {
-    await recordTurn({
-      conversationId: resolvedConversationId,
-      role: 'assistant',
-      content: answerText,
-      model: payload.modelId,
-      provider: 'codex',
-      toolCalls: assistantToolCalls,
-      status: 'ok',
-    });
-  } catch (err) {
-    baseLogger.error({ err }, 'failed to record MCP assistant turn');
+  if (provider === 'codex') {
+    await chat.run(
+      question,
+      {
+        provider,
+        threadId: conversationId,
+        codexFlags: threadOpts,
+        source: 'MCP',
+      },
+      resolvedConversationId,
+      threadOpts.model ?? 'gpt-5.1-codex-max',
+    );
+  } else {
+    const lmstudioModel =
+      requestedModel ??
+      process.env.MCP_LMSTUDIO_MODEL ??
+      process.env.LMSTUDIO_DEFAULT_MODEL ??
+      'gpt-3.1';
+    const baseUrl =
+      process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+
+    await chat.run(
+      question,
+      {
+        provider,
+        baseUrl,
+        source: 'MCP',
+      },
+      resolvedConversationId,
+      lmstudioModel,
+    );
   }
+
+  const payload: CodebaseQuestionResult = responder.toResult(
+    provider === 'codex'
+      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+      : (requestedModel ??
+          process.env.MCP_LMSTUDIO_MODEL ??
+          process.env.LMSTUDIO_DEFAULT_MODEL ??
+          'gpt-3.1'),
+    resolvedConversationId,
+  );
 
   return {
     content: [{ type: 'text', text: JSON.stringify(payload) }],
@@ -416,6 +302,17 @@ export function codebaseQuestionDefinition() {
           type: 'string',
           description: 'Optional conversation/thread id for follow-up turns.',
         },
+        provider: {
+          type: 'string',
+          enum: ['codex', 'lmstudio'],
+          description:
+            'Optional chat provider to use; defaults to codex when omitted.',
+        },
+        model: {
+          type: 'string',
+          description:
+            'Optional model id for the selected provider. For codex, defaults to gpt-5.1-codex-max. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
+        },
       },
     },
   } as const;
@@ -433,143 +330,4 @@ export function buildPrompt(question: string): string {
     'You must also use other tools such as deepwiki ask_question and context7 get-library-docs, resolve-library-id to be able to provide details about libraries that the codebase is using. You may never assume and MUST ALWAYS verify.\n\n' +
     `User question:\n${question}`
   );
-}
-
-function parseCodexToolResult(item: { result?: unknown; content?: unknown }) {
-  const content = (item.result as { content?: unknown } | undefined)?.content;
-  const picked = pickContent(content);
-  if (picked !== null) return picked;
-  return item.result ?? null;
-}
-
-function pickContent(content?: unknown): unknown | null {
-  if (!Array.isArray(content)) return null;
-
-  const jsonEntry = content.find(
-    (entry) =>
-      entry &&
-      typeof entry === 'object' &&
-      (entry as { type?: string }).type === 'application/json' &&
-      'json' in (entry as Record<string, unknown>),
-  ) as { json?: unknown } | undefined;
-
-  if (jsonEntry && 'json' in jsonEntry) {
-    return jsonEntry.json as unknown;
-  }
-
-  const textEntry = content.find(
-    (entry) =>
-      entry &&
-      typeof entry === 'object' &&
-      (entry as { type?: string }).type === 'text' &&
-      typeof (entry as { text?: unknown }).text === 'string',
-  ) as { text?: string } | undefined;
-
-  if (textEntry?.text) {
-    try {
-      return JSON.parse(textEntry.text);
-    } catch {
-      return textEntry.text;
-    }
-  }
-
-  return null;
-}
-
-function buildVectorSummary(payload: unknown): Segment | null {
-  if (!payload || typeof payload !== 'object') return null;
-  const obj = payload as Record<string, unknown>;
-  const results = Array.isArray(obj.results) ? obj.results : [];
-  const files = Array.isArray(obj.files) ? obj.files : [];
-  if (!results.length && !files.length) return null;
-
-  const relByHost = new Map<string, string>();
-  const summaries = new Map<string, VectorSummaryFile>();
-
-  const countLines = (text: unknown): number | null => {
-    if (typeof text !== 'string') return null;
-    if (!text.length) return 0;
-    return text.split(/\r?\n/).length;
-  };
-
-  results.forEach((entry, index) => {
-    if (!entry || typeof entry !== 'object') return;
-    const item = entry as Record<string, unknown>;
-    const relPath = typeof item.relPath === 'string' ? item.relPath : undefined;
-    const hostPath =
-      typeof item.hostPath === 'string' ? item.hostPath : undefined;
-    if (hostPath && relPath) relByHost.set(hostPath, relPath);
-    const key = relPath ?? hostPath ?? `result-${index}`;
-    const base: VectorSummaryFile = summaries.get(key) ?? {
-      path: relPath ?? hostPath ?? key,
-      relPath,
-      match: null as number | null,
-      chunks: 0,
-      lines: null as number | null,
-      repo: typeof item.repo === 'string' ? item.repo : undefined,
-      modelId: typeof item.modelId === 'string' ? item.modelId : undefined,
-      hostPathWarning:
-        typeof item.hostPathWarning === 'string'
-          ? item.hostPathWarning
-          : undefined,
-    };
-
-    base.chunks += 1;
-    if (typeof item.score === 'number') {
-      base.match =
-        base.match === null ? item.score : Math.max(base.match, item.score);
-    }
-    const lineCount =
-      typeof item.lineCount === 'number'
-        ? item.lineCount
-        : countLines(item.chunk);
-    if (typeof lineCount === 'number') {
-      base.lines = (base.lines ?? 0) + lineCount;
-    }
-
-    summaries.set(key, base);
-  });
-
-  files.forEach((entry, index) => {
-    if (!entry || typeof entry !== 'object') return;
-    const item = entry as Record<string, unknown>;
-    const hostPath =
-      typeof item.hostPath === 'string' ? item.hostPath : undefined;
-    const relPath = hostPath ? relByHost.get(hostPath) : undefined;
-    const key = hostPath ?? `file-${index}`;
-    const base: VectorSummaryFile = summaries.get(key) ?? {
-      path: relPath ?? hostPath ?? key,
-      relPath,
-      match: null as number | null,
-      chunks: 0,
-      lines: null as number | null,
-      repo: typeof item.repo === 'string' ? item.repo : undefined,
-      modelId: typeof item.modelId === 'string' ? item.modelId : undefined,
-      hostPathWarning:
-        typeof item.hostPathWarning === 'string'
-          ? item.hostPathWarning
-          : undefined,
-    };
-
-    const highest =
-      typeof item.highestMatch === 'number' ? item.highestMatch : base.match;
-    base.match = highest ?? base.match;
-    const chunkCount =
-      typeof item.chunkCount === 'number' ? item.chunkCount : undefined;
-    base.chunks += chunkCount ?? 0;
-    const lineCount =
-      typeof item.lineCount === 'number' ? item.lineCount : null;
-    if (lineCount !== null) {
-      base.lines = (base.lines ?? 0) + lineCount;
-    }
-
-    summaries.set(key, base);
-  });
-
-  if (!summaries.size) return null;
-
-  return {
-    type: 'vector_summary',
-    files: Array.from(summaries.values()),
-  };
 }

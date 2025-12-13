@@ -2,14 +2,16 @@ import {
   ConversationModel,
   Conversation,
   ConversationProvider,
+  ConversationSource,
 } from './conversation.js';
-import { TurnModel, Turn, TurnRole, TurnStatus } from './turn.js';
+import { TurnModel, Turn, TurnRole, TurnStatus, TurnSource } from './turn.js';
 
 export interface CreateConversationInput {
   conversationId: string;
   provider: ConversationProvider;
   model: string;
   title: string;
+  source?: ConversationSource;
   flags?: Record<string, unknown>;
   lastMessageAt?: Date;
 }
@@ -28,6 +30,7 @@ export interface AppendTurnInput {
   content: string;
   model: string;
   provider: string;
+  source?: TurnSource;
   toolCalls?: Record<string, unknown> | null;
   status: TurnStatus;
   createdAt?: Date;
@@ -53,6 +56,7 @@ export async function createConversation(
     provider: input.provider,
     model: input.model,
     title: input.title,
+    source: input.source ?? 'REST',
     flags: input.flags ?? {},
     lastMessageAt: input.lastMessageAt ?? new Date(),
   });
@@ -104,6 +108,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     content: input.content,
     model: input.model,
     provider: input.provider,
+    source: input.source ?? 'REST',
     toolCalls: input.toolCalls ?? null,
     status: input.status,
     createdAt,
@@ -121,6 +126,7 @@ export interface ConversationSummary {
   provider: ConversationProvider;
   model: string;
   title: string;
+  source: ConversationSource;
   lastMessageAt: Date;
   archived: boolean;
   flags: Record<string, unknown>;
@@ -150,6 +156,7 @@ export async function listConversations(
     provider: doc.provider,
     model: doc.model,
     title: doc.title,
+    source: (doc as Conversation).source ?? 'REST',
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,
     flags: doc.flags ?? {},
@@ -166,6 +173,7 @@ export interface TurnSummary {
   content: string;
   model: string;
   provider: string;
+  source: TurnSource;
   toolCalls: Record<string, unknown> | null;
   status: TurnStatus;
   createdAt: Date;
@@ -193,6 +201,7 @@ export async function listTurns(
     content: doc.content,
     model: doc.model,
     provider: doc.provider,
+    source: (doc as Turn).source ?? 'REST',
     toolCalls: doc.toolCalls ?? null,
     status: doc.status,
     createdAt: doc.createdAt,

@@ -641,7 +641,7 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 #### Overview
 
-Validate end-to-end after the base-managed assistant persistence changes: confirm single-turn writes (user + assistant) for REST and MCP providers, correct toolCalls, threadId handling, SSE ordering, and error paths. Ensure unsupported-provider and snapshot contracts still hold.
+Targeted story sign-off checks that are not already covered by Task 10’s full build/test/e2e/compose run. Focus on: (1) MCP segment contract stability, (2) persistence parity and Mongo-down fallback behavior, and (3) unsupported-provider error paths. Keep this short and write down concrete results in the Implementation notes.
 
 #### Documentation Locations
 
@@ -651,23 +651,29 @@ Validate end-to-end after the base-managed assistant persistence changes: confir
 
 #### Subtasks
 
-1. [ ] Re-run MCP snapshots (`server/src/test/integration/mcp-codex-wrapper.test.ts`, `mcp-lmstudio-wrapper.test.ts`) and confirm segments unchanged after base buffering.
-2. [ ] REST SSE spot-check: curl/EventSource (or e2e) to verify token → tool-request/result → final → complete order and that exactly one assistant turn is persisted per send for both providers.
-3. [ ] Persistence parity check: call `/chat` (LM Studio) and MCP `codebase_question` (Codex) against Mongo and assert one user + one assistant turn per message with `toolCalls` when tools fire; repeat with Mongo down to ensure memory fallback still responds without errors.
-4. [ ] Confirm unsupported-provider errors still 400 (REST) / JSON-RPC error (MCP).
-5. [ ] Summarize validation results in Implementation notes; note any follow-ups.
+1. [ ] Confirm MCP segment contract stability by re-running only the two MCP wrapper integration tests (Codex + LM Studio) and verifying snapshots/segment order are unchanged.
+2. [ ] REST + MCP persistence parity smoke (Mongo up): create fresh conversations, run one request per provider, and verify exactly one `user` + one `assistant` turn is stored per send with correct `source` (`REST` vs `MCP`) and `toolCalls` populated when tools fire.
+3. [ ] Mongo-down fallback smoke: stop Mongo, confirm `/health` reports `mongoConnected=false`, then verify REST `/chat` (LM Studio) still streams and MCP `codebase_question` still returns a valid segments payload (no 500s).
+4. [ ] Unsupported-provider error paths: verify REST returns 400 for an invalid provider and MCP returns a JSON-RPC invalid params error when provider is invalid.
+5. [ ] Summarize results with timestamps, what was verified, and any follow-ups in Implementation notes.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client` (includes new RTL spec)
-5. [ ] `npm run e2e` (includes provider-selection scenario)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: select Codex conversation → provider shows Codex and history visible; switch to LM Studio conversation → provider shows LM Studio; new conversation → reselect history → history still visible.
-9. [ ] `npm run compose:down`
+2. [ ] Run MCP wrapper tests only:
+   - `cd server`
+   - `cross-env TS_NODE_FILES=true TS_NODE_PROJECT=./tsconfig.json NODE_OPTIONS=--loader=ts-node/esm node --test --test-concurrency=1 src/test/integration/mcp-codex-wrapper.test.ts src/test/integration/mcp-lmstudio-wrapper.test.ts`
+3. [ ] `npm run compose:up`
+4. [ ] Mongo-up smoke (REST + MCP + turn counts via API):
+   - REST LM Studio: create conversation (`POST /conversations`), send (`POST /chat`), verify turns (`GET /conversations/:id/turns`).
+   - REST Codex: same flow; verify `flags.threadId` is set after first send and turns show `provider=codex`.
+   - MCP: call `tools/call` to `codebase_question` for both providers and verify response JSON contains `{ conversationId, modelId, segments[] }`; then verify turns for that conversation show `source=MCP`.
+5. [ ] Mongo-down smoke:
+   - `docker compose --env-file .env.docker.local stop mongo`
+   - `curl -s http://localhost:5010/health` (expect `mongoConnected=false`)
+   - Repeat one REST `/chat` call (LM Studio) and one MCP call (Codex) and confirm both succeed.
+   - `docker compose --env-file .env.docker.local start mongo`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 

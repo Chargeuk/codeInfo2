@@ -431,7 +431,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 #### Subtasks
 
 1. [ ] Add a new server entrypoint for agents MCP:
-   - Port `5012` (env override allowed, default 5012)
+   - Port `5012` (env `AGENTS_MCP_PORT`, default `5012`)
    - Reuse `server/src/mcpCommon/*` dispatcher helpers
    - Ensure it is started/stopped from `server/src/index.ts` alongside the existing MCP v2 server.
 2. [ ] Implement tool registry:

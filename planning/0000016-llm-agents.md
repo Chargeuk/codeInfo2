@@ -11,7 +11,7 @@ It introduces “LLM agents”: named, Codex-only assistants with their own Code
   - one tool to list available agents
   - one tool to run an instruction for a named agent (with thread continuation via `conversationId`)
 
-This story must heavily reuse existing chat infrastructure (`ChatInterface`, `ChatInterfaceCodex`, persistence, and `McpResponder`) and must not add provider/model selection for agents. Agents always use the existing Codex defaults.
+This story must heavily reuse existing chat infrastructure (`ChatInterface`, `ChatInterfaceCodex`, persistence, and `McpResponder`) and must not add provider/model selection for agents. Agents always use the existing Codex *run flag defaults* (sandbox/websearch/network/approval/reasoning), but use a per-agent system prompt from `system_prompt.txt` when present and otherwise run with **no** system prompt (global `SYSTEM_CONTEXT` disabled for agent runs).
 
 ## Description
 

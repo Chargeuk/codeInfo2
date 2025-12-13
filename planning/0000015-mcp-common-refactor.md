@@ -82,7 +82,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Add characterization tests for both MCP servers
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

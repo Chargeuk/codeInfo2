@@ -836,8 +836,8 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
 
 ### 5. Final task – verify against acceptance criteria
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 40353f5, 571cf3b, abd1d17, 3bbac26, 9aaf2d8, 6665e86, 8a1822c, 9adf91c, 546b802
 
 #### Overview
 

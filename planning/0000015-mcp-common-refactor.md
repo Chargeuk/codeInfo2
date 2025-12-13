@@ -468,8 +468,8 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 ### 2. Introduce a shared MCP core module
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 52e2f05, 277787e
 
 #### Overview
 
@@ -619,6 +619,11 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- Added `server/src/mcpCommon/` shared infrastructure module (guards, JSON-RPC helpers, dispatch skeleton) without touching either MCP server implementation yet (no runtime behavior change in this task).
+- Dispatcher is intentionally “dumb”: it validates minimally (overridable) and routes `initialize/resources/tools` by method string, returning handler payloads verbatim so each MCP server can preserve its own wire-format quirks in Tasks 3–4.
+- Added unit characterization `server/src/test/unit/mcp-common-dispatch.test.ts` to lock in the “verbatim handler output” invariant.
+- Verification run (2025-12-13): lint/format ok, server/client builds ok, server/client tests ok, full `npm run e2e` ok, compose build/up/down ok; screenshot saved locally (gitignored) at `test-results/screenshots/0000015-02-mcp-common.png`.
 
 
 ---

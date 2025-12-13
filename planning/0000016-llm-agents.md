@@ -143,7 +143,7 @@ This is a prerequisite for everything else in this story.
 
 ---
 
-### 2. Agent discovery + auth seeding + docker wiring
+### 2. Agent discovery + auth seeding (runs on every discovery read)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -154,13 +154,10 @@ Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`, validate each agent 
 
 Important: auth seeding must run every time agent folders are read/checked (not only at startup), so both MCP and GUI always converge on a usable per-agent auth state when possible.
 
-Update Docker/Compose so agent folders are mounted into containers correctly.
-
 #### Documentation Locations
 
-- Existing env + docker notes: `README.md`, `design.md`, `docker-compose.yml`
+- Existing env notes: `README.md`, `design.md`
 - Node.js filesystem APIs: Context7 `/nodejs/node`
-- Docker docs: Context7 `/docker/docs`
 
 #### Subtasks
 
@@ -176,28 +173,56 @@ Update Docker/Compose so agent folders are mounted into containers correctly.
    - copy `${CODEINFO_CODEX_HOME}/auth.json` to `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/auth.json` when missing
    - never overwrite an existing agent `auth.json`
    - do not crash if auth is missing; surface an explicit “agent disabled” state instead.
-4. [ ] Update Dockerfile/compose wiring to mount `codex_agents/` into the server container and set `CODEINFO_CODEX_AGENT_HOME` accordingly.
-5. [ ] Ensure `codex_agents/**/auth.json` is gitignored and not included in Docker build contexts.
-6. [ ] Update `README.md` with:
+4. [ ] Ensure `codex_agents/**/auth.json` is gitignored and not included in Docker build contexts.
+5. [ ] Update `README.md` with:
    - agent folder layout
    - required env vars
    - how to add a new agent folder.
-7. [ ] Run full linting for touched workspaces.
+6. [ ] Run full linting for touched workspaces.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up` (verify env + mount behavior)
-5. [ ] `npm run compose:down`
 
 #### Implementation notes
 
 
 ---
 
-### 3. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
+### 3. Docker/Compose wiring for agent homes
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Ensure agent folders under `CODEINFO_CODEX_AGENT_HOME` are available inside Docker/Compose environments and that env vars and mounts are configured consistently for local dev, compose, and e2e stacks.
+
+#### Documentation Locations
+
+- Existing docker notes: `README.md`, `design.md`, `docker-compose.yml`, `docker-compose.e2e.yml`
+- Docker docs: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Update Dockerfile/compose wiring to mount `codex_agents/` into the server container and set `CODEINFO_CODEX_AGENT_HOME` accordingly.
+2. [ ] Ensure docker build contexts do not accidentally include agent `auth.json` files.
+3. [ ] Update `README.md` with Docker/Compose-specific notes for agents (mount path + env var expectations).
+4. [ ] Run full linting for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run compose:build`
+2. [ ] `npm run compose:up` (verify env + mount behavior)
+3. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+
+---
+
+### 4. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -252,7 +277,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 
 ---
 
-### 4. Add Agents GUI page (`/agents`) and navigation
+### 5. Add Agents GUI page (`/agents`) and navigation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -297,7 +322,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 ---
 
-### 5. Final task – verify against acceptance criteria
+### 6. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -335,7 +360,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 5. [ ] Use the Playwright MCP tool to manually check:
    - `/agents` loads and can run an instruction
    - MCP `5012` server responds to initialize/tools/list/tools/call
-   - screenshots saved to `./test-results/screenshots/` named like `0000016-05-agents.png`, `0000016-05-mcp-5012.png`
+   - screenshots saved to `./test-results/screenshots/` named like `0000016-06-agents.png`, `0000016-06-mcp-5012.png`
 
 #### Implementation notes
 

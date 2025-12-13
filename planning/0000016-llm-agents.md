@@ -317,6 +317,7 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
 1. [ ] Add a new router/handler for `POST /agents/:agentName/run`.
 2. [ ] Add top-level `agentName` support to persistence:
    - update `server/src/mongo/conversation.ts` schema + types to include optional `agentName?: string`
+   - update the `Conversation._id` comment in `server/src/mongo/conversation.ts` to reflect reality (conversationId is our id; Codex thread id is stored separately in flags.threadId)
    - update `server/src/mongo/repo.ts` helpers (`createConversation`, `updateConversationMeta`, `listConversations`) to accept/persist/filter `agentName`
    - add/extend unit/integration coverage proving existing non-agent conversations still work unchanged.
 3. [ ] Request validation:

@@ -10,6 +10,8 @@ playwright-report
 test-results
 logs
 .env.local
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # Never send Codex credentials in build context
 codex/**/auth.json

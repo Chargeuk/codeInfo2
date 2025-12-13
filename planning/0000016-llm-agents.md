@@ -172,7 +172,7 @@ This is a prerequisite for everything else in this story.
      - Do **not** write to `process.env` at runtime.
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
-3. [ ] Update Codex detection so it can validate an arbitrary codex home.
+3. [x] Update Codex detection so it can validate an arbitrary codex home.
    - Docs to read (this subtask):
      - Node fs APIs: Context7 `/nodejs/node`
    - Files to read:
@@ -298,6 +298,7 @@ This is a prerequisite for everything else in this story.
 
 - Added codex-home helper functions in `server/src/config/codexConfig.ts` (`resolveCodexHome`, `getCodexConfigPathForHome`, `getCodexAuthPathForHome`) and updated existing getters to delegate, enabling per-home path computation without process env mutation.
 - Updated `buildCodexOptions()` to accept `{ codexHome?: string }` and inject `CODEX_HOME` into the Codex SDK options env without mutating `process.env`.
+- Added `detectCodexForHome(codexHome)` in `server/src/providers/codexDetection.ts` to validate CLI/auth/config for an arbitrary Codex home without mutating the process-wide cached detection used by `/chat`.
 
 ---
 

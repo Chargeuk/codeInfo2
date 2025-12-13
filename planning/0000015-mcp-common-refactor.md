@@ -454,6 +454,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 - Task 5 progress (2025-12-13): `npm run build --workspace server` ok.
 - Task 5 progress (2025-12-13): `npm run build --workspace client` ok.
 - Task 5 progress (2025-12-13): `npm run compose:build` ok (script runs Docker build with `--pull --no-cache`).
+- Task 5 progress (2025-12-13): updated `README.md` + `design.md` to explicitly document the two MCP surfaces, shared `server/src/mcpCommon/` ownership boundaries, and `/mcp` text-content tool result encoding.
 
 - `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
 - MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
@@ -867,7 +868,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
      - Docker: Context7 `/docker/docs`
      - Docker Compose: Context7 `/docker/docs`
    - Non-negotiables: use the “clean” build (no cache) as configured by the repo script.
-4. [ ] Update `README.md` (refactor-only; no behavior changes):
+4. [x] Update `README.md` (refactor-only; no behavior changes):
    - Add a short note in the MCP documentation explaining there are **two** MCP surfaces:
      - Express `POST /mcp` (tooling: `ListIngestedRepositories`, `VectorSearch`)
      - MCP v2 server on `MCP_PORT` (tooling: `codebase_question`)
@@ -878,7 +879,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
      - MCP spec: https://modelcontextprotocol.io/
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
    - Non-negotiables: documentation must explicitly state “no behavior change” and must not imply the endpoints were merged.
-5. [ ] Update `design.md` (refactor-only; no behavior changes):
+5. [x] Update `design.md` (refactor-only; no behavior changes):
    - Add a short “MCP servers” section explaining:
      - Why both `server/src/mcp/*` and `server/src/mcp2/*` exist.
      - What moved to `server/src/mcpCommon/*` (guards, JSON-RPC helpers, dispatch skeleton).

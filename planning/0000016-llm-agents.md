@@ -229,7 +229,7 @@ This is a prerequisite for everything else in this story.
      - Update `ChatInterfaceCodex` to call this helper when Codex emits a new thread id.
    - Verify:
      - Run `npm run test --workspace server` (must exit 0).
-6. [ ] Server unit test (Node `node:test`): Codex home override sets `CODEX_HOME` correctly.
+6. [x] Server unit test (Node `node:test`): Codex home override sets `CODEX_HOME` correctly.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -301,6 +301,7 @@ This is a prerequisite for everything else in this story.
 - Added `detectCodexForHome(codexHome)` in `server/src/providers/codexDetection.ts` to validate CLI/auth/config for an arbitrary Codex home without mutating the process-wide cached detection used by `/chat`.
 - Extended `server/src/chat/interfaces/ChatInterfaceCodex.ts` run flags with `codexHome`, `disableSystemContext`, and `systemPrompt`, adding per-home preflight detection and first-turn prompt prefixing that does not affect persisted user turns.
 - Added `updateConversationThreadId()` in `server/src/mongo/repo.ts` to `$set` only `flags.threadId`, and updated `ChatInterfaceCodex` to use it when persisting new thread ids.
+- Added a unit test (`server/src/test/unit/codexConfig.test.ts`) ensuring `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME` correctly.
 
 ---
 

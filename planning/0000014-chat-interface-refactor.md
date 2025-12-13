@@ -538,7 +538,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 ### 9. Base-driven assistant persistence
 
 - Task Status: ****done****
-- Git Commits: **24b0d9c**
+- Git Commits: **24b0d9c, ca36ab0, 5af9cc3**
 
 #### Overview
 
@@ -582,6 +582,7 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 - Base now buffers token/final/tool-result events in `ChatInterface.run`, derives status (includes aborted signals), and persists assistant turns via shared `persistAssistantTurn` (Mongo or memory) while keeping user turn persistence intact.
 - Providers (Codex/LM Studio) no longer persist assistant turns; they emit normalized events only, with unused persistence flags removed.
+- Follow-up history fixes: Codex now only submits the latest user message to the Codex thread (it maintains its own history) (`ca36ab0`), and LM Studio turn ordering is corrected when loading history from Mongo so the provider receives messages in the expected order (`5af9cc3`).
 - Added unit coverage for assistant buffering/preferences/status/tool-calls, updated run-persistence expectations, and integration coverage for both providers to assert single assistant turn with toolCalls in memory mode.
 - Updated Cucumber chat history expectation to account for persisted assistant turns; adjusted e2e status-chip spec to accept immediate completion after tool-result.
 - Project structure updated; lint/format, server build/tests, full e2e (compose build/up/test/down) all pass.
@@ -590,7 +591,7 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 ### 10. Documentation and diagrams
 
-- Task Status: ****to_do****
+- Task Status: ****in_progress****
 - Git Commits: ****to_do****
 
 #### Overview
@@ -625,11 +626,7 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 #### Implementation notes
 
-- Base now buffers token/final/tool-result events in `ChatInterface.run`, derives status (including aborted signals), and persists assistant turns via shared `persistAssistantTurn` (Mongo or memory) while keeping user turn persistence intact.
-- Providers (Codex/LM Studio) no longer persist assistant turns; they emit normalized events only, with unused persistence flags removed.
-- Added unit coverage for assistant buffering/preferences/status/tool-calls, updated run-persistence expectations, new integration coverage for both providers to assert single assistant turn with toolCalls in memory mode, and added `chat-assistant-persistence.test.ts`.
-- Adjusted chat_stream.feature history expectation (assistant now persisted) and relaxed e2e status-chip assertion to allow immediate completion once tool-result arrives; reran e2e after change.
-- Gotchas: LM Studio mock history length increased by one because assistant is persisted in memory; status chip flipped to Complete immediately once tool-result emitted—UI test now asserts visibility + eventual Complete instead of transitional Processing.
+- Start empty; update after each subtask/test.
 
 ---
 

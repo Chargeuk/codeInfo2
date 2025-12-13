@@ -129,6 +129,28 @@ flowchart LR
   Opts2 --> Codex
 ```
 
+### Agent discovery
+
+- Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.
+- Only direct subfolders containing `config.toml` are treated as available agents; discovery does not recurse.
+- Optional metadata sources:
+  - `description.md` is read as UTF-8 and surfaced to UIs/clients as the agent description.
+  - `system_prompt.txt` is detected by presence; its contents are only read at execution time when starting a new agent conversation.
+
+```mermaid
+flowchart TD
+  Root[CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
+  Scan --> Check{config.toml exists?}
+  Check -->|No| Skip[Skip folder]
+  Check -->|Yes| Agent[Discovered agent]
+  Agent --> Desc{description.md exists?}
+  Desc -->|Yes| ReadDesc[Read UTF-8 description]
+  Desc -->|No| NoDesc[No description]
+  Agent --> Prompt{system_prompt.txt exists?}
+  Prompt -->|Yes| SetPrompt[Set systemPromptPath]
+  Prompt -->|No| NoPrompt[No system prompt]
+```
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

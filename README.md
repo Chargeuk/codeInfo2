@@ -33,6 +33,19 @@ npm install
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 
+## Codex agents (folder layout)
+
+Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
+
+Example layout:
+
+```text
+codex_agents/<agentName>/
+  config.toml          # required
+  description.md       # optional (Markdown shown in UI/MCP listings)
+  system_prompt.txt    # optional (used only on first turn of a new agent conversation)
+```
+
 ### MCP for Codex
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.

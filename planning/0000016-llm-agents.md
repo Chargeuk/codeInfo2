@@ -455,7 +455,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 
 #### Subtasks
 
-1. [ ] Create agent discovery types (REST-safe + internal).
+1. [x] Create agent discovery types (REST-safe + internal).
    - Docs to read (this subtask):
      - TypeScript type exports: Context7 `/microsoft/typescript`
    - Files to create:
@@ -463,7 +463,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
    - Required exports (exact):
      - `export type AgentSummary = { name: string; description?: string; disabled?: boolean; warnings?: string[] };`
      - `export type DiscoveredAgent = AgentSummary & { home: string; configPath: string; descriptionPath?: string; systemPromptPath?: string };`
-2. [ ] Implement agent discovery.
+2. [x] Implement agent discovery.
    - Docs to read (this subtask):
      - Node `fs.readdir` / `fs.promises.readdir`: Context7 `/nodejs/node`
    - Files to create:
@@ -475,7 +475,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Read `${agentHome}/description.md` as UTF-8 if present and include it.
      - If `${agentHome}/system_prompt.txt` exists, set `systemPromptPath` (do not read contents in this task).
      - Sort agents alphabetically by `name` for deterministic output.
-3. [ ] Server unit test (Node `node:test`): discovery includes folders with `config.toml`.
+3. [x] Server unit test (Node `node:test`): discovery includes folders with `config.toml`.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -484,7 +484,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Ensure the “direct subfolder containing config.toml” rule is enforced and stable.
    - Test description:
      - Create `tmp/agentsRoot/coding_agent/config.toml` and assert `discoverAgents()` returns `coding_agent`.
-4. [ ] Server unit test (Node `node:test`): discovery ignores folders without `config.toml`.
+4. [x] Server unit test (Node `node:test`): discovery ignores folders without `config.toml`.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -493,7 +493,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Prevent accidental discovery of incomplete/invalid agent folders.
    - Test description:
      - Create `tmp/agentsRoot/invalid_agent/` with no `config.toml` and assert it is not returned.
-5. [ ] Server unit test (Node `node:test`): discovery reads optional `description.md`.
+5. [x] Server unit test (Node `node:test`): discovery reads optional `description.md`.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -502,7 +502,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Ensure agent metadata shown in UI and MCP is sourced from disk as expected.
    - Test description:
      - Create `description.md` and assert returned agent includes `description` text.
-6. [ ] Server unit test (Node `node:test`): discovery detects optional `system_prompt.txt` presence.
+6. [x] Server unit test (Node `node:test`): discovery detects optional `system_prompt.txt` presence.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -511,7 +511,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Ensure the run path can reliably determine if an agent has a system prompt available (used as a Codex system prompt override on the first turn, per Task 7).
    - Test description:
      - Create `system_prompt.txt` and assert returned agent includes a defined `systemPromptPath`.
-7. [ ] Update docs.
+7. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Implementation steps:
@@ -519,7 +519,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - required: `config.toml`
        - optional: `description.md`
        - optional: `system_prompt.txt`
-8. [ ] Update architecture docs (design + Mermaid) for discovery rules.
+8. [x] Update architecture docs (design + Mermaid) for discovery rules.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -529,7 +529,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
    - Implementation steps:
      - Add a Mermaid flow diagram for “Agent discovery” showing:
        - `CODEINFO_CODEX_AGENT_HOME` → scan direct subfolders → require `config.toml` → optionally read `description.md` / detect `system_prompt.txt`.
-9. [ ] Update `projectStructure.md` for new agents modules.
+9. [x] Update `projectStructure.md` for new agents modules.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -539,7 +539,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - `server/src/agents/types.ts`
        - `server/src/agents/discovery.ts`
        - the new discovery unit test file(s)
-10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+10. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

@@ -116,8 +116,8 @@ Agent conversations must be persisted just like existing chats, but must carry e
 
 ### 1. Refactor Codex creation to support per-agent Codex home (no global env mutation)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 2855bc0, e447c75, 3355edd, 7fe7cc8, c8d01e3, 3ec07e7, fc4d30b, e6a2528, 9907c5f, 9807854, fcbba34
 
 #### Overview
 
@@ -282,17 +282,17 @@ This is a prerequisite for everything else in this story.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; can start/continue a Codex chat; Stop works; no console errors.
    - `codebase_question` still streams and returns `{ thinking, vector_summary, answer }` segments (no regressions after Codex home override refactor).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -306,6 +306,7 @@ This is a prerequisite for everything else in this story.
 - Documented primary vs override Codex homes and the “no process env mutation” injection flow in `design.md`, including a Mermaid diagram for the Codex home selection path.
 - Updated `projectStructure.md` to include the new `server/src/test/unit/codexConfig.test.ts` unit test entry.
 - Ran `npm run lint --workspaces` and `npm run format:check --workspaces` successfully.
+- Completed Task 1 verification runs: server/client builds, server/client tests, full `npm run e2e`, docker compose build/up/down, and a Playwright + MCP smoke of `/chat` (Codex send/stop) and `codebase_question` response shape.
 
 ---
 

@@ -736,8 +736,8 @@ This task implements that logic and wires it into the discovery read path so it 
 
 ### 5. Docker/Compose wiring for agent homes
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 4e30b2b, 7ae34a3
 
 #### Overview
 
@@ -841,6 +841,12 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- Updated `docker-compose.yml` to mount `./codex_agents` → `/app/codex_agents` (rw), set `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`, set `AGENTS_MCP_PORT=5012`, and expose `5012:5012`.
+- Updated `docker-compose.e2e.yml` equivalently, exposing `6012:5012` for the e2e stack.
+- Added host-dev defaults in `server/.env` for `CODEINFO_CODEX_AGENT_HOME` and `AGENTS_MCP_PORT`.
+- Documented the Compose mount + Agents MCP URL in `README.md` and added a deployment/wiring Mermaid diagram in `design.md`.
+- Verified with `docker compose ... config`, full lint/format checks, server/client builds, server/client tests, full `npm run e2e`, and full `npm run compose:build` + `npm run compose:up` + Playwright load check + `npm run compose:down`.
 
 
 ---

@@ -274,7 +274,16 @@ This is a prerequisite for everything else in this story.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; can start/continue a Codex chat; Stop works; no console errors.
+   - `codebase_question` still streams and returns `{ thinking, vector_summary, answer }` segments (no regressions after Codex home override refactor).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -374,7 +383,16 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; conversation list renders; existing non-agent conversations behave unchanged.
+   - Creating/running a normal chat does not set `agentName` and still appears on the Chat page history.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -509,7 +527,16 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads with `CODEINFO_CODEX_AGENT_HOME` set; no console errors.
+   - If agents UI is not implemented yet, confirm existing Chat UX still works end-to-end (send message, stop, reload).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -652,7 +679,16 @@ This task implements that logic and wires it into the discovery read path so it 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; no console errors; normal chat still runs.
+   - Verify no unexpected writes under `codex_agents/` when running the app without any agent discovery calls (auth seeding should be discovery-triggered and best-effort).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -753,9 +789,17 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 
 #### Testing
 
-1. [ ] `npm run compose:build`
-2. [ ] `npm run compose:up` (verify env + mount behavior)
-3. [ ] `npm run compose:down`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads when running in compose; no regressions.
+   - Confirm the server container can see `/app/codex_agents` and `AGENTS_MCP_PORT` is set (by verifying agent-related endpoints/ports once implemented in later tasks).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -880,7 +924,16 @@ This endpoint is the single source of truth for:
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; no console errors.
+   - Use the browser (or Playwright evaluate) to `fetch('/agents')` and confirm it returns `{ agents: [...] }` and includes `description` when `description.md` exists.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1057,7 +1110,18 @@ Critical requirement: the REST path and MCP path must share the same implementat
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; no regressions.
+   - If `/agents` UI is not implemented yet, validate the REST contract directly:
+     - `fetch('/agents/coding_agent/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ instruction: 'hello' }) })` returns `{ agentName, conversationId, modelId, segments }`.
+   - If `/agents` UI is implemented, run an instruction from the Agents page and confirm Stop + continuation by selecting history works.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1195,7 +1259,18 @@ Important semantics (must be implemented exactly):
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads and shows only non-agent conversations (agentName absent).
+   - Validate filtering via the REST API:
+     - `fetch('/conversations?agentName=__none__')` returns only conversations with no `agentName`.
+     - `fetch('/conversations?agentName=coding_agent')` returns only `agentName === 'coding_agent'` conversations (after at least one agent run exists).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1352,7 +1427,18 @@ Hard requirements:
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` loads; no regressions.
+   - Verify Agents MCP server behavior (manual commands; expected when Task 9 is complete):
+     - `tools/list` exposes exactly `list_agents` and `run_agent_instruction`.
+     - `tools/call` for `run_agent_instruction` returns JSON text with `{ agentName, conversationId, modelId, segments }`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1585,8 +1671,18 @@ Implementation constraint: reuse existing Chat page components where possible (e
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/agents` loads, lists agents, shows description (if present), and can run an instruction.
+   - Changing selected agent stops in-flight runs, resets conversation, and refreshes history panel.
+   - `/chat` still loads and shows only non-agent conversations.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1633,11 +1729,14 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 #### Testing
 
-1. [ ] Run client tests: `npm run test --workspace client`
-2. [ ] Run server tests: `npm run test --workspace server`
-3. [ ] Restart docker: `npm run compose:down && npm run compose:up`
-4. [ ] Run e2e: `npm run e2e`
-5. [ ] Use the Playwright MCP tool to manually check:
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
    - `/chat` still loads and shows only non-agent conversations
    - `/agents` loads, lists agents, shows agent description, and can run an instruction
    - Agents MCP `5012` responds to initialize/tools/list/tools/call
@@ -1645,6 +1744,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
      - `0000016-11-chat.png`
      - `0000016-11-agents.png`
      - `0000016-11-mcp-5012.png`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

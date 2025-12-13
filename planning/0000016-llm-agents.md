@@ -312,8 +312,8 @@ This is a prerequisite for everything else in this story.
 
 ### 2. Mongo + repo: store `agentName` on conversations (top-level optional)
 
-- Task Status: __in_progress__
-- Git Commits: 4985d74, 77a4b1e
+- Task Status: __done__
+- Git Commits: 4985d74, 77a4b1e, f92dad5
 
 #### Overview
 

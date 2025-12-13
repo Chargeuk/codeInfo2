@@ -460,6 +460,13 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 - Task 5 progress (2025-12-13): `npm run test --workspace client` ok (43 suites, 101 tests).
 - Task 5 progress (2025-12-13): `npm run e2e` ok (25 passed, 2 skipped).
 - Task 5 progress (2025-12-13): `npm run compose:up` ok (services healthy).
+- Task 5 progress (2025-12-13): manual MCP checks ok:
+  - Express `/mcp`: `initialize`, `tools/list`, `tools/call` for `ListIngestedRepositories` + `VectorSearch` (confirmed `text` content encoding).
+  - MCP v2 (port `MCP_PORT`): `initialize`, `tools/list` includes `codebase_question`, and `tools/call codebase_question` returns `text` content JSON with `segments`.
+- Task 5 progress (2025-12-13): manual UI checks ok (Playwright MCP):
+  - `/chat` loaded models and successfully sent a message via LM Studio; response rendered with tool visibility + citations accordion.
+  - `/logs` loaded history and “Send sample log” appended entries end-to-end.
+  - Screenshots saved: `test-results/screenshots/0000015-05-chat.png`, `test-results/screenshots/0000015-05-logs.png`.
 
 - `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
 - MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
@@ -924,12 +931,12 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (story acceptance + regressions):
+8. [x] Manual Playwright-MCP check (story acceptance + regressions):
    - Confirm `/chat` renders and can send a message without UI regressions.
    - Confirm `/logs` renders and can load log history.
    - Confirm Express `POST /mcp` still responds to `initialize` + `tools/list` and returns valid tool results for both `ListIngestedRepositories` and `VectorSearch`.
    - Confirm MCP v2 (port `MCP_PORT`) still responds to `initialize` + `tools/list` and supports `tools/call` for `codebase_question` (including `CODE_INFO_LLM_UNAVAILABLE` gating behavior).
    - Save screenshots to `test-results/screenshots/` named `0000015-05-<name>.png` (minimum: `0000015-05-chat.png` and `0000015-05-logs.png`).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes

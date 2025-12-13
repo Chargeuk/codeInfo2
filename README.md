@@ -46,6 +46,8 @@ codex_agents/<agentName>/
   system_prompt.txt    # optional (used only on first turn of a new agent conversation)
 ```
 
+- Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
+
 ### MCP for Codex
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.

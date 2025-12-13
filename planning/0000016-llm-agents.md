@@ -671,7 +671,7 @@ This task implements that logic and wires it into the discovery read path so it 
      - Ensure it contains:
        - `codex_agents/**/auth.json`
        - `codex/**/auth.json`
-8. [ ] Update docs.
+8. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Implementation steps:

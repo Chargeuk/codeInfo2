@@ -193,6 +193,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
+â”‚     â”œâ”€ mcpCommon/ — shared MCP/JSON-RPC infrastructure used by both MCP servers (helpers/dispatch only; must not change wire formats)
+â”‚     â”‚  â”œâ”€ guards.ts — tiny shared type guards for MCP request validation
+â”‚     â”‚  â”œâ”€ jsonRpc.ts — shared JSON-RPC response helpers (result/error envelopes)
+â”‚     â”‚  â””â”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
 â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources)
@@ -271,6 +275,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
+â”‚           â”œâ”€ mcp-common-dispatch.test.ts â€” unit tests for shared MCP dispatcher routing/verbatim payload behavior
 â”‚           â”œâ”€ mcp2-router-initialize.test.ts â€” MCP v2 initialize handshake protocol/serverInfo coverage
 â”‚           â”œâ”€ mcp2-router-list-happy.test.ts â€” MCP v2 tools/list happy path characterization when Codex is forced available
 â”‚           â”œâ”€ mcp2-router-list-unavailable.test.ts â€” MCP v2 tools/list gating + resources key naming characterization when Codex is forced unavailable

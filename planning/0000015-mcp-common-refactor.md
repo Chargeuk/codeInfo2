@@ -488,7 +488,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 
 #### Subtasks
 
-1. [ ] Identify the duplicated “infrastructure” code to consolidate (read both files side-by-side):
+1. [x] Identify the duplicated “infrastructure” code to consolidate (read both files side-by-side):
    - From `server/src/mcp/server.ts`: `jsonRpcResult`, `jsonRpcError`, `isObject`, request validation, and the method dispatch skeleton for `initialize` / `tools/list` / `tools/call` / `resources/*`.
    - From `server/src/mcp2/router.ts`: `isObject`, request validation, method dispatch skeleton for `initialize` / `tools/list` / `tools/call` / `resources/*` (note: body reading + parse error handling must remain in `mcp2/router.ts`).
    - Files to read: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`.
@@ -496,7 +496,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
      - MCP spec: https://modelcontextprotocol.io/ (and https://github.com/modelcontextprotocol/specification)
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
    - Non-negotiables: shared code must be “infrastructure only”; do not move tool registries, gating, or error-code conventions into shared code.
-2. [ ] Create `server/src/mcpCommon/` with **small, mechanical** helpers only:
+2. [x] Create `server/src/mcpCommon/` with **small, mechanical** helpers only:
    - `server/src/mcpCommon/guards.ts`: shared `isObject(value)` and any other tiny type guards used by both implementations.
    - `server/src/mcpCommon/jsonRpc.ts`: shared `jsonRpcResult(id, result)` and `jsonRpcError(id, code, message, data?)`.
      - Must support arbitrary `id` and arbitrary `code` values because the two servers differ.
@@ -517,7 +517,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
        | { jsonrpc: '2.0'; id: JsonRpcId; result: unknown }
        | { jsonrpc: '2.0'; id: JsonRpcId; error: { code: number; message: string; data?: unknown } };
      ```
-3. [ ] Define the dispatcher API so a junior can implement without design work:
+3. [x] Define the dispatcher API so a junior can implement without design work:
    - Inputs:
      - `message` (already parsed JSON object or “unknown” to validate)
      - `handlers` object that contains:
@@ -539,7 +539,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
      - Do not parse JSON in the dispatcher; callers own body parsing and parse errors.
      - Dispatcher must not rewrite handler payloads; it should return them verbatim.
      - Dispatcher must allow each server to keep its own error-code choices and messages.
-4. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
+4. [x] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Type: Node `node:test` + `node:assert/strict`.
    - Location: `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Description: invalid request input returns the `invalidRequest(id)` handler output and does not throw.
@@ -551,7 +551,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to read: `server/src/mcpCommon/dispatch.ts`
    - Files to edit (new): `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Non-negotiables: this test must not assume any specific error codes; it must assert “verbatim handler output” behavior.
-5. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
+5. [x] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Type: Node `node:test` + `node:assert/strict`.
    - Location: `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Description: known method `initialize` routes to `handlers.initialize(id)`.
@@ -562,7 +562,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to read: `server/src/mcpCommon/dispatch.ts`
    - Files to edit (new): `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Non-negotiables: dispatcher must not enforce response shapes beyond routing; handlers own the payload.
-6. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
+6. [x] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Type: Node `node:test` + `node:assert/strict`.
    - Location: `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Description: unknown method routes to `handlers.methodNotFound(id)`.
@@ -573,7 +573,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to read: `server/src/mcpCommon/dispatch.ts`
    - Files to edit (new): `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Non-negotiables: unknown method handling must be delegated; do not hardcode codes/messages in shared code.
-7. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
+7. [x] **Unit test case (add new)** — `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Type: Node `node:test` + `node:assert/strict`.
    - Location: `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Description: dispatcher returns handler payloads verbatim (no mutation / no rewriting).
@@ -584,12 +584,12 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to read: `server/src/mcpCommon/dispatch.ts`
    - Files to edit (new): `server/src/test/unit/mcp-common-dispatch.test.ts`
    - Non-negotiables: treat this as the “core invariant” test for the refactor.
-8. [ ] Files to read / edit for dispatcher tests:
+8. [x] Files to read / edit for dispatcher tests:
    - Files to read: `server/src/mcpCommon/dispatch.ts`.
    - Files to edit (new): `server/src/test/unit/mcp-common-dispatch.test.ts`.
    - Docs to read (repeat): Node `node:test` https://nodejs.org/api/test.html
    - Non-negotiables: keep tests small and isolated; do not require starting the full server.
-9. [ ] Update `projectStructure.md` (refactor-only) with explicit new entries for shared MCP core:
+9. [x] Update `projectStructure.md` (refactor-only) with explicit new entries for shared MCP core:
    - Add `server/src/mcpCommon/` with a description like “Shared MCP/JSON-RPC infrastructure used by both MCP servers (helpers/dispatch only; must not change wire formats).”
    - Add `server/src/mcpCommon/guards.ts`, `server/src/mcpCommon/jsonRpc.ts`, and `server/src/mcpCommon/dispatch.ts` with brief, specific descriptions.
    - Add `server/src/test/unit/mcp-common-dispatch.test.ts` with a description like “Unit tests for shared MCP dispatcher routing/validation.”
@@ -597,7 +597,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to read: `projectStructure.md`
    - Files to edit: `projectStructure.md`
    - Non-negotiables: keep file descriptions factual and specific; do not imply behavior changes.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read (repeat):
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -605,18 +605,18 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (MCP contracts + basic regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (MCP contracts + basic regressions):
    - Confirm the UI still loads and renders: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
    - Confirm both MCP endpoints still respond to `initialize` and `tools/list` using the smoke commands in `README.md`.
    - Save at least one screenshot to `test-results/screenshots/` named `0000015-02-<name>.png`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 

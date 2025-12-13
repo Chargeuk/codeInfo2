@@ -625,7 +625,7 @@ This task implements that logic and wires it into the discovery read path so it 
    - Implementation steps:
      - Implement a module-level lock (Promise chain or small mutex helper).
      - Ensure concurrent calls to `ensureAgentAuthSeeded` serialize copy attempts.
-3. [ ] Wire auth seeding into discovery so it runs on every discovery read.
+3. [x] Wire auth seeding into discovery so it runs on every discovery read.
    - Docs to read (this subtask):
      - Task 3 discovery requirements in this story
    - Files to edit:

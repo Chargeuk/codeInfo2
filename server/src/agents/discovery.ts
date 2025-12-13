@@ -1,6 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { getCodexHome } from '../config/codexConfig.js';
+import { baseLogger } from '../logger.js';
+
+import { ensureAgentAuthSeeded } from './authSeed.js';
 import type { DiscoveredAgent } from './types.js';
 
 const fileExists = async (filePath: string) => {
@@ -20,6 +24,7 @@ export const discoverAgents = async (): Promise<DiscoveredAgent[]> => {
   }
 
   const agentsHome = path.resolve(agentsHomeEnv);
+  const primaryCodexHome = getCodexHome();
   const dirents = await fs.readdir(agentsHome, { withFileTypes: true });
 
   const agents: DiscoveredAgent[] = [];
@@ -35,6 +40,13 @@ export const discoverAgents = async (): Promise<DiscoveredAgent[]> => {
     const systemPromptPath = path.join(home, 'system_prompt.txt');
 
     const warnings: string[] = [];
+
+    const seedResult = await ensureAgentAuthSeeded({
+      agentHome: home,
+      primaryCodexHome,
+      logger: baseLogger,
+    });
+    if (seedResult.warning) warnings.push(seedResult.warning);
 
     let description: string | undefined;
     const hasDescription = await fileExists(descriptionPath);

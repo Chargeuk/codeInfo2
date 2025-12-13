@@ -2,6 +2,12 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Tasks:
+can you check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the
+  tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the front end and MPC servers be ablt to actually
+  do what we want them to do because the server has exposed the right informaiton and input logic. will existing functionality break because we
+  have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if
+  so those investigations should be performed now so the story becomes a concrete set of tasks.
+  
 do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links.
 
 do you feel the todo task's subtasks are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story

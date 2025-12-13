@@ -261,10 +261,15 @@ This is a prerequisite for everything else in this story.
      - Ensure the repository’s documented structure includes any newly created test files.
    - Required updates:
      - Add the new server unit test files created in this task under the Server section (unit tests).
-10. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -356,10 +361,15 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
      - Ensure the architecture/docs inventory reflects new data model fields and any server-side schema/index adjustments.
    - Required updates:
      - Note the conversation model update location(s) and that conversations can now be tagged with `agentName`.
-6. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -486,10 +496,15 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - `server/src/agents/types.ts`
        - `server/src/agents/discovery.ts`
        - the new discovery unit test file(s)
-10. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -624,10 +639,15 @@ This task implements that logic and wires it into the discovery read path so it 
        - `server/src/agents/authSeed.ts`
        - any new unit test file(s) created for auth seeding
        - `.dockerignore` (if created by this task)
-11. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+11. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -721,10 +741,15 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
        - server container
        - bind mount for `/app/codex_agents`
        - exposed Agents MCP port (`5012`)
-6. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
+6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -842,10 +867,15 @@ This endpoint is the single source of truth for:
        - `server/src/agents/service.ts`
        - `server/src/routes/agents.ts`
        - the new `GET /agents` unit test file(s)
-10. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1014,10 +1044,15 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Add entries for:
        - `server/src/routes/agentsRun.ts`
        - any new unit test file(s) created for `POST /agents/:agentName/run`
-11. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+11. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1147,10 +1182,15 @@ Important semantics (must be implemented exactly):
      - Ensure any new test files added for agent filtering are documented.
    - Required updates:
      - Add entries for the new unit test file(s) created by this task.
-10. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1299,10 +1339,15 @@ Hard requirements:
        - `server/src/mcpAgents/types.ts` (if created)
        - `server/src/mcpAgents/tools.ts`
        - new MCP unit test file(s)
-13. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
+13. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1528,10 +1573,15 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - `client/src/pages/AgentsPage.tsx`
        - `client/src/api/agents.ts`
        - new Agents page test file(s)
-14. [ ] Run full lint/format checks for touched workspaces.
-   - Commands:
-     - `npm run lint --workspace client`
-     - `npm run format:check --workspace client`
+14. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1571,6 +1621,15 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
 6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
 7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
+8. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - Rerun with fix scripts where available (examples):
+       - `npm run lint:fix --workspaces`
+       - `npm run format --workspaces`
+     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 

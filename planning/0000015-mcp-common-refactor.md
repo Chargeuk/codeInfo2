@@ -723,7 +723,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 ### 4. Refactor MCP v2 router (`server/src/mcp2/router.ts`) to use the shared core
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

@@ -269,7 +269,60 @@ Expose a server HTTP endpoint that lists available agents, returning agent `name
 
 ---
 
-### 5. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
+### 5. Server endpoint: run an agent instruction (`POST /agents/:agentName/run`)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Expose a REST endpoint for the GUI to run an agent instruction without talking to the MCP server directly. This endpoint must reuse the same underlying agent execution implementation as the MCP `run_agent_instruction` tool so behavior and output stay consistent.
+
+#### Documentation Locations
+
+- Existing server route patterns:
+  - `server/src/routes/*`
+  - `server/src/index.ts`
+- Existing chat execution + persistence:
+  - `server/src/chat/interfaces/*`
+  - `server/src/chat/responders/McpResponder.ts`
+- Express: Context7 `/expressjs/express`
+- Supertest: Context7 `/ladjs/supertest`
+
+#### Subtasks
+
+1. [ ] Add a new router/handler for `POST /agents/:agentName/run`.
+2. [ ] Request validation:
+   - params: `agentName` required and non-empty
+   - body: `instruction` required, optional `conversationId`
+3. [ ] Implement the handler by calling the shared agent execution function used by MCP `run_agent_instruction`:
+   - ensures discovery read + auth seeding runs on each call
+   - uses per-agent Codex home injection (from Task 1)
+   - uses per-agent system prompt (`system_prompt.txt`) only for new conversations
+   - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
+4. [ ] Response shape includes:
+   - `agentName`
+   - `conversationId`
+   - `modelId`
+   - `segments`
+5. [ ] Add supertest coverage for:
+   - runs an agent instruction and returns segments
+   - continues via `conversationId`
+   - returns 404/400 for unknown/invalid `agentName`
+6. [ ] Update `README.md` documenting this endpoint.
+7. [ ] Run full linting for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+
+---
+
+### 6. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -324,7 +377,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 
 ---
 
-### 6. Add Agents GUI page (`/agents`) and navigation
+### 7. Add Agents GUI page (`/agents`) and navigation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -345,8 +398,8 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 1. [ ] Add route `/agents` and a new NavBar entry “Agents”.
 2. [ ] Create a client API module for agents:
-   - call the server’s agent API surface (REST wrapper around 5012 or direct server route, to be decided in implementation)
-   - `listAgents()` and `runAgentInstruction({ agentName, instruction, conversationId? })`
+   - `listAgents()` calls the server agents listing endpoint from Task 4
+   - `runAgentInstruction({ agentName, instruction, conversationId? })` calls `POST /agents/:agentName/run`
 3. [ ] Build Agents page UI:
    - agent selector (from listAgents)
    - show optional agent description (render markdown)
@@ -370,7 +423,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 ---
 
-### 7. Final task – verify against acceptance criteria
+### 8. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -408,7 +461,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 5. [ ] Use the Playwright MCP tool to manually check:
    - `/agents` loads and can run an instruction
    - MCP `5012` server responds to initialize/tools/list/tools/call
-   - screenshots saved to `./test-results/screenshots/` named like `0000016-07-agents.png`, `0000016-07-mcp-5012.png`
+   - screenshots saved to `./test-results/screenshots/` named like `0000016-08-agents.png`, `0000016-08-mcp-5012.png`
 
 #### Implementation notes
 

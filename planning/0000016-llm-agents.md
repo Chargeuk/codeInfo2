@@ -217,18 +217,29 @@ This is a prerequisite for everything else in this story.
      - Update `ChatInterfaceCodex` to call this helper when Codex emits a new thread id.
    - Verify:
      - Run `npm run test --workspace server` (must exit 0).
-6. [ ] Add unit tests for codex home overrides and thread id persistence safety.
-   - Docs to read (this subtask):
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to edit/create:
-     - Create `server/src/test/unit/codexConfig.test.ts` (covers `resolveCodexHome` + `buildCodexOptions` override behavior).
-     - Update `server/src/test/unit/chat-interface-codex.test.ts` to assert that updating threadId does not drop existing `flags` keys.
-   - Test expectations:
+6. [ ] Server unit test (Node `node:test`): Codex home override sets `CODEX_HOME` correctly.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/codexConfig.test.ts`
+   - Purpose:
+     - Prevent regressions where per-agent Codex home injection silently uses the wrong folder.
+   - Test description:
      - `buildCodexOptions({ codexHome: '/tmp/x' })` sets `env.CODEX_HOME` to the resolved absolute path.
-     - `updateConversationThreadId` does not overwrite other keys under `flags`.
    - Verify:
-     - Run `npm run test --workspace server` (must exit 0).
-7. [ ] Update docs to record the new Codex home override mechanism.
+     - `npm run test --workspace server`
+7. [ ] Server unit test (Node `node:test`): persisting Codex thread id does not clobber other `flags` keys.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/chat-interface-codex.test.ts`
+   - Purpose:
+     - Ensure the new `$set: { 'flags.threadId': ... }` behavior cannot accidentally overwrite other persisted metadata under `flags`.
+   - Test description:
+     - Create a conversation with existing `flags` keys (e.g. `{ someOtherKey: true }`), then run the thread id update path and assert `someOtherKey` is still present after updating `flags.threadId`.
+   - Verify:
+     - `npm run test --workspace server`
+8. [ ] Update docs to record the new Codex home override mechanism.
    - Docs to read (this subtask):
      - `design.md`
    - Files to edit:
@@ -238,7 +249,7 @@ This is a prerequisite for everything else in this story.
      - Document: “no global env mutation”; codex home is injected via factory/options.
    - Verify:
      - Run `npm run format:check --workspace server` (must exit 0).
-8. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
+9. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -386,17 +397,43 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
      - Read `${agentHome}/description.md` as UTF-8 if present and include it.
      - If `${agentHome}/system_prompt.txt` exists, set `systemPromptPath` (do not read contents in this task).
      - Sort agents alphabetically by `name` for deterministic output.
-3. [ ] Add unit tests for discovery.
-   - Docs to read (this subtask):
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to create:
-     - `server/src/test/unit/agents-discovery.test.ts`
-   - Test expectations:
-     - A folder with `config.toml` is included.
-     - A folder without `config.toml` is excluded.
-     - `description.md` is surfaced as `description`.
-     - `system_prompt.txt` presence is reflected by `systemPromptPath`.
-4. [ ] Update docs.
+3. [ ] Server unit test (Node `node:test`): discovery includes folders with `config.toml`.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/agents-discovery.test.ts`
+   - Purpose:
+     - Ensure the “direct subfolder containing config.toml” rule is enforced and stable.
+   - Test description:
+     - Create `tmp/agentsRoot/coding_agent/config.toml` and assert `discoverAgents()` returns `coding_agent`.
+4. [ ] Server unit test (Node `node:test`): discovery ignores folders without `config.toml`.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/agents-discovery.test.ts`
+   - Purpose:
+     - Prevent accidental discovery of incomplete/invalid agent folders.
+   - Test description:
+     - Create `tmp/agentsRoot/invalid_agent/` with no `config.toml` and assert it is not returned.
+5. [ ] Server unit test (Node `node:test`): discovery reads optional `description.md`.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/agents-discovery.test.ts`
+   - Purpose:
+     - Ensure agent metadata shown in UI and MCP is sourced from disk as expected.
+   - Test description:
+     - Create `description.md` and assert returned agent includes `description` text.
+6. [ ] Server unit test (Node `node:test`): discovery detects optional `system_prompt.txt` presence.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/agents-discovery.test.ts`
+   - Purpose:
+     - Ensure the run path can reliably determine if a system prompt exists for “first-turn prefix” behavior.
+   - Test description:
+     - Create `system_prompt.txt` and assert returned agent includes a defined `systemPromptPath`.
+7. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Implementation steps:
@@ -404,7 +441,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - required: `config.toml`
        - optional: `description.md`
        - optional: `system_prompt.txt`
-5. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -478,16 +515,34 @@ This task implements that logic and wires it into the discovery read path so it 
      - For each discovered agent, call `ensureAgentAuthSeeded(...)` best-effort.
      - If it returns a warning, append it to `warnings[]` on the agent summary.
      - Do not throw if seeding fails (listing should still work).
-4. [ ] Add unit tests for auth seeding.
-   - Docs to read (this subtask):
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to create:
-     - `server/src/test/unit/agents-authSeed.test.ts`
-   - Test expectations:
-     - Copies auth from primary into agent home when agent auth missing.
-     - Does not overwrite agent auth if present.
-     - Concurrent calls do not throw (call twice without awaiting the first).
-5. [ ] Ensure secrets are excluded from git and docker build contexts.
+4. [ ] Server unit test (Node `node:test`): auth seeding copies primary `auth.json` into agent home when missing.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/agents-authSeed.test.ts`
+   - Purpose:
+     - Ensure agent folders become runnable without requiring separate `codex login` per agent.
+   - Test description:
+     - Create `primary/auth.json` and an empty `agentHome/`, run `ensureAgentAuthSeeded(...)`, assert `agentHome/auth.json` exists and matches.
+5. [ ] Server unit test (Node `node:test`): auth seeding never overwrites existing agent `auth.json`.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/agents-authSeed.test.ts`
+   - Purpose:
+     - Protect against accidentally replacing agent-specific auth.
+   - Test description:
+     - Create both `primary/auth.json` and `agentHome/auth.json`, run seeding, assert agent auth content is unchanged.
+6. [ ] Server unit test (Node `node:test`): auth seeding is lock-protected (concurrent calls do not race/throw).
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/agents-authSeed.test.ts`
+   - Purpose:
+     - Prevent flakey behavior in production when multiple requests trigger discovery at once.
+   - Test description:
+     - Kick off two `ensureAgentAuthSeeded(...)` calls concurrently for the same agent home and assert both complete without throwing and `auth.json` exists.
+7. [ ] Ensure secrets are excluded from git and docker build contexts.
    - Docs to read (this subtask):
      - Docker build context + `.dockerignore`: Context7 `/docker/docs`
    - Files to read:
@@ -497,13 +552,13 @@ This task implements that logic and wires it into the discovery read path so it 
      - Ensure it contains:
        - `codex_agents/**/auth.json`
        - `codex/**/auth.json`
-6. [ ] Update docs.
+8. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Implementation steps:
      - Document that auth is auto-copied from `CODEINFO_CODEX_HOME` into agent folders when missing.
      - Document that `auth.json` must never be committed.
-7. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -656,24 +711,39 @@ This endpoint is the single source of truth for:
      - `server/src/index.ts`
    - Implementation steps:
      - Add `app.use('/', createAgentsRouter())` near other `app.use('/', ...)` routes.
-4. [ ] Add supertest coverage for `GET /agents`.
-   - Docs to read (this subtask):
-     - Supertest: Context7 `/ladjs/supertest`
-   - Files to create:
-     - `server/src/test/unit/agents-router-list.test.ts`
-   - Test setup guidance (avoid relying on real repo folders):
-     - Create a temp directory as `CODEINFO_CODEX_AGENT_HOME`.
-     - Create `coding_agent/config.toml` and optionally `coding_agent/description.md`.
-     - Assert:
-       - status 200
-       - `agents` array contains `{ name: 'coding_agent' }`
-       - includes `description` when provided
-5. [ ] Update docs.
+4. [ ] Server unit test (Supertest): `GET /agents` returns discovered agents.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Create `server/src/test/unit/agents-router-list.test.ts`
+   - Purpose:
+     - Ensure REST API returns a stable list for the Agents dropdown and MCP `list_agents`.
+   - Test description:
+     - With `CODEINFO_CODEX_AGENT_HOME=<tmp>`, create `coding_agent/config.toml`, call `GET /agents`, assert status 200 and `agents` contains `{ name: 'coding_agent' }`.
+5. [ ] Server unit test (Supertest): `GET /agents` includes `description` when `description.md` exists.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Update `server/src/test/unit/agents-router-list.test.ts`
+   - Purpose:
+     - Ensure the UI info block and MCP metadata can show the per-agent description.
+   - Test description:
+     - Add `coding_agent/description.md` and assert response agent object includes `description`.
+6. [ ] Server unit test (Supertest): `GET /agents` does not error when `description.md` is missing.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Update `server/src/test/unit/agents-router-list.test.ts`
+   - Purpose:
+     - Ensure agents without descriptions still appear and the endpoint remains robust.
+   - Test description:
+     - Ensure `description.md` is absent and assert status 200 with an agent object missing `description`.
+7. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - `GET /agents` example curl command and example response.
-6. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -787,23 +857,42 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - archived conversation → `410 { error: 'archived' }`
      - mismatched agentName → `400 { error: 'agent_mismatch' }`
      - codex unavailable → `503 { error: 'codex_unavailable', reason: '...' }`
-5. [ ] Add supertest coverage for the run endpoint.
-   - Docs to read (this subtask):
-     - Supertest: Context7 `/ladjs/supertest`
-   - Files to create:
-     - `server/src/test/unit/agents-router-run.test.ts`
-   - Testing guidance (do not require real Codex):
-     - Inject a fake `runAgentInstruction()` into `createAgentsRunRouter()` that returns a deterministic payload.
-     - Assert:
-       - status code + body shape
-       - input validation (missing instruction returns 400)
-6. [ ] Update docs.
+5. [ ] Server unit test (Supertest): `POST /agents/:agentName/run` validates request body (missing `instruction` → 400).
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Create `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose:
+     - Prevent ambiguous client/server failures by ensuring the API rejects invalid payloads consistently.
+   - Test description:
+     - Call `POST /agents/coding_agent/run` with `{}` and assert `400` with a validation error payload.
+6. [ ] Server unit test (Supertest): unknown agent maps to 404.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Update `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose:
+     - Ensure UI can show “agent not found” cleanly and MCP can mirror the same behavior.
+   - Test description:
+     - Inject a fake `runAgentInstruction()` that throws/returns an “unknown agent” error and assert the router returns `404 { error: 'not_found' }`.
+7. [ ] Server unit test (Supertest): success response shape is stable.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Update `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose:
+     - Lock in the contract used by the Agents page and MCP tool return payloads.
+   - Test description:
+     - Inject a fake `runAgentInstruction()` that returns:
+       - `{ agentName, conversationId, modelId, segments }`
+     - Assert status 200 and those fields exist in the JSON.
+8. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Example curl for `POST /agents/coding_agent/run`
      - Explain that `conversationId` is the server conversation id, and Codex thread id is stored in `flags.threadId`
-7. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -870,30 +959,50 @@ Important semantics (must be implemented exactly):
    - Implementation steps:
      - Extend `listConversationsQuerySchema` to include optional `agentName`.
      - Pass the parsed `agentName` down to `listConversations({ ... })`.
-3. [ ] Add unit tests for repo query building (no real DB).
-   - Docs to read (this subtask):
-     - Existing stubbing pattern: `server/src/test/unit/repo-persistence-source.test.ts`
-   - Files to create:
-     - `server/src/test/unit/repo-conversations-agent-filter.test.ts`
-   - Test expectations:
-     - Stub `ConversationModel.find` to capture the `query` argument.
-     - Calling `listConversations({ agentName: '__none__', ... })` produces a query containing the “missing agent” filter.
-     - Calling `listConversations({ agentName: 'coding_agent', ... })` produces `query.agentName === 'coding_agent'`.
-4. [ ] Add supertest coverage for endpoint query parsing (no real DB).
-   - Files to create:
-     - `server/src/test/unit/conversations-router-agent-filter.test.ts`
-   - Testing guidance:
-     - Build an express app with `createConversationsRouter({ listConversations: fake })`.
-     - Assert the fake is called with the expected `agentName` for:
-       - `agentName=__none__`
-       - `agentName=coding_agent`
-5. [ ] Update docs.
+3. [ ] Server unit test (Node `node:test`): repo query for `agentName=__none__` matches “missing agent”.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/repo-conversations-agent-filter.test.ts`
+   - Purpose:
+     - Ensure the “Chat stays clean” filter works and remains backwards compatible.
+   - Test description:
+     - Stub `ConversationModel.find` to capture its `query` argument.
+     - Call `listConversations({ agentName: '__none__', ... })` and assert the query includes an `$or` that matches missing/empty agentName.
+4. [ ] Server unit test (Node `node:test`): repo query for `agentName=<agent>` matches exact agent.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Update `server/src/test/unit/repo-conversations-agent-filter.test.ts`
+   - Purpose:
+     - Ensure Agents page history is correctly scoped to the selected agent.
+   - Test description:
+     - Call `listConversations({ agentName: 'coding_agent', ... })` and assert `query.agentName === 'coding_agent'`.
+5. [ ] Server unit test (Supertest): endpoint passes `agentName=__none__` to repo layer.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Create `server/src/test/unit/conversations-router-agent-filter.test.ts`
+   - Purpose:
+     - Ensure request parsing forwards the filter correctly to the repo layer.
+   - Test description:
+     - Build an express app with `createConversationsRouter({ listConversations: fake })`, call `GET /conversations?agentName=__none__`, assert fake called with `agentName: '__none__'`.
+6. [ ] Server unit test (Supertest): endpoint passes `agentName=<agent>` to repo layer.
+   - Test type:
+     - Server unit test (Supertest)
+   - Test location:
+     - Update `server/src/test/unit/conversations-router-agent-filter.test.ts`
+   - Purpose:
+     - Ensure selected agent history lists correctly.
+   - Test description:
+     - Call `GET /conversations?agentName=coding_agent` and assert fake called with `agentName: 'coding_agent'`.
+7. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Document `/conversations?agentName=__none__`
      - Document `/conversations?agentName=<agent>`
-6. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -996,22 +1105,33 @@ Hard requirements:
    - Implementation steps:
      - Start in `start()` after HTTP server listens.
      - Stop in `shutdown()` alongside `stopMcp2Server()`.
-8. [ ] Add characterization tests for Agents MCP router.
-   - Docs to read (this subtask):
-     - Existing MCP v2 tests: `server/src/test/unit/mcp2-router-*.test.ts`
-   - Files to create:
-     - `server/src/test/unit/mcp-agents-router-list.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
-   - Test expectations:
-     - `tools/list` returns exactly the two tools.
-     - `tools/call` for `run_agent_instruction` returns JSON text with `segments`.
-9. [ ] Update docs.
+8. [ ] Server unit test (Node `node:test` + `fetch`): Agents MCP `tools/list` returns exactly two tools.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Purpose:
+     - Lock down the external MCP contract so clients can rely on a stable toolset.
+   - Test description:
+     - Start an `http.createServer(handleAgentsRpc)` on an ephemeral port and `POST` `{ "jsonrpc":"2.0","id":1,"method":"tools/list" }`.
+     - Assert the returned tool names are exactly `list_agents` and `run_agent_instruction` (and no others).
+9. [ ] Server unit test (Node `node:test` + `fetch`): Agents MCP `run_agent_instruction` returns segments payload shape.
+   - Test type:
+     - Server unit test (Node `node:test`)
+   - Test location:
+     - Create `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Purpose:
+     - Ensure MCP clients receive `{ agentName, conversationId, modelId, segments }` wrapped as a JSON text content item.
+   - Test description:
+     - Stub tool deps (like `mcp2/tools.ts` does) so `run_agent_instruction` returns a deterministic payload.
+     - Call `tools/call` and assert the JSON string in `result.content[0].text` parses and contains the required fields.
+10. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - URL: `http://localhost:5012`
      - Example `initialize` / `tools/list` / `tools/call` curl commands.
-10. [ ] Run full lint/format checks for touched workspaces.
+11. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1142,21 +1262,71 @@ Implementation constraint: reuse existing Chat page components where possible (e
              - status = `done`
          - if the agent run returns no `thinking` or no `vector_summary`, omit those fields
      - No manual `conversationId` entry field.
-6. [ ] Add RTL/Jest tests for Agents page.
-   - Files to edit/create:
-     - Add tests under `client/src/test/` (follow existing patterns)
-   - Test expectations:
-     - Dropdown populates from mocked `GET /agents`.
-     - Selecting an agent shows description block.
-     - Changing agent aborts an in-flight run (assert abort called) and resets transcript.
-     - Clicking a conversation in history sets `activeConversationId` and subsequent send uses it.
-7. [ ] Update docs.
+6. [ ] Client test (RTL/Jest): Agents page loads and populates agent dropdown from `GET /agents`.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.list.test.tsx`
+   - Purpose:
+     - Ensure the page can render the available agents list and the dropdown is wired to the REST endpoint.
+   - Test description:
+     - Mock `fetch` for `GET /agents` to return `{ agents: [{ name: 'coding_agent' }] }`.
+     - Render the `/agents` route and assert the dropdown contains `coding_agent`.
+7. [ ] Client test (RTL/Jest): Agents page shows agent description block when `description` is present.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.description.test.tsx`
+   - Purpose:
+     - Ensure the UX requirement “information block shows agent description” is satisfied.
+   - Test description:
+     - Mock `GET /agents` to include `{ name: 'coding_agent', description: '# Hello' }`.
+     - Select `coding_agent` and assert the description block renders Markdown text.
+8. [ ] Client test (RTL/Jest): Changing selected agent aborts in-flight run and resets to new conversation state.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.agentChange.test.tsx`
+   - Purpose:
+     - Ensure the “change agent = stop + new conversation + refresh history” requirement is enforced.
+   - Test description:
+     - Start a run (mock `POST /agents/:agentName/run` with a deferred promise) and confirm Stop is visible/active.
+     - Change the agent selection and assert:
+       - the abort controller was triggered
+       - transcript is cleared
+       - `activeConversationId` is cleared (indirectly via next send starting a new conversation)
+9. [ ] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.conversationSelection.test.tsx`
+   - Purpose:
+     - Ensure “continue by selecting from history” works without manual id entry.
+   - Test description:
+     - Mock `GET /conversations?agentName=coding_agent` to return an item with `conversationId: 'c1'`.
+     - Click that conversation in the sidebar and send an instruction.
+     - Assert the `POST /agents/coding_agent/run` payload includes `conversationId: 'c1'`.
+10. [ ] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.run.test.tsx`
+   - Purpose:
+     - Ensure the page displays the same “segments” semantics as `codebase_question` and reuses Chat rendering patterns.
+   - Test description:
+     - Mock `POST /agents/coding_agent/run` to return:
+       - `segments: [{ type:'thinking', text:'...' }, { type:'vector_summary', files:[...] }, { type:'answer', text:'...' }]`
+     - Assert:
+       - thinking UI is present (collapsed/expandable)
+       - answer Markdown renders
+       - a tool row exists for `vector_summary`
+11. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Where to find Agents page (`/agents`)
      - How conversation continuation works (select from history)
-8. [ ] Run full lint/format checks for touched workspaces.
+12. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`

@@ -270,7 +270,7 @@ This is a prerequisite for everything else in this story.
      - Ensure the repository’s documented structure includes any newly created test files.
    - Required updates:
      - Add the new server unit test files created in this task under the Server section (unit tests).
-10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+10. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -305,6 +305,7 @@ This is a prerequisite for everything else in this story.
 - Added a unit test in `server/src/test/unit/chat-interface-codex.test.ts` asserting the thread-id update path uses `$set: { 'flags.threadId': ... }` so other `flags` keys cannot be overwritten.
 - Documented primary vs override Codex homes and the “no process env mutation” injection flow in `design.md`, including a Mermaid diagram for the Codex home selection path.
 - Updated `projectStructure.md` to include the new `server/src/test/unit/codexConfig.test.ts` unit test entry.
+- Ran `npm run lint --workspaces` and `npm run format:check --workspaces` successfully.
 
 ---
 

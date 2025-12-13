@@ -634,7 +634,7 @@ This task implements that logic and wires it into the discovery read path so it 
      - For each discovered agent, call `ensureAgentAuthSeeded(...)` best-effort.
      - If it returns a warning, append it to `warnings[]` on the agent summary.
      - Do not throw if seeding fails (listing should still work).
-4. [ ] Server unit test (Node `node:test`): auth seeding copies primary `auth.json` into agent home when missing.
+4. [x] Server unit test (Node `node:test`): auth seeding copies primary `auth.json` into agent home when missing.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -643,7 +643,7 @@ This task implements that logic and wires it into the discovery read path so it 
      - Ensure agent folders become runnable without requiring separate `codex login` per agent.
    - Test description:
      - Create `primary/auth.json` and an empty `agentHome/`, run `ensureAgentAuthSeeded(...)`, assert `agentHome/auth.json` exists and matches.
-5. [ ] Server unit test (Node `node:test`): auth seeding never overwrites existing agent `auth.json`.
+5. [x] Server unit test (Node `node:test`): auth seeding never overwrites existing agent `auth.json`.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -652,7 +652,7 @@ This task implements that logic and wires it into the discovery read path so it 
      - Protect against accidentally replacing agent-specific auth.
    - Test description:
      - Create both `primary/auth.json` and `agentHome/auth.json`, run seeding, assert agent auth content is unchanged.
-6. [ ] Server unit test (Node `node:test`): auth seeding is lock-protected (concurrent calls do not race/throw).
+6. [x] Server unit test (Node `node:test`): auth seeding is lock-protected (concurrent calls do not race/throw).
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:

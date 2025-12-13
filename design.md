@@ -103,6 +103,22 @@ sequenceDiagram
 - On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
 - Codex `mcp_tool_call` events are translated into SSE `tool-request`/`tool-result` frames carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
 - Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
+- Codex home selection:
+  - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
+  - Agent runs can override the Codex home by passing a per-agent home (future: `${CODEINFO_CODEX_AGENT_HOME}/${agentName}`) into the Codex factory/options.
+  - The server injects `CODEX_HOME` into Codex SDK options (`buildCodexOptions({ codexHome })`) rather than mutating `process.env` at runtime, so concurrent requests cannot cross-contaminate config/auth.
+  - Codex availability checks follow the same pattern: `detectCodex()` updates the process-wide cache for the primary home, while `detectCodexForHome(codexHome)` validates an arbitrary home without changing global cached state.
+
+```mermaid
+flowchart LR
+  Req[Codex request] --> Choice{Has codexHome override?}
+  Choice -->|No| Primary[resolveCodexHome()\\nCODEINFO_CODEX_HOME]
+  Choice -->|Yes| Override[resolveCodexHome(codexHome)]
+  Primary --> Opts1[buildCodexOptions()]
+  Override --> Opts2[buildCodexOptions({codexHome})]
+  Opts1 --> Codex[Codex SDK]
+  Opts2 --> Codex
+```
 
 ### Markdown rendering (assistant replies)
 

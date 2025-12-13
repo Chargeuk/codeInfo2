@@ -251,7 +251,7 @@ This is a prerequisite for everything else in this story.
      - Create a conversation with existing `flags` keys (e.g. `{ someOtherKey: true }`), then run the thread id update path and assert `someOtherKey` is still present after updating `flags.threadId`.
    - Verify:
      - `npm run test --workspace server`
-8. [ ] Update docs to record the new Codex home override mechanism.
+8. [x] Update docs to record the new Codex home override mechanism.
    - Docs to read (this subtask):
      - `design.md`
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
@@ -303,6 +303,7 @@ This is a prerequisite for everything else in this story.
 - Added `updateConversationThreadId()` in `server/src/mongo/repo.ts` to `$set` only `flags.threadId`, and updated `ChatInterfaceCodex` to use it when persisting new thread ids.
 - Added a unit test (`server/src/test/unit/codexConfig.test.ts`) ensuring `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME` correctly.
 - Added a unit test in `server/src/test/unit/chat-interface-codex.test.ts` asserting the thread-id update path uses `$set: { 'flags.threadId': ... }` so other `flags` keys cannot be overwritten.
+- Documented primary vs override Codex homes and the “no process env mutation” injection flow in `design.md`, including a Mermaid diagram for the Codex home selection path.
 
 ---
 

@@ -30,9 +30,12 @@ Agents should behave like chat/codebase_question in terms of streaming and struc
 - A new GUI page exists: `/agents` (and navigation entry “Agents”).
 - The Agents page can:
   - list all available agents
+  - display agent descriptions when provided
   - run an instruction against an agent
   - continue a prior run by reusing a `conversationId`
   - render results in the same segment format as `codebase_question` (`thinking`, `vector_summary`, `answer`).
+- The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
+  - returns agent `name` and optional `description` (from `description.md` when present)
 - A new MCP v2-style JSON-RPC server runs on port **5012** and exposes exactly two tools:
   - `list_agents`
   - `run_agent_instruction`
@@ -50,6 +53,7 @@ Agents should behave like chat/codebase_question in terms of streaming and struc
   - Available agents are derived from the folder structure inside `CODEINFO_CODEX_AGENT_HOME`.
   - Any direct subfolder containing `config.toml` is considered an available agent.
   - The `agentName` is the subfolder name.
+  - If `${agentHome}/description.md` exists, its contents are returned as the agent `description` in list responses.
 - Auth seeding (runs on every discovery read):
   - Every time the agent home folders are read/validated (e.g. for `list_agents`, UI list refresh, or server-side agent lookups), the system must attempt auth seeding.
   - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) *does* contain `auth.json`, then `auth.json` is copied into that agent home.
@@ -163,12 +167,14 @@ Important: auth seeding must run every time agent folders are read/checked (not 
 
 1. [ ] Define an “agent folder contract”:
    - required: `<agentHome>/config.toml`
+   - optional: `<agentHome>/description.md` (Markdown description shown in list output)
    - optional: `<agentHome>/system_prompt.txt`
    - optional: `<agentHome>/auth.json`
 2. [ ] Implement agent discovery utility and unit tests:
    - scan `CODEINFO_CODEX_AGENT_HOME` for direct subfolders containing `config.toml`
    - compute `agentName` from folder name
    - return `agentHome` path and config path
+   - if `<agentHome>/description.md` exists, include its contents as `description`
 3. [ ] Implement auth seeding that runs on every discovery read:
    - copy `${CODEINFO_CODEX_HOME}/auth.json` to `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/auth.json` when missing
    - never overwrite an existing agent `auth.json`
@@ -222,7 +228,48 @@ Ensure agent folders under `CODEINFO_CODEX_AGENT_HOME` are available inside Dock
 
 ---
 
-### 4. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
+### 4. Server endpoint: list available agents (name + optional description)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Expose a server HTTP endpoint that lists available agents, returning agent `name` plus optional `description` read from `${agentHome}/description.md` when present. This endpoint is the shared source of truth for both the GUI Agents page and the MCP `list_agents` tool.
+
+#### Documentation Locations
+
+- Existing server route patterns:
+  - `server/src/index.ts`
+  - `server/src/routes/*`
+- Node.js filesystem APIs: Context7 `/nodejs/node`
+- Express: Context7 `/expressjs/express`
+- Supertest: Context7 `/ladjs/supertest`
+
+#### Subtasks
+
+1. [ ] Add a new router (or extend an existing one) to expose a list endpoint, e.g. `GET /agents`.
+2. [ ] Implement the handler by calling the agent discovery utility from Task 2 (so auth seeding + description reading happens on every request).
+3. [ ] Response shape includes:
+   - `agents: Array<{ name: string; description?: string; disabled?: boolean; warnings?: string[] }>`
+4. [ ] Add supertest coverage for:
+   - returns agents discovered from folder structure
+   - includes `description` when `description.md` exists
+   - does not crash when `description.md` missing
+5. [ ] Update `README.md` documenting the endpoint.
+6. [ ] Run full linting for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+
+---
+
+### 5. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -249,7 +296,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
    - Port `5012` (env override allowed, default 5012)
    - Reuse `server/src/mcpCommon/*` dispatcher helpers
 2. [ ] Implement tool registry:
-   - `list_agents` returns agent list derived from `CODEINFO_CODEX_AGENT_HOME`
+   - `list_agents` returns agent list by calling the server agents listing logic (shared source of truth)
    - `run_agent_instruction` runs an instruction for a named agent
 3. [ ] Define input schema for `run_agent_instruction`:
    - required: `agentName`, `instruction`
@@ -277,7 +324,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 
 ---
 
-### 5. Add Agents GUI page (`/agents`) and navigation
+### 6. Add Agents GUI page (`/agents`) and navigation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -302,6 +349,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
    - `listAgents()` and `runAgentInstruction({ agentName, instruction, conversationId? })`
 3. [ ] Build Agents page UI:
    - agent selector (from listAgents)
+   - show optional agent description (render markdown)
    - instruction text area + submit
    - optional conversationId input (for continuation)
    - result view rendering segments (`thinking`, `vector_summary`, `answer`) consistent with `codebase_question` rendering expectations
@@ -322,7 +370,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 ---
 
-### 6. Final task – verify against acceptance criteria
+### 7. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -360,7 +408,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 5. [ ] Use the Playwright MCP tool to manually check:
    - `/agents` loads and can run an instruction
    - MCP `5012` server responds to initialize/tools/list/tools/call
-   - screenshots saved to `./test-results/screenshots/` named like `0000016-06-agents.png`, `0000016-06-mcp-5012.png`
+   - screenshots saved to `./test-results/screenshots/` named like `0000016-07-agents.png`, `0000016-07-mcp-5012.png`
 
 #### Implementation notes
 

@@ -687,7 +687,7 @@ This task implements that logic and wires it into the discovery read path so it 
    - Implementation steps:
      - Add a Mermaid flow diagram for “Auth seeding on discovery read” showing:
        - discovery read → for each agent: if missing `auth.json` and primary has `auth.json` then copy (never overwrite) → warnings on failure → continue listing.
-10. [ ] Update `projectStructure.md` for new auth seeding modules/files.
+10. [x] Update `projectStructure.md` for new auth seeding modules/files.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:

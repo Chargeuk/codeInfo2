@@ -8,6 +8,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ .editorconfig â€” shared editor defaults
 â”œâ”€ .gitattributes â€” git attributes (line endings, linguist)
 â”œâ”€ .gitignore â€” ignore rules (node_modules, dist, env.local, etc.)
+â”œâ”€ .dockerignore â€” root docker build ignores (keeps Codex auth out of build contexts)
 â”œâ”€ .npmrc â€” npm config (save-exact)
 â”œâ”€ .prettierignore â€” files skipped by Prettier
 â”œâ”€ .prettierrc â€” Prettier settings
@@ -336,7 +337,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
+- server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
 - server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)
+- server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

@@ -246,7 +246,18 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (MCP contracts + basic regressions):
+   - Confirm the UI still loads and renders: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
+   - Confirm both MCP endpoints still respond to `initialize` and `tools/list` using the smoke commands in `README.md`.
+   - Save at least one screenshot to `test-results/screenshots/` named `0000015-01-<name>.png`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -334,7 +345,18 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (MCP contracts + basic regressions):
+   - Confirm the UI still loads and renders: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
+   - Confirm both MCP endpoints still respond to `initialize` and `tools/list` using the smoke commands in `README.md`.
+   - Save at least one screenshot to `test-results/screenshots/` named `0000015-02-<name>.png`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -390,7 +412,18 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (Express MCP contract + basic regressions):
+   - Confirm `/chat` and `/logs` still render: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
+   - Confirm Express `POST /mcp` still responds correctly to `initialize`, `tools/list`, and a happy-path `tools/call` using the smoke commands in `README.md`.
+   - Save at least one screenshot to `test-results/screenshots/` named `0000015-03-<name>.png`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -447,7 +480,18 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (MCP v2 contract + basic regressions):
+   - Confirm `/chat` and `/logs` still render: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
+   - Confirm MCP v2 (port `MCP_PORT`) still responds correctly to `initialize`, `tools/list`, and `tools/call` for `codebase_question` (and still returns `CODE_INFO_LLM_UNAVAILABLE` when expected) using the smoke commands in `README.md`.
+   - Save at least one screenshot to `test-results/screenshots/` named `0000015-04-<name>.png`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -515,24 +559,19 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
 
 #### Testing
 
-1. [ ] The first testing task must always be to prove the server build works outside of docker:
-   - `npm run build --workspace server`
-2. [ ] The second testing task must always be to prove the client build works outside of docker:
-   - `npm run build --workspace client`
-3. [ ] The third testing task must always be to prove the CLEAN docker build works:
-   - `npm run compose:build`
-4. [ ] The fourth testing task must always be to prove the docker compose starts:
-   - `npm run compose:up`
-5. [ ] Run the server tests:
-   - `npm run test --workspace server`
-6. [ ] Run the client tests:
-   - `npm run test --workspace client`
-7. [ ] Run the e2e tests:
-   - `npm run e2e`
-8. [ ] Bring the stack down:
-   - `npm run compose:down`
-9. [ ] Use the Playwright MCP tool to manually check the application and save screenshots to `./test-results/screenshots/`:
-   - Naming: `0000015-05-<name>.png`
-   - Minimum checks: `/chat`, `/logs`, and confirm both MCP endpoints still respond to `initialize` and `tools/list` (via curl or UI where appropriate).
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (story acceptance + regressions):
+   - Confirm `/chat` renders and can send a message without UI regressions.
+   - Confirm `/logs` renders and can load log history.
+   - Confirm Express `POST /mcp` still responds to `initialize` + `tools/list` and returns valid tool results for both `ListIngestedRepositories` and `VectorSearch`.
+   - Confirm MCP v2 (port `MCP_PORT`) still responds to `initialize` + `tools/list` and supports `tools/call` for `codebase_question` (including `CODE_INFO_LLM_UNAVAILABLE` gating behavior).
+   - Save screenshots to `test-results/screenshots/` named `0000015-05-<name>.png` (minimum: `0000015-05-chat.png` and `0000015-05-logs.png`).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes

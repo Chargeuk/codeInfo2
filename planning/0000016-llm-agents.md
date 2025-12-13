@@ -269,9 +269,9 @@ Expose a server HTTP endpoint that lists available agents, returning agent `name
 
 #### Subtasks
 
-1. [ ] Add a new router (or extend an existing one) to expose a list endpoint, e.g. `GET /agents`.
+1. [ ] Add a new router (or extend an existing one) to expose `GET /agents`.
 2. [ ] Create a shared server module for agents (source of truth for REST + MCP):
-   - e.g. `server/src/agents/service.ts` exporting `listAgents()` and `runAgentInstruction()`
+   - `server/src/agents/service.ts` exporting `listAgents()` and `runAgentInstruction()`
 3. [ ] Implement the handler by calling the shared `listAgents()` which uses the discovery utility from Task 2 (so auth seeding + description reading happens on every request).
 4. [ ] Response shape includes:
    - `agents: Array<{ name: string; description?: string; disabled?: boolean; warnings?: string[] }>`

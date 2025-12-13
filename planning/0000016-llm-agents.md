@@ -697,7 +697,7 @@ This task implements that logic and wires it into the discovery read path so it 
        - `server/src/agents/authSeed.ts`
        - any new unit test file(s) created for auth seeding
        - `.dockerignore` (if created by this task)
-11. [ ] Run lint + format checks (all workspaces) and fix any failures.
+11. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

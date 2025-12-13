@@ -118,6 +118,7 @@ test('tools/call validates VectorSearch arguments', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'VALIDATION_FAILED');
   assert.ok(
     (res.body.error.data.details as string[]).includes('query is required'),
   );
@@ -135,6 +136,7 @@ test('unknown tool returns invalid params error', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.error.message, 'Unknown tool Nope');
 });
 
 test('method not found returns -32601', async () => {
@@ -144,13 +146,16 @@ test('method not found returns -32601', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.error.code, -32601);
+  assert.equal(res.body.error.message, 'Method not found');
 });
 
 test('invalid request shape returns -32600', async () => {
   const res = await request(baseApp()).post('/mcp').send({ wrong: true });
 
   assert.equal(res.status, 200);
+  assert.equal(res.body.id, undefined);
   assert.equal(res.body.error.code, -32600);
+  assert.equal(res.body.error.message, 'Invalid Request');
 });
 
 test('tools/call surfaces internal errors', async () => {
@@ -172,6 +177,8 @@ test('tools/call surfaces internal errors', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.error.code, -32603);
+  assert.equal(res.body.error.message, 'Internal error');
+  assert.deepEqual(res.body.error.data, { message: 'Error: boom' });
 });
 
 test('tools/call propagates validation error instances', async () => {
@@ -192,5 +199,6 @@ test('tools/call propagates validation error instances', async () => {
 
   assert.equal(res.status, 200);
   assert.equal(res.body.error.code, -32602);
-  assert.deepEqual(res.body.error.data.details, ['bad']);
+  assert.equal(res.body.error.message, 'VALIDATION_FAILED');
+  assert.deepEqual(res.body.error.data, { details: ['bad'] });
 });

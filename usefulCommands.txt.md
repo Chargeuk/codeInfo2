@@ -10,24 +10,26 @@ in various tasks you have a single subtask to update multiple markdown documents
 
 some of the tasks look quite big, could they be split up without loosing any information?
 
-some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 or deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this.
+some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this.
 
 in various tasks you have a single subtask for a number of tests to write. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose.
 
-It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 or DeepWiki or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it.
+It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it.
 
 some tasks do not have a final subtask to fix linting and prettier (format)
 
 the last subtask of every task should be Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
-Update the Testing steps for every task except the final task to only be the following list, in the following order:
-`npm run build --workspace server` OR `npm run build --workspace client` depending on if the task updates server or client code. Use both as seperate testing steps if both or the common code were edited.
-`npm run test --workspace server` OR `npm run test --workspace client` depending on if the task updates server or client code. Use both as seperate testing steps if both or the common code were edited.
-`npm run compose:build`
-`npm run compose:up`
-`npm run compose:down`
-
-every task needs a final testing step (not subtask) to ensure the docker environment can compose, and confirm that everything runs well, followed by a step to tear it down. Note the build and run tasks should not be a subtask, but be part of the Testing section of the task.
+The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested.
+9. [ ] `npm run compose:down`
 
 ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7.
 

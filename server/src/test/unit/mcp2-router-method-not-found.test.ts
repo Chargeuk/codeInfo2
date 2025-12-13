@@ -13,24 +13,20 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
-test('tools/list returns tool definitions when Codex is available', async () => {
-  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
-  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
-
+test('unknown JSON-RPC method returns -32601 Method not found', async () => {
   const server = http.createServer(handleRpc);
   server.listen(0);
   const { port } = server.address() as AddressInfo;
 
   try {
-    const payload = { jsonrpc: '2.0', id: 10, method: 'tools/list' };
-    const body = await postJson(port, payload);
-
-    assert.ok(body.result.tools);
-    assert.equal(Array.isArray(body.result.tools), true);
-    assert.equal(body.result.tools[0].name, 'codebase_question');
-    assert.ok(body.result.tools[0].inputSchema);
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'nope',
+    });
+    assert.equal(body.id, 9);
+    assert.deepEqual(body.error, { code: -32601, message: 'Method not found' });
   } finally {
-    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     server.close();
   }
 });

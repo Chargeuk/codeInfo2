@@ -651,7 +651,7 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 
 #### Subtasks
 
-1. [ ] Confirm MCP segment contract stability by re-running only the two MCP wrapper integration tests (Codex + LM Studio) and verifying snapshots/segment order are unchanged.
+1. [x] Confirm MCP segment contract stability by re-running only the two MCP wrapper integration tests (Codex + LM Studio) and verifying snapshots/segment order are unchanged.
 2. [ ] REST + MCP persistence parity smoke (Mongo up): create fresh conversations, run one request per provider, and verify exactly one `user` + one `assistant` turn is stored per send with correct `source` (`REST` vs `MCP`) and `toolCalls` populated when tools fire.
 3. [ ] Mongo-down fallback smoke: stop Mongo, confirm `/health` reports `mongoConnected=false`, then verify REST `/chat` (LM Studio) still streams and MCP `codebase_question` still returns a valid segments payload (no 500s).
 4. [ ] Unsupported-provider error paths: verify REST returns 400 for an invalid provider and MCP returns a JSON-RPC invalid params error when provider is invalid.
@@ -659,10 +659,10 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] Run MCP wrapper tests only:
+1. [x] `npm run build --workspace server`
+2. [x] Run MCP wrapper tests only:
    - `cd server`
-   - `cross-env TS_NODE_FILES=true TS_NODE_PROJECT=./tsconfig.json NODE_OPTIONS=--loader=ts-node/esm node --test --test-concurrency=1 src/test/integration/mcp-codex-wrapper.test.ts src/test/integration/mcp-lmstudio-wrapper.test.ts`
+   - `npx --no-install cross-env TS_NODE_FILES=true TS_NODE_PROJECT=./tsconfig.json NODE_OPTIONS=--loader=ts-node/esm node --test --test-concurrency=1 src/test/integration/mcp-codex-wrapper.test.ts src/test/integration/mcp-lmstudio-wrapper.test.ts`
 3. [ ] `npm run compose:up`
 4. [ ] Mongo-up smoke (REST + MCP + turn counts via API):
    - REST LM Studio: create conversation (`POST /conversations`), send (`POST /chat`), verify turns (`GET /conversations/:id/turns`).

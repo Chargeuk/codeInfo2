@@ -602,7 +602,7 @@ This task implements that logic and wires it into the discovery read path so it 
 
 #### Subtasks
 
-1. [ ] Implement agent auth seeding helper (best-effort, never overwrites).
+1. [x] Implement agent auth seeding helper (best-effort, never overwrites).
    - Docs to read (this subtask):
      - Node fs APIs: Context7 `/nodejs/node`
    - Files to read:
@@ -617,7 +617,7 @@ This task implements that logic and wires it into the discovery read path so it 
        - no-op if `${primaryCodexHome}/auth.json` does not exist
        - otherwise copy primary → agent
        - never throw; return a warning string on failure
-2. [ ] Add an in-process mutex so concurrent calls do not race writes.
+2. [x] Add an in-process mutex so concurrent calls do not race writes.
    - Docs to read (this subtask):
      - Promise chaining as a mutex: Context7 `/nodejs/node`
    - Files to edit:

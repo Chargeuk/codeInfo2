@@ -576,7 +576,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 
 ### 4. Auth seeding for agents (runs on every discovery read)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

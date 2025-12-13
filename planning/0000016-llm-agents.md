@@ -36,6 +36,13 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - run an instruction against an agent
   - continue a prior run by reusing a `conversationId`
   - render results in the same segment format as `codebase_question` (`thinking`, `vector_summary`, `answer`).
+- Agents page controls and behavior:
+  - The top controls are limited to: agent selector dropdown, **Stop**, and **New conversation**.
+  - Changing the selected agent:
+    - aborts/stops any in-progress run
+    - resets the current conversation to a new conversation state (as if New conversation was clicked)
+    - refreshes the side panel so it shows past conversations for the selected agent
+  - An information block is shown for the selected agent, rendering its `description` (when present).
 - Agent conversation separation:
   - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
   - Each agent conversation stores the agent identifier in conversation metadata (e.g. `conversation.flags.agentName`).
@@ -457,14 +464,17 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 3. [ ] Update client conversation list hook/component to accept an optional `agentName` filter parameter and call the server filter added in Task 6.
 4. [ ] Ensure the existing Chat page conversation list uses the “non-agent” filter so it stays clean (agent conversations hidden).
 5. [ ] Build Agents page UI by reusing Chat page components where possible (do not create parallel components):
-   - reuse the existing conversation history panel component but pass an `agentName` filter so only that agent’s conversations appear
-   - agent selector (from listAgents) dynamically updates the conversation list filter
-   - show optional agent description (render markdown)
-   - instruction text area + submit (no provider/model selectors)
-   - optional conversationId input (for continuation)
-   - result view rendering segments (`thinking`, `vector_summary`, `answer`) consistent with `codebase_question` rendering expectations
+   - top controls are limited to: agent dropdown, Stop, New conversation
+   - agent dropdown:
+     - selecting an agent auto-stops any in-progress run, resets to a new conversation state, and refreshes the conversation list panel
+   - show an agent information block rendering the selected agent `description` (markdown) when present
+   - reuse the existing conversation history panel component, but drive filtering from the selected agent (no extra filter UI in the panel)
+   - reuse the existing message input + transcript rendering, but do not show provider/model selectors
 6. [ ] Add client tests (RTL/Jest):
    - renders agent list
+   - shows agent description block when present
+   - changing agent stops an in-flight run and resets the conversation
+   - changing agent refreshes the conversation list panel
    - runs an instruction and displays segments
    - continues a conversationId and shows updated results.
 7. [ ] Update `README.md` with Agents page usage.

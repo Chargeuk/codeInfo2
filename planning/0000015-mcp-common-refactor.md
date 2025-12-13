@@ -908,7 +908,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
    - Files to edit: `projectStructure.md`.
    - Docs to read (repeat, if unfamiliar with Markdown lists/code blocks): https://docs.github.com/en/get-started/writing-on-github
    - Non-negotiables: keep entries accurate and specific; list all new files added by this story.
-7. [ ] Create a pull request summary comment that includes:
+7. [x] Create a pull request summary comment that includes:
    - what duplication was removed,
    - what shared module(s) were introduced and why,
    - proof of “no behavior change” (which characterization/contract tests protect this),
@@ -916,7 +916,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
    - Docs to read (repeat, if unfamiliar):
      - GitHub Markdown: https://docs.github.com/en/get-started/writing-on-github
    - Non-negotiables: include explicit evidence of “no behavior change” (tests + manual checks) and call out that MCP v1/v2 differences were preserved.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read (repeat):
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -940,3 +940,32 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- Task 5 run (2025-12-13): `npm run build --workspace server` ok.
+- Task 5 run (2025-12-13): `npm run build --workspace client` ok.
+- Task 5 run (2025-12-13): `npm run test --workspace server` ok (unit+integration+mcp2 tests + Cucumber: 44 scenarios passed).
+- Task 5 run (2025-12-13): `npm run test --workspace client` ok (43 suites, 101 tests).
+- Task 5 run (2025-12-13): `npm run e2e` ok (25 passed, 2 skipped).
+- Task 5 run (2025-12-13): `npm run compose:build` ok (script uses `--pull --no-cache`), `npm run compose:up` ok, `npm run compose:down` ok.
+- Task 5 run (2025-12-13): `/mcp` smoke ok (`initialize`, `tools/list`, and `tools/call` for `ListIngestedRepositories` + `VectorSearch`, confirming `content[0].type === "text"` JSON-string encoding).
+- Task 5 run (2025-12-13): MCP v2 smoke ok (port `MCP_PORT`: `initialize`, `tools/list` includes `codebase_question`, and `tools/call codebase_question` returns `text` content JSON with `segments`).
+- Task 5 run (2025-12-13): Playwright MCP UI check ok:
+  - `/chat` loaded models and successfully sent a message via LM Studio.
+  - `/logs` loaded history and “Send sample log” appended entries.
+  - Screenshots saved locally (gitignored): `test-results/screenshots/0000015-05-chat.png`, `test-results/screenshots/0000015-05-logs.png`.
+- Task 5 run (2025-12-13): docs updated to clarify the two MCP surfaces and `server/src/mcpCommon/` ownership boundaries (`README.md`, `design.md`).
+- Task 5 run (2025-12-13): `npm run lint --workspaces` ok; `npm run format:check --workspaces` ok.
+
+##### Pull request comment (paste into PR)
+
+- **Summary:** Consolidates duplicated MCP/JSON-RPC “infrastructure” code shared by the Express MCP endpoint (`POST /mcp`) and the standalone MCP v2 server (`MCP_PORT`) into `server/src/mcpCommon/` (guards + JSON-RPC helpers + dispatch skeleton). This reduces duplication while keeping both MCP surfaces and their intentionally different wire-format conventions intact.
+- **What changed:** Both `server/src/mcp/server.ts` and `server/src/mcp2/router.ts` route validated JSON-RPC messages through the shared dispatcher, but each server still owns transport parsing, tool registry, gating rules, and error mapping.
+- **No contract changes (proof):**
+  - `/mcp` integration/compat tests: `server/src/test/integration/mcp-server.test.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts` (including `content[0].type === "text"` JSON-string tool results).
+  - MCP v2 characterization tests: `server/src/test/unit/mcp2-router-parse-error.test.ts`, `server/src/test/unit/mcp2-router-invalid-request.test.ts`, `server/src/test/unit/mcp2-router-method-not-found.test.ts`, `server/src/test/unit/mcp2-router-tool-not-found.test.ts`, plus existing v2 tool tests under `server/src/test/mcp2/`.
+  - Shared dispatcher invariant tests: `server/src/test/unit/mcp-common-dispatch.test.ts` (verbatim handler outputs; no mutation/rewrites).
+- **Validation run (2025-12-13):**
+  - Local builds: `npm run build --workspace server`, `npm run build --workspace client`.
+  - Tests: `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`.
+  - Docker: `npm run compose:build`, `npm run compose:up`, `npm run compose:down`.
+  - Manual smoke: curl checks for `/mcp` (`initialize`/`tools/list`/`tools/call`) and MCP v2 (`initialize`/`tools/list`/`tools/call codebase_question`), plus Playwright MCP UI checks for `/chat` + `/logs` with screenshots saved under `test-results/screenshots/`.

@@ -242,15 +242,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 27. [ ] Files to read / edit for all tests in this task:
    - Files to read: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/mcp2/errors.ts`.
    - Files to edit: all test files listed above.
-28. [ ] The last subtask is always repo-wide linting/format checks (all workspaces):
-   - Run: `npm run lint --workspaces`
-   - Run: `npm run format:check --workspaces`
-   - If either fails:
-     - Run: `npm run lint:fix --workspaces` (or the closest available fix command)
-     - Run: `npm run format --workspaces`
-     - Manually resolve any remaining lint/format issues, then rerun:
-       - `npm run lint --workspaces`
-       - `npm run format:check --workspaces`
+28. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -338,15 +330,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Add `server/src/mcpCommon/` with a description like “Shared MCP/JSON-RPC infrastructure used by both MCP servers (helpers/dispatch only; must not change wire formats).”
    - Add `server/src/mcpCommon/guards.ts`, `server/src/mcpCommon/jsonRpc.ts`, and `server/src/mcpCommon/dispatch.ts` with brief, specific descriptions.
    - Add `server/src/test/unit/mcp-common-dispatch.test.ts` with a description like “Unit tests for shared MCP dispatcher routing/validation.”
-10. [ ] The last subtask is always repo-wide linting/format checks (all workspaces):
-   - Run: `npm run lint --workspaces`
-   - Run: `npm run format:check --workspaces`
-   - If either fails:
-     - Run: `npm run lint:fix --workspaces` (or the closest available fix command)
-     - Run: `npm run format --workspaces`
-     - Manually resolve any remaining lint/format issues, then rerun:
-       - `npm run lint --workspaces`
-       - `npm run format:check --workspaces`
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -402,15 +386,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
    - Add a note in its description that it now uses `server/src/mcpCommon/*` for shared JSON-RPC helpers/dispatch.
    - Keep the description clear that tool definitions + domain error mapping remain owned by `server/src/mcp/server.ts`.
    - Files to edit: `projectStructure.md`.
-6. [ ] The last subtask is always repo-wide linting/format checks (all workspaces):
-   - Run: `npm run lint --workspaces`
-   - Run: `npm run format:check --workspaces`
-   - If either fails:
-     - Run: `npm run lint:fix --workspaces` (or the closest available fix command)
-     - Run: `npm run format --workspaces`
-     - Manually resolve any remaining lint/format issues, then rerun:
-       - `npm run lint --workspaces`
-       - `npm run format:check --workspaces`
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -467,15 +443,7 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
    - Add a note in its description that it now uses `server/src/mcpCommon/*` for shared guards/dispatch.
    - Keep the description clear that transport parsing (readBody/JSON.parse) + Codex gating remain owned by `server/src/mcp2/router.ts`.
    - Files to edit: `projectStructure.md`.
-6. [ ] The last subtask is always repo-wide linting/format checks (all workspaces):
-   - Run: `npm run lint --workspaces`
-   - Run: `npm run format:check --workspaces`
-   - If either fails:
-     - Run: `npm run lint:fix --workspaces` (or the closest available fix command)
-     - Run: `npm run format --workspaces`
-     - Manually resolve any remaining lint/format issues, then rerun:
-       - `npm run lint --workspaces`
-       - `npm run format:check --workspaces`
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 
@@ -543,15 +511,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
    - what shared module(s) were introduced and why,
    - proof of “no behavior change” (which characterization/contract tests protect this),
    - which commands were run to validate (build/test/e2e/compose).
-8. [ ] The last subtask is always repo-wide linting/format checks (all workspaces):
-   - Run: `npm run lint --workspaces`
-   - Run: `npm run format:check --workspaces`
-   - If either fails:
-     - Run: `npm run lint:fix --workspaces` (or the closest available fix command)
-     - Run: `npm run format --workspaces`
-     - Manually resolve any remaining lint/format issues, then rerun:
-       - `npm run lint --workspaces`
-       - `npm run format:check --workspaces`
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
 

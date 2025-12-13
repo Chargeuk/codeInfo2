@@ -115,14 +115,23 @@ This is a prerequisite for everything else in this story.
 
 #### Subtasks
 
-1. [ ] Identify how `CODEINFO_CODEX_HOME` is currently resolved and passed into Codex (e.g. `server/src/config/codexConfig.ts` and `server/src/chat/interfaces/ChatInterfaceCodex.ts`).
-2. [ ] Introduce a new abstraction for “Codex home” that can be provided at Codex factory creation time (not via `process.env` mutation per request).
-3. [ ] Update `ChatInterfaceCodex` (and any other Codex entry points) to accept the configured Codex home explicitly via the factory/deps.
-4. [ ] Add/extend unit/integration tests proving:
-   - two concurrent Codex interface constructions can use different homes without leaking state
-   - existing non-agent chat behavior still uses the primary Codex home by default.
-5. [ ] Update any related docs in `design.md` describing the new Codex home injection mechanism.
-6. [ ] Run full linting for touched workspaces.
+1. [ ] Update `server/src/config/codexConfig.ts` to support an explicit Codex home override:
+   - add `resolveCodexHome(overrideHome?: string): string` (or equivalent)
+   - update `getCodexConfigPath()` / `getCodexAuthPath()` (or add new helpers) so callers can request paths for a provided home without mutating `process.env`.
+2. [ ] Update `buildCodexOptions()` to accept an optional Codex home override and set `CODEX_HOME` to that resolved path (while still spreading the full env for MCP servers).
+3. [ ] Update Codex detection to support checking a provided home:
+   - update `server/src/providers/codexDetection.ts` to accept an optional Codex home override (or add a second exported function) so agent discovery can validate `{ config.toml, auth.json }` per-agent.
+4. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` so the Codex SDK instance can be created with a specific Codex home:
+   - extend the injected `codexFactory` signature to accept `{ codexHome?: string }` (or similar)
+   - default behavior must remain unchanged (uses primary Codex home via existing env/defaults).
+5. [ ] Add/extend unit tests to lock in the new API shape and safety:
+   - `buildCodexOptions({ codexHome })` sets `env.CODEX_HOME` correctly
+   - `detectCodex({ codexHome })` validates config/auth paths under that home
+   - constructing two Codex factories with different homes does not require global env mutation.
+6. [ ] Update `design.md` describing:
+   - primary Codex home vs agent Codex home
+   - how Codex home is injected without `process.env` mutation.
+7. [ ] Run full linting for touched workspaces.
 
 #### Testing
 

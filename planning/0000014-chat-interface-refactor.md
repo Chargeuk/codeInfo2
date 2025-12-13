@@ -636,7 +636,7 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 ### 11. Final validation (story-level)
 
-- Task Status: ****to_do****
+- Task Status: ****in_progress****
 - Git Commits: ****to_do****
 
 #### Overview

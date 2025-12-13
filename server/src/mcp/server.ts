@@ -14,6 +14,9 @@ import {
   vectorSearch,
 } from '../lmstudio/toolService.js';
 import { baseLogger } from '../logger.js';
+import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
+import { isObject } from '../mcpCommon/guards.js';
+import { jsonRpcError, jsonRpcResult } from '../mcpCommon/jsonRpc.js';
 
 type JsonRpcRequest = {
   jsonrpc?: unknown;
@@ -163,34 +166,19 @@ const toolDefinitions = [
   },
 ];
 
-function jsonRpcResult(id: unknown, result: unknown) {
-  return { jsonrpc: '2.0', id, result };
-}
-
-function jsonRpcError(
-  id: unknown,
-  code: number,
-  message: string,
-  data?: unknown,
-) {
-  return { jsonrpc: '2.0', id, error: { code, message, data } };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+type JsonRpcLikeResponse = ReturnType<typeof jsonRpcResult>;
 
 const invalidRequest = (id: unknown) =>
-  jsonRpcError(id, -32600, 'Invalid Request');
+  jsonRpcError(id as never, -32600, 'Invalid Request') as JsonRpcLikeResponse;
 
 const methodNotFound = (id: unknown) =>
-  jsonRpcError(id, -32601, 'Method not found');
+  jsonRpcError(id as never, -32601, 'Method not found') as JsonRpcLikeResponse;
 
 const invalidParams = (id: unknown, message: string, data?: unknown) =>
-  jsonRpcError(id, -32602, message, data);
+  jsonRpcError(id as never, -32602, message, data) as JsonRpcLikeResponse;
 
 const internalError = (id: unknown, message: string, data?: unknown) =>
-  jsonRpcError(id, -32603, message, data);
+  jsonRpcError(id as never, -32603, message, data) as JsonRpcLikeResponse;
 
 export function createMcpRouter(
   deps: Partial<Deps> = {},
@@ -209,129 +197,123 @@ export function createMcpRouter(
 
   router.post('/mcp', async (req, res) => {
     const body = req.body as JsonRpcRequest;
-
-    if (
-      !isObject(body) ||
-      body.jsonrpc !== '2.0' ||
-      typeof body.method !== 'string'
-    ) {
-      return res.json(invalidRequest(body?.id));
-    }
-
-    const { id, method } = body;
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
 
-    if (method === 'initialize') {
-      return res.json(
-        jsonRpcResult(id, {
-          protocolVersion: PROTOCOL_VERSION,
-          capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: 'codeinfo2-mcp', version: '1.0.0' },
-        }),
-      );
-    }
+    const response = await dispatchJsonRpc({
+      message: body,
+      getId: (message) => (isObject(message) ? message.id : undefined),
+      handlers: {
+        initialize: (id) =>
+          jsonRpcResult(id as never, {
+            protocolVersion: PROTOCOL_VERSION,
+            capabilities: { tools: { listChanged: false } },
+            serverInfo: { name: 'codeinfo2-mcp', version: '1.0.0' },
+          }) as JsonRpcLikeResponse,
+        resourcesList: (id) =>
+          jsonRpcResult(id as never, { resources: [] }) as JsonRpcLikeResponse,
+        resourcesListTemplates: (id) =>
+          jsonRpcResult(id as never, {
+            resourceTemplates: [],
+          }) as JsonRpcLikeResponse,
+        toolsList: (id) =>
+          jsonRpcResult(id as never, {
+            tools: toolDefinitions,
+          }) as JsonRpcLikeResponse,
+        toolsCall: async (id, params) => {
+          if (!isObject(params)) {
+            return invalidParams(id, 'params must be an object');
+          }
+          const toolCall = params as ToolCallParams;
+          if (typeof toolCall.name !== 'string' || !toolCall.name.trim()) {
+            return invalidParams(id, 'name is required');
+          }
+          const args = isObject(toolCall.arguments) ? toolCall.arguments : {};
 
-    if (method === 'tools/list') {
-      return res.json(jsonRpcResult(id, { tools: toolDefinitions }));
-    }
+          try {
+            if (toolCall.name === 'ListIngestedRepositories') {
+              const payload = await resolved.listIngestedRepositories({
+                getRootsCollection: resolved.getRootsCollection,
+                getLockedModel: resolved.getLockedModel,
+              });
+              baseLogger.info(
+                {
+                  requestId,
+                  tool: toolCall.name,
+                  repos: payload.repos.length,
+                },
+                'mcp tool call',
+              );
+              return jsonRpcResult(id as never, {
+                content: [{ type: 'text', text: JSON.stringify(payload) }],
+              }) as JsonRpcLikeResponse;
+            }
 
-    if (method === 'resources/list') {
-      return res.json(jsonRpcResult(id, { resources: [] }));
-    }
+            if (toolCall.name === 'VectorSearch') {
+              const validated = resolved.validateVectorSearch(
+                args as Record<string, unknown>,
+              );
+              const payload = await resolved.vectorSearch(validated, {
+                getRootsCollection: resolved.getRootsCollection,
+                getVectorsCollection: resolved.getVectorsCollection,
+                getLockedModel: resolved.getLockedModel,
+              });
+              baseLogger.info(
+                {
+                  requestId,
+                  tool: toolCall.name,
+                  repository: validated.repository ?? 'all',
+                  limit: validated.limit,
+                  results: payload.results.length,
+                  modelId: payload.modelId,
+                },
+                'mcp tool call',
+              );
+              return jsonRpcResult(id as never, {
+                content: [{ type: 'text', text: JSON.stringify(payload) }],
+              }) as JsonRpcLikeResponse;
+            }
 
-    if (method === 'resources/listTemplates') {
-      return res.json(jsonRpcResult(id, { resourceTemplates: [] }));
-    }
+            return invalidParams(id, `Unknown tool ${toolCall.name}`);
+          } catch (err) {
+            if (err instanceof ValidationError) {
+              return invalidParams(id, err.message, { details: err.details });
+            }
+            if (err instanceof RepoNotFoundError) {
+              return jsonRpcError(id as never, 404, err.code, {
+                repo: err.repo,
+              }) as JsonRpcLikeResponse;
+            }
+            if (err instanceof IngestRequiredError) {
+              baseLogger.warn(
+                { requestId },
+                'mcp vector search missing locked model',
+              );
+              return jsonRpcError(
+                id as never,
+                409,
+                err.code,
+              ) as JsonRpcLikeResponse;
+            }
+            if (err instanceof EmbedModelMissingError) {
+              baseLogger.error(
+                { requestId, modelId: err.modelId },
+                'mcp vector search missing embed model',
+              );
+              return jsonRpcError(id as never, 503, err.code, {
+                modelId: err.modelId,
+              }) as JsonRpcLikeResponse;
+            }
+            baseLogger.error({ requestId, err }, 'mcp tool call failed');
+            return internalError(id, 'Internal error', { message: `${err}` });
+          }
+        },
+        methodNotFound,
+        invalidRequest,
+      },
+    });
 
-    if (method === 'tools/call') {
-      if (!isObject(body.params)) {
-        return res.json(invalidParams(id, 'params must be an object'));
-      }
-      const params = body.params as ToolCallParams;
-      if (typeof params.name !== 'string' || !params.name.trim()) {
-        return res.json(invalidParams(id, 'name is required'));
-      }
-      const args = isObject(params.arguments) ? params.arguments : {};
-
-      try {
-        if (params.name === 'ListIngestedRepositories') {
-          const payload = await resolved.listIngestedRepositories({
-            getRootsCollection: resolved.getRootsCollection,
-            getLockedModel: resolved.getLockedModel,
-          });
-          baseLogger.info(
-            { requestId, tool: params.name, repos: payload.repos.length },
-            'mcp tool call',
-          );
-          return res.json(
-            jsonRpcResult(id, {
-              content: [{ type: 'text', text: JSON.stringify(payload) }],
-            }),
-          );
-        }
-
-        if (params.name === 'VectorSearch') {
-          const validated = resolved.validateVectorSearch(
-            args as Record<string, unknown>,
-          );
-          const payload = await resolved.vectorSearch(validated, {
-            getRootsCollection: resolved.getRootsCollection,
-            getVectorsCollection: resolved.getVectorsCollection,
-            getLockedModel: resolved.getLockedModel,
-          });
-          baseLogger.info(
-            {
-              requestId,
-              tool: params.name,
-              repository: validated.repository ?? 'all',
-              limit: validated.limit,
-              results: payload.results.length,
-              modelId: payload.modelId,
-            },
-            'mcp tool call',
-          );
-          return res.json(
-            jsonRpcResult(id, {
-              content: [{ type: 'text', text: JSON.stringify(payload) }],
-            }),
-          );
-        }
-
-        return res.json(invalidParams(id, `Unknown tool ${params.name}`));
-      } catch (err) {
-        if (err instanceof ValidationError) {
-          return res.json(
-            invalidParams(id, err.message, { details: err.details }),
-          );
-        }
-        if (err instanceof RepoNotFoundError) {
-          return res.json(jsonRpcError(id, 404, err.code, { repo: err.repo }));
-        }
-        if (err instanceof IngestRequiredError) {
-          baseLogger.warn(
-            { requestId },
-            'mcp vector search missing locked model',
-          );
-          return res.json(jsonRpcError(id, 409, err.code));
-        }
-        if (err instanceof EmbedModelMissingError) {
-          baseLogger.error(
-            { requestId, modelId: err.modelId },
-            'mcp vector search missing embed model',
-          );
-          return res.json(
-            jsonRpcError(id, 503, err.code, { modelId: err.modelId }),
-          );
-        }
-        baseLogger.error({ requestId, err }, 'mcp tool call failed');
-        return res.json(
-          internalError(id, 'Internal error', { message: `${err}` }),
-        );
-      }
-    }
-
-    return res.json(methodNotFound(id));
+    return res.json(response);
   });
 
   return router;

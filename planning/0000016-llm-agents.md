@@ -134,6 +134,7 @@ This is a prerequisite for everything else in this story.
 - Node.js: Context7 `/nodejs/node` (process/env behavior, `path`, `fs`, and concurrency constraints that make process-wide env mutation unsafe)
 - TypeScript: Context7 `/microsoft/typescript` (type-safe factory signatures and optional param threading)
 - Mongoose: Context7 `/automattic/mongoose` (required in this task for `$set` updates when persisting only `flags.threadId`)
+- Mermaid diagrams (for documenting new flows in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -244,11 +245,13 @@ This is a prerequisite for everything else in this story.
 8. [ ] Update docs to record the new Codex home override mechanism.
    - Docs to read (this subtask):
      - `design.md`
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Implementation steps:
      - Document: primary Codex home (`CODEINFO_CODEX_HOME`) vs agent Codex homes (`CODEINFO_CODEX_AGENT_HOME/<agent>`).
      - Document: “no global env mutation”; codex home is injected via factory/options.
+     - Add a Mermaid diagram showing the Codex creation flow (Chat/Agents) with an explicit `codexHome` passed into the Codex factory/options (no process env mutation).
    - Verify:
      - Run `npm run format:check --workspace server` (must exit 0).
 9. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
@@ -285,6 +288,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 - Conversation persistence overview: `design.md` (Conversation persistence section)
 - Mongoose schema basics: Context7 `/automattic/mongoose`
 - Node `node:test` (unit test harness used by server tests in this task): https://nodejs.org/api/test.html
+- Mermaid diagrams (for documenting new persistence fields/flows in `design.md`): Context7 `/mermaid-js/mermaid`
 - Existing persistence code:
   - `server/src/mongo/conversation.ts`
   - `server/src/mongo/repo.ts`
@@ -331,10 +335,13 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
    - Verify:
      - `npm run test --workspace server`
 4. [ ] Update docs.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Implementation steps:
      - Document `Conversation.agentName?: string` and how it separates Chat vs Agents history.
+     - Add/extend a Mermaid diagram showing the conversation model/persistence flow including the new `agentName` field and the “Chat = __none__ vs Agents = named agent” separation.
 5. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
@@ -377,6 +384,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 - Agent folder conventions: this story’s Acceptance Criteria + `README.md`
 - Node.js filesystem APIs: Context7 `/nodejs/node`
 - Reference for file-copy conventions: `server/src/utils/codexAuthCopy.ts`
+- Mermaid diagrams (for documenting agent discovery flow in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -444,7 +452,17 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - required: `config.toml`
        - optional: `description.md`
        - optional: `system_prompt.txt`
-8. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Update architecture docs (design + Mermaid) for discovery rules.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Make the agent discovery rules and metadata sources obvious to new contributors.
+   - Implementation steps:
+     - Add a Mermaid flow diagram for “Agent discovery” showing:
+       - `CODEINFO_CODEX_AGENT_HOME` → scan direct subfolders → require `config.toml` → optionally read `description.md` / detect `system_prompt.txt`.
+9. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -483,6 +501,7 @@ This task implements that logic and wires it into the discovery read path so it 
   - `server/src/utils/codexAuthCopy.ts`
   - `server/src/test/unit/codexAuthCopy.test.ts`
 - Node.js filesystem APIs: Context7 `/nodejs/node`
+- Mermaid diagrams (for documenting auth seeding flow in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -561,7 +580,17 @@ This task implements that logic and wires it into the discovery read path so it 
    - Implementation steps:
      - Document that auth is auto-copied from `CODEINFO_CODEX_HOME` into agent folders when missing.
      - Document that `auth.json` must never be committed.
-9. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Update architecture docs (design + Mermaid) for auth seeding flow.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Make the auth seeding behavior explicit and reviewable (including “best-effort” + locking).
+   - Implementation steps:
+     - Add a Mermaid flow diagram for “Auth seeding on discovery read” showing:
+       - discovery read → for each agent: if missing `auth.json` and primary has `auth.json` then copy (never overwrite) → warnings on failure → continue listing.
+10. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -594,6 +623,7 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 #### Documentation Locations
 
 - Docker docs (bind mounts + ports): Context7 `/docker/docs`
+- Mermaid diagrams (for documenting deployment wiring in `design.md`): Context7 `/mermaid-js/mermaid`
 - Files to edit in this task:
   - `docker-compose.yml`
   - `docker-compose.e2e.yml`
@@ -645,7 +675,19 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
      - Agents MCP URL: `http://localhost:5012`
      - Compose mount path: host `./codex_agents` → container `/app/codex_agents`
      - Warning: `auth.json` may be copied into agent folders at runtime and must remain gitignored.
-5. [ ] Run full lint/format checks for touched workspaces.
+5. [ ] Update architecture docs (design + Mermaid) to reflect new runtime surfaces.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Ensure Docker/Compose wiring changes are reflected in the architecture docs.
+   - Implementation steps:
+     - Add/extend a Mermaid deployment diagram showing:
+       - server container
+       - bind mount for `/app/codex_agents`
+       - exposed Agents MCP port (`5012`)
+6. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -684,6 +726,7 @@ This endpoint is the single source of truth for:
 - Filesystem discovery implemented in Tasks 3–4:
   - `server/src/agents/discovery.ts`
   - `server/src/agents/authSeed.ts`
+- Mermaid diagrams (for documenting new REST surfaces in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -746,7 +789,16 @@ This endpoint is the single source of truth for:
      - `README.md`
    - Required doc details:
      - `GET /agents` example curl command and example response.
-8. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Update architecture docs (design + Mermaid) for `GET /agents`.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Document the “single source of truth” agent listing flow reused by GUI + MCP.
+   - Implementation steps:
+     - Add a Mermaid flow diagram: GUI/MCP → `GET /agents`/`listAgents()` → discovery (+ auth seeding) → response `{ agents: [...] }`.
+9. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -789,6 +841,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
 - Node.js (AbortController/AbortSignal + `crypto.randomUUID()` + HTTP request lifecycle): Context7 `/nodejs/node`
 - Express: Context7 `/expressjs/express`
 - Supertest: Context7 `/ladjs/supertest`
+- Mermaid diagrams (for documenting the agent run flow in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -898,7 +951,17 @@ Critical requirement: the REST path and MCP path must share the same implementat
    - Required doc details:
      - Example curl for `POST /agents/coding_agent/run`
      - Explain that `conversationId` is the server conversation id, and Codex thread id is stored in `flags.threadId`
-9. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Update architecture docs (design + Mermaid) for agent run flow.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Make the end-to-end agent execution flow explicit (including system prompt prefix and thread continuation).
+   - Implementation steps:
+     - Add a Mermaid sequence/flow diagram showing:
+       - GUI/MCP → `runAgentInstruction()` → create/load conversation (agentName rules) → (optional) prefix `system_prompt.txt` on first turn → call Codex with `threadId` → persist `flags.threadId` → return `{ segments }`.
+10. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -944,6 +1007,7 @@ Important semantics (must be implemented exactly):
 - Zod: Context7 `/colinhacks/zod` (query schema parsing/validation in `listConversationsQuerySchema`)
 - Zod website (official): https://zod.dev/ (quick reference for schemas/parse errors when validating query params)
 - Supertest: Context7 `/ladjs/supertest`
+- Mermaid diagrams (for documenting the filtering flow in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -1011,7 +1075,19 @@ Important semantics (must be implemented exactly):
    - Required doc details:
      - Document `/conversations?agentName=__none__`
      - Document `/conversations?agentName=<agent>`
-8. [ ] Run full lint/format checks for touched workspaces.
+8. [ ] Update architecture docs (design + Mermaid) for conversation filtering.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Make it clear how the Chat page stays “clean” while Agents page is scoped.
+   - Implementation steps:
+     - Add a Mermaid flow diagram showing:
+       - Chat page → `/conversations?agentName=__none__`
+       - Agents page → `/conversations?agentName=<selected>`
+       - repo filter behavior (`$or` for missing agentName vs exact match).
+9. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1055,6 +1131,7 @@ Hard requirements:
   - JSON-RPC 2.0: https://www.jsonrpc.org/specification
   - MCP: https://modelcontextprotocol.io/
 - Node.js HTTP servers: Context7 `/nodejs/node`
+- Mermaid diagrams (for documenting Agents MCP surface in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -1140,7 +1217,17 @@ Hard requirements:
    - Required doc details:
      - URL: `http://localhost:5012`
      - Example `initialize` / `tools/list` / `tools/call` curl commands.
-11. [ ] Run full lint/format checks for touched workspaces.
+11. [ ] Update architecture docs (design + Mermaid) for Agents MCP 5012.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Ensure the new external integration surface is documented consistently with MCP v2.
+   - Implementation steps:
+     - Add a Mermaid diagram showing:
+       - MCP client → Agents MCP server (`5012`) → `tools/list` / `tools/call` → shared agents service → Codex run.
+12. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1209,6 +1296,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
   - React Testing Library: Context7 `/testing-library/react-testing-library` (rendering + user interaction patterns for the new Agents page tests)
   - Jest: Context7 `/jestjs/jest` (mocking `fetch`, assertions, and async test patterns)
 - Web Abort APIs (Stop button + agent change cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- Mermaid diagrams (for documenting UI-level flows in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -1346,7 +1434,19 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Required doc details:
      - Where to find Agents page (`/agents`)
      - How conversation continuation works (select from history)
-12. [ ] Run full lint/format checks for touched workspaces.
+12. [ ] Update architecture docs (design + Mermaid) for Agents UI flow.
+   - Docs to read (this subtask):
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Document the UI interaction flow so Stop/New Conversation/agent switching behavior is unambiguous.
+   - Implementation steps:
+     - Add a Mermaid flow diagram showing:
+       - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
+       - send instruction → `POST /agents/:agentName/run`
+       - agent switch → abort → reset convo → refresh history.
+13. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`

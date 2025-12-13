@@ -653,8 +653,8 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 
 1. [x] Confirm MCP segment contract stability by re-running only the two MCP wrapper integration tests (Codex + LM Studio) and verifying snapshots/segment order are unchanged.
 2. [x] REST + MCP persistence parity smoke (Mongo up): create fresh conversations, run one request per provider, and verify exactly one `user` + one `assistant` turn is stored per send with correct `source` (`REST` vs `MCP`) and `toolCalls` populated when tools fire.
-3. [ ] Mongo-down fallback smoke: stop Mongo, confirm `/health` reports `mongoConnected=false`, then verify REST `/chat` (LM Studio) still streams and MCP `codebase_question` still returns a valid segments payload (no 500s).
-4. [ ] Unsupported-provider error paths: verify REST returns 400 for an invalid provider and MCP returns a JSON-RPC invalid params error when provider is invalid.
+3. [x] Mongo-down fallback smoke: stop Mongo, confirm `/health` reports `mongoConnected=false`, then verify REST `/chat` (LM Studio) still streams and MCP `codebase_question` still returns a valid segments payload (no 500s).
+4. [x] Unsupported-provider error paths: verify REST returns 400 for an invalid provider and MCP returns a JSON-RPC invalid params error when provider is invalid.
 5. [ ] Summarize results with timestamps, what was verified, and any follow-ups in Implementation notes.
 
 #### Testing
@@ -668,7 +668,7 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
    - REST LM Studio: create conversation (`POST /conversations`), send (`POST /chat`), verify turns (`GET /conversations/:id/turns`).
    - REST Codex: same flow; verify `flags.threadId` is set after first send and turns show `provider=codex`.
    - MCP: call `tools/call` to `codebase_question` for both providers and verify response JSON contains `{ conversationId, modelId, segments[] }`; then verify turns for that conversation show `source=MCP`.
-5. [ ] Mongo-down smoke:
+5. [x] Mongo-down smoke:
    - `docker compose --env-file .env.docker.local stop mongo`
    - `curl -s http://localhost:5010/health` (expect `mongoConnected=false`)
    - Repeat one REST `/chat` call (LM Studio) and one MCP call (Codex) and confirm both succeed.
@@ -681,3 +681,5 @@ Targeted story sign-off checks that are not already covered by Task 10’s full 
 - Mongo-up parity verified (2025-12-13): REST LM Studio and REST Codex each stored exactly 1 `user` + 1 `assistant` turn per send with `source=REST`; Codex also persisted `flags.threadId` and tool calls were recorded on the assistant turn when tools fired.
 - MCP parity verified (2025-12-13): `codebase_question` for both `provider=codex` and `provider=lmstudio` returned `{ conversationId, modelId, segments[] }` and stored exactly 1 `user` + 1 `assistant` turn per send with `source=MCP` (tool calls present for Codex when tools fired).
 - Environment gotcha addressed: compose server was using stale `./codex/auth.json` and Codex failed token refresh; synced `codex/auth.json` from `$HOME/.codex/auth.json` and restarted the server container before continuing validation.
+- Mongo-down fallback verified (2025-12-13): stopped the compose `mongo` service, confirmed `/health` returned `mongoConnected=false`, then verified REST `/chat` (LM Studio) still streamed to `complete` and MCP `codebase_question` (Codex) still returned a valid segments payload; restarted `mongo` and confirmed `/health` returned `mongoConnected=true`.
+- Unsupported-provider errors verified (2025-12-13): REST `/chat` returns 400 for invalid provider; MCP v2 returns JSON-RPC invalid params (-32602) for invalid `provider` in `codebase_question`.

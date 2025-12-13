@@ -761,7 +761,7 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 
 #### Subtasks
 
-1. [ ] Update main compose (`docker-compose.yml`) to mount agent homes and expose Agents MCP port.
+1. [x] Update main compose (`docker-compose.yml`) to mount agent homes and expose Agents MCP port.
    - Docs to read (this subtask):
      - Docker Compose volumes + ports: Context7 `/docker/docs`
    - Files to edit:
@@ -776,7 +776,7 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
        - `./codex_agents:/app/codex_agents`
    - Verify:
      - `docker compose -f docker-compose.yml config` (must print a valid merged config)
-2. [ ] Update e2e compose (`docker-compose.e2e.yml`) to mount agent homes and expose Agents MCP port.
+2. [x] Update e2e compose (`docker-compose.e2e.yml`) to mount agent homes and expose Agents MCP port.
    - Docs to read (this subtask):
      - Docker Compose volumes + ports: Context7 `/docker/docs`
    - Files to edit:
@@ -791,20 +791,20 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
        - `./codex_agents:/app/codex_agents`
    - Verify:
      - `docker compose -f docker-compose.e2e.yml config` (must print a valid merged config)
-3. [ ] Set a safe default for host dev in `server/.env`.
+3. [x] Set a safe default for host dev in `server/.env`.
    - Files to edit:
      - `server/.env`
    - Implementation steps:
      - Add `CODEINFO_CODEX_AGENT_HOME=../codex_agents`
      - (Optional but recommended) add `AGENTS_MCP_PORT=5012` for explicitness.
-4. [ ] Update docs for dockerized agent setup.
+4. [x] Update docs for dockerized agent setup.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Agents MCP URL: `http://localhost:5012`
      - Compose mount path: host `./codex_agents` → container `/app/codex_agents`
      - Warning: `auth.json` may be copied into agent folders at runtime and must remain gitignored.
-5. [ ] Update architecture docs (design + Mermaid) to reflect new runtime surfaces.
+5. [x] Update architecture docs (design + Mermaid) to reflect new runtime surfaces.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -816,7 +816,7 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
        - server container
        - bind mount for `/app/codex_agents`
        - exposed Agents MCP port (`5012`)
-6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+6. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -828,17 +828,17 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads when running in compose; no regressions.
    - Confirm the server container can see `/app/codex_agents` and `AGENTS_MCP_PORT` is set (by verifying agent-related endpoints/ports once implemented in later tasks).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 

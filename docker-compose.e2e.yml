@@ -10,18 +10,22 @@ services:
     ports:
       - '6010:5010'
       - '6011:5011'
+      - '6012:5012'
     networks:
       - internal_e2e
     env_file:
       - server/.env.e2e
     environment:
       - MONGO_URI=mongodb://host.docker.internal:27617/db?directConnection=true
+      - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
+      - AGENTS_MCP_PORT=5012
     volumes:
       - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - ./e2e/fixtures:/fixtures:ro
       - ./e2e/fixtures/repo:/data:ro
       - ./codex:/app/codex
+      - ./codex_agents:/app/codex_agents
     depends_on:
       chroma-e2e:
         condition: service_started

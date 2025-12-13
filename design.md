@@ -129,6 +129,19 @@ flowchart LR
   Opts2 --> Codex
 ```
 
+### Docker/Compose agent wiring
+
+- In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
+- The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- The Agents MCP server is exposed on port `5012` (configured via `AGENTS_MCP_PORT=5012`).
+
+```mermaid
+flowchart LR
+  Host[Host] -->|bind mount| AgentDir[./codex_agents]
+  AgentDir -->|rw to container| Server[codeinfo2-server\\n/app/codex_agents]
+  Server -->|expose| MCP5012[Agents MCP\\n:5012]
+```
+
 ### Agent discovery
 
 - Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.

@@ -47,6 +47,8 @@ codex_agents/<agentName>/
 ```
 
 - Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
+- Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
+- Agents MCP (port 5012): `http://localhost:5012` (exposed by Compose; tools are added as part of Story 0000016).
 
 ### MCP for Codex
 

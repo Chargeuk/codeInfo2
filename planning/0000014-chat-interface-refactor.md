@@ -591,8 +591,8 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 ### 10. Documentation and diagrams
 
-- Task Status: ****in_progress****
-- Git Commits: ****to_do****
+- Task Status: ****done****
+- Git Commits: **edf785c, d694b59**
 
 #### Overview
 
@@ -614,15 +614,15 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (Codex & LM Studio history visibility)
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (Codex & LM Studio history visibility)
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -630,6 +630,7 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 - Updated `README.md` MCP docs to reflect `provider`/`model` params and Codex-gated availability, and clarified that `/chat` uses conversationId-only payloads with server-side history/persistence.
 - Updated `projectStructure.md` MCP2 descriptions to reflect Codex-gated availability and LM Studio being an optional provider for `codebase_question`.
 - Lint fix: ESLint was scanning generated `dist/` declarations under workspaces; updated `eslint.config.js` to ignore `**/dist/**` (and common build/test output folders) so `npm run lint --workspace server` stays stable after builds.
+- Validation: server build, client build, server tests (unit+integration+Cucumber), client tests (Jest), e2e suite, and compose build/up/down all succeeded; manual history/provider selection check passed for both Codex and LM Studio conversations.
 
 ---
 

@@ -240,7 +240,7 @@ This is a prerequisite for everything else in this story.
      - `buildCodexOptions({ codexHome: '/tmp/x' })` sets `env.CODEX_HOME` to the resolved absolute path.
    - Verify:
      - `npm run test --workspace server`
-7. [ ] Server unit test (Node `node:test`): persisting Codex thread id does not clobber other `flags` keys.
+7. [x] Server unit test (Node `node:test`): persisting Codex thread id does not clobber other `flags` keys.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -302,6 +302,7 @@ This is a prerequisite for everything else in this story.
 - Extended `server/src/chat/interfaces/ChatInterfaceCodex.ts` run flags with `codexHome`, `disableSystemContext`, and `systemPrompt`, adding per-home preflight detection and first-turn prompt prefixing that does not affect persisted user turns.
 - Added `updateConversationThreadId()` in `server/src/mongo/repo.ts` to `$set` only `flags.threadId`, and updated `ChatInterfaceCodex` to use it when persisting new thread ids.
 - Added a unit test (`server/src/test/unit/codexConfig.test.ts`) ensuring `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME` correctly.
+- Added a unit test in `server/src/test/unit/chat-interface-codex.test.ts` asserting the thread-id update path uses `$set: { 'flags.threadId': ... }` so other `flags` keys cannot be overwritten.
 
 ---
 

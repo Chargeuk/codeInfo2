@@ -151,6 +151,25 @@ flowchart TD
   Prompt -->|No| NoPrompt[No system prompt]
 ```
 
+### Auth seeding on discovery read
+
+- On every agent discovery read, the server best-effort ensures each agent home has a usable `auth.json`.
+- If `${agentHome}/auth.json` is missing and the primary Codex home (`resolveCodexHome()` / `CODEINFO_CODEX_HOME`) has `auth.json`, it is copied into the agent home.
+- It never overwrites an existing agent `auth.json`. Failures do not abort discovery; they surface as warnings on the agent summary.
+
+```mermaid
+flowchart TD
+  Disc[Agent discovery read] --> ForEach[For each discovered agent]
+  ForEach --> HasAgent{agent auth.json exists?}
+  HasAgent -->|Yes| Done[No-op]
+  HasAgent -->|No| HasPrimary{primary auth.json exists?}
+  HasPrimary -->|No| SkipSeed[No-op]
+  HasPrimary -->|Yes| Copy[Copy primary -> agent (never overwrite)]
+  Copy --> Ok{Copy ok?}
+  Ok -->|Yes| Continue[Continue listing]
+  Ok -->|No| Warn[Append warning, continue listing]
+```
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

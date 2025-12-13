@@ -677,7 +677,7 @@ This task implements that logic and wires it into the discovery read path so it 
    - Implementation steps:
      - Document that auth is auto-copied from `CODEINFO_CODEX_HOME` into agent folders when missing.
      - Document that `auth.json` must never be committed.
-9. [ ] Update architecture docs (design + Mermaid) for auth seeding flow.
+9. [x] Update architecture docs (design + Mermaid) for auth seeding flow.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:

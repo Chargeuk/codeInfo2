@@ -181,26 +181,35 @@ This is a prerequisite for everything else in this story.
    - Files to edit:
      - `server/src/providers/codexDetection.ts`
    - Implementation steps:
-     - Update `detectCodex()` to accept an optional `{ codexHome?: string }` param (or add a new exported function `detectCodexForHome(codexHome: string)`).
-     - When a home override is provided, compute `auth.json` / `config.toml` paths using the new “for-home” helpers.
-     - Preserve existing behavior when no override is provided (current callers must continue to work).
+     - Add a new exported helper `detectCodexForHome(codexHome: string): CodexDetection` that:
+       - does **not** call `setCodexDetection()` (must not mutate the process-wide cached detection used by `/chat`)
+       - checks CLI availability plus `auth.json` + `config.toml` inside the provided `codexHome` using the new “for-home” helpers
+     - Keep the existing `detectCodex()` behavior unchanged for primary Codex home:
+       - continues to update the global cached detection via `setCodexDetection()` (as used today by `/chat` and MCP v2 availability checks)
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
-4. [ ] Allow `ChatInterfaceCodex` to create Codex SDK instances with a per-request Codex home.
+4. [ ] Update `ChatInterfaceCodex` to support agent runs safely (per-agent detection + per-agent system prompt, without leaking prompts into persisted user messages).
    - Docs to read (this subtask):
      - `design.md` (Codex usage + thread model)
+     - `server/src/routes/chat.ts` (current Codex flow: conversationId vs threadId, and how flags are persisted/merged)
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-     - `server/src/chat/factory.ts`
-     - `server/src/config/codexConfig.ts`
+     - `server/src/providers/codexDetection.ts`
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-     - `server/src/chat/factory.ts` (only if types require it)
    - Implementation steps:
-     - Update the injected `codexFactory` contract so the caller can pass a codex home (example shape):
-       - `type CodexFactory = (opts?: { codexHome?: string }) => CodexLike`
-     - In the default factory, call `new Codex(buildCodexOptions({ codexHome: opts?.codexHome }))`.
-     - Ensure existing call sites still compile by keeping the parameter optional.
+     - Extend the internal `CodexRunFlags` parsing to support:
+       - `codexHome?: string` (absolute or relative path)
+       - `disableSystemContext?: boolean` (when true, do not use `SYSTEM_CONTEXT` at all)
+       - `systemPrompt?: string` (agent-provided system prompt text; must only apply on the first turn of a thread)
+     - Replace the current global-only availability check:
+       - If `codexHome` is provided, call `detectCodexForHome(codexHome)` and use its `.available/.reason` for the preflight check.
+       - Otherwise, keep using the existing cached `getCodexDetection()` preflight behavior.
+     - System prompt behavior (critical for agents):
+       - Preserve the current behavior for normal chat/codebase_question when no new flags are provided.
+       - For agents, the prompt must be applied **inside** `ChatInterfaceCodex.execute()` (like existing `SYSTEM_CONTEXT` behavior) so the system prompt does **not** appear in persisted user turns.
+       - Apply `systemPrompt` only when starting a new thread (`!threadId`).
+       - When `disableSystemContext === true`, do not apply `SYSTEM_CONTEXT` even on a new thread.
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
 5. [ ] Make thread id persistence safe: update only `flags.threadId` without overwriting other `flags` keys.
@@ -483,7 +492,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
    - Test location:
      - Update `server/src/test/unit/agents-discovery.test.ts`
    - Purpose:
-     - Ensure the run path can reliably determine if a system prompt exists for “first-turn prefix” behavior.
+     - Ensure the run path can reliably determine if an agent has a system prompt available (used as a Codex system prompt override on the first turn, per Task 7).
    - Test description:
      - Create `system_prompt.txt` and assert returned agent includes a defined `systemPromptPath`.
 7. [ ] Update docs.
@@ -995,6 +1004,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
    - Docs to read (this subtask):
      - `server/src/mcp2/tools/codebaseQuestion.ts` (McpResponder wiring)
      - `server/src/routes/chat.ts` (AbortController + req close patterns)
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts` (flags model: `threadId`, and the new `systemPrompt/disableSystemContext/codexHome` flags added in Task 1)
    - Files to edit:
      - `server/src/agents/service.ts`
    - Implementation steps (concrete + copy/pasteable defaults):
@@ -1023,16 +1033,26 @@ Critical requirement: the REST path and MCP path must share the same implementat
            - 410 if archived
            - 400 if `conversation.agentName !== agentName`
      - System prompt behavior:
+       - Agents must **not** use the global `SYSTEM_CONTEXT` by default.
        - If **starting a new conversation only**, and `${agentHome}/system_prompt.txt` exists:
-         - read it as UTF-8 and prefix the outgoing instruction (first-turn prefix, not a Codex system channel).
+         - read it as UTF-8
+         - pass it into `ChatInterfaceCodex` via flags as `systemPrompt` (do **not** modify/prefix the persisted user message)
+       - Always pass `disableSystemContext: true` in Codex flags for agent runs so global system context is never applied.
      - Thread continuation:
        - Use `threadId = conversation.flags.threadId` (string) when present.
        - Pass it to Codex in the run flags so the next call continues.
        - Persist new thread ids using the Task 1 helper that updates only `flags.threadId`.
+     - Per-agent Codex home:
+       - Resolve `agentHome = ${CODEINFO_CODEX_AGENT_HOME}/${agentName}`
+       - Create the Codex SDK instance using `CODEX_HOME = agentHome` (via `buildCodexOptions({ codexHome: agentHome })` in a per-request `codexFactory` closure passed to `getChatInterface('codex', { codexFactory })`).
+       - Also pass `codexHome: agentHome` in flags so `ChatInterfaceCodex` can run per-home availability checks (Task 1).
      - Cancellation / Stop button:
        - Accept an `AbortSignal` parameter and pass it into the Codex run flags (so client disconnect / stop can abort).
      - Segments output:
-       - Use `McpResponder` to build `segments` like `codebase_question`.
+       - Use `McpResponder` to build `segments` like `codebase_question`, but **do not** forward `thread`/`complete` events into the responder:
+         - `threadId` events represent the Codex thread id, but this API must return the **server** `conversationId`.
+         - Only feed responder: `analysis`, `tool-result`, `final`, and `error`.
+       - Return `{ agentName, conversationId, modelId, segments }` where `conversationId` is always the server conversation id.
 4. [ ] Implement the router handler by calling `runAgentInstruction()` and mapping errors.
    - Docs to read (this subtask):
      - Existing error mapping style: `server/src/routes/chat.ts`
@@ -1294,6 +1314,7 @@ Hard requirements:
   - `run_agent_instruction`
 - Reuses the shared agents service (`server/src/agents/service.ts`) so REST + MCP behavior is identical.
 - `run_agent_instruction` returns the same segment format as `codebase_question` (via `McpResponder`).
+  - Note: unlike `codebase_question`, Agents MCP must return the **server** `conversationId` (not the Codex thread id).
 
 #### Documentation Locations
 
@@ -1331,7 +1352,9 @@ Hard requirements:
    - Implementation steps:
      - Reuse `dispatchJsonRpc` from `server/src/mcpCommon/dispatch.ts`.
      - Keep protocol version + initialize response shape aligned with MCP v2.
-     - Gate `tools/list` and `tools/call` behind the same Codex availability check pattern used in `server/src/mcp2/router.ts` (return `CODE_INFO_LLM_UNAVAILABLE` when unavailable).
+     - Do **not** gate `tools/list` behind Codex availability:
+       - `list_agents` must still be discoverable even when Codex is unavailable (agents can be returned with `disabled/warnings`).
+     - Gate only `tools/call` for `run_agent_instruction` behind Codex availability (return `CODE_INFO_LLM_UNAVAILABLE` when unavailable).
 4. [ ] Implement the tool registry (exactly two tools).
    - Docs to read (this subtask):
      - `server/src/mcp2/tools.ts` (tool definition + deps injection pattern)
@@ -1537,7 +1560,23 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Implementation steps:
      - Call `useConversations({ agentName: '__none__' })`.
      - This keeps existing Chat history “clean”.
-5. [ ] Implement `AgentsPage` (reuse existing components; no parallel UI).
+5. [ ] Update `ConversationList` to support the Agents page control constraints (reuse component; hide extra controls).
+   - Files to read:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Purpose:
+     - The Agents page must have top controls **only**: agent dropdown, Stop, New conversation.
+     - The existing `ConversationList` header includes “Show archived” + Refresh, and row actions include Archive/Restore; those must be hidden/disabled on `/agents` while keeping them on `/chat`.
+   - Implementation steps (concrete):
+     - Add an optional prop to `ConversationList` such as:
+       - `variant?: 'chat' | 'agents'` (default `'chat'`)
+     - When `variant === 'agents'`:
+       - hide the “Show archived” toggle
+       - hide the Refresh button
+       - hide the per-row Archive/Restore icon buttons
+     - Ensure existing Chat page behavior is unchanged (default variant).
+6. [ ] Implement `AgentsPage` (reuse existing components; no parallel UI).
    - Files to create:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation steps (high-level but concrete):
@@ -1545,10 +1584,10 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - Keep state:
        - `selectedAgentName`
        - `activeConversationId` (undefined for “new conversation” state)
-       - `segments/messages` for the current transcript
-       - `isRunning` + `AbortController` for Stop
+       - `messages` for the current transcript (reuse the `ChatMessage` type and the existing message bubble rendering patterns from `client/src/pages/ChatPage.tsx`)
+       - `isRunning` + `AbortController` for Stop (AbortController must be aborted on agent change and Stop)
      - Layout:
-       - Left panel: reuse `ConversationList` using `useConversations({ agentName: selectedAgentName })`
+       - Left panel: reuse `ConversationList` in `variant="agents"` mode using `useConversations({ agentName: selectedAgentName })`
        - Right panel: controls + description block + transcript + input
      - Agent dropdown change handler:
        - calls `abortController.abort()` (if running)
@@ -1559,10 +1598,17 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - same behavior as agent change reset, but without changing agent
      - Stop button:
        - aborts in-flight request and sets status to stopped
+     - Conversation selection behavior:
+       - When a conversation is clicked in the left panel:
+         - set `activeConversationId`
+         - load and render the saved turn history for that conversation by reusing the same approach as `client/src/pages/ChatPage.tsx`:
+           - reuse `client/src/hooks/useConversationTurns.ts`
+           - map stored turns to `ChatMessage` using the same mapping rules as `ChatPage` (including `toolCalls` rendering)
+           - hydrate/replace the transcript when selecting a conversation
      - Send behavior:
        - call `runAgentInstruction({ agentName, instruction, conversationId: activeConversationId })`
        - set `activeConversationId` from the response
-       - map the returned `segments` into existing `ChatMessage` fields (so we can reuse the Chat transcript bubble rendering from `ChatPage.tsx`):
+       - map the returned `segments` into the same message rendering semantics used by Chat:
          - create a `user` message for the instruction (content = instruction)
          - create an `assistant` message where:
            - `content` = the `answer` segment text (Markdown rendered by `client/src/components/Markdown.tsx`)
@@ -1573,7 +1619,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
              - status = `done`
          - if the agent run returns no `thinking` or no `vector_summary`, omit those fields
      - No manual `conversationId` entry field.
-6. [ ] Client test (RTL/Jest): Agents page loads and populates agent dropdown from `GET /agents`.
+7. [ ] Client test (RTL/Jest): Agents page loads and populates agent dropdown from `GET /agents`.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1583,7 +1629,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Test description:
      - Mock `fetch` for `GET /agents` to return `{ agents: [{ name: 'coding_agent' }] }`.
      - Render the `/agents` route and assert the dropdown contains `coding_agent`.
-7. [ ] Client test (RTL/Jest): Agents page shows agent description block when `description` is present.
+8. [ ] Client test (RTL/Jest): Agents page shows agent description block when `description` is present.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1593,7 +1639,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Test description:
      - Mock `GET /agents` to include `{ name: 'coding_agent', description: '# Hello' }`.
      - Select `coding_agent` and assert the description block renders Markdown text.
-8. [ ] Client test (RTL/Jest): Changing selected agent aborts in-flight run and resets to new conversation state.
+9. [ ] Client test (RTL/Jest): Changing selected agent aborts in-flight run and resets to new conversation state.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1606,7 +1652,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - the abort controller was triggered
        - transcript is cleared
        - `activeConversationId` is cleared (indirectly via next send starting a new conversation)
-9. [ ] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
+10. [ ] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1617,7 +1663,19 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - Mock `GET /conversations?agentName=coding_agent` to return an item with `conversationId: 'c1'`.
      - Click that conversation in the sidebar and send an instruction.
      - Assert the `POST /agents/coding_agent/run` payload includes `conversationId: 'c1'`.
-10. [ ] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
+11. [ ] Client test (RTL/Jest): Selecting a conversation hydrates and renders stored turn history.
+   - Test type:
+     - Client RTL/Jest test
+   - Test location:
+     - Create `client/src/test/agentsPage.turnHydration.test.tsx`
+   - Purpose:
+     - Ensure Agents page behaves like Chat by showing the transcript for an existing conversation when selected.
+   - Test description:
+     - Mock:
+       - `GET /conversations?agentName=coding_agent` → returns `{ items: [{ conversationId: 'c1', title: '...', provider:'codex', model:'...', lastMessageAt:'...' }] }`
+       - `GET /conversations/c1/turns` → returns a user + assistant turn.
+     - Click the conversation row and assert the transcript renders both turns.
+12. [ ] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1631,13 +1689,13 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - thinking UI is present (collapsed/expandable)
        - answer Markdown renders
        - a tool row exists for `vector_summary`
-11. [ ] Update docs.
+13. [ ] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Where to find Agents page (`/agents`)
      - How conversation continuation works (select from history)
-12. [ ] Update architecture docs (design + Mermaid) for Agents UI flow.
+14. [ ] Update architecture docs (design + Mermaid) for Agents UI flow.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1649,7 +1707,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
        - send instruction → `POST /agents/:agentName/run`
        - agent switch → abort → reset convo → refresh history.
-13. [ ] Update `projectStructure.md` for new client agents modules and tests.
+15. [ ] Update `projectStructure.md` for new client agents modules and tests.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -1659,7 +1717,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - `client/src/pages/AgentsPage.tsx`
        - `client/src/api/agents.ts`
        - new Agents page test file(s)
-14. [ ] Run lint + format checks (all workspaces) and fix any failures.
+16. [ ] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

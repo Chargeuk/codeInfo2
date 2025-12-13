@@ -201,7 +201,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
 â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
-â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources)
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and Codex gating local
 â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating

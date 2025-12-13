@@ -1,5 +1,7 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
+import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
+import { isObject } from '../mcpCommon/guards.js';
 import { isCodexAvailable } from './codexAvailability.js';
 import {
   ArchivedConversationError,
@@ -41,100 +43,91 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  const id: JsonRpcId = message.id ?? null;
+  const id: JsonRpcId = (message as { id?: JsonRpcId } | null)?.id ?? null;
 
-  if (!isValidRequest(message)) {
-    send(jsonRpcError(id, INVALID_REQUEST_CODE, 'Invalid Request'));
-    return;
-  }
+  const response = await dispatchJsonRpc<JsonRpcId, unknown>({
+    message,
+    getId: () => id,
+    validateRequest: isValidRequest,
+    handlers: {
+      invalidRequest: (requestId) =>
+        jsonRpcError(requestId, INVALID_REQUEST_CODE, 'Invalid Request'),
+      methodNotFound: (requestId) =>
+        jsonRpcError(requestId, METHOD_NOT_FOUND_CODE, 'Method not found'),
+      initialize: (requestId) =>
+        jsonRpcResult(requestId, {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: SERVER_INFO,
+        }),
+      resourcesList: (requestId) => jsonRpcResult(requestId, { resources: [] }),
+      resourcesListTemplates: (requestId) =>
+        jsonRpcResult(requestId, { resource_templates: [] }),
+      toolsList: async (requestId) => {
+        if (!(await isCodexAvailable())) {
+          return jsonRpcError(
+            requestId,
+            CODE_INFO_LLM_UNAVAILABLE,
+            'CODE_INFO_LLM_UNAVAILABLE',
+          );
+        }
 
-  const method = message.method;
+        const tools = await listTools();
+        return jsonRpcResult(requestId, tools);
+      },
+      toolsCall: async (requestId, paramsUnknown) => {
+        if (!(await isCodexAvailable())) {
+          return jsonRpcError(
+            requestId,
+            CODE_INFO_LLM_UNAVAILABLE,
+            'CODE_INFO_LLM_UNAVAILABLE',
+          );
+        }
 
-  if (method === 'initialize') {
-    send(
-      jsonRpcResult(id, {
-        protocolVersion: PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: SERVER_INFO,
-      }),
-    );
-    return;
-  }
+        const params = isObject(paramsUnknown) ? paramsUnknown : {};
+        const name = params.name;
+        const args = params.arguments;
 
-  if (method === 'resources/list') {
-    send(jsonRpcResult(id, { resources: [] }));
-    return;
-  }
+        if (typeof name !== 'string') {
+          return jsonRpcError(
+            requestId,
+            INVALID_PARAMS_CODE,
+            'Invalid tool name',
+          );
+        }
 
-  if (method === 'resources/listTemplates') {
-    send(jsonRpcResult(id, { resource_templates: [] }));
-    return;
-  }
+        try {
+          const result = await callTool(name, args);
+          return jsonRpcResult(requestId, result);
+        } catch (err) {
+          if (err instanceof InvalidParamsError) {
+            return jsonRpcError(
+              requestId,
+              INVALID_PARAMS_CODE,
+              err.message,
+              err.data,
+            );
+          }
 
-  if (method === 'tools/list') {
-    if (!(await isCodexAvailable())) {
-      send(
-        jsonRpcError(
-          id,
-          CODE_INFO_LLM_UNAVAILABLE,
-          'CODE_INFO_LLM_UNAVAILABLE',
-        ),
-      );
-      return;
-    }
+          if (err instanceof ArchivedConversationError) {
+            return jsonRpcError(requestId, err.code, err.message);
+          }
 
-    const tools = await listTools();
-    send(jsonRpcResult(id, tools));
-    return;
-  }
+          if (err instanceof ToolNotFoundError) {
+            return jsonRpcError(requestId, METHOD_NOT_FOUND_CODE, err.message);
+          }
 
-  if (method === 'tools/call') {
-    if (!(await isCodexAvailable())) {
-      send(
-        jsonRpcError(
-          id,
-          CODE_INFO_LLM_UNAVAILABLE,
-          'CODE_INFO_LLM_UNAVAILABLE',
-        ),
-      );
-      return;
-    }
+          return jsonRpcError(
+            requestId,
+            METHOD_NOT_FOUND_CODE,
+            'Method not found',
+          );
+        }
+      },
+    },
+  });
 
-    const params = isObject(message.params) ? message.params : {};
-    const name = params.name;
-    const args = params.arguments;
-
-    if (typeof name !== 'string') {
-      send(jsonRpcError(id, INVALID_PARAMS_CODE, 'Invalid tool name'));
-      return;
-    }
-
-    try {
-      const result = await callTool(name, args);
-      send(jsonRpcResult(id, result));
-      return;
-    } catch (err) {
-      if (err instanceof InvalidParamsError) {
-        send(jsonRpcError(id, INVALID_PARAMS_CODE, err.message, err.data));
-        return;
-      }
-
-      if (err instanceof ArchivedConversationError) {
-        send(jsonRpcError(id, err.code, err.message));
-        return;
-      }
-
-      if (err instanceof ToolNotFoundError) {
-        send(jsonRpcError(id, METHOD_NOT_FOUND_CODE, err.message));
-        return;
-      }
-
-      send(jsonRpcError(id, METHOD_NOT_FOUND_CODE, 'Method not found'));
-      return;
-    }
-  }
-
-  send(jsonRpcError(id, METHOD_NOT_FOUND_CODE, 'Method not found'));
+  send(response);
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -151,10 +144,9 @@ async function readBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString();
 }
 
-function isValidRequest(message: JsonRpcRequest) {
+function isValidRequest(
+  message: unknown,
+): message is { jsonrpc: '2.0'; method: string; params?: unknown } {
+  if (!isObject(message)) return false;
   return message.jsonrpc === '2.0' && typeof message.method === 'string';
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

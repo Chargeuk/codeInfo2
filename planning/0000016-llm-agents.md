@@ -254,7 +254,14 @@ This is a prerequisite for everything else in this story.
      - Add a Mermaid diagram showing the Codex creation flow (Chat/Agents) with an explicit `codexHome` passed into the Codex factory/options (no process env mutation).
    - Verify:
      - Run `npm run format:check --workspace server` (must exit 0).
-9. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
+9. [ ] Update `projectStructure.md` for new files added by this task.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure the repository’s documented structure includes any newly created test files.
+   - Required updates:
+     - Add the new server unit test files created in this task under the Server section (unit tests).
+10. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -342,7 +349,14 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
    - Implementation steps:
      - Document `Conversation.agentName?: string` and how it separates Chat vs Agents history.
      - Add/extend a Mermaid diagram showing the conversation model/persistence flow including the new `agentName` field and the “Chat = __none__ vs Agents = named agent” separation.
-5. [ ] Run full lint/format checks for touched workspaces.
+5. [ ] Update `projectStructure.md` for schema/index changes.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure the architecture/docs inventory reflects new data model fields and any server-side schema/index adjustments.
+   - Required updates:
+     - Note the conversation model update location(s) and that conversations can now be tagged with `agentName`.
+6. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -462,7 +476,17 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
    - Implementation steps:
      - Add a Mermaid flow diagram for “Agent discovery” showing:
        - `CODEINFO_CODEX_AGENT_HOME` → scan direct subfolders → require `config.toml` → optionally read `description.md` / detect `system_prompt.txt`.
-9. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Update `projectStructure.md` for new agents modules.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure newly added server agent modules and tests are documented in the repo structure.
+   - Required updates:
+     - Add entries for:
+       - `server/src/agents/types.ts`
+       - `server/src/agents/discovery.ts`
+       - the new discovery unit test file(s)
+10. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -590,7 +614,17 @@ This task implements that logic and wires it into the discovery read path so it 
    - Implementation steps:
      - Add a Mermaid flow diagram for “Auth seeding on discovery read” showing:
        - discovery read → for each agent: if missing `auth.json` and primary has `auth.json` then copy (never overwrite) → warnings on failure → continue listing.
-10. [ ] Run full lint/format checks for touched workspaces.
+10. [ ] Update `projectStructure.md` for new auth seeding modules/files.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure the new auth seeding helper and any related test/support files are discoverable from the project structure docs.
+   - Required updates:
+     - Add entries for:
+       - `server/src/agents/authSeed.ts`
+       - any new unit test file(s) created for auth seeding
+       - `.dockerignore` (if created by this task)
+11. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -798,7 +832,17 @@ This endpoint is the single source of truth for:
      - Document the “single source of truth” agent listing flow reused by GUI + MCP.
    - Implementation steps:
      - Add a Mermaid flow diagram: GUI/MCP → `GET /agents`/`listAgents()` → discovery (+ auth seeding) → response `{ agents: [...] }`.
-9. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Update `projectStructure.md` for new REST agent listing modules.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure newly added server REST modules and tests are documented.
+   - Required updates:
+     - Add entries for:
+       - `server/src/agents/service.ts`
+       - `server/src/routes/agents.ts`
+       - the new `GET /agents` unit test file(s)
+10. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -961,7 +1005,16 @@ Critical requirement: the REST path and MCP path must share the same implementat
    - Implementation steps:
      - Add a Mermaid sequence/flow diagram showing:
        - GUI/MCP → `runAgentInstruction()` → create/load conversation (agentName rules) → (optional) prefix `system_prompt.txt` on first turn → call Codex with `threadId` → persist `flags.threadId` → return `{ segments }`.
-10. [ ] Run full lint/format checks for touched workspaces.
+10. [ ] Update `projectStructure.md` for new REST agent run modules.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure newly added route modules and tests for agent execution are documented.
+   - Required updates:
+     - Add entries for:
+       - `server/src/routes/agentsRun.ts`
+       - any new unit test file(s) created for `POST /agents/:agentName/run`
+11. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1087,7 +1140,14 @@ Important semantics (must be implemented exactly):
        - Chat page → `/conversations?agentName=__none__`
        - Agents page → `/conversations?agentName=<selected>`
        - repo filter behavior (`$or` for missing agentName vs exact match).
-9. [ ] Run full lint/format checks for touched workspaces.
+9. [ ] Update `projectStructure.md` for new conversation filter tests.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure any new test files added for agent filtering are documented.
+   - Required updates:
+     - Add entries for the new unit test file(s) created by this task.
+10. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1227,7 +1287,19 @@ Hard requirements:
    - Implementation steps:
      - Add a Mermaid diagram showing:
        - MCP client → Agents MCP server (`5012`) → `tools/list` / `tools/call` → shared agents service → Codex run.
-12. [ ] Run full lint/format checks for touched workspaces.
+12. [ ] Update `projectStructure.md` for new MCP Agents server modules.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure the new MCP server entrypoint/router/tools and associated tests are documented.
+   - Required updates:
+     - Add entries for:
+       - `server/src/mcpAgents/server.ts`
+       - `server/src/mcpAgents/router.ts`
+       - `server/src/mcpAgents/types.ts` (if created)
+       - `server/src/mcpAgents/tools.ts`
+       - new MCP unit test file(s)
+13. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace server`
      - `npm run format:check --workspace server`
@@ -1446,7 +1518,17 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
        - send instruction → `POST /agents/:agentName/run`
        - agent switch → abort → reset convo → refresh history.
-13. [ ] Run full lint/format checks for touched workspaces.
+13. [ ] Update `projectStructure.md` for new client agents modules and tests.
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Ensure newly added client page/API modules and test files are documented.
+   - Required updates:
+     - Add entries for:
+       - `client/src/pages/AgentsPage.tsx`
+       - `client/src/api/agents.ts`
+       - new Agents page test file(s)
+14. [ ] Run full lint/format checks for touched workspaces.
    - Commands:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`

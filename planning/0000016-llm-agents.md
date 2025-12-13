@@ -46,9 +46,17 @@ Agents should behave like chat/codebase_question in terms of streaming and struc
 - A new env var exists: `CODEINFO_CODEX_AGENT_HOME`.
   - Agents are stored under `${CODEINFO_CODEX_AGENT_HOME}/${agentName}`.
   - Example: `codex_agents/coding_agent/config.toml` maps to agent home `codex_agents/coding_agent`.
-- Startup auth seeding:
-  - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) *does* contain `auth.json`, then `auth.json` is copied into that agent home on startup.
-  - This occurs for all agents at startup (idempotent: do not overwrite existing agent `auth.json`).
+- Agent discovery:
+  - Available agents are derived from the folder structure inside `CODEINFO_CODEX_AGENT_HOME`.
+  - Any direct subfolder containing `config.toml` is considered an available agent.
+  - The `agentName` is the subfolder name.
+- Auth seeding (runs on every discovery read):
+  - Every time the agent home folders are read/validated (e.g. for `list_agents`, UI list refresh, or server-side agent lookups), the system must attempt auth seeding.
+  - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) *does* contain `auth.json`, then `auth.json` is copied into that agent home.
+  - This is idempotent: never overwrite an existing agent `auth.json`.
+- Per-agent system prompt:
+  - If `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/system_prompt.txt` exists, it is used as the agent system prompt for new conversations.
+  - If it does not exist, the agent runs with no system prompt.
 - Docker / Compose:
   - `codex_agents/` is mounted into the server container.
   - `CODEINFO_CODEX_AGENT_HOME` points to that mount path.
@@ -126,14 +134,18 @@ This is a prerequisite for everything else in this story.
 
 ---
 
-### 2. Agent discovery + startup auth seeding + docker wiring
+### 2. Agent discovery + auth seeding + docker wiring
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`, validate each agent folder shape, and seed missing `auth.json` from the primary Codex home when available. Update Docker/Compose so agent folders are mounted into containers correctly.
+Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`, validate each agent folder shape, and seed missing `auth.json` from the primary Codex home when available.
+
+Important: auth seeding must run every time agent folders are read/checked (not only at startup), so both MCP and GUI always converge on a usable per-agent auth state when possible.
+
+Update Docker/Compose so agent folders are mounted into containers correctly.
 
 #### Documentation Locations
 
@@ -143,12 +155,18 @@ Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`, validate each agent 
 
 #### Subtasks
 
-1. [ ] Define an “agent folder contract” (minimum: `<agentHome>/config.toml`; optional: `<agentHome>/system_prompt.md`; optional: `<agentHome>/auth.json`).
-2. [ ] Implement agent discovery utility (returns id/name + paths + any warnings) and unit tests.
-3. [ ] Implement startup auth seeding:
+1. [ ] Define an “agent folder contract”:
+   - required: `<agentHome>/config.toml`
+   - optional: `<agentHome>/system_prompt.txt`
+   - optional: `<agentHome>/auth.json`
+2. [ ] Implement agent discovery utility and unit tests:
+   - scan `CODEINFO_CODEX_AGENT_HOME` for direct subfolders containing `config.toml`
+   - compute `agentName` from folder name
+   - return `agentHome` path and config path
+3. [ ] Implement auth seeding that runs on every discovery read:
    - copy `${CODEINFO_CODEX_HOME}/auth.json` to `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/auth.json` when missing
    - never overwrite an existing agent `auth.json`
-   - do not crash startup if auth is missing; surface an explicit “agent disabled” state instead.
+   - do not crash if auth is missing; surface an explicit “agent disabled” state instead.
 4. [ ] Update Dockerfile/compose wiring to mount `codex_agents/` into the server container and set `CODEINFO_CODEX_AGENT_HOME` accordingly.
 5. [ ] Ensure `codex_agents/**/auth.json` is gitignored and not included in Docker build contexts.
 6. [ ] Update `README.md` with:
@@ -207,7 +225,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
    - `McpResponder` so output segments match `codebase_question`
    - conversation persistence with `source: 'MCP'` and flags capturing `agentName` + per-agent codex flags.
 5. [ ] Per-agent system prompt:
-   - when starting a new conversation (no `conversationId`), prepend a system block sourced from `${agentHome}/system_prompt.md` (or empty when missing)
+   - when starting a new conversation (no `conversationId`), use `${agentHome}/system_prompt.txt` if it exists; if it does not exist, do not use a system prompt
    - do not affect existing chat/system context.
 6. [ ] Add characterization tests for `5012` server:
    - tools/list returns exactly the two tools
@@ -314,4 +332,3 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 
 ---
-

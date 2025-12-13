@@ -451,6 +451,8 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 #### Implementation notes
 
+- Task 5 progress (2025-12-13): `npm run build --workspace server` ok.
+
 - `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
 - MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
 - Test updates/additions:
@@ -845,7 +847,7 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
 
 #### Subtasks
 
-1. [ ] Build the server (outside Docker) and confirm it exits 0:
+1. [x] Build the server (outside Docker) and confirm it exits 0:
    - `npm run build --workspace server`
    - Docs to read (repeat, if unfamiliar with npm workspaces/scripts):
      - npm workspaces: https://docs.npmjs.com/cli/v10/using-npm/workspaces

@@ -109,8 +109,10 @@ export function ensureCodexConfigSeeded(): string {
   return target;
 }
 
-export function buildCodexOptions(): CodexOptions | undefined {
-  const home = getCodexHome();
+export function buildCodexOptions(params?: {
+  codexHome?: string;
+}): CodexOptions | undefined {
+  const home = resolveCodexHome(params?.codexHome);
   return {
     env: {
       // ensure we give the full environment so MCP servers work

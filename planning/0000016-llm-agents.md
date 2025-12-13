@@ -155,7 +155,7 @@ This is a prerequisite for everything else in this story.
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
      - Run `npm run format:check --workspace server` (must exit 0).
-2. [ ] Update `buildCodexOptions()` to accept an explicit codex home override (no global env mutation).
+2. [x] Update `buildCodexOptions()` to accept an explicit codex home override (no global env mutation).
    - Docs to read (this subtask):
      - Node env model: Context7 `/nodejs/node`
    - Files to read:
@@ -297,6 +297,7 @@ This is a prerequisite for everything else in this story.
 #### Implementation notes
 
 - Added codex-home helper functions in `server/src/config/codexConfig.ts` (`resolveCodexHome`, `getCodexConfigPathForHome`, `getCodexAuthPathForHome`) and updated existing getters to delegate, enabling per-home path computation without process env mutation.
+- Updated `buildCodexOptions()` to accept `{ codexHome?: string }` and inject `CODEX_HOME` into the Codex SDK options env without mutating `process.env`.
 
 ---
 

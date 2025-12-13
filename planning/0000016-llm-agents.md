@@ -25,6 +25,8 @@ An agent is a named Codex assistant that can be invoked from a dedicated **Agent
 
 Agents should behave like chat/codebase_question in terms of streaming and structured output (thinking + vector summaries + answer), but differ in that each agent uses its own Codex configuration folder under a new root, and each agent can have its own system prompt.
 
+Agent conversations must be persisted just like existing chats, but must carry explicit metadata indicating which agent they belong to so the existing Chat page remains “clean” (shows only non-agent conversations) while the Agents page shows only conversations for the selected agent.
+
 ## Acceptance Criteria
 
 - A new GUI page exists: `/agents` (and navigation entry “Agents”).
@@ -34,6 +36,11 @@ Agents should behave like chat/codebase_question in terms of streaming and struc
   - run an instruction against an agent
   - continue a prior run by reusing a `conversationId`
   - render results in the same segment format as `codebase_question` (`thinking`, `vector_summary`, `answer`).
+- Agent conversation separation:
+  - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
+  - Each agent conversation stores the agent identifier in conversation metadata (e.g. `conversation.flags.agentName`).
+  - The existing Chat page conversation list shows only non-agent conversations (agentName absent).
+  - The Agents page conversation list is filtered to only show conversations for the currently selected agent.
 - The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
   - returns agent `name` and optional `description` (from `description.md` when present)
 - A new MCP v2-style JSON-RPC server runs on port **5012** and exposes exactly two tools:
@@ -299,6 +306,7 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
    - ensures discovery read + auth seeding runs on each call
    - uses per-agent Codex home injection (from Task 1)
    - uses per-agent system prompt (`system_prompt.txt`) only for new conversations
+   - persists the conversation with agent metadata (e.g. `flags.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
    - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
 4. [ ] Response shape includes:
    - `agentName`
@@ -322,7 +330,53 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
 
 ---
 
-### 6. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
+### 6. Server endpoint: list conversations filtered by agent
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add server support for listing conversations filtered by agent metadata so:
+
+- the existing Chat page lists only non-agent conversations
+- the Agents page lists only conversations for the selected agent
+
+The agent identity must be stored in the conversation metadata (e.g. `conversation.flags.agentName`) by the agent run endpoints (Task 5 and MCP tool runs).
+
+#### Documentation Locations
+
+- Existing conversations endpoints:
+  - `server/src/routes/conversations.ts`
+  - `server/src/mongo/repo.ts` (listConversations)
+  - `server/src/mongo/conversation.ts` (schema)
+- Mongo query patterns (Mongoose): Context7 `/mongoosejs/mongoose`
+- Supertest: Context7 `/ladjs/supertest`
+
+#### Subtasks
+
+1. [ ] Extend the conversations list endpoint to accept an optional filter:
+   - `agentName=<name>` returns only conversations where `flags.agentName === <name>`
+   - `agentName=__none__` returns only conversations where `flags.agentName` is missing/empty (non-agent chats)
+2. [ ] Update the repository query in `listConversations` to support the filter without breaking pagination ordering.
+3. [ ] Add supertest coverage proving:
+   - non-agent filter excludes agent conversations
+   - specific agent filter returns only that agent’s conversations
+   - existing behavior is unchanged when the filter is omitted
+4. [ ] Update `README.md` documenting the new filter semantics for the conversations endpoint.
+5. [ ] Run full linting for touched workspaces.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+
+---
+
+### 7. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -377,7 +431,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 
 ---
 
-### 7. Add Agents GUI page (`/agents`) and navigation
+### 8. Add Agents GUI page (`/agents`) and navigation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -400,18 +454,21 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 2. [ ] Create a client API module for agents:
    - `listAgents()` calls the server agents listing endpoint from Task 4
    - `runAgentInstruction({ agentName, instruction, conversationId? })` calls `POST /agents/:agentName/run`
-3. [ ] Build Agents page UI:
-   - agent selector (from listAgents)
+3. [ ] Update client conversation list hook/component to accept an optional `agentName` filter parameter and call the server filter added in Task 6.
+4. [ ] Ensure the existing Chat page conversation list uses the “non-agent” filter so it stays clean (agent conversations hidden).
+5. [ ] Build Agents page UI by reusing Chat page components where possible (do not create parallel components):
+   - reuse the existing conversation history panel component but pass an `agentName` filter so only that agent’s conversations appear
+   - agent selector (from listAgents) dynamically updates the conversation list filter
    - show optional agent description (render markdown)
-   - instruction text area + submit
+   - instruction text area + submit (no provider/model selectors)
    - optional conversationId input (for continuation)
    - result view rendering segments (`thinking`, `vector_summary`, `answer`) consistent with `codebase_question` rendering expectations
-4. [ ] Add client tests (RTL/Jest):
+6. [ ] Add client tests (RTL/Jest):
    - renders agent list
    - runs an instruction and displays segments
    - continues a conversationId and shows updated results.
-5. [ ] Update `README.md` with Agents page usage.
-6. [ ] Run full linting for touched workspaces.
+7. [ ] Update `README.md` with Agents page usage.
+8. [ ] Run full linting for touched workspaces.
 
 #### Testing
 
@@ -423,7 +480,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 ---
 
-### 8. Final task – verify against acceptance criteria
+### 9. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -461,7 +518,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 5. [ ] Use the Playwright MCP tool to manually check:
    - `/agents` loads and can run an instruction
    - MCP `5012` server responds to initialize/tools/list/tools/call
-   - screenshots saved to `./test-results/screenshots/` named like `0000016-08-agents.png`, `0000016-08-mcp-5012.png`
+   - screenshots saved to `./test-results/screenshots/` named like `0000016-09-agents.png`, `0000016-09-mcp-5012.png`
 
 #### Implementation notes
 

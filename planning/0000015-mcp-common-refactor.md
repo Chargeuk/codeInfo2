@@ -456,6 +456,10 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 - Task 5 progress (2025-12-13): `npm run compose:build` ok (script runs Docker build with `--pull --no-cache`).
 - Task 5 progress (2025-12-13): updated `README.md` + `design.md` to explicitly document the two MCP surfaces, shared `server/src/mcpCommon/` ownership boundaries, and `/mcp` text-content tool result encoding.
 - Task 5 progress (2025-12-13): confirmed `projectStructure.md` already lists `server/src/mcpCommon/*` plus the MCP contract/characterization tests added in Story 0000015 (no additional edits needed).
+- Task 5 progress (2025-12-13): `npm run test --workspace server` ok (unit+integration+mcp2 tests + Cucumber: 44 scenarios passed).
+- Task 5 progress (2025-12-13): `npm run test --workspace client` ok (43 suites, 101 tests).
+- Task 5 progress (2025-12-13): `npm run e2e` ok (25 passed, 2 skipped).
+- Task 5 progress (2025-12-13): `npm run compose:up` ok (services healthy).
 
 - `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
 - MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
@@ -913,13 +917,13 @@ Final end-to-end validation for the story. Confirms the refactor is safe (no con
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check (story acceptance + regressions):
    - Confirm `/chat` renders and can send a message without UI regressions.
    - Confirm `/logs` renders and can load log history.

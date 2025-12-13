@@ -45,7 +45,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - An information block is shown for the selected agent, rendering its `description` (when present).
 - Agent conversation separation:
   - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
-  - Each agent conversation stores the agent identifier in conversation metadata (e.g. `conversation.flags.agentName`).
+  - Each agent conversation stores the agent identifier in conversation metadata as a top-level optional field (e.g. `conversation.agentName`).
   - The existing Chat page conversation list shows only non-agent conversations (agentName absent).
   - The Agents page conversation list is filtered to only show conversations for the currently selected agent.
 - The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
@@ -148,7 +148,7 @@ This is a prerequisite for everything else in this story.
    - default behavior must remain unchanged for existing chat flows.
 6. [ ] Prevent Codex thread id updates from clobbering other conversation metadata:
    - update the conversation flags update path used by `ChatInterfaceCodex` when persisting `threadId` so it merges into existing `flags` rather than replacing them
-   - this must preserve `flags.agentName` and any codex flags stored on the conversation
+   - this must preserve any existing codex flags stored on the conversation (and other future keys)
    - add/extend tests proving `threadId` persistence does not drop existing flag keys.
 7. [ ] Add/extend unit tests to lock in the new API shape and safety:
    - `buildCodexOptions({ codexHome })` sets `env.CODEX_HOME` correctly
@@ -323,11 +323,11 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
    - ensures discovery read + auth seeding runs on each call
    - uses per-agent Codex home injection (from Task 1)
    - uses per-agent system prompt (`system_prompt.txt`) only for new conversations
-   - persists the conversation with agent metadata (e.g. `flags.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
+   - persists the conversation with agent metadata (e.g. `conversation.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
    - `conversationId` semantics:
-     - if `conversationId` is omitted, create a new conversation in Mongo with `provider: 'codex'`, default model, and `flags.agentName`
+     - if `conversationId` is omitted, create a new conversation in Mongo with `provider: 'codex'`, default model, and `agentName`
      - if `conversationId` is provided, load that conversation and reject if it is archived
-     - if `conversationId` is provided, reject if `flags.agentName` is missing or does not match the route `agentName`
+     - if `conversationId` is provided, reject if `conversation.agentName` is missing or does not match the route `agentName`
      - for Codex thread continuation, use `conversation.flags.threadId` as the Codex `threadId` and update it when Codex emits a new thread id
    - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
 4. [ ] Response shape includes:
@@ -364,7 +364,7 @@ Add server support for listing conversations filtered by agent metadata so:
 - the existing Chat page lists only non-agent conversations
 - the Agents page lists only conversations for the selected agent
 
-The agent identity must be stored in the conversation metadata (e.g. `conversation.flags.agentName`) by the agent run endpoints (Task 5 and MCP tool runs).
+The agent identity must be stored in the conversation metadata as a top-level field (e.g. `conversation.agentName`) by the agent run endpoints (Task 5 and MCP tool runs).
 
 #### Documentation Locations
 
@@ -378,8 +378,8 @@ The agent identity must be stored in the conversation metadata (e.g. `conversati
 #### Subtasks
 
 1. [ ] Extend the conversations list endpoint to accept an optional filter:
-   - `agentName=<name>` returns only conversations where `flags.agentName === <name>`
-   - `agentName=__none__` returns only conversations where `flags.agentName` is missing/empty (non-agent chats)
+   - `agentName=<name>` returns only conversations where `conversation.agentName === <name>`
+   - `agentName=__none__` returns only conversations where `conversation.agentName` is missing/empty (non-agent chats)
 2. [ ] Update the repository query in `listConversations` to support the filter without breaking pagination ordering.
 3. [ ] Add supertest coverage proving:
    - non-agent filter excludes agent conversations
@@ -434,7 +434,7 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 4. [ ] Implement `run_agent_instruction` by reusing:
    - shared `runAgentInstruction()` (Task 4) so behavior matches REST `POST /agents/:agentName/run`
    - `McpResponder` so output segments match `codebase_question`
-   - conversation persistence with `source: 'MCP'` and flags capturing `agentName` + per-agent codex flags.
+   - conversation persistence with `source: 'MCP'` and conversation metadata capturing `agentName` plus per-agent codex flags.
    - conversationId semantics match Task 5 (conversationId is our id; Codex thread id is stored in `flags.threadId`).
 5. [ ] Per-agent system prompt:
    - when starting a new conversation (no `conversationId`), use `${agentHome}/system_prompt.txt` if it exists; if it does not exist, do not use a system prompt

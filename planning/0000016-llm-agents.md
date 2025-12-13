@@ -736,7 +736,7 @@ This task implements that logic and wires it into the discovery read path so it 
 
 ### 5. Docker/Compose wiring for agent homes
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

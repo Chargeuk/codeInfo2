@@ -45,8 +45,8 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - An information block is shown for the selected agent, rendering its `description` (when present).
 - Agent conversation separation:
   - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
-  - Each agent conversation stores the agent identifier in conversation metadata as a top-level optional field (e.g. `conversation.agentName`).
-  - Agent conversations do **not** persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; those are fixed server defaults. `Conversation.flags` is reserved for Codex continuation metadata (e.g. `threadId`).
+  - Each agent conversation stores the agent identifier in conversation metadata as a top-level optional field `conversation.agentName`.
+  - Agent conversations do **not** persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; those are fixed server defaults. `Conversation.flags` is reserved for Codex continuation metadata (such as `threadId`).
   - The existing Chat page conversation list shows only non-agent conversations (agentName absent).
   - The Agents page conversation list is filtered to only show conversations for the currently selected agent.
 - The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
@@ -70,7 +70,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - The `agentName` is the subfolder name.
   - If `${agentHome}/description.md` exists, its contents are returned as the agent `description` in list responses.
 - Auth seeding (runs on every discovery read):
-  - Every time the agent home folders are read/validated (e.g. for `list_agents`, UI list refresh, or server-side agent lookups), the system must attempt auth seeding.
+  - Every time the agent home folders are read/validated (for `list_agents`, UI list refresh, or server-side agent lookups), the system must attempt auth seeding.
   - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) *does* contain `auth.json`, then `auth.json` is copied into that agent home.
   - This is idempotent: never overwrite an existing agent `auth.json`.
 - Per-agent system prompt:
@@ -135,27 +135,113 @@ This is a prerequisite for everything else in this story.
 
 #### Subtasks
 
-1. [ ] Update `server/src/config/codexConfig.ts` to support an explicit Codex home override:
-   - add `resolveCodexHome(overrideHome?: string): string` (or equivalent)
-   - update `getCodexConfigPath()` / `getCodexAuthPath()` (or add new helpers) so callers can request paths for a provided home without mutating `process.env`.
-2. [ ] Update `buildCodexOptions()` to accept an optional Codex home override and set `CODEX_HOME` to that resolved path (while still spreading the full env for MCP servers).
-3. [ ] Update Codex detection to support checking a provided home:
-   - update `server/src/providers/codexDetection.ts` to accept an optional Codex home override (or add a second exported function) so agent discovery can validate `{ config.toml, auth.json }` per-agent.
-4. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` so the Codex SDK instance can be created with a specific Codex home:
-   - extend the injected `codexFactory` signature to accept `{ codexHome?: string }` (or similar)
-   - default behavior must remain unchanged (uses primary Codex home via existing env/defaults).
-5. [ ] Prevent Codex thread id updates from clobbering other conversation metadata:
-   - update the conversation flags update path used by `ChatInterfaceCodex` when persisting `threadId` so it merges into existing `flags` rather than replacing them
-   - this must preserve any existing codex flags stored on the conversation (and other future keys)
-   - add/extend tests proving `threadId` persistence does not drop existing flag keys.
-6. [ ] Add/extend unit tests to lock in the new API shape and safety:
-   - `buildCodexOptions({ codexHome })` sets `env.CODEX_HOME` correctly
-   - `detectCodex({ codexHome })` validates config/auth paths under that home
-   - constructing two Codex factories with different homes does not require global env mutation.
-7. [ ] Update `design.md` describing:
-   - primary Codex home vs agent Codex home
-   - how Codex home is injected without `process.env` mutation.
-8. [ ] Run full linting for touched workspaces.
+1. [ ] Add explicit “Codex home override” helpers in `server/src/config/codexConfig.ts`.
+   - Docs to read (this subtask):
+     - `README.md` (Codex home + seeding behavior)
+     - Node path APIs: Context7 `/nodejs/node`
+   - Files to read:
+     - `server/src/config/codexConfig.ts`
+   - Files to edit:
+     - `server/src/config/codexConfig.ts`
+   - Implementation steps:
+     - Add `export function resolveCodexHome(overrideHome?: string): string` that returns an absolute path and falls back to the existing `CODEINFO_CODEX_HOME ?? './codex'`.
+     - Add “for-home” helpers so callers can compute paths without mutating env:
+       - `getCodexConfigPathForHome(codexHome: string): string`
+       - `getCodexAuthPathForHome(codexHome: string): string`
+     - Keep existing exported functions (`getCodexHome`, `getCodexConfigPath`, `getCodexAuthPath`) working as they do today by delegating to the new helpers with no override.
+   - Verify:
+     - Run `npm run lint --workspace server` (must exit 0).
+     - Run `npm run format:check --workspace server` (must exit 0).
+2. [ ] Update `buildCodexOptions()` to accept an explicit codex home override (no global env mutation).
+   - Docs to read (this subtask):
+     - Node env model: Context7 `/nodejs/node`
+   - Files to read:
+     - `server/src/config/codexConfig.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Files to edit:
+     - `server/src/config/codexConfig.ts`
+   - Implementation steps:
+     - Change signature to `buildCodexOptions(params?: { codexHome?: string }): CodexOptions`.
+     - Ensure it sets `CODEX_HOME` in the options env using the resolved absolute home (override when provided), and still spreads `...process.env`:
+       ```ts
+       return { env: { ...process.env, CODEX_HOME: resolvedHome } };
+       ```
+     - Do **not** write to `process.env` at runtime.
+   - Verify:
+     - Run `npm run lint --workspace server` (must exit 0).
+3. [ ] Update Codex detection so it can validate an arbitrary codex home.
+   - Docs to read (this subtask):
+     - Node fs APIs: Context7 `/nodejs/node`
+   - Files to read:
+     - `server/src/providers/codexDetection.ts`
+     - `server/src/config/codexConfig.ts`
+   - Files to edit:
+     - `server/src/providers/codexDetection.ts`
+   - Implementation steps:
+     - Update `detectCodex()` to accept an optional `{ codexHome?: string }` param (or add a new exported function `detectCodexForHome(codexHome: string)`).
+     - When a home override is provided, compute `auth.json` / `config.toml` paths using the new “for-home” helpers.
+     - Preserve existing behavior when no override is provided (current callers must continue to work).
+   - Verify:
+     - Run `npm run lint --workspace server` (must exit 0).
+4. [ ] Allow `ChatInterfaceCodex` to create Codex SDK instances with a per-request Codex home.
+   - Docs to read (this subtask):
+     - `design.md` (Codex usage + thread model)
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/factory.ts`
+     - `server/src/config/codexConfig.ts`
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/factory.ts` (only if types require it)
+   - Implementation steps:
+     - Update the injected `codexFactory` contract so the caller can pass a codex home (example shape):
+       - `type CodexFactory = (opts?: { codexHome?: string }) => CodexLike`
+     - In the default factory, call `new Codex(buildCodexOptions({ codexHome: opts?.codexHome }))`.
+     - Ensure existing call sites still compile by keeping the parameter optional.
+   - Verify:
+     - Run `npm run lint --workspace server` (must exit 0).
+5. [ ] Make thread id persistence safe: update only `flags.threadId` without overwriting other `flags` keys.
+   - Docs to read (this subtask):
+     - Mongoose update operators: Context7 `/mongoosejs/mongoose`
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/mongo/repo.ts`
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Implementation steps:
+     - Add a new repo helper (explicit name) in `server/src/mongo/repo.ts`:
+       - `updateConversationThreadId({ conversationId, threadId }: { conversationId: string; threadId: string })`
+     - Implement it using a `$set` update so it only updates `flags.threadId` (does not replace `flags`):
+       - `$set: { 'flags.threadId': threadId }`
+     - Update `ChatInterfaceCodex` to call this helper when Codex emits a new thread id.
+   - Verify:
+     - Run `npm run test --workspace server` (must exit 0).
+6. [ ] Add unit tests for codex home overrides and thread id persistence safety.
+   - Docs to read (this subtask):
+     - Node `node:test`: https://nodejs.org/api/test.html
+   - Files to edit/create:
+     - Create `server/src/test/unit/codexConfig.test.ts` (covers `resolveCodexHome` + `buildCodexOptions` override behavior).
+     - Update `server/src/test/unit/chat-interface-codex.test.ts` to assert that updating threadId does not drop existing `flags` keys.
+   - Test expectations:
+     - `buildCodexOptions({ codexHome: '/tmp/x' })` sets `env.CODEX_HOME` to the resolved absolute path.
+     - `updateConversationThreadId` does not overwrite other keys under `flags`.
+   - Verify:
+     - Run `npm run test --workspace server` (must exit 0).
+7. [ ] Update docs to record the new Codex home override mechanism.
+   - Docs to read (this subtask):
+     - `design.md`
+   - Files to edit:
+     - `design.md`
+   - Implementation steps:
+     - Document: primary Codex home (`CODEINFO_CODEX_HOME`) vs agent Codex homes (`CODEINFO_CODEX_AGENT_HOME/<agent>`).
+     - Document: “no global env mutation”; codex home is injected via factory/options.
+   - Verify:
+     - Run `npm run format:check --workspace server` (must exit 0).
+8. [ ] Run full lint/format checks for touched workspaces (server + root if needed).
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -167,45 +253,260 @@ This is a prerequisite for everything else in this story.
 
 ---
 
-### 2. Agent discovery + auth seeding (runs on every discovery read)
+### 2. Mongo + repo: store `agentName` on conversations (top-level optional)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`, validate each agent folder shape, and seed missing `auth.json` from the primary Codex home when available.
+Agent conversations must be persisted like normal conversations, but tagged with which agent they belong to so:
 
-Important: auth seeding must run every time agent folders are read/checked (not only at startup), so both MCP and GUI always converge on a usable per-agent auth state when possible.
+- the existing Chat page can stay “clean” (shows only non-agent conversations)
+- the Agents page can show only the selected agent’s conversations
+
+This task adds a top-level optional `Conversation.agentName?: string` and threads it through the server persistence layer.
 
 #### Documentation Locations
 
-- Existing env notes: `README.md`, `design.md`
+- Conversation persistence overview: `design.md` (Conversation persistence section)
+- Mongoose schema basics: Context7 `/mongoosejs/mongoose`
+- Existing persistence code:
+  - `server/src/mongo/conversation.ts`
+  - `server/src/mongo/repo.ts`
+
+#### Subtasks
+
+1. [ ] Add `agentName?: string` to the Conversation model.
+   - Docs to read (this subtask):
+     - Mongoose schema definitions: Context7 `/mongoosejs/mongoose`
+   - Files to read:
+     - `server/src/mongo/conversation.ts`
+   - Files to edit:
+     - `server/src/mongo/conversation.ts`
+   - Implementation steps:
+     - Add `agentName?: string` to the `Conversation` TypeScript interface.
+     - Add `agentName` to the schema definition (optional).
+     - Add an index to support filtered listing later (keep existing index too):
+       - `{ agentName: 1, archivedAt: 1, lastMessageAt: -1 }`
+   - Verify:
+     - `npm run build --workspace server`
+2. [ ] Thread `agentName` through repo helpers (create + list).
+   - Docs to read (this subtask):
+     - Mongoose `.lean()` usage: Context7 `/mongoosejs/mongoose`
+   - Files to read:
+     - `server/src/mongo/repo.ts`
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Implementation steps:
+     - Add optional `agentName?: string` to `CreateConversationInput`.
+     - Persist `agentName` when creating a conversation.
+     - Add optional `agentName?: string` to `ConversationSummary` and include it in `listConversations()` return items.
+   - Verify:
+     - `npm run build --workspace server`
+3. [ ] Add unit tests proving `agentName` mapping (no real DB required).
+   - Docs to read (this subtask):
+     - Node `node:test`: https://nodejs.org/api/test.html
+   - Files to read (existing stubbing pattern):
+     - `server/src/test/unit/repo-persistence-source.test.ts`
+   - Files to edit:
+     - `server/src/test/unit/repo-persistence-source.test.ts`
+   - Test expectations (concrete):
+     - Stub `ConversationModel.find(...).sort(...).limit(...).lean()` to return a doc containing `agentName: 'coding_agent'`.
+     - `listConversations()` returns an item where `agentName === 'coding_agent'`.
+   - Verify:
+     - `npm run test --workspace server`
+4. [ ] Update docs.
+   - Files to edit:
+     - `design.md`
+   - Implementation steps:
+     - Document `Conversation.agentName?: string` and how it separates Chat vs Agents history.
+5. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+
+---
+
+### 3. Agent discovery (filesystem list + optional description + system prompt presence)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Implement agent discovery from `CODEINFO_CODEX_AGENT_HOME`.
+
+Definition of an “available agent”:
+
+- It is a **direct subfolder** of `CODEINFO_CODEX_AGENT_HOME`
+- It contains a `config.toml` file
+- The agent name is the folder name
+
+Agent metadata to expose:
+
+- Optional `description` read from `description.md` (Markdown) when present
+- Optional `system_prompt.txt` **presence** (for later use in Task 7 when starting a new conversation)
+
+Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 will also wire auth seeding into the discovery read path.
+
+#### Documentation Locations
+
+- Agent folder conventions: this story’s Acceptance Criteria + `README.md`
+- Node.js filesystem APIs: Context7 `/nodejs/node`
+- Reference for file-copy conventions: `server/src/utils/codexAuthCopy.ts`
+
+#### Subtasks
+
+1. [ ] Create agent discovery types (REST-safe + internal).
+   - Docs to read (this subtask):
+     - TypeScript type exports: Context7 `/microsoft/typescript`
+   - Files to create:
+     - `server/src/agents/types.ts`
+   - Required exports (exact):
+     - `export type AgentSummary = { name: string; description?: string; disabled?: boolean; warnings?: string[] };`
+     - `export type DiscoveredAgent = AgentSummary & { home: string; configPath: string; descriptionPath?: string; systemPromptPath?: string };`
+2. [ ] Implement agent discovery.
+   - Docs to read (this subtask):
+     - Node `fs.readdir` / `fs.promises.readdir`: Context7 `/nodejs/node`
+   - Files to create:
+     - `server/src/agents/discovery.ts`
+   - Implementation steps:
+     - Read `CODEINFO_CODEX_AGENT_HOME` (throw a clear error if missing).
+     - Scan only direct subfolders.
+     - Include a folder only if `${agentHome}/config.toml` exists.
+     - Read `${agentHome}/description.md` as UTF-8 if present and include it.
+     - If `${agentHome}/system_prompt.txt` exists, set `systemPromptPath` (do not read contents in this task).
+     - Sort agents alphabetically by `name` for deterministic output.
+3. [ ] Add unit tests for discovery.
+   - Docs to read (this subtask):
+     - Node `node:test`: https://nodejs.org/api/test.html
+   - Files to create:
+     - `server/src/test/unit/agents-discovery.test.ts`
+   - Test expectations:
+     - A folder with `config.toml` is included.
+     - A folder without `config.toml` is excluded.
+     - `description.md` is surfaced as `description`.
+     - `system_prompt.txt` presence is reflected by `systemPromptPath`.
+4. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Implementation steps:
+     - Document agent folder layout:
+       - required: `config.toml`
+       - optional: `description.md`
+       - optional: `system_prompt.txt`
+5. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+
+---
+
+### 4. Auth seeding for agents (runs on every discovery read)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Every time the agent folders are read/checked (listing agents, running an agent), we must attempt to ensure each agent folder has an `auth.json` file when possible:
+
+- If `${agentHome}/auth.json` is missing
+- and the primary Codex home (`CODEINFO_CODEX_HOME`) contains `auth.json`
+- then copy it into `${agentHome}/auth.json`
+- never overwrite
+- best-effort: never throw, only warn
+- lock-protected: prevent concurrent requests racing to write the same file
+
+This task implements that logic and wires it into the discovery read path so it runs on every discovery.
+
+#### Documentation Locations
+
+- Existing auth copy helper (reference implementation style):
+  - `server/src/utils/codexAuthCopy.ts`
+  - `server/src/test/unit/codexAuthCopy.test.ts`
 - Node.js filesystem APIs: Context7 `/nodejs/node`
 
 #### Subtasks
 
-1. [ ] Define an “agent folder contract”:
-   - required: `<agentHome>/config.toml`
-   - optional: `<agentHome>/description.md` (Markdown description shown in list output)
-   - optional: `<agentHome>/system_prompt.txt`
-   - optional: `<agentHome>/auth.json`
-2. [ ] Implement agent discovery utility and unit tests:
-   - scan `CODEINFO_CODEX_AGENT_HOME` for direct subfolders containing `config.toml`
-   - compute `agentName` from folder name
-   - return `agentHome` path and config path
-   - if `<agentHome>/description.md` exists, include its contents as `description`
-3. [ ] Implement auth seeding that runs on every discovery read:
-   - copy `${CODEINFO_CODEX_HOME}/auth.json` to `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/auth.json` when missing
-   - never overwrite an existing agent `auth.json`
-   - best-effort + lock-protected: use an in-process mutex so concurrent list calls don’t race writing `auth.json`
-   - do not crash if auth is missing or copy fails; surface explicit `disabled/warnings` state instead.
-4. [ ] Ensure `codex_agents/**/auth.json` is gitignored and not included in Docker build contexts.
-5. [ ] Update `README.md` with:
-   - agent folder layout
-   - required env vars
-   - how to add a new agent folder.
-6. [ ] Run full linting for touched workspaces.
+1. [ ] Implement agent auth seeding helper (best-effort, never overwrites).
+   - Docs to read (this subtask):
+     - Node fs APIs: Context7 `/nodejs/node`
+   - Files to read:
+     - `server/src/utils/codexAuthCopy.ts`
+   - Files to create:
+     - `server/src/agents/authSeed.ts`
+   - Implementation steps:
+     - Export a helper like:
+       - `ensureAgentAuthSeeded({ agentHome, primaryCodexHome, logger }): { seeded: boolean; warning?: string }`
+     - It must:
+       - no-op if `${agentHome}/auth.json` exists
+       - no-op if `${primaryCodexHome}/auth.json` does not exist
+       - otherwise copy primary → agent
+       - never throw; return a warning string on failure
+2. [ ] Add an in-process mutex so concurrent calls do not race writes.
+   - Docs to read (this subtask):
+     - Promise chaining as a mutex: Context7 `/nodejs/node`
+   - Files to edit:
+     - `server/src/agents/authSeed.ts`
+   - Implementation steps:
+     - Implement a module-level lock (Promise chain or small mutex helper).
+     - Ensure concurrent calls to `ensureAgentAuthSeeded` serialize copy attempts.
+3. [ ] Wire auth seeding into discovery so it runs on every discovery read.
+   - Docs to read (this subtask):
+     - Task 3 discovery requirements in this story
+   - Files to edit:
+     - `server/src/agents/discovery.ts`
+   - Implementation steps:
+     - For each discovered agent, call `ensureAgentAuthSeeded(...)` best-effort.
+     - If it returns a warning, append it to `warnings[]` on the agent summary.
+     - Do not throw if seeding fails (listing should still work).
+4. [ ] Add unit tests for auth seeding.
+   - Docs to read (this subtask):
+     - Node `node:test`: https://nodejs.org/api/test.html
+   - Files to create:
+     - `server/src/test/unit/agents-authSeed.test.ts`
+   - Test expectations:
+     - Copies auth from primary into agent home when agent auth missing.
+     - Does not overwrite agent auth if present.
+     - Concurrent calls do not throw (call twice without awaiting the first).
+5. [ ] Ensure secrets are excluded from git and docker build contexts.
+   - Docs to read (this subtask):
+     - Docker build context + `.dockerignore`: Context7 `/docker/docs`
+   - Files to read:
+     - `.gitignore` (confirm `codex_agents/**/auth.json` is ignored)
+   - Files to edit/create:
+     - If repo-root `.dockerignore` does not exist, create it.
+     - Ensure it contains:
+       - `codex_agents/**/auth.json`
+       - `codex/**/auth.json`
+6. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Implementation steps:
+     - Document that auth is auto-copied from `CODEINFO_CODEX_HOME` into agent folders when missing.
+     - Document that `auth.json` must never be committed.
+7. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -217,26 +518,79 @@ Important: auth seeding must run every time agent folders are read/checked (not 
 
 ---
 
-### 3. Docker/Compose wiring for agent homes
+### 5. Docker/Compose wiring for agent homes
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Ensure agent folders under `CODEINFO_CODEX_AGENT_HOME` are available inside Docker/Compose environments and that env vars and mounts are configured consistently for local dev, compose, and e2e stacks.
+Ensure agent folders under `CODEINFO_CODEX_AGENT_HOME` are available inside Docker/Compose environments and that env vars and mounts are configured consistently for:
+
+- local dev (server running on host)
+- main compose stack (`docker-compose.yml`)
+- e2e compose stack (`docker-compose.e2e.yml`)
+
+This task also exposes the Agents MCP port (`5012`) in compose so external clients can connect to it once Task 9 is implemented.
 
 #### Documentation Locations
 
-- Existing docker notes: `README.md`, `design.md`, `docker-compose.yml`, `docker-compose.e2e.yml`
-- Docker docs: Context7 `/docker/docs`
+- Docker docs (bind mounts + ports): Context7 `/docker/docs`
+- Files to edit in this task:
+  - `docker-compose.yml`
+  - `docker-compose.e2e.yml`
+  - `server/.env`
+  - `README.md`
 
 #### Subtasks
 
-1. [ ] Update Dockerfile/compose wiring to mount `codex_agents/` into the server container and set `CODEINFO_CODEX_AGENT_HOME` accordingly.
-2. [ ] Ensure docker build contexts do not accidentally include agent `auth.json` files.
-3. [ ] Update `README.md` with Docker/Compose-specific notes for agents (mount path + env var expectations).
-4. [ ] Run full linting for touched workspaces.
+1. [ ] Update main compose (`docker-compose.yml`) to mount agent homes and expose Agents MCP port.
+   - Docs to read (this subtask):
+     - Docker Compose volumes + ports: Context7 `/docker/docs`
+   - Files to edit:
+     - `docker-compose.yml`
+   - Implementation steps (exact):
+     - Under `services.server.environment`, add:
+       - `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`
+       - `AGENTS_MCP_PORT=5012`
+     - Under `services.server.ports`, add:
+       - `'5012:5012'`
+     - Under `services.server.volumes`, add a **rw** mount (auth seeding writes `auth.json`):
+       - `./codex_agents:/app/codex_agents`
+   - Verify:
+     - `docker compose -f docker-compose.yml config` (must print a valid merged config)
+2. [ ] Update e2e compose (`docker-compose.e2e.yml`) to mount agent homes and expose Agents MCP port.
+   - Docs to read (this subtask):
+     - Docker Compose volumes + ports: Context7 `/docker/docs`
+   - Files to edit:
+     - `docker-compose.e2e.yml`
+   - Implementation steps (exact):
+     - Under `services.server.ports`, add:
+       - `'6012:5012'`
+     - Under `services.server.environment`, add:
+       - `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`
+       - `AGENTS_MCP_PORT=5012`
+     - Under `services.server.volumes`, add:
+       - `./codex_agents:/app/codex_agents`
+   - Verify:
+     - `docker compose -f docker-compose.e2e.yml config` (must print a valid merged config)
+3. [ ] Set a safe default for host dev in `server/.env`.
+   - Files to edit:
+     - `server/.env`
+   - Implementation steps:
+     - Add `CODEINFO_CODEX_AGENT_HOME=../codex_agents`
+     - (Optional but recommended) add `AGENTS_MCP_PORT=5012` for explicitness.
+4. [ ] Update docs for dockerized agent setup.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - Agents MCP URL: `http://localhost:5012`
+     - Compose mount path: host `./codex_agents` → container `/app/codex_agents`
+     - Warning: `auth.json` may be copied into agent folders at runtime and must remain gitignored.
+5. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Testing
 
@@ -249,38 +603,80 @@ Ensure agent folders under `CODEINFO_CODEX_AGENT_HOME` are available inside Dock
 
 ---
 
-### 4. Server endpoint: list available agents (name + optional description)
+### 6. Server endpoint: list available agents (name + optional description)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Expose a server HTTP endpoint that lists available agents, returning agent `name` plus optional `description` read from `${agentHome}/description.md` when present. This endpoint is the shared source of truth for both the GUI Agents page and the MCP `list_agents` tool.
+Expose `GET /agents`, returning agent `name` plus optional `description` (Markdown) read from `${agentHome}/description.md` when present.
+
+This endpoint is the single source of truth for:
+
+- the GUI Agents page agent dropdown + info block
+- the MCP `list_agents` tool (Task 9)
 
 #### Documentation Locations
 
-- Existing server route patterns:
-  - `server/src/index.ts`
-  - `server/src/routes/*`
-- Node.js filesystem APIs: Context7 `/nodejs/node`
+- Existing route test patterns:
+  - `server/src/test/unit/tools-ingested-repos.test.ts` (builds an express app + supertest)
 - Express: Context7 `/expressjs/express`
 - Supertest: Context7 `/ladjs/supertest`
+- Filesystem discovery implemented in Tasks 3–4:
+  - `server/src/agents/discovery.ts`
+  - `server/src/agents/authSeed.ts`
 
 #### Subtasks
 
-1. [ ] Add a new router (or extend an existing one) to expose `GET /agents`.
-2. [ ] Create a shared server module for agents (source of truth for REST + MCP):
-   - `server/src/agents/service.ts` exporting `listAgents()` and `runAgentInstruction()`
-3. [ ] Implement the handler by calling the shared `listAgents()` which uses the discovery utility from Task 2 (so auth seeding + description reading happens on every request).
-4. [ ] Response shape includes:
-   - `agents: Array<{ name: string; description?: string; disabled?: boolean; warnings?: string[] }>`
-5. [ ] Add supertest coverage for:
-   - returns agents discovered from folder structure
-   - includes `description` when `description.md` exists
-   - does not crash when `description.md` missing
-6. [ ] Update `README.md` documenting the endpoint.
-7. [ ] Run full linting for touched workspaces.
+1. [ ] Create a shared agents service module (single source for REST + MCP).
+   - Docs to read (this subtask):
+     - This story: Task 3 discovery rules + Task 4 auth seeding rules
+   - Files to create:
+     - `server/src/agents/service.ts`
+   - Implementation steps:
+     - Export a `listAgents()` function that:
+       - calls the discovery helper from `server/src/agents/discovery.ts`
+       - returns only the REST-safe summary fields:
+         - `name`, optional `description`, optional `disabled`, optional `warnings`
+     - Also export a stubbed `runAgentInstruction()` signature (implemented in Task 7) so MCP can import from the same module without circular imports.
+2. [ ] Implement `GET /agents` router.
+   - Docs to read (this subtask):
+     - Express routers: Context7 `/expressjs/express`
+   - Files to create:
+     - `server/src/routes/agents.ts`
+   - Implementation steps:
+     - Follow the existing router factory pattern (`createXRouter(deps?: Partial<Deps>)`).
+     - Handler response shape (exact JSON):
+       ```json
+       { "agents": [ { "name": "coding_agent", "description": "# ...", "warnings": [] } ] }
+       ```
+3. [ ] Wire `createAgentsRouter()` into the main server app.
+   - Files to edit:
+     - `server/src/index.ts`
+   - Implementation steps:
+     - Add `app.use('/', createAgentsRouter())` near other `app.use('/', ...)` routes.
+4. [ ] Add supertest coverage for `GET /agents`.
+   - Docs to read (this subtask):
+     - Supertest: Context7 `/ladjs/supertest`
+   - Files to create:
+     - `server/src/test/unit/agents-router-list.test.ts`
+   - Test setup guidance (avoid relying on real repo folders):
+     - Create a temp directory as `CODEINFO_CODEX_AGENT_HOME`.
+     - Create `coding_agent/config.toml` and optionally `coding_agent/description.md`.
+     - Assert:
+       - status 200
+       - `agents` array contains `{ name: 'coding_agent' }`
+       - includes `description` when provided
+5. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - `GET /agents` example curl command and example response.
+6. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -292,63 +688,125 @@ Expose a server HTTP endpoint that lists available agents, returning agent `name
 
 ---
 
-### 5. Server endpoint: run an agent instruction (`POST /agents/:agentName/run`)
+### 7. Server endpoint: run an agent instruction (`POST /agents/:agentName/run`)
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Expose a REST endpoint for the GUI to run an agent instruction without talking to the MCP server directly. This endpoint must reuse the same underlying agent execution implementation as the MCP `run_agent_instruction` tool so behavior and output stay consistent.
+Expose a REST endpoint for the GUI to run an agent instruction without talking to MCP directly.
+
+Critical requirement: the REST path and MCP path must share the same implementation so behavior, persistence, and output stay consistent. The shared implementation lives in `server/src/agents/service.ts` as `runAgentInstruction()` and is called by:
+
+- REST: `POST /agents/:agentName/run` (this task)
+- MCP: `run_agent_instruction` tool (Task 9)
 
 #### Documentation Locations
 
-- Existing server route patterns:
-  - `server/src/routes/*`
-  - `server/src/index.ts`
-- Existing chat execution + persistence:
-  - `server/src/chat/interfaces/*`
-  - `server/src/chat/responders/McpResponder.ts`
+- REST router/test patterns:
+  - `server/src/routes/chat.ts` (shows how we use AbortController + req close handling)
+  - `server/src/test/unit/tools-ingested-repos.test.ts` (router + supertest pattern)
+- Shared segment output pattern:
+  - `server/src/mcp2/tools/codebaseQuestion.ts` (McpResponder)
+- Codex defaults to copy (agents must not expose these as controls):
+  - `server/src/routes/chatValidators.ts`
 - Express: Context7 `/expressjs/express`
 - Supertest: Context7 `/ladjs/supertest`
 
 #### Subtasks
 
-1. [ ] Add a new router/handler for `POST /agents/:agentName/run`.
-2. [ ] Add top-level `agentName` support to persistence:
-   - update `server/src/mongo/conversation.ts` schema + types to include optional `agentName?: string`
-   - update the `Conversation._id` comment in `server/src/mongo/conversation.ts` to reflect reality (conversationId is our id; Codex thread id is stored separately in flags.threadId)
-   - update `server/src/mongo/repo.ts` helpers (`createConversation`, `updateConversationMeta`, `listConversations`) to accept/persist/filter `agentName`
-   - add/extend unit/integration coverage proving existing non-agent conversations still work unchanged.
-3. [ ] Request validation:
-   - params: `agentName` required and non-empty
-   - body: `instruction` required, optional `conversationId`
-4. [ ] Implement the handler by calling the shared `runAgentInstruction()` (from Task 4) used by MCP `run_agent_instruction`:
-   - ensures discovery read + auth seeding runs on each call
-   - uses per-agent Codex home injection (from Task 1)
-   - per-agent “system prompt” is implemented as a first-turn prefix:
-     - when starting a new conversation (no `conversationId`), if `${agentHome}/system_prompt.txt` exists, prefix the instruction with it (otherwise send instruction as-is)
-     - no changes to Codex prompt plumbing are required
-   - persists the conversation with agent metadata (e.g. `conversation.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
-   - `conversationId` semantics:
-     - if `conversationId` is omitted, generate a new `conversationId` server-side (stable, URL-safe) and create a new conversation in Mongo with `provider: 'codex'`, default model, and `agentName`
-     - if `conversationId` is provided, load that conversation and reject if it is archived
-     - if `conversationId` is provided, reject if `conversation.agentName` is missing or does not match the route `agentName`
-     - for Codex thread continuation, use `conversation.flags.threadId` as the Codex `threadId` and update it when Codex emits a new thread id
-   - do not persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; use fixed server defaults at runtime
-     - for new conversations, initialise `Conversation.flags` as `{}` (thread id is populated later)
-   - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
-5. [ ] Response shape includes:
-   - `agentName`
-   - `conversationId`
-   - `modelId`
-   - `segments`
-6. [ ] Add supertest coverage for:
-   - runs an agent instruction and returns segments
-   - continues via `conversationId`
-   - returns 404/400 for unknown/invalid `agentName`
-7. [ ] Update `README.md` documenting this endpoint.
-8. [ ] Run full linting for touched workspaces.
+1. [ ] Create the route module for `POST /agents/:agentName/run`.
+   - Docs to read (this subtask):
+     - Express routers: Context7 `/expressjs/express`
+   - Files to create:
+     - `server/src/routes/agentsRun.ts`
+   - Implementation steps:
+     - Follow the “router factory” pattern (`createXRouter(deps?: Partial<Deps>)`) so tests can inject a fake `runAgentInstruction`.
+     - Input:
+       - route param: `agentName` (required, non-empty)
+       - body: `{ instruction: string; conversationId?: string }`
+     - Output (exact JSON):
+       ```json
+       { "agentName": "coding_agent", "conversationId": "...", "modelId": "gpt-5.1-codex-max", "segments": [ ... ] }
+       ```
+2. [ ] Wire the route into the main server app.
+   - Files to edit:
+     - `server/src/index.ts`
+   - Implementation steps:
+     - Add `app.use('/', createAgentsRunRouter())`.
+3. [ ] Implement `runAgentInstruction()` in the shared agents service.
+   - Docs to read (this subtask):
+     - `server/src/mcp2/tools/codebaseQuestion.ts` (McpResponder wiring)
+     - `server/src/routes/chat.ts` (AbortController + req close patterns)
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Implementation steps (concrete + copy/pasteable defaults):
+     - Resolve the agent via discovery (`server/src/agents/discovery.ts`) so:
+       - unknown agent → return a 404-like error from the service (the router maps it to HTTP 404)
+       - missing `config.toml` → treat as not found
+     - Fixed defaults (copy from `server/src/routes/chatValidators.ts`):
+       - `modelId = 'gpt-5.1-codex-max'`
+       - `sandboxMode = 'workspace-write'`
+       - `networkAccessEnabled = true`
+       - `webSearchEnabled = true`
+       - `approvalPolicy = 'on-failure'`
+       - `modelReasoningEffort = 'high'`
+     - Conversation rules:
+       - If `conversationId` is missing:
+         - generate `conversationId = crypto.randomUUID()`
+         - create conversation via `createConversation(...)` with:
+           - `provider: 'codex'`
+           - `model: modelId`
+           - `agentName: agentName` (top-level field from Task 2)
+           - `flags: {}` (agents do **not** persist run flags)
+           - `source: <source>` (REST or MCP)
+       - If `conversationId` is provided:
+         - load conversation and reject:
+           - 404 if missing
+           - 410 if archived
+           - 400 if `conversation.agentName !== agentName`
+     - System prompt behavior:
+       - If **starting a new conversation only**, and `${agentHome}/system_prompt.txt` exists:
+         - read it as UTF-8 and prefix the outgoing instruction (first-turn prefix, not a Codex system channel).
+     - Thread continuation:
+       - Use `threadId = conversation.flags.threadId` (string) when present.
+       - Pass it to Codex in the run flags so the next call continues.
+       - Persist new thread ids using the Task 1 helper that updates only `flags.threadId`.
+     - Cancellation / Stop button:
+       - Accept an `AbortSignal` parameter and pass it into the Codex run flags (so client disconnect / stop can abort).
+     - Segments output:
+       - Use `McpResponder` to build `segments` like `codebase_question`.
+4. [ ] Implement the router handler by calling `runAgentInstruction()` and mapping errors.
+   - Docs to read (this subtask):
+     - Existing error mapping style: `server/src/routes/chat.ts`
+   - Files to edit:
+     - `server/src/routes/agentsRun.ts`
+   - Error mapping requirements:
+     - unknown agent → `404 { error: 'not_found' }`
+     - archived conversation → `410 { error: 'archived' }`
+     - mismatched agentName → `400 { error: 'agent_mismatch' }`
+     - codex unavailable → `503 { error: 'codex_unavailable', reason: '...' }`
+5. [ ] Add supertest coverage for the run endpoint.
+   - Docs to read (this subtask):
+     - Supertest: Context7 `/ladjs/supertest`
+   - Files to create:
+     - `server/src/test/unit/agents-router-run.test.ts`
+   - Testing guidance (do not require real Codex):
+     - Inject a fake `runAgentInstruction()` into `createAgentsRunRouter()` that returns a deterministic payload.
+     - Assert:
+       - status code + body shape
+       - input validation (missing instruction returns 400)
+6. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - Example curl for `POST /agents/coding_agent/run`
+     - Explain that `conversationId` is the server conversation id, and Codex thread id is stored in `flags.threadId`
+7. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -360,43 +818,85 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
 
 ---
 
-### 6. Server endpoint: list conversations filtered by agent
+### 8. Server endpoint: list conversations filtered by agent
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Add server support for listing conversations filtered by agent metadata so:
+Add server support for listing conversations filtered by agent metadata so later UI tasks can:
 
-- the existing Chat page lists only non-agent conversations
-- the Agents page lists only conversations for the selected agent
+- keep the existing Chat page “clean” by listing only conversations with **no** `agentName`
+- show only conversations for the selected agent on the Agents page
 
-The agent identity must be stored in the conversation metadata as a top-level field (e.g. `conversation.agentName`) by the agent run endpoints (Task 5 and MCP tool runs).
+Important semantics (must be implemented exactly):
+
+- `/conversations?agentName=__none__` → conversations where `agentName` is missing/empty
+- `/conversations?agentName=<agent>` → conversations where `agentName === <agent>`
+- `/conversations` (no param) → existing behavior (no agent filter)
 
 #### Documentation Locations
 
-- Existing conversations endpoints:
+- Existing conversations endpoint:
   - `server/src/routes/conversations.ts`
-  - `server/src/mongo/repo.ts` (listConversations)
-  - `server/src/mongo/conversation.ts` (schema)
-- Mongo query patterns (Mongoose): Context7 `/mongoosejs/mongoose`
+- Existing persistence query:
+  - `server/src/mongo/repo.ts` (`listConversations`)
+- Existing repo test stubbing pattern:
+  - `server/src/test/unit/repo-persistence-source.test.ts`
+- Mongoose query patterns: Context7 `/mongoosejs/mongoose`
 - Supertest: Context7 `/ladjs/supertest`
 
 #### Subtasks
 
-1. [ ] Extend the conversations list endpoint to accept an optional filter:
-   - `agentName=<name>` returns only conversations where `conversation.agentName === <name>`
-   - `agentName=__none__` returns only conversations where `conversation.agentName` is missing/empty (non-agent chats)
-2. [ ] Update the repository query in `listConversations` to support the filter without breaking pagination ordering:
-   - filter should query the top-level `agentName` field (not flags)
-   - consider adding an index on `{ agentName: 1, archivedAt: 1, lastMessageAt: -1 }` if needed for performance.
-3. [ ] Add supertest coverage proving:
-   - non-agent filter excludes agent conversations
-   - specific agent filter returns only that agent’s conversations
-   - existing behavior is unchanged when the filter is omitted
-4. [ ] Update `README.md` documenting the new filter semantics for the conversations endpoint.
-5. [ ] Run full linting for touched workspaces.
+1. [ ] Add agent filter support to the repo query layer.
+   - Docs to read (this subtask):
+     - Mongo `$exists` and `$or`: Context7 `/mongoosejs/mongoose`
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Implementation steps:
+     - Extend `ListConversationsParams` with optional `agentName?: string`.
+     - When `agentName` is:
+       - omitted: keep existing query
+       - `__none__`: add a filter matching “no agent”, e.g.:
+         - `{ $or: [ { agentName: { $exists: false } }, { agentName: null }, { agentName: '' } ] }`
+       - any other string: add `{ agentName: <value> }`
+     - Keep cursor + archived behavior unchanged.
+2. [ ] Add agent filter support to the REST endpoint.
+   - Docs to read (this subtask):
+     - Zod query parsing: https://zod.dev/
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+   - Implementation steps:
+     - Extend `listConversationsQuerySchema` to include optional `agentName`.
+     - Pass the parsed `agentName` down to `listConversations({ ... })`.
+3. [ ] Add unit tests for repo query building (no real DB).
+   - Docs to read (this subtask):
+     - Existing stubbing pattern: `server/src/test/unit/repo-persistence-source.test.ts`
+   - Files to create:
+     - `server/src/test/unit/repo-conversations-agent-filter.test.ts`
+   - Test expectations:
+     - Stub `ConversationModel.find` to capture the `query` argument.
+     - Calling `listConversations({ agentName: '__none__', ... })` produces a query containing the “missing agent” filter.
+     - Calling `listConversations({ agentName: 'coding_agent', ... })` produces `query.agentName === 'coding_agent'`.
+4. [ ] Add supertest coverage for endpoint query parsing (no real DB).
+   - Files to create:
+     - `server/src/test/unit/conversations-router-agent-filter.test.ts`
+   - Testing guidance:
+     - Build an express app with `createConversationsRouter({ listConversations: fake })`.
+     - Assert the fake is called with the expected `agentName` for:
+       - `agentName=__none__`
+       - `agentName=coding_agent`
+5. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - Document `/conversations?agentName=__none__`
+     - Document `/conversations?agentName=<agent>`
+6. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -408,50 +908,113 @@ The agent identity must be stored in the conversation metadata as a top-level fi
 
 ---
 
-### 7. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
+### 9. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to external clients. It must reuse existing ChatInterface + McpResponder patterns and persist conversations/turns like existing MCP runs.
+Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to external clients.
+
+Hard requirements:
+
+- Runs on `AGENTS_MCP_PORT` (default `5012`)
+- Exposes exactly two tools:
+  - `list_agents`
+  - `run_agent_instruction`
+- Reuses the shared agents service (`server/src/agents/service.ts`) so REST + MCP behavior is identical.
+- `run_agent_instruction` returns the same segment format as `codebase_question` (via `McpResponder`).
 
 #### Documentation Locations
 
-- Existing MCP v2 server patterns:
-  - `server/src/mcp2/*`
-  - `design.md` MCP sections
-- Model Context Protocol spec:
-  - https://modelcontextprotocol.io/
-  - https://github.com/modelcontextprotocol/specification
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-- Node.js HTTP servers + tests: Context7 `/nodejs/node`
-- TypeScript: Context7 `/microsoft/typescript`
+- Existing MCP v2 server patterns to copy:
+  - `server/src/mcp2/server.ts`
+  - `server/src/mcp2/router.ts`
+  - `server/src/mcp2/tools.ts`
+  - `server/src/mcpCommon/dispatch.ts`
+- MCP/JSON-RPC specs:
+  - JSON-RPC 2.0: https://www.jsonrpc.org/specification
+  - MCP: https://modelcontextprotocol.io/
+- Node.js HTTP servers: Context7 `/nodejs/node`
 
 #### Subtasks
 
-1. [ ] Add a new server entrypoint for agents MCP:
-   - Port `5012` (env `AGENTS_MCP_PORT`, default `5012`)
-   - Reuse `server/src/mcpCommon/*` dispatcher helpers
-   - Ensure it is started/stopped from `server/src/index.ts` alongside the existing MCP v2 server.
-2. [ ] Implement tool registry:
-   - `list_agents` returns agent list by calling the shared `listAgents()` (Task 4); do not re-implement discovery here
-   - `run_agent_instruction` runs an instruction for a named agent
-3. [ ] Define input schema for `run_agent_instruction`:
-   - required: `agentName`, `instruction`
-   - optional: `conversationId`
-4. [ ] Implement `run_agent_instruction` by reusing:
-   - shared `runAgentInstruction()` (Task 4) so behavior matches REST `POST /agents/:agentName/run`
-   - `McpResponder` so output segments match `codebase_question`
-   - conversation persistence with `source: 'MCP'` and conversation metadata capturing `agentName` plus `flags.threadId` for Codex continuation.
-   - conversationId semantics match Task 5 (conversationId is our id; Codex thread id is stored in `flags.threadId`).
-5. [ ] Ensure the MCP tool uses the same per-agent first-turn prefix behavior as Task 5 (implemented inside the shared `runAgentInstruction()`).
-6. [ ] Add characterization tests for `5012` server:
-   - tools/list returns exactly the two tools
-   - run_agent_instruction returns segments and preserves conversationId across calls
-   - validation and “agent not found/disabled” error mappings are stable.
-7. [ ] Run full linting for touched workspaces.
+1. [ ] Add config for Agents MCP port.
+   - Files to edit:
+     - `server/src/config.ts`
+   - Implementation steps:
+     - Add: `export const AGENTS_MCP_PORT = Number(process.env.AGENTS_MCP_PORT ?? 5012);`
+2. [ ] Create an Agents MCP server entrypoint (start/stop).
+   - Docs to read (this subtask):
+     - `server/src/mcp2/server.ts`
+   - Files to create:
+     - `server/src/mcpAgents/server.ts`
+   - Implementation steps:
+     - Implement `startAgentsMcpServer()` and `stopAgentsMcpServer()` mirroring `startMcp2Server()` / `stopMcp2Server()`, but listening on `AGENTS_MCP_PORT`.
+3. [ ] Implement the JSON-RPC router for Agents MCP.
+   - Docs to read (this subtask):
+     - `server/src/mcp2/router.ts` (exact wire format + error codes)
+   - Files to create:
+     - `server/src/mcpAgents/router.ts`
+     - `server/src/mcpAgents/types.ts` (copy or reuse the `jsonRpcResult/jsonRpcError` helpers; keep wire format identical to MCP v2)
+   - Implementation steps:
+     - Reuse `dispatchJsonRpc` from `server/src/mcpCommon/dispatch.ts`.
+     - Keep protocol version + initialize response shape aligned with MCP v2.
+     - Gate `tools/list` and `tools/call` behind the same Codex availability check pattern used in `server/src/mcp2/router.ts` (return `CODE_INFO_LLM_UNAVAILABLE` when unavailable).
+4. [ ] Implement the tool registry (exactly two tools).
+   - Docs to read (this subtask):
+     - `server/src/mcp2/tools.ts` (tool definition + deps injection pattern)
+   - Files to create:
+     - `server/src/mcpAgents/tools.ts`
+   - Implementation steps:
+     - Implement `listTools()` returning two tool definitions:
+       - `list_agents` (no params)
+       - `run_agent_instruction` (params below)
+     - Implement `callTool()` dispatching to the correct implementation.
+     - Provide a dependency injection mechanism for tests (e.g. `setToolDeps/resetToolDeps` like `mcp2/tools.ts`).
+5. [ ] Implement `list_agents` tool by delegating to the shared service.
+   - Files to edit/create:
+     - `server/src/mcpAgents/tools.ts` (or a dedicated `server/src/mcpAgents/tools/listAgents.ts`)
+   - Implementation steps:
+     - Call `listAgents()` from `server/src/agents/service.ts`.
+     - Return MCP tool result shape:
+       - `{ content: [{ type: 'text', text: '<json>' }] }`
+       - JSON should be `{ agents: AgentSummary[] }`
+6. [ ] Implement `run_agent_instruction` tool by delegating to the shared service.
+   - Input schema (must match exactly):
+     - required: `agentName`, `instruction`
+     - optional: `conversationId`
+   - Implementation steps:
+     - Call `runAgentInstruction({ agentName, instruction, conversationId, source: 'MCP' })`.
+     - Return MCP tool result shape:
+       - `{ content: [{ type: 'text', text: '<json>' }] }`
+       - JSON should be `{ agentName, conversationId, modelId, segments }`
+7. [ ] Start/stop the Agents MCP server from the main server process.
+   - Files to edit:
+     - `server/src/index.ts`
+   - Implementation steps:
+     - Start in `start()` after HTTP server listens.
+     - Stop in `shutdown()` alongside `stopMcp2Server()`.
+8. [ ] Add characterization tests for Agents MCP router.
+   - Docs to read (this subtask):
+     - Existing MCP v2 tests: `server/src/test/unit/mcp2-router-*.test.ts`
+   - Files to create:
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Test expectations:
+     - `tools/list` returns exactly the two tools.
+     - `tools/call` for `run_agent_instruction` returns JSON text with `segments`.
+9. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - URL: `http://localhost:5012`
+     - Example `initialize` / `tools/list` / `tools/call` curl commands.
+10. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
 
 #### Testing
 
@@ -463,48 +1026,140 @@ Create a new MCP v2-style JSON-RPC server on port 5012 to expose agents to exter
 
 ---
 
-### 8. Add Agents GUI page (`/agents`) and navigation
+### 10. Add Agents GUI page (`/agents`) and navigation
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
 
 #### Overview
 
-Add a new UI surface to manage and run agents. The UI should feel like the existing chat/codebase Q&A experience but without provider/model selectors. It must render the same structured segments as the MCP results.
+Add a new UI surface to manage and run agents.
+
+UI requirements (must be implemented exactly):
+
+- A new page `/agents` with a navigation entry “Agents”
+- Top controls **only**:
+  - agent selector dropdown
+  - Stop button
+  - New conversation button
+- Changing selected agent:
+  - stops any in-progress run
+  - resets the conversation (as if “New conversation” was clicked)
+  - refreshes the conversation history panel so it shows only that agent’s conversations
+- Agent info block:
+  - shows the selected agent’s `description` (Markdown) when present
+- Conversation continuation:
+  - users continue threads by selecting a prior conversation from the history panel
+  - there is **no** manual `conversationId` input field
+
+Implementation constraint: reuse existing Chat page components where possible (especially `ConversationList`, `Markdown`, and any transcript rendering).
 
 #### Documentation Locations
 
-- Existing chat UI patterns:
+- Existing routing + Nav:
+  - `client/src/routes/router.tsx`
+  - `client/src/components/NavBar.tsx`
+- Existing chat UI patterns to reuse:
   - `client/src/pages/ChatPage.tsx`
+  - `client/src/components/chat/ConversationList.tsx`
   - `client/src/components/Markdown.tsx`
-  - `client/src/hooks/useChatStream.ts`
-- MUI component references: use the MUI MCP tool (required by AGENTS.md)
+  - `client/src/hooks/useConversations.ts`
+- Server endpoints used by this page:
+  - `GET /agents` (Task 6)
+  - `POST /agents/:agentName/run` (Task 7)
+  - `GET /conversations?agentName=...` (Task 8)
+- MUI component references (required by AGENTS.md): use the MUI MCP tool
 
 #### Subtasks
 
-1. [ ] Add route `/agents` and a new NavBar entry “Agents”.
-2. [ ] Create a client API module for agents:
-   - `listAgents()` calls the server agents listing endpoint from Task 4
-   - `runAgentInstruction({ agentName, instruction, conversationId? })` calls `POST /agents/:agentName/run`
-3. [ ] Update client conversation list hook/component to accept an optional `agentName` filter parameter and call the server filter added in Task 6.
-4. [ ] Ensure the existing Chat page conversation list uses the “non-agent” filter so it stays clean (agent conversations hidden).
-5. [ ] Build Agents page UI by reusing Chat page components where possible (do not create parallel components):
-   - top controls are limited to: agent dropdown, Stop, New conversation
-   - agent dropdown:
-     - selecting an agent auto-stops any in-progress run, resets to a new conversation state, and refreshes the conversation list panel
-   - show an agent information block rendering the selected agent `description` (markdown) when present
-   - reuse the existing conversation history panel component, but drive filtering from the selected agent (no extra filter UI in the panel)
-   - reuse the existing message input + transcript rendering, but do not show provider/model selectors
-   - do not provide any manual “conversationId” input; continuation is via selecting a prior conversation from the list
-6. [ ] Add client tests (RTL/Jest):
-   - renders agent list
-   - shows agent description block when present
-   - changing agent stops an in-flight run and resets the conversation
-   - changing agent refreshes the conversation list panel
-   - runs an instruction and displays segments
-   - selects a prior conversation from the list and continues it (same `conversationId`).
-7. [ ] Update `README.md` with Agents page usage.
-8. [ ] Run full linting for touched workspaces.
+1. [ ] Add `/agents` route and NavBar tab entry.
+   - Files to edit:
+     - `client/src/routes/router.tsx`
+     - `client/src/components/NavBar.tsx`
+   - Implementation steps:
+     - Add a new route: `<Route path="agents" element={<AgentsPage />} />`
+     - Add a new tab:
+       - `label="Agents"`, `value="/agents"`, `to="/agents"`
+2. [ ] Add a client API module for agents.
+   - Files to create:
+     - `client/src/api/agents.ts`
+   - Required exports (exact):
+     - `listAgents(): Promise<{ agents: Array<{ name: string; description?: string; disabled?: boolean; warnings?: string[] }> }>`
+     - `runAgentInstruction(params: { agentName: string; instruction: string; conversationId?: string; signal?: AbortSignal }): Promise<{ agentName: string; conversationId: string; modelId: string; segments: unknown[] }>`
+   - Verify:
+     - `npm run build --workspace client`
+3. [ ] Update `useConversations()` to support agent filtering (server semantics are in Task 8).
+   - Files to edit:
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/test/useConversations.source.test.ts`
+   - Implementation steps:
+     - Change signature to `useConversations(params?: { agentName?: string })`.
+     - If `params.agentName` is provided, include it in the query string:
+       - `/conversations?agentName=__none__`
+       - `/conversations?agentName=coding_agent`
+     - Update/extend `client/src/test/useConversations.source.test.ts`:
+       - existing tests should still pass when calling `useConversations()` with no params
+       - add an assertion that when calling `useConversations({ agentName: '__none__' })`, the fetch URL includes `agentName=__none__`
+4. [ ] Update Chat page to request only non-agent conversations.
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Implementation steps:
+     - Call `useConversations({ agentName: '__none__' })`.
+     - This keeps existing Chat history “clean”.
+5. [ ] Implement `AgentsPage` (reuse existing components; no parallel UI).
+   - Files to create:
+     - `client/src/pages/AgentsPage.tsx`
+   - Implementation steps (high-level but concrete):
+     - Fetch agent list on mount via `listAgents()`.
+     - Keep state:
+       - `selectedAgentName`
+       - `activeConversationId` (undefined for “new conversation” state)
+       - `segments/messages` for the current transcript
+       - `isRunning` + `AbortController` for Stop
+     - Layout:
+       - Left panel: reuse `ConversationList` using `useConversations({ agentName: selectedAgentName })`
+       - Right panel: controls + description block + transcript + input
+     - Agent dropdown change handler:
+       - calls `abortController.abort()` (if running)
+       - clears transcript + input
+       - clears `activeConversationId`
+       - triggers `refresh()` on `useConversations`
+     - New conversation button:
+       - same behavior as agent change reset, but without changing agent
+     - Stop button:
+       - aborts in-flight request and sets status to stopped
+     - Send behavior:
+       - call `runAgentInstruction({ agentName, instruction, conversationId: activeConversationId })`
+       - set `activeConversationId` from the response
+       - map the returned `segments` into existing `ChatMessage` fields (so we can reuse the Chat transcript bubble rendering from `ChatPage.tsx`):
+         - create a `user` message for the instruction (content = instruction)
+         - create an `assistant` message where:
+           - `content` = the `answer` segment text (Markdown rendered by `client/src/components/Markdown.tsx`)
+           - `think` = the `thinking` segment text (reuses Chat page “Thought process” UI)
+           - `segments/tools` includes a synthetic tool row for the `vector_summary` segment, e.g.:
+             - `tool.name = 'vector_summary'`
+             - `tool.payload = { files: [...] }`
+             - status = `done`
+         - if the agent run returns no `thinking` or no `vector_summary`, omit those fields
+     - No manual `conversationId` entry field.
+6. [ ] Add RTL/Jest tests for Agents page.
+   - Files to edit/create:
+     - Add tests under `client/src/test/` (follow existing patterns)
+   - Test expectations:
+     - Dropdown populates from mocked `GET /agents`.
+     - Selecting an agent shows description block.
+     - Changing agent aborts an in-flight run (assert abort called) and resets transcript.
+     - Clicking a conversation in history sets `activeConversationId` and subsequent send uses it.
+7. [ ] Update docs.
+   - Files to edit:
+     - `README.md`
+   - Required doc details:
+     - Where to find Agents page (`/agents`)
+     - How conversation continuation works (select from history)
+8. [ ] Run full lint/format checks for touched workspaces.
+   - Commands:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
 
 #### Testing
 
@@ -516,7 +1171,7 @@ Add a new UI surface to manage and run agents. The UI should feel like the exist
 
 ---
 
-### 9. Final task – verify against acceptance criteria
+### 11. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits: __to_do__
@@ -537,24 +1192,28 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] Perform a clean docker build
-4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+1. [ ] Build the server: `npm run build --workspace server`
+2. [ ] Build the client: `npm run build --workspace client`
+3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
+4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story
+5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
+6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
+7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run test --workspace server`
-3. [ ] Restart the docker environment
-4. [ ] `npm run e2e`
+1. [ ] Run client tests: `npm run test --workspace client`
+2. [ ] Run server tests: `npm run test --workspace server`
+3. [ ] Restart docker: `npm run compose:down && npm run compose:up`
+4. [ ] Run e2e: `npm run e2e`
 5. [ ] Use the Playwright MCP tool to manually check:
-   - `/agents` loads and can run an instruction
-   - MCP `5012` server responds to initialize/tools/list/tools/call
-   - screenshots saved to `./test-results/screenshots/` named like `0000016-09-agents.png`, `0000016-09-mcp-5012.png`
+   - `/chat` still loads and shows only non-agent conversations
+   - `/agents` loads, lists agents, shows agent description, and can run an instruction
+   - Agents MCP `5012` responds to initialize/tools/list/tools/call
+   - Save screenshots to `./test-results/screenshots/` named:
+     - `0000016-11-chat.png`
+     - `0000016-11-agents.png`
+     - `0000016-11-mcp-5012.png`
 
 #### Implementation notes
 

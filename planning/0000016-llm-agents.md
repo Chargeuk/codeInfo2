@@ -263,7 +263,7 @@ This is a prerequisite for everything else in this story.
      - Add a Mermaid diagram showing the Codex creation flow (Chat/Agents) with an explicit `codexHome` passed into the Codex factory/options (no process env mutation).
    - Verify:
      - Run `npm run format:check --workspace server` (must exit 0).
-9. [ ] Update `projectStructure.md` for new files added by this task.
+9. [x] Update `projectStructure.md` for new files added by this task.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -304,6 +304,7 @@ This is a prerequisite for everything else in this story.
 - Added a unit test (`server/src/test/unit/codexConfig.test.ts`) ensuring `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME` correctly.
 - Added a unit test in `server/src/test/unit/chat-interface-codex.test.ts` asserting the thread-id update path uses `$set: { 'flags.threadId': ... }` so other `flags` keys cannot be overwritten.
 - Documented primary vs override Codex homes and the “no process env mutation” injection flow in `design.md`, including a Mermaid diagram for the Codex home selection path.
+- Updated `projectStructure.md` to include the new `server/src/test/unit/codexConfig.test.ts` unit test entry.
 
 ---
 

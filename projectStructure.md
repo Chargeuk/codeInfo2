@@ -333,6 +333,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
 - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
 - server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
+- server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

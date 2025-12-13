@@ -315,10 +315,14 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
 #### Subtasks
 
 1. [ ] Add a new router/handler for `POST /agents/:agentName/run`.
-2. [ ] Request validation:
+2. [ ] Add top-level `agentName` support to persistence:
+   - update `server/src/mongo/conversation.ts` schema + types to include optional `agentName?: string`
+   - update `server/src/mongo/repo.ts` helpers (`createConversation`, `updateConversationMeta`, `listConversations`) to accept/persist/filter `agentName`
+   - add/extend unit/integration coverage proving existing non-agent conversations still work unchanged.
+3. [ ] Request validation:
    - params: `agentName` required and non-empty
    - body: `instruction` required, optional `conversationId`
-3. [ ] Implement the handler by calling the shared `runAgentInstruction()` (from Task 4) used by MCP `run_agent_instruction`:
+4. [ ] Implement the handler by calling the shared `runAgentInstruction()` (from Task 4) used by MCP `run_agent_instruction`:
    - ensures discovery read + auth seeding runs on each call
    - uses per-agent Codex home injection (from Task 1)
    - per-agent “system prompt” is implemented as a first-turn prefix:
@@ -326,23 +330,24 @@ Expose a REST endpoint for the GUI to run an agent instruction without talking t
      - no changes to Codex prompt plumbing are required
    - persists the conversation with agent metadata (e.g. `conversation.agentName = agentName`) so list filtering can exclude/include agent conversations correctly
    - `conversationId` semantics:
-     - if `conversationId` is omitted, create a new conversation in Mongo with `provider: 'codex'`, default model, and `agentName`
+     - if `conversationId` is omitted, generate a new `conversationId` server-side (stable, URL-safe) and create a new conversation in Mongo with `provider: 'codex'`, default model, and `agentName`
      - if `conversationId` is provided, load that conversation and reject if it is archived
      - if `conversationId` is provided, reject if `conversation.agentName` is missing or does not match the route `agentName`
      - for Codex thread continuation, use `conversation.flags.threadId` as the Codex `threadId` and update it when Codex emits a new thread id
    - do not persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; use fixed server defaults at runtime
+     - for new conversations, initialise `Conversation.flags` as `{}` (thread id is populated later)
    - returns the same segment output format as MCP (`thinking`, `vector_summary`, `answer`)
-4. [ ] Response shape includes:
+5. [ ] Response shape includes:
    - `agentName`
    - `conversationId`
    - `modelId`
    - `segments`
-5. [ ] Add supertest coverage for:
+6. [ ] Add supertest coverage for:
    - runs an agent instruction and returns segments
    - continues via `conversationId`
    - returns 404/400 for unknown/invalid `agentName`
-6. [ ] Update `README.md` documenting this endpoint.
-7. [ ] Run full linting for touched workspaces.
+7. [ ] Update `README.md` documenting this endpoint.
+8. [ ] Run full linting for touched workspaces.
 
 #### Testing
 
@@ -382,7 +387,9 @@ The agent identity must be stored in the conversation metadata as a top-level fi
 1. [ ] Extend the conversations list endpoint to accept an optional filter:
    - `agentName=<name>` returns only conversations where `conversation.agentName === <name>`
    - `agentName=__none__` returns only conversations where `conversation.agentName` is missing/empty (non-agent chats)
-2. [ ] Update the repository query in `listConversations` to support the filter without breaking pagination ordering.
+2. [ ] Update the repository query in `listConversations` to support the filter without breaking pagination ordering:
+   - filter should query the top-level `agentName` field (not flags)
+   - consider adding an index on `{ agentName: 1, archivedAt: 1, lastMessageAt: -1 }` if needed for performance.
 3. [ ] Add supertest coverage proving:
    - non-agent filter excludes agent conversations
    - specific agent filter returns only that agent’s conversations

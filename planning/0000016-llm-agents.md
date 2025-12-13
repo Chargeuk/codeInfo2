@@ -116,7 +116,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 
 ### 1. Refactor Codex creation to support per-agent Codex home (no global env mutation)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

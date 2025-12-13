@@ -630,7 +630,7 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 
 ### 3. Refactor Express MCP (`server/src/mcp/server.ts`) to use the shared core
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

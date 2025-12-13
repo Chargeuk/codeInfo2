@@ -6,7 +6,7 @@ import type {
 } from '@openai/codex-sdk';
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { baseLogger } from '../../logger.js';
-import { updateConversationMeta } from '../../mongo/repo.js';
+import { updateConversationThreadId } from '../../mongo/repo.js';
 import { detectCodexForHome } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
@@ -130,9 +130,9 @@ export class ChatInterfaceCodex extends ChatInterface {
       if (!incoming || incoming === activeThreadId) return;
       activeThreadId = incoming;
       this.emitEvent({ type: 'thread', threadId: incoming });
-      await updateConversationMeta({
+      await updateConversationThreadId({
         conversationId,
-        flags: { threadId: incoming },
+        threadId: incoming,
       }).catch((err) =>
         baseLogger.error(
           { requestId, provider: 'codex', err },

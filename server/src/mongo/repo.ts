@@ -80,6 +80,20 @@ export async function updateConversationMeta(
   }).exec();
 }
 
+export async function updateConversationThreadId({
+  conversationId,
+  threadId,
+}: {
+  conversationId: string;
+  threadId: string;
+}): Promise<Conversation | null> {
+  return ConversationModel.findByIdAndUpdate(
+    conversationId,
+    { $set: { 'flags.threadId': threadId } },
+    { new: true },
+  ).exec();
+}
+
 export async function archiveConversation(
   conversationId: string,
 ): Promise<Conversation | null> {

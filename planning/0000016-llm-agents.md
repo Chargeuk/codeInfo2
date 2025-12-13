@@ -212,7 +212,7 @@ This is a prerequisite for everything else in this story.
        - When `disableSystemContext === true`, do not apply `SYSTEM_CONTEXT` even on a new thread.
    - Verify:
      - Run `npm run lint --workspace server` (must exit 0).
-5. [ ] Make thread id persistence safe: update only `flags.threadId` without overwriting other `flags` keys.
+5. [x] Make thread id persistence safe: update only `flags.threadId` without overwriting other `flags` keys.
    - Docs to read (this subtask):
      - Mongoose update operators: Context7 `/automattic/mongoose`
    - Files to read:
@@ -300,6 +300,7 @@ This is a prerequisite for everything else in this story.
 - Updated `buildCodexOptions()` to accept `{ codexHome?: string }` and inject `CODEX_HOME` into the Codex SDK options env without mutating `process.env`.
 - Added `detectCodexForHome(codexHome)` in `server/src/providers/codexDetection.ts` to validate CLI/auth/config for an arbitrary Codex home without mutating the process-wide cached detection used by `/chat`.
 - Extended `server/src/chat/interfaces/ChatInterfaceCodex.ts` run flags with `codexHome`, `disableSystemContext`, and `systemPrompt`, adding per-home preflight detection and first-turn prompt prefixing that does not affect persisted user turns.
+- Added `updateConversationThreadId()` in `server/src/mongo/repo.ts` to `$set` only `flags.threadId`, and updated `ChatInterfaceCodex` to use it when persisting new thread ids.
 
 ---
 

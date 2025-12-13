@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.git
+.DS_Store
+playwright-report
+test-results
+logs
+.env.local
+
+# Never send Codex credentials in build context
+codex/**/auth.json
+codex_agents/**/auth.json

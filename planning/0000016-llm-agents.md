@@ -661,7 +661,7 @@ This task implements that logic and wires it into the discovery read path so it 
      - Prevent flakey behavior in production when multiple requests trigger discovery at once.
    - Test description:
      - Kick off two `ensureAgentAuthSeeded(...)` calls concurrently for the same agent home and assert both complete without throwing and `auth.json` exists.
-7. [ ] Ensure secrets are excluded from git and docker build contexts.
+7. [x] Ensure secrets are excluded from git and docker build contexts.
    - Docs to read (this subtask):
      - Docker build context + `.dockerignore`: Context7 `/docker/docs`
    - Files to read:

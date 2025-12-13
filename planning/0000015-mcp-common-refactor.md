@@ -630,8 +630,8 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 
 ### 3. Refactor Express MCP (`server/src/mcp/server.ts`) to use the shared core
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 863a565, b2b5c70
 
 #### Overview
 
@@ -650,7 +650,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 #### Subtasks
 
-1. [ ] Refactor `server/src/mcp/server.ts` in small steps:
+1. [x] Refactor `server/src/mcp/server.ts` in small steps:
    - Import and use `server/src/mcpCommon/guards.ts` instead of the local `isObject`.
    - Import and use `server/src/mcpCommon/jsonRpc.ts` instead of local `jsonRpcResult/jsonRpcError`.
    - Replace the inline method dispatch chain with `server/src/mcpCommon/dispatch.ts`, using handlers that return the **exact** current payloads.
@@ -661,7 +661,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
      - MCP spec: https://modelcontextprotocol.io/
    - Non-negotiables: refactor only; the response wire format must be identical before/after.
-2. [ ] Keep these items local to `server/src/mcp/server.ts` (to avoid behavior drift):
+2. [x] Keep these items local to `server/src/mcp/server.ts` (to avoid behavior drift):
    - tool definitions array (schemas, descriptions, output schema keys)
    - domain error mapping (including any non-standard codes like `404`, `409`, `503`)
    - `PROTOCOL_VERSION` and the exact `initialize` `serverInfo` payload (currently `name: "codeinfo2-mcp", version: "1.0.0"`).
@@ -669,7 +669,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
    - Files to read: `server/src/mcp/server.ts`
    - Files to edit: `server/src/mcp/server.ts` (only if the refactor accidentally moved these items)
    - Non-negotiables: do not “standardize” codes or names; preserve existing quirks.
-3. [ ] Ensure dependency injection via `createMcpRouter(deps)` remains unchanged:
+3. [x] Ensure dependency injection via `createMcpRouter(deps)` remains unchanged:
    - `createMcpRouter()` signature stays the same.
    - Passing overrides for `listIngestedRepositories`, `validateVectorSearch`, and `vectorSearch` keeps working (Task 1 contract tests depend on it).
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`.
@@ -678,20 +678,20 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
      - TypeScript: Context7 `/microsoft/typescript`
      - Node `node:test` (to understand how deps are injected in tests): https://nodejs.org/api/test.html
    - Non-negotiables: do not delete or rename dependency-injection hooks; tests rely on them.
-4. [ ] Run only the Express MCP contract test first and fix failures by restoring previous output:
+4. [x] Run only the Express MCP contract test first and fix failures by restoring previous output:
    - If `serverInfo` values, key names, or error codes differ, change the refactor until it matches the pre-refactor behavior.
    - Files to read: `server/src/test/integration/mcp-server.test.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`.
    - Files to edit: `server/src/mcp/server.ts`.
    - Docs to read (repeat): none beyond the test files and JSON-RPC spec https://www.jsonrpc.org/specification
    - Non-negotiables: treat these tests as “contracts”; do not weaken assertions to make refactor easier.
-5. [ ] Update `projectStructure.md` (refactor-only) entry for `server/src/mcp/server.ts`:
+5. [x] Update `projectStructure.md` (refactor-only) entry for `server/src/mcp/server.ts`:
    - Add a note in its description that it now uses `server/src/mcpCommon/*` for shared JSON-RPC helpers/dispatch.
    - Keep the description clear that tool definitions + domain error mapping remain owned by `server/src/mcp/server.ts`.
    - Files to edit: `projectStructure.md`.
    - Docs to read (repeat, if unfamiliar with Markdown lists/code blocks): https://docs.github.com/en/get-started/writing-on-github
    - Files to read: `projectStructure.md`
    - Non-negotiables: only update descriptions; do not rename/move files.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read (repeat):
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -699,21 +699,25 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (Express MCP contract + basic regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (Express MCP contract + basic regressions):
    - Confirm `/chat` and `/logs` still render: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
    - Confirm Express `POST /mcp` still responds correctly to `initialize`, `tools/list`, and a happy-path `tools/call` using the smoke commands in `README.md`.
    - Save at least one screenshot to `test-results/screenshots/` named `0000015-03-<name>.png`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Refactored `server/src/mcp/server.ts` to use `server/src/mcpCommon/{guards,jsonRpc,dispatch}` while preserving the existing `/mcp` wire format and error-code conventions.
+- Kept tool schemas/definitions, `PROTOCOL_VERSION`, `serverInfo` payload, and domain error mapping (including `404/409/503`) owned by the Express MCP router.
+- Verified Codex-compatible `tools/call` responses still return `content[0].type === "text"` with JSON-string encoding.
+- Verification run (2025-12-13): lint ok, format ok, server/client builds ok, server/client tests ok, `npm run e2e` ok, compose build/up/down ok; curl smoke for `/mcp` `initialize`/`tools/list`/`tools/call` ok; screenshots saved to `test-results/screenshots/0000015-03-chat.png` and `test-results/screenshots/0000015-03-logs.png`.
 
 ---
 

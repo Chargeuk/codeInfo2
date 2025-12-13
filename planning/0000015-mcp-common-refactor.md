@@ -468,7 +468,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 ### 2. Introduce a shared MCP core module
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

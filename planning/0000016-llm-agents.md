@@ -313,7 +313,7 @@ This is a prerequisite for everything else in this story.
 ### 2. Mongo + repo: store `agentName` on conversations (top-level optional)
 
 - Task Status: __in_progress__
-- Git Commits: __to_do__
+- Git Commits: 4985d74, 77a4b1e
 
 #### Overview
 
@@ -402,20 +402,25 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; conversation list renders; existing non-agent conversations behave unchanged.
    - Creating/running a normal chat does not set `agentName` and still appears on the Chat page history.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Added optional `Conversation.agentName?: string` to `server/src/mongo/conversation.ts` with an additional compound index `{ agentName: 1, archivedAt: 1, lastMessageAt: -1 }` to support future filtered listings.
+- Threaded `agentName` through `server/src/mongo/repo.ts` (`CreateConversationInput` and `ConversationSummary`) without defaulting it, so non-agent conversations keep `agentName` absent.
+- Extended `server/src/test/unit/repo-persistence-source.test.ts` to assert `listConversations()` preserves `agentName` from lean docs while still defaulting `source` when missing.
+- Updated `design.md` and `projectStructure.md` to document how `agentName` separates Chat vs Agents histories.
+- Ran Task 2 verification: server/client builds, server/client tests, full `npm run e2e`, compose build/up/down, and a Playwright check that a normal Chat message still creates a visible history entry.
 
 ---
 

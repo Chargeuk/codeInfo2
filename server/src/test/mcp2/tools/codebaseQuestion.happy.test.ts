@@ -127,6 +127,7 @@ test('codebase_question streams thinking -> vector_summary -> answer and preserv
       },
     });
 
+    assert.equal(firstCall.result.content[0].type, 'text');
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
 
     assert.equal(firstPayload.conversationId, 'thread-abc');

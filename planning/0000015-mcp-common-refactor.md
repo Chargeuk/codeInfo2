@@ -110,7 +110,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 #### Subtasks
 
-1. [ ] Read `server/src/mcp/server.ts` and write down the exact “contract” you must preserve:
+1. [x] Read `server/src/mcp/server.ts` and write down the exact “contract” you must preserve:
    - `initialize` response fields and values (note: `serverInfo.version` is currently hard-coded here).
    - `resources/listTemplates` response key name (note: this may differ from MCP v2; do not change it).
    - tool responses are returned as `result.content[0].type === "text"` and `result.content[0].text` is a JSON string.
@@ -119,7 +119,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
    - Files to read: `server/src/mcp/server.ts`
    - Non-negotiables: **no behavior change**; do not rename keys or “standardize” outputs.
-2. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+2. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: `initialize` returns protocolVersion and capabilities.
@@ -132,7 +132,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: if an assertion changes because output changed, restore the output (do not “update expected” unless it was already wrong pre-story).
-3. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+3. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: `tools/list` returns MCP tool definitions (includes `ListIngestedRepositories` + `VectorSearch`).
@@ -145,7 +145,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve tool names, schemas, and the exact list output shape.
-4. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+4. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: `tools/call` executes `ListIngestedRepositories` and returns `content[0].type === "text"` JSON.
@@ -158,7 +158,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve the `content[0].type === "text"` + JSON-string encoding pattern.
-5. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+5. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: `tools/call` validates `VectorSearch` args and returns `-32602` when `query` missing.
@@ -170,7 +170,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve error code and any `error.data` fields.
-6. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+6. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: unknown tool name returns `-32602`.
@@ -182,7 +182,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve the current error mapping (even if it seems “non-standard”).
-7. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+7. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: unknown JSON-RPC method returns `-32601`.
@@ -194,7 +194,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve error codes/messages exactly.
-8. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+8. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: invalid request shape returns `-32600`.
@@ -206,7 +206,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve invalid-request detection + payload shape.
-9. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+9. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: internal errors inside tool execution return `-32603`.
@@ -218,7 +218,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve the internal-error mapping and response shape.
-10. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
+10. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.test.ts`
    - Description: thrown `ValidationError` instances map to `-32602` with `error.data.details`.
@@ -230,7 +230,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve `error.data.details` structure.
-11. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
+11. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Description: `tools/call` responses are returned as `text` content (ListIngestedRepositories).
@@ -242,7 +242,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Non-negotiables: preserve the Codex-compatible `text` content encoding.
-12. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
+12. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Description: `VectorSearch` content is `text` and parsable JSON.
@@ -254,7 +254,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Non-negotiables: preserve encoding + JSON string parseability.
-13. [ ] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
+13. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Type: Node `node:test` + Supertest (Express in-memory).
    - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Description: `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resourceTemplates: [] }`.
@@ -266,7 +266,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
    - Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
-14. [ ] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-initialize.test.ts`
+14. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-initialize.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-initialize.test.ts`
    - Description: MCP v2 `initialize` returns protocolVersion/capabilities/serverInfo.
@@ -280,7 +280,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts`
    - Files to edit: `server/src/test/unit/mcp2-router-initialize.test.ts`
    - Non-negotiables: preserve `serverInfo` values and how version is sourced in MCP v2.
-15. [ ] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-happy.test.ts`
+15. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-happy.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-list-happy.test.ts`
    - Description: MCP v2 `tools/list` returns tool definitions when Codex is available.
@@ -293,7 +293,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts`
    - Files to edit: `server/src/test/unit/mcp2-router-list-happy.test.ts`
    - Non-negotiables: preserve tool list payload structure and gating conditions.
-16. [ ] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+16. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Description: MCP v2 `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE (-32001)` when Codex is missing.
@@ -306,7 +306,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/codexAvailability.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Non-negotiables: preserve `-32001` and exact error message string.
-17. [ ] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+17. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Description: MCP v2 `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resource_templates: [] }`.
@@ -319,7 +319,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
    - Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
-18. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-parse-error.test.ts`
+18. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-parse-error.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + raw `http.request`.
    - Location: `server/src/test/unit/mcp2-router-parse-error.test.ts`
    - Description: invalid JSON request body returns parse error `-32700`, `id: null`, message `"Parse error"`.
@@ -333,7 +333,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Suggested request snippet (keep payload invalid JSON on purpose):
      - `body: \"{ not valid json\"`
    - Non-negotiables: response must be JSON-RPC error with `id: null` and code `-32700`.
-19. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-invalid-request.test.ts`
+19. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-invalid-request.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-invalid-request.test.ts`
    - Description: invalid JSON-RPC request shape returns `-32600` `"Invalid Request"`.
@@ -345,7 +345,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts` (for the “start server, call fetch” pattern).
    - Files to edit (new): `server/src/test/unit/mcp2-router-invalid-request.test.ts`
    - Non-negotiables: preserve error code/message and `id` behavior for invalid requests (match existing implementation).
-20. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-method-not-found.test.ts`
+20. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-method-not-found.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-method-not-found.test.ts`
    - Description: unknown JSON-RPC method returns `-32601` `"Method not found"`.
@@ -357,10 +357,10 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts` (pattern).
    - Files to edit (new): `server/src/test/unit/mcp2-router-method-not-found.test.ts`
    - Non-negotiables: preserve error code/message and response shape.
-21. [ ] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
+21. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
-   - Description: `tools/call` with unknown tool name returns `-32601` `"Method not found"`.
+   - Description: `tools/call` with unknown tool name returns `-32601` with message `Tool not found: <name>`.
    - Purpose: prove MCP v2 unknown-tool mapping is unchanged.
    - Docs to read (repeat):
      - JSON-RPC 2.0 “Method not found”: https://www.jsonrpc.org/specification
@@ -369,7 +369,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Files to edit (new): `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
    - Non-negotiables: preserve the “unknown tool maps to method-not-found” behavior even if you disagree with it.
-22. [ ] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+22. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Description: `codebase_question` returns `content[0].type === "text"` JSON with segments order `thinking -> vector_summary -> answer`.
@@ -381,7 +381,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Non-negotiables: preserve the exact JSON string layout inside `content[0].text` (segment ordering and keys).
-23. [ ] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+23. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Description: `codebase_question` preserves conversation id and resumes the same Codex thread on follow-up.
@@ -392,7 +392,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mongo/repo.ts` (conversation persistence behavior), `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Non-negotiables: do not change how `conversationId`/thread ids are generated or returned.
-24. [ ] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+24. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    - Description: `codebase_question` is gated when Codex unavailable (returns `-32001 CODE_INFO_LLM_UNAVAILABLE`).
@@ -403,7 +403,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/codexAvailability.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
    - Non-negotiables: preserve code `-32001` and the exact message string.
-25. [ ] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+25. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
    - Location: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - Description: missing required `question` returns `-32602` `"Invalid params"`.
@@ -414,7 +414,7 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
    - Non-negotiables: preserve code/message and any `error.data` fields.
-26. [ ] Update `projectStructure.md` (refactor-only) with explicit entries/updates for every **new** test file added in this task:
+26. [x] Update `projectStructure.md` (refactor-only) with explicit entries/updates for every **new** test file added in this task:
    - Add `server/src/test/unit/mcp2-router-parse-error.test.ts` — MCP v2 parse error contract (`-32700`) characterization.
    - Add `server/src/test/unit/mcp2-router-invalid-request.test.ts` — MCP v2 invalid request contract (`-32600`) characterization.
    - Add `server/src/test/unit/mcp2-router-method-not-found.test.ts` — MCP v2 method not found contract (`-32601`) characterization.
@@ -423,12 +423,12 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to read: `projectStructure.md` (existing MCP/mcp2 sections for formatting consistency)
    - Files to edit: `projectStructure.md`
    - Non-negotiables: do not rename/move files in this story; only add/update descriptions for files added by this plan.
-27. [ ] Files to read / edit for all tests in this task:
+27. [x] Files to read / edit for all tests in this task:
    - Files to read: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/mcp2/errors.ts`.
    - Files to edit: all test files listed above.
    - Docs to read (repeat): MCP spec https://modelcontextprotocol.io/ and JSON-RPC spec https://www.jsonrpc.org/specification
    - Non-negotiables: treat tests as “characterization”; do not change product behavior to satisfy a refactor convenience.
-28. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
+28. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
    - Docs to read (repeat):
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -436,20 +436,23 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (MCP contracts + basic regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (MCP contracts + basic regressions):
    - Confirm the UI still loads and renders: `http://localhost:5001/chat` and `http://localhost:5001/logs`.
    - Confirm both MCP endpoints still respond to `initialize` and `tools/list` using the smoke commands in `README.md`.
    - Save at least one screenshot to `test-results/screenshots/` named `0000015-01-<name>.png`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- `/mcp` (Express) contract highlights from `server/src/mcp/server.ts`: `initialize` returns `protocolVersion: 2024-11-05`, `capabilities.tools.listChanged=false`, and `serverInfo: {name:'codeinfo2-mcp', version:'1.0.0'}`; `resources/listTemplates` uses `resourceTemplates`; tool results are encoded as `result.content[0].type === 'text'` with `text` as a JSON string; invalid request currently yields a JSON body with no `id` key when the request has no `id` (because it is `undefined`); unknown tools map to `-32602` with message `Unknown tool <name>`; internal errors map to `-32603` with `{ data: { message: '<Error: ...>' } }`.
+- MCP v2 router current behavior note: `tools/call` unknown tool maps to `-32601` with message `Tool not found: <name>` (not the generic `"Method not found"` string).
 
 
 ---

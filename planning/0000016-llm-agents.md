@@ -426,7 +426,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 
 ### 3. Agent discovery (filesystem list + optional description + system prompt presence)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

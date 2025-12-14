@@ -853,7 +853,7 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 
 ### 6. Server endpoint: list available agents (name + optional description)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

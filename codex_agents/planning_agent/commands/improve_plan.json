@@ -32,13 +32,13 @@
             "Chat_Input": "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task"
         },
         {
-            "Chat_Input": "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address. remember to check the documentation yourself before adding it so you can explain the reason for using it."
+            "Chat_Input": "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address. You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information."
         },
         {
-            "Chat_Input": "Ensure that any task adding files has a subtask to explicitly update projectStructure.md."
+            "Chat_Input": "Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files."
         },
         {
-            "Chat_Input": "Ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. these tasks should reference the mermaid docs via context 7."
+            "Chat_Input": "Ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. These tasks should reference the mermaid docs via context 7 so the created diagrams correctly match the Mermaid specification."
         },
         {
             "Chat_Input": "In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose."

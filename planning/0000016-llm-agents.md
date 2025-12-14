@@ -46,7 +46,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 - Agent conversation separation:
   - Agent runs create/persist conversations and turns in MongoDB (same persistence model as existing chat).
   - Each agent conversation stores the agent identifier in conversation metadata as a top-level optional field `conversation.agentName`.
-  - Agent conversations do **not** persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; those are fixed server defaults. `Conversation.flags` is reserved for Codex continuation metadata (such as `threadId`).
+  - Agent conversations do **not** persist agent execution flags (sandbox/websearch/network/approval/reasoning) into `Conversation.flags`; those are sourced from the agent’s Codex home `config.toml` at runtime. `Conversation.flags` is reserved for Codex continuation metadata (such as `threadId`).
   - The existing Chat page conversation list shows only non-agent conversations (agentName absent).
   - The Agents page conversation list is filtered to only show conversations for the currently selected agent.
 - The server exposes an agents listing endpoint (to be used by both the GUI and MCP):
@@ -58,7 +58,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - requires `agentName` + `instruction`
   - accepts optional `conversationId`
   - always uses provider `codex`
-  - always uses the same default Codex model/reasoning/sandbox/web-search/approval settings as the existing Codex chat defaults
+  - uses the agent’s Codex home `config.toml` as the source of truth for model/reasoning/sandbox/web-search/network/approval defaults (no UI selection)
   - returns `content: [{ type: "text", text: "<json>" }]` where the JSON includes `{ conversationId, modelId, agentName, segments }`
   - uses the same segment semantics as `codebase_question`.
 - A new env var exists: `CODEINFO_CODEX_AGENT_HOME`.
@@ -84,7 +84,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 
 ## Out Of Scope
 
-- Provider/model selection for agents (Codex-only, fixed defaults).
+- Provider/model selection for agents (Codex-only; configured via the agent’s `config.toml`, not via UI).
 - Adding more than two MCP tools for agents.
 - Merging existing MCP surfaces; the new agent MCP server is an additional port.
 - Agent scheduling, background jobs, webhooks, or multi-user auth separation.
@@ -309,6 +309,140 @@ This is a prerequisite for everything else in this story.
 - Completed Task 1 verification runs: server/client builds, server/client tests, full `npm run e2e`, docker compose build/up/down, and a Playwright + MCP smoke of `/chat` (Codex send/stop) and `codebase_question` response shape.
 
 ---
+
+### 12. Agents respect per-agent Codex `config.toml` defaults (approval/sandbox/model/reasoning)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Fix agent runs so they can execute commands and follow the agent’s Codex configuration by default. Today, the server passes `ThreadOptions` (model/approval/sandbox/reasoning/etc.) into the Codex SDK for agent runs, which overrides the values configured in `codex_agents/<agentName>/config.toml`. This task introduces an explicit agent-only path to let `config.toml` be the source of truth while keeping existing Chat/Codex runs unchanged.
+
+#### Documentation Locations
+
+- Codex SDK ThreadOptions fields (local): `node_modules/@openai/codex-sdk/dist/index.d.ts` (`ThreadOptions`, `approvalPolicy`, `sandboxMode`, `modelReasoningEffort`)
+- Existing Codex home wiring: `server/src/config/codexConfig.ts` (`buildCodexOptions({ codexHome })`)
+- Agent execution: `server/src/agents/service.ts` (`runAgentInstruction`)
+- Codex chat interface: `server/src/chat/interfaces/ChatInterfaceCodex.ts` (thread options defaults)
+- TOML parsing library docs (Context7): `/iarna/toml` (or another chosen TOML parser package)
+
+#### Subtasks
+
+1. [ ] Add an explicit `useConfigDefaults?: boolean` flag to Codex run flags.
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Implementation steps:
+     - Extend `CodexRunFlags` with `useConfigDefaults?: boolean`.
+     - Thread option build rule:
+       - When `useConfigDefaults === true`, **do not** apply fallback defaults for any fields that overlap with Codex `config.toml` (at minimum: `model`, `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchEnabled`).
+       - Still set server-owned thread options that are not intended to be agent-configurable (e.g. `workingDirectory`, `skipGitRepoCheck`).
+     - Preserve current behavior when `useConfigDefaults` is false/absent (normal chat + MCP codebase_question must be unchanged).
+2. [ ] Parse agent `model` from `codex_agents/<agentName>/config.toml` when not explicitly provided.
+   - Files to edit/create:
+     - `server/src/agents/service.ts`
+     - (optional) `server/src/agents/config.ts` (new helper for reading/parsing config)
+     - `server/package.json` (if a new TOML parsing dependency is required)
+   - Implementation steps:
+     - Read `${agentHome}/config.toml` and parse the top-level `model = "..."` value.
+     - If the model is missing/unreadable, fall back to the current default (keep behavior resilient).
+     - Use the parsed model as the `modelId` returned from the REST/MCP response and as the model stored on conversation/turn persistence for that run.
+3. [ ] Update agent runs to stop overriding `config.toml` defaults.
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Implementation steps:
+     - Stop hard-coding `modelId` for agents when it can be derived from config.
+     - Stop passing agent `codexFlags` defaults that overlap `config.toml` (approval/sandbox/model/reasoning/network/websearch).
+     - Pass `useConfigDefaults: true` for agent runs, and keep `codexHome` set to the agent home.
+     - Keep `disableSystemContext: true` and keep the existing per-agent `system_prompt.txt` first-turn behavior unchanged.
+4. [ ] Server unit tests: agent config defaults path.
+   - Test type:
+     - Server unit tests (Node `node:test`)
+   - Files to create/update:
+     - Add a new unit test file under `server/src/test/unit/` covering:
+       - Parsing `model` from an agent `config.toml` file.
+       - `useConfigDefaults` behavior: when enabled, the constructed `ThreadOptions` do **not** include overridden config fields (model/approval/sandbox/reasoning/network/websearch).
+   - Notes:
+     - Prefer mocking the Codex SDK thread creation so the test can assert the `ThreadOptions` object passed into `startThread()` / `resumeThread()`.
+5. [ ] Update docs to match new behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+   - Required updates:
+     - Document that agent runs rely on `codex_agents/<agentName>/config.toml` for model/reasoning/sandbox/approval defaults (no UI selection).
+     - Clarify what is still server-owned (e.g. `workingDirectory`, `skipGitRepoCheck`) vs agent-owned config.
+6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+
+#### Implementation notes
+
+
+---
+
+### 13. Final task – verify against acceptance criteria (post-Task 12)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Re-validate all acceptance criteria after Task 12, including that agent runs can execute commands under the agent’s configured `approval_policy` / `sandbox_mode` defaults and that the Agents MCP `5012` endpoint still behaves correctly.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Repo docs: `README.md`, `design.md`, `projectStructure.md`
+
+#### Subtasks
+
+1. [ ] Build the server: `npm run build --workspace server`
+2. [ ] Build the client: `npm run build --workspace client`
+3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
+4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story
+5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
+6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
+7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
+8. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Commands (must run both):
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/chat` still loads and shows only non-agent conversations
+   - `/agents` loads, lists agents, shows agent description, and can run an instruction **that executes at least one safe command** (verifies approval/sandbox comes from agent config)
+   - Agents MCP `5012` responds to initialize/tools/list/tools/call and can run an instruction that executes at least one safe command
+   - Save screenshots to `./test-results/screenshots/` named:
+     - `0000016-13-chat.png`
+     - `0000016-13-agents.png`
+     - `0000016-13-mcp-5012.png`
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
 
 ### 2. Mongo + repo: store `agentName` on conversations (top-level optional)
 

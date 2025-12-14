@@ -1,7 +1,7 @@
-model = "gpt-5.1-codex-max"
-model_reasoning_effort = "high"
-approval_policy = "on-failure"
-sandbox_mode    = "workspace-write"
+model = "gpt-5.2"
+model_reasoning_effort = "medium"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
 
 [features]
 web_search_request = true

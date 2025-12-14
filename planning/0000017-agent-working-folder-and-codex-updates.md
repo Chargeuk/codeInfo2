@@ -778,15 +778,20 @@ Update the Codex model list and reasoning-effort options across server validatio
    - Description:
      - send a Codex request with `modelReasoningEffort: 'xhigh'`
      - assert mocked codex thread options received `modelReasoningEffort: 'xhigh'`.
-6. [ ] Documentation updates (do not miss this even if you only work this subtask):
-   - Update `README.md` and `design.md` to state clearly:
+6. [ ] Update `README.md` to document `xhigh` (do this after implementing the validation + adapter changes above):
+   - Files to edit:
+     - `README.md`
+   - Purpose: ensure users know `xhigh` exists and what it does.
+   - Description (must include):
      - `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`).
-7. [ ] Update `design.md` with the reasoning-effort decision flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
+7. [ ] Update `design.md` to document the reasoning-effort flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
    - Files to edit:
      - `design.md`
+   - Purpose: capture the architecture/flow change so future devs understand how the flag is validated and forwarded.
+   - Description (must include):
+     - call out that `xhigh` is not in this repo’s installed SDK TypeScript union, but is still forwarded at runtime.
    - Add a Mermaid `flowchart` showing:
      - UI selection → REST payload (`modelReasoningEffort`) → server validation → Codex thread options (`modelReasoningEffort`)
-   - Call out that `xhigh` is not in this repo’s installed SDK TypeScript union, but is still forwarded at runtime.
 8. [ ] Verification commands:
    - `npm run lint --workspaces`
    - `npm run test --workspace server`

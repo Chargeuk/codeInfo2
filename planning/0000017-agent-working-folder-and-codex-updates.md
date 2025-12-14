@@ -38,22 +38,25 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
   1. Treat input as a **host path** first.
   2. Attempt to map it via:
      - compute `rel = relative( HOST_INGEST_DIR, working_folder )`
-     - compute `mapped = join( CODEINFO_CODEX_WORKDIR, rel )` (or `CODEX_WORKDIR` equivalent resolution used by Codex)
-     - if `mapped` exists, use it as the Codex `workingDirectory` for this call.
+     - compute `mapped = join( CODEX_WORKDIR || CODEINFO_CODEX_WORKDIR || '/data', rel )`
+     - if `mapped` exists **and is a directory**, use it as the Codex `workingDirectory` for this call.
   3. If the mapped path does not exist, check `working_folder` **as provided** (no mapping) and:
-     - if it exists, use it as the Codex `workingDirectory` for this call.
+     - if it exists **and is a directory**, use it as the Codex `workingDirectory` for this call.
   4. If neither candidate exists, return an error:
      - REST returns `400` with a stable error code (and a safe, human-readable message).
      - MCP returns a JSON-RPC tool error that callers can treat as invalid params (and includes a safe message).
 - Security/safety:
   - The mapping attempt must not allow escaping `CODEINFO_CODEX_WORKDIR` via `..` segments when the host path is outside `HOST_INGEST_DIR` (i.e. mapping must be skipped or rejected when `working_folder` is not under `HOST_INGEST_DIR`).
   - The server must not crash on odd path separators; normalization should be consistent across host/container paths.
+- Input rules:
+  - `working_folder` must be an **absolute** path (POSIX or Windows). Relative paths are rejected with a `400`/invalid-params error.
+  - If `HOST_INGEST_DIR` is not set, the host-path mapping attempt is skipped and only the literal path check is performed.
 - Codex model list:
   - `/chat/models?provider=codex` includes `gpt-5.2` in addition to the existing fixed Codex models.
   - Client UI that relies on the Codex model list continues to function; tests updated accordingly.
 - Codex reasoning effort:
   - Any Codex reasoning-effort dropdown/validation includes `xhigh` as the new highest option.
-  - Existing defaults remain unchanged unless explicitly decided (see Questions).
+  - Existing defaults remain unchanged (`high` stays the default).
 - Documentation:
   - `README.md`, `design.md`, and `projectStructure.md` are updated to reflect:
     - the new `working_folder` parameter and its resolution/mapping rules
@@ -73,17 +76,12 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 
 ## Questions
 
-- Should `working_folder` be **snake_case** in REST bodies too (to match MCP), or do we want to accept both `working_folder` and `workingFolder` for REST compatibility/ergonomics?
-- What should the server do when `HOST_INGEST_DIR` is unset?
-  - Skip the mapping attempt entirely and only try `working_folder` “as provided”?
-  - Or default `HOST_INGEST_DIR` to `/data` (similar to `mapIngestPath`)?
-- Should we require `working_folder` to be absolute, or allow relative paths? If relative is allowed, what is it relative to (server CWD vs `CODEINFO_CODEX_WORKDIR`)?
-- What is the intended canonical path style for `working_folder` from the GUI when the server is running in Docker?
-  - e.g. host absolute paths like `/Users/...` will not exist in-container unless mounted; do we expect callers to provide paths under the ingest root specifically?
-- For Codex reasoning effort:
-  - should `high` remain the default everywhere, or should we upgrade defaults to `xhigh`?
-- For Codex model list:
-  - should `gpt-5.2` be added alongside existing models only, or should we also introduce `gpt-5.2-*` variants (if applicable)?
+- **Resolved**: Use wire name `working_folder` for GUI + MCP + REST. REST will accept both `working_folder` and `workingFolder` (alias) but will *emit/send* `working_folder`.
+- **Resolved**: If `HOST_INGEST_DIR` is unset, skip mapping and only attempt the literal path check.
+- **Resolved**: Require `working_folder` to be an absolute path; reject relative inputs for predictability.
+- **Resolved**: Defaults remain unchanged (Codex reasoning default stays `high`; no reorder of model list beyond appending `gpt-5.2`).
+- **Resolved**: `gpt-5.2` is added as a new fixed model id alongside existing models (no new `gpt-5.2-*` variants in this story).
+- **Discovered constraint**: current `@openai/codex-sdk` (and even latest at time of writing) does **not** include `xhigh` in its `ModelReasoningEffort` TypeScript union (it currently exposes `minimal|low|medium|high`). This story therefore implements `xhigh` as an **app-level allowed value** that is passed through to Codex at runtime with a narrow type-cast at the SDK boundary, and it adds tests to ensure the option is forwarded (without requiring an SDK bump).
 
 ---
 
@@ -116,11 +114,13 @@ Introduce a single, tested server helper that resolves an agent-run `working_fol
 2. [ ] Create a new helper module (suggested) `server/src/agents/workingFolder.ts`:
    - exports `resolveAgentWorkingDirectory({ workingFolder, hostIngestDir, codexWorkdir }): { workingDirectory?: string; error?: { code; message; attempted? } }`
    - implements the mapping algorithm in Acceptance Criteria (including “skip mapping if outside host ingest root” safety).
-3. [ ] Extend `RunAgentInstructionParams` in `server/src/agents/service.ts` to accept optional `workingFolder` (exact external name TBD; see Questions).
+3. [ ] Extend `RunAgentInstructionParams` in `server/src/agents/service.ts` to accept optional `working_folder` (string) and thread it through callers.
 4. [ ] Update `runAgentInstruction()` in `server/src/agents/service.ts`:
    - resolve `working_folder` to a `workingDirectory` override
    - on success: pass the override into Codex execution flags (new flag on `ChatInterfaceCodex`, e.g. `workingDirectoryOverride`)
-   - on failure: throw a structured agent-run error code that routes/MCP map consistently (suggested new code: `WORKING_FOLDER_NOT_FOUND` or `WORKING_FOLDER_INVALID`)
+   - on failure: throw a structured agent-run error code that routes/MCP map consistently:
+     - `WORKING_FOLDER_INVALID` (not absolute / wrong type)
+     - `WORKING_FOLDER_NOT_FOUND` (neither mapped nor literal exists as a directory)
 5. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` to accept and apply the per-call override when building `threadOptions.workingDirectory` (without mutating env and without changing non-agent behavior).
 6. [ ] Add server unit tests (Node `node:test`) covering:
    - mapped path exists → uses mapped
@@ -158,7 +158,7 @@ Plumb the new optional `working_folder` through the REST endpoint and the client
 
 #### Subtasks
 
-1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` (and/or the chosen REST key) and pass it to `runAgentInstruction`.
+1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` and the alias `workingFolder` (both strings); if both are present, prefer `working_folder`. Pass through to `runAgentInstruction`.
 2. [ ] Map new agent-run errors to stable HTTP responses:
    - `400` for invalid/nonexistent working folder (with safe message)
 3. [ ] Update `client/src/api/agents.ts` to accept optional `working_folder` parameter and include it in the POST body only when present.
@@ -199,7 +199,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 1. [ ] Decide UI placement consistent with existing constraints:
    - do NOT add to the top control bar; instead add a secondary input near the instruction box (or in an “Advanced” accordion) labelled `working_folder`.
 2. [ ] Update `client/src/pages/AgentsPage.tsx` to store the optional `working_folder` value and pass it to `runAgentInstruction(...)`.
-3. [ ] Ensure agent change and “New conversation” reset behavior is defined (clear the field or preserve it; choose explicitly and document in notes).
+3. [ ] Define reset behavior: `working_folder` is cleared on **New conversation** and when changing agent (to avoid accidental reuse across runs).
 4. [ ] Add/adjust client tests to assert:
    - the field renders
    - the outgoing POST includes `working_folder` when provided
@@ -275,8 +275,10 @@ Update the Codex model list and reasoning-effort options across server validatio
 3. [ ] Add `xhigh` to the Codex reasoning effort options:
    - client UI options in `client/src/components/chat/CodexFlagsPanel.tsx`
    - server validators that restrict `modelReasoningEffort`
+   - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
+   - server boundary types: do not rely on `@openai/codex-sdk` union supporting `xhigh`; cast only at the point where options are passed to the SDK.
 4. [ ] Update unit/integration tests that assert codex model lists and reasoning effort values.
-5. [ ] Decide whether defaults remain `high` vs change to `xhigh` (see Questions) and update docs/config examples accordingly.
+5. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
 
 #### Testing
@@ -381,4 +383,3 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 #### Implementation notes
 
 - (fill during implementation)
-

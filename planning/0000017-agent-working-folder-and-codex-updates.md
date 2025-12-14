@@ -425,6 +425,8 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
    - Rules:
      - if provided: must be a string and `trim().length > 0`
      - do not check filesystem existence here (service does that so REST + MCP stay consistent)
+   - Important note (easy to miss):
+     - `validateBody()` must return `working_folder?: string` so the route handler can forward it to the service.
 2. [ ] Pass the value to the service:
    - Docs to read:
      - Context7 `/expressjs/express`
@@ -436,6 +438,10 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - File to edit:
      - `server/src/routes/agentsRun.ts`
+   - Required type update (avoid silent 500s):
+     - Extend the local `AgentRunError` union to include:
+       - `{ code: 'WORKING_FOLDER_INVALID'; reason?: string }`
+       - `{ code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }`
    - When service throws:
      - `WORKING_FOLDER_INVALID` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', message: '...' }`
      - `WORKING_FOLDER_NOT_FOUND` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
@@ -713,6 +719,10 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - https://www.jsonrpc.org/specification
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
+   - Required type update (avoid JSON-RPC internal errors):
+     - Extend the local `AgentRunError` union in this file to include:
+       - `{ code: 'WORKING_FOLDER_INVALID'; reason?: string }`
+       - `{ code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }`
    - When the service throws `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, translate to `InvalidParamsError` (safe message only).
 4. [ ] **Test (server unit, `node:test`)**: `callTool()` forwards `working_folder` to the agents service
    - Docs to read:

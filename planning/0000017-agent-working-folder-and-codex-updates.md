@@ -219,6 +219,8 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/ingest/pathMap.ts` (new helper from Task 1)
+     - `server/src/ingest/discovery.ts` (existing pattern: `fs.stat(...).catch(() => null)` to avoid throwing on ENOENT/permissions)
+     - `server/src/agents/discovery.ts` (existing pattern: safe `fs.stat` wrapper that treats ENOENT as missing)
    - File to edit:
      - `server/src/agents/service.ts`
    - Add a new exported function (name explicit, copy exactly):
@@ -245,6 +247,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
        - If `working_folder` exists **and is a directory**, return `working_folder` exactly as provided (do not normalize).
      - Error handling (important to avoid 500s):
        - When checking “exists and is a directory”, treat any filesystem error (ENOENT, ENOTDIR, EACCES, etc.) as “does not exist” and continue/fail with `WORKING_FOLDER_NOT_FOUND` (do not allow uncaught stat errors to bubble up).
+       - Reuse the repo’s existing approach from `server/src/ingest/discovery.ts` / `server/src/agents/discovery.ts` (don’t invent a new error-handling convention).
      - If neither candidate exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
 4. [ ] Thread the chosen working directory into Codex execution:
    - Files to read:

@@ -55,7 +55,7 @@ test('POST /agents/:agentName/run returns a stable success payload shape', async
         return {
           agentName: 'coding_agent',
           conversationId: 'conv-1',
-          modelId: 'gpt-5.1-codex-max',
+          modelId: 'model-from-config',
           segments: [{ type: 'answer', text: 'ok' }],
         };
       },
@@ -67,6 +67,7 @@ test('POST /agents/:agentName/run returns a stable success payload shape', async
   assert.equal(res.status, 200);
   assert.equal(res.body.agentName, 'coding_agent');
   assert.equal(res.body.conversationId, 'conv-1');
-  assert.equal(res.body.modelId, 'gpt-5.1-codex-max');
+  assert.equal(typeof res.body.modelId, 'string');
+  assert.equal(res.body.modelId.length > 0, true);
   assert.equal(Array.isArray(res.body.segments), true);
 });

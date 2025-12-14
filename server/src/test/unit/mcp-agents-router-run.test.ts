@@ -22,7 +22,7 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
     runAgentInstruction: async () => ({
       agentName: 'coding_agent',
       conversationId: 'c1',
-      modelId: 'gpt-5.1-codex-max',
+      modelId: 'model-from-config',
       segments: [
         { type: 'thinking', text: 't' },
         { type: 'answer', text: 'a' },
@@ -55,7 +55,8 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
     };
     assert.equal(parsed.agentName, 'coding_agent');
     assert.equal(parsed.conversationId, 'c1');
-    assert.equal(parsed.modelId, 'gpt-5.1-codex-max');
+    assert.equal(typeof parsed.modelId, 'string');
+    assert.equal(parsed.modelId.length > 0, true);
     assert.equal(Array.isArray(parsed.segments), true);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

@@ -1960,7 +1960,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
        - `useConfigDefaults` behavior: when enabled, the constructed `ThreadOptions` do **not** include overridden config fields (model/approval/sandbox/reasoning/network/websearch).
    - Notes:
      - Prefer mocking the Codex SDK thread creation so the test can assert the `ThreadOptions` object passed into `startThread()` / `resumeThread()`.
-5. [ ] Update server/client tests that currently assume a fixed agents `modelId`.
+5. [x] Update server/client tests that currently assume a fixed agents `modelId`.
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
      - `client/src/test/agentsPage.run.test.tsx`

@@ -905,7 +905,7 @@ This endpoint is the single source of truth for:
      - `server/src/index.ts`
    - Implementation steps:
      - Add `app.use('/', createAgentsRouter())` near other `app.use('/', ...)` routes.
-4. [ ] Server unit test (Supertest): `GET /agents` returns discovered agents.
+4. [x] Server unit test (Supertest): `GET /agents` returns discovered agents.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -914,7 +914,7 @@ This endpoint is the single source of truth for:
      - Ensure REST API returns a stable list for the Agents dropdown and MCP `list_agents`.
    - Test description:
      - With `CODEINFO_CODEX_AGENT_HOME=<tmp>`, create `coding_agent/config.toml`, call `GET /agents`, assert status 200 and `agents` contains `{ name: 'coding_agent' }`.
-5. [ ] Server unit test (Supertest): `GET /agents` includes `description` when `description.md` exists.
+5. [x] Server unit test (Supertest): `GET /agents` includes `description` when `description.md` exists.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -923,7 +923,7 @@ This endpoint is the single source of truth for:
      - Ensure the UI info block and MCP metadata can show the per-agent description.
    - Test description:
      - Add `coding_agent/description.md` and assert response agent object includes `description`.
-6. [ ] Server unit test (Supertest): `GET /agents` does not error when `description.md` is missing.
+6. [x] Server unit test (Supertest): `GET /agents` does not error when `description.md` is missing.
    - Test type:
      - Server unit test (Supertest)
    - Test location:

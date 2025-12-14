@@ -1783,7 +1783,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - `client/src/pages/AgentsPage.tsx`
        - `client/src/api/agents.ts`
        - new Agents page test file(s)
-16. [ ] Run lint + format checks (all workspaces) and fix any failures.
+16. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

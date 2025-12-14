@@ -1356,7 +1356,7 @@ Important semantics (must be implemented exactly):
 
 ### 9. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

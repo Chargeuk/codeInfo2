@@ -1600,7 +1600,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - Add a new route: `<Route path="agents" element={<AgentsPage />} />`
      - Add a new tab:
        - `label="Agents"`, `value="/agents"`, `to="/agents"`
-2. [ ] Add a client API module for agents.
+2. [x] Add a client API module for agents.
    - Files to create:
      - `client/src/api/agents.ts`
    - Required exports (exact):

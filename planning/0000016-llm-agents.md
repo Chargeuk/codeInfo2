@@ -1620,7 +1620,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - Update/extend `client/src/test/useConversations.source.test.ts`:
        - existing tests should still pass when calling `useConversations()` with no params
        - add an assertion that when calling `useConversations({ agentName: '__none__' })`, the fetch URL includes `agentName=__none__`
-4. [ ] Update Chat page to request only non-agent conversations.
+4. [x] Update Chat page to request only non-agent conversations.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Implementation steps:

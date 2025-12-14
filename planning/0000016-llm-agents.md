@@ -1592,7 +1592,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
 
 #### Subtasks
 
-1. [ ] Add `/agents` route and NavBar tab entry.
+1. [x] Add `/agents` route and NavBar tab entry.
    - Files to edit:
      - `client/src/routes/router.tsx`
      - `client/src/components/NavBar.tsx`

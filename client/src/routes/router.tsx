@@ -4,6 +4,7 @@ import {
   Route,
 } from 'react-router-dom';
 import App from '../App';
+import AgentsPage from '../pages/AgentsPage';
 import ChatPage from '../pages/ChatPage';
 import HomePage from '../pages/HomePage';
 import IngestPage from '../pages/IngestPage';
@@ -16,6 +17,7 @@ export const router = createBrowserRouter(
     <Route path="/" element={<App />} errorElement={<RouterErrorBoundary />}>
       <Route index element={<HomePage />} />
       <Route path="chat" element={<ChatPage />} />
+      <Route path="agents" element={<AgentsPage />} />
       <Route path="lmstudio" element={<LmStudioPage />} />
       <Route path="ingest" element={<IngestPage />} />
       <Route path="logs" element={<LogsPage />} />

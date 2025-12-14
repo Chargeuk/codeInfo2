@@ -5,13 +5,15 @@ export default function NavBar() {
   const { pathname } = useLocation();
   const value = pathname.startsWith('/chat')
     ? '/chat'
-    : pathname.startsWith('/lmstudio')
-      ? '/lmstudio'
-      : pathname.startsWith('/ingest')
-        ? '/ingest'
-        : pathname.startsWith('/logs')
-          ? '/logs'
-          : '/';
+    : pathname.startsWith('/agents')
+      ? '/agents'
+      : pathname.startsWith('/lmstudio')
+        ? '/lmstudio'
+        : pathname.startsWith('/ingest')
+          ? '/ingest'
+          : pathname.startsWith('/logs')
+            ? '/logs'
+            : '/';
   return (
     <AppBar position="static">
       <Toolbar sx={{ minHeight: 64 }}>
@@ -36,6 +38,13 @@ export default function NavBar() {
             component={RouterLink}
             to="/chat"
             aria-label="Chat"
+          />
+          <Tab
+            label="Agents"
+            value="/agents"
+            component={RouterLink}
+            to="/agents"
+            aria-label="Agents"
           />
           <Tab
             label="LM Studio"

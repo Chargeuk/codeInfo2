@@ -197,6 +197,38 @@ flowchart LR
   Disc --> Resp[{ agents: [...] }]
 ```
 
+### Agent execution (REST + MCP)
+
+- Agent execution shares one implementation (`runAgentInstruction()`), invoked by:
+  - REST: `POST /agents/:agentName/run`
+  - MCP: `run_agent_instruction`
+- The API returns the **server** `conversationId`; Codex continuation uses a separate thread id persisted as `Conversation.flags.threadId`.
+- Per-agent system prompts (`system_prompt.txt`) apply only to the first turn of a new conversation and do not leak into persisted user turns.
+
+```mermaid
+sequenceDiagram
+  participant Client as GUI/MCP Client
+  participant Server as Server
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Mongo as MongoDB
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>Server: Run instruction\\n(agentName, instruction, conversationId?)
+  Server->>Svc: runAgentInstruction(...)
+  Svc->>Svc: discover + validate agent
+  alt new conversation
+    Svc->>Mongo: create Conversation\\n(agentName set, flags = {})
+    Svc->>Svc: read system_prompt.txt (optional)
+  else existing conversation
+    Svc->>Mongo: load Conversation
+    Svc->>Svc: validate agentName match + not archived
+  end
+  Svc->>Codex: runStreamed(instruction)\\n(threadId from flags.threadId when present)
+  Codex-->>Svc: streamed events (analysis/tool-result/final) + thread id
+  Svc->>Mongo: $set flags.threadId (when emitted)
+  Svc-->>Client: { agentName, conversationId, modelId, segments }
+```
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

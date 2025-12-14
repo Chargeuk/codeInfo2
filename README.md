@@ -67,6 +67,14 @@ codex_agents/<agentName>/
     }
     ```
 
+- Run an instruction against an agent:
+  - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Say hello"}' | jq`
+  - Continue an existing agent conversation (server `conversationId`, not the Codex thread id):
+    - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Continue","conversationId":"<conversationId>"}' | jq`
+  - Notes:
+    - The response `conversationId` is the server conversation id used for history and continuation.
+    - Codex continuation uses an internal thread id persisted as `Conversation.flags.threadId`.
+
 ### MCP for Codex
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.

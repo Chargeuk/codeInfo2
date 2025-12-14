@@ -287,7 +287,7 @@ This is a prerequisite for everything else in this story.
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
-6. [x] `npm run compose:build`
+6. [ ] `npm run compose:build`
 7. [x] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads; can start/continue a Codex chat; Stop works; no console errors.
@@ -407,8 +407,8 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
-6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads; conversation list renders; existing non-agent conversations behave unchanged.
    - Creating/running a normal chat does not set `agentName` and still appears on the Chat page history.
@@ -557,7 +557,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
-7. [x] `npm run compose:up`
+7. [ ] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads with `CODEINFO_CODEX_AGENT_HOME` set; no console errors.
    - If agents UI is not implemented yet, confirm existing Chat UX still works end-to-end (send message, stop, reload).
@@ -1021,7 +1021,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
 
 #### Subtasks
 
-1. [ ] Create the route module for `POST /agents/:agentName/run`.
+1. [x] Create the route module for `POST /agents/:agentName/run`.
    - Docs to read (this subtask):
      - Express routers: Context7 `/expressjs/express`
    - Files to create:
@@ -1035,12 +1035,14 @@ Critical requirement: the REST path and MCP path must share the same implementat
        ```json
        { "agentName": "coding_agent", "conversationId": "...", "modelId": "gpt-5.1-codex-max", "segments": [ ... ] }
        ```
-2. [ ] Wire the route into the main server app.
+   - Notes:
+     - Implemented in `server/src/routes/agentsRun.ts` using the router factory pattern and body validation.
+2. [x] Wire the route into the main server app.
    - Files to edit:
      - `server/src/index.ts`
    - Implementation steps:
      - Add `app.use('/', createAgentsRunRouter())`.
-3. [ ] Implement `runAgentInstruction()` in the shared agents service.
+3. [x] Implement `runAgentInstruction()` in the shared agents service.
    - Docs to read (this subtask):
      - `server/src/mcp2/tools/codebaseQuestion.ts` (McpResponder wiring)
      - `server/src/routes/chat.ts` (AbortController + req close patterns)
@@ -1093,7 +1095,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
          - `threadId` events represent the Codex thread id, but this API must return the **server** `conversationId`.
          - Only feed responder: `analysis`, `tool-result`, `final`, and `error`.
        - Return `{ agentName, conversationId, modelId, segments }` where `conversationId` is always the server conversation id.
-4. [ ] Implement the router handler by calling `runAgentInstruction()` and mapping errors.
+4. [x] Implement the router handler by calling `runAgentInstruction()` and mapping errors.
    - Docs to read (this subtask):
      - Existing error mapping style: `server/src/routes/chat.ts`
    - Files to edit:
@@ -1103,7 +1105,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - archived conversation → `410 { error: 'archived' }`
      - mismatched agentName → `400 { error: 'agent_mismatch' }`
      - codex unavailable → `503 { error: 'codex_unavailable', reason: '...' }`
-5. [ ] Server unit test (Supertest): `POST /agents/:agentName/run` validates request body (missing `instruction` → 400).
+5. [x] Server unit test (Supertest): `POST /agents/:agentName/run` validates request body (missing `instruction` → 400).
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -1112,7 +1114,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Prevent ambiguous client/server failures by ensuring the API rejects invalid payloads consistently.
    - Test description:
      - Call `POST /agents/coding_agent/run` with `{}` and assert `400` with a validation error payload.
-6. [ ] Server unit test (Supertest): unknown agent maps to 404.
+6. [x] Server unit test (Supertest): unknown agent maps to 404.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -1121,7 +1123,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Ensure UI can show “agent not found” cleanly and MCP can mirror the same behavior.
    - Test description:
      - Inject a fake `runAgentInstruction()` that throws/returns an “unknown agent” error and assert the router returns `404 { error: 'not_found' }`.
-7. [ ] Server unit test (Supertest): success response shape is stable.
+7. [x] Server unit test (Supertest): success response shape is stable.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -1132,13 +1134,13 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Inject a fake `runAgentInstruction()` that returns:
        - `{ agentName, conversationId, modelId, segments }`
      - Assert status 200 and those fields exist in the JSON.
-8. [ ] Update docs.
+8. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Example curl for `POST /agents/coding_agent/run`
      - Explain that `conversationId` is the server conversation id, and Codex thread id is stored in `flags.threadId`
-9. [ ] Update architecture docs (design + Mermaid) for agent run flow.
+9. [x] Update architecture docs (design + Mermaid) for agent run flow.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1148,7 +1150,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
    - Implementation steps:
      - Add a Mermaid sequence/flow diagram showing:
        - GUI/MCP → `runAgentInstruction()` → create/load conversation (agentName rules) → (optional) prefix `system_prompt.txt` on first turn → call Codex with `threadId` → persist `flags.threadId` → return `{ segments }`.
-10. [ ] Update `projectStructure.md` for new REST agent run modules.
+10. [x] Update `projectStructure.md` for new REST agent run modules.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -1157,7 +1159,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Add entries for:
        - `server/src/routes/agentsRun.ts`
        - any new unit test file(s) created for `POST /agents/:agentName/run`
-11. [ ] Run lint + format checks (all workspaces) and fix any failures.
+11. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1169,22 +1171,28 @@ Critical requirement: the REST path and MCP path must share the same implementat
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; no regressions.
    - If `/agents` UI is not implemented yet, validate the REST contract directly:
      - `fetch('/agents/coding_agent/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ instruction: 'hello' }) })` returns `{ agentName, conversationId, modelId, segments }`.
    - If `/agents` UI is implemented, run an instruction from the Agents page and confirm Stop + continuation by selecting history works.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Added `POST /agents/:agentName/run` (`server/src/routes/agentsRun.ts`) following the router-factory pattern, with request body validation and explicit error mapping (`not_found`, `archived`, `agent_mismatch`, `codex_unavailable`).
+- Implemented `runAgentInstruction()` in `server/src/agents/service.ts`, reusing discovery + auth seeding, enforcing agentName ownership on continuation, and using fixed Codex defaults (no per-agent provider/model selection).
+- Ensured agent runs never apply global `SYSTEM_CONTEXT` by always setting `disableSystemContext: true`, and apply `system_prompt.txt` only on the first turn of a new conversation without mutating the persisted user message.
+- Built segments via `McpResponder` but intentionally avoided forwarding `thread`/`complete` events so the returned `conversationId` remains the server conversation id (Codex thread id is persisted to `flags.threadId`).
+- Fixed a persistence edge case in the shared `ChatInterface` base: when a provider emits an error without tokens/final text, persist a non-empty assistant turn so Mongo validation doesn’t fail.
+- Updated docs (`README.md`, `design.md`, `projectStructure.md`) and validated end-to-end with builds, tests, e2e, and a compose smoke run including a real `curl` call to `POST /agents/coding_agent/run`.
 
 ---
 

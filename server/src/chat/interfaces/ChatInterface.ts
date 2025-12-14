@@ -111,6 +111,7 @@ export abstract class ChatInterface extends EventEmitter {
     let sawComplete = false;
     const externalSignal = (flags as { signal?: AbortSignal })?.signal;
     let executionError: unknown;
+    let lastErrorMessage: string | undefined;
 
     const deriveStatusFromError = (msg: string | undefined) => {
       if (status !== 'ok') return;
@@ -135,6 +136,7 @@ export abstract class ChatInterface extends EventEmitter {
     };
 
     const onError: Listener<'error'> = (event) => {
+      lastErrorMessage = event.message;
       deriveStatusFromError(event.message);
     };
 
@@ -188,17 +190,31 @@ export abstract class ChatInterface extends EventEmitter {
       await this.execute(message, flags, conversationId, model);
     } catch (err) {
       executionError = err;
+      if (err && typeof err === 'object') {
+        const maybeMessage = (err as { message?: unknown }).message;
+        if (
+          typeof maybeMessage === 'string' &&
+          maybeMessage.trim().length > 0
+        ) {
+          lastErrorMessage = maybeMessage;
+        }
+      }
       deriveStatusFromError((err as Error | undefined)?.message);
     } finally {
       disposers.forEach((dispose) => dispose());
 
-      const content = finalContent || tokenBuffer.join('');
+      let content = finalContent || tokenBuffer.join('');
       const toolCalls = Array.from(toolResults.values());
       if (status === 'ok' && externalSignal?.aborted) {
         status = 'stopped';
       }
       if (status === 'ok' && !sawComplete && executionError) {
         deriveStatusFromError((executionError as Error | undefined)?.message);
+      }
+      if (!content.trim().length && status !== 'ok') {
+        content =
+          lastErrorMessage?.trim() ||
+          (status === 'stopped' ? 'Stopped' : 'Request failed');
       }
 
       await this.persistAssistantTurn({

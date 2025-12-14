@@ -77,6 +77,7 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 ## Questions
 
 - **Resolved**: Use wire name `working_folder` for GUI + MCP + REST. REST will accept both `working_folder` and `workingFolder` (alias) but will *emit/send* `working_folder`.
+- **Simplified**: Support only `working_folder` (no alias). This avoids ambiguity and keeps both REST and MCP aligned.
 - **Resolved**: If `HOST_INGEST_DIR` is unset, skip mapping and only attempt the literal path check.
 - **Resolved**: Require `working_folder` to be an absolute path; reject relative inputs for predictability.
 - **Resolved**: Defaults remain unchanged (Codex reasoning default stays `high`; no reorder of model list beyond appending `gpt-5.2`).
@@ -118,10 +119,10 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
      - `mapHostToWorkdir(hostPath: string, opts?: { hostIngestDir?: string; workdir?: string }): { mappedPath: string; relPath: string } | { error: { code: 'OUTSIDE_HOST_INGEST_DIR' | 'HOST_INGEST_DIR_UNSET' | 'INVALID_ABSOLUTE_PATH'; message: string } }`
    - implement the mapping algorithm in Acceptance Criteria (including “skip mapping if outside host ingest root” safety).
    - add traversal guards so `..` cannot escape the workdir when mapping is applied.
-   - (optional hardening) add a guard to `mapIngestPath` so malicious container paths cannot normalize outside `/data`.
+   - KISS: do **not** change existing `mapIngestPath` behavior in this story; implement only the new host→workdir helper needed for `working_folder`.
 3. [ ] Add/extend server unit tests by reusing `server/src/test/unit/pathMap.test.ts`:
    - add tests for the new host→workdir mapping helper
-   - add regression tests for traversal escape attempts
+   - add regression tests for traversal escape attempts (keep scope to simple `..` / outside-root cases; no symlink resolution in this story)
 4. [ ] Run `npm run lint --workspace server` and fix issues.
 
 #### Testing
@@ -197,7 +198,7 @@ Accept `working_folder` via the Agents REST endpoint (with a `workingFolder` ali
 
 #### Subtasks
 
-1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` and alias `workingFolder` (strings); prefer `working_folder` if both are present.
+1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` (string).
 2. [ ] Pass `working_folder` through to `runAgentInstruction`.
 3. [ ] Map new agent-run errors to stable HTTP responses:
    - `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' | 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
@@ -267,7 +268,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 #### Subtasks
 
 1. [ ] Decide UI placement consistent with existing constraints:
-   - do NOT add to the top control bar; instead add a secondary input near the instruction box (or in an “Advanced” accordion) labelled `working_folder`.
+   - do NOT add to the top control bar; add a single `TextField` directly above the instruction input labelled `working_folder` (no accordion; keep it obvious and simple).
 2. [ ] Update `client/src/pages/AgentsPage.tsx` to store the optional `working_folder` value and pass it to `runAgentInstruction(...)`.
 3. [ ] Define reset behavior: `working_folder` is cleared on **New conversation** and when changing agent (to avoid accidental reuse across runs).
 4. [ ] Add/adjust client tests to assert:
@@ -378,7 +379,8 @@ Update the Codex model list and reasoning-effort options across server validatio
    - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
    - server boundary behavior:
      - reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation).
-     - map `xhigh` → `high` when constructing Codex `ThreadOptions` so the SDK always receives a supported value.
+      - map `xhigh` → `high` when constructing Codex `ThreadOptions` so the SDK always receives a supported value.
+   - KISS: do not modify or bump `@openai/codex-sdk` in this story.
 2. [ ] Update unit/integration tests that assert reasoning effort values and allowed sets.
 3. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

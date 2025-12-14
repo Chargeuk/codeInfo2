@@ -1626,7 +1626,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Implementation steps:
      - Call `useConversations({ agentName: '__none__' })`.
      - This keeps existing Chat history “clean”.
-5. [ ] Update `ConversationList` to support the Agents page control constraints (reuse component; hide extra controls).
+5. [x] Update `ConversationList` to support the Agents page control constraints (reuse component; hide extra controls).
    - Files to read:
      - `client/src/components/chat/ConversationList.tsx`
    - Files to edit:

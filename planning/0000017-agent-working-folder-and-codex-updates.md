@@ -73,20 +73,12 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 - Changing non-agent chat working directory behavior.
 - Adding new MCP tools beyond expanding `run_agent_instruction`.
 - Changing how ingest roots are discovered or mounted; this story only uses existing env (`HOST_INGEST_DIR`, `CODEX_WORKDIR` / `CODEINFO_CODEX_WORKDIR`).
+- MCP v2 `codebase_question` tool behavior (it still uses its current Codex defaults and does not add new Codex model / reasoning-effort parameters in this story).
 
 ---
 
 ## Questions
-
-- **Simplified**: Support only `working_folder` (no alias). This avoids ambiguity and keeps both REST and MCP aligned.
-- **Resolved**: If `HOST_INGEST_DIR` is unset, skip mapping and only attempt the literal path check.
-- **Resolved**: Require `working_folder` to be an absolute path; reject relative inputs for predictability.
-- **Resolved**: Defaults remain unchanged (Codex reasoning default stays `high`; no reorder of model list beyond appending `gpt-5.2`).
-- **Resolved**: `gpt-5.2` is added as a new fixed model id alongside existing models (no new `gpt-5.2-*` variants in this story).
-- **Discovered constraint (source of truth: this repo + upstream docs)**:
-  - The installed `@openai/codex-sdk` exposes `ModelReasoningEffort` as `minimal|low|medium|high` (no `xhigh`).
-  - The upstream Codex CLI config docs also only document `model_reasoning_effort` as `minimal|low|medium|high`.
-  - Therefore this story implements `xhigh` as an **app-level** option that is **accepted and persisted** but **mapped to `high` at the Codex SDK boundary** (so we don’t rely on undocumented/unsupported runtime behavior). If/when upstream adds `xhigh`, we can remove the mapping.
+ 
 
 ---
 
@@ -251,6 +243,8 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
        - If it returns an error (including `OUTSIDE_HOST_INGEST_DIR`): treat it as “mapping not possible” and continue to literal check (do **not** error).
      - Literal fallback:
        - If `working_folder` exists **and is a directory**, return `working_folder` exactly as provided (do not normalize).
+     - Error handling (important to avoid 500s):
+       - When checking “exists and is a directory”, treat any filesystem error (ENOENT, ENOTDIR, EACCES, etc.) as “does not exist” and continue/fail with `WORKING_FOLDER_NOT_FOUND` (do not allow uncaught stat errors to bubble up).
      - If neither candidate exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
 4. [ ] Thread the chosen working directory into Codex execution:
    - Files to read:
@@ -715,7 +709,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Overview
 
-Update the Codex model list and reasoning-effort options across server validation and client UI, plus any seeded config/docs that describe defaults.
+Update Codex reasoning-effort options across server validation and client UI, plus documentation/diagrams describing the new option.
 
 #### Documentation Locations
 

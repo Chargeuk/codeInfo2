@@ -92,8 +92,12 @@ describe('Agents page - run', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
+    const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
+    await waitFor(() => expect(agentSelect).toHaveTextContent('coding_agent'));
+
     const input = await screen.findByTestId('agent-input');
     await userEvent.type(input, 'Question');
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
     await act(async () => {
       await userEvent.click(screen.getByTestId('agent-send'));
     });
@@ -102,7 +106,7 @@ describe('Agents page - run', () => {
       expect(screen.getByText('Final answer')).toBeInTheDocument(),
     );
     expect(await screen.findByTestId('think-toggle')).toBeInTheDocument();
-    expect(await screen.findByText('vector_summary')).toBeInTheDocument();
-    expect(await screen.findByTestId('tool-row')).toBeInTheDocument();
+    const toolRow = await screen.findByTestId('tool-row');
+    expect(toolRow).toHaveTextContent(/vector_summary/i);
   });
 });

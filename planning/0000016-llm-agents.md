@@ -2056,7 +2056,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
    - `/chat` still loads and shows only non-agent conversations
    - `/agents` loads, lists agents, shows agent description, and can run an instruction **that executes at least one safe command** (verifies approval/sandbox comes from agent config)

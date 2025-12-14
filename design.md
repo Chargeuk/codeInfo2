@@ -221,6 +221,7 @@ flowchart LR
   - MCP: `run_agent_instruction`
 - The API returns the **server** `conversationId`; Codex continuation uses a separate thread id persisted as `Conversation.flags.threadId`.
 - Per-agent system prompts (`system_prompt.txt`) apply only to the first turn of a new conversation and do not leak into persisted user turns.
+- Agent execution defaults (model/approval/sandbox/reasoning/network/web-search) come from the agent’s Codex home `config.toml`; the server avoids passing overlapping `ThreadOptions` so config remains the source of truth. The server still enforces `workingDirectory` + `skipGitRepoCheck` for safety/portability.
 
 ```mermaid
 sequenceDiagram

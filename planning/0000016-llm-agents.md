@@ -1969,7 +1969,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
      - `client/src/test/agentsPage.run.test.tsx` (if it asserts a fixed `modelId`, update to match “from config” semantics)
    - Purpose:
      - Ensure the test suite remains stable once the agent `modelId` comes from `config.toml` and is no longer hard-coded by the server.
-6. [ ] Update docs to match new behavior.
+6. [x] Update docs to match new behavior.
    - Files to read:
      - `README.md`
      - `design.md`
@@ -1979,7 +1979,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
    - Required updates:
      - Document that agent runs rely on `codex_agents/<agentName>/config.toml` for model/reasoning/sandbox/approval defaults (no UI selection).
      - Clarify what is still server-owned (e.g. `workingDirectory`, `skipGitRepoCheck`) vs agent-owned config.
-7. [ ] Run lint + format checks (all workspaces) and fix any failures.
+7. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Files to read:
      - Root `package.json` scripts (for the canonical lint/format commands)
    - Commands (must run both):

@@ -1642,7 +1642,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - hide the Refresh button
        - hide the per-row Archive/Restore icon buttons
      - Ensure existing Chat page behavior is unchanged (default variant).
-6. [ ] Implement `AgentsPage` (reuse existing components; no parallel UI).
+6. [x] Implement `AgentsPage` (reuse existing components; no parallel UI).
    - Files to create:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation steps (high-level but concrete):

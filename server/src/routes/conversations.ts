@@ -20,6 +20,7 @@ const listConversationsQuerySchema = z
       .union([z.literal('true'), z.literal('false')])
       .optional()
       .transform((v) => v === 'true'),
+    agentName: z.string().min(1).optional(),
   })
   .strict();
 
@@ -93,7 +94,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       });
     }
 
-    const { limit, cursor, archived } = parsed.data;
+    const { limit, cursor, archived, agentName } = parsed.data;
     const includeArchived = archived === true;
 
     try {
@@ -101,6 +102,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         limit,
         cursor,
         includeArchived,
+        agentName,
       });
 
       const nextCursor =

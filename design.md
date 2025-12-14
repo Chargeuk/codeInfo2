@@ -40,8 +40,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ```mermaid
 flowchart LR
-  Chat[Chat history] -->|list conversations| Q1[Query: agentName is missing]
-  Agents[Agents history] -->|list conversations for agent| Q2[Query: agentName == <agentName>]
+  Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
+  Agents[Agents history] -->|GET /conversations?agentName=<agentName>| Q2[Repo filter: agentName == <agentName>]
   Q1 --> Conv[Conversation docs]
   Q2 --> Conv
 ```

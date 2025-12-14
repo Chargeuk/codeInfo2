@@ -1231,7 +1231,7 @@ Important semantics (must be implemented exactly):
 
 #### Subtasks
 
-1. [ ] Add agent filter support to the repo query layer.
+1. [x] Add agent filter support to the repo query layer.
    - Docs to read (this subtask):
      - Mongo `$exists` and `$or`: Context7 `/automattic/mongoose`
    - Files to edit:
@@ -1244,7 +1244,7 @@ Important semantics (must be implemented exactly):
          - `{ $or: [ { agentName: { $exists: false } }, { agentName: null }, { agentName: '' } ] }`
        - any other string: add `{ agentName: <value> }`
      - Keep cursor + archived behavior unchanged.
-2. [ ] Add agent filter support to the REST endpoint.
+2. [x] Add agent filter support to the REST endpoint.
    - Docs to read (this subtask):
      - Zod query parsing: Context7 `/colinhacks/zod` (primary) and https://zod.dev/ (official)
    - Files to edit:
@@ -1252,7 +1252,7 @@ Important semantics (must be implemented exactly):
    - Implementation steps:
      - Extend `listConversationsQuerySchema` to include optional `agentName`.
      - Pass the parsed `agentName` down to `listConversations({ ... })`.
-3. [ ] Server unit test (Node `node:test`): repo query for `agentName=__none__` matches “missing agent”.
+3. [x] Server unit test (Node `node:test`): repo query for `agentName=__none__` matches “missing agent”.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -1262,7 +1262,7 @@ Important semantics (must be implemented exactly):
    - Test description:
      - Stub `ConversationModel.find` to capture its `query` argument.
      - Call `listConversations({ agentName: '__none__', ... })` and assert the query includes an `$or` that matches missing/empty agentName.
-4. [ ] Server unit test (Node `node:test`): repo query for `agentName=<agent>` matches exact agent.
+4. [x] Server unit test (Node `node:test`): repo query for `agentName=<agent>` matches exact agent.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -1271,7 +1271,7 @@ Important semantics (must be implemented exactly):
      - Ensure Agents page history is correctly scoped to the selected agent.
    - Test description:
      - Call `listConversations({ agentName: 'coding_agent', ... })` and assert `query.agentName === 'coding_agent'`.
-5. [ ] Server unit test (Supertest): endpoint passes `agentName=__none__` to repo layer.
+5. [x] Server unit test (Supertest): endpoint passes `agentName=__none__` to repo layer.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -1280,7 +1280,7 @@ Important semantics (must be implemented exactly):
      - Ensure request parsing forwards the filter correctly to the repo layer.
    - Test description:
      - Build an express app with `createConversationsRouter({ listConversations: fake })`, call `GET /conversations?agentName=__none__`, assert fake called with `agentName: '__none__'`.
-6. [ ] Server unit test (Supertest): endpoint passes `agentName=<agent>` to repo layer.
+6. [x] Server unit test (Supertest): endpoint passes `agentName=<agent>` to repo layer.
    - Test type:
      - Server unit test (Supertest)
    - Test location:
@@ -1289,13 +1289,13 @@ Important semantics (must be implemented exactly):
      - Ensure selected agent history lists correctly.
    - Test description:
      - Call `GET /conversations?agentName=coding_agent` and assert fake called with `agentName: 'coding_agent'`.
-7. [ ] Update docs.
+7. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Document `/conversations?agentName=__none__`
      - Document `/conversations?agentName=<agent>`
-8. [ ] Update architecture docs (design + Mermaid) for conversation filtering.
+8. [x] Update architecture docs (design + Mermaid) for conversation filtering.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1307,14 +1307,14 @@ Important semantics (must be implemented exactly):
        - Chat page → `/conversations?agentName=__none__`
        - Agents page → `/conversations?agentName=<selected>`
        - repo filter behavior (`$or` for missing agentName vs exact match).
-9. [ ] Update `projectStructure.md` for new conversation filter tests.
+9. [x] Update `projectStructure.md` for new conversation filter tests.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
      - Ensure any new test files added for agent filtering are documented.
    - Required updates:
      - Add entries for the new unit test file(s) created by this task.
-10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+10. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

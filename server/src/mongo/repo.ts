@@ -41,6 +41,7 @@ export interface ListConversationsParams {
   limit: number;
   cursor?: string | Date;
   includeArchived?: boolean;
+  agentName?: string;
 }
 
 export interface ListTurnsParams {
@@ -157,6 +158,18 @@ export async function listConversations(
   const query: Record<string, unknown> = {};
   if (!params.includeArchived) {
     query.archivedAt = null;
+  }
+
+  if (params.agentName !== undefined) {
+    if (params.agentName === '__none__') {
+      query.$or = [
+        { agentName: { $exists: false } },
+        { agentName: null },
+        { agentName: '' },
+      ];
+    } else {
+      query.agentName = params.agentName;
+    }
   }
 
   if (params.cursor) {

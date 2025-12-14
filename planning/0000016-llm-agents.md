@@ -853,8 +853,8 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 
 ### 6. Server endpoint: list available agents (name + optional description)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: fe40b16, 3c6887e, 34ab87c, 7d25a3e
 
 #### Overview
 
@@ -932,12 +932,12 @@ This endpoint is the single source of truth for:
      - Ensure agents without descriptions still appear and the endpoint remains robust.
    - Test description:
      - Ensure `description.md` is absent and assert status 200 with an agent object missing `description`.
-7. [ ] Update docs.
+7. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - `GET /agents` example curl command and example response.
-8. [ ] Update architecture docs (design + Mermaid) for `GET /agents`.
+8. [x] Update architecture docs (design + Mermaid) for `GET /agents`.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -946,7 +946,7 @@ This endpoint is the single source of truth for:
      - Document the “single source of truth” agent listing flow reused by GUI + MCP.
    - Implementation steps:
      - Add a Mermaid flow diagram: GUI/MCP → `GET /agents`/`listAgents()` → discovery (+ auth seeding) → response `{ agents: [...] }`.
-9. [ ] Update `projectStructure.md` for new REST agent listing modules.
+9. [x] Update `projectStructure.md` for new REST agent listing modules.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -956,7 +956,7 @@ This endpoint is the single source of truth for:
        - `server/src/agents/service.ts`
        - `server/src/routes/agents.ts`
        - the new `GET /agents` unit test file(s)
-10. [ ] Run lint + format checks (all workspaces) and fix any failures.
+10. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -968,20 +968,24 @@ This endpoint is the single source of truth for:
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; no console errors.
    - Use the browser (or Playwright evaluate) to `fetch('/agents')` and confirm it returns `{ agents: [...] }` and includes `description` when `description.md` exists.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
-
+- Added `server/src/agents/service.ts` as the shared listing surface (`listAgents()`), returning only REST/MCP-safe fields and leaving `runAgentInstruction()` stubbed for Task 7.
+- Implemented `GET /agents` in `server/src/routes/agents.ts` using the router factory pattern and wired it into `server/src/index.ts`.
+- Added Supertest unit coverage for `GET /agents` in `server/src/test/unit/agents-router-list.test.ts` to lock down response shape and optional description handling.
+- Updated `README.md`, `design.md`, and `projectStructure.md` to document the new endpoint and its “single source of truth” flow.
+- Verified via Task 6 testing checklist: server/client builds, server/client tests, full `npm run e2e`, compose build/up/down, and live `curl http://localhost:5010/agents` checks (including a temporary `description.md` presence check).
 
 ---
 

@@ -107,10 +107,9 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Documentation Locations
 
-- Node.js `path` docs (built-in): `path.resolve()`, `path.relative()`, `path.isAbsolute()`, `path.join()`.
-- Node.js `fs` docs (built-in): `fs.promises.stat()` (directory checks).
-- Existing mapping helper (read first): `server/src/ingest/pathMap.ts`.
-- Existing unit tests (read first): `server/src/test/unit/pathMap.test.ts`.
+- Node.js `path` docs: https://nodejs.org/api/path.html
+- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options
+- TypeScript (optional, for string-literal unions in signatures/tests): Context7 `/microsoft/typescript` (use v5.9.2 snippets)
 
 #### Subtasks
 
@@ -173,11 +172,9 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 #### Documentation Locations
 
-- Node.js `fs`/`path` (built-in): `fs.promises.stat()` for “exists and is directory”.
-- Mapping helper (from Task 1): `server/src/ingest/pathMap.ts` (`mapHostWorkingFolderToWorkdir`).
-- Existing agent execution path (read first):
-  - `server/src/agents/service.ts`
-  - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options
+- Node.js `path` docs: https://nodejs.org/api/path.html
+- OpenAI Codex config docs (context for workdir + config precedence): Context7 `/openai/codex` (config + example-config)
 
 #### Subtasks
 
@@ -246,8 +243,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 #### Documentation Locations
 
 - Express JSON body parsing + request validation: Context7 `/expressjs/express`.
-- Existing route: `server/src/routes/agentsRun.ts`.
-- Existing agent error mapping: `server/src/routes/agentsRun.ts`, `server/src/mcpAgents/tools.ts`.
+- HTTP status code semantics (reference): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 
 #### Subtasks
 
@@ -305,7 +301,9 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Documentation Locations
 
-- Client fetch wrapper: `client/src/api/agents.ts`.
+- Fetch API (request building + JSON body): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- React controlled inputs (don’t switch controlled/uncontrolled): Context7 `/reactjs/react.dev` (reference: `<input>` caveats)
+- Jest (mocking fetch + inspecting calls): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -355,8 +353,8 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 - MUI TextField API (v6): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - MUI Accordion docs are *not* required for this story (KISS: single TextField only).
-- Agents UI: `client/src/pages/AgentsPage.tsx`.
-- Reusable UI/testing pattern: `client/src/components/chat/CodexFlagsPanel.tsx` + `client/src/test/chatPage.flags.*.payload.test.tsx` (accordion-style “advanced” controls and request-body assertions).
+- React controlled inputs (don’t switch controlled/uncontrolled): Context7 `/reactjs/react.dev` (reference: `<input>` caveats)
+- Jest + React Testing Library (existing repo patterns): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -413,8 +411,9 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Documentation Locations
 
-- Zod validation patterns (already used in `server/src/mcpAgents/tools.ts`).
-- MCP v2 conventions in this repo: `server/src/mcpAgents/*` and `server/src/mcp2/*`.
+- Zod (schema validation): Context7 `/colinhacks/zod`
+- JSON-RPC 2.0 spec (error codes, invalid params): https://www.jsonrpc.org/specification
+- MCP basics (for context; keep wire format unchanged): https://modelcontextprotocol.io/
 
 #### Subtasks
 
@@ -466,8 +465,8 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Documentation Locations
 
-- `/chat/models` implementation: `server/src/routes/chatModels.ts`
-- Provider selection tests/fixtures: `client/src/test/chatPage.provider.test.tsx` (and any other tests mocking the models response)
+- Express routing (route handler patterns): Context7 `/expressjs/express`
+- Jest (updating tests/fixtures): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -515,10 +514,10 @@ Update the Codex model list and reasoning-effort options across server validatio
 
 #### Documentation Locations
 
-- Codex flags UI: `client/src/components/chat/CodexFlagsPanel.tsx`
-- Request validation: `server/src/routes/chatValidators.ts`
-- Seed config docs: `server/src/config/codexConfig.ts`, `config.toml.example`, `README.md`, `design.md`
-- Upstream Codex config docs (Context7): `/openai/codex` (documents `model_reasoning_effort` as `minimal|low|medium|high`).
+- MUI Select API (v6): https://llms.mui.com/material-ui/6.4.12/api/select.md
+- OpenAI Codex config docs (reasoning effort values): Context7 `/openai/codex`
+- TypeScript (string literal unions + narrowing): Context7 `/microsoft/typescript`
+- Jest (client/server tests): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -583,9 +582,8 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 #### Documentation Locations
 
-- `README.md`
-- `design.md`
-- `projectStructure.md`
+- Markdown syntax reference: https://www.markdownguide.org/basic-syntax/
+- Mermaid syntax: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 

@@ -1608,7 +1608,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - `runAgentInstruction(params: { agentName: string; instruction: string; conversationId?: string; signal?: AbortSignal }): Promise<{ agentName: string; conversationId: string; modelId: string; segments: unknown[] }>`
    - Verify:
      - `npm run build --workspace client`
-3. [ ] Update `useConversations()` to support agent filtering (server semantics are in Task 8).
+3. [x] Update `useConversations()` to support agent filtering (server semantics are in Task 8).
    - Files to edit:
      - `client/src/hooks/useConversations.ts`
      - `client/src/test/useConversations.source.test.ts`

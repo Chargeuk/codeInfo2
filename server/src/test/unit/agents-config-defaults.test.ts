@@ -17,7 +17,7 @@ describe('Agent config defaults', () => {
 
     await fs.writeFile(
       configPath,
-      'model = "gpt-5.2"\\nmodel_reasoning_effort = "high"\\n',
+      'model = "gpt-5.2"\nmodel_reasoning_effort = "high"\n',
       'utf8',
     );
 

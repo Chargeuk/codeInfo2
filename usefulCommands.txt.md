@@ -7,7 +7,9 @@ can you check if all the changes needed to implement this new logic are correctl
   do what we want them to do because the server has exposed the right informaiton and input logic. will existing functionality break because we
   have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if
   so those investigations should be performed now so the story becomes a concrete set of tasks.
-  
+
+are there any complex or risky items that we could consider simplifying to de-risk?
+
 do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links.
 
 do you feel the todo task's subtasks are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story
@@ -50,7 +52,7 @@ I want you to get other codex agents to implement all remaining tasks of the cur
 
 please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks.
 
-Taking these gotchas into account, please fully work through Task 9 yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all tubtasks and testing steps are complete.
+Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all tubtasks and testing steps are complete.
 
 please ensure all gotchas & surprises you hit during implementation are documented within the implementation notes, along with any other implementation notes that are worthwhile. Ensure all subtasks and testing tasks are correctly set to complete, Set the task status to done, commit & push, then mark the git commits & push again.
 

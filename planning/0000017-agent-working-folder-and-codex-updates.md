@@ -50,6 +50,7 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
   - The server must not crash on odd path separators; normalization should be consistent across host/container paths.
 - Input rules:
   - `working_folder` must be an **absolute** path (POSIX or Windows). Relative paths are rejected with a `400`/invalid-params error.
+    - Implementation detail: use `path.posix.isAbsolute(...) || path.win32.isAbsolute(...)` (do **not** use only `path.isAbsolute`, because the server may run on Linux while receiving Windows-style paths).
   - If `HOST_INGEST_DIR` is not set, the host-path mapping attempt is skipped and only the literal path check is performed.
 - Codex model list:
   - `/chat/models?provider=codex` includes `gpt-5.2` in addition to the existing fixed Codex models.
@@ -57,6 +58,7 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 - Codex reasoning effort:
   - Any Codex reasoning-effort dropdown/validation includes `xhigh` as the new highest option.
   - Existing defaults remain unchanged (`high` stays the default).
+  - `xhigh` is passed through to Codex via the installed `@openai/codex-sdk` (it forwards `model_reasoning_effort="..."` to the Codex CLI). No “down-mapping” is performed in this story.
 - Documentation:
   - `README.md`, `design.md`, and `projectStructure.md` are updated to reflect:
     - the new `working_folder` parameter and its resolution/mapping rules
@@ -107,11 +109,13 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Documentation Locations
 
-- Node.js `path` docs: https://nodejs.org/api/path.html
-- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options
-- TypeScript (optional, for string-literal unions in signatures/tests): Context7 `/microsoft/typescript` (use v5.9.2 snippets)
+- Node.js `path` docs: https://nodejs.org/api/path.html (for `isAbsolute`, `relative`, and safe path joining)
+- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options (for “exists and is a directory” checks used by tests)
+- TypeScript string literal unions: Context7 `/microsoft/typescript` (for typing the `{ error: { code: ... } }` return shape)
 
 #### Subtasks
+
+**Docs to read (repeat):** https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html#fspromisesstatpath-options, Context7 `/microsoft/typescript`
 
 1. [ ] Read and understand existing mapper + tests:
    - Files to read:
@@ -132,10 +136,15 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
        | { error: { code: 'INVALID_ABSOLUTE_PATH' | 'OUTSIDE_HOST_INGEST_DIR'; message: string } };
      ```
    - Required algorithm (copy/paste guidance):
-     - Validate `path.isAbsolute(hostWorkingFolder)`; else return `INVALID_ABSOLUTE_PATH`.
-     - Compute `relPath = path.relative(opts.hostIngestDir, hostWorkingFolder)`.
-     - If `relPath` starts with `..` (or equals `..`) OR `path.isAbsolute(relPath)`: return `OUTSIDE_HOST_INGEST_DIR`.
-     - Return `{ mappedPath: path.join(opts.codexWorkdir, relPath), relPath }`.
+     - Use the same normalization conventions as `mapIngestPath()`:
+       - `normalizedHostWorkingFolder = path.posix.normalize(hostWorkingFolder.replace(/\\\\/g, '/'))`
+       - `normalizedHostIngestDir = path.posix.normalize(opts.hostIngestDir.replace(/\\\\/g, '/'))`
+       - `normalizedCodexWorkdir = path.posix.normalize(opts.codexWorkdir.replace(/\\\\/g, '/'))`
+     - Validate `path.posix.isAbsolute(normalizedHostWorkingFolder)` and `path.posix.isAbsolute(normalizedHostIngestDir)`; else return `INVALID_ABSOLUTE_PATH`.
+       - Note: Windows absolute paths are handled at the *service* layer in Task 2 and will typically skip mapping; this helper is intentionally POSIX-style to match the existing `pathMap.ts` module.
+     - Compute `relPath = path.posix.relative(normalizedHostIngestDir, normalizedHostWorkingFolder)`.
+     - If `relPath === '..'` OR `relPath.startsWith('../')` OR `path.posix.isAbsolute(relPath)`: return `OUTSIDE_HOST_INGEST_DIR`.
+     - Return `{ mappedPath: path.posix.join(normalizedCodexWorkdir, relPath), relPath }`.
    - KISS + risk control:
      - Do not resolve symlinks.
      - Do not modify existing `mapIngestPath` behavior in this story.
@@ -161,7 +170,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Description:
      - Given `hostWorkingFolder='relative/path'`,
      - expect `{ error: { code: 'INVALID_ABSOLUTE_PATH' } }`.
-4. [ ] Verification commands (must run before moving to Task 2):
+7. [ ] Verification commands (must run before moving to Task 2):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -187,11 +196,14 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 #### Documentation Locations
 
-- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options
-- Node.js `path` docs: https://nodejs.org/api/path.html
-- OpenAI Codex config docs (context for workdir + config precedence): Context7 `/openai/codex` (config + example-config)
+- Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options (to check directory existence safely)
+- Node.js `path` docs: https://nodejs.org/api/path.html (absolute path checks + normalization)
+- Codex CLI config reference (for context on CODEX_HOME + config precedence): Context7 `/openai/codex`
+- `@openai/codex-sdk` runtime behavior (how `modelReasoningEffort` and `workingDirectory` are forwarded to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
 
 #### Subtasks
+
+**Docs to read (repeat):** https://nodejs.org/api/fs.html#fspromisesstatpath-options, https://nodejs.org/api/path.html, Context7 `/openai/codex`, code_info MCP (installed `@openai/codex-sdk` package)
 
 1. [ ] Extend the service input type:
    - Files to read:
@@ -200,59 +212,95 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `server/src/agents/service.ts`
    - Add to `RunAgentInstructionParams`:
      - `working_folder?: string;`
-2. [ ] Implement working_folder resolution in `runAgentInstruction()` (this is the only place that should decide which directory is used; REST + MCP both call into this):
+2. [ ] Extend the service error union to include working-folder errors:
+   - Files to read:
+     - `server/src/agents/service.ts`
+   - File to edit:
+     - `server/src/agents/service.ts`
+   - Update `RunAgentErrorCode` to also include:
+     - `WORKING_FOLDER_INVALID`
+     - `WORKING_FOLDER_NOT_FOUND`
+3. [ ] Add an exported resolver helper (so it can be unit-tested without running Codex):
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/ingest/pathMap.ts` (new helper from Task 1)
    - File to edit:
      - `server/src/agents/service.ts`
+   - Add a new exported function (name explicit, copy exactly):
+     ```ts
+     export async function resolveWorkingFolderWorkingDirectory(
+       working_folder: string | undefined,
+     ): Promise<string | undefined>
+     ```
    - Required rules (must implement exactly):
-     - If `working_folder` is omitted/empty string: do nothing (existing behavior).
-     - If `working_folder` is provided but not an absolute path: throw `{ code: 'WORKING_FOLDER_INVALID', reason: 'working_folder must be an absolute path' }`.
-     - Try mapped path first:
-       - `hostIngestDir = process.env.HOST_INGEST_DIR` (if missing/empty → skip mapping attempt).
-       - `codexWorkdir = process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data'`
-       - If mapping returns a `mappedPath`, then if `mappedPath` exists **and is a directory**, choose it.
-     - If no mapped directory chosen, then if literal `working_folder` exists **and is a directory**, choose it.
-     - If neither exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
-3. [ ] Thread the chosen working directory into Codex execution:
+     - If `working_folder` is omitted/empty string (after `trim()`): return `undefined`.
+     - If `working_folder` is provided but not an absolute path (POSIX or Windows): throw `{ code: 'WORKING_FOLDER_INVALID', reason: 'working_folder must be an absolute path' }`.
+       - Use `path.posix.isAbsolute(normalized) || path.win32.isAbsolute(raw)` for this check.
+       - Where `normalized = working_folder.replace(/\\\\/g, '/')` and `raw = working_folder` (unmodified).
+     - `hostIngestDir = process.env.HOST_INGEST_DIR` (if missing/empty → skip mapping attempt).
+     - `codexWorkdir = process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data'`
+     - Try mapped path first (host → workdir):
+       - Only attempt mapping when:
+         - `hostIngestDir` is set (non-empty), AND
+         - both `hostIngestDir` and `working_folder` are POSIX-absolute after `\\`→`/` normalization.
+       - Call `mapHostWorkingFolderToWorkdir(...)`.
+       - If it returns `{ mappedPath }` and `mappedPath` exists **and is a directory**, return `mappedPath`.
+       - If it returns an error (including `OUTSIDE_HOST_INGEST_DIR`): treat it as “mapping not possible” and continue to literal check (do **not** error).
+     - Literal fallback:
+       - If `working_folder` exists **and is a directory**, return `working_folder` exactly as provided (do not normalize).
+     - If neither candidate exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
+4. [ ] Thread the chosen working directory into Codex execution:
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - File to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Add to `CodexRunFlags`:
      - `workingDirectoryOverride?: string;`
-   - Apply it when constructing `threadOptions`:
+   - Apply it when constructing `threadOptions` (both `useConfigDefaults` and non-config branches):
      - `workingDirectory: workingDirectoryOverride ?? (process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data')`
-4. [ ] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the service
+5. [ ] Wire the resolved directory into agent runs:
+   - Files to read:
+     - `server/src/agents/service.ts`
+   - File to edit:
+     - `server/src/agents/service.ts`
+   - When calling `chat.run(...)`, include:
+     - `workingDirectoryOverride: await resolveWorkingFolderWorkingDirectory(params.working_folder)` (or omit if it resolves to `undefined`)
+6. [ ] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the resolver
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
-   - Purpose: ensure the service throws `WORKING_FOLDER_INVALID` before any Codex run is attempted.
+   - Purpose: ensure `resolveWorkingFolderWorkingDirectory()` throws `WORKING_FOLDER_INVALID` before any Codex run is attempted.
    - Description:
-     - call `runAgentInstruction({ working_folder: 'relative/path', ... })`
+     - call `resolveWorkingFolderWorkingDirectory('relative/path')`
      - expect thrown error `{ code: 'WORKING_FOLDER_INVALID' }`.
-5. [ ] **Test (server unit, `node:test`)**: mapped path exists → workingDirectoryOverride uses mapped path
+7. [ ] **Test (server unit, `node:test`)**: mapped path exists → resolver returns mapped path
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: verify the “host path → host ingest rel → codex workdir” mapping is applied when possible.
    - Description:
      - set `HOST_INGEST_DIR=/host/base` and `CODEINFO_CODEX_WORKDIR=/data`
      - provide `working_folder=/host/base/repo/sub`
      - arrange filesystem so `/data/repo/sub` exists as a directory
-     - assert captured Codex `startThread` options include `workingDirectory: '/data/repo/sub'` (or platform equivalent).
-6. [ ] **Test (server unit, `node:test`)**: mapped path missing but literal exists → uses literal working_folder
+     - assert `resolveWorkingFolderWorkingDirectory('/host/base/repo/sub')` returns `/data/repo/sub`.
+8. [ ] **Test (server unit, `node:test`)**: mapped path missing but literal exists → resolver returns literal
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: verify fallback behavior when mapping cannot be used.
    - Description:
      - set `HOST_INGEST_DIR=/host/base` and `CODEINFO_CODEX_WORKDIR=/data`
      - provide `working_folder=/some/literal/dir`
      - ensure mapped path does not exist, but `/some/literal/dir` exists as a directory
-     - assert Codex `workingDirectory` is `/some/literal/dir`.
-7. [ ] **Test (server unit, `node:test`)**: neither mapped nor literal exists → `WORKING_FOLDER_NOT_FOUND`
+     - assert `resolveWorkingFolderWorkingDirectory('/some/literal/dir')` returns `/some/literal/dir`.
+9. [ ] **Test (server unit, `node:test`)**: neither mapped nor literal exists → resolver throws `WORKING_FOLDER_NOT_FOUND`
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: guarantee callers get a stable error when no directory exists.
    - Description:
      - provide an absolute `working_folder` where neither mapped nor literal directory exists
      - expect thrown error `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
-8. [ ] Verification commands (must run before moving to Task 3):
+10. [ ] **Test (server unit, `node:test`)**: ChatInterfaceCodex uses `workingDirectoryOverride` when provided
+   - Location: `server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts` (new)
+   - Purpose: ensure the Codex adapter actually uses the per-call override (without involving the agents service).
+   - Description:
+     - construct a `ChatInterfaceCodex` with a stub `codexFactory` that captures `startThread(opts)`
+     - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
+     - assert captured `opts.workingDirectory === '/tmp/override'`.
+11. [ ] Verification commands (must run before moving to Task 3):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -278,10 +326,13 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 
 #### Documentation Locations
 
-- Express JSON body parsing + request validation: Context7 `/expressjs/express`.
-- HTTP status code semantics (reference): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Express JSON body parsing + route handlers: Context7 `/expressjs/express` (for `Router`, `express.json`, and request lifecycle)
+- Supertest (server HTTP testing): Context7 `/ladjs/supertest` (repo tests use `supertest(request(app))`)
+- HTTP status code semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (to keep error responses consistent and predictable)
 
 #### Subtasks
+
+**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/ladjs/supertest`, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 
 1. [ ] Extend request body validation:
    - Files to read:
@@ -350,11 +401,13 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Documentation Locations
 
-- Fetch API (request building + JSON body): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-- React controlled inputs (don’t switch controlled/uncontrolled): Context7 `/reactjs/react.dev` (reference: `<input>` caveats)
-- Jest (mocking fetch + inspecting calls): Context7 `/jestjs/jest`
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (for POST JSON patterns and reading error bodies)
+- Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0` (for mocking + `toHaveBeenCalledWith` assertions)
+- Testing Library docs (match repo patterns): Context7 `/websites/testing-library` (for `render`, `screen`, queries, async helpers)
 
 #### Subtasks
+
+**Docs to read (repeat):** https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`
 
 1. [ ] Update the request params type:
    - File to edit:
@@ -409,10 +462,16 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 - MUI TextField API (v6): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - MUI Accordion docs are *not* required for this story (KISS: single TextField only).
-- React controlled inputs (don’t switch controlled/uncontrolled): Context7 `/reactjs/react.dev` (reference: `<input>` caveats)
-- Jest + React Testing Library (existing repo patterns): Context7 `/jestjs/jest`
+- React controlled inputs caveats: Context7 `/reactjs/react.dev` (to avoid controlled/uncontrolled warnings)
+- React Router (tests use `createMemoryRouter`/`RouterProvider`): Context7 `/remix-run/react-router`
+- Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0` (assert request bodies and interactions)
+- Testing Library docs: Context7 `/websites/testing-library` (RTL patterns used throughout repo)
+- user-event docs (match repo): Context7 `/testing-library/user-event` (recommended over raw `fireEvent` for realistic interactions)
+- jest-dom matchers: Context7 `/testing-library/jest-dom` (matchers like `toBeInTheDocument`, `toHaveTextContent`)
 
 #### Subtasks
+
+**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/text-field.md, Context7 `/reactjs/react.dev`, Context7 `/remix-run/react-router`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/testing-library/user-event`, Context7 `/testing-library/jest-dom`
 
 1. [ ] Add state + TextField UI (controlled input):
    - Files to read:
@@ -477,11 +536,13 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Documentation Locations
 
-- Zod (schema validation): Context7 `/colinhacks/zod`
+- Zod v3 schema validation (repo uses Zod 3.x): Context7 `/websites/v3_zod_dev` (used for input parsing/validation in MCP tools)
 - JSON-RPC 2.0 spec (error codes, invalid params): https://www.jsonrpc.org/specification
 - MCP basics (for context; keep wire format unchanged): https://modelcontextprotocol.io/
 
 #### Subtasks
+
+**Docs to read (repeat):** Context7 `/websites/v3_zod_dev`, https://www.jsonrpc.org/specification, https://modelcontextprotocol.io/
 
 1. [ ] Extend the Zod schema + tool input schema:
    - Files to read:
@@ -499,22 +560,31 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
    - When the service throws `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, translate to `InvalidParamsError` (safe message only).
-4. [ ] **Test (server unit, `node:test`)**: MCP tool forwards `working_folder` to service
+4. [ ] **Test (server unit, `node:test`)**: `callTool()` forwards `working_folder` to the agents service
    - Files to read:
-     - `server/src/test/unit/mcp-agents-router-run.test.ts` (router behavior)
-     - `server/src/test/unit/mcp-agents-tools-run.test.ts` (tool behavior; if present)
-   - Location: prefer `server/src/test/unit/mcp-agents-tools-run.test.ts` (edit/add)
-   - Purpose: ensure Zod parsing + call plumbing is correct.
+     - `server/src/mcpAgents/tools.ts`
+   - File to add:
+     - `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Purpose: ensure Zod parsing + call plumbing is correct at the tools layer.
    - Description:
-     - call `callTool('run_agent_instruction', { agentName, instruction, working_folder })`
-     - assert stubbed `runAgentInstruction` receives `working_folder`.
-5. [ ] **Test (server unit, `node:test`)**: MCP maps working-folder errors to InvalidParamsError
-   - Location: `server/src/test/unit/mcp-agents-tools-run.test.ts` (edit/add)
+     - call `callTool('run_agent_instruction', { agentName, instruction, working_folder }, { runAgentInstruction: stub })`
+     - assert stub receives `working_folder`.
+5. [ ] **Test (server unit, `node:test`)**: JSON-RPC router accepts `working_folder` and forwards it to tools/service
+   - Files to read:
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - File to edit:
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Purpose: ensure the `tools/call` wire path supports the new parameter.
+   - Description:
+     - send a `tools/call` request with `arguments.working_folder`
+     - assert the stubbed service receives `working_folder`.
+6. [ ] **Test (server unit, `node:test`)**: `callTool()` maps working-folder errors to `InvalidParamsError`
+   - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
    - Purpose: ensure MCP callers get a predictable invalid-params tool error.
    - Description:
      - stub service to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }` and separately `{ code: 'WORKING_FOLDER_INVALID' }`
-     - assert tool throws/returns the repo’s InvalidParamsError shape for both.
-6. [ ] Verification commands:
+     - assert `callTool(...)` throws `InvalidParamsError` for both.
+7. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -540,9 +610,13 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 #### Documentation Locations
 
 - Express routing (route handler patterns): Context7 `/expressjs/express`
-- Jest (updating tests/fixtures): Context7 `/jestjs/jest`
+- Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0` (test structure + matchers)
+- Testing Library docs (client fixtures): Context7 `/websites/testing-library`
+- React Router (tests use `createMemoryRouter`/`RouterProvider`): Context7 `/remix-run/react-router`
 
 #### Subtasks
+
+**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/remix-run/react-router`
 
 1. [ ] Update the fixed model list returned for Codex:
    - Files to read:
@@ -581,7 +655,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 ---
 
-### 8. Codex updates: add reasoning effort xhigh (app-level)
+### 8. Codex updates: add reasoning effort xhigh
 
 - Task Status: __to_do__
 - Git Commits:
@@ -595,9 +669,13 @@ Update the Codex model list and reasoning-effort options across server validatio
 - MUI Select API (v6): https://llms.mui.com/material-ui/6.4.12/api/select.md
 - OpenAI Codex config docs (reasoning effort values): Context7 `/openai/codex`
 - TypeScript (string literal unions + narrowing): Context7 `/microsoft/typescript`
-- Jest (client/server tests): Context7 `/jestjs/jest`
+- Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0`
+- Testing Library docs (client tests): Context7 `/websites/testing-library`
+- `@openai/codex-sdk` runtime behavior (it forwards `model_reasoning_effort="..."` to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
 
 #### Subtasks
+
+**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/select.md, Context7 `/openai/codex`, Context7 `/microsoft/typescript`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, code_info MCP (installed `@openai/codex-sdk` package)
 
 1. [ ] Update client types + UI options:
    - Files to read:
@@ -607,21 +685,31 @@ Update the Codex model list and reasoning-effort options across server validatio
      - `client/src/hooks/useChatStream.ts`: extend `ModelReasoningEffort` to include `'xhigh'`.
      - `client/src/components/chat/CodexFlagsPanel.tsx`: add a new option:
        - value: `xhigh`
-       - label: `XHigh (mapped to High)`
+       - label: `XHigh`
 2. [ ] Update server validation to accept `xhigh` (app-level value):
    - Files to read:
      - `server/src/routes/chatValidators.ts`
    - File to edit:
      - `server/src/routes/chatValidators.ts`
    - Add `xhigh` to the accepted values list used by validation.
-   - KISS: keep defaults unchanged (`high` remains the default).
-3. [ ] Map `xhigh` → `high` at the Codex SDK boundary (required to remain compatible with installed `@openai/codex-sdk`):
+   - Important type note:
+     - `server/src/routes/chatValidators.ts` currently uses `ModelReasoningEffort` from `@openai/codex-sdk` (which does **not** include `xhigh` in this repo’s installed version).
+     - Use an app-level union type like `type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh'`:
+       - Update `ValidatedChatRequest['codexFlags'].modelReasoningEffort` to use `AppModelReasoningEffort`.
+       - Then, when building the final `threadOptions` in `ChatInterfaceCodex`, cast as needed.
+3. [ ] Ensure `xhigh` is passed through to Codex:
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - code_info MCP: inspect installed `@openai/codex-sdk` to confirm it forwards `modelReasoningEffort` as `--config model_reasoning_effort="..."` (no SDK-side validation)
    - File to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-   - Implement mapping when constructing `threadOptions.modelReasoningEffort`:
-     - if user requested `xhigh`, pass `high` to the SDK
+   - Required type changes (to keep TypeScript happy):
+     - Update `CodexRunFlags` so `codexFlags.modelReasoningEffort` can be `ModelReasoningEffort | 'xhigh'` (the installed `CodexThreadOptions` type is narrower).
+       - KISS suggestion: define a local helper type in `ChatInterfaceCodex.ts`:
+         - `type CodexThreadOptionsCompat = Omit<CodexThreadOptions, 'modelReasoningEffort'> & { modelReasoningEffort?: ModelReasoningEffort | 'xhigh' };`
+         - then type `codexFlags?: Partial<CodexThreadOptionsCompat>` in `CodexRunFlags`.
+   - Implementation rule:
+     - Do **not** down-map `xhigh` to `high`; pass it through in `threadOptions.modelReasoningEffort` (with a type cast at assignment, because the installed SDK types are narrower than the CLI’s accepted values).
 4. [ ] **Test (client UI, Jest/RTL)**: selecting `xhigh` sends `modelReasoningEffort: 'xhigh'` in the request
    - Location: `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (edit)
    - Purpose: ensure the app-level value is preserved in the request payload.
@@ -629,15 +717,15 @@ Update the Codex model list and reasoning-effort options across server validatio
      - select reasoning effort `xhigh`
      - submit a Codex message
      - assert captured request JSON contains `modelReasoningEffort: 'xhigh'`.
-5. [ ] **Test (server integration, Jest + MockCodex)**: server accepts `xhigh` but passes `high` into Codex thread options
+5. [ ] **Test (server integration, `node:test` + MockCodex)**: server accepts `xhigh` and passes `xhigh` into Codex thread options
    - Location: `server/src/test/integration/chat-codex-mcp.test.ts` (edit)
-   - Purpose: ensure runtime behavior remains compatible with installed `@openai/codex-sdk`.
+   - Purpose: ensure the server preserves the requested reasoning effort all the way to the Codex adapter options.
    - Description:
      - send a Codex request with `modelReasoningEffort: 'xhigh'`
-     - assert mocked codex thread options received `modelReasoningEffort: 'high'`.
+     - assert mocked codex thread options received `modelReasoningEffort: 'xhigh'`.
 6. [ ] Documentation updates (do not miss this even if you only work this subtask):
    - Update `README.md` and `design.md` to state clearly:
-     - `xhigh` is an app-level option and is mapped to `high` when calling Codex.
+     - `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`).
 7. [ ] Verification commands:
    - `npm run lint --workspaces`
    - `npm run test --workspace server`
@@ -673,6 +761,8 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 #### Subtasks
 
+**Docs to read (repeat):** https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`
+
 1. [ ] Update `README.md`:
    - document `working_folder` for Agents UI/REST/MCP and the mapping/fallback behavior
    - document `gpt-5.2` and `xhigh` availability
@@ -706,10 +796,12 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 - Playwright: Context7 `/microsoft/playwright`
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
+- Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0`
 - Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks
+
+**Docs to read (repeat):** Context7 `/docker/docs`, Context7 `/microsoft/playwright`, Context7 `/typicode/husky`, Context7 `/mermaid-js/mermaid`, Context7 `/websites/jestjs_io_30_0`, https://cucumber.io/docs/guides/
 
 1. [ ] Build the server: `npm run build --workspace server`
 2. [ ] Build the client: `npm run build --workspace client`

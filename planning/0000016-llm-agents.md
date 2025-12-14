@@ -1841,14 +1841,14 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 #### Subtasks
 
-1. [ ] Build the server: `npm run build --workspace server`
-2. [ ] Build the client: `npm run build --workspace client`
-3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
-4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story
-5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
-6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
-7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
-8. [ ] Run lint + format checks (all workspaces) and fix any failures.
+1. [x] Build the server: `npm run build --workspace server`
+2. [x] Build the client: `npm run build --workspace client`
+3. [x] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
+4. [x] Ensure `README.md` is updated with any required description changes and any new commands added by this story
+5. [x] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
+6. [x] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
+7. [x] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
+8. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1860,24 +1860,41 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` still loads and shows only non-agent conversations
    - `/agents` loads, lists agents, shows agent description, and can run an instruction
    - Agents MCP `5012` responds to initialize/tools/list/tools/call
    - Save screenshots to `./test-results/screenshots/` named:
-     - `0000016-11-chat.png`
-     - `0000016-11-agents.png`
-     - `0000016-11-mcp-5012.png`
-9. [ ] `npm run compose:down`
+      - `0000016-11-chat.png`
+      - `0000016-11-agents.png`
+      - `0000016-11-mcp-5012.png`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- **PR comment draft (Story 0000016 – LLM Agents):**
+  - Adds first-class “agents” as Codex-only assistants, discovered from `CODEINFO_CODEX_AGENT_HOME/<agentName>/` (requires `config.toml`, optional `description.md` + `system_prompt.txt`).
+  - Introduces a new Agents UI at `/agents` with a constrained control bar (agent selector, Stop, New conversation), agent description rendering, and persisted conversation continuation via sidebar selection.
+  - Separates agent vs non-agent history by persisting `conversation.agentName`, updating `/chat` to list only non-agent conversations while `/agents` filters to the selected agent.
+  - Adds server REST endpoints for listing agents and running agent instructions, reusing the existing chat/Codex streaming + persistence infrastructure while preventing system prompt leakage into stored user turns.
+  - Adds a dedicated Agents MCP v2 JSON-RPC server on port `5012` exposing exactly `list_agents` and `run_agent_instruction`, sharing the same agents service as REST and gating tool execution on Codex availability.
+  - Hardens Codex integration for agents by supporting per-agent Codex homes (without mutating global detection state) and by persisting `flags.threadId` via a `$set` update to avoid clobbering other `flags` keys.
+  - Expands automated coverage (unit + RTL + e2e) for agent listing/runs/continuation/segment rendering and for MCP router/tool behavior; updates `README.md`, `design.md`, and `projectStructure.md` accordingly.
+
+- **Task 11 verification run (local):**
+  - Builds: `npm run build --workspace server`, `npm run build --workspace client`
+  - Tests: `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e` (Playwright run completed with passing suite; some scenarios may be marked skipped depending on model availability)
+  - Docker: `docker build -f server/Dockerfile .`, plus `npm run compose:build` and `npm run compose:up` / `npm run compose:down`
+  - Manual smoke + screenshots saved to `test-results/screenshots/`:
+    - `0000016-11-chat.png`
+    - `0000016-11-agents.png`
+    - `0000016-11-mcp-5012.png`
 
 ---

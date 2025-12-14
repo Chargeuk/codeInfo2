@@ -26,7 +26,7 @@ It looks like we are referencing libraries in the tasks that we have not explici
 
 some tasks do not have a final subtask to fix linting and prettier (format)
 
-the last subtask of every task should be Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+The last subtask of every task should be Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:
 1. [ ] `npm run build --workspace server`

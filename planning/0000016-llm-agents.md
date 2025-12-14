@@ -1906,15 +1906,15 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 #### Documentation Locations
 
-- Codex SDK ThreadOptions fields (local): `node_modules/@openai/codex-sdk/dist/index.d.ts` (`ThreadOptions`, `approvalPolicy`, `sandboxMode`, `modelReasoningEffort`)
-- Existing Codex home wiring: `server/src/config/codexConfig.ts` (`buildCodexOptions({ codexHome })`)
-- Agent execution: `server/src/agents/service.ts` (`runAgentInstruction`)
-- Codex chat interface: `server/src/chat/interfaces/ChatInterfaceCodex.ts` (thread options defaults)
-- TOML parsing library docs (Context7): `/iarna/toml` (or another chosen TOML parser package)
+- Codex SDK (ThreadOptions + how options map to CLI flags): Deepwiki `openai/codex-sdk`
+- Node.js (fs/path, AbortSignal, `node:test`): Context7 `/nodejs/node`
+- TOML parsing library docs (if we choose to add one): Context7 `/iarna/toml`
 
 #### Subtasks
 
 1. [ ] Add an explicit `useConfigDefaults?: boolean` flag to Codex run flags.
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Implementation steps:
@@ -1924,6 +1924,9 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
        - Still set server-owned thread options that are not intended to be agent-configurable (e.g. `workingDirectory`, `skipGitRepoCheck`).
      - Preserve current behavior when `useConfigDefaults` is false/absent (normal chat + MCP codebase_question must be unchanged).
 2. [ ] Parse agent `model` from `codex_agents/<agentName>/config.toml` when not explicitly provided.
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `codex_agents/<agentName>/config.toml` (schema assumptions)
    - Files to edit/create:
      - `server/src/agents/service.ts`
      - (optional) `server/src/agents/config.ts` (new helper for reading/parsing config)
@@ -1934,6 +1937,10 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
      - If the model is missing/unreadable, fall back to the current default (keep behavior resilient).
      - Use the parsed model as the `modelId` returned from the REST/MCP response and as the model stored on conversation/turn persistence for that run.
 3. [ ] Update agent runs to stop overriding `config.toml` defaults.
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/config/codexConfig.ts` (per-agent `codexHome` injection via `buildCodexOptions({ codexHome })`)
    - Files to edit:
      - `server/src/agents/service.ts`
    - Implementation steps:
@@ -1944,6 +1951,9 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 4. [ ] Server unit tests: agent config defaults path.
    - Test type:
      - Server unit tests (Node `node:test`)
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Files to create/update:
      - Add a new unit test file under `server/src/test/unit/` covering:
        - Parsing `model` from an agent `config.toml` file.
@@ -1951,12 +1961,18 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
    - Notes:
      - Prefer mocking the Codex SDK thread creation so the test can assert the `ThreadOptions` object passed into `startThread()` / `resumeThread()`.
 5. [ ] Update server/client tests that currently assume a fixed agents `modelId`.
-   - Files to update (at minimum):
+   - Files to read:
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - `client/src/test/agentsPage.run.test.tsx`
+   - Files to edit (at minimum):
      - `server/src/test/unit/mcp-agents-router-run.test.ts` (remove hard-coded `gpt-5.1-codex-max` equality; assert non-empty string)
      - `client/src/test/agentsPage.run.test.tsx` (if it asserts a fixed `modelId`, update to match “from config” semantics)
    - Purpose:
      - Ensure the test suite remains stable once the agent `modelId` comes from `config.toml` and is no longer hard-coded by the server.
 6. [ ] Update docs to match new behavior.
+   - Files to read:
+     - `README.md`
+     - `design.md`
    - Files to edit:
      - `README.md`
      - `design.md`
@@ -1964,6 +1980,8 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
      - Document that agent runs rely on `codex_agents/<agentName>/config.toml` for model/reasoning/sandbox/approval defaults (no UI selection).
      - Clarify what is still server-owned (e.g. `workingDirectory`, `skipGitRepoCheck`) vs agent-owned config.
 7. [ ] Run lint + format checks (all workspaces) and fix any failures.
+   - Files to read:
+     - Root `package.json` scripts (for the canonical lint/format commands)
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1998,7 +2016,6 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
-- Repo docs: `README.md`, `design.md`, `projectStructure.md`
 
 #### Subtasks
 
@@ -2006,8 +2023,20 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 2. [ ] Build the client: `npm run build --workspace client`
 3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
 4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story
+   - Files to read:
+     - `README.md`
+   - Files to edit:
+     - `README.md`
 5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
+   - Files to read:
+     - `design.md`
+   - Files to edit:
+     - `design.md`
 6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
 8. [ ] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):

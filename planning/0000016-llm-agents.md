@@ -2043,7 +2043,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
    - Files to edit:
      - `projectStructure.md`
 7. [x] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
-8. [ ] Run lint + format checks (all workspaces) and fix any failures.
+8. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
       - `npm run format:check --workspaces`

@@ -1923,7 +1923,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
        - When `useConfigDefaults === true`, **do not** apply fallback defaults for any fields that overlap with Codex `config.toml` (at minimum: `model`, `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchEnabled`).
        - Still set server-owned thread options that are not intended to be agent-configurable (e.g. `workingDirectory`, `skipGitRepoCheck`).
      - Preserve current behavior when `useConfigDefaults` is false/absent (normal chat + MCP codebase_question must be unchanged).
-2. [ ] Parse agent `model` from `codex_agents/<agentName>/config.toml` when not explicitly provided.
+2. [x] Parse agent `model` from `codex_agents/<agentName>/config.toml` when not explicitly provided.
    - Files to read:
      - `server/src/agents/service.ts`
      - `codex_agents/<agentName>/config.toml` (schema assumptions)

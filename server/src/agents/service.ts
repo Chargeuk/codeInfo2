@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import type {
@@ -18,6 +17,7 @@ import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
 
+import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';
 import type { AgentSummary } from './types.js';
 
@@ -120,7 +120,7 @@ async function ensureAgentConversation(params: {
 export async function runAgentInstruction(
   params: RunAgentInstructionParams,
 ): Promise<RunAgentInstructionResult> {
-  const modelId = 'gpt-5.1-codex-max';
+  const fallbackModelId = 'gpt-5.1-codex-max';
 
   const discovered = await discoverAgents();
   const agent = discovered.find((item) => item.name === params.agentName);
@@ -128,13 +128,7 @@ export async function runAgentInstruction(
     throw toRunAgentError('AGENT_NOT_FOUND');
   }
 
-  const agentHomeEnv = process.env.CODEINFO_CODEX_AGENT_HOME;
-  if (!agentHomeEnv) {
-    throw new Error('CODEINFO_CODEX_AGENT_HOME is not set');
-  }
-  const agentHome = path.resolve(agentHomeEnv, params.agentName);
-
-  const detection = detectCodexForHome(agentHome);
+  const detection = detectCodexForHome(agent.home);
   if (!detection.available) {
     throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
   }
@@ -142,14 +136,20 @@ export async function runAgentInstruction(
   const conversationId = params.conversationId ?? crypto.randomUUID();
   const isNewConversation = !params.conversationId;
 
+  let existingConversation: Conversation | null = null;
   if (!isNewConversation) {
-    const existing = await getConversation(conversationId);
-    if (!existing) throw toRunAgentError('AGENT_NOT_FOUND');
-    if (existing.archivedAt) throw toRunAgentError('CONVERSATION_ARCHIVED');
-    if ((existing.agentName ?? '') !== params.agentName) {
+    existingConversation = await getConversation(conversationId);
+    if (!existingConversation) throw toRunAgentError('AGENT_NOT_FOUND');
+    if (existingConversation.archivedAt)
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    if ((existingConversation.agentName ?? '') !== params.agentName) {
       throw toRunAgentError('AGENT_MISMATCH');
     }
   }
+
+  const configuredModelId = await readAgentModelId(agent.configPath);
+  const modelId =
+    configuredModelId ?? existingConversation?.model ?? fallbackModelId;
 
   const title =
     params.instruction.trim().slice(0, 80) || 'Untitled conversation';
@@ -164,10 +164,9 @@ export async function runAgentInstruction(
     });
   }
 
-  const conversation = await getConversation(conversationId);
-  if (!conversation) {
-    throw toRunAgentError('AGENT_NOT_FOUND');
-  }
+  const conversation =
+    existingConversation ?? (await getConversation(conversationId));
+  if (!conversation) throw toRunAgentError('AGENT_NOT_FOUND');
 
   const threadId =
     conversation?.flags &&
@@ -206,15 +205,8 @@ export async function runAgentInstruction(
     {
       provider: 'codex',
       threadId,
-      codexFlags: {
-        model: modelId,
-        sandboxMode: 'workspace-write',
-        networkAccessEnabled: true,
-        webSearchEnabled: true,
-        approvalPolicy: 'on-failure',
-        modelReasoningEffort: 'high',
-      },
-      codexHome: agentHome,
+      useConfigDefaults: true,
+      codexHome: agent.home,
       disableSystemContext: true,
       systemPrompt,
       signal: params.signal,

@@ -201,6 +201,16 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script (how `npm run <script>` works)
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
+9. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -381,6 +391,16 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
+14. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -491,6 +511,16 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
+9. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -566,6 +596,16 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
+7. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -666,6 +706,16 @@ Add an optional working folder input to the Agents page so users can run an agen
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
+8. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -777,6 +827,16 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
+10. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+    - Docs to read:
+      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+    - Run:
+      - `npm run lint --workspaces`
+      - `npm run format:check --workspaces`
+    - If either fails:
+      - `npm run lint:fix --workspaces`
+      - `npm run format --workspaces`
+    - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -849,6 +909,16 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
    - `npm run lint --workspace client`
    - `npm run test --workspace server`
    - `npm run test --workspace client`
+4. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -970,6 +1040,16 @@ Update Codex reasoning-effort options across server validation and client UI, pl
    - `npm run test --workspace server`
    - `npm run test --workspace client`
    - `npm run format:check --workspaces`
+9. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -1048,6 +1128,16 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Command:
      - `npm run format:check --workspaces`
+5. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -1087,9 +1177,14 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story. (Docs: https://www.markdownguide.org/basic-syntax/)
 5. [ ] Ensure `design.md` is updated with any required description changes (include any new diagrams if needed). (Docs: https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`)
 6. [ ] Ensure `projectStructure.md` is up to date. (Docs: https://www.markdownguide.org/basic-syntax/)
-7. [ ] Run lint + format checks (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script):
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
+7. [ ] Repo-wide lint + format gate (must be the last subtask in every task) (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script):
+   - Run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If either fails:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 

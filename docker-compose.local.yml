@@ -17,6 +17,7 @@ services:
       - server/.env
       - server/.env.local
     environment:
+      - HOME=${HOME}
       # Override to use host.docker.internal for ChromaDB
       - LOG_FILE_PATH=/app/logs/server-local.log
       - LMSTUDIO_BASE_URL=http://host.docker.internal:1234
@@ -27,9 +28,10 @@ services:
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
     volumes:
-      - ${CODEX_HOME:-$HOME/.codex}:/host/codex
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
+      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+      - ${CODEX_HOME:-$HOME/.codex}:${CODEX_HOME:-$HOME/.codex}:ro
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
       - /var/run/docker.sock:/var/run/docker.sock

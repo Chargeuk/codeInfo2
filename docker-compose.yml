@@ -24,9 +24,10 @@ services:
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
     volumes:
-      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR:-/tmp}:${CODEINFO_CODEX_WORKDIR}:ro
+      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+      - ${CODEX_HOME:-$HOME/.codex}:${CODEX_HOME:-$HOME/.codex}:ro
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
     depends_on:

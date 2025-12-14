@@ -18,6 +18,26 @@ COPY --from=deps /app .
 RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22-slim AS runtime
+# Install prerequisites
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Docker’s official GPG key
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Set up the Docker repository
+RUN echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker CLI + Compose plugin
+RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
+
 WORKDIR /app/server
 ENV HUSKY=0
 RUN apt-get update && apt-get install -y curl git && rm -rf /var/lib/apt/lists/*

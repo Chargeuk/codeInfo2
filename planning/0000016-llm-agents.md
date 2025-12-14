@@ -1685,7 +1685,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
              - status = `done`
          - if the agent run returns no `thinking` or no `vector_summary`, omit those fields
      - No manual `conversationId` entry field.
-7. [ ] Client test (RTL/Jest): Agents page loads and populates agent dropdown from `GET /agents`.
+7. [x] Client test (RTL/Jest): Agents page loads and populates agent dropdown from `GET /agents`.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1695,7 +1695,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Test description:
      - Mock `fetch` for `GET /agents` to return `{ agents: [{ name: 'coding_agent' }] }`.
      - Render the `/agents` route and assert the dropdown contains `coding_agent`.
-8. [ ] Client test (RTL/Jest): Agents page shows agent description block when `description` is present.
+8. [x] Client test (RTL/Jest): Agents page shows agent description block when `description` is present.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1705,7 +1705,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
    - Test description:
      - Mock `GET /agents` to include `{ name: 'coding_agent', description: '# Hello' }`.
      - Select `coding_agent` and assert the description block renders Markdown text.
-9. [ ] Client test (RTL/Jest): Changing selected agent aborts in-flight run and resets to new conversation state.
+9. [x] Client test (RTL/Jest): Changing selected agent aborts in-flight run and resets to new conversation state.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1718,7 +1718,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - the abort controller was triggered
        - transcript is cleared
        - `activeConversationId` is cleared (indirectly via next send starting a new conversation)
-10. [ ] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
+10. [x] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1729,7 +1729,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
      - Mock `GET /conversations?agentName=coding_agent` to return an item with `conversationId: 'c1'`.
      - Click that conversation in the sidebar and send an instruction.
      - Assert the `POST /agents/coding_agent/run` payload includes `conversationId: 'c1'`.
-11. [ ] Client test (RTL/Jest): Selecting a conversation hydrates and renders stored turn history.
+11. [x] Client test (RTL/Jest): Selecting a conversation hydrates and renders stored turn history.
    - Test type:
      - Client RTL/Jest test
    - Test location:
@@ -1741,7 +1741,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - `GET /conversations?agentName=coding_agent` → returns `{ items: [{ conversationId: 'c1', title: '...', provider:'codex', model:'...', lastMessageAt:'...' }] }`
        - `GET /conversations/c1/turns` → returns a user + assistant turn.
      - Click the conversation row and assert the transcript renders both turns.
-12. [ ] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
+12. [x] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
    - Test type:
      - Client RTL/Jest test
    - Test location:

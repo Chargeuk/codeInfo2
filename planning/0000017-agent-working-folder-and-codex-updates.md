@@ -93,9 +93,8 @@ Follow `planning/plan_format.md` (update Task Status before coding; work tasks i
 
 ### 1. Extend path mapping for working_folder (host → workdir)
 
-- Task Status: __in_progress__
-- Git Commits:
-
+- Task Status: __done__
+- Git Commits: d7f5f18, 6d65d49
 #### Overview
 
 Reuse and extend the existing ingest path mapping module to support mapping an agent-run `working_folder` from a host path into the Codex workdir, including traversal guards and unit tests.
@@ -109,7 +108,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Subtasks
 
-1. [ ] Read and understand existing mapper + tests:
+1. [x] Read and understand existing mapper + tests:
    - Docs to read:
      - https://nodejs.org/api/path.html
      - https://nodejs.org/api/test.html (repo uses `node:test` for unit tests)
@@ -118,7 +117,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
      - `server/src/ingest/pathMap.ts`
      - `server/src/test/unit/pathMap.test.ts`
    - Goal: match existing normalization conventions and avoid introducing a second mapping style.
-2. [ ] Add a new exported helper in `server/src/ingest/pathMap.ts` (do not create a new module for this):
+2. [x] Add a new exported helper in `server/src/ingest/pathMap.ts` (do not create a new module for this):
    - Docs to read:
      - https://nodejs.org/api/path.html (POSIX paths, `normalize`, `join`, `isAbsolute`)
      - Context7 `/microsoft/typescript` (string literal unions for the return type)
@@ -150,7 +149,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - KISS + risk control:
      - Do not resolve symlinks.
      - Do not modify existing `mapIngestPath` behavior in this story.
-3. [ ] Add a dedicated test section for the new helper:
+3. [x] Add a dedicated test section for the new helper:
    - Docs to read:
      - https://nodejs.org/api/test.html (test structure + assertions patterns)
      - https://nodejs.org/api/path.html (path behavior the tests are exercising)
@@ -159,7 +158,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Instruction (be explicit):
      - Add a new `describe('mapHostWorkingFolderToWorkdir', () => { ... })` block (or match the file’s existing style if it doesn’t use `describe`).
      - Put the three tests below (Subtasks 4–7) inside that block so a reader can find them quickly.
-4. [ ] **Test (server unit, `node:test`)**: maps host path under ingest root
+4. [x] **Test (server unit, `node:test`)**: maps host path under ingest root
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/path.html
@@ -169,7 +168,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
      - Given `hostIngestDir=/host/base` and `codexWorkdir=/data` and `hostWorkingFolder=/host/base/repo/sub`,
     - expect `relPath === 'repo/sub'`
     - expect `mappedPath` ends with `/data/repo/sub`.
-5. [ ] **Test (server unit, `node:test`)**: rejects host path outside ingest root
+5. [x] **Test (server unit, `node:test`)**: rejects host path outside ingest root
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/path.html
@@ -178,7 +177,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Description:
      - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/other/repo`,
      - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
-6. [ ] **Test (server unit, `node:test`)**: rejects prefix-but-not-child paths
+6. [x] **Test (server unit, `node:test`)**: rejects prefix-but-not-child paths
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/path.html
@@ -187,7 +186,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Description:
      - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/base2/repo`,
      - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
-7. [ ] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
+7. [x] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/path.html
@@ -196,12 +195,12 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Description:
      - Given `hostWorkingFolder='relative/path'`,
      - expect `{ error: { code: 'INVALID_ABSOLUTE_PATH' } }`.
-8. [ ] Verification commands (must run before moving to Task 2):
+8. [x] Verification commands (must run before moving to Task 2):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script (how `npm run <script>` works)
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
-9. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+9. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -229,7 +228,10 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Implementation notes
 
-- (fill during implementation)
+- Implemented `mapHostWorkingFolderToWorkdir()` in `server/src/ingest/pathMap.ts` with POSIX normalization (\\→/ + `path.posix.normalize`) and a boundary-aware inside-root check.
+- Returns `{ mappedPath, relPath }` on success or a small `{ error: { code, reason } }` union for invalid/unsafe inputs without changing existing `mapIngestPath()` behavior.
+- Added unit coverage under `describe('mapHostWorkingFolderToWorkdir', ...)` for happy path + outside-root + prefix-but-not-child + non-absolute inputs.
+- Hardened Codex integration tests by clearing `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR` during tests so assertions about the default `/data` workdir are deterministic across dev environments.
 
 ---
 

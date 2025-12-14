@@ -1536,8 +1536,8 @@ Hard requirements:
 
 ### 10. Add Agents GUI page (`/agents`) and navigation
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 98a7abc, f3fbb33, 76cbe68, eab69d0, 4aa19de, f236de4, 08aa635, 6a95faf, cc70d56, f77651e, e927399
 
 #### Overview
 
@@ -1799,16 +1799,23 @@ Implementation constraint: reuse existing Chat page components where possible (e
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/agents` loads, lists agents, shows description (if present), and can run an instruction.
    - Changing selected agent stops in-flight runs, resets conversation, and refreshes history panel.
    - `/chat` still loads and shows only non-agent conversations.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- Added `/agents` route and NavBar tab, plus a full `AgentsPage` implementation with the required constrained control bar (agent selector, Stop, New conversation).
+- Implemented a client agents API wrapper (`listAgents`, `runAgentInstruction`) with `AbortSignal` support so Stop/agent switching cancels the in-flight request cleanly.
+- Extended `useConversations` to accept an optional `agentName` filter and updated `ChatPage` to request `agentName=__none__` so the chat history sidebar stays non-agent-only.
+- Added a `variant="agents"` mode to `ConversationList` to hide archived/refresh controls and row archive/restore actions on `/agents` while preserving `/chat` behavior.
+- Added RTL/Jest coverage for listing/description rendering, run abort/reset on agent change, conversation continuation via sidebar selection, turn hydration, and segment rendering (thinking + vector summary + answer).
+- Verified locally via the Task 10 testing checklist: server/client builds, server/client tests, e2e, compose build/up/down, and a Playwright smoke script confirming `/agents` can run an instruction against `coding_agent`.
 
 
 ---

@@ -1536,7 +1536,7 @@ Hard requirements:
 
 ### 10. Add Agents GUI page (`/agents`) and navigation
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

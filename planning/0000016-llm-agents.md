@@ -2006,8 +2006,8 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 ### 13. Final task – verify against acceptance criteria (post-Task 12)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 27ab17c, f0e100e, 1a1d1d0, 1792bf5, 9f69b82, 7ac2b3d, 911ea81, 63a03a4, 5e70725, db893ef, ccb0275, ddc1074, 717e907, 21e6c0f, 648d7a9, b556a68
 
 #### Overview
 
@@ -2068,6 +2068,12 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
+- Verified non-docker builds for `server` and `client`, plus a clean `server/Dockerfile` build, to confirm Task 12’s config-driven agent defaults didn’t break compilation or packaging.
+- Re-audited docs; `README.md` and `design.md` were already accurate. Updated `projectStructure.md` to include the previously missing `server/src/agents/config.ts` entry.
+- Created a PR comment draft capturing the full story scope (UI + REST + MCP 5012 + persistence + Docker wiring + config-defaults behavior) for review.
+- Ran lint/format checks, server tests (unit + integration + cucumber), client tests (Jest), and full e2e successfully.
+- Brought the main compose stack up/down and manually validated `/chat`, `/agents`, and Agents MCP `5012` behavior; saved required screenshots under `test-results/screenshots/` (`0000016-13-chat.png`, `0000016-13-agents.png`, `0000016-13-mcp-5012.png`).
 
 - PR comment draft:
 

@@ -215,7 +215,17 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 #### Testing
 
 1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/agents` loads and lists agents (baseline regression)
+   - `/agents` can run an instruction without `working_folder` (baseline regression)
+   - No new UI regressions on `/chat` (baseline smoke: page loads, no console errors)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -405,7 +415,17 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 #### Testing
 
 1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/agents` can run with a valid `working_folder` that maps under `HOST_INGEST_DIR` (primary story behaviour)
+   - `/agents` returns a clear error for invalid/non-existent `working_folder` (primary story behaviour)
+   - `/agents` can still run without `working_folder` (backwards compatibility)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -525,7 +545,16 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 #### Testing
 
 1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/agents` UI sends `working_folder` and server accepts it (REST contract regression)
+   - Error responses are still rendered in the UI as a safe message (baseline regression)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -609,8 +638,17 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Testing
 
-1. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/agents` can still run an instruction (API wrapper change must not break runtime)
+   - `/agents` requests include `working_folder` only when non-empty (inspect network request in devtools)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -719,8 +757,17 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 #### Testing
 
-1. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/agents` shows the new `working_folder` field and it is cleared on agent change / new conversation (primary story behaviour)
+   - Running with valid/invalid `working_folder` shows success/error as expected (primary story behaviour)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -840,7 +887,17 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Testing
 
-1. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - Agents MCP `5012` `run_agent_instruction` accepts `working_folder` and returns clear invalid-params errors (primary story behaviour)
+   - `/agents` UI still works after MCP tool schema changes (baseline regression)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -926,6 +983,13 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
 3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/chat` model dropdown includes `gpt-5.2` when provider is Codex (primary story behaviour)
+   - `/agents` still loads and runs (baseline regression)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -1057,6 +1121,13 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
 3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - `/chat` reasoning effort dropdown includes `xhigh` and selecting it still sends `modelReasoningEffort: 'xhigh'` (primary story behaviour)
+   - `/agents` still runs with `working_folder` (baseline regression)
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -1141,7 +1212,17 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 #### Testing
 
-1. [ ] `npm run format:check --workspaces` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check to validate docs match behaviour (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - Verify `/agents` shows `working_folder` and the mapping/error behaviour matches the docs
+   - Verify `/chat` includes `gpt-5.2` and `xhigh` as documented
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -1192,6 +1273,13 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
 3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+   - All story behaviours are visible in the UI (`working_folder`, `gpt-5.2`, `xhigh`) and docs match behaviour (primary story behaviour)
+   - General regression smoke: `/chat`, `/agents`, `/ingest`, `/logs` load without errors
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
 6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)

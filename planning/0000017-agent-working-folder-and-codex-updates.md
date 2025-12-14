@@ -37,8 +37,9 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 - `working_folder` resolution logic:
   1. Treat input as a **host path** first.
   2. Attempt to map it via:
-     - compute `rel = relative( HOST_INGEST_DIR, working_folder )`
-     - compute `mapped = join( CODEX_WORKDIR || CODEINFO_CODEX_WORKDIR || '/data', rel )`
+     - normalize `HOST_INGEST_DIR` and `working_folder` to POSIX-style (replace `\\` with `/`, then `path.posix.normalize`)
+     - compute `relPath` by removing the `HOST_INGEST_DIR` prefix **only if** `working_folder` is inside `HOST_INGEST_DIR` (boundary-aware)
+     - compute `mapped = join( CODEX_WORKDIR || CODEINFO_CODEX_WORKDIR || '/data', relPath )`
      - if `mapped` exists **and is a directory**, use it as the Codex `workingDirectory` for this call.
   3. If the mapped path does not exist, check `working_folder` **as provided** (no mapping) and:
      - if it exists **and is a directory**, use it as the Codex `workingDirectory` for this call.
@@ -108,14 +109,19 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Subtasks
 
-**Docs to read (repeat):** https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html#fspromisesstatpath-options, Context7 `/microsoft/typescript`
-
 1. [ ] Read and understand existing mapper + tests:
+   - Docs to read:
+     - https://nodejs.org/api/path.html
+     - https://nodejs.org/api/test.html (repo uses `node:test` for unit tests)
+     - Context7 `/microsoft/typescript`
    - Files to read:
      - `server/src/ingest/pathMap.ts`
      - `server/src/test/unit/pathMap.test.ts`
    - Goal: match existing normalization conventions and avoid introducing a second mapping style.
 2. [ ] Add a new exported helper in `server/src/ingest/pathMap.ts` (do not create a new module for this):
+   - Docs to read:
+     - https://nodejs.org/api/path.html (POSIX paths, `normalize`, `join`, `isAbsolute`)
+     - Context7 `/microsoft/typescript` (string literal unions for the return type)
    - File to edit:
      - `server/src/ingest/pathMap.ts`
    - Add a new exported function (name explicit): `mapHostWorkingFolderToWorkdir(...)`.
@@ -144,10 +150,19 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - KISS + risk control:
      - Do not resolve symlinks.
      - Do not modify existing `mapIngestPath` behavior in this story.
-3. [ ] Add unit tests for the new helper:
+3. [ ] Add a dedicated test section for the new helper:
+   - Docs to read:
+     - https://nodejs.org/api/test.html (test structure + assertions patterns)
+     - https://nodejs.org/api/path.html (path behavior the tests are exercising)
    - File to edit:
      - `server/src/test/unit/pathMap.test.ts`
+   - Instruction (be explicit):
+     - Add a new `describe('mapHostWorkingFolderToWorkdir', () => { ... })` block (or match the file’s existing style if it doesn’t use `describe`).
+     - Put the three tests below (Subtasks 4–7) inside that block so a reader can find them quickly.
 4. [ ] **Test (server unit, `node:test`)**: maps host path under ingest root
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/path.html
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: prove `mapHostWorkingFolderToWorkdir()` produces `{ mappedPath, relPath }` for a valid absolute path under `hostIngestDir`.
    - Description:
@@ -155,31 +170,42 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
     - expect `relPath === 'repo/sub'`
     - expect `mappedPath` ends with `/data/repo/sub`.
 5. [ ] **Test (server unit, `node:test`)**: rejects host path outside ingest root
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/path.html
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: prevent path traversal / escape by ensuring mapping is refused when outside `hostIngestDir`.
    - Description:
      - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/other/repo`,
      - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
 6. [ ] **Test (server unit, `node:test`)**: rejects prefix-but-not-child paths
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/path.html
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: ensure the containment check is boundary-aware (e.g. `/host/base2` is NOT inside `/host/base`).
    - Description:
      - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/base2/repo`,
      - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
 7. [ ] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/path.html
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: enforce the story rule “working_folder must be absolute” at the mapping layer.
    - Description:
      - Given `hostWorkingFolder='relative/path'`,
      - expect `{ error: { code: 'INVALID_ABSOLUTE_PATH' } }`.
 8. [ ] Verification commands (must run before moving to Task 2):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script (how `npm run <script>` works)
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 
 #### Implementation notes
 
@@ -207,9 +233,9 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 #### Subtasks
 
-**Docs to read (repeat):** https://nodejs.org/api/fs.html#fspromisesstatpath-options, https://nodejs.org/api/path.html, Context7 `/openai/codex`, code_info MCP (installed `@openai/codex-sdk` package), Context7 `/mermaid-js/mermaid`
-
 1. [ ] Extend the service input type:
+   - Docs to read:
+     - https://nodejs.org/api/path.html (absolute path rules referenced later in this task)
    - Files to read:
      - `server/src/agents/service.ts`
    - File to edit:
@@ -217,6 +243,8 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Add to `RunAgentInstructionParams`:
      - `working_folder?: string;`
 2. [ ] Extend the service error union to include working-folder errors:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (these codes will later be surfaced as HTTP 400)
    - Files to read:
      - `server/src/agents/service.ts`
    - File to edit:
@@ -225,6 +253,9 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `WORKING_FOLDER_INVALID`
      - `WORKING_FOLDER_NOT_FOUND`
 3. [ ] Add an exported resolver helper (so it can be unit-tested without running Codex):
+   - Docs to read:
+     - https://nodejs.org/api/fs.html#fspromisesstatpath-options (directory existence checks)
+     - https://nodejs.org/api/path.html (POSIX + win32 absolute checks)
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/ingest/pathMap.ts` (new helper from Task 1)
@@ -259,6 +290,9 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
        - Reuse the repo’s existing approach from `server/src/ingest/discovery.ts` / `server/src/agents/discovery.ts` (don’t invent a new error-handling convention).
      - If neither candidate exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
 4. [ ] Thread the chosen working directory into Codex execution:
+   - Docs to read:
+     - Context7 `/openai/codex` (Codex CLI option semantics; confirms `workingDirectory` is valid)
+     - code_info MCP: inspect installed `@openai/codex-sdk` (how thread options are forwarded)
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - File to edit:
@@ -268,6 +302,8 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Apply it when constructing `threadOptions` (both `useConfigDefaults` and non-config branches):
      - `workingDirectory: workingDirectoryOverride ?? (process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data')`
 5. [ ] Wire the resolved directory into agent runs:
+   - Docs to read:
+     - https://nodejs.org/api/path.html (why we treat empty/whitespace as “unset”)
    - Files to read:
      - `server/src/agents/service.ts`
    - File to edit:
@@ -275,12 +311,18 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - When calling `chat.run(...)`, include:
      - `workingDirectoryOverride: await resolveWorkingFolderWorkingDirectory(params.working_folder)` (or omit if it resolves to `undefined`)
 6. [ ] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the resolver
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/path.html
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: ensure `resolveWorkingFolderWorkingDirectory()` throws `WORKING_FOLDER_INVALID` before any Codex run is attempted.
    - Description:
      - call `resolveWorkingFolderWorkingDirectory('relative/path')`
      - expect thrown error `{ code: 'WORKING_FOLDER_INVALID' }`.
 7. [ ] **Test (server unit, `node:test`)**: mapped path exists → resolver returns mapped path
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/fs.html#fspromisesmkdirpath-options (if you need to create temp dirs)
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: verify the “host path → host ingest rel → codex workdir” mapping is applied when possible.
    - Description:
@@ -289,6 +331,9 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - arrange filesystem so `/data/repo/sub` exists as a directory
      - assert `resolveWorkingFolderWorkingDirectory('/host/base/repo/sub')` returns `/data/repo/sub`.
 8. [ ] **Test (server unit, `node:test`)**: mapped path missing but literal exists → resolver returns literal
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/fs.html#fspromisesmkdirpath-options
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: verify fallback behavior when mapping cannot be used.
    - Description:
@@ -297,12 +342,17 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - ensure mapped path does not exist, but `/some/literal/dir` exists as a directory
      - assert `resolveWorkingFolderWorkingDirectory('/some/literal/dir')` returns `/some/literal/dir`.
 9. [ ] **Test (server unit, `node:test`)**: neither mapped nor literal exists → resolver throws `WORKING_FOLDER_NOT_FOUND`
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
    - Purpose: guarantee callers get a stable error when no directory exists.
    - Description:
      - provide an absolute `working_folder` where neither mapped nor literal directory exists
      - expect thrown error `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
 10. [ ] **Test (server unit, `node:test`)**: ChatInterfaceCodex uses `workingDirectoryOverride` when provided
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - code_info MCP: inspect installed `@openai/codex-sdk` (which options are passed to `startThread`)
    - Location: `server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts` (new)
    - Purpose: ensure the Codex adapter actually uses the per-call override (without involving the agents service).
    - Description:
@@ -310,6 +360,8 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
      - assert captured `opts.workingDirectory === '/tmp/override'`.
 11. [ ] Update `design.md` with the new agent working-directory override flow (include Mermaid diagram) (do this after implementing the resolver + override wiring above):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid` (diagram syntax)
    - Files to edit:
      - `design.md`
    - Add a section describing how agent runs resolve `working_folder` and choose the final Codex `workingDirectory`.
@@ -317,19 +369,23 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - absolute validation → mapped candidate (HOST_INGEST_DIR → CODEX_WORKDIR) → literal fallback → error
    - Include the two stable error codes: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`.
 12. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/ (safe Markdown editing)
    - Files to edit:
      - `projectStructure.md`
    - Add entries under `server/src/test/unit/` for:
      - `agents-working-folder.test.ts`
      - `chat-codex-workingDirectoryOverride.test.ts`
 13. [ ] Verification commands (must run before moving to Task 3):
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 
 #### Implementation notes
 
@@ -356,9 +412,10 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 
 #### Subtasks
 
-**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/ladjs/supertest`, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status, Context7 `/mermaid-js/mermaid`
-
 1. [ ] Extend request body validation:
+   - Docs to read:
+     - Context7 `/expressjs/express` (request handler patterns)
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (why this stays a 400)
    - Files to read:
      - `server/src/routes/agentsRun.ts`
    - File to edit:
@@ -369,16 +426,23 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
      - if provided: must be a string and `trim().length > 0`
      - do not check filesystem existence here (service does that so REST + MCP stay consistent)
 2. [ ] Pass the value to the service:
+   - Docs to read:
+     - Context7 `/expressjs/express`
    - File to edit:
      - `server/src/routes/agentsRun.ts`
    - Ensure the call includes `working_folder: parsedBody.working_folder` (or `undefined` if absent).
 3. [ ] Extend route error mapping to include the new codes:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - File to edit:
      - `server/src/routes/agentsRun.ts`
    - When service throws:
      - `WORKING_FOLDER_INVALID` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', message: '...' }`
      - `WORKING_FOLDER_NOT_FOUND` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
 4. [ ] **Test (server unit, `node:test`)**: REST route forwards `working_folder` to the service
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Files to read:
      - `server/src/test/unit/agents-router-run.test.ts`
    - File to edit:
@@ -388,18 +452,26 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
      - send a request body including `working_folder`
      - assert the stubbed service is called with `working_folder` present.
 5. [ ] **Test (server unit, `node:test`)**: REST route maps `WORKING_FOLDER_INVALID` → HTTP 400 + code
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Location: `server/src/test/unit/agents-router-run.test.ts`
    - Purpose: callers receive a stable 400 error with the correct `code`.
    - Description:
      - make the stubbed service throw `{ code: 'WORKING_FOLDER_INVALID' }`
      - expect response status 400 and body `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' }`.
 6. [ ] **Test (server unit, `node:test`)**: REST route maps `WORKING_FOLDER_NOT_FOUND` → HTTP 400 + code
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Location: `server/src/test/unit/agents-router-run.test.ts`
    - Purpose: callers receive a stable 400 error with the correct `code`.
    - Description:
      - make the stubbed service throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`
      - expect response status 400 and body `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
 7. [ ] Update `design.md` to document the REST contract and errors (include Mermaid diagram) (do this after implementing the REST wiring above):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Add/update a short section for `POST /agents/:agentName/run` including:
@@ -409,13 +481,15 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
      - working folder resolution step
      - early-return error path for invalid/not-found
 8. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 
 #### Implementation notes
 
@@ -440,19 +514,24 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Subtasks
 
-**Docs to read (repeat):** https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`
-
 1. [ ] Update the request params type:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - File to edit:
      - `client/src/api/agents.ts`
    - Add to the `runAgentInstruction(params: { ... })` signature:
      - `working_folder?: string;`
 2. [ ] Include the field in the POST body:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - File to edit:
      - `client/src/api/agents.ts`
    - Rule:
      - include `working_folder` only if `params.working_folder?.trim()` is non-empty
 3. [ ] **Test (client unit, Jest)**: includes `working_folder` when provided
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to read (pattern):
      - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
    - File to add:
@@ -462,24 +541,30 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
      - call `runAgentInstruction({ working_folder: '/abs/path', ... })`
      - assert mocked `fetch` called with JSON body containing `working_folder`.
 4. [ ] **Test (client unit, Jest)**: omits `working_folder` when not provided (or blank)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
    - Location: `client/src/test/agentsApi.workingFolder.payload.test.ts`
    - Purpose: maintain backward compatibility for callers that don’t use the new field.
    - Description:
      - call `runAgentInstruction({ working_folder: undefined })` and separately `working_folder: '   '`
      - assert JSON body does not contain the field.
 5. [ ] Update `projectStructure.md` to include the new client test file (do this after adding the file above):
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Add an entry under `client/src/test/` for:
      - `agentsApi.workingFolder.payload.test.ts`
 6. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
 
 #### Implementation notes
 
@@ -510,9 +595,10 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 #### Subtasks
 
-**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/text-field.md, Context7 `/reactjs/react.dev`, Context7 `/remix-run/react-router`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/testing-library/user-event`, Context7 `/testing-library/jest-dom`, Context7 `/mermaid-js/mermaid`
-
 1. [ ] Add state + TextField UI (controlled input):
+   - Docs to read:
+     - https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+     - Context7 `/reactjs/react.dev` (controlled inputs)
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
    - File to edit:
@@ -523,16 +609,24 @@ Add an optional working folder input to the Agents page so users can run an agen
    - Make it controlled:
      - `value={workingFolder}` and `onChange={(e) => setWorkingFolder(e.target.value)}`
 2. [ ] Thread it into the agent run request:
+   - Docs to read:
+     - Context7 `/reactjs/react.dev`
    - File to edit:
      - `client/src/pages/AgentsPage.tsx`
    - When calling `runAgentInstruction(...)`, pass:
      - `working_folder: workingFolder.trim() || undefined`
 3. [ ] Reset behavior (must implement explicitly):
+   - Docs to read:
+     - Context7 `/reactjs/react.dev`
    - File to edit:
      - `client/src/pages/AgentsPage.tsx`
    - In `resetConversation()` and agent-change handler:
      - call `setWorkingFolder('')`
 4. [ ] **Test (client UI, Jest/RTL)**: AgentsPage submits `working_folder` in POST body
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Files to read:
      - `client/src/test/agentsPage.run.test.tsx` (agents run flow)
    - Location: `client/src/test/agentsPage.run.test.tsx` (edit)
@@ -543,6 +637,10 @@ Add an optional working folder input to the Agents page so users can run an agen
      - run an instruction
      - assert the captured request body contains `working_folder`.
 5. [ ] **Test (client UI, Jest/RTL)**: Agent change clears the `working_folder` field
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Location: `client/src/test/agentsPage.agentChange.test.tsx` (edit)
    - Purpose: prevent accidental reuse of a previous folder across agents.
    - Description:
@@ -550,19 +648,23 @@ Add an optional working folder input to the Agents page so users can run an agen
      - change agent selection
      - assert field is empty.
 6. [ ] Update `design.md` to document the Agents UI flow (include Mermaid diagram) (do this after implementing the UI wiring above):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Add a Mermaid `flowchart` describing:
      - user enters `working_folder` + instruction → POST `/agents/:agentName/run` → error/success handling in UI
    - Mention reset behavior (agent change / new conversation clears `working_folder`).
 7. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
 
 #### Implementation notes
 
@@ -589,9 +691,10 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Subtasks
 
-**Docs to read (repeat):** Context7 `/websites/v3_zod_dev`, https://www.jsonrpc.org/specification, https://modelcontextprotocol.io/, Context7 `/mermaid-js/mermaid`
-
 1. [ ] Extend the Zod schema + tool input schema:
+   - Docs to read:
+     - Context7 `/websites/v3_zod_dev`
+     - https://www.jsonrpc.org/specification (invalid params error code)
    - Files to read:
      - `server/src/mcpAgents/tools.ts`
    - File to edit:
@@ -600,14 +703,21 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - `working_folder: z.string().min(1).optional()`
    - Update `run_agent_instruction` JSON `inputSchema` to include `working_folder` with a clear description.
 2. [ ] Pass through to the agents service:
+   - Docs to read:
+     - Context7 `/websites/v3_zod_dev`
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
    - Include `working_folder: parsed.working_folder` in the `runAgentInstruction({ ... })` call.
 3. [ ] Ensure errors are mapped to invalid params:
+   - Docs to read:
+     - https://www.jsonrpc.org/specification
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
    - When the service throws `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, translate to `InvalidParamsError` (safe message only).
 4. [ ] **Test (server unit, `node:test`)**: `callTool()` forwards `working_folder` to the agents service
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websites/v3_zod_dev`
    - Files to read:
      - `server/src/mcpAgents/tools.ts`
    - File to add:
@@ -617,6 +727,9 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - call `callTool('run_agent_instruction', { agentName, instruction, working_folder }, { runAgentInstruction: stub })`
      - assert stub receives `working_folder`.
 5. [ ] **Test (server unit, `node:test`)**: JSON-RPC router accepts `working_folder` and forwards it to tools/service
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://modelcontextprotocol.io/
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
    - File to edit:
@@ -626,29 +739,38 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - send a `tools/call` request with `arguments.working_folder`
      - assert the stubbed service receives `working_folder`.
 6. [ ] **Test (server unit, `node:test`)**: `callTool()` maps working-folder errors to `InvalidParamsError`
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
    - Purpose: ensure MCP callers get a predictable invalid-params tool error.
    - Description:
      - stub service to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }` and separately `{ code: 'WORKING_FOLDER_INVALID' }`
      - assert `callTool(...)` throws `InvalidParamsError` for both.
 7. [ ] Update `projectStructure.md` to include the new server test file (do this after adding the file above):
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Add an entry under `server/src/test/unit/` for:
      - `mcp-agents-tools.test.ts`
 8. [ ] Update `design.md` to document the MCP tool contract change (include Mermaid diagram) (do this after implementing the MCP schema + wiring above):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Add a Mermaid `sequenceDiagram` for:
      - MCP client → Agents MCP `5012` → tools layer → agents service → Codex
    - Include the new optional param name `working_folder` and that invalid paths become JSON-RPC “invalid params” style tool errors.
 9. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
 
 #### Implementation notes
 
@@ -675,9 +797,9 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Subtasks
 
-**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/remix-run/react-router`
-
 1. [ ] Update the fixed model list returned for Codex:
+   - Docs to read:
+     - Context7 `/expressjs/express`
    - Files to read:
      - `server/src/routes/chatModels.ts`
    - File to edit:
@@ -687,15 +809,32 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
      - `displayName: 'gpt-5.2'`
      - `type: 'codex'`
 2. [ ] **Test (client UI, Jest/RTL)**: provider model list includes `gpt-5.2` when Codex is selected
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/remix-run/react-router`
    - Files to read/edit (common locations):
      - `client/src/test/chatPage.provider.test.tsx` (mocked models response)
-     - any other `client/src/test/*` or server integration tests that assert the exact Codex model list
+     - `client/src/test/chatPage.provider.conversationSelection.test.tsx` (also mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.approval.payload.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.approval.default.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.reasoning.default.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.websearch.payload.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.websearch.default.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.network.payload.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.network.default.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.sandbox.payload.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.sandbox.default.test.tsx` (mocks `/chat/models?provider=codex`)
+     - `client/src/test/chatPage.flags.sandbox.reset.test.tsx` (mocks `/chat/models?provider=codex`)
    - Location: `client/src/test/chatPage.provider.test.tsx` (edit)
    - Purpose: prevent UI regressions where adding a new model breaks selection/defaults.
    - Description:
      - update the mocked `/chat/models?provider=codex` payload to include `gpt-5.2`
      - assert the dropdown options include `gpt-5.2`.
 3. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run lint --workspace client`
    - `npm run test --workspace server`
@@ -703,10 +842,10 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
 
 #### Implementation notes
 
@@ -736,9 +875,10 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 #### Subtasks
 
-**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/select.md, Context7 `/openai/codex`, Context7 `/microsoft/typescript`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, code_info MCP (installed `@openai/codex-sdk` package), Context7 `/mermaid-js/mermaid`
-
 1. [ ] Update client types + UI options:
+   - Docs to read:
+     - https://llms.mui.com/material-ui/6.4.12/api/select.md
+     - Context7 `/microsoft/typescript`
    - Files to read:
      - `client/src/hooks/useChatStream.ts` (defines `ModelReasoningEffort` union)
      - `client/src/components/chat/CodexFlagsPanel.tsx` (renders reasoning effort dropdown)
@@ -748,6 +888,8 @@ Update Codex reasoning-effort options across server validation and client UI, pl
        - value: `xhigh`
        - label: `XHigh`
 2. [ ] Update server validation to accept `xhigh` (app-level value):
+   - Docs to read:
+     - Context7 `/microsoft/typescript` (widening unions safely)
    - Files to read:
      - `server/src/routes/chatValidators.ts`
    - File to edit:
@@ -759,6 +901,9 @@ Update Codex reasoning-effort options across server validation and client UI, pl
        - Update `ValidatedChatRequest['codexFlags'].modelReasoningEffort` to use `AppModelReasoningEffort`.
        - Then, when building the final `threadOptions` in `ChatInterfaceCodex`, cast as needed.
 3. [ ] Ensure `xhigh` is passed through to Codex:
+   - Docs to read:
+     - Context7 `/openai/codex` (what values are accepted at CLI config level)
+     - code_info MCP: inspect installed `@openai/codex-sdk` (runtime pass-through; SDK types may lag)
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - code_info MCP: inspect installed `@openai/codex-sdk` to confirm it forwards `modelReasoningEffort` as `--config model_reasoning_effort="..."` (no SDK-side validation)
@@ -772,6 +917,9 @@ Update Codex reasoning-effort options across server validation and client UI, pl
    - Implementation rule:
      - Do **not** down-map `xhigh` to `high`; pass it through in `threadOptions.modelReasoningEffort` (with a type cast at assignment, because the installed SDK types are narrower than the CLI’s accepted values).
 4. [ ] **Test (client UI, Jest/RTL)**: selecting `xhigh` sends `modelReasoningEffort: 'xhigh'` in the request
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
    - Location: `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (edit)
    - Purpose: ensure the app-level value is preserved in the request payload.
    - Description:
@@ -779,18 +927,25 @@ Update Codex reasoning-effort options across server validation and client UI, pl
      - submit a Codex message
      - assert captured request JSON contains `modelReasoningEffort: 'xhigh'`.
 5. [ ] **Test (server integration, `node:test` + MockCodex)**: server accepts `xhigh` and passes `xhigh` into Codex thread options
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Location: `server/src/test/integration/chat-codex-mcp.test.ts` (edit)
    - Purpose: ensure the server preserves the requested reasoning effort all the way to the Codex adapter options.
    - Description:
      - send a Codex request with `modelReasoningEffort: 'xhigh'`
      - assert mocked codex thread options received `modelReasoningEffort: 'xhigh'`.
 6. [ ] Update `README.md` to document `xhigh` (do this after implementing the validation + adapter changes above):
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/openai/codex`
    - Files to edit:
      - `README.md`
    - Purpose: ensure users know `xhigh` exists and what it does.
    - Description (must include):
      - `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`).
 7. [ ] Update `design.md` to document the reasoning-effort flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Purpose: capture the architecture/flow change so future devs understand how the flag is validated and forwarded.
@@ -799,6 +954,8 @@ Update Codex reasoning-effort options across server validation and client UI, pl
    - Add a Mermaid `flowchart` showing:
      - UI selection → REST payload (`modelReasoningEffort`) → server validation → Codex thread options (`modelReasoningEffort`)
 8. [ ] Verification commands:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspaces`
    - `npm run test --workspace server`
    - `npm run test --workspace client`
@@ -806,10 +963,10 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
 
 #### Implementation notes
 
@@ -832,21 +989,59 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
-
-**Docs to read (repeat):** https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`
-
 1. [ ] Update `README.md`:
-   - document `working_folder` for Agents UI/REST/MCP and the mapping/fallback behavior
-   - document `gpt-5.2` and `xhigh` availability
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/openai/codex` (for wording around `model_reasoning_effort`)
+   - Files to edit:
+     - `README.md`
+   - Purpose: make the new public API surface discoverable to someone who never read the story plan.
+   - Instructions (copy/paste-friendly, include all details here):
+     - Under the Agents section, document the new optional request field:
+       - name: `working_folder`
+       - meaning: “requested working directory for this agent run”
+       - rules:
+         - must be absolute (POSIX or Windows)
+         - resolution order: mapped candidate (host path under `HOST_INGEST_DIR` → joined into `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`), then literal fallback, else error
+     - Add the two stable error codes and what they mean:
+       - `WORKING_FOLDER_INVALID`: not absolute / invalid input
+       - `WORKING_FOLDER_NOT_FOUND`: neither candidate directory exists
+     - Under the Codex section, add:
+       - model list includes `gpt-5.2`
+       - reasoning effort includes `xhigh` and it is passed through as `model_reasoning_effort="xhigh"`
 2. [ ] Update `design.md`:
-   - add a short section describing per-call working directory overrides for agent runs (and how it differs from default chat)
-   - ensure the new/updated Mermaid diagrams from Tasks 2, 3, 5, 6, and 8 are present and render correctly
-3. [ ] Update `projectStructure.md` for any new/changed files.
-4. [ ] Run `npm run format:check --workspaces`.
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+   - Purpose: ensure future changes can be made safely by showing the exact control/data flow.
+   - Instructions (be explicit, even if duplicated elsewhere):
+     - Add (or update) a section titled `Agent working_folder overrides` that explains:
+       - how `working_folder` is resolved to a final Codex `workingDirectory`
+       - that agent `config.toml` remains the source of truth for defaults, but `working_folder` overrides the working directory per call
+     - Ensure these Mermaid diagrams exist and render:
+       - Agent `working_folder` resolution `flowchart` (mapped → literal → error)
+       - REST route `sequenceDiagram` for `POST /agents/:agentName/run` showing the 400 error path
+       - MCP `sequenceDiagram` showing JSON-RPC call → tool validation → service → Codex
+       - Reasoning-effort `flowchart` that explicitly mentions the SDK type mismatch but runtime pass-through for `xhigh`
+3. [ ] Update `projectStructure.md` for files added/changed by this story:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Instructions:
+     - Add one line entry for every file added by Tasks 2, 4, and 6 (new unit test files).
+     - Verify no “planned file” is missing from `projectStructure.md` before marking this subtask complete.
+4. [ ] Run formatting check for the repo:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Command:
+     - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run format:check --workspaces`
+1. [ ] `npm run format:check --workspaces` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
 
 #### Implementation notes
 
@@ -876,26 +1071,26 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 
 **Docs to read (repeat):** Context7 `/docker/docs`, Context7 `/microsoft/playwright`, Context7 `/typicode/husky`, Context7 `/mermaid-js/mermaid`, Context7 `/websites/jestjs_io_30_0`, https://cucumber.io/docs/guides/
 
-1. [ ] Build the server: `npm run build --workspace server`
-2. [ ] Build the client: `npm run build --workspace client`
-3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
-4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story.
-5. [ ] Ensure `design.md` is updated with any required description changes (include any new diagrams if needed).
-6. [ ] Ensure `projectStructure.md` is up to date.
-7. [ ] Run lint + format checks:
+1. [ ] Build the server: `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] Build the client: `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .` (Docs: Context7 `/docker/docs`)
+4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story. (Docs: https://www.markdownguide.org/basic-syntax/)
+5. [ ] Ensure `design.md` is updated with any required description changes (include any new diagrams if needed). (Docs: https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`)
+6. [ ] Ensure `projectStructure.md` is up to date. (Docs: https://www.markdownguide.org/basic-syntax/)
+7. [ ] Run lint + format checks (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script):
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/agents` can run an instruction with a valid `working_folder` and the run uses the expected working directory
    - `/agents` returns a clear error for an invalid `working_folder`
    - Agents MCP `5012` accepts `working_folder` and returns a clear error for invalid paths
@@ -905,7 +1100,7 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
      - `0000017-10-agents-working-folder.png`
      - `0000017-10-mcp-5012-working-folder.png`
      - `0000017-10-chat-codex-models.png`
-9. [ ] `npm run compose:down`
+9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 

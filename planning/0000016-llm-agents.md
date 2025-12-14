@@ -2006,7 +2006,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 ### 13. Final task – verify against acceptance criteria (post-Task 12)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

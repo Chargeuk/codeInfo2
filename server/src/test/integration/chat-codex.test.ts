@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test, { beforeEach } from 'node:test';
+import test, { afterEach, beforeEach } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   ThreadEvent,
@@ -64,7 +64,12 @@ const dummyClientFactory = () =>
     llm: { model: async () => ({ act: async () => undefined }) },
   }) as unknown as LMStudioClient;
 
+const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
+const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+
 beforeEach(() => {
+  delete process.env.CODEX_WORKDIR;
+  delete process.env.CODEINFO_CODEX_WORKDIR;
   setCodexDetection({
     available: false,
     authPresent: false,
@@ -72,6 +77,20 @@ beforeEach(() => {
     reason: 'not detected',
   });
   conversationSeq = 0;
+});
+
+afterEach(() => {
+  if (ORIGINAL_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEX_WORKDIR;
+  } else {
+    process.env.CODEX_WORKDIR = ORIGINAL_CODEX_WORKDIR;
+  }
+
+  if (ORIGINAL_CODEINFO_CODEX_WORKDIR === undefined) {
+    delete process.env.CODEINFO_CODEX_WORKDIR;
+  } else {
+    process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
 });
 
 let conversationSeq = 0;

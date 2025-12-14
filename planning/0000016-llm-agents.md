@@ -2024,7 +2024,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 
 #### Subtasks
 
-1. [ ] Build the server: `npm run build --workspace server`
+1. [x] Build the server: `npm run build --workspace server`
 2. [ ] Build the client: `npm run build --workspace client`
 3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
 4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story

@@ -2052,7 +2052,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`

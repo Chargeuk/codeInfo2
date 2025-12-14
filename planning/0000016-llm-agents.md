@@ -991,8 +991,8 @@ This endpoint is the single source of truth for:
 
 ### 7. Server endpoint: run an agent instruction (`POST /agents/:agentName/run`)
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 11a1f38
 
 #### Overview
 

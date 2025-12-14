@@ -1331,8 +1331,8 @@ Important semantics (must be implemented exactly):
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads and shows only non-agent conversations (agentName absent).
    - Validate filtering via the REST API:

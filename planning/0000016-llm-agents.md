@@ -2065,7 +2065,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
      - `0000016-13-chat.png`
      - `0000016-13-agents.png`
      - `0000016-13-mcp-5012.png`
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 

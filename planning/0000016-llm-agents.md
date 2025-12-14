@@ -1996,6 +1996,11 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 #### Implementation notes
 
+- Added `useConfigDefaults?: boolean` to `CodexRunFlags` and updated `ChatInterfaceCodex` to omit config-owned `ThreadOptions` fields (model/approval/sandbox/reasoning/network/websearch) when enabled, while still enforcing `workingDirectory` and `skipGitRepoCheck`.
+- Added `server/src/agents/config.ts` with a minimal, dependency-free TOML parse for `model = "..."` and wired `runAgentInstruction()` to derive `modelId` from the agent’s `config.toml` (with a safe fallback).
+- Updated agent execution (`server/src/agents/service.ts`) to pass `useConfigDefaults: true` and stop sending overlapping `codexFlags`, ensuring the agent’s Codex home `config.toml` controls defaults at runtime.
+- Added unit coverage asserting both model parsing and that `useConfigDefaults` omits config-owned keys from `ThreadOptions`, and relaxed REST/MCP router tests to not assume a fixed agent `modelId`.
+- Updated `README.md` and `design.md` to document that agents are config-driven for execution defaults and to clarify what remains server-owned.
 
 ---
 

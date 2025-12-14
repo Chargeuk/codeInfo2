@@ -1,0 +1,1 @@
+Coding agent that can be asked to work through a single task within a story/plan.

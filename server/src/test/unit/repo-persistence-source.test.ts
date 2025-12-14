@@ -35,6 +35,7 @@ test('listConversations defaults source to REST when missing', async () => {
               provider: 'codex',
               model: 'gpt',
               title: 'MCP chat',
+              agentName: 'coding_agent',
               source: 'MCP',
               flags: {},
               lastMessageAt: new Date('2025-01-02T00:00:00Z'),
@@ -58,6 +59,7 @@ test('listConversations defaults source to REST when missing', async () => {
     assert(c2);
     assert.equal(c1.source, 'REST');
     assert.equal(c2.source, 'MCP');
+    assert.equal(c2.agentName, 'coding_agent');
   } finally {
     restore(
       ConversationModel as unknown as Record<string, unknown>,

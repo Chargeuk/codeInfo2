@@ -33,6 +33,66 @@ npm install
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 
+## Codex agents (folder layout)
+
+Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`. Each direct subfolder is treated as an agent when it contains a `config.toml` file.
+
+Example layout:
+
+```text
+codex_agents/<agentName>/
+  config.toml          # required
+  description.md       # optional (Markdown shown in UI/MCP listings)
+  system_prompt.txt    # optional (used only on first turn of a new agent conversation)
+```
+
+- Agent defaults: `codex_agents/<agentName>/config.toml` is the source of truth for agent execution defaults (e.g. `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, and web-search/network feature toggles). The UI does not provide model/provider selection for agents.
+- Server-owned defaults: the server still sets `workingDirectory=/data` (or `CODEX_WORKDIR`) and `skipGitRepoCheck:true` for agent runs.
+- Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
+- Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
+- Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
+
+### Agents REST API
+
+- Agents UI:
+  - Open the **Agents** tab (route `/agents`) to run an instruction against an agent from the browser UI.
+  - To continue a prior agent run, select a conversation from the sidebar history (there is no manual `conversationId` input).
+
+- List available agents:
+  - `curl -s http://localhost:5010/agents | jq`
+  - Example response:
+    ```json
+    {
+      "agents": [
+        {
+          "name": "coding_agent",
+          "description": "# My agent\\n\\nSome details...",
+          "warnings": []
+        }
+      ]
+    }
+    ```
+
+- Run an instruction against an agent:
+  - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Say hello"}' | jq`
+  - Continue an existing agent conversation (server `conversationId`, not the Codex thread id):
+    - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Continue","conversationId":"<conversationId>"}' | jq`
+  - Notes:
+    - The response `conversationId` is the server conversation id used for history and continuation.
+    - Codex continuation uses an internal thread id persisted as `Conversation.flags.threadId`.
+
+### Agents MCP (JSON-RPC)
+
+- Endpoint: POST JSON-RPC 2.0 to `http://localhost:5012` (Compose exposes it; e2e compose maps to `http://localhost:6012`).
+- Tools:
+  - `list_agents`
+  - `run_agent_instruction`
+- Quick smoke (host/compose):
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"run_agent_instruction","arguments":{"agentName":"coding_agent","instruction":"Say hello"}}}' | jq`
+
 ### MCP for Codex
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
@@ -70,7 +130,7 @@ npm install
 - Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end.
-- **Chat page:** open `/chat` to chat with LM Studio or Codex via the server `/chat` streaming proxy. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is streaming. Messages render newest-first near the controls with distinct user/assistant bubbles, streaming tokens accumulate into a single assistant bubble, and failures surface as inline error bubbles with retry guidance. Tool lifecycle events stay out of the transcript but are logged to the server log store so the Logs page can surface them. A **Stop** button appears while streaming to cancel generation (responses may truncate) and adds a status bubble; a **New conversation** button aborts any in-flight response, clears the transcript, keeps the currently selected model, and refocuses the input. Chat history is persisted in Mongo: the left sidebar lists conversations newest-first with archive/restore controls, turns are lazy-loaded from the server, and requests send only `{ conversationId, message }` (the server loads prior turns). When the OpenAI Codex CLI/auth/config are available, selecting the Codex provider streams via the Codex SDK and reuses the returned `threadId`; if Mongo is down the sidebar is disabled and a banner reads “Conversation history unavailable — messages won’t be stored until Mongo reconnects.”
+- **Chat page:** open `/chat` to chat with LM Studio or Codex via the server `/chat` streaming proxy. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is streaming. Messages render newest-first near the controls with distinct user/assistant bubbles, streaming tokens accumulate into a single assistant bubble, and failures surface as inline error bubbles with retry guidance. Tool lifecycle events stay out of the transcript but are logged to the server log store so the Logs page can surface them. A **Stop** button appears while streaming to cancel generation (responses may truncate) and adds a status bubble; a **New conversation** button aborts any in-flight response, clears the transcript, keeps the currently selected model, and refocuses the input. Chat history is persisted in Mongo: the left sidebar lists conversations newest-first with archive/restore controls, turns are lazy-loaded from the server, and requests send only `{ conversationId, message }` (the server loads prior turns). Conversation listing supports agent scoping via `/conversations?agentName=__none__` (only conversations with no `agentName`) and `/conversations?agentName=<agent>` (exact match). When the OpenAI Codex CLI/auth/config are available, selecting the Codex provider streams via the Codex SDK and reuses the returned `threadId`; if Mongo is down the sidebar is disabled and a banner reads “Conversation history unavailable — messages won’t be stored until Mongo reconnects.”
 - **Chat providers:** a Provider dropdown (LM Studio by default) sits to the left of the Model selector. Codex appears as `OpenAI Codex` when the CLI/config/auth are present; when unavailable it stays disabled with inline guidance, and when tools are unavailable the Codex send input remains disabled with an MCP warning. Provider is locked once a conversation starts, while the model can still change. The message input is now multiline beneath the selectors; send/stop live beside it. Tool blocks/citations render only when the active provider advertises `toolsAvailable`.
 - **Codex flags panel:** when provider=`OpenAI Codex`, a collapsible “Codex flags” panel appears under the Provider/Model row with a sandbox mode select (`workspace-write` default, plus `read-only` and `danger-full-access`), an approval policy select (`on-failure` default; also `on-request`, `never`, `untrusted`), a reasoning effort select (`high` default; also `medium`, `low`), and toggles for **Enable network access** / **Enable web search** (both default `true`). Requests always send the selected `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, and `webSearchEnabled` for Codex; LM Studio ignores Codex-only flags. Example payload fragment: `"sandboxMode": "danger-full-access", "approvalPolicy": "on-request", "modelReasoningEffort": "low", "networkAccessEnabled": false, "webSearchEnabled": false`.
 - **Chat bubble styling:** user and assistant bubbles share a consistent 14px border radius while keeping status chips, tool blocks, and citations aligned.

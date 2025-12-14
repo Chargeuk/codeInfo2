@@ -37,7 +37,8 @@ type ApiResponse = {
 
 const PAGE_SIZE = 20;
 
-export function useConversations(): State {
+export function useConversations(params?: { agentName?: string }): State {
+  const agentName = params?.agentName;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const cursorRef = useRef<string | undefined>(undefined);
@@ -71,11 +72,13 @@ export function useConversations(): State {
       try {
         console.info('[conversations] fetch start', {
           mode,
+          agentName,
           includeArchived,
           cursor: cursorRef.current,
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         if (includeArchived) search.set('archived', 'true');
+        if (agentName) search.set('agentName', agentName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
         if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
         const res = await fetch(
@@ -119,7 +122,7 @@ export function useConversations(): State {
         setIsLoading(false);
       }
     },
-    [includeArchived, dedupeAndSort],
+    [agentName, includeArchived, dedupeAndSort],
   );
 
   useEffect(() => {
@@ -129,7 +132,7 @@ export function useConversations(): State {
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-  }, [fetchPage, includeArchived]);
+  }, [fetchPage, includeArchived, agentName]);
 
   const refresh = useCallback(async () => {
     cursorRef.current = undefined;

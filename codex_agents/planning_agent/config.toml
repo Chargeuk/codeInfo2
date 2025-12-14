@@ -1,0 +1,35 @@
+model = "gpt-5.2"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+
+[features]
+web_search_request = true
+view_image_tool = true
+
+[mcp_servers]
+[mcp_servers.context7]
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866']
+command = 'npx'
+startup_timeout_sec = 20.0
+
+[mcp_servers.mui]
+args = ['-y', '@mui/mcp@latest']
+command = 'npx'
+
+[mcp_servers.deepwiki]
+url = "https://mcp.deepwiki.com/mcp"
+startup_timeout_sec = 20.0
+
+[mcp_servers.code_info]
+command = "npx"
+args    = ["-y", "mcp-remote", "http://localhost:5011/mcp"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+
+[projects]
+[projects."/data"]
+trust_level = "trusted"
+
+[projects."/app/server"]
+trust_level = "trusted"

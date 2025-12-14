@@ -11,6 +11,7 @@ export interface CreateConversationInput {
   provider: ConversationProvider;
   model: string;
   title: string;
+  agentName?: string;
   source?: ConversationSource;
   flags?: Record<string, unknown>;
   lastMessageAt?: Date;
@@ -40,6 +41,7 @@ export interface ListConversationsParams {
   limit: number;
   cursor?: string | Date;
   includeArchived?: boolean;
+  agentName?: string;
 }
 
 export interface ListTurnsParams {
@@ -56,6 +58,7 @@ export async function createConversation(
     provider: input.provider,
     model: input.model,
     title: input.title,
+    agentName: input.agentName,
     source: input.source ?? 'REST',
     flags: input.flags ?? {},
     lastMessageAt: input.lastMessageAt ?? new Date(),
@@ -78,6 +81,20 @@ export async function updateConversationMeta(
   return ConversationModel.findByIdAndUpdate(input.conversationId, update, {
     new: true,
   }).exec();
+}
+
+export async function updateConversationThreadId({
+  conversationId,
+  threadId,
+}: {
+  conversationId: string;
+  threadId: string;
+}): Promise<Conversation | null> {
+  return ConversationModel.findByIdAndUpdate(
+    conversationId,
+    { $set: { 'flags.threadId': threadId } },
+    { new: true },
+  ).exec();
 }
 
 export async function archiveConversation(
@@ -126,6 +143,7 @@ export interface ConversationSummary {
   provider: ConversationProvider;
   model: string;
   title: string;
+  agentName?: string;
   source: ConversationSource;
   lastMessageAt: Date;
   archived: boolean;
@@ -142,6 +160,18 @@ export async function listConversations(
     query.archivedAt = null;
   }
 
+  if (params.agentName !== undefined) {
+    if (params.agentName === '__none__') {
+      query.$or = [
+        { agentName: { $exists: false } },
+        { agentName: null },
+        { agentName: '' },
+      ];
+    } else {
+      query.agentName = params.agentName;
+    }
+  }
+
   if (params.cursor) {
     query.lastMessageAt = { $lt: toDate(params.cursor) };
   }
@@ -156,6 +186,7 @@ export async function listConversations(
     provider: doc.provider,
     model: doc.model,
     title: doc.title,
+    agentName: doc.agentName,
     source: (doc as Conversation).source ?? 'REST',
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,

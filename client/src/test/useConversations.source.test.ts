@@ -53,4 +53,18 @@ describe('useConversations source metadata', () => {
     expect(restItem?.source).toBe('REST');
     expect(mcpItem?.source).toBe('MCP');
   });
+
+  it('includes agentName when provided', async () => {
+    const { result } = renderHook(() =>
+      useConversations({ agentName: '__none__' }),
+    );
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
+      .fetch.mock.calls;
+    const firstUrl =
+      fetchCalls[0]?.[0]?.toString?.() ?? String(fetchCalls[0]?.[0]);
+    expect(firstUrl).toContain('agentName=__none__');
+  });
 });

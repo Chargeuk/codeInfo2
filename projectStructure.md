@@ -8,6 +8,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ .editorconfig â€” shared editor defaults
 â”œâ”€ .gitattributes â€” git attributes (line endings, linguist)
 â”œâ”€ .gitignore â€” ignore rules (node_modules, dist, env.local, etc.)
+â”œâ”€ .dockerignore â€” root docker build ignores (keeps Codex auth out of build contexts)
 â”œâ”€ .npmrc â€” npm config (save-exact)
 â”œâ”€ .prettierignore â€” files skipped by Prettier
 â”œâ”€ .prettierrc â€” Prettier settings
@@ -72,10 +73,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
+|     |- api/
+|     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
+|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, and persisted conversation continuation
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -107,6 +111,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
+|     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
+|     |     |- agentsPage.description.test.tsx ? Agents page renders selected agent description markdown
+|     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
+|     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
+|     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
+|     |     |- agentsPage.run.test.tsx ? agent run renders thinking/answer and vector_summary tool row
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
@@ -190,7 +200,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ mongo/
 â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
-â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, flags, lastMessageAt, archivedAt)
+â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, agentName?, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp/ — Express MCP v1 endpoint (POST /mcp) exposing ingest tools to agent clients
@@ -207,6 +217,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
 â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
 â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
+â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); tools/list ungated; tools/call gated for run_agent_instruction
+â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
+â”‚     â”‚  â”œâ”€ errors.ts — Agents MCP domain errors (Codex unavailable)
+â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
+â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
@@ -333,6 +350,28 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
 - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
 - server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
+- server/src/test/unit/repo-conversations-agent-filter.test.ts — repo query coverage for `agentName=__none__` and exact agent filters
+- server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
+- server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
+- server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
+- server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
+- server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
+- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
+- server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
+- server/src/routes/agentsRun.ts — `POST /agents/:agentName/run` agent execution endpoint (REST; delegates to shared service)
+- server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)
+- server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
+- server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
+- server/src/test/unit/agents-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/run` validation/error mapping/shape
+- server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
+- server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
+- server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
+- server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/run_agent_instruction) delegating to shared agents service
+- server/src/mcpAgents/types.ts — Agents MCP JSON-RPC types and response helpers
+- server/src/mcpAgents/errors.ts — Codex unavailable error for Agents MCP tool calls
+- server/src/mcpAgents/codexAvailability.ts — Codex CLI availability check used for Agents MCP gating
+- server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly two tools
+- server/src/test/unit/mcp-agents-router-run.test.ts — unit coverage that Agents MCP returns JSON text content with segments
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

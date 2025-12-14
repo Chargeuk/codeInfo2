@@ -5,6 +5,8 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import { ConversationModel } from '../../mongo/conversation.js';
+import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 
@@ -119,5 +121,40 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(toolResult.callId, 'call-1');
     assert.equal(toolResult.stage, 'success');
     assert.deepEqual(toolResult.result, { ok: true });
+  });
+
+  it('updates flags.threadId without overwriting other flags keys', async () => {
+    const original = ConversationModel.findByIdAndUpdate;
+    const captured: Array<{
+      id: unknown;
+      update: unknown;
+      options: unknown;
+    }> = [];
+
+    ConversationModel.findByIdAndUpdate = ((
+      id: unknown,
+      update: unknown,
+      options: unknown,
+    ) => {
+      captured.push({ id, update, options });
+      return { exec: async () => null } as unknown as ReturnType<
+        typeof ConversationModel.findByIdAndUpdate
+      >;
+    }) as typeof ConversationModel.findByIdAndUpdate;
+
+    try {
+      await updateConversationThreadId({
+        conversationId: 'conv-flags',
+        threadId: 'tid-2',
+      });
+    } finally {
+      ConversationModel.findByIdAndUpdate = original;
+    }
+
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0]?.id, 'conv-flags');
+    assert.deepEqual(captured[0]?.update, {
+      $set: { 'flags.threadId': 'tid-2' },
+    });
   });
 });

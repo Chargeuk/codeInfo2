@@ -15,7 +15,7 @@ RUN npm ci --workspaces --include-workspace-root --ignore-scripts && npm install
 FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app .
-RUN npm run build --workspace server
+RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22-slim AS runtime
 WORKDIR /app/server

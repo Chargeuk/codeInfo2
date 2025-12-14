@@ -30,12 +30,21 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ## Conversation persistence (MongoDB)
 
-- MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
+- MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, optional `agentName` (when a conversation belongs to an agent), `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
+- Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
+
+```mermaid
+flowchart LR
+  Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
+  Agents[Agents history] -->|GET /conversations?agentName=<agentName>| Q2[Repo filter: agentName == <agentName>]
+  Q1 --> Conv[Conversation docs]
+  Q2 --> Conv
+```
 
 ```mermaid
 sequenceDiagram
@@ -103,6 +112,167 @@ sequenceDiagram
 - On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
 - Codex `mcp_tool_call` events are translated into SSE `tool-request`/`tool-result` frames carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
 - Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
+- Codex home selection:
+  - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
+  - Agent runs can override the Codex home by passing a per-agent home (future: `${CODEINFO_CODEX_AGENT_HOME}/${agentName}`) into the Codex factory/options.
+  - The server injects `CODEX_HOME` into Codex SDK options (`buildCodexOptions({ codexHome })`) rather than mutating `process.env` at runtime, so concurrent requests cannot cross-contaminate config/auth.
+  - Codex availability checks follow the same pattern: `detectCodex()` updates the process-wide cache for the primary home, while `detectCodexForHome(codexHome)` validates an arbitrary home without changing global cached state.
+
+```mermaid
+flowchart LR
+  Req[Codex request] --> Choice{Has codexHome override?}
+  Choice -->|No| Primary[resolveCodexHome()\\nCODEINFO_CODEX_HOME]
+  Choice -->|Yes| Override[resolveCodexHome(codexHome)]
+  Primary --> Opts1[buildCodexOptions()]
+  Override --> Opts2[buildCodexOptions({codexHome})]
+  Opts1 --> Codex[Codex SDK]
+  Opts2 --> Codex
+```
+
+### Docker/Compose agent wiring
+
+- In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.
+- The server discovers agents via `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`.
+- The Agents MCP server is exposed on port `5012` (configured via `AGENTS_MCP_PORT=5012`).
+
+```mermaid
+flowchart LR
+  Host[Host] -->|bind mount| AgentDir[./codex_agents]
+  AgentDir -->|rw to container| Server[codeinfo2-server\\n/app/codex_agents]
+  Server -->|expose| MCP5012[Agents MCP\\n:5012]
+```
+
+### Agents MCP (JSON-RPC)
+
+- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
+- It exposes exactly two tools:
+  - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
+  - `run_agent_instruction` (Codex-backed; returns `CODE_INFO_LLM_UNAVAILABLE` when the Codex CLI is missing or the selected agent home is not usable).
+- Both tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
+
+```mermaid
+flowchart LR
+  Client[MCP client] -->|initialize/tools\\nlist/tools\\ncall| MCP[Agents MCP\\n:5012]
+  MCP --> Tools[Tool registry\\n(list_agents/run_agent_instruction)]
+  Tools --> Svc[Agents service\\nlistAgents()/runAgentInstruction()]
+  Svc --> Disc[discoverAgents()\\n+ auth seeding]
+  Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
+```
+
+### Agent discovery
+
+- Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.
+- Only direct subfolders containing `config.toml` are treated as available agents; discovery does not recurse.
+- Optional metadata sources:
+  - `description.md` is read as UTF-8 and surfaced to UIs/clients as the agent description.
+  - `system_prompt.txt` is detected by presence; its contents are only read at execution time when starting a new agent conversation.
+
+```mermaid
+flowchart TD
+  Root[CODEINFO_CODEX_AGENT_HOME] --> Scan[Scan direct subfolders]
+  Scan --> Check{config.toml exists?}
+  Check -->|No| Skip[Skip folder]
+  Check -->|Yes| Agent[Discovered agent]
+  Agent --> Desc{description.md exists?}
+  Desc -->|Yes| ReadDesc[Read UTF-8 description]
+  Desc -->|No| NoDesc[No description]
+  Agent --> Prompt{system_prompt.txt exists?}
+  Prompt -->|Yes| SetPrompt[Set systemPromptPath]
+  Prompt -->|No| NoPrompt[No system prompt]
+```
+
+### Auth seeding on discovery read
+
+- On every agent discovery read, the server best-effort ensures each agent home has a usable `auth.json`.
+- If `${agentHome}/auth.json` is missing and the primary Codex home (`resolveCodexHome()` / `CODEINFO_CODEX_HOME`) has `auth.json`, it is copied into the agent home.
+- It never overwrites an existing agent `auth.json`. Failures do not abort discovery; they surface as warnings on the agent summary.
+
+```mermaid
+flowchart TD
+  Disc[Agent discovery read] --> ForEach[For each discovered agent]
+  ForEach --> HasAgent{agent auth.json exists?}
+  HasAgent -->|Yes| Done[No-op]
+  HasAgent -->|No| HasPrimary{primary auth.json exists?}
+  HasPrimary -->|No| SkipSeed[No-op]
+  HasPrimary -->|Yes| Copy[Copy primary -> agent (never overwrite)]
+  Copy --> Ok{Copy ok?}
+  Ok -->|Yes| Continue[Continue listing]
+  Ok -->|No| Warn[Append warning, continue listing]
+```
+
+### Agent listing (REST + MCP)
+
+- Both the GUI and Agents MCP server reuse a single listing implementation (`listAgents()`), which delegates to discovery (and best-effort auth seeding) and returns REST/MCP-safe agent summaries.
+
+```mermaid
+flowchart LR
+  GUI[GUI Agents page] -->|GET /agents| REST[Express route\\nGET /agents]
+  MCP[Agents MCP\\nlist_agents] -->|listAgents()| Svc[Agents service\\nlistAgents()]
+  REST --> Svc
+  Svc --> Disc[discoverAgents()]
+  Disc --> Seed[ensureAgentAuthSeeded()]
+  Disc --> Resp[{ agents: [...] }]
+```
+
+### Agent execution (REST + MCP)
+
+- Agent execution shares one implementation (`runAgentInstruction()`), invoked by:
+  - REST: `POST /agents/:agentName/run`
+  - MCP: `run_agent_instruction`
+- The API returns the **server** `conversationId`; Codex continuation uses a separate thread id persisted as `Conversation.flags.threadId`.
+- Per-agent system prompts (`system_prompt.txt`) apply only to the first turn of a new conversation and do not leak into persisted user turns.
+- Agent execution defaults (model/approval/sandbox/reasoning/network/web-search) come from the agent’s Codex home `config.toml`; the server avoids passing overlapping `ThreadOptions` so config remains the source of truth. The server still enforces `workingDirectory` + `skipGitRepoCheck` for safety/portability.
+
+```mermaid
+sequenceDiagram
+  participant Client as GUI/MCP Client
+  participant Server as Server
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Mongo as MongoDB
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>Server: Run instruction\\n(agentName, instruction, conversationId?)
+  Server->>Svc: runAgentInstruction(...)
+  Svc->>Svc: discover + validate agent
+  alt new conversation
+    Svc->>Mongo: create Conversation\\n(agentName set, flags = {})
+    Svc->>Svc: read system_prompt.txt (optional)
+  else existing conversation
+    Svc->>Mongo: load Conversation
+    Svc->>Svc: validate agentName match + not archived
+  end
+  Svc->>Codex: runStreamed(instruction)\\n(threadId from flags.threadId when present)
+  Codex-->>Svc: streamed events (analysis/tool-result/final) + thread id
+  Svc->>Mongo: $set flags.threadId (when emitted)
+  Svc-->>Client: { agentName, conversationId, modelId, segments }
+```
+
+### Agents UI flow (browser)
+
+- The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
+  - agent selector dropdown
+  - Stop (abort)
+  - New conversation (reset)
+- Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
+
+```mermaid
+flowchart TD
+  Load[Open /agents] --> ListAgents[GET /agents]
+  ListAgents --> SelectAgent[Select agent]
+  SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
+  ListConvos --> SelectConvo{Select conversation?}
+  SelectConvo -->|Yes| HydrateTurns[GET /conversations/<id>/turns]
+  SelectConvo -->|No| NewState[New conversation state]
+  HydrateTurns --> Ready[Ready to send]
+  NewState --> Ready
+  Ready --> Send[POST /agents/<agentName>/run]
+  Send --> Render[Render segments (thinking/vector_summary/answer)]
+  Render --> ListConvos
+  SelectAgent --> SwitchAgent[Change agent]
+  SwitchAgent --> Abort[Abort in-flight run]
+  Abort --> Reset[Reset conversation + clear transcript]
+  Reset --> ListConvos
+```
 
 ### Markdown rendering (assistant replies)
 

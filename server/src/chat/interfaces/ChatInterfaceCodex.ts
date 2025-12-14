@@ -6,13 +6,18 @@ import type {
 } from '@openai/codex-sdk';
 import { buildCodexOptions } from '../../config/codexConfig.js';
 import { baseLogger } from '../../logger.js';
-import { updateConversationMeta } from '../../mongo/repo.js';
+import { updateConversationThreadId } from '../../mongo/repo.js';
+import { detectCodexForHome } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {
   threadId?: string | null;
   codexFlags?: Partial<CodexThreadOptions>;
+  codexHome?: string;
+  disableSystemContext?: boolean;
+  systemPrompt?: string;
+  useConfigDefaults?: boolean;
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
@@ -54,9 +59,19 @@ export class ChatInterfaceCodex extends ChatInterface {
     conversationId: string,
     model: string,
   ): Promise<void> {
-    const { threadId, codexFlags, requestId, signal } = (flags ??
-      {}) as CodexRunFlags;
-    const detection = getCodexDetection();
+    const {
+      threadId,
+      codexFlags,
+      requestId,
+      signal,
+      codexHome,
+      disableSystemContext,
+      systemPrompt,
+      useConfigDefaults,
+    } = (flags ?? {}) as CodexRunFlags;
+    const detection = codexHome
+      ? detectCodexForHome(codexHome)
+      : getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
       this.emitEvent({ type: 'error', message: msg });
@@ -70,23 +85,38 @@ export class ChatInterfaceCodex extends ChatInterface {
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';
 
-    const threadOptions: CodexThreadOptions = {
-      model,
-      workingDirectory: codexWorkingDirectory,
-      skipGitRepoCheck: true,
-      sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
-      networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
-      webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
-      approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
-      modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
-    };
+    const threadOptions: CodexThreadOptions = useConfigDefaults
+      ? {
+          workingDirectory: codexWorkingDirectory,
+          skipGitRepoCheck: true,
+        }
+      : {
+          model,
+          workingDirectory: codexWorkingDirectory,
+          skipGitRepoCheck: true,
+          sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
+          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
+          webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
+          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
+          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
+        };
 
-    const codex = this.codexFactory();
-    const systemContext = SYSTEM_CONTEXT.trim();
+    const codex = codexHome
+      ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)
+      : this.codexFactory();
+
+    const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT.trim();
+    const agentSystemPrompt = (systemPrompt ?? '').trim();
+
+    const promptSections: string[] = [];
+    if (!threadId && systemContext)
+      promptSections.push(`Context:\n${systemContext}`);
+    if (!threadId && agentSystemPrompt)
+      promptSections.push(`System:\n${agentSystemPrompt}`);
 
     const prompt =
-      !threadId && systemContext
-        ? `Context:\n${systemContext}\n\nUser:\n${message}`
+      !threadId && promptSections.length
+        ? `${promptSections.join('\n\n')}\n\nUser:\n${message}`
         : message;
 
     const thread =
@@ -107,9 +137,9 @@ export class ChatInterfaceCodex extends ChatInterface {
       if (!incoming || incoming === activeThreadId) return;
       activeThreadId = incoming;
       this.emitEvent({ type: 'thread', threadId: incoming });
-      await updateConversationMeta({
+      await updateConversationThreadId({
         conversationId,
-        flags: { threadId: incoming },
+        threadId: incoming,
       }).catch((err) =>
         baseLogger.error(
           { requestId, provider: 'codex', err },

@@ -118,7 +118,7 @@ export default function ChatPage() {
     refresh: refreshConversations,
     archive: archiveConversation,
     restore: restoreConversation,
-  } = useConversations();
+  } = useConversations({ agentName: '__none__' });
 
   const {
     mongoConnected,

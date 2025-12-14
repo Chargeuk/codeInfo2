@@ -38,6 +38,7 @@ type Props = {
   hasMore: boolean;
   includeArchived: boolean;
   disabled?: boolean;
+  variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
   onToggleArchived: (include: boolean) => void;
   onArchive: (conversationId: string) => void;
@@ -63,6 +64,7 @@ export function ConversationList({
   hasMore,
   includeArchived,
   disabled,
+  variant = 'chat',
   onSelect,
   onToggleArchived,
   onArchive,
@@ -87,33 +89,35 @@ export function ConversationList({
         <Typography variant="subtitle1" fontWeight={700}>
           Conversations
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            <Typography variant="caption" color="text.secondary">
-              Show archived
-            </Typography>
-            <Switch
-              size="small"
-              checked={includeArchived}
-              onChange={(event) => onToggleArchived(event.target.checked)}
-              inputProps={{ 'data-testid': 'conversation-archived-toggle' }}
-              disabled={disabled}
-            />
-          </Stack>
-          <Tooltip title="Refresh list">
-            <span>
-              <IconButton
+        {variant === 'chat' && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Typography variant="caption" color="text.secondary">
+                Show archived
+              </Typography>
+              <Switch
                 size="small"
-                onClick={onRefresh}
+                checked={includeArchived}
+                onChange={(event) => onToggleArchived(event.target.checked)}
+                inputProps={{ 'data-testid': 'conversation-archived-toggle' }}
                 disabled={disabled}
-                aria-label="Refresh conversations"
-                data-testid="conversation-refresh"
-              >
-                <RefreshIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Stack>
+              />
+            </Stack>
+            <Tooltip title="Refresh list">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onRefresh}
+                  disabled={disabled}
+                  aria-label="Refresh conversations"
+                  data-testid="conversation-refresh"
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        )}
       </Stack>
 
       {isError && (
@@ -164,7 +168,7 @@ export function ConversationList({
                   key={conversation.conversationId}
                   disableGutters
                   secondaryAction={
-                    conversation.archived ? (
+                    variant === 'agents' ? null : conversation.archived ? (
                       <Tooltip title="Restore conversation">
                         <span>
                           <IconButton

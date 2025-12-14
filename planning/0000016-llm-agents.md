@@ -1198,7 +1198,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
 
 ### 8. Server endpoint: list conversations filtered by agent
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

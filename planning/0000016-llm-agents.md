@@ -1822,8 +1822,8 @@ Implementation constraint: reuse existing Chat page components where possible (e
 
 ### 11. Final task – verify against acceptance criteria
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: dec8e6b, 554cc2c
 
 #### Overview
 

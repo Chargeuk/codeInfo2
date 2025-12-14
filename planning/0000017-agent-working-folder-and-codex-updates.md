@@ -101,7 +101,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Documentation Locations
 
-- Node.js `path` docs: https://nodejs.org/api/path.html (for `isAbsolute`, `relative`, and safe path joining)
+- Node.js `path` docs: https://nodejs.org/api/path.html (for `isAbsolute`, `normalize`, and safe path joining)
 - Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options (for “exists and is a directory” checks used by tests)
 - TypeScript string literal unions: Context7 `/microsoft/typescript` (for typing the `{ error: { code: ... } }` return shape)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
@@ -135,9 +135,12 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
        - `normalizedCodexWorkdir = path.posix.normalize(opts.codexWorkdir.replace(/\\\\/g, '/'))`
      - Validate `path.posix.isAbsolute(normalizedHostWorkingFolder)` and `path.posix.isAbsolute(normalizedHostIngestDir)`; else return `INVALID_ABSOLUTE_PATH`.
        - Note: Windows absolute paths are handled at the *service* layer in Task 2 and will typically skip mapping; this helper is intentionally POSIX-style to match the existing `pathMap.ts` module.
-     - Compute `relPath = path.posix.relative(normalizedHostIngestDir, normalizedHostWorkingFolder)`.
-     - If `relPath === '..'` OR `relPath.startsWith('../')` OR `path.posix.isAbsolute(relPath)`: return `OUTSIDE_HOST_INGEST_DIR`.
-     - Return `{ mappedPath: path.posix.join(normalizedCodexWorkdir, relPath), relPath }`.
+    - **Simpler + lower-risk containment check (no `relative()`):**
+      - `hostIngestDirNoTrailingSlash = normalizedHostIngestDir !== '/' && normalizedHostIngestDir.endsWith('/') ? normalizedHostIngestDir.slice(0, -1) : normalizedHostIngestDir`
+      - If `normalizedHostWorkingFolder === hostIngestDirNoTrailingSlash`: treat as “inside” and set `relPath = ''`
+      - Else if `normalizedHostWorkingFolder.startsWith(hostIngestDirNoTrailingSlash + '/')`: set `relPath = normalizedHostWorkingFolder.slice(hostIngestDirNoTrailingSlash.length + 1)`
+      - Else: return `OUTSIDE_HOST_INGEST_DIR`
+    - Return `{ mappedPath: path.posix.join(normalizedCodexWorkdir, relPath), relPath }`.
    - KISS + risk control:
      - Do not resolve symlinks.
      - Do not modify existing `mapIngestPath` behavior in this story.
@@ -149,21 +152,27 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Purpose: prove `mapHostWorkingFolderToWorkdir()` produces `{ mappedPath, relPath }` for a valid absolute path under `hostIngestDir`.
    - Description:
      - Given `hostIngestDir=/host/base` and `codexWorkdir=/data` and `hostWorkingFolder=/host/base/repo/sub`,
-     - expect `relPath === 'repo/sub'` (platform separators normalized by `path.relative`)
-     - expect `mappedPath` ends with `/data/repo/sub` (platform-aware join ok).
+    - expect `relPath === 'repo/sub'`
+    - expect `mappedPath` ends with `/data/repo/sub`.
 5. [ ] **Test (server unit, `node:test`)**: rejects host path outside ingest root
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: prevent path traversal / escape by ensuring mapping is refused when outside `hostIngestDir`.
    - Description:
      - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/other/repo`,
      - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
-6. [ ] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
+6. [ ] **Test (server unit, `node:test`)**: rejects prefix-but-not-child paths
+   - Location: `server/src/test/unit/pathMap.test.ts`
+   - Purpose: ensure the containment check is boundary-aware (e.g. `/host/base2` is NOT inside `/host/base`).
+   - Description:
+     - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/base2/repo`,
+     - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
+7. [ ] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
    - Location: `server/src/test/unit/pathMap.test.ts`
    - Purpose: enforce the story rule “working_folder must be absolute” at the mapping layer.
    - Description:
      - Given `hostWorkingFolder='relative/path'`,
      - expect `{ error: { code: 'INVALID_ABSOLUTE_PATH' } }`.
-7. [ ] Verification commands (must run before moving to Task 2):
+8. [ ] Verification commands (must run before moving to Task 2):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 

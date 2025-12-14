@@ -201,11 +201,12 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 - Node.js `path` docs: https://nodejs.org/api/path.html (absolute path checks + normalization)
 - Codex CLI config reference (for context on CODEX_HOME + config precedence): Context7 `/openai/codex`
 - `@openai/codex-sdk` runtime behavior (how `modelReasoningEffort` and `workingDirectory` are forwarded to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
+- Mermaid syntax (diagrams for this flow): Context7 `/mermaid-js/mermaid`
 - Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
-**Docs to read (repeat):** https://nodejs.org/api/fs.html#fspromisesstatpath-options, https://nodejs.org/api/path.html, Context7 `/openai/codex`, code_info MCP (installed `@openai/codex-sdk` package)
+**Docs to read (repeat):** https://nodejs.org/api/fs.html#fspromisesstatpath-options, https://nodejs.org/api/path.html, Context7 `/openai/codex`, code_info MCP (installed `@openai/codex-sdk` package), Context7 `/mermaid-js/mermaid`
 
 1. [ ] Extend the service input type:
    - Files to read:
@@ -302,13 +303,20 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - construct a `ChatInterfaceCodex` with a stub `codexFactory` that captures `startThread(opts)`
      - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
      - assert captured `opts.workingDirectory === '/tmp/override'`.
-11. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
+11. [ ] Update `design.md` with the new agent working-directory override flow (include Mermaid diagram) (do this after implementing the resolver + override wiring above):
+   - Files to edit:
+     - `design.md`
+   - Add a section describing how agent runs resolve `working_folder` and choose the final Codex `workingDirectory`.
+   - Add a Mermaid `flowchart` showing the resolution order:
+     - absolute validation → mapped candidate (HOST_INGEST_DIR → CODEX_WORKDIR) → literal fallback → error
+   - Include the two stable error codes: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`.
+12. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
    - Files to edit:
      - `projectStructure.md`
    - Add entries under `server/src/test/unit/` for:
      - `agents-working-folder.test.ts`
      - `chat-codex-workingDirectoryOverride.test.ts`
-12. [ ] Verification commands (must run before moving to Task 3):
+13. [ ] Verification commands (must run before moving to Task 3):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -337,11 +345,12 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 - Express JSON body parsing + route handlers: Context7 `/expressjs/express` (for `Router`, `express.json`, and request lifecycle)
 - Supertest (server HTTP testing): Context7 `/ladjs/supertest` (repo tests use `supertest(request(app))`)
 - HTTP status code semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (to keep error responses consistent and predictable)
+- Mermaid syntax (diagrams for this flow): Context7 `/mermaid-js/mermaid`
 - Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
-**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/ladjs/supertest`, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+**Docs to read (repeat):** Context7 `/expressjs/express`, Context7 `/ladjs/supertest`, https://developer.mozilla.org/en-US/docs/Web/HTTP/Status, Context7 `/mermaid-js/mermaid`
 
 1. [ ] Extend request body validation:
    - Files to read:
@@ -384,7 +393,16 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
    - Description:
      - make the stubbed service throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`
      - expect response status 400 and body `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
-7. [ ] Verification commands:
+7. [ ] Update `design.md` to document the REST contract and errors (include Mermaid diagram) (do this after implementing the REST wiring above):
+   - Files to edit:
+     - `design.md`
+   - Add/update a short section for `POST /agents/:agentName/run` including:
+     - request body field `working_folder?: string`
+     - the two error codes and how they appear in HTTP 400 bodies
+   - Add a Mermaid `sequenceDiagram` showing browser/client → server route → agents service → Codex adapter, including:
+     - working folder resolution step
+     - early-return error path for invalid/not-found
+8. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -482,10 +500,11 @@ Add an optional working folder input to the Agents page so users can run an agen
 - Testing Library docs: Context7 `/websites/testing-library` (RTL patterns used throughout repo)
 - user-event docs (match repo): Context7 `/testing-library/user-event` (recommended over raw `fireEvent` for realistic interactions)
 - jest-dom matchers: Context7 `/testing-library/jest-dom` (matchers like `toBeInTheDocument`, `toHaveTextContent`)
+- Mermaid syntax (diagrams for this flow): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
-**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/text-field.md, Context7 `/reactjs/react.dev`, Context7 `/remix-run/react-router`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/testing-library/user-event`, Context7 `/testing-library/jest-dom`
+**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/text-field.md, Context7 `/reactjs/react.dev`, Context7 `/remix-run/react-router`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, Context7 `/testing-library/user-event`, Context7 `/testing-library/jest-dom`, Context7 `/mermaid-js/mermaid`
 
 1. [ ] Add state + TextField UI (controlled input):
    - Files to read:
@@ -524,7 +543,13 @@ Add an optional working folder input to the Agents page so users can run an agen
      - set `working_folder` field
      - change agent selection
      - assert field is empty.
-6. [ ] Verification commands:
+6. [ ] Update `design.md` to document the Agents UI flow (include Mermaid diagram) (do this after implementing the UI wiring above):
+   - Files to edit:
+     - `design.md`
+   - Add a Mermaid `flowchart` describing:
+     - user enters `working_folder` + instruction → POST `/agents/:agentName/run` → error/success handling in UI
+   - Mention reset behavior (agent change / new conversation clears `working_folder`).
+7. [ ] Verification commands:
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
@@ -553,11 +578,12 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 - Zod v3 schema validation (repo uses Zod 3.x): Context7 `/websites/v3_zod_dev` (used for input parsing/validation in MCP tools)
 - JSON-RPC 2.0 spec (error codes, invalid params): https://www.jsonrpc.org/specification
 - MCP basics (for context; keep wire format unchanged): https://modelcontextprotocol.io/
+- Mermaid syntax (diagrams for this flow): Context7 `/mermaid-js/mermaid`
 - Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
-**Docs to read (repeat):** Context7 `/websites/v3_zod_dev`, https://www.jsonrpc.org/specification, https://modelcontextprotocol.io/
+**Docs to read (repeat):** Context7 `/websites/v3_zod_dev`, https://www.jsonrpc.org/specification, https://modelcontextprotocol.io/, Context7 `/mermaid-js/mermaid`
 
 1. [ ] Extend the Zod schema + tool input schema:
    - Files to read:
@@ -604,7 +630,13 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
      - `projectStructure.md`
    - Add an entry under `server/src/test/unit/` for:
      - `mcp-agents-tools.test.ts`
-8. [ ] Verification commands:
+8. [ ] Update `design.md` to document the MCP tool contract change (include Mermaid diagram) (do this after implementing the MCP schema + wiring above):
+   - Files to edit:
+     - `design.md`
+   - Add a Mermaid `sequenceDiagram` for:
+     - MCP client → Agents MCP `5012` → tools layer → agents service → Codex
+   - Include the new optional param name `working_folder` and that invalid paths become JSON-RPC “invalid params” style tool errors.
+9. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -693,11 +725,12 @@ Update the Codex model list and reasoning-effort options across server validatio
 - Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0`
 - Testing Library docs (client tests): Context7 `/websites/testing-library`
 - `@openai/codex-sdk` runtime behavior (it forwards `model_reasoning_effort="..."` to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
+- Mermaid syntax (diagrams for this flow): Context7 `/mermaid-js/mermaid`
 - Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
-**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/select.md, Context7 `/openai/codex`, Context7 `/microsoft/typescript`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, code_info MCP (installed `@openai/codex-sdk` package)
+**Docs to read (repeat):** https://llms.mui.com/material-ui/6.4.12/api/select.md, Context7 `/openai/codex`, Context7 `/microsoft/typescript`, Context7 `/websites/jestjs_io_30_0`, Context7 `/websites/testing-library`, code_info MCP (installed `@openai/codex-sdk` package), Context7 `/mermaid-js/mermaid`
 
 1. [ ] Update client types + UI options:
    - Files to read:
@@ -748,7 +781,13 @@ Update the Codex model list and reasoning-effort options across server validatio
 6. [ ] Documentation updates (do not miss this even if you only work this subtask):
    - Update `README.md` and `design.md` to state clearly:
      - `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`).
-7. [ ] Verification commands:
+7. [ ] Update `design.md` with the reasoning-effort decision flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
+   - Files to edit:
+     - `design.md`
+   - Add a Mermaid `flowchart` showing:
+     - UI selection → REST payload (`modelReasoningEffort`) → server validation → Codex thread options (`modelReasoningEffort`)
+   - Call out that `xhigh` is not in this repo’s installed SDK TypeScript union, but is still forwarded at runtime.
+8. [ ] Verification commands:
    - `npm run lint --workspaces`
    - `npm run test --workspace server`
    - `npm run test --workspace client`
@@ -790,6 +829,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
    - document `gpt-5.2` and `xhigh` availability
 2. [ ] Update `design.md`:
    - add a short section describing per-call working directory overrides for agent runs (and how it differs from default chat)
+   - ensure the new/updated Mermaid diagrams from Tasks 2, 3, 5, 6, and 8 are present and render correctly
 3. [ ] Update `projectStructure.md` for any new/changed files.
 4. [ ] Run `npm run format:check --workspaces`.
 

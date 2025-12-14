@@ -1356,8 +1356,8 @@ Important semantics (must be implemented exactly):
 
 ### 9. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
-- Task Status: __in_progress__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: be75bfb
 
 #### Overview
 
@@ -1506,22 +1506,31 @@ Hard requirements:
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/chat` loads; no regressions.
    - Verify Agents MCP server behavior (manual commands; expected when Task 9 is complete):
      - `tools/list` exposes exactly `list_agents` and `run_agent_instruction`.
      - `tools/call` for `run_agent_instruction` returns JSON text with `{ agentName, conversationId, modelId, segments }`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Added a dedicated Agents MCP server under `server/src/mcpAgents/`, mirroring the MCP v2 JSON-RPC wire format while remaining a separate listener on `AGENTS_MCP_PORT` (default `5012`).
+- Implemented a strict two-tool registry (`list_agents`, `run_agent_instruction`) and ensured `tools/list` is **not** gated by Codex availability, so clients can always discover the tools and see agent summaries (including `disabled`/`warnings`).
+- Gated only `tools/call` for `run_agent_instruction` by checking Codex CLI availability and mapping agent-run `CODEX_UNAVAILABLE` errors to `CODE_INFO_LLM_UNAVAILABLE` (`-32001`) without depending on the primary Codex home state.
+- Delegated both tools to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behavior stays aligned, including conversation persistence, `source: 'MCP'` tagging, and returning the server `conversationId` (not the Codex thread id).
+- Added unit coverage for the MCP contract:
+  - `tools/list` returns exactly two tool names.
+  - `run_agent_instruction` returns JSON text content that parses to `{ agentName, conversationId, modelId, segments }`.
+- Updated `README.md`, `design.md` (Mermaid), and `projectStructure.md` to document the new Agents MCP surface and new server modules/tests.
+- Verified with the Task 9 checklist: server/client builds, server/client tests, full `npm run e2e`, compose build/up/down, and manual curl checks confirming `tools/list`, `list_agents`, and `run_agent_instruction` behavior against a real `coding_agent`.
 
 ---
 

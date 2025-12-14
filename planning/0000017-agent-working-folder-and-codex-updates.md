@@ -105,15 +105,18 @@ Introduce a single, tested server helper that resolves an agent-run `working_fol
 #### Documentation Locations
 
 - Node.js `path` + `fs` docs (built-in): for cross-platform path normalization and existence checks.
-- Existing mapping helper: `server/src/ingest/pathMap.ts` (container → host mapping patterns).
+- Existing mapping helper: `server/src/ingest/pathMap.ts` (reuse this module for host↔container mapping).
 - Express error handling patterns: Context7 `/expressjs/express` (used later in Task 2).
 
 #### Subtasks
 
 1. [ ] Read `server/src/agents/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and `server/src/ingest/pathMap.ts` to align naming and behavior.
-2. [ ] Create a new helper module (suggested) `server/src/agents/workingFolder.ts`:
-   - exports `resolveAgentWorkingDirectory({ workingFolder, hostIngestDir, codexWorkdir }): { workingDirectory?: string; error?: { code; message; attempted? } }`
-   - implements the mapping algorithm in Acceptance Criteria (including “skip mapping if outside host ingest root” safety).
+2. [ ] Reuse the existing ingest mapping module by extending `server/src/ingest/pathMap.ts` instead of creating a new module:
+   - add a new exported helper (name explicit) to map host → container/workdir, e.g.:
+     - `mapHostToWorkdir(hostPath: string, opts?: { hostIngestDir?: string; workdir?: string }): { mappedPath: string; relPath: string } | { error: { code: 'OUTSIDE_HOST_INGEST_DIR' | 'HOST_INGEST_DIR_UNSET' | 'INVALID_ABSOLUTE_PATH'; message: string } }`
+   - implement the mapping algorithm in Acceptance Criteria (including “skip mapping if outside host ingest root” safety).
+   - add traversal guards so `..` cannot escape the workdir when mapping is applied.
+   - (optional hardening) add a guard to `mapIngestPath` so malicious container paths cannot normalize outside `/data`.
 3. [ ] Extend `RunAgentInstructionParams` in `server/src/agents/service.ts` to accept optional `working_folder` (string) and thread it through callers.
 4. [ ] Update `runAgentInstruction()` in `server/src/agents/service.ts`:
    - resolve `working_folder` to a `workingDirectory` override
@@ -122,13 +125,16 @@ Introduce a single, tested server helper that resolves an agent-run `working_fol
      - `WORKING_FOLDER_INVALID` (not absolute / wrong type)
      - `WORKING_FOLDER_NOT_FOUND` (neither mapped nor literal exists as a directory)
 5. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` to accept and apply the per-call override when building `threadOptions.workingDirectory` (without mutating env and without changing non-agent behavior).
-6. [ ] Add server unit tests (Node `node:test`) covering:
+6. [ ] Add/extend server unit tests by reusing the existing `pathMap` test file (`server/src/test/unit/pathMap.test.ts`) where possible:
+   - add tests for the new host→workdir mapping helper
+   - add regression tests for traversal escape attempts
+7. [ ] Add server unit tests (Node `node:test`) covering the agent/service resolution behavior:
    - mapped path exists → uses mapped
    - mapped missing but literal exists → uses literal
    - neither exists → returns/throws expected error
    - `working_folder` outside `HOST_INGEST_DIR` → mapping skipped/rejected safely
    - Windows-style separators in input are normalized safely (where applicable)
-7. [ ] Run `npm run lint --workspace server` and fix issues.
+8. [ ] Run `npm run lint --workspace server` and fix issues.
 
 #### Testing
 
@@ -160,7 +166,9 @@ Plumb the new optional `working_folder` through the REST endpoint and the client
 
 1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` and the alias `workingFolder` (both strings); if both are present, prefer `working_folder`. Pass through to `runAgentInstruction`.
 2. [ ] Map new agent-run errors to stable HTTP responses:
-   - `400` for invalid/nonexistent working folder (with safe message)
+   - Reuse the existing agents run error envelope to avoid breaking callers:
+     - `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' | 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
+   - (Optional) If a repo-wide validation envelope is preferred, align with the existing vector-search pattern (`error: 'VALIDATION_FAILED', details: [...]`) instead of inventing a new one.
 3. [ ] Update `client/src/api/agents.ts` to accept optional `working_folder` parameter and include it in the POST body only when present.
 4. [ ] Add/adjust server integration tests for REST agent runs to validate:
    - request accepts `working_folder`
@@ -193,6 +201,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 - MUI TextField/Form patterns (use MUI MCP tool during implementation).
 - Agents UI: `client/src/pages/AgentsPage.tsx`.
+- Reusable UI/testing pattern: `client/src/components/chat/CodexFlagsPanel.tsx` + `client/src/test/chatPage.flags.*.payload.test.tsx` (accordion-style “advanced” controls and request-body assertions).
 
 #### Subtasks
 
@@ -276,7 +285,7 @@ Update the Codex model list and reasoning-effort options across server validatio
    - client UI options in `client/src/components/chat/CodexFlagsPanel.tsx`
    - server validators that restrict `modelReasoningEffort`
    - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
-   - server boundary types: do not rely on `@openai/codex-sdk` union supporting `xhigh`; cast only at the point where options are passed to the SDK.
+   - server boundary types: reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation). Cast only at the point where options are passed to the SDK.
 4. [ ] Update unit/integration tests that assert codex model lists and reasoning effort values.
 5. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

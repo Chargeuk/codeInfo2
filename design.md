@@ -246,6 +246,33 @@ sequenceDiagram
   Svc-->>Client: { agentName, conversationId, modelId, segments }
 ```
 
+### Agents UI flow (browser)
+
+- The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
+  - agent selector dropdown
+  - Stop (abort)
+  - New conversation (reset)
+- Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
+
+```mermaid
+flowchart TD
+  Load[Open /agents] --> ListAgents[GET /agents]
+  ListAgents --> SelectAgent[Select agent]
+  SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
+  ListConvos --> SelectConvo{Select conversation?}
+  SelectConvo -->|Yes| HydrateTurns[GET /conversations/<id>/turns]
+  SelectConvo -->|No| NewState[New conversation state]
+  HydrateTurns --> Ready[Ready to send]
+  NewState --> Ready
+  Ready --> Send[POST /agents/<agentName>/run]
+  Send --> Render[Render segments (thinking/vector_summary/answer)]
+  Render --> ListConvos
+  SelectAgent --> SwitchAgent[Change agent]
+  SwitchAgent --> Abort[Abort in-flight run]
+  Abort --> Reset[Reset conversation + clear transcript]
+  Reset --> ListConvos
+```
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

@@ -1755,13 +1755,13 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - thinking UI is present (collapsed/expandable)
        - answer Markdown renders
        - a tool row exists for `vector_summary`
-13. [ ] Update docs.
+13. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - Where to find Agents page (`/agents`)
      - How conversation continuation works (select from history)
-14. [ ] Update architecture docs (design + Mermaid) for Agents UI flow.
+14. [x] Update architecture docs (design + Mermaid) for Agents UI flow.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1773,7 +1773,7 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
        - send instruction → `POST /agents/:agentName/run`
        - agent switch → abort → reset convo → refresh history.
-15. [ ] Update `projectStructure.md` for new client agents modules and tests.
+15. [x] Update `projectStructure.md` for new client agents modules and tests.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:

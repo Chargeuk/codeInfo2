@@ -52,6 +52,10 @@ codex_agents/<agentName>/
 
 ### Agents REST API
 
+- Agents UI:
+  - Open the **Agents** tab (route `/agents`) to run an instruction against an agent from the browser UI.
+  - To continue a prior agent run, select a conversation from the sidebar history (there is no manual `conversationId` input).
+
 - List available agents:
   - `curl -s http://localhost:5010/agents | jq`
   - Example response:

@@ -878,7 +878,7 @@ This endpoint is the single source of truth for:
 
 #### Subtasks
 
-1. [ ] Create a shared agents service module (single source for REST + MCP).
+1. [x] Create a shared agents service module (single source for REST + MCP).
    - Docs to read (this subtask):
      - This story: Task 3 discovery rules + Task 4 auth seeding rules
    - Files to create:

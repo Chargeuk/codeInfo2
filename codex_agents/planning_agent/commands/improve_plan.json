@@ -17,7 +17,7 @@
             "Chat_Input": "Some of the tasks look quite big, could they be split up without loosing any information? - Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable."
         },
         {
-            "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk. For example we should never plan adding new libraries unless absolutely necessary AND the user has asked for them to be added. Everything should be implemented using the KISS principle (Keep It Simple Stupid)."
+            "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify if there are no changes that would help."
         },
         {
             "Chat_Input": "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit."
@@ -50,7 +50,7 @@
             "Chat_Input": "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question."
         },
         {
-            "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk."
+            "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify if there are no changes that would help."
         },
         {
             "Chat_Input": "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit."

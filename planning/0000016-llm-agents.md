@@ -2027,17 +2027,17 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 1. [x] Build the server: `npm run build --workspace server`
 2. [x] Build the client: `npm run build --workspace client`
 3. [x] Perform a clean docker build (server): `docker build -f server/Dockerfile .`
-4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story
+4. [x] Ensure `README.md` is updated with any required description changes and any new commands added by this story
    - Files to read:
      - `README.md`
    - Files to edit:
      - `README.md`
-5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
+5. [x] Ensure `design.md` is updated with any required description changes including mermaid diagrams added by this story
    - Files to read:
      - `design.md`
    - Files to edit:
      - `design.md`
-6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
+6. [x] Ensure `projectStructure.md` is updated with any updated/added/removed files & folders
    - Files to read:
      - `projectStructure.md`
    - Files to edit:

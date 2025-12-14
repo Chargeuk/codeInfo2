@@ -1936,7 +1936,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
        - **Decision (make explicit up front):** prefer a minimal parse (e.g. regex for the top-level `model = "..."` key) to avoid introducing a new dependency unless we later need more fields.
      - If the model is missing/unreadable, fall back to the current default (keep behavior resilient).
      - Use the parsed model as the `modelId` returned from the REST/MCP response and as the model stored on conversation/turn persistence for that run.
-3. [ ] Update agent runs to stop overriding `config.toml` defaults.
+3. [x] Update agent runs to stop overriding `config.toml` defaults.
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
@@ -1948,7 +1948,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
      - Stop passing agent `codexFlags` defaults that overlap `config.toml` (approval/sandbox/model/reasoning/network/websearch).
      - Pass `useConfigDefaults: true` for agent runs, and keep `codexHome` set to the agent home.
      - Keep `disableSystemContext: true` and keep the existing per-agent `system_prompt.txt` first-turn behavior unchanged.
-4. [ ] Server unit tests: agent config defaults path.
+4. [x] Server unit tests: agent config defaults path.
    - Test type:
      - Server unit tests (Node `node:test`)
    - Files to read:

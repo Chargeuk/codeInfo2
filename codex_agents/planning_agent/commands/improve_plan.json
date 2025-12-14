@@ -26,13 +26,13 @@
             "Chat_Input": "Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this."
         },
         {
+            "Chat_Input": "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address (the best option for cucumber is a subpath of https://cucumber.io/docs/guides/). You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information."
+        },
+        {
             "Chat_Input": "In various tasks you have a single subtask for a number of tests to write or change, or vague test requirements. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose."
         },
         {
-            "Chat_Input": "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task"
-        },
-        {
-            "Chat_Input": "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address. You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information."
+            "Chat_Input": "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task."
         },
         {
             "Chat_Input": "Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files."

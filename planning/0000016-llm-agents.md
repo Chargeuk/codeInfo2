@@ -1034,7 +1034,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
        - body: `{ instruction: string; conversationId?: string }`
      - Output (exact JSON):
        ```json
-       { "agentName": "coding_agent", "conversationId": "...", "modelId": "gpt-5.1-codex-max", "segments": [ ... ] }
+       { "agentName": "coding_agent", "conversationId": "...", "modelId": "<from agent config.toml>", "segments": [ ... ] }
        ```
    - Notes:
      - Implemented in `server/src/routes/agentsRun.ts` using the router factory pattern and body validation.
@@ -1054,13 +1054,8 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Resolve the agent via discovery (`server/src/agents/discovery.ts`) so:
        - unknown agent → return a 404-like error from the service (the router maps it to HTTP 404)
        - missing `config.toml` → treat as not found
-     - Fixed defaults (copy from `server/src/routes/chatValidators.ts`):
-       - `modelId = 'gpt-5.1-codex-max'`
-       - `sandboxMode = 'workspace-write'`
-       - `networkAccessEnabled = true`
-       - `webSearchEnabled = true`
-       - `approvalPolicy = 'on-failure'`
-       - `modelReasoningEffort = 'high'`
+     - **Historical note:** the initial implementation used fixed defaults copied from `server/src/routes/chatValidators.ts`.
+       - Task 12 changes agent runs so these are sourced from the agent’s `config.toml` instead (to enable command execution and per-agent model control).
      - Conversation rules:
        - If `conversationId` is missing:
          - generate `conversationId = crypto.randomUUID()`
@@ -1095,7 +1090,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
        - Use `McpResponder` to build `segments` like `codebase_question`, but **do not** forward `thread`/`complete` events into the responder:
          - `threadId` events represent the Codex thread id, but this API must return the **server** `conversationId`.
          - Only feed responder: `analysis`, `tool-result`, `final`, and `error`.
-       - Return `{ agentName, conversationId, modelId, segments }` where `conversationId` is always the server conversation id.
+       - Return `{ agentName, conversationId, modelId, segments }` where `modelId` is resolved from the agent’s `config.toml` (with a resilient fallback), and `conversationId` is always the server conversation id.
 4. [x] Implement the router handler by calling `runAgentInstruction()` and mapping errors.
    - Docs to read (this subtask):
      - Existing error mapping style: `server/src/routes/chat.ts`
@@ -1932,9 +1927,10 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
    - Files to edit/create:
      - `server/src/agents/service.ts`
      - (optional) `server/src/agents/config.ts` (new helper for reading/parsing config)
-     - `server/package.json` (if a new TOML parsing dependency is required)
+     - `server/package.json` (only if a new TOML parsing dependency is required)
    - Implementation steps:
      - Read `${agentHome}/config.toml` and parse the top-level `model = "..."` value.
+       - **Decision (make explicit up front):** prefer a minimal parse (e.g. regex for the top-level `model = "..."` key) to avoid introducing a new dependency unless we later need more fields.
      - If the model is missing/unreadable, fall back to the current default (keep behavior resilient).
      - Use the parsed model as the `modelId` returned from the REST/MCP response and as the model stored on conversation/turn persistence for that run.
 3. [ ] Update agent runs to stop overriding `config.toml` defaults.
@@ -1954,14 +1950,20 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
        - `useConfigDefaults` behavior: when enabled, the constructed `ThreadOptions` do **not** include overridden config fields (model/approval/sandbox/reasoning/network/websearch).
    - Notes:
      - Prefer mocking the Codex SDK thread creation so the test can assert the `ThreadOptions` object passed into `startThread()` / `resumeThread()`.
-5. [ ] Update docs to match new behavior.
+5. [ ] Update server/client tests that currently assume a fixed agents `modelId`.
+   - Files to update (at minimum):
+     - `server/src/test/unit/mcp-agents-router-run.test.ts` (remove hard-coded `gpt-5.1-codex-max` equality; assert non-empty string)
+     - `client/src/test/agentsPage.run.test.tsx` (if it asserts a fixed `modelId`, update to match “from config” semantics)
+   - Purpose:
+     - Ensure the test suite remains stable once the agent `modelId` comes from `config.toml` and is no longer hard-coded by the server.
+6. [ ] Update docs to match new behavior.
    - Files to edit:
      - `README.md`
      - `design.md`
    - Required updates:
      - Document that agent runs rely on `codex_agents/<agentName>/config.toml` for model/reasoning/sandbox/approval defaults (no UI selection).
      - Clarify what is still server-owned (e.g. `workingDirectory`, `skipGitRepoCheck`) vs agent-owned config.
-6. [ ] Run lint + format checks (all workspaces) and fix any failures.
+7. [ ] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

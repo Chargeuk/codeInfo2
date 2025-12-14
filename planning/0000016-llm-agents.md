@@ -1912,7 +1912,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 #### Subtasks
 
-1. [ ] Add an explicit `useConfigDefaults?: boolean` flag to Codex run flags.
+1. [x] Add an explicit `useConfigDefaults?: boolean` flag to Codex run flags.
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Files to edit:

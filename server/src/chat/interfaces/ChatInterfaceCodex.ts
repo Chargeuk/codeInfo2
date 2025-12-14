@@ -17,6 +17,7 @@ type CodexRunFlags = {
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
+  useConfigDefaults?: boolean;
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
@@ -66,6 +67,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       codexHome,
       disableSystemContext,
       systemPrompt,
+      useConfigDefaults,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
       ? detectCodexForHome(codexHome)
@@ -83,16 +85,21 @@ export class ChatInterfaceCodex extends ChatInterface {
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';
 
-    const threadOptions: CodexThreadOptions = {
-      model,
-      workingDirectory: codexWorkingDirectory,
-      skipGitRepoCheck: true,
-      sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
-      networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
-      webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
-      approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
-      modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
-    };
+    const threadOptions: CodexThreadOptions = useConfigDefaults
+      ? {
+          workingDirectory: codexWorkingDirectory,
+          skipGitRepoCheck: true,
+        }
+      : {
+          model,
+          workingDirectory: codexWorkingDirectory,
+          skipGitRepoCheck: true,
+          sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
+          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
+          webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
+          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
+          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
+        };
 
     const codex = codexHome
       ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)

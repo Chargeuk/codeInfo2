@@ -15,6 +15,7 @@ import {
   isMongoConnected,
 } from './mongo/connection.js';
 import { detectCodex } from './providers/codexDetection.js';
+import { createAgentsRouter } from './routes/agents.js';
 import { createChatRouter } from './routes/chat.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
 import { createChatProvidersRouter } from './routes/chatProviders.js';
@@ -79,6 +80,7 @@ app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
 app.use('/chat', createChatProvidersRouter());
 app.use('/chat', createChatModelsRouter({ clientFactory }));
+app.use('/', createAgentsRouter());
 app.use('/', createConversationsRouter());
 app.use('/', createIngestStartRouter({ clientFactory }));
 app.use('/', createIngestModelsRouter({ clientFactory }));

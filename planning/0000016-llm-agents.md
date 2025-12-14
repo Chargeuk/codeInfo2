@@ -889,7 +889,7 @@ This endpoint is the single source of truth for:
        - returns only the REST-safe summary fields:
          - `name`, optional `description`, optional `disabled`, optional `warnings`
      - Also export a stubbed `runAgentInstruction()` signature (implemented in Task 7) so MCP can import from the same module without circular imports.
-2. [ ] Implement `GET /agents` router.
+2. [x] Implement `GET /agents` router.
    - Docs to read (this subtask):
      - Express routers: Context7 `/expressjs/express`
    - Files to create:
@@ -900,7 +900,7 @@ This endpoint is the single source of truth for:
        ```json
        { "agents": [ { "name": "coding_agent", "description": "# ...", "warnings": [] } ] }
        ```
-3. [ ] Wire `createAgentsRouter()` into the main server app.
+3. [x] Wire `createAgentsRouter()` into the main server app.
    - Files to edit:
      - `server/src/index.ts`
    - Implementation steps:

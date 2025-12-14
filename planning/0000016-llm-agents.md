@@ -2042,11 +2042,11 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-7. [ ] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
+7. [x] Create a pull request comment summarizing ALL story changes (server + client + docker + docs)
 8. [ ] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
+      - `npm run format:check --workspaces`
 
 #### Testing
 
@@ -2068,6 +2068,33 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
+
+- PR comment draft:
+
+```md
+## Story 0000016 – LLM Agents (GUI + MCP 5012)
+
+### What shipped
+- Added first-class “agents”: named, Codex-only assistants discoverable from `CODEINFO_CODEX_AGENT_HOME/<agentName>` (direct subfolders containing `config.toml`).
+- Added Agents UI (`/agents`) with a constrained control bar (agent selector, Stop, New conversation), agent description rendering, and conversation history filtered per agent.
+- Added Agents MCP v2 JSON-RPC server on port `5012` exposing exactly `list_agents` and `run_agent_instruction`.
+- Added REST endpoints `GET /agents` (listing) and `POST /agents/:agentName/run` (execution) reused by both UI and MCP.
+- Persisted agent conversations/turns in MongoDB with `conversation.agentName` so `/chat` stays “clean” (non-agent only) while `/agents` shows per-agent conversations.
+
+### Key implementation details
+- Codex can now run with an explicit per-request Codex home without mutating `process.env`: Codex SDK options inject `CODEX_HOME` via `buildCodexOptions({ codexHome })`.
+- Agent execution uses per-agent `system_prompt.txt` on first turn only, and disables the global `SYSTEM_CONTEXT` for agent runs so prompts don’t leak into persisted user turns.
+- Agent execution defaults (model/sandbox/approval/reasoning/network/web-search) are sourced from the agent’s `config.toml`; the server avoids sending overlapping `ThreadOptions` by using `useConfigDefaults`.
+- Agent discovery best-effort seeds `auth.json` into agent homes from the primary Codex home (never overwrites), and surfaces warnings when unusable.
+- Thread continuation is via server `conversationId`, with Codex `threadId` stored only under `Conversation.flags.threadId` using a `$set` update to avoid clobbering other flags.
+
+### Docker / Compose
+- `docker-compose.yml` mounts `./codex_agents` to `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`; Agents MCP is exposed on `http://localhost:5012`.
+
+### Tests / docs
+- Added/updated server unit tests and client tests covering discovery, auth seeding, REST/MCP shapes, and config-driven agent defaults.
+- Updated `README.md`, `design.md`, and `projectStructure.md` to document the new agents surfaces and flows.
+```
 
 
 ---

@@ -81,7 +81,10 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 - **Resolved**: Require `working_folder` to be an absolute path; reject relative inputs for predictability.
 - **Resolved**: Defaults remain unchanged (Codex reasoning default stays `high`; no reorder of model list beyond appending `gpt-5.2`).
 - **Resolved**: `gpt-5.2` is added as a new fixed model id alongside existing models (no new `gpt-5.2-*` variants in this story).
-- **Discovered constraint**: current `@openai/codex-sdk` (and even latest at time of writing) does **not** include `xhigh` in its `ModelReasoningEffort` TypeScript union (it currently exposes `minimal|low|medium|high`). This story therefore implements `xhigh` as an **app-level allowed value** that is passed through to Codex at runtime with a narrow type-cast at the SDK boundary, and it adds tests to ensure the option is forwarded (without requiring an SDK bump).
+- **Discovered constraint (source of truth: this repo + upstream docs)**:
+  - The installed `@openai/codex-sdk` exposes `ModelReasoningEffort` as `minimal|low|medium|high` (no `xhigh`).
+  - The upstream Codex CLI config docs also only document `model_reasoning_effort` as `minimal|low|medium|high`.
+  - Therefore this story implements `xhigh` as an **app-level** option that is **accepted and persisted** but **mapped to `high` at the Codex SDK boundary** (so we don’t rely on undocumented/unsupported runtime behavior). If/when upstream adds `xhigh`, we can remove the mapping.
 
 ---
 
@@ -285,7 +288,9 @@ Update the Codex model list and reasoning-effort options across server validatio
    - client UI options in `client/src/components/chat/CodexFlagsPanel.tsx`
    - server validators that restrict `modelReasoningEffort`
    - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
-   - server boundary types: reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation). Cast only at the point where options are passed to the SDK.
+   - server boundary behavior:
+     - reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation).
+     - map `xhigh` → `high` when constructing Codex `ThreadOptions` so the SDK always receives a supported value.
 4. [ ] Update unit/integration tests that assert codex model lists and reasoning effort values.
 5. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.

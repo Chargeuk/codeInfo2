@@ -1897,7 +1897,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 ### 12. Agents respect per-agent Codex `config.toml` defaults (approval/sandbox/model/reasoning)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

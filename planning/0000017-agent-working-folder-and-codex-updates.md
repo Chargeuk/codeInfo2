@@ -142,10 +142,25 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 3. [ ] Add unit tests for the new helper:
    - File to edit:
      - `server/src/test/unit/pathMap.test.ts`
-   - Add tests for:
-     - absolute host path under ingest root → returns mappedPath and relPath
-     - absolute host path outside ingest root → returns `OUTSIDE_HOST_INGEST_DIR`
-     - relative host path → returns `INVALID_ABSOLUTE_PATH`
+4. [ ] **Test (server unit, `node:test`)**: maps host path under ingest root
+   - Location: `server/src/test/unit/pathMap.test.ts`
+   - Purpose: prove `mapHostWorkingFolderToWorkdir()` produces `{ mappedPath, relPath }` for a valid absolute path under `hostIngestDir`.
+   - Description:
+     - Given `hostIngestDir=/host/base` and `codexWorkdir=/data` and `hostWorkingFolder=/host/base/repo/sub`,
+     - expect `relPath === 'repo/sub'` (platform separators normalized by `path.relative`)
+     - expect `mappedPath` ends with `/data/repo/sub` (platform-aware join ok).
+5. [ ] **Test (server unit, `node:test`)**: rejects host path outside ingest root
+   - Location: `server/src/test/unit/pathMap.test.ts`
+   - Purpose: prevent path traversal / escape by ensuring mapping is refused when outside `hostIngestDir`.
+   - Description:
+     - Given `hostIngestDir=/host/base`, `hostWorkingFolder=/host/other/repo`,
+     - expect `{ error: { code: 'OUTSIDE_HOST_INGEST_DIR' } }`.
+6. [ ] **Test (server unit, `node:test`)**: rejects non-absolute working folder input
+   - Location: `server/src/test/unit/pathMap.test.ts`
+   - Purpose: enforce the story rule “working_folder must be absolute” at the mapping layer.
+   - Description:
+     - Given `hostWorkingFolder='relative/path'`,
+     - expect `{ error: { code: 'INVALID_ABSOLUTE_PATH' } }`.
 4. [ ] Verification commands (must run before moving to Task 2):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
@@ -209,14 +224,35 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `workingDirectoryOverride?: string;`
    - Apply it when constructing `threadOptions`:
      - `workingDirectory: workingDirectoryOverride ?? (process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data')`
-4. [ ] Add a focused unit test to prove the override is passed to Codex options:
-   - Files to read (pattern):
-     - `server/src/test/unit/agents-config-defaults.test.ts` (captures Codex start options)
-   - File to add:
-     - `server/src/test/unit/agents-working-folder.test.ts`
-   - Must assert:
-     - when service resolves `working_folder`, the captured `startThread` options include `workingDirectory` set to the resolved path.
-5. [ ] Verification commands (must run before moving to Task 3):
+4. [ ] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the service
+   - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
+   - Purpose: ensure the service throws `WORKING_FOLDER_INVALID` before any Codex run is attempted.
+   - Description:
+     - call `runAgentInstruction({ working_folder: 'relative/path', ... })`
+     - expect thrown error `{ code: 'WORKING_FOLDER_INVALID' }`.
+5. [ ] **Test (server unit, `node:test`)**: mapped path exists → workingDirectoryOverride uses mapped path
+   - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
+   - Purpose: verify the “host path → host ingest rel → codex workdir” mapping is applied when possible.
+   - Description:
+     - set `HOST_INGEST_DIR=/host/base` and `CODEINFO_CODEX_WORKDIR=/data`
+     - provide `working_folder=/host/base/repo/sub`
+     - arrange filesystem so `/data/repo/sub` exists as a directory
+     - assert captured Codex `startThread` options include `workingDirectory: '/data/repo/sub'` (or platform equivalent).
+6. [ ] **Test (server unit, `node:test`)**: mapped path missing but literal exists → uses literal working_folder
+   - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
+   - Purpose: verify fallback behavior when mapping cannot be used.
+   - Description:
+     - set `HOST_INGEST_DIR=/host/base` and `CODEINFO_CODEX_WORKDIR=/data`
+     - provide `working_folder=/some/literal/dir`
+     - ensure mapped path does not exist, but `/some/literal/dir` exists as a directory
+     - assert Codex `workingDirectory` is `/some/literal/dir`.
+7. [ ] **Test (server unit, `node:test`)**: neither mapped nor literal exists → `WORKING_FOLDER_NOT_FOUND`
+   - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
+   - Purpose: guarantee callers get a stable error when no directory exists.
+   - Description:
+     - provide an absolute `working_folder` where neither mapped nor literal directory exists
+     - expect thrown error `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
+8. [ ] Verification commands (must run before moving to Task 3):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -267,15 +303,28 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
    - When service throws:
      - `WORKING_FOLDER_INVALID` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', message: '...' }`
      - `WORKING_FOLDER_NOT_FOUND` → HTTP 400 with JSON `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
-4. [ ] Update tests so a junior can verify behavior without guessing:
+4. [ ] **Test (server unit, `node:test`)**: REST route forwards `working_folder` to the service
    - Files to read:
      - `server/src/test/unit/agents-router-run.test.ts`
    - File to edit:
      - `server/src/test/unit/agents-router-run.test.ts`
-   - Add tests for:
-     - `working_folder` present → forwarded to service
-     - error mapping for both new error codes returns 400 + `code`
-5. [ ] Verification commands:
+   - Purpose: ensure request parsing plumbs the optional field through.
+   - Description:
+     - send a request body including `working_folder`
+     - assert the stubbed service is called with `working_folder` present.
+5. [ ] **Test (server unit, `node:test`)**: REST route maps `WORKING_FOLDER_INVALID` → HTTP 400 + code
+   - Location: `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose: callers receive a stable 400 error with the correct `code`.
+   - Description:
+     - make the stubbed service throw `{ code: 'WORKING_FOLDER_INVALID' }`
+     - expect response status 400 and body `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' }`.
+6. [ ] **Test (server unit, `node:test`)**: REST route maps `WORKING_FOLDER_NOT_FOUND` → HTTP 400 + code
+   - Location: `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose: callers receive a stable 400 error with the correct `code`.
+   - Description:
+     - make the stubbed service throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`
+     - expect response status 400 and body `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
+7. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -317,15 +366,22 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
      - `client/src/api/agents.ts`
    - Rule:
      - include `working_folder` only if `params.working_folder?.trim()` is non-empty
-3. [ ] Add a focused test that inspects the fetch body (copy existing testing style):
+3. [ ] **Test (client unit, Jest)**: includes `working_folder` when provided
    - Files to read (pattern):
      - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
    - File to add:
      - `client/src/test/agentsApi.workingFolder.payload.test.ts`
-   - Assertions:
-     - provided `working_folder` → request JSON includes it
-     - omitted `working_folder` → request JSON does not include it
-4. [ ] Verification commands:
+   - Purpose: ensure API wrapper adds the field only when present.
+   - Description:
+     - call `runAgentInstruction({ working_folder: '/abs/path', ... })`
+     - assert mocked `fetch` called with JSON body containing `working_folder`.
+4. [ ] **Test (client unit, Jest)**: omits `working_folder` when not provided (or blank)
+   - Location: `client/src/test/agentsApi.workingFolder.payload.test.ts`
+   - Purpose: maintain backward compatibility for callers that don’t use the new field.
+   - Description:
+     - call `runAgentInstruction({ working_folder: undefined })` and separately `working_folder: '   '`
+     - assert JSON body does not contain the field.
+5. [ ] Verification commands:
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
@@ -378,14 +434,24 @@ Add an optional working folder input to the Agents page so users can run an agen
      - `client/src/pages/AgentsPage.tsx`
    - In `resetConversation()` and agent-change handler:
      - call `setWorkingFolder('')`
-4. [ ] Tests (UI-level):
+4. [ ] **Test (client UI, Jest/RTL)**: AgentsPage submits `working_folder` in POST body
    - Files to read:
      - `client/src/test/agentsPage.run.test.tsx` (agents run flow)
-     - `client/src/test/agentsPage.agentChange.test.tsx` (agent-change reset behavior)
-   - Files to edit:
-     - `client/src/test/agentsPage.run.test.tsx`: add a test that types `working_folder`, runs, and asserts the POST body includes `working_folder`.
-     - `client/src/test/agentsPage.agentChange.test.tsx`: add a test that agent change clears the field.
-5. [ ] Verification commands:
+   - Location: `client/src/test/agentsPage.run.test.tsx` (edit)
+   - Purpose: prove the end-to-end UI plumbing from TextField → API call works.
+   - Description:
+     - render AgentsPage
+     - type a `working_folder` value
+     - run an instruction
+     - assert the captured request body contains `working_folder`.
+5. [ ] **Test (client UI, Jest/RTL)**: Agent change clears the `working_folder` field
+   - Location: `client/src/test/agentsPage.agentChange.test.tsx` (edit)
+   - Purpose: prevent accidental reuse of a previous folder across agents.
+   - Description:
+     - set `working_folder` field
+     - change agent selection
+     - assert field is empty.
+6. [ ] Verification commands:
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
@@ -433,14 +499,22 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
    - When the service throws `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, translate to `InvalidParamsError` (safe message only).
-4. [ ] Update tests (MCP tool level):
+4. [ ] **Test (server unit, `node:test`)**: MCP tool forwards `working_folder` to service
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-run.test.ts` (router behavior)
      - `server/src/test/unit/mcp-agents-tools-run.test.ts` (tool behavior; if present)
-   - Update/add tests to cover:
-     - request with `working_folder` reaches service
-     - invalid/nonexistent mapping yields invalid params error
-5. [ ] Verification commands:
+   - Location: prefer `server/src/test/unit/mcp-agents-tools-run.test.ts` (edit/add)
+   - Purpose: ensure Zod parsing + call plumbing is correct.
+   - Description:
+     - call `callTool('run_agent_instruction', { agentName, instruction, working_folder })`
+     - assert stubbed `runAgentInstruction` receives `working_folder`.
+5. [ ] **Test (server unit, `node:test`)**: MCP maps working-folder errors to InvalidParamsError
+   - Location: `server/src/test/unit/mcp-agents-tools-run.test.ts` (edit/add)
+   - Purpose: ensure MCP callers get a predictable invalid-params tool error.
+   - Description:
+     - stub service to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }` and separately `{ code: 'WORKING_FOLDER_INVALID' }`
+     - assert tool throws/returns the repo’s InvalidParamsError shape for both.
+6. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -479,11 +553,15 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
      - `key: 'gpt-5.2'`
      - `displayName: 'gpt-5.2'`
      - `type: 'codex'`
-2. [ ] Update dependent tests/fixtures:
+2. [ ] **Test (client UI, Jest/RTL)**: provider model list includes `gpt-5.2` when Codex is selected
    - Files to read/edit (common locations):
      - `client/src/test/chatPage.provider.test.tsx` (mocked models response)
      - any other `client/src/test/*` or server integration tests that assert the exact Codex model list
-   - Ensure expected list includes `gpt-5.2` (do not reorder existing entries).
+   - Location: `client/src/test/chatPage.provider.test.tsx` (edit)
+   - Purpose: prevent UI regressions where adding a new model breaks selection/defaults.
+   - Description:
+     - update the mocked `/chat/models?provider=codex` payload to include `gpt-5.2`
+     - assert the dropdown options include `gpt-5.2`.
 3. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run lint --workspace client`
@@ -544,15 +622,23 @@ Update the Codex model list and reasoning-effort options across server validatio
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Implement mapping when constructing `threadOptions.modelReasoningEffort`:
      - if user requested `xhigh`, pass `high` to the SDK
-4. [ ] Update tests (client + server) so juniors can verify behavior:
-   - Client:
-     - Update `client/src/test/chatPage.flags.reasoning.payload.test.tsx` to select `xhigh` and assert the outgoing payload includes `'xhigh'`.
-   - Server:
-     - Extend `server/src/test/integration/chat-codex-mcp.test.ts` (or nearest) with a case sending `'xhigh'` and asserting the Codex thread options received `'high'`.
-5. [ ] Documentation updates (do not miss this even if you only work this subtask):
+4. [ ] **Test (client UI, Jest/RTL)**: selecting `xhigh` sends `modelReasoningEffort: 'xhigh'` in the request
+   - Location: `client/src/test/chatPage.flags.reasoning.payload.test.tsx` (edit)
+   - Purpose: ensure the app-level value is preserved in the request payload.
+   - Description:
+     - select reasoning effort `xhigh`
+     - submit a Codex message
+     - assert captured request JSON contains `modelReasoningEffort: 'xhigh'`.
+5. [ ] **Test (server integration, Jest + MockCodex)**: server accepts `xhigh` but passes `high` into Codex thread options
+   - Location: `server/src/test/integration/chat-codex-mcp.test.ts` (edit)
+   - Purpose: ensure runtime behavior remains compatible with installed `@openai/codex-sdk`.
+   - Description:
+     - send a Codex request with `modelReasoningEffort: 'xhigh'`
+     - assert mocked codex thread options received `modelReasoningEffort: 'high'`.
+6. [ ] Documentation updates (do not miss this even if you only work this subtask):
    - Update `README.md` and `design.md` to state clearly:
      - `xhigh` is an app-level option and is mapped to `high` when calling Codex.
-6. [ ] Verification commands:
+7. [ ] Verification commands:
    - `npm run lint --workspaces`
    - `npm run test --workspace server`
    - `npm run test --workspace client`

@@ -302,7 +302,13 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - construct a `ChatInterfaceCodex` with a stub `codexFactory` that captures `startThread(opts)`
      - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
      - assert captured `opts.workingDirectory === '/tmp/override'`.
-11. [ ] Verification commands (must run before moving to Task 3):
+11. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
+   - Files to edit:
+     - `projectStructure.md`
+   - Add entries under `server/src/test/unit/` for:
+     - `agents-working-folder.test.ts`
+     - `chat-codex-workingDirectoryOverride.test.ts`
+12. [ ] Verification commands (must run before moving to Task 3):
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 
@@ -437,7 +443,12 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
    - Description:
      - call `runAgentInstruction({ working_folder: undefined })` and separately `working_folder: '   '`
      - assert JSON body does not contain the field.
-5. [ ] Verification commands:
+5. [ ] Update `projectStructure.md` to include the new client test file (do this after adding the file above):
+   - Files to edit:
+     - `projectStructure.md`
+   - Add an entry under `client/src/test/` for:
+     - `agentsApi.workingFolder.payload.test.ts`
+6. [ ] Verification commands:
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
 
@@ -588,7 +599,12 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Description:
      - stub service to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }` and separately `{ code: 'WORKING_FOLDER_INVALID' }`
      - assert `callTool(...)` throws `InvalidParamsError` for both.
-7. [ ] Verification commands:
+7. [ ] Update `projectStructure.md` to include the new server test file (do this after adding the file above):
+   - Files to edit:
+     - `projectStructure.md`
+   - Add an entry under `server/src/test/unit/` for:
+     - `mcp-agents-tools.test.ts`
+8. [ ] Verification commands:
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
 

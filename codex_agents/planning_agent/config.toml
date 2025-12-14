@@ -1,7 +1,7 @@
-model = "gpt-5.1-codex-max"
+model = "gpt-5.2"
 model_reasoning_effort = "high"
-approval_policy = "on-failure"
-sandbox_mode    = "workspace-write"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
 
 [features]
 web_search_request = true
@@ -9,7 +9,7 @@ view_image_tool = true
 
 [mcp_servers]
 [mcp_servers.context7]
-args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-REPLACE_ME']
+args = ['-y', '@upstash/context7-mcp', '--api-key', 'ctx7sk-adf8774f-5b36-4181-bff4-e8f01b6e7866']
 command = 'npx'
 startup_timeout_sec = 20.0
 

@@ -96,48 +96,33 @@ Follow `planning/plan_format.md` (update Task Status before coding; work tasks i
 
 # Tasks
 
-### 1. Add server-side working_folder resolution + error plumbing
+### 1. Extend path mapping for working_folder (host → workdir)
 
 - Task Status: __to_do__
 - Git Commits:
 
 #### Overview
 
-Introduce a single, tested server helper that resolves an agent-run `working_folder` into a Codex `workingDirectory` override for that call, using the required mapping/fallback rules and returning stable errors when resolution fails.
+Reuse and extend the existing ingest path mapping module to support mapping an agent-run `working_folder` from a host path into the Codex workdir, including traversal guards and unit tests.
 
 #### Documentation Locations
 
 - Node.js `path` + `fs` docs (built-in): for cross-platform path normalization and existence checks.
 - Existing mapping helper: `server/src/ingest/pathMap.ts` (reuse this module for host↔container mapping).
-- Express error handling patterns: Context7 `/expressjs/express` (used later in Task 2).
 
 #### Subtasks
 
-1. [ ] Read `server/src/agents/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, and `server/src/ingest/pathMap.ts` to align naming and behavior.
-2. [ ] Reuse the existing ingest mapping module by extending `server/src/ingest/pathMap.ts` instead of creating a new module:
+1. [ ] Read `server/src/ingest/pathMap.ts` and `server/src/test/unit/pathMap.test.ts` to align naming and existing expectations.
+2. [ ] Extend `server/src/ingest/pathMap.ts` with a new exported helper to map host → workdir, e.g.:
    - add a new exported helper (name explicit) to map host → container/workdir, e.g.:
      - `mapHostToWorkdir(hostPath: string, opts?: { hostIngestDir?: string; workdir?: string }): { mappedPath: string; relPath: string } | { error: { code: 'OUTSIDE_HOST_INGEST_DIR' | 'HOST_INGEST_DIR_UNSET' | 'INVALID_ABSOLUTE_PATH'; message: string } }`
    - implement the mapping algorithm in Acceptance Criteria (including “skip mapping if outside host ingest root” safety).
    - add traversal guards so `..` cannot escape the workdir when mapping is applied.
    - (optional hardening) add a guard to `mapIngestPath` so malicious container paths cannot normalize outside `/data`.
-3. [ ] Extend `RunAgentInstructionParams` in `server/src/agents/service.ts` to accept optional `working_folder` (string) and thread it through callers.
-4. [ ] Update `runAgentInstruction()` in `server/src/agents/service.ts`:
-   - resolve `working_folder` to a `workingDirectory` override
-   - on success: pass the override into Codex execution flags (new flag on `ChatInterfaceCodex`, e.g. `workingDirectoryOverride`)
-   - on failure: throw a structured agent-run error code that routes/MCP map consistently:
-     - `WORKING_FOLDER_INVALID` (not absolute / wrong type)
-     - `WORKING_FOLDER_NOT_FOUND` (neither mapped nor literal exists as a directory)
-5. [ ] Update `server/src/chat/interfaces/ChatInterfaceCodex.ts` to accept and apply the per-call override when building `threadOptions.workingDirectory` (without mutating env and without changing non-agent behavior).
-6. [ ] Add/extend server unit tests by reusing the existing `pathMap` test file (`server/src/test/unit/pathMap.test.ts`) where possible:
+3. [ ] Add/extend server unit tests by reusing `server/src/test/unit/pathMap.test.ts`:
    - add tests for the new host→workdir mapping helper
    - add regression tests for traversal escape attempts
-7. [ ] Add server unit tests (Node `node:test`) covering the agent/service resolution behavior:
-   - mapped path exists → uses mapped
-   - mapped missing but literal exists → uses literal
-   - neither exists → returns/throws expected error
-   - `working_folder` outside `HOST_INGEST_DIR` → mapping skipped/rejected safely
-   - Windows-style separators in input are normalized safely (where applicable)
-8. [ ] Run `npm run lint --workspace server` and fix issues.
+4. [ ] Run `npm run lint --workspace server` and fix issues.
 
 #### Testing
 
@@ -150,33 +135,37 @@ Introduce a single, tested server helper that resolves an agent-run `working_fol
 
 ---
 
-### 2. REST: accept working_folder in POST /agents/:agentName/run + client API wiring
+### 2. Server: wire working_folder into agent execution (service + ChatInterfaceCodex)
 
 - Task Status: __to_do__
 - Git Commits:
 
 #### Overview
 
-Plumb the new optional `working_folder` through the REST endpoint and the client `runAgentInstruction` API wrapper, returning a clear 400 error when invalid/nonexistent.
+Resolve `working_folder` in the agents service, apply the per-call working directory override in Codex thread options, and return stable, caller-friendly errors when resolution fails.
 
 #### Documentation Locations
 
-- Express JSON body parsing + request validation: Context7 `/expressjs/express`.
-- Existing route: `server/src/routes/agentsRun.ts`.
-- Client fetch wrapper: `client/src/api/agents.ts`.
+- Node.js `fs`/`path` (built-in): existence checks and normalization.
+- Existing mapping helper: `server/src/ingest/pathMap.ts` (host→workdir mapping added in Task 1).
+- Existing agent execution path: `server/src/agents/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`.
 
 #### Subtasks
 
-1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` and the alias `workingFolder` (both strings); if both are present, prefer `working_folder`. Pass through to `runAgentInstruction`.
-2. [ ] Map new agent-run errors to stable HTTP responses:
-   - Reuse the existing agents run error envelope to avoid breaking callers:
-     - `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' | 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
-   - (Optional) If a repo-wide validation envelope is preferred, align with the existing vector-search pattern (`error: 'VALIDATION_FAILED', details: [...]`) instead of inventing a new one.
-3. [ ] Update `client/src/api/agents.ts` to accept optional `working_folder` parameter and include it in the POST body only when present.
-4. [ ] Add/adjust server integration tests for REST agent runs to validate:
-   - request accepts `working_folder`
-   - invalid `working_folder` returns 400 with expected error code
-5. [ ] Run `npm run lint --workspace server` and `npm run lint --workspace client`.
+1. [ ] Extend `server/src/agents/service.ts` params to accept optional `working_folder` and thread it into execution.
+2. [ ] Implement resolution behavior in `runAgentInstruction()`:
+   - try host→workdir mapping (Task 1 helper) and check mapped path exists **as a directory**
+   - fallback to literal path check (directory)
+   - throw structured agent-run errors:
+     - `WORKING_FOLDER_INVALID` (not absolute / wrong type)
+     - `WORKING_FOLDER_NOT_FOUND` (neither mapped nor literal exists as a directory)
+3. [ ] Extend `CodexRunFlags` in `server/src/chat/interfaces/ChatInterfaceCodex.ts` to accept a per-call working directory override and apply it when building `ThreadOptions.workingDirectory`.
+4. [ ] Add server unit/integration coverage for the agent/service resolution behavior:
+   - mapped path exists → uses mapped
+   - mapped missing but literal exists → uses literal
+   - neither exists → returns/throws expected error
+   - `working_folder` outside `HOST_INGEST_DIR` → mapping skipped/rejected safely
+5. [ ] Run `npm run lint --workspace server`.
 
 #### Testing
 
@@ -191,7 +180,76 @@ Plumb the new optional `working_folder` through the REST endpoint and the client
 
 ---
 
-### 3. GUI: add optional working_folder control to Agents page
+### 3. REST: accept working_folder in POST /agents/:agentName/run
+
+- Task Status: __to_do__
+- Git Commits:
+
+#### Overview
+
+Accept `working_folder` via the Agents REST endpoint (with a `workingFolder` alias), validate input shape, and map resolution errors to stable HTTP responses without breaking existing clients.
+
+#### Documentation Locations
+
+- Express JSON body parsing + request validation: Context7 `/expressjs/express`.
+- Existing route: `server/src/routes/agentsRun.ts`.
+- Existing agent error mapping: `server/src/routes/agentsRun.ts`, `server/src/mcpAgents/tools.ts`.
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/agentsRun.ts` body validation to accept optional `working_folder` and alias `workingFolder` (strings); prefer `working_folder` if both are present.
+2. [ ] Pass `working_folder` through to `runAgentInstruction`.
+3. [ ] Map new agent-run errors to stable HTTP responses:
+   - `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' | 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
+4. [ ] Add/adjust server route tests (unit/integration) ensuring:
+   - valid request with `working_folder` reaches the service
+   - invalid/nonexistent folder returns 400 with expected `code`
+5. [ ] Run `npm run lint --workspace server`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill during implementation)
+
+---
+
+### 4. Client API: add working_folder to runAgentInstruction()
+
+- Task Status: __to_do__
+- Git Commits:
+
+#### Overview
+
+Extend the client API wrapper so `working_folder` can be sent to the server (without changing behavior when omitted).
+
+#### Documentation Locations
+
+- Client fetch wrapper: `client/src/api/agents.ts`.
+
+#### Subtasks
+
+1. [ ] Update `client/src/api/agents.ts` to accept optional `working_folder` and include it in the POST body only when present.
+2. [ ] Add/adjust client unit tests (mock fetch) to assert:
+   - when provided, request body contains `working_folder`
+   - when omitted, request body does not include the field
+3. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- (fill during implementation)
+
+---
+
+### 5. GUI: add optional working_folder control to Agents page
 
 - Task Status: __to_do__
 - Git Commits:
@@ -229,7 +287,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 ---
 
-### 4. MCP 5012: extend run_agent_instruction schema to accept working_folder
+### 6. MCP 5012: extend run_agent_instruction schema to accept working_folder
 
 - Task Status: __to_do__
 - Git Commits:
@@ -264,36 +322,25 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 ---
 
-### 5. Codex updates: add model gpt-5.2 and reasoning effort xhigh
+### 7. Codex updates: add model gpt-5.2
 
 - Task Status: __to_do__
 - Git Commits:
 
 #### Overview
 
-Update the Codex model list and reasoning-effort options across server validation and client UI, plus any seeded config/docs that describe defaults.
+Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2`, and update any dependent tests/fixtures.
 
 #### Documentation Locations
 
 - `/chat/models` implementation: `server/src/routes/chatModels.ts`
-- Codex flags UI: `client/src/components/chat/CodexFlagsPanel.tsx`
-- Request validation: `server/src/routes/chatValidators.ts`
-- Seed config docs: `server/src/config/codexConfig.ts`, `config.toml.example`, `README.md`, `design.md`
+- Provider selection tests/fixtures: `client/src/test/chatPage.provider.test.tsx` (and any other tests mocking the models response)
 
 #### Subtasks
 
-1. [ ] Update `server/src/routes/chatModels.ts` to include Codex model `gpt-5.2` in the fixed list.
-2. [ ] Update any server-side validators that restrict Codex model ids to include `gpt-5.2`.
-3. [ ] Add `xhigh` to the Codex reasoning effort options:
-   - client UI options in `client/src/components/chat/CodexFlagsPanel.tsx`
-   - server validators that restrict `modelReasoningEffort`
-   - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
-   - server boundary behavior:
-     - reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation).
-     - map `xhigh` → `high` when constructing Codex `ThreadOptions` so the SDK always receives a supported value.
-4. [ ] Update unit/integration tests that assert codex model lists and reasoning effort values.
-5. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+1. [ ] Update `server/src/routes/chatModels.ts` to include Codex model `gpt-5.2` in the fixed list (append after existing).
+2. [ ] Update any tests/fixtures that assert the Codex model list to include `gpt-5.2`.
+3. [ ] Run `npm run lint --workspace server` and `npm run lint --workspace client`.
 
 #### Testing
 
@@ -308,7 +355,48 @@ Update the Codex model list and reasoning-effort options across server validatio
 
 ---
 
-### 6. Documentation + project structure updates
+### 8. Codex updates: add reasoning effort xhigh (app-level)
+
+- Task Status: __to_do__
+- Git Commits:
+
+#### Overview
+
+Update the Codex model list and reasoning-effort options across server validation and client UI, plus any seeded config/docs that describe defaults.
+
+#### Documentation Locations
+
+- Codex flags UI: `client/src/components/chat/CodexFlagsPanel.tsx`
+- Request validation: `server/src/routes/chatValidators.ts`
+- Seed config docs: `server/src/config/codexConfig.ts`, `config.toml.example`, `README.md`, `design.md`
+
+#### Subtasks
+
+1. [ ] Add `xhigh` to the Codex reasoning effort options:
+   - client UI options in `client/src/components/chat/CodexFlagsPanel.tsx`
+   - server validators that restrict `modelReasoningEffort`
+   - client `ModelReasoningEffort` union in `client/src/hooks/useChatStream.ts`
+   - server boundary behavior:
+     - reuse the existing “app-owned union” pattern already used on the client (`client/src/hooks/useChatStream.ts`) by defining a server-local union for accepted values (do not import `ModelReasoningEffort` from `@openai/codex-sdk` for validation).
+     - map `xhigh` → `high` when constructing Codex `ThreadOptions` so the SDK always receives a supported value.
+2. [ ] Update unit/integration tests that assert reasoning effort values and allowed sets.
+3. [ ] Confirm defaults remain `high` and update any docs/examples/tests that mention the allowed set to include `xhigh`.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- (fill during implementation)
+
+---
+
+### 9. Documentation + project structure updates
 
 - Task Status: __to_do__
 - Git Commits:
@@ -343,7 +431,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 ---
 
-### 7. Final task – verify against acceptance criteria
+### 10. Final task – verify against acceptance criteria
 
 - Task Status: __to_do__
 - Git Commits:
@@ -389,9 +477,9 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
    - `/chat` Codex model list includes `gpt-5.2`
    - Codex reasoning effort options include `xhigh`
    - Save screenshots to `./test-results/screenshots/` named:
-     - `0000017-7-agents-working-folder.png`
-     - `0000017-7-mcp-5012-working-folder.png`
-     - `0000017-7-chat-codex-models.png`
+     - `0000017-10-agents-working-folder.png`
+     - `0000017-10-mcp-5012-working-folder.png`
+     - `0000017-10-chat-codex-models.png`
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

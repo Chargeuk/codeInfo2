@@ -183,6 +183,20 @@ flowchart TD
   Ok -->|No| Warn[Append warning, continue listing]
 ```
 
+### Agent listing (REST + MCP)
+
+- Both the GUI and Agents MCP server reuse a single listing implementation (`listAgents()`), which delegates to discovery (and best-effort auth seeding) and returns REST/MCP-safe agent summaries.
+
+```mermaid
+flowchart LR
+  GUI[GUI Agents page] -->|GET /agents| REST[Express route\\nGET /agents]
+  MCP[Agents MCP\\nlist_agents] -->|listAgents()| Svc[Agents service\\nlistAgents()]
+  REST --> Svc
+  Svc --> Disc[discoverAgents()]
+  Disc --> Seed[ensureAgentAuthSeeded()]
+  Disc --> Resp[{ agents: [...] }]
+```
+
 ### Markdown rendering (assistant replies)
 
 - Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.

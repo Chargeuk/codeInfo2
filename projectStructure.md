@@ -338,8 +338,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
+- server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run stub for Task 7)
+- server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
 - server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)
 - server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
+- server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

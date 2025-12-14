@@ -50,6 +50,23 @@ codex_agents/<agentName>/
 - Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
 - Agents MCP (port 5012): `http://localhost:5012` (exposed by Compose; tools are added as part of Story 0000016).
 
+### Agents REST API
+
+- List available agents:
+  - `curl -s http://localhost:5010/agents | jq`
+  - Example response:
+    ```json
+    {
+      "agents": [
+        {
+          "name": "coding_agent",
+          "description": "# My agent\\n\\nSome details...",
+          "warnings": []
+        }
+      ]
+    }
+    ```
+
 ### MCP for Codex
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.

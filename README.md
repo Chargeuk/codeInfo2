@@ -48,7 +48,7 @@ codex_agents/<agentName>/
 
 - Auth seeding: on each agent discovery read, if `codex_agents/<agentName>/auth.json` is missing but the primary Codex home (`CODEINFO_CODEX_HOME`) has `auth.json`, the server will best-effort copy it into the agent folder. It never overwrites existing agent auth, and `auth.json` must never be committed.
 - Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
-- Agents MCP (port 5012): `http://localhost:5012` (exposed by Compose; tools are added as part of Story 0000016).
+- Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
 
 ### Agents REST API
 
@@ -74,6 +74,18 @@ codex_agents/<agentName>/
   - Notes:
     - The response `conversationId` is the server conversation id used for history and continuation.
     - Codex continuation uses an internal thread id persisted as `Conversation.flags.threadId`.
+
+### Agents MCP (JSON-RPC)
+
+- Endpoint: POST JSON-RPC 2.0 to `http://localhost:5012` (Compose exposes it; e2e compose maps to `http://localhost:6012`).
+- Tools:
+  - `list_agents`
+  - `run_agent_instruction`
+- Quick smoke (host/compose):
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}' | jq`
+  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"run_agent_instruction","arguments":{"agentName":"coding_agent","instruction":"Say hello"}}}' | jq`
 
 ### MCP for Codex
 

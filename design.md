@@ -142,6 +142,23 @@ flowchart LR
   Server -->|expose| MCP5012[Agents MCP\\n:5012]
 ```
 
+### Agents MCP (JSON-RPC)
+
+- The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
+- It exposes exactly two tools:
+  - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
+  - `run_agent_instruction` (Codex-backed; returns `CODE_INFO_LLM_UNAVAILABLE` when the Codex CLI is missing or the selected agent home is not usable).
+- Both tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
+
+```mermaid
+flowchart LR
+  Client[MCP client] -->|initialize/tools\\nlist/tools\\ncall| MCP[Agents MCP\\n:5012]
+  MCP --> Tools[Tool registry\\n(list_agents/run_agent_instruction)]
+  Tools --> Svc[Agents service\\nlistAgents()/runAgentInstruction()]
+  Svc --> Disc[discoverAgents()\\n+ auth seeding]
+  Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
+```
+
 ### Agent discovery
 
 - Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.

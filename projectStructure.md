@@ -208,6 +208,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
 â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
 â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
+â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); tools/list ungated; tools/call gated for run_agent_instruction
+â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
+â”‚     â”‚  â”œâ”€ errors.ts — Agents MCP domain errors (Codex unavailable)
+â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
+â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
@@ -347,6 +354,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
 - server/src/test/unit/agents-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/run` validation/error mapping/shape
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
+- server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
+- server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
+- server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/run_agent_instruction) delegating to shared agents service
+- server/src/mcpAgents/types.ts — Agents MCP JSON-RPC types and response helpers
+- server/src/mcpAgents/errors.ts — Codex unavailable error for Agents MCP tool calls
+- server/src/mcpAgents/codexAvailability.ts — Codex CLI availability check used for Agents MCP gating
+- server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly two tools
+- server/src/test/unit/mcp-agents-router-run.test.ts — unit coverage that Agents MCP returns JSON text content with segments
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

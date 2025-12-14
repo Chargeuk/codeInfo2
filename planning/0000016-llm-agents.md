@@ -1388,19 +1388,19 @@ Hard requirements:
 
 #### Subtasks
 
-1. [ ] Add config for Agents MCP port.
+1. [x] Add config for Agents MCP port.
    - Files to edit:
      - `server/src/config.ts`
    - Implementation steps:
      - Add: `export const AGENTS_MCP_PORT = Number(process.env.AGENTS_MCP_PORT ?? 5012);`
-2. [ ] Create an Agents MCP server entrypoint (start/stop).
+2. [x] Create an Agents MCP server entrypoint (start/stop).
    - Docs to read (this subtask):
      - `server/src/mcp2/server.ts`
    - Files to create:
      - `server/src/mcpAgents/server.ts`
    - Implementation steps:
      - Implement `startAgentsMcpServer()` and `stopAgentsMcpServer()` mirroring `startMcp2Server()` / `stopMcp2Server()`, but listening on `AGENTS_MCP_PORT`.
-3. [ ] Implement the JSON-RPC router for Agents MCP.
+3. [x] Implement the JSON-RPC router for Agents MCP.
    - Docs to read (this subtask):
      - `server/src/mcp2/router.ts` (exact wire format + error codes)
    - Files to create:
@@ -1412,7 +1412,7 @@ Hard requirements:
      - Do **not** gate `tools/list` behind Codex availability:
        - `list_agents` must still be discoverable even when Codex is unavailable (agents can be returned with `disabled/warnings`).
      - Gate only `tools/call` for `run_agent_instruction` behind Codex availability (return `CODE_INFO_LLM_UNAVAILABLE` when unavailable).
-4. [ ] Implement the tool registry (exactly two tools).
+4. [x] Implement the tool registry (exactly two tools).
    - Docs to read (this subtask):
      - `server/src/mcp2/tools.ts` (tool definition + deps injection pattern)
    - Files to create:
@@ -1423,7 +1423,7 @@ Hard requirements:
        - `run_agent_instruction` (params below)
      - Implement `callTool()` dispatching to the correct implementation.
      - Provide a dependency injection mechanism for tests (e.g. `setToolDeps/resetToolDeps` like `mcp2/tools.ts`).
-5. [ ] Implement `list_agents` tool by delegating to the shared service.
+5. [x] Implement `list_agents` tool by delegating to the shared service.
    - Files to edit/create:
      - `server/src/mcpAgents/tools.ts` (or a dedicated `server/src/mcpAgents/tools/listAgents.ts`)
    - Implementation steps:
@@ -1431,7 +1431,7 @@ Hard requirements:
      - Return MCP tool result shape:
        - `{ content: [{ type: 'text', text: '<json>' }] }`
        - JSON should be `{ agents: AgentSummary[] }`
-6. [ ] Implement `run_agent_instruction` tool by delegating to the shared service.
+6. [x] Implement `run_agent_instruction` tool by delegating to the shared service.
    - Input schema (must match exactly):
      - required: `agentName`, `instruction`
      - optional: `conversationId`
@@ -1440,13 +1440,13 @@ Hard requirements:
      - Return MCP tool result shape:
        - `{ content: [{ type: 'text', text: '<json>' }] }`
        - JSON should be `{ agentName, conversationId, modelId, segments }`
-7. [ ] Start/stop the Agents MCP server from the main server process.
+7. [x] Start/stop the Agents MCP server from the main server process.
    - Files to edit:
      - `server/src/index.ts`
    - Implementation steps:
      - Start in `start()` after HTTP server listens.
      - Stop in `shutdown()` alongside `stopMcp2Server()`.
-8. [ ] Server unit test (Node `node:test` + `fetch`): Agents MCP `tools/list` returns exactly two tools.
+8. [x] Server unit test (Node `node:test` + `fetch`): Agents MCP `tools/list` returns exactly two tools.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -1456,7 +1456,7 @@ Hard requirements:
    - Test description:
      - Start an `http.createServer(handleAgentsRpc)` on an ephemeral port and `POST` `{ "jsonrpc":"2.0","id":1,"method":"tools/list" }`.
      - Assert the returned tool names are exactly `list_agents` and `run_agent_instruction` (and no others).
-9. [ ] Server unit test (Node `node:test` + `fetch`): Agents MCP `run_agent_instruction` returns segments payload shape.
+9. [x] Server unit test (Node `node:test` + `fetch`): Agents MCP `run_agent_instruction` returns segments payload shape.
    - Test type:
      - Server unit test (Node `node:test`)
    - Test location:
@@ -1466,13 +1466,13 @@ Hard requirements:
    - Test description:
      - Stub tool deps (like `mcp2/tools.ts` does) so `run_agent_instruction` returns a deterministic payload.
      - Call `tools/call` and assert the JSON string in `result.content[0].text` parses and contains the required fields.
-10. [ ] Update docs.
+10. [x] Update docs.
    - Files to edit:
      - `README.md`
    - Required doc details:
      - URL: `http://localhost:5012`
      - Example `initialize` / `tools/list` / `tools/call` curl commands.
-11. [ ] Update architecture docs (design + Mermaid) for Agents MCP 5012.
+11. [x] Update architecture docs (design + Mermaid) for Agents MCP 5012.
    - Docs to read (this subtask):
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1482,7 +1482,7 @@ Hard requirements:
    - Implementation steps:
      - Add a Mermaid diagram showing:
        - MCP client → Agents MCP server (`5012`) → `tools/list` / `tools/call` → shared agents service → Codex run.
-12. [ ] Update `projectStructure.md` for new MCP Agents server modules.
+12. [x] Update `projectStructure.md` for new MCP Agents server modules.
    - Files to edit:
      - `projectStructure.md`
    - Purpose:
@@ -1494,7 +1494,7 @@ Hard requirements:
        - `server/src/mcpAgents/types.ts` (if created)
        - `server/src/mcpAgents/tools.ts`
        - new MCP unit test file(s)
-13. [ ] Run lint + format checks (all workspaces) and fix any failures.
+13. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

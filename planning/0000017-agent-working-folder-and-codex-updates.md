@@ -112,6 +112,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 - Node.js `path` docs: https://nodejs.org/api/path.html (for `isAbsolute`, `relative`, and safe path joining)
 - Node.js `fs` docs (`fs.promises.stat`): https://nodejs.org/api/fs.html#fspromisesstatpath-options (for “exists and is a directory” checks used by tests)
 - TypeScript string literal unions: Context7 `/microsoft/typescript` (for typing the `{ error: { code: ... } }` return shape)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
@@ -200,6 +201,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 - Node.js `path` docs: https://nodejs.org/api/path.html (absolute path checks + normalization)
 - Codex CLI config reference (for context on CODEX_HOME + config precedence): Context7 `/openai/codex`
 - `@openai/codex-sdk` runtime behavior (how `modelReasoningEffort` and `workingDirectory` are forwarded to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
@@ -329,6 +331,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 - Express JSON body parsing + route handlers: Context7 `/expressjs/express` (for `Router`, `express.json`, and request lifecycle)
 - Supertest (server HTTP testing): Context7 `/ladjs/supertest` (repo tests use `supertest(request(app))`)
 - HTTP status code semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (to keep error responses consistent and predictable)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
@@ -539,6 +542,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 - Zod v3 schema validation (repo uses Zod 3.x): Context7 `/websites/v3_zod_dev` (used for input parsing/validation in MCP tools)
 - JSON-RPC 2.0 spec (error codes, invalid params): https://www.jsonrpc.org/specification
 - MCP basics (for context; keep wire format unchanged): https://modelcontextprotocol.io/
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
@@ -613,6 +617,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 - Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0` (test structure + matchers)
 - Testing Library docs (client fixtures): Context7 `/websites/testing-library`
 - React Router (tests use `createMemoryRouter`/`RouterProvider`): Context7 `/remix-run/react-router`
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 
@@ -672,6 +677,7 @@ Update the Codex model list and reasoning-effort options across server validatio
 - Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0`
 - Testing Library docs (client tests): Context7 `/websites/testing-library`
 - `@openai/codex-sdk` runtime behavior (it forwards `model_reasoning_effort="..."` to the Codex CLI): code_info MCP (inspect the installed `@openai/codex-sdk` package in this repo)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server `npm run test` runs Cucumber feature tests)
 
 #### Subtasks
 

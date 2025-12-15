@@ -44,6 +44,7 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
 export async function runAgentInstruction(params: {
   agentName: string;
   instruction: string;
+  working_folder?: string;
   conversationId?: string;
   signal?: AbortSignal;
 }): Promise<{
@@ -62,6 +63,9 @@ export async function runAgentInstruction(params: {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         instruction: params.instruction,
+        ...(params.working_folder?.trim()
+          ? { working_folder: params.working_folder }
+          : {}),
         ...(params.conversationId
           ? { conversationId: params.conversationId }
           : {}),

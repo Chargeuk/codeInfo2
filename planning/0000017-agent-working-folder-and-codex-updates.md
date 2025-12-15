@@ -593,7 +593,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 
 ### 4. Client API: add working_folder to runAgentInstruction()
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -608,21 +608,21 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Subtasks
 
-1. [ ] Update the request params type:
+1. [x] Update the request params type:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - File to edit:
      - `client/src/api/agents.ts`
    - Add to the `runAgentInstruction(params: { ... })` signature:
      - `working_folder?: string;`
-2. [ ] Include the field in the POST body:
+2. [x] Include the field in the POST body:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - File to edit:
      - `client/src/api/agents.ts`
    - Rule:
      - include `working_folder` only if `params.working_folder?.trim()` is non-empty
-3. [ ] **Test (client unit, Jest)**: includes `working_folder` when provided
+3. [x] **Test (client unit, Jest)**: includes `working_folder` when provided
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -634,7 +634,7 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
    - Description:
      - call `runAgentInstruction({ working_folder: '/abs/path', ... })`
      - assert mocked `fetch` called with JSON body containing `working_folder`.
-4. [ ] **Test (client unit, Jest)**: omits `working_folder` when not provided (or blank)
+4. [x] **Test (client unit, Jest)**: omits `working_folder` when not provided (or blank)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Location: `client/src/test/agentsApi.workingFolder.payload.test.ts`
@@ -642,19 +642,19 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
    - Description:
      - call `runAgentInstruction({ working_folder: undefined })` and separately `working_folder: '   '`
      - assert JSON body does not contain the field.
-5. [ ] Update `projectStructure.md` to include the new client test file (do this after adding the file above):
+5. [x] Update `projectStructure.md` to include the new client test file (do this after adding the file above):
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Add an entry under `client/src/test/` for:
      - `agentsApi.workingFolder.payload.test.ts`
-6. [ ] Verification commands:
+6. [x] Verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
-7. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+7. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -667,21 +667,34 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/agents` can still run an instruction (API wrapper change must not break runtime)
    - `/agents` requests include `working_folder` only when non-empty (inspect network request in devtools)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Updated `client/src/api/agents.ts` to accept optional `working_folder` and include it in the POST body only when `trim()` is non-empty.
+- Added client unit coverage in `client/src/test/agentsApi.workingFolder.payload.test.ts` to assert `working_folder` is included/omitted correctly.
+- Updated `projectStructure.md` to list the new client API test.
+- Verified `npm run lint --workspace client` and `npm run test --workspace client`.
+- Ran repo-wide lint/format gate (`npm run lint --workspaces`, `npm run format:check --workspaces`) and fixed the new test file with `npm run format --workspace client`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `CODEX_HOME=$PWD/codex npm run e2e`.
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing: manual Playwright check on `http://host.docker.internal:5001/agents` verified POST `/agents/:agent/run` omits `working_folder` when blank.
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:down`.
 
 ---
 

@@ -12,6 +12,7 @@ import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
 type CodexRunFlags = {
+  workingDirectoryOverride?: string;
   threadId?: string | null;
   codexFlags?: Partial<CodexThreadOptions>;
   codexHome?: string;
@@ -68,6 +69,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       disableSystemContext,
       systemPrompt,
       useConfigDefaults,
+      workingDirectoryOverride,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
       ? detectCodexForHome(codexHome)
@@ -81,6 +83,7 @@ export class ChatInterfaceCodex extends ChatInterface {
     let activeThreadId: string | null = threadId ?? null;
 
     const codexWorkingDirectory =
+      workingDirectoryOverride ??
       process.env.CODEX_WORKDIR ??
       process.env.CODEINFO_CODEX_WORKDIR ??
       '/data';

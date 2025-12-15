@@ -245,7 +245,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 ### 2. Server: wire working_folder into agent execution (service + ChatInterfaceCodex)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -263,7 +263,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 #### Subtasks
 
-1. [ ] Extend the service input type:
+1. [x] Extend the service input type:
    - Docs to read:
      - https://nodejs.org/api/path.html (absolute path rules referenced later in this task)
    - Files to read:
@@ -272,7 +272,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `server/src/agents/service.ts`
    - Add to `RunAgentInstructionParams`:
      - `working_folder?: string;`
-2. [ ] Extend the service error union to include working-folder errors:
+2. [x] Extend the service error union to include working-folder errors:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (these codes will later be surfaced as HTTP 400)
    - Files to read:
@@ -282,7 +282,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Update `RunAgentErrorCode` to also include:
      - `WORKING_FOLDER_INVALID`
      - `WORKING_FOLDER_NOT_FOUND`
-3. [ ] Add an exported resolver helper (so it can be unit-tested without running Codex):
+3. [x] Add an exported resolver helper (so it can be unit-tested without running Codex):
    - Docs to read:
      - https://nodejs.org/api/fs.html#fspromisesstatpath-options (directory existence checks)
      - https://nodejs.org/api/path.html (POSIX + win32 absolute checks)
@@ -319,7 +319,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
        - When checking “exists and is a directory”, treat any filesystem error (ENOENT, ENOTDIR, EACCES, etc.) as “does not exist” and continue/fail with `WORKING_FOLDER_NOT_FOUND` (do not allow uncaught stat errors to bubble up).
        - Reuse the repo’s existing approach from `server/src/ingest/discovery.ts` / `server/src/agents/discovery.ts` (don’t invent a new error-handling convention).
      - If neither candidate exists as a directory: throw `{ code: 'WORKING_FOLDER_NOT_FOUND', reason: 'working_folder not found' }`.
-4. [ ] Thread the chosen working directory into Codex execution:
+4. [x] Thread the chosen working directory into Codex execution:
    - Docs to read:
      - Context7 `/openai/codex` (Codex CLI option semantics; confirms `workingDirectory` is valid)
      - code_info MCP: inspect installed `@openai/codex-sdk` (how thread options are forwarded)
@@ -331,7 +331,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `workingDirectoryOverride?: string;`
    - Apply it when constructing `threadOptions` (both `useConfigDefaults` and non-config branches):
      - `workingDirectory: workingDirectoryOverride ?? (process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data')`
-5. [ ] Wire the resolved directory into agent runs:
+5. [x] Wire the resolved directory into agent runs:
    - Docs to read:
      - https://nodejs.org/api/path.html (why we treat empty/whitespace as “unset”)
    - Files to read:
@@ -340,7 +340,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - `server/src/agents/service.ts`
    - When calling `chat.run(...)`, include:
      - `workingDirectoryOverride: await resolveWorkingFolderWorkingDirectory(params.working_folder)` (or omit if it resolves to `undefined`)
-6. [ ] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the resolver
+6. [x] **Test (server unit, `node:test`)**: invalid `working_folder` (relative path) is rejected by the resolver
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/path.html
@@ -349,7 +349,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Description:
      - call `resolveWorkingFolderWorkingDirectory('relative/path')`
      - expect thrown error `{ code: 'WORKING_FOLDER_INVALID' }`.
-7. [ ] **Test (server unit, `node:test`)**: mapped path exists → resolver returns mapped path
+7. [x] **Test (server unit, `node:test`)**: mapped path exists → resolver returns mapped path
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/fs.html#fspromisesmkdirpath-options (if you need to create temp dirs)
@@ -360,7 +360,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - provide `working_folder=/host/base/repo/sub`
      - arrange filesystem so `/data/repo/sub` exists as a directory
      - assert `resolveWorkingFolderWorkingDirectory('/host/base/repo/sub')` returns `/data/repo/sub`.
-8. [ ] **Test (server unit, `node:test`)**: mapped path missing but literal exists → resolver returns literal
+8. [x] **Test (server unit, `node:test`)**: mapped path missing but literal exists → resolver returns literal
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/fs.html#fspromisesmkdirpath-options
@@ -371,7 +371,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - provide `working_folder=/some/literal/dir`
      - ensure mapped path does not exist, but `/some/literal/dir` exists as a directory
      - assert `resolveWorkingFolderWorkingDirectory('/some/literal/dir')` returns `/some/literal/dir`.
-9. [ ] **Test (server unit, `node:test`)**: neither mapped nor literal exists → resolver throws `WORKING_FOLDER_NOT_FOUND`
+9. [x] **Test (server unit, `node:test`)**: neither mapped nor literal exists → resolver throws `WORKING_FOLDER_NOT_FOUND`
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Location: `server/src/test/unit/agents-working-folder.test.ts` (new)
@@ -379,7 +379,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
    - Description:
      - provide an absolute `working_folder` where neither mapped nor literal directory exists
      - expect thrown error `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
-10. [ ] **Test (server unit, `node:test`)**: ChatInterfaceCodex uses `workingDirectoryOverride` when provided
+10. [x] **Test (server unit, `node:test`)**: ChatInterfaceCodex uses `workingDirectoryOverride` when provided
 
 - Docs to read:
   - https://nodejs.org/api/test.html
@@ -391,7 +391,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
   - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
   - assert captured `opts.workingDirectory === '/tmp/override'`.
 
-11. [ ] Update `design.md` with the new agent working-directory override flow (include Mermaid diagram) (do this after implementing the resolver + override wiring above):
+11. [x] Update `design.md` with the new agent working-directory override flow (include Mermaid diagram) (do this after implementing the resolver + override wiring above):
 
 - Docs to read:
   - Context7 `/mermaid-js/mermaid` (diagram syntax)
@@ -402,7 +402,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
   - absolute validation → mapped candidate (HOST_INGEST_DIR → CODEX_WORKDIR) → literal fallback → error
 - Include the two stable error codes: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`.
 
-12. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
+12. [x] Update `projectStructure.md` to include new server test files (do this after creating the files above):
 
 - Docs to read:
   - https://www.markdownguide.org/basic-syntax/ (safe Markdown editing)
@@ -412,14 +412,14 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
   - `agents-working-folder.test.ts`
   - `chat-codex-workingDirectoryOverride.test.ts`
 
-13. [ ] Verification commands (must run before moving to Task 3):
+13. [x] Verification commands (must run before moving to Task 3):
 
 - Docs to read:
   - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - `npm run lint --workspace server`
 - `npm run test --workspace server`
 
-14. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+14. [x] Repo-wide lint + format gate (must be the last subtask in every task):
 
 - Docs to read:
   - https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -433,22 +433,27 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/agents` can run with a valid `working_folder` that maps under `HOST_INGEST_DIR` (primary story behaviour)
    - `/agents` returns a clear error for invalid/non-existent `working_folder` (primary story behaviour)
    - `/agents` can still run without `working_folder` (backwards compatibility)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Extended `RunAgentInstructionParams` with optional `working_folder` and added stable error codes `WORKING_FOLDER_INVALID`/`WORKING_FOLDER_NOT_FOUND` in the agents service.
+- Added `resolveWorkingFolderWorkingDirectory()` which validates absolute paths (POSIX or Windows), attempts host→workdir mapping via `mapHostWorkingFolderToWorkdir()` when `HOST_INGEST_DIR` is set, then falls back to the literal directory.
+- Threaded the resolved directory into Codex execution via `workingDirectoryOverride` and ensured ChatInterfaceCodex prefers the override for both config-default and explicit ThreadOptions branches.
+- Added unit coverage for resolver happy/failure paths and for ChatInterfaceCodex’s working directory override plumbing.
+- Updated `design.md` + `projectStructure.md` to document the new working-folder resolution flow and test locations.
+- Local testing note: `npm run e2e`/`npm run compose:*` required forcing `CODEX_HOME=$PWD/codex` because this environment had `CODEX_HOME=/app/codex_agents/coding_agent` set, which causes Docker Desktop mount-denied errors on macOS.
 
 ---
 

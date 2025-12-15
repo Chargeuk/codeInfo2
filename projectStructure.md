@@ -363,6 +363,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
 - server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
 - server/src/test/unit/agents-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/run` validation/error mapping/shape
+- server/src/test/unit/agents-working-folder.test.ts — unit coverage for resolving agent working folder into a Codex workingDirectory override
+- server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list

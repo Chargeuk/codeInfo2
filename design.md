@@ -247,6 +247,26 @@ sequenceDiagram
   Svc-->>Client: { agentName, conversationId, modelId, segments }
 ```
 
+### Agent working_folder resolution
+
+- Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
+- Resolution tries a host→container mapping first (when `HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
+- Stable error codes returned by the service when resolution fails:
+  - `WORKING_FOLDER_INVALID` (non-absolute input)
+  - `WORKING_FOLDER_NOT_FOUND` (no directory exists)
+
+```mermaid
+flowchart TD
+  A[working_folder provided?] -->|no / blank| D[Use default Codex workdir]
+  A -->|yes| B[Validate absolute path]
+  B -->|invalid| E[Throw WORKING_FOLDER_INVALID]
+  B -->|ok| C[Try host→workdir mapping]
+  C -->|mapped dir exists| F[Use mapped workingDirectory]
+  C -->|mapping not possible or dir missing| G[Check literal dir exists]
+  G -->|exists| H[Use literal workingDirectory]
+  G -->|missing| I[Throw WORKING_FOLDER_NOT_FOUND]
+```
+
 ### Agents UI flow (browser)
 
 - The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:

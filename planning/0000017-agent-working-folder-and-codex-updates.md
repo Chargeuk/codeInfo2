@@ -594,7 +594,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 ### 4. Client API: add working_folder to runAgentInstruction()
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 6945d4e
 
 #### Overview
 

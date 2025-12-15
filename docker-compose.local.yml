@@ -22,6 +22,10 @@ services:
       - TEMP=${HOME}/tmp
       - TMPDIR=${HOME}/tmp
       - TEMPDIR=${HOME}/tmp
+      - GIT_AUTHOR_NAME=llm
+      - GIT_AUTHOR_EMAIL=llm@llm.com
+      - GIT_COMMITTER_NAME=llm
+      - GIT_COMMITTER_EMAIL=llm@llm.com
       # Override to use host.docker.internal for ChromaDB
       - LOG_FILE_PATH=/app/logs/server-local.log
       - LMSTUDIO_BASE_URL=http://host.docker.internal:1234

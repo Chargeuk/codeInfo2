@@ -842,7 +842,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 ### 6. MCP 5012: extend run_agent_instruction schema to accept working_folder
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: efa6f00
 
 #### Overview
 

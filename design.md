@@ -247,6 +247,40 @@ sequenceDiagram
   Svc-->>Client: { agentName, conversationId, modelId, segments }
 ```
 
+### POST /agents/:agentName/run (REST)
+
+- Request body:
+  - `instruction: string` (required)
+  - `conversationId?: string`
+  - `working_folder?: string` (optional; absolute path string)
+- Working-folder resolution errors map to HTTP 400 with a stable error code:
+  - `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', message: '...' }`
+  - `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
+
+```mermaid
+sequenceDiagram
+  participant Browser as Browser UI
+  participant Route as Express route\\nPOST /agents/:agentName/run
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Codex as ChatInterfaceCodex
+
+  Browser->>Route: POST { instruction, conversationId?, working_folder? }
+  Route->>Svc: runAgentInstruction(... working_folder?)
+  Svc->>Svc: resolveWorkingFolderWorkingDirectory()
+  alt working_folder invalid
+    Svc-->>Route: throw WORKING_FOLDER_INVALID
+    Route-->>Browser: 400 { error: invalid_request, code: WORKING_FOLDER_INVALID }
+  else working_folder not found
+    Svc-->>Route: throw WORKING_FOLDER_NOT_FOUND
+    Route-->>Browser: 400 { error: invalid_request, code: WORKING_FOLDER_NOT_FOUND }
+  else resolved
+    Svc->>Codex: runStreamed(... workingDirectoryOverride)
+    Codex-->>Svc: streamed events
+    Svc-->>Route: { agentName, conversationId, modelId, segments }
+    Route-->>Browser: 200 JSON
+  end
+```
+
 ### Agent working_folder resolution
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.

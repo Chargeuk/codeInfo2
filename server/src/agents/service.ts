@@ -13,12 +13,11 @@ import {
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
+import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
-
-import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 
 import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';

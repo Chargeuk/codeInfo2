@@ -18,10 +18,14 @@ services:
       - server/.env.local
     environment:
       - HOME=${HOME}
+      - TMP=${HOME}/tmp
+      - TEMP=${HOME}/tmp
+      - TMPDIR=${HOME}/tmp
+      - TEMPDIR=${HOME}/tmp
       # Override to use host.docker.internal for ChromaDB
       - LOG_FILE_PATH=/app/logs/server-local.log
       - LMSTUDIO_BASE_URL=http://host.docker.internal:1234
-      - CHROMA_URL=http://host.docker.internal:8100
+      - CHROMA_URL=http://host.docker.internal:8200
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - MCP_PORT=5011 # Codex-only MCP JSON-RPC port
@@ -109,7 +113,7 @@ services:
       - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4417/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
-      - '8100:8000'
+      - '8200:8000'
     networks:
       - internal
     healthcheck:

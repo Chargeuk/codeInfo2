@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import mongoose from 'mongoose';
 import type {
   ChatEvent,
   ChatToolResultEvent,
@@ -124,6 +125,12 @@ describe('ChatInterfaceCodex', () => {
   });
 
   it('updates flags.threadId without overwriting other flags keys', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 1,
+      configurable: true,
+    });
+
     const original = ConversationModel.findByIdAndUpdate;
     const captured: Array<{
       id: unknown;
@@ -149,6 +156,10 @@ describe('ChatInterfaceCodex', () => {
       });
     } finally {
       ConversationModel.findByIdAndUpdate = original;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
     }
 
     assert.equal(captured.length, 1);
@@ -156,5 +167,38 @@ describe('ChatInterfaceCodex', () => {
     assert.deepEqual(captured[0]?.update, {
       $set: { 'flags.threadId': 'tid-2' },
     });
+  });
+
+  it('does not attempt thread id persistence when Mongo is unavailable', async () => {
+    const originalReady = mongoose.connection.readyState;
+    Object.defineProperty(mongoose.connection, 'readyState', {
+      value: 0,
+      configurable: true,
+    });
+
+    const original = ConversationModel.findByIdAndUpdate;
+    let called = false;
+
+    ConversationModel.findByIdAndUpdate = (() => {
+      called = true;
+      return { exec: async () => null } as unknown as ReturnType<
+        typeof ConversationModel.findByIdAndUpdate
+      >;
+    }) as unknown as typeof ConversationModel.findByIdAndUpdate;
+
+    try {
+      await updateConversationThreadId({
+        conversationId: 'conv-flags',
+        threadId: 'tid-2',
+      });
+    } finally {
+      ConversationModel.findByIdAndUpdate = original;
+      Object.defineProperty(mongoose.connection, 'readyState', {
+        value: originalReady,
+        configurable: true,
+      });
+    }
+
+    assert.equal(called, false);
   });
 });

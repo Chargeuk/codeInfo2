@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import {
   ConversationModel,
   Conversation,
@@ -90,6 +91,9 @@ export async function updateConversationThreadId({
   conversationId: string;
   threadId: string;
 }): Promise<Conversation | null> {
+  // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
+  if (mongoose.connection.readyState !== 1) return null;
+
   return ConversationModel.findByIdAndUpdate(
     conversationId,
     { $set: { 'flags.threadId': threadId } },

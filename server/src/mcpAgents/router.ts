@@ -35,8 +35,43 @@ export async function handleAgentsRpc(
   res: ServerResponse,
 ) {
   const body = await readBody(req);
+  const writeHeadersIfNeeded = () => {
+    if (res.headersSent) return;
+    res.writeHead(200, {
+      'content-type': 'application/json; charset=utf-8',
+    });
+    res.flushHeaders?.();
+  };
+
+  let keepAliveTimer: NodeJS.Timeout | undefined;
+  const stopKeepAlive = () => {
+    if (!keepAliveTimer) return;
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = undefined;
+  };
+
+  const startKeepAlive = () => {
+    if (keepAliveTimer) return;
+    writeHeadersIfNeeded();
+    // Ensure headers + body start flowing so proxies/clients don't treat the
+    // connection as idle while a long-running tool call is executing.
+    res.write(' ');
+    keepAliveTimer = setInterval(() => {
+      if (res.writableEnded || res.destroyed) {
+        stopKeepAlive();
+        return;
+      }
+      res.write('\n');
+    }, 10_000);
+    keepAliveTimer.unref?.();
+  };
+
+  res.on('close', stopKeepAlive);
+  res.on('error', stopKeepAlive);
+
   const send = (payload: unknown) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
+    stopKeepAlive();
+    writeHeadersIfNeeded();
     res.end(JSON.stringify(payload));
   };
 
@@ -50,6 +85,7 @@ export async function handleAgentsRpc(
 
   const id: JsonRpcId = (message as { id?: JsonRpcId } | null)?.id ?? null;
 
+  startKeepAlive();
   const response = await dispatchJsonRpc<JsonRpcId, unknown>({
     message,
     getId: () => id,

@@ -44,7 +44,7 @@ After this story, both MCP implementations still exist and still behave exactly 
 - Documentation is updated to explain:
   - why two MCP implementations exist,
   - where shared core code lives,
-  - what *must not* be changed when adding new MCP tools.
+  - what _must not_ be changed when adding new MCP tools.
 
 ### Out Of Scope
 
@@ -54,8 +54,6 @@ After this story, both MCP implementations still exist and still behave exactly 
 - Reworking the Codex detection/gating model.
 
 ### Questions
-
-
 
 # Implementation Plan
 
@@ -82,7 +80,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Add characterization tests for both MCP servers
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: c05ed41, 27ef963
 
 #### Overview
@@ -219,220 +217,257 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
    - Files to edit: `server/src/test/integration/mcp-server.test.ts`
    - Non-negotiables: preserve the internal-error mapping and response shape.
 10. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.test.ts`
-   - Type: Node `node:test` + Supertest (Express in-memory).
-   - Location: `server/src/test/integration/mcp-server.test.ts`
-   - Description: thrown `ValidationError` instances map to `-32602` with `error.data.details`.
-   - Purpose: prove `/mcp` validation error payload shape remains unchanged.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Invalid params”: https://www.jsonrpc.org/specification
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
-   - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
-   - Files to edit: `server/src/test/integration/mcp-server.test.ts`
-   - Non-negotiables: preserve `error.data.details` structure.
+
+- Type: Node `node:test` + Supertest (Express in-memory).
+- Location: `server/src/test/integration/mcp-server.test.ts`
+- Description: thrown `ValidationError` instances map to `-32602` with `error.data.details`.
+- Purpose: prove `/mcp` validation error payload shape remains unchanged.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Invalid params”: https://www.jsonrpc.org/specification
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
+- Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.test.ts`
+- Files to edit: `server/src/test/integration/mcp-server.test.ts`
+- Non-negotiables: preserve `error.data.details` structure.
+
 11. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Type: Node `node:test` + Supertest (Express in-memory).
-   - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Description: `tools/call` responses are returned as `text` content (ListIngestedRepositories).
-   - Purpose: prove tool response encoding stays compatible with Codex expectations.
-   - Docs to read (repeat):
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
-     - MCP spec (tools/call result): https://modelcontextprotocol.io/
-   - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Non-negotiables: preserve the Codex-compatible `text` content encoding.
+
+- Type: Node `node:test` + Supertest (Express in-memory).
+- Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Description: `tools/call` responses are returned as `text` content (ListIngestedRepositories).
+- Purpose: prove tool response encoding stays compatible with Codex expectations.
+- Docs to read (repeat):
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
+  - MCP spec (tools/call result): https://modelcontextprotocol.io/
+- Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Non-negotiables: preserve the Codex-compatible `text` content encoding.
+
 12. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Type: Node `node:test` + Supertest (Express in-memory).
-   - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Description: `VectorSearch` content is `text` and parsable JSON.
-   - Purpose: prove vector search tool encoding stays compatible with Codex expectations.
-   - Docs to read (repeat):
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
-     - MCP spec (tools/call result): https://modelcontextprotocol.io/
-   - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Non-negotiables: preserve encoding + JSON string parseability.
+
+- Type: Node `node:test` + Supertest (Express in-memory).
+- Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Description: `VectorSearch` content is `text` and parsable JSON.
+- Purpose: prove vector search tool encoding stays compatible with Codex expectations.
+- Docs to read (repeat):
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
+  - MCP spec (tools/call result): https://modelcontextprotocol.io/
+- Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Non-negotiables: preserve encoding + JSON string parseability.
+
 13. [x] **Integration test case (update existing)** — `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Type: Node `node:test` + Supertest (Express in-memory).
-   - Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Description: `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resourceTemplates: [] }`.
-   - Purpose: prove `/mcp` resources payload keys remain unchanged.
-   - Docs to read (repeat):
-     - MCP spec (resources): https://modelcontextprotocol.io/
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
-   - Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
-   - Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
+
+- Type: Node `node:test` + Supertest (Express in-memory).
+- Location: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Description: `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resourceTemplates: [] }`.
+- Purpose: prove `/mcp` resources payload keys remain unchanged.
+- Docs to read (repeat):
+  - MCP spec (resources): https://modelcontextprotocol.io/
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Supertest: Context7 `/ladjs/supertest` and DeepWiki `ladjs/supertest`
+- Files to read: `server/src/mcp/server.ts`, `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Files to edit: `server/src/test/integration/mcp-server.codex-compat.test.ts`
+- Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
+
 14. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-initialize.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-initialize.test.ts`
-   - Description: MCP v2 `initialize` returns protocolVersion/capabilities/serverInfo.
-   - Purpose: prove MCP v2 initialize wire format is unchanged.
-   - Docs to read (repeat):
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Node `http`: https://nodejs.org/api/http.html
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-     - MCP spec: https://modelcontextprotocol.io/
-     - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts`
-   - Files to edit: `server/src/test/unit/mcp2-router-initialize.test.ts`
-   - Non-negotiables: preserve `serverInfo` values and how version is sourced in MCP v2.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-initialize.test.ts`
+- Description: MCP v2 `initialize` returns protocolVersion/capabilities/serverInfo.
+- Purpose: prove MCP v2 initialize wire format is unchanged.
+- Docs to read (repeat):
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Node `http`: https://nodejs.org/api/http.html
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+  - MCP spec: https://modelcontextprotocol.io/
+  - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts`
+- Files to edit: `server/src/test/unit/mcp2-router-initialize.test.ts`
+- Non-negotiables: preserve `serverInfo` values and how version is sourced in MCP v2.
+
 15. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-happy.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-list-happy.test.ts`
-   - Description: MCP v2 `tools/list` returns tool definitions when Codex is available.
-   - Purpose: prove MCP v2 tool-list output stays unchanged when available.
-   - Docs to read (repeat):
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Node `http`: https://nodejs.org/api/http.html
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-     - MCP spec (tools/list): https://modelcontextprotocol.io/
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts`
-   - Files to edit: `server/src/test/unit/mcp2-router-list-happy.test.ts`
-   - Non-negotiables: preserve tool list payload structure and gating conditions.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-list-happy.test.ts`
+- Description: MCP v2 `tools/list` returns tool definitions when Codex is available.
+- Purpose: prove MCP v2 tool-list output stays unchanged when available.
+- Docs to read (repeat):
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Node `http`: https://nodejs.org/api/http.html
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+  - MCP spec (tools/list): https://modelcontextprotocol.io/
+- Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts`
+- Files to edit: `server/src/test/unit/mcp2-router-list-happy.test.ts`
+- Non-negotiables: preserve tool list payload structure and gating conditions.
+
 16. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Description: MCP v2 `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE (-32001)` when Codex is missing.
-   - Purpose: prove MCP v2 gating behavior is unchanged.
-   - Docs to read (repeat):
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Node `http`: https://nodejs.org/api/http.html
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-     - JSON-RPC 2.0 error envelope: https://www.jsonrpc.org/specification
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/codexAvailability.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Non-negotiables: preserve `-32001` and exact error message string.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Description: MCP v2 `tools/list` returns `CODE_INFO_LLM_UNAVAILABLE (-32001)` when Codex is missing.
+- Purpose: prove MCP v2 gating behavior is unchanged.
+- Docs to read (repeat):
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Node `http`: https://nodejs.org/api/http.html
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+  - JSON-RPC 2.0 error envelope: https://www.jsonrpc.org/specification
+- Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/codexAvailability.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Non-negotiables: preserve `-32001` and exact error message string.
+
 17. [x] **Unit test case (update existing)** — `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Description: MCP v2 `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resource_templates: [] }`.
-   - Purpose: prove MCP v2 resource payload keys remain unchanged.
-   - Docs to read (repeat):
-     - MCP spec (resources): https://modelcontextprotocol.io/
-     - Node `node:test`: https://nodejs.org/api/test.html
-     - Node `http`: https://nodejs.org/api/http.html
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
-   - Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Description: MCP v2 `resources/list` returns `{ resources: [] }` and `resources/listTemplates` returns `{ resource_templates: [] }`.
+- Purpose: prove MCP v2 resource payload keys remain unchanged.
+- Docs to read (repeat):
+  - MCP spec (resources): https://modelcontextprotocol.io/
+  - Node `node:test`: https://nodejs.org/api/test.html
+  - Node `http`: https://nodejs.org/api/http.html
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+- Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Files to edit: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`
+- Non-negotiables: preserve key naming differences between `/mcp` and MCP v2 (`resourceTemplates` vs `resource_templates`).
+
 18. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-parse-error.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + raw `http.request`.
-   - Location: `server/src/test/unit/mcp2-router-parse-error.test.ts`
-   - Description: invalid JSON request body returns parse error `-32700`, `id: null`, message `"Parse error"`.
-   - Purpose: prove MCP v2 parse-error behavior is unchanged after refactor.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Parse error”: https://www.jsonrpc.org/specification
-     - Node `http` (raw request): https://nodejs.org/api/http.html
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/router.ts` (specifically `readBody` + `JSON.parse` try/catch patterns), `server/src/test/unit/mcp2-router-list-happy.test.ts` (for the existing `http.createServer(handleRpc)` pattern).
-   - Files to edit (new): `server/src/test/unit/mcp2-router-parse-error.test.ts`
-   - Suggested request snippet (keep payload invalid JSON on purpose):
-     - `body: \"{ not valid json\"`
-   - Non-negotiables: response must be JSON-RPC error with `id: null` and code `-32700`.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + raw `http.request`.
+- Location: `server/src/test/unit/mcp2-router-parse-error.test.ts`
+- Description: invalid JSON request body returns parse error `-32700`, `id: null`, message `"Parse error"`.
+- Purpose: prove MCP v2 parse-error behavior is unchanged after refactor.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Parse error”: https://www.jsonrpc.org/specification
+  - Node `http` (raw request): https://nodejs.org/api/http.html
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/router.ts` (specifically `readBody` + `JSON.parse` try/catch patterns), `server/src/test/unit/mcp2-router-list-happy.test.ts` (for the existing `http.createServer(handleRpc)` pattern).
+- Files to edit (new): `server/src/test/unit/mcp2-router-parse-error.test.ts`
+- Suggested request snippet (keep payload invalid JSON on purpose):
+  - `body: \"{ not valid json\"`
+- Non-negotiables: response must be JSON-RPC error with `id: null` and code `-32700`.
+
 19. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-invalid-request.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-invalid-request.test.ts`
-   - Description: invalid JSON-RPC request shape returns `-32600` `"Invalid Request"`.
-   - Purpose: prove MCP v2 invalid-request behavior is unchanged after refactor.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Invalid Request”: https://www.jsonrpc.org/specification
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts` (for the “start server, call fetch” pattern).
-   - Files to edit (new): `server/src/test/unit/mcp2-router-invalid-request.test.ts`
-   - Non-negotiables: preserve error code/message and `id` behavior for invalid requests (match existing implementation).
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-invalid-request.test.ts`
+- Description: invalid JSON-RPC request shape returns `-32600` `"Invalid Request"`.
+- Purpose: prove MCP v2 invalid-request behavior is unchanged after refactor.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Invalid Request”: https://www.jsonrpc.org/specification
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-initialize.test.ts` (for the “start server, call fetch” pattern).
+- Files to edit (new): `server/src/test/unit/mcp2-router-invalid-request.test.ts`
+- Non-negotiables: preserve error code/message and `id` behavior for invalid requests (match existing implementation).
+
 20. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-method-not-found.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-method-not-found.test.ts`
-   - Description: unknown JSON-RPC method returns `-32601` `"Method not found"`.
-   - Purpose: prove MCP v2 method-not-found behavior is unchanged.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Method not found”: https://www.jsonrpc.org/specification
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts` (pattern).
-   - Files to edit (new): `server/src/test/unit/mcp2-router-method-not-found.test.ts`
-   - Non-negotiables: preserve error code/message and response shape.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-method-not-found.test.ts`
+- Description: unknown JSON-RPC method returns `-32601` `"Method not found"`.
+- Purpose: prove MCP v2 method-not-found behavior is unchanged.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Method not found”: https://www.jsonrpc.org/specification
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/router.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts` (pattern).
+- Files to edit (new): `server/src/test/unit/mcp2-router-method-not-found.test.ts`
+- Non-negotiables: preserve error code/message and response shape.
+
 21. [x] **Unit test case (add new)** — `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
-   - Description: `tools/call` with unknown tool name returns `-32601` with message `Tool not found: <name>`.
-   - Purpose: prove MCP v2 unknown-tool mapping is unchanged.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Method not found”: https://www.jsonrpc.org/specification
-     - MCP spec (tools/call): https://modelcontextprotocol.io/
-     - Node `fetch`: https://nodejs.org/api/globals.html#fetch
-   - Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Files to edit (new): `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
-   - Non-negotiables: preserve the “unknown tool maps to method-not-found” behavior even if you disagree with it.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
+- Description: `tools/call` with unknown tool name returns `-32601` with message `Tool not found: <name>`.
+- Purpose: prove MCP v2 unknown-tool mapping is unchanged.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Method not found”: https://www.jsonrpc.org/specification
+  - MCP spec (tools/call): https://modelcontextprotocol.io/
+  - Node `fetch`: https://nodejs.org/api/globals.html#fetch
+- Files to read: `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Files to edit (new): `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
+- Non-negotiables: preserve the “unknown tool maps to method-not-found” behavior even if you disagree with it.
+
 22. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Description: `codebase_question` returns `content[0].type === "text"` JSON with segments order `thinking -> vector_summary -> answer`.
-   - Purpose: prove MCP v2 `codebase_question` output shape is unchanged.
-   - Docs to read (repeat):
-     - MCP spec (tools/call result): https://modelcontextprotocol.io/
-     - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Non-negotiables: preserve the exact JSON string layout inside `content[0].text` (segment ordering and keys).
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Description: `codebase_question` returns `content[0].type === "text"` JSON with segments order `thinking -> vector_summary -> answer`.
+- Purpose: prove MCP v2 `codebase_question` output shape is unchanged.
+- Docs to read (repeat):
+  - MCP spec (tools/call result): https://modelcontextprotocol.io/
+  - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Non-negotiables: preserve the exact JSON string layout inside `content[0].text` (segment ordering and keys).
+
 23. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Description: `codebase_question` preserves conversation id and resumes the same Codex thread on follow-up.
-   - Purpose: prove MCP v2 conversation continuity is unchanged.
-   - Docs to read (repeat):
-     - MCP spec (tools/call): https://modelcontextprotocol.io/
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mongo/repo.ts` (conversation persistence behavior), `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Non-negotiables: do not change how `conversationId`/thread ids are generated or returned.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Description: `codebase_question` preserves conversation id and resumes the same Codex thread on follow-up.
+- Purpose: prove MCP v2 conversation continuity is unchanged.
+- Docs to read (repeat):
+  - MCP spec (tools/call): https://modelcontextprotocol.io/
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mongo/repo.ts` (conversation persistence behavior), `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+- Non-negotiables: do not change how `conversationId`/thread ids are generated or returned.
+
 24. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-   - Description: `codebase_question` is gated when Codex unavailable (returns `-32001 CODE_INFO_LLM_UNAVAILABLE`).
-   - Purpose: prove MCP v2 tool gating is unchanged.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 error envelope: https://www.jsonrpc.org/specification
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/codexAvailability.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-   - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
-   - Non-negotiables: preserve code `-32001` and the exact message string.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- Description: `codebase_question` is gated when Codex unavailable (returns `-32001 CODE_INFO_LLM_UNAVAILABLE`).
+- Purpose: prove MCP v2 tool gating is unchanged.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 error envelope: https://www.jsonrpc.org/specification
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/codexAvailability.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+- Non-negotiables: preserve code `-32001` and the exact message string.
+
 25. [x] **Unit test case (update existing)** — `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-   - Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
-   - Location: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-   - Description: missing required `question` returns `-32602` `"Invalid params"`.
-   - Purpose: prove MCP v2 invalid-params mapping is unchanged.
-   - Docs to read (repeat):
-     - JSON-RPC 2.0 “Invalid params”: https://www.jsonrpc.org/specification
-     - Node `node:test`: https://nodejs.org/api/test.html
-   - Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-   - Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
-   - Non-negotiables: preserve code/message and any `error.data` fields.
+
+- Type: Node `node:test` + `http.createServer(handleRpc)` + `fetch`.
+- Location: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+- Description: missing required `question` returns `-32602` `"Invalid params"`.
+- Purpose: prove MCP v2 invalid-params mapping is unchanged.
+- Docs to read (repeat):
+  - JSON-RPC 2.0 “Invalid params”: https://www.jsonrpc.org/specification
+  - Node `node:test`: https://nodejs.org/api/test.html
+- Files to read: `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+- Files to edit: `server/src/test/mcp2/tools/codebaseQuestion.validation.test.ts`
+- Non-negotiables: preserve code/message and any `error.data` fields.
+
 26. [x] Update `projectStructure.md` (refactor-only) with explicit entries/updates for every **new** test file added in this task:
-   - Add `server/src/test/unit/mcp2-router-parse-error.test.ts` — MCP v2 parse error contract (`-32700`) characterization.
-   - Add `server/src/test/unit/mcp2-router-invalid-request.test.ts` — MCP v2 invalid request contract (`-32600`) characterization.
-   - Add `server/src/test/unit/mcp2-router-method-not-found.test.ts` — MCP v2 method not found contract (`-32601`) characterization.
-   - Add `server/src/test/unit/mcp2-router-tool-not-found.test.ts` — MCP v2 unknown tool mapping contract (`-32601`) characterization.
-   - Docs to read (repeat, if unfamiliar with Markdown lists/code blocks): https://docs.github.com/en/get-started/writing-on-github
-   - Files to read: `projectStructure.md` (existing MCP/mcp2 sections for formatting consistency)
-   - Files to edit: `projectStructure.md`
-   - Non-negotiables: do not rename/move files in this story; only add/update descriptions for files added by this plan.
+
+- Add `server/src/test/unit/mcp2-router-parse-error.test.ts` — MCP v2 parse error contract (`-32700`) characterization.
+- Add `server/src/test/unit/mcp2-router-invalid-request.test.ts` — MCP v2 invalid request contract (`-32600`) characterization.
+- Add `server/src/test/unit/mcp2-router-method-not-found.test.ts` — MCP v2 method not found contract (`-32601`) characterization.
+- Add `server/src/test/unit/mcp2-router-tool-not-found.test.ts` — MCP v2 unknown tool mapping contract (`-32601`) characterization.
+- Docs to read (repeat, if unfamiliar with Markdown lists/code blocks): https://docs.github.com/en/get-started/writing-on-github
+- Files to read: `projectStructure.md` (existing MCP/mcp2 sections for formatting consistency)
+- Files to edit: `projectStructure.md`
+- Non-negotiables: do not rename/move files in this story; only add/update descriptions for files added by this plan.
+
 27. [x] Files to read / edit for all tests in this task:
-   - Files to read: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/mcp2/errors.ts`.
-   - Files to edit: all test files listed above.
-   - Docs to read (repeat): MCP spec https://modelcontextprotocol.io/ and JSON-RPC spec https://www.jsonrpc.org/specification
-   - Non-negotiables: treat tests as “characterization”; do not change product behavior to satisfy a refactor convenience.
+
+- Files to read: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools.ts`, `server/src/mcp2/errors.ts`.
+- Files to edit: all test files listed above.
+- Docs to read (repeat): MCP spec https://modelcontextprotocol.io/ and JSON-RPC spec https://www.jsonrpc.org/specification
+- Non-negotiables: treat tests as “characterization”; do not change product behavior to satisfy a refactor convenience.
+
 28. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read (repeat):
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Non-negotiables: treat lint/format failures as blockers; fix them before moving on.
+
+- Docs to read (repeat):
+  - ESLint CLI: Context7 `/eslint/eslint`
+  - Prettier CLI: Context7 `/prettier/prettier`
+- Non-negotiables: treat lint/format failures as blockers; fix them before moving on.
 
 #### Testing
 
@@ -480,12 +515,11 @@ Before refactoring, add tests that lock in the current JSON-RPC request/response
   - Compose: `npm run compose:build`, `npm run compose:up`, curl smoke for `/mcp` and MCP v2 `initialize`/`tools/list`, `npm run compose:down`.
   - Screenshot saved locally (gitignored): `test-results/screenshots/0000015-01-mcp-contracts.png`.
 
-
 ---
 
 ### 2. Introduce a shared MCP core module
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 52e2f05, 277787e
 
 #### Overview
@@ -532,7 +566,11 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
      export type JsonRpcId = string | number | null;
      export type JsonRpcResponse =
        | { jsonrpc: '2.0'; id: JsonRpcId; result: unknown }
-       | { jsonrpc: '2.0'; id: JsonRpcId; error: { code: number; message: string; data?: unknown } };
+       | {
+           jsonrpc: '2.0';
+           id: JsonRpcId;
+           error: { code: number; message: string; data?: unknown };
+         };
      ```
 3. [x] Define the dispatcher API so a junior can implement without design work:
    - Inputs:
@@ -615,10 +653,11 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
    - Files to edit: `projectStructure.md`
    - Non-negotiables: keep file descriptions factual and specific; do not imply behavior changes.
 10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix` and `npm run format --workspaces`) and manually resolve remaining issues, then rerun `npm run lint --workspaces` and `npm run format:check --workspaces`.
-   - Docs to read (repeat):
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Non-negotiables: treat lint/format failures as blockers; fix them before moving on.
+
+- Docs to read (repeat):
+  - ESLint CLI: Context7 `/eslint/eslint`
+  - Prettier CLI: Context7 `/prettier/prettier`
+- Non-negotiables: treat lint/format failures as blockers; fix them before moving on.
 
 #### Testing
 
@@ -642,12 +681,11 @@ Create a small shared “MCP core” module that contains the duplicated JSON-RP
 - Added unit characterization `server/src/test/unit/mcp-common-dispatch.test.ts` to lock in the “verbatim handler output” invariant.
 - Verification run (2025-12-13): lint/format ok, server/client builds ok, server/client tests ok, full `npm run e2e` ok, compose build/up/down ok; screenshot saved locally (gitignored) at `test-results/screenshots/0000015-02-mcp-common.png`.
 
-
 ---
 
 ### 3. Refactor Express MCP (`server/src/mcp/server.ts`) to use the shared core
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 863a565, b2b5c70
 
 #### Overview
@@ -740,7 +778,7 @@ Refactor the Express MCP router implementation to delegate JSON-RPC/MCP infrastr
 
 ### 4. Refactor MCP v2 router (`server/src/mcp2/router.ts`) to use the shared core
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 87f1d7f, bff802b
 
 #### Overview
@@ -836,7 +874,7 @@ Refactor the standalone MCP v2 router to use the shared core for JSON-RPC method
 
 ### 5. Final task – verify against acceptance criteria
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 40353f5, 571cf3b, abd1d17, 3bbac26, 9aaf2d8, 6665e86, 8a1822c, 9adf91c, 546b802
 
 #### Overview

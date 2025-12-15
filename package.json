@@ -19,7 +19,6 @@
     "compose:build:clean": "docker compose --env-file server/.env build --pull --no-cache",
     "compose": "npm run compose:build && npm run compose:up",
     "compose:clean": "npm run compose:build:clean && npm run compose:up",
-
     "compose:local:up": "docker compose --env-file server/.env -f docker-compose.local.yml up -d",
     "compose:local:down": "docker compose --env-file server/.env -f docker-compose.local.yml down",
     "compose:local:logs": "docker compose --env-file server/.env -f docker-compose.local.yml logs -f",
@@ -27,15 +26,17 @@
     "compose:local:build:clean": "docker compose --env-file server/.env -f docker-compose.local.yml build --pull --no-cache",
     "compose:local": "npm run compose:local:build && npm run compose:local:up",
     "compose:local:clean": "npm run compose:local:build:clean && npm run compose:local:up",
-
-    "compose:e2e:build": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml build --pull --no-cache",
+    "compose:e2e:build": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml build",
+    "compose:e2e:build:clean": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml build --pull --no-cache",
     "compose:e2e:clean": "docker volume rm codeinfo2_chroma-e2e-data 2>/dev/null || true",
     "compose:e2e:up": "npm run compose:e2e:clean && docker compose --env-file .env.e2e -f docker-compose.e2e.yml up -d",
     "compose:e2e:down": "docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v",
     "e2e:up": "npm run compose:e2e:up",
-    "e2e:test": "E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://localhost:6010 npx playwright test e2e",
+    "e2e:test": "E2E_BASE_URL=http://host.docker.internal:6001 E2E_API_URL=http://host.docker.internal:6010 npx playwright test e2e",
+    "e2e:test:local": "E2E_BASE_URL=http://localhost:6001 E2E_API_URL=http://host.docker.internal:6010 npx playwright test e2e",
     "e2e:down": "npm run compose:e2e:down",
     "e2e": "npm run compose:e2e:build && npm run e2e:up && npm run e2e:test && npm run e2e:down",
+    "e2e:clean": "npm run compose:e2e:build:clean && npm run e2e:up && npm run e2e:test && npm run e2e:down",
     "prepare": "husky install"
   },
   "repository": {

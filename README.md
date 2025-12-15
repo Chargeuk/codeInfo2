@@ -99,7 +99,7 @@ codex_agents/<agentName>/
 - Note: the server intentionally exposes **two** MCP surfaces:
   - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`).
   - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, documented under **MCP (codebase_question)** below).
-  Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
+    Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
 - Quick smoke (host):

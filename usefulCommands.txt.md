@@ -3,10 +3,10 @@ Please read Agents.md and follow it's instructions. Give me an overview of the p
 
 Tasks:
 can you check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the
-  tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the front end and MPC servers be ablt to actually
-  do what we want them to do because the server has exposed the right informaiton and input logic. will existing functionality break because we
-  have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if
-  so those investigations should be performed now so the story becomes a concrete set of tasks.
+tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the front end and MPC servers be ablt to actually
+do what we want them to do because the server has exposed the right informaiton and input logic. will existing functionality break because we
+have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if
+so those investigations should be performed now so the story becomes a concrete set of tasks.
 
 are there any complex or risky items that we could consider simplifying to de-risk?
 
@@ -29,6 +29,7 @@ some tasks do not have a final subtask to fix linting and prettier (format)
 The last subtask of every task should be Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:
+
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`

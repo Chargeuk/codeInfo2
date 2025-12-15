@@ -110,7 +110,7 @@ services:
     environment:
       - IS_PERSISTENT=True
       - ANONYMIZED_TELEMETRY=False
-      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4417/
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4517/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
       - '8200:8000'
@@ -136,8 +136,8 @@ services:
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - '4417:4317'
-      - '4418:4318'
+      - '4517:4317'
+      - '4518:4318'
     networks:
       - internal
 
@@ -145,7 +145,7 @@ services:
     container_name: codeinfo2-zipkin-local
     image: openzipkin/zipkin
     ports:
-      - '9511:9411'
+      - '9611:9411'
     depends_on: [otel-collector]
     networks:
       - internal

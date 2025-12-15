@@ -52,7 +52,7 @@ Copy the standard Implementation Plan instructions from `planning/plan_format.md
 
 ### 1. Extract ChatInterface base and factory scaffold
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **6b7b7f1**
 
 #### Overview
@@ -103,7 +103,7 @@ Create the foundational `ChatInterface` abstraction with normalized streaming ev
 
 ### 2. Move Codex REST onto ChatInterface
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **6b7b7f1**
 
 #### Overview
@@ -170,7 +170,7 @@ Implement `ChatInterfaceCodex` and route the Codex REST `/chat` path through the
 
 ### 3. Move LM Studio REST onto ChatInterface
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **ecfc75f, 63e6c55**
 
 #### Overview
@@ -237,7 +237,7 @@ Implement `ChatInterfaceLMStudio`, route the LM Studio REST `/chat` path through
 
 ### 4. Build MCP wrapper and wire Codex through it
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **1e82b4f, d98a053**
 
 #### Overview
@@ -303,7 +303,7 @@ Create the MCP responder/adapter that consumes normalized ChatInterface events a
 
 ### 5. Enable LM Studio via MCP using the wrapper
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **681cc35**
 
 #### Overview
@@ -370,7 +370,7 @@ Allow the factory to return LM Studio for MCP requests, using the same wrapper t
 
 ### 6. Persist MCP chats and add source metadata
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **cbeea9f**
 
 #### Overview
@@ -430,7 +430,7 @@ Store MCP conversations so LM Studio chats can be resumed, and track the request
 
 ### 7. Configuration and cleanup
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **2f22316**
 
 #### Overview
@@ -486,7 +486,7 @@ Keep provider-specific configs inside subclasses, static provider list in factor
 
 ### 8. Persist user turns inside ChatInterface
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **4fbce7e**
 
 #### Overview
@@ -537,7 +537,7 @@ Move user-turn persistence into the shared `ChatInterface` so both REST and MCP 
 
 ### 9. Base-driven assistant persistence
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **24b0d9c, ca36ab0, 5af9cc3**
 
 #### Overview
@@ -591,7 +591,7 @@ Move assistant/tool persistence into `ChatInterface` by having the base subscrib
 
 ### 10. Documentation and diagrams
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **edf785c, d694b59**
 
 #### Overview
@@ -636,7 +636,7 @@ Document the base-managed persistence flow: ChatInterface buffers its own events
 
 ### 11. Final validation (story-level)
 
-- Task Status: ****done****
+- Task Status: \***\*done\*\***
 - Git Commits: **52fb539, 70f029d, 0ce06b5, ca930b2**
 
 #### Overview

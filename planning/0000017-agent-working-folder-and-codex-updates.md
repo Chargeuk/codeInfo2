@@ -79,7 +79,6 @@ Separately, we need to keep Codex UI/options up to date by adding `gpt-5.2` and 
 ---
 
 ## Questions
- 
 
 ---
 
@@ -93,8 +92,9 @@ Follow `planning/plan_format.md` (update Task Status before coding; work tasks i
 
 ### 1. Extend path mapping for working_folder (host → workdir)
 
-- Task Status: __in_progress__
+- Task Status: **in_progress**
 - Git Commits: d7f5f18, 6d65d49
+
 #### Overview
 
 Reuse and extend the existing ingest path mapping module to support mapping an agent-run `working_folder` from a host path into the Codex workdir, including traversal guards and unit tests.
@@ -131,7 +131,12 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
        opts: { hostIngestDir: string; codexWorkdir: string },
      ):
        | { mappedPath: string; relPath: string }
-       | { error: { code: 'INVALID_ABSOLUTE_PATH' | 'OUTSIDE_HOST_INGEST_DIR'; message: string } };
+       | {
+           error: {
+             code: 'INVALID_ABSOLUTE_PATH' | 'OUTSIDE_HOST_INGEST_DIR';
+             message: string;
+           };
+         };
      ```
    - Required algorithm (copy/paste guidance):
      - Use the same normalization conventions as `mapIngestPath()`:
@@ -139,13 +144,13 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
        - `normalizedHostIngestDir = path.posix.normalize(opts.hostIngestDir.replace(/\\\\/g, '/'))`
        - `normalizedCodexWorkdir = path.posix.normalize(opts.codexWorkdir.replace(/\\\\/g, '/'))`
      - Validate `path.posix.isAbsolute(normalizedHostWorkingFolder)` and `path.posix.isAbsolute(normalizedHostIngestDir)`; else return `INVALID_ABSOLUTE_PATH`.
-       - Note: Windows absolute paths are handled at the *service* layer in Task 2 and will typically skip mapping; this helper is intentionally POSIX-style to match the existing `pathMap.ts` module.
-    - **Simpler + lower-risk containment check (no `relative()`):**
-      - `hostIngestDirNoTrailingSlash = normalizedHostIngestDir !== '/' && normalizedHostIngestDir.endsWith('/') ? normalizedHostIngestDir.slice(0, -1) : normalizedHostIngestDir`
-      - If `normalizedHostWorkingFolder === hostIngestDirNoTrailingSlash`: treat as “inside” and set `relPath = ''`
-      - Else if `normalizedHostWorkingFolder.startsWith(hostIngestDirNoTrailingSlash + '/')`: set `relPath = normalizedHostWorkingFolder.slice(hostIngestDirNoTrailingSlash.length + 1)`
-      - Else: return `OUTSIDE_HOST_INGEST_DIR`
-    - Return `{ mappedPath: path.posix.join(normalizedCodexWorkdir, relPath), relPath }`.
+       - Note: Windows absolute paths are handled at the _service_ layer in Task 2 and will typically skip mapping; this helper is intentionally POSIX-style to match the existing `pathMap.ts` module.
+   - **Simpler + lower-risk containment check (no `relative()`):**
+     - `hostIngestDirNoTrailingSlash = normalizedHostIngestDir !== '/' && normalizedHostIngestDir.endsWith('/') ? normalizedHostIngestDir.slice(0, -1) : normalizedHostIngestDir`
+     - If `normalizedHostWorkingFolder === hostIngestDirNoTrailingSlash`: treat as “inside” and set `relPath = ''`
+     - Else if `normalizedHostWorkingFolder.startsWith(hostIngestDirNoTrailingSlash + '/')`: set `relPath = normalizedHostWorkingFolder.slice(hostIngestDirNoTrailingSlash.length + 1)`
+     - Else: return `OUTSIDE_HOST_INGEST_DIR`
+   - Return `{ mappedPath: path.posix.join(normalizedCodexWorkdir, relPath), relPath }`.
    - KISS + risk control:
      - Do not resolve symlinks.
      - Do not modify existing `mapIngestPath` behavior in this story.
@@ -166,8 +171,8 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
    - Purpose: prove `mapHostWorkingFolderToWorkdir()` produces `{ mappedPath, relPath }` for a valid absolute path under `hostIngestDir`.
    - Description:
      - Given `hostIngestDir=/host/base` and `codexWorkdir=/data` and `hostWorkingFolder=/host/base/repo/sub`,
-    - expect `relPath === 'repo/sub'`
-    - expect `mappedPath` ends with `/data/repo/sub`.
+   - expect `relPath === 'repo/sub'`
+   - expect `mappedPath` ends with `/data/repo/sub`.
 5. [x] **Test (server unit, `node:test`)**: rejects host path outside ingest root
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -237,7 +242,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 ### 2. Server: wire working_folder into agent execution (service + ChatInterfaceCodex)
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -289,7 +294,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      ```ts
      export async function resolveWorkingFolderWorkingDirectory(
        working_folder: string | undefined,
-     ): Promise<string | undefined>
+     ): Promise<string | undefined>;
      ```
    - Required rules (must implement exactly):
      - If `working_folder` is omitted/empty string (after `trim()`): return `undefined`.
@@ -372,47 +377,56 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
      - provide an absolute `working_folder` where neither mapped nor literal directory exists
      - expect thrown error `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
 10. [ ] **Test (server unit, `node:test`)**: ChatInterfaceCodex uses `workingDirectoryOverride` when provided
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - code_info MCP: inspect installed `@openai/codex-sdk` (which options are passed to `startThread`)
-   - Location: `server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts` (new)
-   - Purpose: ensure the Codex adapter actually uses the per-call override (without involving the agents service).
-   - Description:
-     - construct a `ChatInterfaceCodex` with a stub `codexFactory` that captures `startThread(opts)`
-     - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
-     - assert captured `opts.workingDirectory === '/tmp/override'`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - code_info MCP: inspect installed `@openai/codex-sdk` (which options are passed to `startThread`)
+- Location: `server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts` (new)
+- Purpose: ensure the Codex adapter actually uses the per-call override (without involving the agents service).
+- Description:
+  - construct a `ChatInterfaceCodex` with a stub `codexFactory` that captures `startThread(opts)`
+  - call `chat.run('Hello', { workingDirectoryOverride: '/tmp/override', useConfigDefaults: true }, ...)`
+  - assert captured `opts.workingDirectory === '/tmp/override'`.
+
 11. [ ] Update `design.md` with the new agent working-directory override flow (include Mermaid diagram) (do this after implementing the resolver + override wiring above):
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid` (diagram syntax)
-   - Files to edit:
-     - `design.md`
-   - Add a section describing how agent runs resolve `working_folder` and choose the final Codex `workingDirectory`.
-   - Add a Mermaid `flowchart` showing the resolution order:
-     - absolute validation → mapped candidate (HOST_INGEST_DIR → CODEX_WORKDIR) → literal fallback → error
-   - Include the two stable error codes: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`.
+
+- Docs to read:
+  - Context7 `/mermaid-js/mermaid` (diagram syntax)
+- Files to edit:
+  - `design.md`
+- Add a section describing how agent runs resolve `working_folder` and choose the final Codex `workingDirectory`.
+- Add a Mermaid `flowchart` showing the resolution order:
+  - absolute validation → mapped candidate (HOST_INGEST_DIR → CODEX_WORKDIR) → literal fallback → error
+- Include the two stable error codes: `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`.
+
 12. [ ] Update `projectStructure.md` to include new server test files (do this after creating the files above):
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/ (safe Markdown editing)
-   - Files to edit:
-     - `projectStructure.md`
-   - Add entries under `server/src/test/unit/` for:
-     - `agents-working-folder.test.ts`
-     - `chat-codex-workingDirectoryOverride.test.ts`
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/ (safe Markdown editing)
+- Files to edit:
+  - `projectStructure.md`
+- Add entries under `server/src/test/unit/` for:
+  - `agents-working-folder.test.ts`
+  - `chat-codex-workingDirectoryOverride.test.ts`
+
 13. [ ] Verification commands (must run before moving to Task 3):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - `npm run lint --workspace server`
-   - `npm run test --workspace server`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- `npm run lint --workspace server`
+- `npm run test --workspace server`
+
 14. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
-   - Re-run the checks and manually resolve any remaining issues.
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
+- Re-run the checks and manually resolve any remaining issues.
 
 #### Testing
 
@@ -437,7 +451,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 
 ### 3. REST: accept working_folder in POST /agents/:agentName/run
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -566,7 +580,7 @@ Accept `working_folder` via the Agents REST endpoint, validate input shape, and 
 
 ### 4. Client API: add working_folder to runAgentInstruction()
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -660,7 +674,7 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 ### 5. GUI: add optional working_folder control to Agents page
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -670,7 +684,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 #### Documentation Locations
 
 - MUI TextField API (v6): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-- MUI Accordion docs are *not* required for this story (KISS: single TextField only).
+- MUI Accordion docs are _not_ required for this story (KISS: single TextField only).
 - React controlled inputs caveats: Context7 `/reactjs/react.dev` (to avoid controlled/uncontrolled warnings)
 - React Router (tests use `createMemoryRouter`/`RouterProvider`): Context7 `/remix-run/react-router`
 - Jest 30 docs (match repo): Context7 `/websites/jestjs_io_30_0` (assert request bodies and interactions)
@@ -779,7 +793,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 ### 6. MCP 5012: extend run_agent_instruction schema to accept working_folder
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -909,7 +923,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 ### 7. Codex updates: add model gpt-5.2
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -1001,7 +1015,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 ### 8. Codex updates: add reasoning effort xhigh
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -1139,7 +1153,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 ### 9. Documentation + project structure updates
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -1152,6 +1166,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
+
 1. [ ] Update `README.md`:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
@@ -1234,7 +1249,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 ### 10. Final task – verify against acceptance criteria
 
-- Task Status: __to_do__
+- Task Status: **to_do**
 - Git Commits:
 
 #### Overview
@@ -1282,20 +1297,20 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
    - All story behaviours are visible in the UI (`working_folder`, `gpt-5.2`, `xhigh`) and docs match behaviour (primary story behaviour)
    - General regression smoke: `/chat`, `/agents`, `/ingest`, `/logs` load without errors
 9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
-   - `/agents` can run an instruction with a valid `working_folder` and the run uses the expected working directory
-   - `/agents` returns a clear error for an invalid `working_folder`
-   - Agents MCP `5012` accepts `working_folder` and returns a clear error for invalid paths
-   - `/chat` Codex model list includes `gpt-5.2`
-   - Codex reasoning effort options include `xhigh`
-   - Save screenshots to `./test-results/screenshots/` named:
-     - `0000017-10-agents-working-folder.png`
-     - `0000017-10-mcp-5012-working-folder.png`
-     - `0000017-10-chat-codex-models.png`
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+10. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+11. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+12. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+13. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+    - `/agents` can run an instruction with a valid `working_folder` and the run uses the expected working directory
+    - `/agents` returns a clear error for an invalid `working_folder`
+    - Agents MCP `5012` accepts `working_folder` and returns a clear error for invalid paths
+    - `/chat` Codex model list includes `gpt-5.2`
+    - Codex reasoning effort options include `xhigh`
+    - Save screenshots to `./test-results/screenshots/` named:
+      - `0000017-10-agents-working-folder.png`
+      - `0000017-10-mcp-5012-working-folder.png`
+      - `0000017-10-chat-codex-models.png`
+14. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 

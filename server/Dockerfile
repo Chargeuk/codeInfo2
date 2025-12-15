@@ -47,6 +47,13 @@ COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
+
+# Set Playwright to use the browsers installed during build AFTER node_modules are in place to ensure the vcorrect version is used
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Install Playwright system dependencies and browsers
+RUN npx playwright install-deps chromium
+RUN npx playwright install chromium
+
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV PORT=5010
 EXPOSE 5010

@@ -44,12 +44,24 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   }
 }
 
+function toChromaClientArgs(connectionString: string): {
+  host: string;
+  port: number;
+  ssl: boolean;
+} {
+  const normalized = connectionString.includes('://')
+    ? connectionString
+    : `http://${connectionString}`;
+  const url = new URL(normalized);
+  const ssl = url.protocol === 'https:';
+  const port = url.port ? Number(url.port) : 8000;
+  return { host: url.hostname, port, ssl };
+}
+
 async function getClient() {
   const chromaUrl = getChromaUrl();
   if (!client) {
-    client = new ChromaClient({
-      path: chromaUrl,
-    } as unknown as { path: string });
+    client = new ChromaClient(toChromaClientArgs(chromaUrl));
   }
   return client;
 }

@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 WORKDIR /app/server
 ENV HUSKY=0
 RUN apt-get update && apt-get install -y curl git && rm -rf /var/lib/apt/lists/*
-RUN npm install -g @openai/codex
+
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
@@ -53,6 +53,12 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # Install Playwright system dependencies and browsers
 RUN npx playwright install-deps chromium
 RUN npx playwright install chromium
+
+RUN npm install -g @openai/codex
+RUN npm install -g mcp-remote
+RUN npm install -g @upstash/context7-mcp
+RUN npm install -g @mui/mcp@latest
+RUN npm install -g @playwright/mcp@latest
 
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV PORT=5010

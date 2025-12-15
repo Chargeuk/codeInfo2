@@ -307,7 +307,19 @@ flowchart TD
   - agent selector dropdown
   - Stop (abort)
   - New conversation (reset)
+- The run form includes an optional `working_folder` field (absolute path) above the instruction input.
+  - Reset behavior: agent change and New conversation clear `working_folder`.
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
+
+```mermaid
+flowchart TD
+  WF[Enter working_folder (optional)] --> Instr[Enter instruction]
+  Instr --> Send[POST /agents/<agentName>/run\n(instruction + working_folder? + conversationId?)]
+  Send -->|200| RenderOk[Render segments\n(thinking / vector_summary / answer)]
+  Send -->|error| RenderErr[Append error message]
+  RenderOk --> Ready[Ready to send]
+  RenderErr --> Ready
+```
 
 ```mermaid
 flowchart TD

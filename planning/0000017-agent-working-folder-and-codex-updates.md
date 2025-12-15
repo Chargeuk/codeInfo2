@@ -92,7 +92,7 @@ Follow `planning/plan_format.md` (update Task Status before coding; work tasks i
 
 ### 1. Extend path mapping for working_folder (host → workdir)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits: d7f5f18, 6d65d49, f0aead8
 
 #### Overview
@@ -700,7 +700,7 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 
 ### 5. GUI: add optional working_folder control to Agents page
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview
@@ -721,7 +721,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 #### Subtasks
 
-1. [ ] Add state + TextField UI (controlled input):
+1. [x] Add state + TextField UI (controlled input):
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/api/text-field.md
      - Context7 `/reactjs/react.dev` (controlled inputs)
@@ -734,21 +734,21 @@ Add an optional working folder input to the Agents page so users can run an agen
    - Add a `TextField` labelled exactly `working_folder` directly above the existing instruction input.
    - Make it controlled:
      - `value={workingFolder}` and `onChange={(e) => setWorkingFolder(e.target.value)}`
-2. [ ] Thread it into the agent run request:
+2. [x] Thread it into the agent run request:
    - Docs to read:
      - Context7 `/reactjs/react.dev`
    - File to edit:
      - `client/src/pages/AgentsPage.tsx`
    - When calling `runAgentInstruction(...)`, pass:
      - `working_folder: workingFolder.trim() || undefined`
-3. [ ] Reset behavior (must implement explicitly):
+3. [x] Reset behavior (must implement explicitly):
    - Docs to read:
      - Context7 `/reactjs/react.dev`
    - File to edit:
      - `client/src/pages/AgentsPage.tsx`
    - In `resetConversation()` and agent-change handler:
      - call `setWorkingFolder('')`
-4. [ ] **Test (client UI, Jest/RTL)**: AgentsPage submits `working_folder` in POST body
+4. [x] **Test (client UI, Jest/RTL)**: AgentsPage submits `working_folder` in POST body
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -762,7 +762,7 @@ Add an optional working folder input to the Agents page so users can run an agen
      - type a `working_folder` value
      - run an instruction
      - assert the captured request body contains `working_folder`.
-5. [ ] **Test (client UI, Jest/RTL)**: Agent change clears the `working_folder` field
+5. [x] **Test (client UI, Jest/RTL)**: Agent change clears the `working_folder` field
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -773,7 +773,7 @@ Add an optional working folder input to the Agents page so users can run an agen
      - set `working_folder` field
      - change agent selection
      - assert field is empty.
-6. [ ] Update `design.md` to document the Agents UI flow (include Mermaid diagram) (do this after implementing the UI wiring above):
+6. [x] Update `design.md` to document the Agents UI flow (include Mermaid diagram) (do this after implementing the UI wiring above):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -781,12 +781,12 @@ Add an optional working folder input to the Agents page so users can run an agen
    - Add a Mermaid `flowchart` describing:
      - user enters `working_folder` + instruction → POST `/agents/:agentName/run` → error/success handling in UI
    - Mention reset behavior (agent change / new conversation clears `working_folder`).
-7. [ ] Verification commands:
+7. [x] Verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace client`
    - `npm run test --workspace client`
-8. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+8. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -799,21 +799,41 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/agents` shows the new `working_folder` field and it is cleared on agent change / new conversation (primary story behaviour)
    - Running with valid/invalid `working_folder` shows success/error as expected (primary story behaviour)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Added a controlled `working_folder` `TextField` to `client/src/pages/AgentsPage.tsx` with local state (`workingFolder`).
+- Wired `workingFolder.trim() || undefined` through to the `runAgentInstruction(...)` call.
+- Implemented reset behavior by clearing `workingFolder` in `resetConversation()` (covers agent change + new conversation).
+- Updated `client/src/test/agentsPage.run.test.tsx` to type `working_folder` and assert it is present in the POST body.
+- Updated `client/src/test/agentsPage.agentChange.test.tsx` to assert `working_folder` is cleared when changing agent.
+- Updated `design.md` with a Mermaid flowchart for the Agents run flow including optional `working_folder` + UI error handling and reset behavior.
+- Verified `npm run lint --workspace client` and `npm run test --workspace client`.
+- Verified repo-wide lint/format gate: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `CODEX_HOME=$PWD/codex npm run e2e` (required to override an environment `CODEX_HOME` pointing at an unshared Docker Desktop path).
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing: manual browser check against `http://host.docker.internal:5001/agents` verified:
+  - `working_folder` field present
+  - field clears on New conversation + agent change
+  - invalid path surfaces `WORKING_FOLDER_NOT_FOUND`
+  - valid path (e.g. `/app`) successfully runs and returns an answer.
+- Testing: `CODEX_HOME=$PWD/codex npm run compose:down`.
 
 ---
 

@@ -63,6 +63,7 @@ export default function AgentsPage() {
   );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [workingFolder, setWorkingFolder] = useState('');
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
 
@@ -159,6 +160,7 @@ export default function AgentsPage() {
     resetTurns();
     setActiveConversationId(undefined);
     setMessages([]);
+    setWorkingFolder('');
     setInput('');
     lastSentRef.current = '';
     setThinkOpen({});
@@ -378,6 +380,7 @@ export default function AgentsPage() {
       const result = await runAgentInstruction({
         agentName: selectedAgentName,
         instruction: trimmed,
+        working_folder: workingFolder.trim() || undefined,
         conversationId: activeConversationId,
         signal: controller.signal,
       });
@@ -622,6 +625,19 @@ export default function AgentsPage() {
                 <Markdown content={agentDescription} />
               </Paper>
             ) : null}
+
+            <TextField
+              fullWidth
+              size="small"
+              label="working_folder"
+              placeholder="Absolute host path (optional)"
+              value={workingFolder}
+              onChange={(event) => setWorkingFolder(event.target.value)}
+              disabled={
+                controlsDisabled || isRunning || selectedAgent?.disabled
+              }
+              inputProps={{ 'data-testid': 'agent-working-folder' }}
+            />
 
             <TextField
               inputRef={inputRef}

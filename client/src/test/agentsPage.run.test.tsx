@@ -30,6 +30,8 @@ const routes = [
 
 describe('Agents page - run', () => {
   it('renders thinking, answer, and a vector summary tool row', async () => {
+    const runBodies: Record<string, unknown>[] = [];
+
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const target = typeof url === 'string' ? url : url.toString();
@@ -60,6 +62,9 @@ describe('Agents page - run', () => {
 
         if (target.includes('/agents/coding_agent/run')) {
           expect(init?.method).toBe('POST');
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -95,12 +100,20 @@ describe('Agents page - run', () => {
     const agentSelect = await screen.findByRole('combobox', { name: /agent/i });
     await waitFor(() => expect(agentSelect).toHaveTextContent('coding_agent'));
 
+    const workingFolder = await screen.findByRole('textbox', {
+      name: 'working_folder',
+    });
+    await userEvent.type(workingFolder, '/abs/path');
+
     const input = await screen.findByTestId('agent-input');
     await userEvent.type(input, 'Question');
     await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
     await act(async () => {
       await userEvent.click(screen.getByTestId('agent-send'));
     });
+
+    await waitFor(() => expect(runBodies.length).toBeGreaterThan(0));
+    expect(runBodies[0]).toHaveProperty('working_folder', '/abs/path');
 
     await waitFor(() =>
       expect(screen.getByText('Final answer')).toBeInTheDocument(),

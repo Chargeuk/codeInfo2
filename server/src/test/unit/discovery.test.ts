@@ -1,10 +1,13 @@
 import fs from 'fs/promises';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile as execFileCb } from 'node:child_process';
 import { afterEach, beforeEach, test } from 'node:test';
+import { promisify } from 'node:util';
 import os from 'os';
 import path from 'path';
 import { discoverFiles, resolveConfig } from '../../ingest/index.js';
+
+const execFile = promisify(execFileCb);
 
 let tmpDir: string;
 let prevInclude: string | undefined;

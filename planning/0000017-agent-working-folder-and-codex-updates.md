@@ -841,7 +841,7 @@ Add an optional working folder input to the Agents page so users can run an agen
 
 ### 6. MCP 5012: extend run_agent_instruction schema to accept working_folder
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -858,7 +858,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Subtasks
 
-1. [ ] Extend the Zod schema + tool input schema:
+1. [x] Extend the Zod schema + tool input schema:
    - Docs to read:
      - Context7 `/websites/v3_zod_dev`
      - https://www.jsonrpc.org/specification (invalid params error code)
@@ -869,13 +869,13 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Add to `runParamsSchema`:
      - `working_folder: z.string().min(1).optional()`
    - Update `run_agent_instruction` JSON `inputSchema` to include `working_folder` with a clear description.
-2. [ ] Pass through to the agents service:
+2. [x] Pass through to the agents service:
    - Docs to read:
      - Context7 `/websites/v3_zod_dev`
    - File to edit:
      - `server/src/mcpAgents/tools.ts`
    - Include `working_folder: parsed.working_folder` in the `runAgentInstruction({ ... })` call.
-3. [ ] Ensure errors are mapped to invalid params:
+3. [x] Ensure errors are mapped to invalid params:
    - Docs to read:
      - https://www.jsonrpc.org/specification
    - File to edit:
@@ -885,7 +885,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
        - `{ code: 'WORKING_FOLDER_INVALID'; reason?: string }`
        - `{ code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }`
    - When the service throws `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`, translate to `InvalidParamsError` (safe message only).
-4. [ ] **Test (server unit, `node:test`)**: `callTool()` forwards `working_folder` to the agents service
+4. [x] **Test (server unit, `node:test`)**: `callTool()` forwards `working_folder` to the agents service
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websites/v3_zod_dev`
@@ -897,7 +897,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Description:
      - call `callTool('run_agent_instruction', { agentName, instruction, working_folder }, { runAgentInstruction: stub })`
      - assert stub receives `working_folder`.
-5. [ ] **Test (server unit, `node:test`)**: JSON-RPC router accepts `working_folder` and forwards it to tools/service
+5. [x] **Test (server unit, `node:test`)**: JSON-RPC router accepts `working_folder` and forwards it to tools/service
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://modelcontextprotocol.io/
@@ -909,7 +909,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Description:
      - send a `tools/call` request with `arguments.working_folder`
      - assert the stubbed service receives `working_folder`.
-6. [ ] **Test (server unit, `node:test`)**: `callTool()` maps working-folder errors to `InvalidParamsError`
+6. [x] **Test (server unit, `node:test`)**: `callTool()` maps working-folder errors to `InvalidParamsError`
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -918,14 +918,14 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Description:
      - stub service to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }` and separately `{ code: 'WORKING_FOLDER_INVALID' }`
      - assert `callTool(...)` throws `InvalidParamsError` for both.
-7. [ ] Update `projectStructure.md` to include the new server test file (do this after adding the file above):
+7. [x] Update `projectStructure.md` to include the new server test file (do this after adding the file above):
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Add an entry under `server/src/test/unit/` for:
      - `mcp-agents-tools.test.ts`
-8. [ ] Update `design.md` to document the MCP tool contract change (include Mermaid diagram) (do this after implementing the MCP schema + wiring above):
+8. [x] Update `design.md` to document the MCP tool contract change (include Mermaid diagram) (do this after implementing the MCP schema + wiring above):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -933,12 +933,12 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
    - Add a Mermaid `sequenceDiagram` for:
      - MCP client → Agents MCP `5012` → tools layer → agents service → Codex
    - Include the new optional param name `working_folder` and that invalid paths become JSON-RPC “invalid params” style tool errors.
-9. [ ] Verification commands:
+9. [x] Verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run test --workspace server`
-10. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+10. [x] Repo-wide lint + format gate (must be the last subtask in every task):
     - Docs to read:
       - https://docs.npmjs.com/cli/v10/commands/npm-run-script
     - Run:
@@ -951,21 +951,44 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - Agents MCP `5012` `run_agent_instruction` accepts `working_folder` and returns clear invalid-params errors (primary story behaviour)
    - `/agents` UI still works after MCP tool schema changes (baseline regression)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Task 6 in progress: extending Agents MCP (5012) `run_agent_instruction` to accept optional `working_folder`, wire it to the agents service, and add unit + router tests plus documentation updates.
+- Subtask 1: added optional `working_folder` to the MCP tools Zod schema and to the published JSON `inputSchema` for `run_agent_instruction`.
+- Subtask 2: plumbed `working_folder` through the MCP tools layer into `runAgentInstruction({ ... })`.
+- Subtask 3: extended the MCP tools error mapping to translate `WORKING_FOLDER_INVALID`/`WORKING_FOLDER_NOT_FOUND` into JSON-RPC invalid-params (`InvalidParamsError`).
+- Subtask 4: added `server/src/test/unit/mcp-agents-tools.test.ts` with a tools-layer unit test proving `working_folder` is forwarded into the agents service call.
+- Subtask 5: updated `server/src/test/unit/mcp-agents-router-run.test.ts` to include `arguments.working_folder` and assert it reaches the stubbed agents service.
+- Subtask 6: extended `server/src/test/unit/mcp-agents-tools.test.ts` to assert `WORKING_FOLDER_INVALID`/`WORKING_FOLDER_NOT_FOUND` are translated to `InvalidParamsError`.
+- Subtask 7: updated `projectStructure.md` to list `server/src/test/unit/mcp-agents-tools.test.ts`.
+- Subtask 8: updated `design.md` with an Agents MCP sequence diagram covering `working_folder` and invalid-params error mapping.
+- Subtask 9: verified server lint + tests (`npm run lint --workspace server`, `npm run test --workspace server`).
+- Subtask 10: verified repo-wide lint + format gate; ran `npm run format --workspaces` to fix Prettier warnings in the new/updated server unit tests.
+- Testing 1: `npm run build --workspace server`.
+- Testing 2: `npm run build --workspace client`.
+- Testing 3: `npm run test --workspace server`.
+- Testing 4: `npm run test --workspace client`.
+- Testing 5: `CODEX_HOME=$PWD/codex npm run e2e`.
+- Testing 6: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing 7: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing 8: manual checks against mapped ports:
+  - Agents MCP tools/list contains `working_folder` in `run_agent_instruction` schema.
+  - `tools/call` with `working_folder=/this/does/not/exist` returns JSON-RPC error `-32602` message `working_folder not found`.
+  - `tools/call` with `working_folder=relative/path` returns JSON-RPC error `-32602` message `working_folder must be an absolute path`.
+  - Client routes respond `200` at `http://host.docker.internal:5001/agents` and `http://host.docker.internal:5001/chat` (screenshots captured under `test-results/screenshots/task6-*.png`).
+- Testing 9: `CODEX_HOME=$PWD/codex npm run compose:down`.
 
 ---
 

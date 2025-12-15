@@ -159,6 +159,33 @@ flowchart LR
   Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
 ```
 
+- `run_agent_instruction` accepts an optional `working_folder` (absolute path string). It is resolved by the shared agents service using the same rules as REST (host-path mapping when possible, literal fallback).
+- If `working_folder` is invalid or does not exist, Agents MCP returns a JSON-RPC invalid-params style tool error (safe message only).
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant MCP as Agents MCP\\n:5012
+  participant Tools as Tool registry\\ncallTool()
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>MCP: tools/call run_agent_instruction\\n{ agentName, instruction, conversationId?, working_folder? }
+  MCP->>Tools: callTool('run_agent_instruction', args)
+  Tools->>Svc: runAgentInstruction(... working_folder?)
+  alt working_folder invalid or not found
+    Svc-->>Tools: throw WORKING_FOLDER_INVALID/WORKING_FOLDER_NOT_FOUND
+    Tools-->>MCP: InvalidParamsError (safe message)
+    MCP-->>Client: JSON-RPC error (-32602)
+  else resolved
+    Svc->>Codex: runStreamed(... workingDirectoryOverride)
+    Codex-->>Svc: streamed events + thread id
+    Svc-->>Tools: { agentName, conversationId, modelId, segments }
+    Tools-->>MCP: tool result (JSON text payload)
+    MCP-->>Client: JSON-RPC result
+  end
+```
+
 ### Agent discovery
 
 - Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.

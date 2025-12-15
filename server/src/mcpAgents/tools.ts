@@ -21,6 +21,8 @@ type AgentRunError =
   | { code: 'AGENT_NOT_FOUND' }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
+  | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
+  | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string };
 
 const isAgentRunError = (err: unknown): err is AgentRunError =>
@@ -33,6 +35,7 @@ const runParamsSchema = z
     agentName: z.string().min(1),
     instruction: z.string().min(1),
     conversationId: z.string().min(1).optional(),
+    working_folder: z.string().min(1).optional(),
   })
   .strict();
 
@@ -91,6 +94,11 @@ function runAgentInstructionDefinition() {
           description:
             'Optional conversation id to continue an existing agent conversation.',
         },
+        working_folder: {
+          type: 'string',
+          description:
+            'Optional absolute working folder to run the agent instruction from. When provided, the server may map host paths under HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
+        },
       },
     },
   } as const;
@@ -130,6 +138,7 @@ async function runRunAgentInstruction(
       agentName: parsed.agentName,
       instruction: parsed.instruction,
       conversationId: parsed.conversationId,
+      working_folder: parsed.working_folder,
       source: 'MCP',
     });
     return {
@@ -152,6 +161,14 @@ async function runRunAgentInstruction(
       }
       if (err.code === 'AGENT_NOT_FOUND') {
         throw new InvalidParamsError('Agent not found');
+      }
+      if (err.code === 'WORKING_FOLDER_INVALID') {
+        throw new InvalidParamsError(err.reason ?? 'Invalid working_folder');
+      }
+      if (err.code === 'WORKING_FOLDER_NOT_FOUND') {
+        throw new InvalidParamsError(
+          err.reason ?? 'working_folder directory not found',
+        );
       }
     }
     throw err;

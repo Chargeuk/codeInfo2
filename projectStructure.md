@@ -374,6 +374,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/mcpAgents/codexAvailability.ts — Codex CLI availability check used for Agents MCP gating
 - server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly two tools
 - server/src/test/unit/mcp-agents-router-run.test.ts — unit coverage that Agents MCP returns JSON text content with segments
+- server/src/test/unit/mcp-agents-tools.test.ts — unit coverage for tools-layer argument forwarding and invalid-params error mapping
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations

@@ -18,16 +18,22 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
 
+  let receivedWorkingFolder: string | undefined;
+
   setToolDeps({
-    runAgentInstruction: async () => ({
-      agentName: 'coding_agent',
-      conversationId: 'c1',
-      modelId: 'model-from-config',
-      segments: [
-        { type: 'thinking', text: 't' },
-        { type: 'answer', text: 'a' },
-      ],
-    }),
+    runAgentInstruction: async (params) => {
+      receivedWorkingFolder = (params as { working_folder?: string })
+        .working_folder;
+      return {
+        agentName: 'coding_agent',
+        conversationId: 'c1',
+        modelId: 'model-from-config',
+        segments: [
+          { type: 'thinking', text: 't' },
+          { type: 'answer', text: 'a' },
+        ],
+      };
+    },
   });
 
   const server = http.createServer(handleAgentsRpc);
@@ -41,7 +47,11 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
       method: 'tools/call',
       params: {
         name: 'run_agent_instruction',
-        arguments: { agentName: 'coding_agent', instruction: 'Say hello' },
+        arguments: {
+          agentName: 'coding_agent',
+          instruction: 'Say hello',
+          working_folder: '/host/base/repo',
+        },
       },
     });
 
@@ -58,6 +68,7 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
     assert.equal(typeof parsed.modelId, 'string');
     assert.equal(parsed.modelId.length > 0, true);
     assert.equal(Array.isArray(parsed.segments), true);
+    assert.equal(receivedWorkingFolder, '/host/base/repo');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     resetToolDeps();

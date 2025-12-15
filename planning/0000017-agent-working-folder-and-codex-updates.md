@@ -460,7 +460,7 @@ Resolve `working_folder` in the agents service, apply the per-call working direc
 ### 3. REST: accept working_folder in POST /agents/:agentName/run
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: bc3a193
 
 #### Overview
 

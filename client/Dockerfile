@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/client/dist ./dist
+COPY --from=build /app/client/vite.config.ts ./vite.config.ts
 COPY --from=build /app/client/package*.json ./
 ENV PORT=5001
 EXPOSE 5001

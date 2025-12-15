@@ -8,6 +8,12 @@ export default defineConfig({
   server: {
     port: 5001,
     host: true,
+    allowedHosts: true,
+  },
+  preview: {
+    port: 5001,
+    host: true,
+    allowedHosts: ['host.docker.internal'],
   },
   resolve: {
     alias: {

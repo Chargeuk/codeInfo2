@@ -93,7 +93,7 @@ Follow `planning/plan_format.md` (update Task Status before coding; work tasks i
 ### 1. Extend path mapping for working_folder (host → workdir)
 
 - Task Status: **in_progress**
-- Git Commits: d7f5f18, 6d65d49
+- Git Commits: d7f5f18, 6d65d49, f0aead8
 
 #### Overview
 

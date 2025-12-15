@@ -145,7 +145,7 @@ services:
     container_name: codeinfo2-zipkin-local
     image: openzipkin/zipkin
     ports:
-      - '9611:9411'
+      - '9711:9411'
     depends_on: [otel-collector]
     networks:
       - internal

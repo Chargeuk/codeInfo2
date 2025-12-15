@@ -218,18 +218,18 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/agents` loads and lists agents (baseline regression)
    - `/agents` can run an instruction without `working_folder` (baseline regression)
    - No new UI regressions on `/chat` (baseline smoke: page loads, no console errors)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
@@ -237,6 +237,9 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 - Returns `{ mappedPath, relPath }` on success or a small `{ error: { code, reason } }` union for invalid/unsafe inputs without changing existing `mapIngestPath()` behavior.
 - Added unit coverage under `describe('mapHostWorkingFolderToWorkdir', ...)` for happy path + outside-root + prefix-but-not-child + non-absolute inputs.
 - Hardened Codex integration tests by clearing `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR` during tests so assertions about the default `/data` workdir are deterministic across dev environments.
+- Updated `server/src/ingest/chromaClient.ts` to treat empty/whitespace `CHROMA_URL` as “unset” so the server test runner’s `CHROMA_URL=''` does not crash URL parsing.
+- In this environment, `npm run e2e` required `CODEX_HOME` to be set to a host-shared path (used `CODEX_HOME=$PWD/codex`) to avoid Docker Desktop “mounts denied” errors.
+- Completed the manual `/agents` + `/chat` smoke check with Playwright and captured screenshots under `test-results/screenshots/`.
 
 ---
 

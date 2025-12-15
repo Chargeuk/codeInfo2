@@ -6,7 +6,11 @@ import {
 import { getClient as getLmClient } from '../lmstudio/clientPool.js';
 import { baseLogger } from '../logger.js';
 
-const getChromaUrl = () => process.env.CHROMA_URL ?? 'http://localhost:8000';
+function getChromaUrl(): string {
+  const raw = process.env.CHROMA_URL;
+  if (!raw || raw.trim() === '') return 'http://localhost:8000';
+  return raw;
+}
 type MinimalCollection = {
   modify: (opts: { metadata?: Record<string, unknown> }) => Promise<void>;
   count: () => Promise<number>;

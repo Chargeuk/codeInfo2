@@ -221,8 +221,7 @@ Add two new tools to Agents MCP `5012`:
 ### 1. Per-conversation run lock + `RUN_IN_PROGRESS` across Agents REST + MCP
 
 - Task Status: **completed**
-- Git Commits:
-
+- Git Commits: b92ed2b
 #### Overview
 
 Add a simple in-memory, per-server-process **per-conversation lock** that blocks concurrent agent runs and command runs targeting the same `conversationId`. Apply it consistently across Agents REST and Agents MCP, returning a stable `RUN_IN_PROGRESS` error (REST: HTTP 409).

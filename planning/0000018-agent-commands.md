@@ -1234,7 +1234,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
 ### 6. Agents MCP: add `list_commands` tool
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 3ef4773
 
 #### Overview
 

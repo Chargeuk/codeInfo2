@@ -21,6 +21,8 @@ We want to introduce a **delta re-ingest** mechanism driven by **file content ha
 Separately, the Ingest page UI has a couple of small usability issues:
 - When the embedding model is locked, the same info notice appears twice (once on the page and once inside the form). We want to show it only once to reduce noise.
 - The “Folder path” field is currently text-only; we want an optional “Choose folder…” affordance that helps users select a folder path more reliably.
+  - This should be a **server-backed directory picker** (a modal that lists directories under an allowed base like `/data` / `HOST_INGEST_DIR`) and writes the chosen server-readable path back into the text field.
+  - It must not require browser access to the user’s local filesystem, and it must not switch ingest to an upload-based model.
 
 This story aims to reduce re-ingest time and compute cost while keeping the ingest model lock, progress reporting, and current ingest status polling behavior intact.
 
@@ -42,7 +44,8 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
   - Existing ingest status polling (`GET /ingest/status/:runId`) continues to work unchanged.
 - Ingest page UX:
   - The “Embedding model locked to …” notice is shown only once (below “Start a new ingest” title, not duplicated inside the form).
-  - The Folder path remains editable as a text field, and there is an additional “Choose folder…” mechanism that updates the field value when used (exact implementation depends on the chosen approach; see Questions).
+  - The Folder path remains editable as a text field, and there is an additional “Choose folder…” mechanism that updates the field value when used.
+    - The “Choose folder…” UX is implemented as a **server-backed directory picker modal** limited to an allowed base (e.g., `/data` / `HOST_INGEST_DIR`), and selecting a folder updates the text field with the server-readable path.
 
 ---
 
@@ -52,6 +55,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Cross-server coordination (delta assumes a single server process / single Chroma instance per environment).
 - Sophisticated “partial file” diffs at the chunk level (v1 can treat a changed file as “delete all chunks for that file, then re-add”).
 - Full “native OS folder picker that reveals absolute filesystem paths” in a standard browser environment, if it requires switching to an upload-based ingest model or a desktop wrapper (see Questions).
+- A browser-native folder picker that depends on local filesystem selection and implies upload-based ingest or a desktop wrapper (we will use a server-backed directory picker instead).
 - Any UI redesign beyond the two specific Ingest page adjustments described above.
 
 ---
@@ -64,9 +68,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 4. **Chunking/config versioning:** should delta logic consider a `chunkerVersion` / `configHash` so that a re-ingest can be forced even when `fileHash` is unchanged but chunking rules change?
 5. **Cancellation semantics:** if a re-ingest is “in-place” (updating vectors for a root), how do we ensure cancel does not leave the root in a mixed state? (Options: stage changes under a runId, then “swap” on completion; or accept eventual consistency with per-file deletes/adds.)
 6. **Model lock + delta:** should a delta re-ingest be allowed only when the locked embedding model matches, or do we ever support migrating embeddings to a new model (likely out of scope for v1)?
-7. **Folder picker UX:** do we mean:
-   - a server-backed directory browser constrained to allowed roots (recommended for Docker/server-side ingest), or
-   - a true browser-native folder picker (which typically implies upload-based ingest and does not provide a server-readable absolute path)?
+7. **Directory picker details:** what is the allowed base (default `/data` vs `HOST_INGEST_DIR`), do we support browsing multiple bases, and how do we present/validate container-path vs host-path expectations in the UI copy?
 8. **Performance constraints:** what folder sizes/repos are the target? This affects whether scanning Chroma metadatas is acceptable or whether we must add the per-file index collection.
 9. **Backward compatibility:** how do we treat roots ingested before we add any new metadata fields (if any)? Should re-ingest auto-upgrade them during the first delta run?
 
@@ -75,4 +77,3 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 # Tasks
 
 (Not yet created — this story is still in the “Description/Acceptance Criteria/Out Of Scope/Questions” phase.)
-

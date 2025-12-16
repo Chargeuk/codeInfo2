@@ -324,27 +324,37 @@ Gotchas to keep in mind while implementing this task:
          ```
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message so clients can retry later.
        - KISS approach: add a dedicated error class (e.g. `RunInProgressError` with `.code = 409`) in `server/src/mcp2/errors.ts`, have tools throw it when the service returns `{ code: 'RUN_IN_PROGRESS' }`, and have the Agents MCP router map it to a JSON-RPC error consistently (similar to `ArchivedConversationError`).
-6. [ ] Add focused unit coverage for the lock behavior:
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-     - https://www.jsonrpc.org/specification (error codes overview)
-   - Files to edit:
-     - `server/src/test/unit/agents-router-run.test.ts`
-     - `server/src/test/unit/mcp-agents-tools.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
-   - Test requirements:
-     - Main path: a normal run with no lock returns success as today.
-     - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.
-     - Edge case: acquiring a lock for `conversationId='c1'` must not block a run for `conversationId='c2'`.
-   - Where to copy patterns from (junior-friendly pointers):
-     - REST test patterns: `server/src/test/unit/agents-router-run.test.ts` (Supertest + `buildApp()` helper).
-     - MCP tool patterns: `server/src/test/unit/mcp-agents-tools.test.ts` (uses `setToolDeps`/`resetToolDeps`).
-     - MCP router patterns: `server/src/test/unit/mcp-agents-router-run.test.ts` (spins up `http.createServer(handleAgentsRpc)` and POSTs JSON-RPC).
-7. [ ] Update `projectStructure.md` after adding any new files:
+6. [ ] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose:
+     - Ensures a second request targeting the same `conversationId` is rejected as a REST conflict.
+     - Prevents multi-tab interleaving of turns for the same conversation.
+   - What to implement:
+     - Acquire the conversation lock for `conversationId='c1'` (using the new `server/src/agents/runLock.ts` helper), then `POST /agents/<agentName>/run` with body `{ instruction: 'hello', conversationId: 'c1' }`.
+     - Assert: `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
+     - Also add an “edge” assertion in the same file: lock `c1` must not block a run for `conversationId='c2'`.
+7. [ ] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Purpose:
+     - Ensures MCP callers can detect conflict without string matching.
+   - What to implement:
+     - Force `callTool('run_agent_instruction', ...)` to hit a locked `conversationId` by acquiring the lock first.
+     - Assert: the tool call throws the expected MCP error type/code for “run already in progress” (per Task 1 mapping rules).
+8. [ ] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
+   - Test type: server unit (Node `node:test`, HTTP server)
+   - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Purpose:
+     - Ensures MCP JSON-RPC callers receive a stable error envelope for conflict and can retry later.
+   - What to implement:
+     - Start `http.createServer(handleAgentsRpc)` (copy the harness pattern from the existing test in this file).
+     - Acquire the lock for a known `conversationId` and send a JSON-RPC `tools/call` request to `run_agent_instruction` using that `conversationId`.
+     - Assert: JSON-RPC response contains an error with the expected stable code/message (per Task 1 mapping rules).
+9. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-8. [ ] Run repo-wide lint/format gate:
+10. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -414,24 +424,34 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Allow passing `command` metadata via flags to `chat.run(...)` and persist it on both the user and assistant turns for that run.
      - Ensure the “Stopped” assistant turn created on abort also receives the same `command` metadata (this is required for cancelled in-flight command steps).
      - Keep default behavior unchanged when no `command` is provided.
-5. [ ] Validate existing ChatInterface unit tests still compile and pass:
-   - Files to read:
-     - `server/src/test/unit/chat-interface-run-persistence.test.ts`
-     - `server/src/test/unit/chat-interface-base.test.ts`
-   - Requirements:
-     - If TypeScript method override signatures need widening due to the new optional `command` field, update these tests accordingly without changing their assertions unless necessary.
-6. [ ] Add unit coverage for `command` persistence plumbing:
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to edit:
-     - Add `server/src/test/unit/turn-command-metadata.test.ts`
-   - Test requirements:
-     - Verify `appendTurn` stores and `listTurns` returns `command` when provided.
-     - Verify missing `command` does not break existing behavior.
-7. [ ] Update `projectStructure.md` after adding any new test files:
+5. [ ] Server unit test update: ensure chat persistence tests compile with the new `turn.command` field:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+   - Purpose:
+     - This test is sensitive to the `AppendTurnInput`/`TurnSummary` shape; it must still compile once `command?: { name, stepIndex, totalSteps }` is added.
+     - Ensures normal (non-command) runs still persist user/assistant turns as before.
+   - What to update:
+     - Only adjust types/fixtures as needed (do not change the test’s behavioral assertions unless the new field requires it).
+6. [ ] Server unit test update: ensure base chat interface tests compile with the new `turn.command` field:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/chat-interface-base.test.ts`
+   - Purpose:
+     - Confirms ChatInterface base behavior remains unchanged and the test suite remains green after adding optional metadata.
+   - What to update:
+     - Only adjust types/fixtures as needed.
+7. [ ] Server unit test (new): verify `command` metadata is persisted and returned by list APIs:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/turn-command-metadata.test.ts`
+   - Purpose:
+     - Proves that when `appendTurn` is called with `command`, Mongo persistence stores it and `listTurns` returns it.
+     - Proves the field is optional and does not appear/break when omitted.
+   - Test cases to implement:
+     - “stores + returns command when provided”
+     - “omitting command keeps existing behavior”
+8. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
-8. [ ] Run repo-wide lint/format gate:
+9. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -781,12 +801,22 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - Keep the locking behavior implemented in Task 1 (do not add a second lock layer here).
      - The internal helper must NOT acquire the per-conversation lock; it is used by the multi-step command runner (Task 8) which holds the lock for the entire command run.
      - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
-3. [ ] Update unit tests to cover both paths:
-   - Files to read:
-     - `server/src/test/unit/agents-router-run.test.ts`
-   - Files to edit:
-     - Update/add tests as needed to confirm behavior unchanged for normal runs.
-4. [ ] Run repo-wide lint/format gate:
+3. [ ] Server unit test update (REST): confirm `/agents/:agentName/run` behavior is unchanged after refactor:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-router-run.test.ts`
+   - Purpose:
+     - Confirms the REST route still forwards `instruction`, `conversationId`, and `working_folder` correctly after introducing an unlocked internal helper.
+   - What to update:
+     - If the refactor changes the dependency injection shape, update the `buildApp()` wiring in this test file.
+     - Keep existing assertions; only update mocks/types as required.
+4. [ ] Server unit test update (Agents MCP): confirm `run_agent_instruction` tool behavior is unchanged after refactor:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Purpose:
+     - Confirms tool arg validation and error mapping still work once the service is refactored internally.
+   - What to update:
+     - Keep existing behavioral assertions; only update mocks/types as required.
+5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

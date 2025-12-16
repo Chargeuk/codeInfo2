@@ -139,6 +139,9 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
   - `{ type, requestId, conversationId: string }`
 - `type: "unsubscribe_conversation"`
   - `{ type, requestId, conversationId: string }`
+- `type: "cancel_inflight"`
+  - Used by the existing Stop button to cancel the currently running turn without relying on HTTP request abort.
+  - `{ type, requestId, conversationId: string, inflightId: string }`
 
 ### Server → Client events
 
@@ -154,15 +157,15 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
 - Transcript events (scoped to a `conversationId`)
   - `type: "inflight_snapshot"`
     - Sent immediately after `subscribe_conversation` when a run is currently in progress.
-    - `{ type, conversationId, seq: number, inflight: { assistantText: string, toolEvents: unknown[], startedAt: string } }`
+    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, toolEvents: unknown[], startedAt: string } }`
   - `type: "assistant_delta"`
-    - `{ type, conversationId, seq: number, delta: string }`
+    - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
   - `type: "tool_event"`
     - Interim tool progress/events (so viewers match the originating tab).
-    - `{ type, conversationId, seq: number, event: unknown }`
+    - `{ type, conversationId, seq: number, inflightId: string, event: unknown }`
   - `type: "turn_final"`
     - Marks completion of the in-flight turn and carries any final metadata needed by the UI.
-    - `{ type, conversationId, seq: number, status: "ok" | "stopped" | "failed" }`
+    - `{ type, conversationId, seq: number, inflightId: string, status: "ok" | "stopped" | "failed" }`
 
 ### Sequence IDs (minimum)
 
@@ -173,6 +176,47 @@ Note: the persisted transcript remains the source of truth; sequence IDs are pri
 
 ---
 
+## Pre-tasking investigation findings (repo facts)
+
+These findings are based on the current repository implementation and are included here to reduce risk when tasking and implementing Story 0000019.
+
+### Current streaming behavior (today)
+
+- The Chat page currently streams via **SSE** from `POST /chat` in `server/src/routes/chat.ts`. The server passes an `AbortSignal` into the provider execution and **aborts provider generation on client disconnect** (`req.on('close'|'aborted')` / `res.on('close')` → `AbortController.abort()`).
+- The client’s `useChatStream.stop()` aborts the in-flight fetch via `AbortController.abort()` (`client/src/hooks/useChatStream.ts`), and `ChatPage` calls `stop()` both when switching conversations and on unmount (`client/src/pages/ChatPage.tsx` cleanup effect).
+- Net effect: **navigating away from Chat currently cancels the run**, which conflicts with this story’s requirement that leaving Chat only unsubscribes from WS updates while the run continues server-side.
+
+### In-flight state availability (today)
+
+- The server does not currently maintain any shared/global in-flight turn state suitable for late subscribers. In-flight buffers (tokens/tool results) are request-local inside the chat interface/run and are discarded after completion. This story therefore requires introducing an explicit in-memory in-flight registry keyed by `conversationId` + `inflightId`.
+
+### Existing realtime infrastructure (today)
+
+- There is no existing reusable WebSocket server/publisher in the repo. Long-lived communication currently consists of:
+  - `POST /chat` SSE streaming, and
+  - MCP HTTP JSON-RPC servers (not streaming, no HTTP upgrade).
+- Implementing this story’s WebSocket design requires adding a new WebSocket endpoint and a server-side publish/subscribe layer.
+
+### Conversation management API gaps (today)
+
+- The REST API currently supports single-item archive/restore (`POST /conversations/:id/archive|restore`) and list/turn endpoints (`GET /conversations`, `GET /conversations/:id/turns`). There are **no** bulk endpoints and **no** permanent delete endpoints. Story 19 will need to add these.
+
+### Mongo transactions / atomicity risk (today)
+
+- Docker Compose runs Mongo as a single-node replica set (`--replSet rs0` and `mongo/init-mongo.js` calls `rs.initiate(...)`), which is capable of transactions.
+- However, the documented/default `MONGO_URI` uses `directConnection=true` and does not specify `replicaSet=rs0` (`README.md`, `docker-compose.yml`, `server/.env`). With that URI, drivers typically treat the connection as standalone, and multi-document transactions may not be available.
+- There are no existing Mongoose session/transaction patterns in the codebase today. To satisfy “all-or-nothing” bulk operations and “delete conversations + turns” atomically, this story should plan to:
+  - enable replica-set-aware connections for dev (update default `MONGO_URI` to include `replicaSet=rs0` and drop `directConnection=true`), and
+  - implement bulk operations using a Mongoose session transaction.
+
+### Existing tests that will be impacted
+
+- Server Cucumber cancellation tests currently assert that aborting the HTTP request cancels provider execution (`server/src/test/steps/chat_cancellation.steps.ts`).
+- Client tests for the Stop button and “New conversation” behavior assume aborting the in-flight fetch cancels the run (`client/src/test/chatPage.stop.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`).
+- Because Story 19 decouples “view subscription” from “run lifetime”, these tests will need to be updated (Stop will use `cancel_inflight`; navigation/unsubscribe must not cancel the run).
+
+---
+
 ## Out Of Scope
 
 - “Select all” across the entire result set (server-side bulk operations over all matches).
@@ -180,7 +224,7 @@ Note: the persisted transcript remains the source of truth; sequence IDs are pri
 - Editing conversation titles, tagging, folders, or search within conversations.
 - Cross-instance fan-out or locking (multi-server coordination). v1 assumes a single server process for live fan-out.
 - Changing the MCP tool request/response formats or the persisted MCP turn schema. This story only improves how those existing turns/streams are displayed in the browser.
-- Introducing an explicit “cancel run” endpoint for non-UI initiated runs (cancellation remains via existing abort/disconnect mechanisms where applicable).
+- Introducing a public “cancel run” API beyond the existing Stop button semantics (Stop will cancel the in-flight run via `cancel_inflight`; leaving the page/unsubscribing must not cancel).
 - Sidebar “extra” live indicators (typing/streaming badges, token previews, tool-progress badges) beyond minimal create/update/delete + resorting.
 
 ---

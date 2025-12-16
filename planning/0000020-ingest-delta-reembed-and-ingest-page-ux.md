@@ -23,6 +23,8 @@ To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we w
 - detect changed files (hash differs), and
 - detect new files (present on disk but not in the index).
 
+For changed files, we will treat re-ingest as a **file-level replacement**: delete all existing vectors for `{ root, relPath }` and then re-chunk and re-add the file’s vectors. We will not attempt chunk-level upserts because modified files are very unlikely to retain the same chunk boundaries.
+
 Separately, the Ingest page UI has a couple of small usability issues:
 - When the embedding model is locked, the same info notice appears twice (once on the page and once inside the form). We want to show it only once to reduce noise.
 - The “Folder path” field is currently text-only; we want an optional “Choose folder…” affordance that helps users select a folder path more reliably.
@@ -37,7 +39,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 
 - Re-ingest supports an incremental/delta mode that:
   - Removes vectors for files that no longer exist in the folder.
-  - Removes vectors for files whose content has changed (based on a file hash) and re-embeds those files.
+  - For files whose content has changed (based on a file hash), performs a file-level replacement by deleting all vectors for `{ root, relPath }` and re-embedding the file.
   - Embeds and ingests files that are new (not previously present for that folder).
   - Leaves vectors for unchanged files untouched.
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
@@ -62,6 +64,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Changing the ingest status transport from polling to SSE/WebSockets (status remains polling-driven).
 - Cross-server coordination (delta assumes a single server process / single Chroma instance per environment).
 - Sophisticated “partial file” diffs at the chunk level (v1 can treat a changed file as “delete all chunks for that file, then re-add”).
+- Stable chunk IDs / upsert-based updates (we use file-level replacement by deleting `{ root, relPath }` vectors then re-adding).
 - Full “native OS folder picker that reveals absolute filesystem paths” in a standard browser environment, if it requires switching to an upload-based ingest model or a desktop wrapper (see Questions).
 - A browser-native folder picker that depends on local filesystem selection and implies upload-based ingest or a desktop wrapper (we will use a server-backed directory picker instead).
 - Storing the per-file index inside Chroma (we will store it in MongoDB instead).
@@ -72,14 +75,13 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 ## Questions
 
 1. **Mongo per-file index shape:** what exact Mongo schema do we want for the per-file index (minimum `{ root, relPath, fileHash }`; optionally `updatedAt`, `sizeBytes`, `mtimeMs`, `chunkerVersion/configHash`, `lastEmbeddedAt`) and what indexes should we add for performance?
-2. **Chunk IDs / update strategy:** do we want stable chunk IDs (e.g., `{root}:{relPath}:{chunkIndex}` or `chunkHash`) so we can upsert, or is the v1 strategy “delete all vectors for `{root, relPath}` then re-add” sufficient?
-3. **Path representation:** the current chunk metadata stores `relPath`. Is that sufficient for “path including filename”, or do we need to store additional fields (e.g., `absContainerPath`, `repo`, `hostPath`) to support future UI and tool-citation use-cases?
-4. **Chunking/config versioning:** should delta logic consider a `chunkerVersion` / `configHash` so that a re-ingest can be forced even when `fileHash` is unchanged but chunking rules change?
-5. **Cancellation semantics:** if a re-ingest is “in-place” (updating vectors for a root), how do we ensure cancel does not leave the root in a mixed state? (Options: stage changes under a runId, then “swap” on completion; or accept eventual consistency with per-file deletes/adds.)
-6. **Model lock + delta:** should a delta re-ingest be allowed only when the locked embedding model matches, or do we ever support migrating embeddings to a new model (likely out of scope for v1)?
-7. **Directory picker details:** what is the allowed base (default `/data` vs `HOST_INGEST_DIR`), do we support browsing multiple bases, and how do we present/validate container-path vs host-path expectations in the UI copy?
-8. **Performance constraints:** what folder sizes/repos are the target? This affects whether scanning Chroma metadatas is acceptable or whether we must add the per-file index collection.
-9. **Backward compatibility:** how do we treat roots ingested before we add any new metadata fields (if any)? Should re-ingest auto-upgrade them during the first delta run?
+2. **Path representation:** the current chunk metadata stores `relPath`. Is that sufficient for “path including filename”, or do we need to store additional fields (e.g., `absContainerPath`, `repo`, `hostPath`) to support future UI and tool-citation use-cases?
+3. **Chunking/config versioning:** should delta logic consider a `chunkerVersion` / `configHash` so that a re-ingest can be forced even when `fileHash` is unchanged but chunking rules change?
+4. **Cancellation semantics:** if a re-ingest is “in-place” (updating vectors for a root), how do we ensure cancel does not leave the root in a mixed state? (Options: stage changes under a runId, then “swap” on completion; or accept eventual consistency with per-file deletes/adds.)
+5. **Model lock + delta:** should a delta re-ingest be allowed only when the locked embedding model matches, or do we ever support migrating embeddings to a new model (likely out of scope for v1)?
+6. **Directory picker details:** what is the allowed base (default `/data` vs `HOST_INGEST_DIR`), do we support browsing multiple bases, and how do we present/validate container-path vs host-path expectations in the UI copy?
+7. **Performance constraints:** what folder sizes/repos are the target? This affects whether scanning Chroma metadatas is acceptable or whether we must add the per-file index collection.
+8. **Backward compatibility:** how do we treat roots ingested before we add any new metadata fields (if any)? Should re-ingest auto-upgrade them during the first delta run?
 
 ---
 

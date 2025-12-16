@@ -94,9 +94,10 @@ Add two new tools to Agents MCP `5012`:
 - Agent command discovery:
   - Each agent may optionally have `codex_agents/<agentName>/commands/*.json`.
   - Commands list is refreshed every time list is requested (no long-lived cache).
-  - Command name is derived from filename (no JSON “title” field required in v1).
-  - REST exposes `GET /agents/:agentName/commands` returning `{ commands: [{ name, description }] }`.
+  - Command name is derived from filename (basename without `.json`; no JSON “title” field required in v1).
+  - REST exposes `GET /agents/:agentName/commands` returning `{ commands: [{ name, description, disabled? }] }`.
   - Agents MCP exposes a `list_commands` tool that can list by agent or list all.
+  - `list_commands` without `agentName` returns **all agents**, including agents with no `commands/` folder, with `commands: []`.
 
 - Agent command execution (shared server path):
   - There is exactly one server-side implementation that:
@@ -114,7 +115,7 @@ Add two new tools to Agents MCP `5012`:
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.
   - UI shows:
-    - a dropdown of command names,
+    - a dropdown of command names (display label replaces `_` with spaces; underlying value remains the filename-derived `name`),
     - the selected command’s `Description`,
     - an “Execute” button.
   - UI does not show the command JSON.
@@ -128,24 +129,23 @@ Add two new tools to Agents MCP `5012`:
   - Supported item types:
     - only `type: "message"` in this story.
   - For `message` items:
-    - `role` must be `"user"`.
+    - `role` must be `"user"` (v1 enforces user-only).
     - `content` must be a non-empty string array.
-  - Guardrails:
-    - Reject commands with too many items (cap to a small, documented max).
-    - Reject command files over a small, documented max size.
-    - Reject `commandName` containing path separators (`/`, `\\`) or `..` (prevents traversal).
+  - Traversal prevention:
+    - Reject `commandName` containing path separators (`/`, `\\`) or `..`.
 
 - Error codes (stable, safe, reused across REST and MCP):
   - Existing agent errors must continue to work (`AGENT_NOT_FOUND`, `CODEX_UNAVAILABLE`, `CONVERSATION_ARCHIVED`, `AGENT_MISMATCH`, `WORKING_FOLDER_INVALID`, `WORKING_FOLDER_NOT_FOUND`).
   - New command errors:
     - `COMMAND_NOT_FOUND` – requested `commandName` does not exist for that agent.
     - `COMMAND_INVALID` – JSON parse failure, schema invalid, unsupported item type/role.
-    - `COMMAND_TOO_LARGE` – file too large or too many items.
+  - Listing invalid commands:
+    - When listing commands, invalid command files must still appear in the list as disabled entries (so users can see something exists but cannot run it).
+    - Disabled entries may use a placeholder description (for example “Invalid command file”) if the JSON cannot be parsed.
   - REST mapping:
     - `AGENT_NOT_FOUND` → 404
     - `COMMAND_NOT_FOUND` → 404
     - `COMMAND_INVALID` → 400 with `{ error: "invalid_request", code: "COMMAND_INVALID", message: "..." }`
-    - `COMMAND_TOO_LARGE` → 400 with `{ error: "invalid_request", code: "COMMAND_TOO_LARGE", message: "..." }`
     - `WORKING_FOLDER_*` → 400 (existing behavior)
   - MCP mapping:
     - invalid params (including `COMMAND_*` and `WORKING_FOLDER_*`) must be returned as invalid-params style tool errors with safe messages.
@@ -166,17 +166,4 @@ Add two new tools to Agents MCP `5012`:
 
 ## Questions
 
-1. Should command execution be allowed to run “assistant” or “system” messages as steps, or do we want to enforce `role: "user"` only in v1 (recommended for KISS)?
-2. Do you want **legacy** support for the current committed command schema (`Events` + `Chat_Input`) in v1, or is it acceptable to migrate existing command JSON files to the new `items/type/message` shape as part of this story?
-3. Maximum guardrails:
-   - What max command file size should we enforce (e.g. 64KB)?
-   - What max `items` length should we enforce (e.g. 50)?
-4. Error surface:
-   - For `GET /agents/:agentName/commands`, if a command JSON is invalid, should we:
-     - skip it silently,
-     - skip it but include a `warnings[]` list,
-     - or include it in the list with a `disabled: true` flag and a warning?
-5. Should `list_commands` without `agentName` return commands for **all** agents, or only for agents that have a `commands/` folder?
-6. Naming:
-   - Is “commandName” (filename) the only identifier, or do you want a stable explicit id field inside the JSON (recommended: filename-only for v1)?
-
+1. Legacy format: do you want to keep compatibility for the current committed command schema (`Events` + `Chat_Input`) in v1, or should this story migrate existing command JSON files to the new `items/type/message` shape?

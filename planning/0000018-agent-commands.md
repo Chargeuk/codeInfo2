@@ -241,6 +241,7 @@ Gotchas to keep in mind while implementing this task:
 - Zod v3 schema validation: Context7 `/websites/v3_zod_dev` (how `.safeParse()`/`.strict()` validation should be done for tool args/bodies)
 - SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (used by server unit tests to call Express routes and assert response shapes)
 - JSON-RPC 2.0 error semantics: https://www.jsonrpc.org/specification (Agents MCP is JSON-RPC; needed to map service errors to stable JSON-RPC errors)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -391,6 +392,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 - Mongoose schemas + subdocuments: Context7 `/websites/mongoosejs` (how to add an optional nested object field to a schema without breaking existing documents)
 - MongoDB document modeling: https://www.mongodb.com/docs/manual/core/data-modeling-introduction/ (why optional fields are safe and how schema evolution works)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests added in this task use Node’s built-in runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -488,6 +490,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 - Node.js filesystem (`fs.promises.readFile`, `readdir`): https://nodejs.org/api/fs.html (for reading command files from disk)
 - `JSON.parse(...)`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse (how JSON parse failures surface and must be handled)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for schema parsing are written with Node’s test runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -573,6 +576,7 @@ Implement a shared server function that discovers command JSON files for an agen
 - Node.js filesystem directory listing (`fs.readdir`): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options (to enumerate `commands/*.json` with no caching)
 - Node.js path utilities: https://nodejs.org/api/path.html (safe basename handling and cross-platform joins)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for directory listing behavior use Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -648,6 +652,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
 - HTTP 404 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404 (REST behavior for unknown `agentName`)
 - SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (used to unit test the new REST route)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (server unit tests use Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -713,6 +718,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 - JSON-RPC 2.0 errors: https://www.jsonrpc.org/specification (Agents MCP is JSON-RPC; `list_commands` must return stable error codes/messages)
 - Zod v3 parsing: Context7 `/websites/v3_zod_dev` (how MCP tool args should be validated with `.safeParse()` and `.strict()` objects)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for the MCP tool use Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -787,6 +793,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
 
 - `try { } finally { }` (async/await safety): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch (why lock release must happen in `finally` even when aborted)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (this refactor updates unit tests written with Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -853,6 +860,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 - Node.js `path` utilities: https://nodejs.org/api/path.html (prevent path traversal via `commandName` and build a safe file path)
 - Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions (how to generate a new `conversationId` for new command runs)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for multi-step execution are written with Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -967,6 +975,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 - HTTP status semantics (400/404/409): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (stable REST mappings for command errors and `RUN_IN_PROGRESS`)
 - SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (unit tests for the POST route)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (server unit tests use Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1050,6 +1059,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (Agents MCP tool behavior and error envelopes)
 - Zod v3 parsing: Context7 `/websites/v3_zod_dev` (validate tool args; reject invalid inputs safely)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (MCP tool tests use Node’s runner)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1140,6 +1150,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0`
 - ts-jest ESM preset (`ts-jest/presets/default-esm`): Context7 `/websites/kulshekhar_github_io-ts-jest-docs`
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1205,6 +1216,7 @@ Add a focused client API helper for executing a selected command against an agen
 - AbortController / AbortSignal: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0`
 - ts-jest ESM preset (`ts-jest/presets/default-esm`): Context7 `/websites/kulshekhar_github_io-ts-jest-docs`
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1268,6 +1280,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Response.json(): https://developer.mozilla.org/en-US/docs/Web/API/Response/json
 - Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1330,6 +1343,7 @@ Support the “KISS” command execution response by adding a refresh method to 
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (the hook re-fetches turns; helps ensure correct fetch + abort usage)
 - Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0` (client unit tests run under Jest and must use the project’s Jest patterns)
 - React Testing Library: Context7 `/websites/testing-library` (tests in this repo render components/hooks via Testing Library patterns)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1385,6 +1399,7 @@ Update the Agents page to list commands for the selected agent and show the sele
 - MUI MenuItem API (disabled state): MUI MCP `@mui/material@6.4.12` (ensures invalid commands can be shown but not selectable)
 - MUI FormControl/InputLabel/Typography APIs: MUI MCP `@mui/material@6.4.12` (layout + labeling for accessible dropdown UI)
 - React state/effects: https://react.dev/reference/react (fetch-on-agent-change and derived selection state)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1462,6 +1477,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 - AbortController / AbortSignal: https://developer.mozilla.org/en-US/docs/Web/API/AbortController (the Execute run must be cancellable via the existing Abort mechanism)
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409 (server conflict surfaced as `RUN_IN_PROGRESS`)
 - React hooks: https://react.dev/reference/react (state transitions around execute + refresh)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1548,6 +1564,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 
 - MUI Typography API: MUI MCP `@mui/material@6.4.12` (how to render subtle “Command run … (2/12)” notes)
 - React rendering basics: https://react.dev/reference/react (conditional rendering of metadata without disrupting markdown/tool UI)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1609,6 +1626,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 - Testing Library user-event: Context7 `/testing-library/user-event` (simulating user clicks/types for dropdown + execute flows)
 - React Router v7 (Memory router): Context7 `/remix-run/react-router/react-router_7.9.4` (tests use `createMemoryRouter` + `RouterProvider`)
 - MUI components: MUI MCP `@mui/material@6.4.12` (dropdown/button rendering in tests)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1673,6 +1691,7 @@ Document Agent Commands (where command files live and the REST API surface for l
 #### Documentation Locations
 
 - HTTP semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1717,6 +1736,7 @@ Add a Mermaid sequence diagram and document the cancellation + per-conversation 
 
 - Mermaid syntax: Context7 `/mermaid-js/mermaid`
 - MCP overview (terminology only): https://modelcontextprotocol.io/
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1762,6 +1782,7 @@ Keep the project tree map up to date after introducing new command-related serve
 #### Documentation Locations
 
 - None (file is repo-specific).
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
 
@@ -1806,6 +1827,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 - Docker/Compose: Context7 `/docker/docs` (clean builds and compose up/down validation)
 - Playwright: Context7 `/microsoft/playwright` (how screenshots/assertions work and where snapshots land)
 - Jest 30: Context7 `/websites/jestjs_io_30_0` (repo unit test runner behavior for both front-end and back-end workspaces)
+- Cucumber guides: https://cucumber.io/docs/guides/ (Cucumber documentation hub; the server test suite includes Cucumber features)
 - Cucumber guide (quick feature/step conventions): https://cucumber.io/docs/guides/10-minute-tutorial/ (shared Cucumber vocabulary and structure)
 - Cucumber guide (CI considerations): https://cucumber.io/docs/guides/continuous-integration/ (helps ensure Cucumber runs reliably in automation/CI)
 

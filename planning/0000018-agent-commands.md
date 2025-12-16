@@ -1179,7 +1179,12 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      - Returns the parsed `commands` array.
    - Where to copy test patterns from:
      - `client/src/test/agentsApi.workingFolder.payload.test.ts` (fetch mocking + asserting URL + body)
-3. [ ] Run repo-wide lint/format gate:
+3. [ ] Update `projectStructure.md` after adding new client test files:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add `client/src/test/agentsApi.commandsList.test.ts` with a short description.
+4. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1244,7 +1249,12 @@ Add a focused client API helper for executing a selected command against an agen
      - Confirms `working_folder` and `conversationId` are omitted when not provided.
    - Where to copy test patterns from:
      - `client/src/test/agentsApi.workingFolder.payload.test.ts` (asserts optional payload behavior)
-3. [ ] Run repo-wide lint/format gate:
+3. [ ] Update `projectStructure.md` after adding new client test files:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add `client/src/test/agentsApi.commandsRun.test.ts` with a short description.
+4. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1306,7 +1316,12 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - Test requirements:
      - For `runAgentInstruction(...)`, simulate `409` with `{ code: "RUN_IN_PROGRESS" }` and assert the thrown error exposes `status=409` and `code="RUN_IN_PROGRESS"`.
      - For `runAgentCommand(...)`, same assertion.
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Update `projectStructure.md` after adding new client test files:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add `client/src/test/agentsApi.errors.test.ts` with a short description.
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1362,7 +1377,12 @@ Support the “KISS” command execution response by adding a refresh method to 
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - Add `client/src/test/useConversationTurns.refresh.test.ts`
-4. [ ] Run repo-wide lint/format gate:
+4. [ ] Update `projectStructure.md` after adding new client test files:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add `client/src/test/useConversationTurns.refresh.test.ts` with a short description.
+5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1657,7 +1677,16 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
        - conflict from a command run attempt
        - conflict from a normal agent instruction attempt
      - because server locking is per-conversation and must protect multi-tab interactions.
-4. [ ] Run repo-wide lint/format gate:
+4. [ ] Update `projectStructure.md` after adding new client test files:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add:
+       - `client/src/test/agentsPage.commandsList.test.tsx`
+       - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+       - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+     - Ensure each entry has a short description (what it covers).
+5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

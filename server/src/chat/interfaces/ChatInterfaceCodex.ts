@@ -1,6 +1,7 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import { Codex } from '@openai/codex-sdk';
 import type {
+  ModelReasoningEffort,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
@@ -11,10 +12,17 @@ import { detectCodexForHome } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
+type CodexThreadOptionsCompat = Omit<
+  CodexThreadOptions,
+  'modelReasoningEffort'
+> & {
+  modelReasoningEffort?: ModelReasoningEffort | 'xhigh';
+};
+
 type CodexRunFlags = {
   workingDirectoryOverride?: string;
   threadId?: string | null;
-  codexFlags?: Partial<CodexThreadOptions>;
+  codexFlags?: Partial<CodexThreadOptionsCompat>;
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
@@ -101,7 +109,8 @@ export class ChatInterfaceCodex extends ChatInterface {
           networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
           webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
           approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
-          modelReasoningEffort: codexFlags?.modelReasoningEffort ?? 'high',
+          modelReasoningEffort: (codexFlags?.modelReasoningEffort ??
+            'high') as unknown as CodexThreadOptions['modelReasoningEffort'],
         };
 
     const codex = codexHome

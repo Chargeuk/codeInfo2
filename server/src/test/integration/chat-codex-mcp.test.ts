@@ -589,7 +589,7 @@ test('codex chat rejects invalid modelReasoningEffort input early', async () => 
   );
 });
 
-test('codex chat forwards modelReasoningEffort flag to codex thread', async () => {
+test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', async () => {
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -609,12 +609,12 @@ test('codex chat forwards modelReasoningEffort flag to codex thread', async () =
 
   await request(app)
     .post('/chat')
-    .send(buildCodexBody({ modelReasoningEffort: 'low' }))
+    .send(buildCodexBody({ modelReasoningEffort: 'xhigh' }))
     .expect(200);
 
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
-    'low',
+    'xhigh',
     'explicit modelReasoningEffort should be forwarded',
   );
 });

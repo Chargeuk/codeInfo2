@@ -1098,7 +1098,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 ### 8. Codex updates: add reasoning effort xhigh
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1118,7 +1118,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 #### Subtasks
 
-1. [ ] Update client types + UI options:
+1. [x] Update client types + UI options:
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/api/select.md
      - Context7 `/microsoft/typescript`
@@ -1130,7 +1130,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
      - `client/src/components/chat/CodexFlagsPanel.tsx`: add a new option:
        - value: `xhigh`
        - label: `XHigh`
-2. [ ] Update server validation to accept `xhigh` (app-level value):
+2. [x] Update server validation to accept `xhigh` (app-level value):
    - Docs to read:
      - Context7 `/microsoft/typescript` (widening unions safely)
    - Files to read:
@@ -1143,7 +1143,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
      - Use an app-level union type like `type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh'`:
        - Update `ValidatedChatRequest['codexFlags'].modelReasoningEffort` to use `AppModelReasoningEffort`.
        - Then, when building the final `threadOptions` in `ChatInterfaceCodex`, cast as needed.
-3. [ ] Ensure `xhigh` is passed through to Codex:
+3. [x] Ensure `xhigh` is passed through to Codex:
    - Docs to read:
      - Context7 `/openai/codex` (what values are accepted at CLI config level)
      - code_info MCP: inspect installed `@openai/codex-sdk` (runtime pass-through; SDK types may lag)
@@ -1159,7 +1159,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
          - then type `codexFlags?: Partial<CodexThreadOptionsCompat>` in `CodexRunFlags`.
    - Implementation rule:
      - Do **not** down-map `xhigh` to `high`; pass it through in `threadOptions.modelReasoningEffort` (with a type cast at assignment, because the installed SDK types are narrower than the CLI’s accepted values).
-4. [ ] **Test (client UI, Jest/RTL)**: selecting `xhigh` sends `modelReasoningEffort: 'xhigh'` in the request
+4. [x] **Test (client UI, Jest/RTL)**: selecting `xhigh` sends `modelReasoningEffort: 'xhigh'` in the request
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -1169,7 +1169,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
      - select reasoning effort `xhigh`
      - submit a Codex message
      - assert captured request JSON contains `modelReasoningEffort: 'xhigh'`.
-5. [ ] **Test (server integration, `node:test` + MockCodex)**: server accepts `xhigh` and passes `xhigh` into Codex thread options
+5. [x] **Test (server integration, `node:test` + MockCodex)**: server accepts `xhigh` and passes `xhigh` into Codex thread options
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Location: `server/src/test/integration/chat-codex-mcp.test.ts` (edit)
@@ -1177,7 +1177,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
    - Description:
      - send a Codex request with `modelReasoningEffort: 'xhigh'`
      - assert mocked codex thread options received `modelReasoningEffort: 'xhigh'`.
-6. [ ] Update `README.md` to document `xhigh` (do this after implementing the validation + adapter changes above):
+6. [x] Update `README.md` to document `xhigh` (do this after implementing the validation + adapter changes above):
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/openai/codex`
@@ -1186,7 +1186,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
    - Purpose: ensure users know `xhigh` exists and what it does.
    - Description (must include):
      - `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`).
-7. [ ] Update `design.md` to document the reasoning-effort flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
+7. [x] Update `design.md` to document the reasoning-effort flow (include Mermaid diagram) (do this after implementing the validation + adapter changes above):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1196,14 +1196,14 @@ Update Codex reasoning-effort options across server validation and client UI, pl
      - call out that `xhigh` is not in this repo’s installed SDK TypeScript union, but is still forwarded at runtime.
    - Add a Mermaid `flowchart` showing:
      - UI selection → REST payload (`modelReasoningEffort`) → server validation → Codex thread options (`modelReasoningEffort`)
-8. [ ] Verification commands:
+8. [x] Verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspaces`
    - `npm run test --workspace server`
    - `npm run test --workspace client`
    - `npm run format:check --workspaces`
-9. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+9. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -1216,21 +1216,38 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/chat` reasoning effort dropdown includes `xhigh` and selecting it still sends `modelReasoningEffort: 'xhigh'` (primary story behaviour)
    - `/agents` still runs with `working_folder` (baseline regression)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Subtask 1: extended client `ModelReasoningEffort` to include `xhigh` and added an `XHigh` option to the Codex flags dropdown.
+- Subtask 2: updated server `/chat` validation to accept `modelReasoningEffort: 'xhigh'` using an app-level union (`ModelReasoningEffort | 'xhigh'`) so the installed SDK types can lag safely.
+- Subtask 3: widened `ChatInterfaceCodex` flag typing to allow `xhigh` and cast the final `threadOptions.modelReasoningEffort` assignment so runtime pass-through is preserved.
+- Subtask 4: updated client RTL test to select `xhigh` and assert request payload forwards `modelReasoningEffort: 'xhigh'`.
+- Subtask 5: updated server integration test to send `modelReasoningEffort: 'xhigh'` and assert the mocked Codex thread options receive it.
+- Subtask 6: documented `xhigh` in `README.md` and noted it is passed through to Codex as `model_reasoning_effort="xhigh"`.
+- Subtask 7: documented the reasoning-effort flow (and SDK type mismatch) in `design.md` with a Mermaid diagram.
+- Subtask 8: verified lint/tests/format (`npm run lint --workspaces`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run format:check --workspaces`).
+- Subtask 9: repo-wide lint + format gate passed (same commands; no fixes required).
+- Testing 1: `npm run build --workspace server`.
+- Testing 2: `npm run build --workspace client`.
+- Testing 3: `npm run test --workspace server`.
+- Testing 4: `npm run test --workspace client`.
+- Testing 5: `CODEX_HOME=$PWD/codex npm run e2e`.
+- Testing 6: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing 7: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing 8: headless Playwright check against `http://host.docker.internal:5001` with API rewrite for `http://localhost:5010` to ensure the browser hit the mapped Docker ports; verified `modelReasoningEffort: 'xhigh'` and `working_folder` request payloads, and saved screenshots to `test-results/screenshots/task8-chat-xhigh.png` and `test-results/screenshots/task8-agents-working-folder.png`.
+- Testing 9: `CODEX_HOME=$PWD/codex npm run compose:down`.
 
 ---
 

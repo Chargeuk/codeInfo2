@@ -181,10 +181,10 @@ describe('Codex model reasoning effort flag payloads', () => {
       expect(reasoningSelect).toHaveTextContent(/high \(default\)/i),
     );
     await userEvent.click(reasoningSelect);
-    const lowOption = await screen.findByRole('option', {
-      name: /low/i,
+    const xhighOption = await screen.findByRole('option', {
+      name: /xhigh/i,
     });
-    await userEvent.click(lowOption);
+    await userEvent.click(xhighOption);
 
     await userEvent.clear(input);
     await userEvent.type(input, 'Hello Codex');
@@ -196,7 +196,7 @@ describe('Codex model reasoning effort flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody.modelReasoningEffort).toBe('low');
+    expect(codexBody.modelReasoningEffort).toBe('xhigh');
 
     await act(async () => {
       await userEvent.click(newConversationButton);

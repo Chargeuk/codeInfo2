@@ -74,7 +74,22 @@ sequenceDiagram
 ### Chat page (models list)
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with a Provider `<Select>` (LM Studio default, OpenAI Codex when detected) to the left of the Model `<Select>`. The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+- Codex-only controls live in a collapsible **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `xhigh`, `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+
+#### Codex reasoning effort flow
+
+- `xhigh` is intentionally treated as an app-level value: the installed `@openai/codex-sdk` TypeScript union may not include it yet, but the runtime adapter forwards the string through to the Codex CLI as `--config model_reasoning_effort="..."`.
+
+```mermaid
+flowchart LR
+  UI[UI: /chat\nCodex flags panel] -->|select xhigh| Req[POST /chat\nmodelReasoningEffort: 'xhigh']
+  Req --> V[server validateChatRequest\naccepts low/medium/high/xhigh]
+  V --> C[ChatInterfaceCodex\nthreadOptions.modelReasoningEffort]
+  C --> SDK[@openai/codex-sdk\nexec args: --config model_reasoning_effort="xhigh"]
+  SDK --> CLI[Codex CLI]
+
+  Note[TS note: SDK types may lag\n(ModelReasoningEffort excludes 'xhigh')] -.-> C
+```
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
 - Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 

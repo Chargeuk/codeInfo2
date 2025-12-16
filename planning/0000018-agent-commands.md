@@ -25,8 +25,15 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - Command-run turns appear as normal agent chat turns, but each turn created by a command run is annotated so the UI can show a small “Command run: <name>” note inside the chat bubble.
 - Command-run turn metadata uses a single structured field: `command: { name, stepIndex, totalSteps }` so the UI can show progress like “2/12”.
 - Command runs are cancellable by reusing the existing abort mechanism: the UI aborts the in-flight HTTP request (AbortController) and the server aborts the provider call via an AbortSignal; the command runner must stop after the current step and never execute subsequent steps once aborted.
-- Concurrency is blocked with a simple **global lock**: while any agent run or command run is in progress, the UI disables starting new runs (except Abort), and the server rejects concurrent REST/MCP run requests.
-- The global lock is implemented as an in-memory, per-server-process lock (no cross-instance coordination in v1).
+- Concurrency is blocked with an in-memory, per-server-process **per-conversation lock**: while a run is in progress for a given `conversationId`, the server rejects concurrent REST/MCP run requests targeting the same `conversationId` (including from multiple browser tabs/windows).
+- The UI does not implement client-side locking in v1; it relies on server rejection and shows a clear error when a run is already in progress.
+
+### Concurrency gotchas (must be handled)
+
+- Same `conversationId` must never process two runs at the same time; otherwise turns and `threadId` updates can interleave and corrupt the conversation timeline.
+- Command runs are multi-step: the conversation lock must be held for the entire command run (not per step), otherwise another run could slip in between steps and interleave turns.
+- Cancellation uses the existing abort mechanism (closing/aborting the HTTP request); the command runner must check `signal.aborted` between steps and never start the next step after abort.
+- For runs that start a new conversation (no `conversationId` provided), the server must generate a `conversationId` early and lock that id for the duration of the run.
 
 ### Command schema (v1; extendable)
 
@@ -118,13 +125,14 @@ Add two new tools to Agents MCP `5012`:
     - The command runner must check `signal.aborted` between steps and never start the next step after an abort.
     - When cancelling during an in-flight step, the server appends an assistant turn indicating the step was cancelled (existing “Stopped” messaging is acceptable) with the `command` metadata set for that step.
   - Concurrency:
-    - While any run is in progress (global lock), REST and MCP must reject new run requests with `RUN_IN_PROGRESS`.
-    - The global lock must apply consistently to:
+    - While a run is in progress for a given `conversationId` (per-conversation in-memory lock), REST and MCP must reject new run requests targeting the same `conversationId` with `RUN_IN_PROGRESS`.
+    - The per-conversation lock must apply consistently to:
       - REST `POST /agents/:agentName/run`
       - REST `POST /agents/:agentName/commands/run`
       - Agents MCP `run_agent_instruction`
       - Agents MCP `run_command`
-    - The global lock is in-memory per server process and does not coordinate across multiple server instances in v1.
+    - The lock is in-memory per server process and does not coordinate across multiple server instances in v1.
+    - Commands are multi-step: the lock must be held for the full command run so other runs cannot interleave between steps.
 
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.
@@ -137,7 +145,7 @@ Add two new tools to Agents MCP `5012`:
   - If the working folder field is populated, it is passed as `working_folder` when executing the selected command.
   - After execution completes, the UI shows each command step’s prompt content and the agent’s response for that step by re-fetching turns (no special step payload required).
   - Each command-run-created turn shows a small “Command run: <commandName>” note inside the chat bubble.
-  - While a run is in progress, the UI disables starting new runs and only allows Abort.
+  - When the server responds with `RUN_IN_PROGRESS`, the UI surfaces a clear error (for example: “This conversation is already running; wait for it to finish or abort it.”).
 
 - Validation rules (KISS; enforce only what we need now):
   - Command file must be valid JSON.
@@ -157,7 +165,7 @@ Add two new tools to Agents MCP `5012`:
     - `COMMAND_NOT_FOUND` – requested `commandName` does not exist for that agent.
     - `COMMAND_INVALID` – JSON parse failure, schema invalid, unsupported item type/role.
   - Concurrency:
-    - `RUN_IN_PROGRESS` – a run is already in progress for the targeted agent conversation.
+    - `RUN_IN_PROGRESS` – a run is already in progress for the targeted `conversationId` (covers multiple browser windows/tabs).
   - Listing invalid commands:
     - When listing commands, invalid command files must still appear in the list as disabled entries (so users can see something exists but cannot run it).
     - Disabled entries may use a placeholder description (for example “Invalid command file”) if the JSON cannot be parsed.
@@ -183,6 +191,7 @@ Add two new tools to Agents MCP `5012`:
 - Non-message command item types (e.g. “pause/confirm”, “set variable”, “select file”, “run tool directly”).
 - Running commands in the main Chat UI (non-agents).
 - Persisting a separate “CommandRun” collection/entity in MongoDB (v1 uses a simple per-turn metadata field instead).
+- Cross-instance locking (multi-server coordination via Redis/DB).
 
 ---
 
@@ -194,14 +203,20 @@ Add two new tools to Agents MCP `5012`:
 
 # Tasks
 
-### 1. Global run lock + `RUN_IN_PROGRESS` across Agents REST + MCP
+### 1. Per-conversation run lock + `RUN_IN_PROGRESS` across Agents REST + MCP
 
 - Task Status: **to_do**
 - Git Commits:
 
 #### Overview
 
-Add a simple in-memory, per-server-process global lock that blocks concurrent agent runs and command runs. Apply it consistently across Agents REST and Agents MCP, returning a stable `RUN_IN_PROGRESS` error (REST: HTTP 409).
+Add a simple in-memory, per-server-process **per-conversation lock** that blocks concurrent agent runs and command runs targeting the same `conversationId`. Apply it consistently across Agents REST and Agents MCP, returning a stable `RUN_IN_PROGRESS` error (REST: HTTP 409).
+
+Gotchas to keep in mind while implementing this task:
+
+- This lock must reject concurrent runs for the same `conversationId` even when they come from different browser windows/tabs.
+- Command runs are multi-step and must hold the conversation lock for the entire run (implemented in later tasks, but the lock helper must support this).
+- Cancellation is abort-based; lock release must always happen in `finally`, including abort/error cases.
 
 #### Documentation Locations
 
@@ -220,14 +235,15 @@ Add a simple in-memory, per-server-process global lock that blocks concurrent ag
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
-2. [ ] Add a new global lock helper (in-memory, per-process):
+2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
      - Create `server/src/agents/runLock.ts`
    - Requirements:
-     - API should be tiny and explicit; e.g. `tryAcquireRunLock(): boolean` + `releaseRunLock(): void`.
-     - Lock must be released in a `finally` block even if the run fails/throws.
+     - Lock is keyed by `conversationId` (string).
+     - API should be tiny and explicit; e.g. `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
+     - Lock must be released in a `finally` block even if the run fails/throws or is aborted.
 3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
    - Files to read:
      - `server/src/agents/service.ts`
@@ -236,7 +252,7 @@ Add a simple in-memory, per-server-process global lock that blocks concurrent ag
    - Requirements:
      - Add `RUN_IN_PROGRESS` to the internal error codes used by agents/commands runs.
      - Ensure the error shape is safe (no stack traces leaked).
-4. [ ] Apply the global lock to existing agent runs (REST + MCP):
+4. [ ] Apply the per-conversation lock to existing agent runs (REST + MCP):
    - Files to read:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
@@ -244,7 +260,9 @@ Add a simple in-memory, per-server-process global lock that blocks concurrent ag
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
+     - REST: only enforce the lock when `conversationId` is provided (existing conversation). New conversations (no `conversationId`) should not be blocked by other conversations.
      - REST: map `RUN_IN_PROGRESS` → HTTP `409` with JSON `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message: '...' }`.
+     - MCP: only enforce the lock when `conversationId` is provided; if omitted, the server creates a new conversation and runs as normal.
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message (so clients can retry later).
 5. [ ] Add focused unit coverage for the lock behavior:
    - Docs to read:
@@ -255,7 +273,9 @@ Add a simple in-memory, per-server-process global lock that blocks concurrent ag
      - `server/src/test/unit/agents-router-run.test.ts`
      - `server/src/test/unit/mcp-agents-tools.test.ts`
    - Test requirements:
-     - Simulate “run already in progress” by acquiring the lock, then call the route/tool and assert `RUN_IN_PROGRESS`.
+     - Main path: a normal run with no lock returns success as today.
+     - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.
+     - Edge case: acquiring a lock for `conversationId='c1'` must not block a run for `conversationId='c2'`.
 6. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
@@ -272,8 +292,8 @@ Add a simple in-memory, per-server-process global lock that blocks concurrent ag
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Start an agent run and confirm the UI disables new runs (except Abort).
-   - Attempt a second run (REST or MCP) and confirm it fails with `RUN_IN_PROGRESS`.
+   - Start an agent run from one browser window/tab.
+   - Attempt a second run against the same conversation from another browser window/tab and confirm it fails with `RUN_IN_PROGRESS` and surfaces a clear error.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -652,7 +672,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 
 #### Overview
 
-Refactor agents execution so the global lock can be acquired once for a command run while still calling the same core “run one instruction” logic for each step without deadlocking.
+Refactor agents execution so the per-conversation lock can be acquired once for a command run while still calling the same core “run one instruction” logic for each step without deadlocking.
 
 #### Documentation Locations
 
@@ -663,15 +683,16 @@ Refactor agents execution so the global lock can be acquired once for a command 
 1. [ ] Read current `runAgentInstruction` implementation:
    - Files to read:
      - `server/src/agents/service.ts`
-2. [ ] Extract an internal helper that runs a single instruction without acquiring the global lock:
+2. [ ] Extract an internal helper that runs a single instruction without acquiring the per-conversation lock:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
      - Keep the exported `runAgentInstruction(...)` signature stable for existing callers.
      - Implement `runAgentInstruction(...)` as:
-       - acquire global lock (Task 1 helper)
+       - when `conversationId` is provided: acquire per-conversation lock (Task 1 helper)
+       - when omitted: create a new conversationId and run without needing to contend with other conversations
        - call internal helper
-       - release in `finally`
+       - release lock in `finally` (only if it was acquired)
      - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
 3. [ ] Update unit tests to cover both paths:
    - Files to read:
@@ -707,7 +728,7 @@ Refactor agents execution so the global lock can be acquired once for a command 
 
 #### Overview
 
-Implement a shared `runAgentCommand(...)` function that loads a command file, acquires the global lock once, runs each step sequentially as an agent instruction (joining `content[]` with `\n`), tags turns with `command` metadata, and stops after the current step if aborted.
+Implement a shared `runAgentCommand(...)` function that loads a command file, acquires the per-conversation lock once (for the entire command run), runs each step sequentially as an agent instruction (joining `content[]` with `\n`), tags turns with `command` metadata, and stops after the current step if aborted.
 
 #### Documentation Locations
 
@@ -742,7 +763,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      ```
    - Requirements:
      - Validate `commandName` contains no `/`, `\\`, or `..`.
-     - Acquire the global lock once for the entire run.
+     - Acquire the per-conversation lock once for the entire run (hold it across all steps so no other run can interleave).
      - Load/parse the command file; invalid → `COMMAND_INVALID`.
      - For each step `i`:
        - If `signal?.aborted`, stop before starting next step.
@@ -1112,7 +1133,7 @@ Update the Agents page to list commands for the selected agent, show the selecte
 
 #### Overview
 
-Document Agent Commands (schema, REST/MCP APIs, cancellation, global lock, and turn metadata) and keep the project tree up to date.
+Document Agent Commands (schema, REST/MCP APIs, cancellation, per-conversation locking, and turn metadata) and keep the project tree up to date.
 
 #### Documentation Locations
 
@@ -1134,7 +1155,7 @@ Document Agent Commands (schema, REST/MCP APIs, cancellation, global lock, and t
      - `design.md`
    - Requirements:
      - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
-     - Mention global lock + abort-based cancellation semantics.
+     - Mention per-conversation lock + abort-based cancellation semantics.
 3. [ ] Update `projectStructure.md`:
    - Files to edit:
      - `projectStructure.md`

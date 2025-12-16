@@ -45,6 +45,7 @@ The intended approach for “catch-up” is:
   - Deletion is a **hard delete** (no retention window / audit log requirement in v1).
   - Deletion removes **both** the conversation record and all stored turns/tool calls for that conversation.
   - Deletion requires an explicit user confirmation (confirmation dialog) before the server is called.
+- Bulk actions are **all-or-nothing**: if any selected conversation cannot be processed, the server rejects the entire bulk request and no changes are applied.
 - For v1, bulk actions apply to the currently loaded conversations in the list (no “select all matches across pagination”).
 
 ### Chat streaming – snapshot + live updates across conversations/windows
@@ -76,8 +77,6 @@ The intended approach for “catch-up” is:
 
 ## Questions
 
-- Error handling expectations for bulk actions:
-  - If some selected conversations fail to archive/restore/delete (archived already, missing, permission), should we do best-effort with per-item results, or fail the entire bulk request?
 - Live streaming transport:
   - Prefer Server-Sent Events (SSE) or WebSocket for conversation event fan-out? (SSE is simpler, but we should align with existing patterns and infra.)
 - Catch-up precision for in-flight turns:

@@ -847,7 +847,10 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (schema only); verify server unit tests pass.
+   - Regression smoke check (no UI feature yet for this task):
+     - Open `/agents` and confirm the page loads without errors.
+     - Select an agent and run a simple instruction; confirm a response is persisted and shown.
+     - Open `/chat` and confirm the page loads and can send a message (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1007,7 +1010,10 @@ Implement a shared server function that discovers command JSON files for an agen
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (service only); verify server unit tests pass.
+   - Regression smoke check (service-only task; REST/UI wiring not added yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Select an agent and run a simple instruction; confirm a response is persisted and shown.
+     - Open `/chat` and confirm the page loads and can send a message (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1593,7 +1599,9 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (no UI/REST wired); verify server unit tests pass.
+   - Regression smoke check (runner exists but is not wired to UI/REST yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Run a normal agent instruction and confirm the conversation/turns still persist correctly (baseline regression for locking/cancellation work from earlier tasks).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2077,7 +2085,9 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (API helper only); verify client unit tests pass.
+   - Regression smoke check (API helper only; UI not changed yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2169,7 +2179,9 @@ Add a focused client API helper for executing a selected command against an agen
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (API helper only); verify client unit tests pass.
+   - Regression smoke check (API helper only; UI not changed yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2269,7 +2281,9 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (API only); verify client unit tests pass.
+   - Regression smoke check (API-only change; UI not changed yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2364,7 +2378,9 @@ Support the “KISS” command execution response by adding a refresh method to 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable yet (hook only); verify unit tests pass.
+   - Regression smoke check (hook-only change; UI not changed yet):
+     - Open `/agents` and confirm the page loads without errors.
+     - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2826,7 +2842,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check:
-   - Not applicable (tests only); verify client unit tests pass.
+   - Regression + feature smoke check (tests task; feature should now be complete):
+     - Open `/agents`, select an agent, and confirm the Commands dropdown lists command names (no JSON shown).
+     - Select a command and confirm its Description is shown.
+     - Execute a command and confirm new turns appear annotated with “Command run: … (step/total)”.
+     - Press Abort during a command run and confirm a “Stopped” assistant turn appears for the in-flight step.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

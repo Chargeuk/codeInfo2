@@ -71,6 +71,7 @@ WebSockets keep this as a single long-lived connection with explicit `subscribe`
 - If the same conversation is viewed in multiple browser windows, both windows receive the same live updates while the run is in progress.
 - In-progress MCP conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
 - When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events.
+- Transcript streaming is scoped to the currently visible conversation only: when the user switches conversations, the client unsubscribes from the prior conversation stream and subscribes to the newly visible one.
 - Conversation sidebar updates stream in real time:
   - new conversations appear automatically when created elsewhere,
   - conversations move between views when archived/restored elsewhere,
@@ -99,10 +100,7 @@ WebSockets keep this as a single long-lived connection with explicit `subscribe`
 
 ## Questions
 
-- Subscription scope:
-  - Should the client subscribe to all active transcript streams by default (so switching is instant), or subscribe/unsubscribe per conversation and accept a small delay on switch?
-  - (Current direction) Subscribe/unsubscribe per conversation (only visible conversation streams). Sidebar remains a single always-on stream with client-side filtering.
- - Future direction / reuse:
+- Future direction / reuse:
   - When reusing this for the Agents tab, do we want a shared “conversation list” component with an `agentName` (or equivalent) filter, or separate list implementations that share the realtime transport only?
 
 ---

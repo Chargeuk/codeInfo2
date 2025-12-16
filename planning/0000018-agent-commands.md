@@ -286,6 +286,8 @@ Gotchas to keep in mind while implementing this task:
      }
      ```
 3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/agents/service.ts`
    - Files to edit:
@@ -294,6 +296,10 @@ Gotchas to keep in mind while implementing this task:
      - Add `RUN_IN_PROGRESS` to the internal error codes used by agents/commands runs.
      - Ensure the error shape is safe (no stack traces leaked).
 4. [ ] Apply the per-conversation lock in the shared agents service (covers REST + MCP automatically):
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+     - https://nodejs.org/api/globals.html#class-abortcontroller
    - Files to read:
      - `server/src/agents/service.ts`
    - Files to edit:
@@ -316,6 +322,9 @@ Gotchas to keep in mind while implementing this task:
        }
        ```
 5. [ ] Map `RUN_IN_PROGRESS` in REST + MCP:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Files to edit:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
@@ -349,6 +358,9 @@ Gotchas to keep in mind while implementing this task:
      - Gotcha to document in code/comments/tests:
        - The MCP router reads the whole request body before dispatch; cancellation only matters once the long-running tool call begins.
 7. [ ] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-router-run.test.ts`
    - Purpose:
@@ -359,6 +371,9 @@ Gotchas to keep in mind while implementing this task:
      - Assert: `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
      - Also add an “edge” assertion in the same file: lock `c1` must not block a run for `conversationId='c2'`.
 8. [ ] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
    - Purpose:
@@ -367,6 +382,9 @@ Gotchas to keep in mind while implementing this task:
      - Force `callTool('run_agent_instruction', ...)` to hit a locked `conversationId` by acquiring the lock first.
      - Assert: the tool call throws the expected MCP error type/code for “run already in progress” (per Task 1 mapping rules).
 9. [ ] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`, HTTP server)
    - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
    - Purpose:
@@ -376,6 +394,10 @@ Gotchas to keep in mind while implementing this task:
      - Acquire the lock for a known `conversationId` and send a JSON-RPC `tools/call` request to `run_agent_instruction` using that `conversationId`.
      - Assert: JSON-RPC response contains an error with the expected stable code/message (per Task 1 mapping rules).
 10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts the tool call (signal propagation):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`, HTTP server)
    - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
    - Purpose:
@@ -402,12 +424,18 @@ Gotchas to keep in mind while implementing this task:
        - On second concurrent call: service rejects with `RUN_IN_PROGRESS` (REST 409 / MCP tool error)
      - Add a short bullet list explaining “lock scope = conversationId only” and “in-memory per process (no cross-instance coordination)”.
 12. [ ] Update `projectStructure.md` after adding any new files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/agents/runLock.ts`
      - Remove: (none)
 13. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -456,6 +484,10 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - `server/src/mongo/repo.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
 2. [ ] Extend the Turn model/schema to include `command`:
+   - Docs to read:
+     - Context7 `/websites/mongoosejs`
+     - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `server/src/mongo/turn.ts`
    - Required field shape:
@@ -464,12 +496,18 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Optional field (missing for normal turns).
      - Stored as a subdocument in Mongo.
 3. [ ] Plumb `command` through repository helpers:
+   - Docs to read:
+     - Context7 `/websites/mongoosejs`
+     - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Requirements:
      - Extend `AppendTurnInput` and `TurnSummary` to include optional `command`.
      - Ensure `listTurns` includes the field in its returned JSON.
 4. [ ] Plumb `command` through chat persistence:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/chat/interfaces/ChatInterface.ts`
    - Files to edit:
@@ -479,6 +517,8 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Ensure the “Stopped” assistant turn created on abort also receives the same `command` metadata (this is required for cancelled in-flight command steps).
      - Keep default behavior unchanged when no `command` is provided.
 5. [ ] Server unit test update: ensure chat persistence tests compile with the new `turn.command` field:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Purpose:
@@ -487,6 +527,8 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - What to update:
      - Only adjust types/fixtures as needed (do not change the test’s behavioral assertions unless the new field requires it).
 6. [ ] Server unit test update: ensure base chat interface tests compile with the new `turn.command` field:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/chat-interface-base.test.ts`
    - Purpose:
@@ -494,6 +536,8 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - What to update:
      - Only adjust types/fixtures as needed.
 7. [ ] Server unit test (new): verify `command` metadata is persisted and returned by list APIs:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/turn-command-metadata.test.ts`
    - Purpose:
@@ -503,6 +547,8 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - “stores + returns command when provided”
      - “omitting command keeps existing behavior”
 8. [ ] Server unit test (new): `chat.run(...)` persists `command` on BOTH the user turn and assistant turn:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/chat-command-metadata.test.ts`
    - Purpose:
@@ -514,6 +560,9 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - the `role: 'user'` turn
        - the `role: 'assistant'` turn
 9. [ ] Server unit test (new): aborted run persists a `stopped` assistant turn that still includes `command`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/globals.html#class-abortcontroller
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/chat-command-metadata.test.ts`
    - Purpose:
@@ -524,6 +573,8 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - assistant turn `status === 'stopped'`
        - assistant turn includes `command: { name, stepIndex, totalSteps }`.
 10. [ ] Update `projectStructure.md` after adding any new test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
@@ -532,6 +583,10 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - `server/src/test/unit/turn-command-metadata.test.ts`
      - Remove: (none)
 11. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -573,6 +628,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 #### Subtasks
 
 1. [ ] Confirm the example command matches the intended schema:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `codex_agents/planning_agent/commands/improve_plan.json`
    - Requirements:
@@ -607,6 +664,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - If JSON invalid or schema invalid → `{ disabled: true, description: "Invalid command file" }`.
      - If valid → `{ disabled: false, description: <Description from JSON> }`.
 4. [ ] Server unit test: valid command JSON parses as `{ ok: true }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -615,6 +674,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Provide a JSON string with `Description` + `items: [{ type: 'message', role: 'user', content: ['x'] }]`.
      - Assert `parseAgentCommandFile(...)` returns `{ ok: true }`.
 5. [ ] Server unit test: invalid JSON returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -623,6 +684,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Call `parseAgentCommandFile('{ not valid json')`.
      - Assert it returns `{ ok: false }`.
 6. [ ] Server unit test: missing `Description` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -631,6 +694,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Provide syntactically valid JSON with `items` but no `Description`.
      - Assert it returns `{ ok: false }`.
 7. [ ] Server unit test: empty/whitespace `Description` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -639,6 +704,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Provide JSON with `Description: "   "` and a valid `items` list.
      - Assert `{ ok: false }`.
 8. [ ] Server unit test: missing `items` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -647,6 +714,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Provide JSON with only `Description`.
      - Assert `{ ok: false }`.
 9. [ ] Server unit test: empty `items: []` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
@@ -655,6 +724,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
      - Provide JSON with `items: []`.
      - Assert `{ ok: false }`.
 10. [ ] Server unit test: unsupported `type` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -663,6 +734,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with `{ type: 'other', role: 'user', content: ['x'] }`.
       - Assert `{ ok: false }`.
 11. [ ] Server unit test: unsupported `role` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -671,6 +744,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with `{ type: 'message', role: 'assistant', content: ['x'] }`.
       - Assert `{ ok: false }`.
 12. [ ] Server unit test: non-array `content` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -679,6 +754,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with `content: 'not-an-array'`.
       - Assert `{ ok: false }`.
 13. [ ] Server unit test: empty `content: []` returns `{ ok: false }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -687,6 +764,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with `content: []`.
       - Assert `{ ok: false }`.
 14. [ ] Server unit test: whitespace-only `content` entries are rejected after trimming:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -695,6 +774,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with `content: ['   ']`.
       - Assert `{ ok: false }`.
 15. [ ] Server unit test: unknown keys are rejected (`.strict()` behavior):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -703,6 +784,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON with an extra top-level field like `{ Description, items, extra: true }`.
       - Assert `{ ok: false }`.
 16. [ ] Server unit test: trimming behavior produces a clean `command` object:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-schema.test.ts`
     - Purpose:
@@ -711,6 +794,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Provide JSON where `content: ['  first  ', ' second ']`.
       - Assert `parseAgentCommandFile(...)` returns `{ ok: true }` and the parsed command contains `content: ['first', 'second']`.
 17. [ ] Server unit test: `loadAgentCommandSummary(...)` returns enabled summary for valid command file:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-loader.test.ts`
     - Purpose:
@@ -719,6 +804,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Write a temp `*.json` file containing a valid command.
       - Call `loadAgentCommandSummary({ filePath, name })` and assert `{ disabled: false, description: <Description> }`.
 18. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when schema invalid:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-loader.test.ts`
     - Purpose:
@@ -727,6 +814,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Write a temp `*.json` file containing syntactically valid JSON that violates schema (e.g. `items: []`).
       - Assert summary is `{ disabled: true, description: 'Invalid command file' }`.
 19. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when file read fails:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-loader.test.ts`
     - Purpose:
@@ -735,6 +824,8 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
       - Call `loadAgentCommandSummary({ filePath: '/does/not/exist.json', name: 'missing' })`.
       - Assert it returns `{ name: 'missing', disabled: true, description: 'Invalid command file' }`.
 20. [ ] Update `projectStructure.md` after adding new server files/tests:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -746,6 +837,10 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
          - `server/src/test/unit/agent-commands-schema.test.ts`
        - Remove: (none)
 21. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -786,6 +881,8 @@ Implement a shared server function that discovers command JSON files for an agen
 #### Subtasks
 
 1. [ ] Read existing agent discovery shape (to locate agent home folders):
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/agents/discovery.ts`
      - `server/src/agents/service.ts`
@@ -809,6 +906,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Use the loader from Task 3 to compute `{ description, disabled }`.
      - No caching in v1: always read the directory contents from disk each time this function is called so new/edited command files appear immediately.
 3. [ ] Server unit test: missing `commands/` folder returns empty list:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -817,6 +916,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Call `listAgentCommands({ agentName })` for a discovered agent without a `commands/` directory.
      - Assert response is `{ commands: [] }`.
 4. [ ] Server unit test: valid command JSON appears as enabled entry:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -828,6 +929,8 @@ Implement a shared server function that discovers command JSON files for an agen
        - `disabled === false`
        - `description` equals the JSON `Description`.
 5. [ ] Server unit test: invalid command JSON (syntax) appears as disabled entry:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -836,6 +939,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Create a `commands/bad.json` fixture (invalid JSON) under a temporary agent folder for the test.
      - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
 6. [ ] Server unit test: invalid command JSON (schema) appears as disabled entry:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -844,6 +949,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Create a `commands/bad-schema.json` fixture containing syntactically valid JSON that violates schema (e.g. `items: []`).
      - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
 7. [ ] Server unit test: non-JSON files are ignored:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -852,6 +959,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Create `commands/README.md` and `commands/notes.txt` in the temp agent folder.
      - Assert they are not returned in the commands list.
 8. [ ] Server unit test: results are sorted by `name` for deterministic UI ordering:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -860,6 +969,8 @@ Implement a shared server function that discovers command JSON files for an agen
      - Create two valid command files `z.json` and `a.json`.
      - Assert the returned `commands` array is ordered `a` then `z`.
 9. [ ] Server unit test: “no caching” behavior (list reflects new files on the next call):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -869,6 +980,9 @@ Implement a shared server function that discovers command JSON files for an agen
      - Create a new valid command file `b.json` after the first call.
      - Call `listAgentCommands(...)` again and assert both `a` and `b` are present.
 10. [ ] Server unit test: unknown agentName throws `{ code: 'AGENT_NOT_FOUND' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-list.test.ts`
     - Purpose:
@@ -877,12 +991,18 @@ Implement a shared server function that discovers command JSON files for an agen
       - Call `listAgentCommands({ agentName: 'does-not-exist' })`.
       - Assert it throws `{ code: 'AGENT_NOT_FOUND' }`.
 11. [ ] Update `projectStructure.md` after adding any new test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
     - Files to edit:
       - `projectStructure.md`
     - Files to add/remove entries for (must list all files changed by this task):
       - Add: `server/src/test/unit/agent-commands-list.test.ts`
       - Remove: (none)
 12. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
     - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -933,11 +1053,32 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Use `listAgentCommands({ agentName })`.
      - If agent not found → 404 `{ error: 'not_found' }`.
 2. [ ] Wire the new router into server startup:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Files to read:
      - `server/src/index.ts`
    - Files to edit:
      - `server/src/index.ts`
+   - Requirements:
+     - The new routes must be reachable at:
+       - `GET /agents/:agentName/commands`
+       - `POST /agents/:agentName/commands/run` (added in Task 9; wiring done here should not block adding the POST later).
+     - Keep wiring consistent with the existing Agents routes:
+       - Ensure `express.json()` (or equivalent) is registered before the router so the POST body can be read in Task 9.
+       - Prefer the same dependency-injection style used elsewhere in `server/src/index.ts` (so unit tests can build minimal apps by importing the router factory directly).
+   - Implementation sketch (adapt to the existing structure in `server/src/index.ts`):
+     ```ts
+     // server/src/index.ts
+     import { createAgentsCommandsRouter } from './routes/agentsCommands';
+     import { listAgentCommands, runAgentCommand } from './agents/service';
+
+     app.use('/agents', createAgentsCommandsRouter({ listAgentCommands, runAgentCommand }));
+     ```
 3. [ ] Server unit test (REST): valid agent returns `{ commands: [...] }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
    - Purpose:
@@ -946,6 +1087,9 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Stub `listAgentCommands(...)` to return a non-empty list.
      - `GET /agents/:agentName/commands` and assert `status === 200` and `body.commands` is an array.
 4. [ ] Server unit test (REST): invalid command appears disabled in REST response:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
    - Purpose:
@@ -954,6 +1098,9 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Stub `listAgentCommands(...)` to include `{ name: 'bad', description: 'Invalid command file', disabled: true }`.
      - Assert response includes that entry and `disabled === true`.
 5. [ ] Server unit test (REST): unknown `agentName` returns HTTP 404 `{ error: 'not_found' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
    - Purpose:
@@ -962,6 +1109,9 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Stub `listAgentCommands(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
      - Assert `status === 404` and body is `{ error: 'not_found' }`.
 6. [ ] Server unit test (REST): agent with no commands returns `{ commands: [] }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
    - Purpose:
@@ -970,6 +1120,8 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Stub `listAgentCommands(...)` to return `{ commands: [] }`.
      - Assert `status === 200` and `body.commands` is an empty array.
 7. [ ] Update `projectStructure.md` after adding any new files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
@@ -978,6 +1130,10 @@ Expose command listing to the GUI via REST using the shared list function. The r
        - `server/src/test/unit/agents-commands-router-list.test.ts`
      - Remove: (none)
 8. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1018,6 +1174,8 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 #### Subtasks
 
 1. [ ] Read existing Agents MCP tool patterns:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/mcpAgents/tools.ts`
      - `server/src/mcpAgents/router.ts`
@@ -1036,6 +1194,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Else:
        - return `{ agents: [{ agentName, commands: [{ name, description }] }] }` for **all** agents.
 3. [ ] Server unit test (Agents MCP tool): omitting `agentName` returns all agents and valid commands only:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
    - Purpose:
@@ -1046,6 +1207,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
        - output includes all agents
        - invalid/disabled commands are not included in MCP output.
 4. [ ] Server unit test (Agents MCP tool): unknown `agentName` returns a stable tool error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
    - Purpose:
@@ -1054,6 +1218,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Call `callTool('list_commands', { agentName: 'does-not-exist' })`.
      - Assert the tool throws the expected “invalid params / not found” tool error (per Task 6 requirements).
 5. [ ] Server unit test (Agents MCP tool): `agentName` provided with no commands returns `{ commands: [] }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
    - Purpose:
@@ -1063,6 +1230,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Stub `listAgentCommands({ agentName: 'planning_agent' })` to return `{ commands: [] }`.
      - Call `callTool('list_commands', { agentName: 'planning_agent' })` and assert JSON result contains `commands: []`.
 6. [ ] Server unit test (Agents MCP tool): invalid params are rejected (empty `agentName`):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
    - Purpose:
@@ -1071,6 +1241,8 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Call `callTool('list_commands', { agentName: '' })`.
      - Assert it throws an invalid-params style tool error.
 7. [ ] Update existing MCP tools/list expectation test:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Files to edit:
@@ -1078,12 +1250,18 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Requirements:
      - Update the expected tool names to include `list_commands` (while `run_command` is not yet implemented in this task).
 8. [ ] Update `projectStructure.md` after adding any new test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - Remove: (none)
 9. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1123,9 +1301,13 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
 #### Subtasks
 
 1. [ ] Read current `runAgentInstruction` implementation:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/agents/service.ts`
 2. [ ] Extract an internal helper that runs a single instruction without acquiring the per-conversation lock:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
@@ -1134,6 +1316,9 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - The internal helper must NOT acquire the per-conversation lock; it is used by the multi-step command runner (Task 8) which holds the lock for the entire command run.
      - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
 3. [ ] Server unit test update (REST): confirm `/agents/:agentName/run` behavior is unchanged after refactor:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-router-run.test.ts`
    - Purpose:
@@ -1142,6 +1327,9 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - If the refactor changes the dependency injection shape, update the `buildApp()` wiring in this test file.
      - Keep existing assertions; only update mocks/types as required.
 4. [ ] Server unit test update (Agents MCP): confirm `run_agent_instruction` tool behavior is unchanged after refactor:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
    - Purpose:
@@ -1149,6 +1337,10 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
    - What to update:
      - Keep existing behavioral assertions; only update mocks/types as required.
 5. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1191,6 +1383,10 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 #### Subtasks
 
 1. [ ] Add a command loader that returns the full parsed command (not just summary):
+   - Docs to read:
+     - Context7 `/websites/mongoosejs`
+     - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/agents/commandsSchema.ts`
    - Files to edit:
@@ -1252,6 +1448,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - `signal.aborted` must be checked *between* steps so later steps never start after cancel.
      - Command metadata must tag BOTH the user turn and assistant turn for each step (Task 2/7 enable this plumbing).
 3. [ ] Server unit test: multi-step command executes all steps sequentially:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1262,6 +1460,9 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
        - `stepIndex` = 1, 2, 3
        - `totalSteps` = 3
 4. [ ] Server unit test: abort after step 1 prevents steps 2+ from running:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/globals.html#class-abortcontroller
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1270,6 +1471,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Use an `AbortController`; after first step completes, call `controller.abort()`.
      - Assert the helper is not called for step 2/3.
 5. [ ] Server unit test: per-conversation lock blocks concurrent run during command execution:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1279,6 +1482,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - While it is in-flight, attempt a second run against the same `conversationId`.
      - Assert the second run fails with `{ code: 'RUN_IN_PROGRESS' }`.
 6. [ ] Server unit test: `instruction` passed to each step equals `content.join('\\n')` (with trimmed content):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1287,6 +1492,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Use a command item with `content: ['  first  ', 'second ']`.
      - Assert the unlocked helper receives `instruction === 'first\\nsecond'`.
 7. [ ] Server unit test: `working_folder` is forwarded to the unlocked helper for every step:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1294,6 +1501,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - What to implement:
      - Call `runAgentCommand({ ..., working_folder: '/abs/path' })` and assert every unlocked-helper call receives `working_folder: '/abs/path'`.
 8. [ ] Server unit test: when `conversationId` is omitted, a new id is generated and reused for all steps:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1302,6 +1511,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Call `runAgentCommand({ agentName, commandName, source: 'REST' })` without `conversationId`.
      - Assert the unlocked helper is called with the same `conversationId` for every step and the returned result uses that same id.
 9. [ ] Server unit test: when `conversationId` is provided, it is reused and returned unchanged:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
    - Purpose:
@@ -1309,6 +1520,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - What to implement:
      - Call `runAgentCommand({ ..., conversationId: 'c1' })` and assert the result returns `conversationId === 'c1'`.
 10. [ ] Server unit test: invalid `commandName` values are rejected with `{ code: 'COMMAND_INVALID' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-runner.test.ts`
     - Purpose:
@@ -1317,6 +1530,9 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Attempt `runAgentCommand` with `commandName: '../bad'`, `commandName: 'a/b'`, and `commandName: 'a\\\\b'`.
       - Assert each throws `{ code: 'COMMAND_INVALID' }`.
 11. [ ] Server unit test: missing command file throws `{ code: 'COMMAND_NOT_FOUND' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-runner.test.ts`
     - Purpose:
@@ -1325,6 +1541,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Ensure no matching `commands/<commandName>.json` exists for the discovered agent.
       - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_NOT_FOUND' }`.
 12. [ ] Server unit test: invalid command file throws `{ code: 'COMMAND_INVALID' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-runner.test.ts`
     - Purpose:
@@ -1333,6 +1551,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Create an invalid command JSON file (syntax or schema invalid).
       - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_INVALID' }` and the unlocked helper is never called.
 13. [ ] Server unit test: step failure stops execution and releases the lock:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-runner.test.ts`
     - Purpose:
@@ -1342,6 +1562,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Assert step 3 is never executed.
       - After the call rejects, start a second run for the same `conversationId` and assert it can acquire the lock (i.e., does not fail with `RUN_IN_PROGRESS`).
 14. [ ] Server unit test: lock is per-conversation and does not block other conversations:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
     - Location: `server/src/test/unit/agent-commands-runner.test.ts`
     - Purpose:
@@ -1350,6 +1572,8 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Start a command run for `conversationId='c1'` that blocks on a Promise barrier.
       - Start a second command run for `conversationId='c2'` and assert it proceeds (does not throw `RUN_IN_PROGRESS`).
 15. [ ] Update `projectStructure.md` after adding any new files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
@@ -1369,6 +1593,10 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
      - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
 17. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1429,6 +1657,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
        - Pass `signal: controller.signal` into `runAgentCommand(...)`
      - Reminder: v1 cancellation is **abort the in-flight HTTP request**; the UI may not receive a “success” response when stopped, so the “Stopped” assistant turn must be persisted by the server (Task 2 + Task 8).
 2. [ ] Map runner errors to stable HTTP responses:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
    - Requirements:
@@ -1441,6 +1672,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - 400: `{ "error": "invalid_request", "code": "COMMAND_INVALID", "message": "..." }`
      - 409: `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`
 3. [ ] Server unit test (REST): valid command run returns `{ agentName, commandName, conversationId, modelId }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1449,6 +1683,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to return a stable payload.
      - `POST /agents/:agentName/commands/run` with `{ commandName: 'improve_plan' }` and assert the JSON shape.
 4. [ ] Server unit test (REST): `RUN_IN_PROGRESS` returns HTTP 409 with stable body:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1457,6 +1694,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to throw `{ code: 'RUN_IN_PROGRESS' }`.
      - Assert `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
 5. [ ] Server unit test (REST): invalid `commandName` returns HTTP 400 with `COMMAND_INVALID`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1468,6 +1708,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Reference test harness:
      - Copy the SuperTest wiring style from `server/src/test/unit/agents-router-run.test.ts`.
 6. [ ] Server unit test (REST): `COMMAND_NOT_FOUND` maps to HTTP 404 `{ error: 'not_found' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1476,6 +1719,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
      - Assert `status === 404` and body is `{ error: 'not_found' }`.
 7. [ ] Server unit test (REST): `COMMAND_INVALID` from runner maps to HTTP 400 with stable body:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1484,6 +1730,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID', reason: 'Invalid command file' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'COMMAND_INVALID' }`.
 8. [ ] Server unit test (REST): `WORKING_FOLDER_INVALID` maps to HTTP 400 with stable body:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1492,6 +1741,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' }`.
 9. [ ] Server unit test (REST): `WORKING_FOLDER_NOT_FOUND` maps to HTTP 400 with stable body:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
    - Purpose:
@@ -1500,6 +1752,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
 10. [ ] Server unit test (REST): unknown agent maps to HTTP 404 `{ error: 'not_found' }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
     - Test type: server unit (Node `node:test` + SuperTest)
     - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
     - Purpose:
@@ -1508,6 +1763,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
       - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
       - Assert `status === 404` and body is `{ error: 'not_found' }`.
 11. [ ] Server unit test (REST): aborting the HTTP request aborts the runner via AbortSignal:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/globals.html#class-abortcontroller
     - Test type: server unit (Node `node:test`, HTTP server + fetch AbortController)
     - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
     - Purpose:
@@ -1517,6 +1775,8 @@ Expose command execution to the GUI via REST using the shared runner. Response i
       - Stub `runAgentCommand` to capture `params.signal` and await until it is aborted (use an `abort` event listener).
       - Start a `fetch` POST request with a client-side `AbortController`, then abort it and assert the stub observed `signal.aborted === true`.
 12. [ ] Update `projectStructure.md` after adding tests:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
@@ -1533,6 +1793,10 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
      - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
 14. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1582,6 +1846,10 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Input schema:
      - `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`
 2. [ ] Implement the handler using `runAgentCommand(...)`:
+   - Docs to read:
+     - Context7 `/websites/v3_zod_dev`
+     - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
@@ -1604,6 +1872,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      }
      ```
 3. [ ] Server unit test (Agents MCP tool): `run_command` success returns `{ agentName, commandName, conversationId, modelId }`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1612,6 +1883,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to return `{ agentName, commandName, conversationId, modelId }`.
      - Call `callTool('run_command', { agentName, commandName })` and assert the JSON text content parses to that shape.
 4. [ ] Server unit test (Agents MCP tool): `RUN_IN_PROGRESS` surfaces as a stable tool error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1620,6 +1894,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to throw `{ code: 'RUN_IN_PROGRESS' }`.
      - Assert the tool call throws the expected stable MCP error (per Task 10 mapping rules).
 5. [ ] Server unit test (Agents MCP tool): invalid `commandName` is rejected with a stable error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1630,6 +1907,9 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Reference harness:
      - Copy dependency injection patterns from `server/src/test/unit/mcp-agents-tools.test.ts`.
 6. [ ] Server unit test (Agents MCP tool): `COMMAND_NOT_FOUND` maps to a stable tool error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1638,6 +1918,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
      - Assert the tool call throws the expected stable tool error type/code.
 7. [ ] Server unit test (Agents MCP tool): `COMMAND_INVALID` maps to a stable tool error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1646,6 +1929,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID' }`.
      - Assert the tool call throws an invalid-params style tool error.
 8. [ ] Server unit test (Agents MCP tool): `WORKING_FOLDER_*` errors map to invalid-params tool errors:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1654,6 +1940,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`, assert invalid-params tool error.
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`, assert invalid-params tool error.
 9. [ ] Server unit test (Agents MCP tool): unknown agent maps to a stable tool error:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://www.jsonrpc.org/specification
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
    - Purpose:
@@ -1662,6 +1951,10 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
      - Assert invalid-params style tool error (safe message).
 10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts `run_command` via AbortSignal:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+     - https://www.jsonrpc.org/specification
     - Test type: server unit (Node `node:test`, HTTP server + fetch AbortController)
     - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
     - Purpose:
@@ -1670,6 +1963,8 @@ Expose command execution via Agents MCP using the same server runner and error m
       - Set tool deps so `runAgentCommand` captures `params.signal` and waits for abort.
       - Send a JSON-RPC `tools/call` request for `run_command` using `fetch(..., { signal })`, then abort the client signal and assert the stub saw `signal.aborted === true`.
 11. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Files to edit:
@@ -1677,6 +1972,8 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Requirements:
      - Update expected tool names to include `run_command` as well as `list_commands`.
 12. [ ] Update `projectStructure.md` after adding tests:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Files to add/remove entries for (must list all files changed by this task):
@@ -1694,6 +1991,10 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
      - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
 14. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1734,6 +2035,8 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 #### Subtasks
 
 1. [ ] Add the list API call:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
    - Required export:
@@ -1748,6 +2051,9 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      const res = await fetch(new URL(`/agents/${encodeURIComponent(agentName)}/commands`, serverBase).toString());
      ```
 2. [ ] Client unit test (Jest): listAgentCommands calls `GET /agents/:agentName/commands`:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.commandsList.test.ts`
    - Purpose:
@@ -1757,6 +2063,8 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - Reference:
      - Copy fetch-mocking style from `client/src/test/agentsApi.workingFolder.payload.test.ts`.
 3. [ ] Client unit test (Jest): listAgentCommands returns parsed `{ commands }` including `disabled` entries:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.commandsList.test.ts`
    - Purpose:
@@ -1765,6 +2073,8 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      - Mock a JSON response containing a `commands` array with both enabled and disabled entries.
      - Assert the returned value matches the parsed structure.
 4. [ ] Update `projectStructure.md` after adding new client test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -1773,6 +2083,10 @@ Add a focused client API helper for listing commands for the selected agent. Thi
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
 5. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1814,6 +2128,8 @@ Add a focused client API helper for executing a selected command against an agen
 #### Subtasks
 
 1. [ ] Add the run API call:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
    - Required export:
@@ -1827,6 +2143,9 @@ Add a focused client API helper for executing a selected command against an agen
    - Reminder:
      - Keep the “omit empty optionals” behavior consistent with `runAgentInstruction(...)` in this file (don’t send `working_folder: ""`).
 2. [ ] Client unit test (Jest): runAgentCommand calls `POST /agents/:agentName/commands/run`:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.commandsRun.test.ts`
    - Purpose:
@@ -1837,6 +2156,8 @@ Add a focused client API helper for executing a selected command against an agen
        - `method === 'POST'`
        - `content-type === 'application/json'`
 3. [ ] Client unit test (Jest): optional payload fields are omitted when not provided:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.commandsRun.test.ts`
    - Purpose:
@@ -1846,6 +2167,8 @@ Add a focused client API helper for executing a selected command against an agen
    - Reference:
      - Copy “omit empty optionals” assertion style from `client/src/test/agentsApi.workingFolder.payload.test.ts`.
 4. [ ] Update `projectStructure.md` after adding new client test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -1854,6 +2177,10 @@ Add a focused client API helper for executing a selected command against an agen
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
 5. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1894,20 +2221,35 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 #### Subtasks
 
 1. [ ] Define a small structured error type for agent API calls:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
    - Requirements:
      - Surface `{ status: number; code?: string; message: string }` via a custom `Error` subclass (preferred) or equivalent, so callers can reliably branch on `status` and `code`.
 2. [ ] Update `runAgentInstruction(...)` to use structured errors:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
    - Requirements:
      - When response is JSON, prefer `{ code, message }` fields from body if present.
      - Keep existing behavior for non-JSON error bodies (fallback to text).
 3. [ ] Update `runAgentCommand(...)` to use structured errors:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
+   - Requirements:
+     - Match the exact structured-error behavior used by `runAgentInstruction(...)` in Subtask 2:
+       - On non-2xx responses, prefer `{ code, message }` from a JSON error body when available.
+       - Fall back to `await res.text()` when the body is not JSON.
+       - Preserve `status` on the thrown error so UI code can reliably branch on `status === 409` and `code === 'RUN_IN_PROGRESS'`.
+     - Do not wrap/convert abort errors: an aborted request should still behave like the existing `runAgentInstruction(...)` (the caller treats abort as cancellation, not a server error).
 4. [ ] Client unit test (Jest): `runAgentInstruction(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.errors.test.ts`
    - Purpose:
@@ -1916,6 +2258,9 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
      - Mock `fetch` to return `status=409` and JSON `{ code: 'RUN_IN_PROGRESS', message: '...' }`.
      - Assert the thrown error exposes `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
 5. [ ] Client unit test (Jest): `runAgentCommand(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest)
    - Location: `client/src/test/agentsApi.errors.test.ts`
    - Purpose:
@@ -1924,6 +2269,8 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
      - Mock `fetch` to return `status=409` and JSON `{ code: 'RUN_IN_PROGRESS', message: '...' }`.
      - Assert the thrown error exposes `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
 6. [ ] Update `projectStructure.md` after adding new client test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -1932,6 +2279,10 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
 7. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1973,16 +2324,28 @@ Support the “KISS” command execution response by adding a refresh method to 
 #### Subtasks
 
 1. [ ] Extend `StoredTurn` with optional `command`:
+   - Docs to read:
+     - https://react.dev/reference/react
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Required type:
      - `command?: { name: string; stepIndex: number; totalSteps: number }`
+   - Requirements:
+     - The field must remain optional so existing turns continue to typecheck and render.
+     - When the server includes `command` on a turn, the hook must preserve it as-is (no renaming or transformation), so UI rendering can rely on `turn.command` directly.
 2. [ ] Add a `refresh()` function to the hook:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
      - `refresh()` re-fetches the newest page (`replace` mode) without requiring a conversationId change.
 3. [ ] Client unit test (Jest): `useConversationTurns.refresh()` re-fetches the newest page in `replace` mode:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest)
    - Location: `client/src/test/useConversationTurns.refresh.test.ts`
    - Purpose:
@@ -1990,6 +2353,8 @@ Support the “KISS” command execution response by adding a refresh method to 
    - What to implement:
      - Mock the turns endpoint and verify calling `refresh()` causes a new fetch and sets `lastMode === 'replace'`.
 4. [ ] Client unit test (Jest): turns API `command` metadata is preserved in `StoredTurn`:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Purpose:
@@ -1999,6 +2364,8 @@ Support the “KISS” command execution response by adding a refresh method to 
        - `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`
      - Assert the hook returns a `StoredTurn` containing that `command` field unchanged.
 5. [ ] Update `projectStructure.md` after adding new client test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -2009,6 +2376,10 @@ Support the “KISS” command execution response by adding a refresh method to 
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
 6. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2086,6 +2457,10 @@ Update the Agents page to list commands for the selected agent and show the sele
    - Reminder:
      - Do **not** render the raw JSON contents anywhere in the UI (dropdown only shows names; description is read from JSON and displayed as plain text).
 3. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2129,6 +2504,8 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 #### Subtasks
 
 1. [ ] Add “Execute command” button + handler:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -2153,6 +2530,10 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Reminder:
      - No client-side “global lock” in v1. Only disable Execute when *this* tab is running (`isRunning`) or Mongo is down; server enforces per-conversation locking and returns `RUN_IN_PROGRESS`.
 2. [ ] Implement success flow that refreshes conversations + turns:
+   - Docs to read:
+     - Context7 `/websites/mongoosejs`
+     - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -2163,6 +2544,8 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
        - Clear `messages` so the transcript renders from persisted turns (KISS; persisted turns do not include “segments” detail from live runs).
        - Call `refresh()` on `useConversationTurns` (or rely on the hook’s initial fetch after the id becomes eligible) to show the newly appended turns.
 3. [ ] Surface `RUN_IN_PROGRESS` for command execution:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -2170,6 +2553,8 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Example user-facing message (copy this exact phrasing so tests can assert it):
      - “This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.”
 4. [ ] Surface `RUN_IN_PROGRESS` for normal agent instructions too:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -2186,6 +2571,10 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
      - Add a short section describing: “commands list refresh on agent change”, “execute returns `{ conversationId, modelId }` and UI re-fetches turns”, and “no client-side global lock; server rejects with RUN_IN_PROGRESS”.
      - Add (or extend) a Mermaid flowchart or sequence diagram showing: select agent → fetch commands → execute → refresh conversations → hydrate turns.
 6. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2226,12 +2615,20 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 #### Subtasks
 
 1. [ ] Extend the turns → messages mapping to carry command metadata:
+   - Docs to read:
+     - https://react.dev/reference/react
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/pages/AgentsPage.tsx`
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Ensure the message objects used for rendering bubbles carry `command` metadata for both user and assistant turns.
+     - Do not manufacture metadata: when a turn has no `command`, the corresponding message must not have it either.
 2. [ ] Render the note inside both user and assistant bubbles:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -2246,6 +2643,10 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
      ) : null}
      ```
 3. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2288,6 +2689,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 #### Subtasks
 
 1. [ ] Client UI unit test (Jest/RTL): switching agents fetches a new commands list:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsList.test.tsx`
    - Purpose:
@@ -2298,6 +2704,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Reference patterns:
      - `client/src/test/agentsPage.list.test.tsx` (agents list + dropdown interaction)
 2. [ ] Client UI unit test (Jest/RTL): invalid commands are rendered disabled/unselectable:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsList.test.tsx`
    - Purpose:
@@ -2306,6 +2716,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Mock commands list containing `{ name: 'bad', description: 'Invalid command file', disabled: true }`.
      - Assert the corresponding option is `disabled` and cannot be selected.
 3. [ ] Client UI unit test (Jest/RTL): clicking Execute calls the run endpoint:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Purpose:
@@ -2315,6 +2730,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Reference patterns:
      - `client/src/test/agentsPage.run.test.tsx` (send flow + fetch mocking)
 4. [ ] Client UI unit test (Jest/RTL): successful execute refreshes conversations and hydrates turns:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Purpose:
@@ -2325,6 +2745,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Reference patterns:
      - `client/src/test/agentsPage.turnHydration.test.tsx` (turn hydration from persisted turns)
 5. [ ] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for command execute:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
    - Purpose:
@@ -2333,6 +2757,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Mock command run to throw `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
      - Assert the UI renders the friendly conflict message.
 6. [ ] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for normal agent send:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
    - Purpose:
@@ -2340,6 +2768,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Mock `/agents/:agentName/run` to respond with 409 `RUN_IN_PROGRESS` and assert the same message appears.
 7. [ ] Client UI unit test (Jest/RTL): command names display with underscores replaced by spaces:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsList.test.tsx`
    - Purpose:
@@ -2348,6 +2780,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Mock commands list containing `{ name: 'improve_plan', description: 'd', disabled: false }`.
      - Assert the rendered option text includes `improve plan` (space) rather than `improve_plan`.
 8. [ ] Client UI unit test (Jest/RTL): selecting a command shows its Description (and does not show JSON):
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsList.test.tsx`
    - Purpose:
@@ -2356,6 +2792,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Select a command and assert the description panel renders the description text.
      - Assert the UI does not render any `{"Description":`-style JSON content.
 9. [ ] Client UI unit test (Jest/RTL): Execute is disabled when Mongo persistence is unavailable:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
    - Test type: client unit (Jest + React Testing Library)
    - Location: `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
    - Purpose:
@@ -2364,6 +2804,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Mock `/health` returning `{ mongoConnected: false }`.
      - Assert the Execute button is disabled and the explanatory message is visible.
 10. [ ] Client UI unit test (Jest/RTL): per-turn “Command run … (2/12)” note renders in bubbles:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
     - Test type: client unit (Jest + React Testing Library)
     - Location: `client/src/test/agentsPage.commandMetadataRender.test.tsx`
     - Purpose:
@@ -2372,6 +2816,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
       - Mock turn hydration to return at least one user and assistant turn with `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`.
       - Assert the bubble includes `Command run: improve_plan (2/12)`.
 11. [ ] Client UI unit test (Jest/RTL): Stop aborts an in-flight command execute request:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/testing-library`
+     - Context7 `/testing-library/user-event`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
     - Test type: client unit (Jest + React Testing Library)
     - Location: `client/src/test/agentsPage.commandsRun.abort.test.tsx`
     - Purpose:
@@ -2381,6 +2830,8 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
       - Click Execute, then click Stop.
       - Assert the captured `signal.aborted === true`.
 12. [ ] Update `projectStructure.md` after adding new client test files:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -2395,6 +2846,10 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
 13. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2433,12 +2888,18 @@ Document Agent Commands (where command files live and the REST API surface for l
 #### Subtasks
 
 1. [ ] Update `README.md`:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `README.md`
    - Requirements:
      - Document where commands live (`codex_agents/<agent>/commands/*.json`).
      - Document the two REST endpoints and their payloads.
 2. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2486,6 +2947,10 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
      - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
      - Mention per-conversation lock + abort-based cancellation semantics.
 2. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2524,6 +2989,8 @@ Keep the project tree map up to date after introducing new command-related serve
 #### Subtasks
 
 1. [ ] Update `projectStructure.md`:
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -2560,6 +3027,10 @@ Keep the project tree map up to date after introducing new command-related serve
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
 2. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -2602,30 +3073,52 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 #### Subtasks
 
 1. [ ] Confirm acceptance criteria checklist against the implemented behavior:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - File to read:
      - `planning/0000018-agent-commands.md`
 2. [ ] Build the server:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run build --workspace server`
 3. [ ] Build the client:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run build --workspace client`
 4. [ ] Perform a clean docker build:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run compose:build`
 5. [ ] Start docker compose:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run compose:up`
 6. [ ] Run server tests:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run test --workspace server`
 7. [ ] Run client tests:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run test --workspace client`
 8. [ ] Run e2e tests:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run e2e`
 9. [ ] Manual Playwright-MCP check + screenshots:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Use Playwright MCP to capture screenshots under `test-results/screenshots/`:
      - `0000018-22-agents-commands-dropdown.png`
      - `0000018-22-agents-command-run-annotated-turns.png`
      - `0000018-22-agents-command-abort-stopped-turn.png`
 10. [ ] Stop docker compose:
+   - Docs to read:
+     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - `npm run compose:down`
 11. [ ] Documentation update check: `README.md`
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Document: `README.md`
    - Purpose:
      - Ensure the repo-level documentation reflects the final Agent Commands feature and the REST endpoints (`GET /agents/:agentName/commands`, `POST /agents/:agentName/commands/run`).
@@ -2633,6 +3126,9 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - Command file location (`codex_agents/<agentName>/commands/*.json`) and the v1 schema summary.
      - Any new curl examples and error codes (`RUN_IN_PROGRESS`, `COMMAND_INVALID`, etc.).
 12. [ ] Documentation update check: `design.md`
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+     - https://github.github.com/gfm/#fenced-code-blocks
    - Document: `design.md`
    - Purpose:
      - Ensure all architecture/flow changes made by this story are captured, including per-conversation locking, abort-based cancellation, and command-run execution flow.
@@ -2640,12 +3136,18 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - Mermaid diagrams render correctly and match the implemented behavior.
      - The concurrency section documents: “lock scope = conversationId only”, “in-memory per process”, “no cross-instance coordination”.
 13. [ ] Documentation update check: `projectStructure.md`
+   - Docs to read:
+     - https://github.github.com/gfm/
    - Document: `projectStructure.md`
    - Purpose:
      - Ensure the tracked project tree is accurate after all new files added by this story (server + client + tests).
    - What to verify/update:
      - All new files created in Tasks 1–21 appear in the tree with correct brief comments.
 14. [ ] Run repo-wide lint/format gate:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

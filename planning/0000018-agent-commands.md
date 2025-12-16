@@ -431,7 +431,7 @@ Gotchas to keep in mind while implementing this task:
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/agents/runLock.ts`
      - Remove: (none)
-13. [ ] Run repo-wide lint/format gate:
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -582,7 +582,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - `server/src/test/unit/chat-command-metadata.test.ts`
        - `server/src/test/unit/turn-command-metadata.test.ts`
      - Remove: (none)
-11. [ ] Run repo-wide lint/format gate:
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -836,7 +836,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
          - `server/src/test/unit/agent-commands-loader.test.ts`
          - `server/src/test/unit/agent-commands-schema.test.ts`
        - Remove: (none)
-21. [ ] Run repo-wide lint/format gate:
+21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -998,7 +998,7 @@ Implement a shared server function that discovers command JSON files for an agen
     - Files to add/remove entries for (must list all files changed by this task):
       - Add: `server/src/test/unit/agent-commands-list.test.ts`
       - Remove: (none)
-12. [ ] Run repo-wide lint/format gate:
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1129,7 +1129,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
        - `server/src/routes/agentsCommands.ts`
        - `server/src/test/unit/agents-commands-router-list.test.ts`
      - Remove: (none)
-8. [ ] Run repo-wide lint/format gate:
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1257,7 +1257,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - Remove: (none)
-9. [ ] Run repo-wide lint/format gate:
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1336,7 +1336,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - Confirms tool arg validation and error mapping still work once the service is refactored internally.
    - What to update:
      - Keep existing behavioral assertions; only update mocks/types as required.
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1592,7 +1592,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Actors: `Client(UI or MCP)`, `Server(REST/MCP)`, `AgentsService`, `Codex`.
      - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
      - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
-17. [ ] Run repo-wide lint/format gate:
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1792,7 +1792,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Required updates:
      - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
      - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
-14. [ ] Run repo-wide lint/format gate:
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1990,7 +1990,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Document the two Agents MCP tools and their argument shapes at a high level (no full JSON examples needed in design.md).
      - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
      - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
-14. [ ] Run repo-wide lint/format gate:
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2082,7 +2082,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
        - Add: `client/src/test/agentsApi.commandsList.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2176,7 +2176,7 @@ Add a focused client API helper for executing a selected command against an agen
        - Add: `client/src/test/agentsApi.commandsRun.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2278,7 +2278,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
        - Add: `client/src/test/agentsApi.errors.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-7. [ ] Run repo-wide lint/format gate:
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2375,7 +2375,7 @@ Support the “KISS” command execution response by adding a refresh method to 
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-6. [ ] Run repo-wide lint/format gate:
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2456,7 +2456,7 @@ Update the Agents page to list commands for the selected agent and show the sele
      ```
    - Reminder:
      - Do **not** render the raw JSON contents anywhere in the UI (dropdown only shows names; description is read from JSON and displayed as plain text).
-3. [ ] Run repo-wide lint/format gate:
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2570,7 +2570,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Required updates:
      - Add a short section describing: “commands list refresh on agent change”, “execute returns `{ conversationId, modelId }` and UI re-fetches turns”, and “no client-side global lock; server rejects with RUN_IN_PROGRESS”.
      - Add (or extend) a Mermaid flowchart or sequence diagram showing: select agent → fetch commands → execute → refresh conversations → hydrate turns.
-6. [ ] Run repo-wide lint/format gate:
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2642,7 +2642,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
        </Typography>
      ) : null}
      ```
-3. [ ] Run repo-wide lint/format gate:
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2845,7 +2845,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
          - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-13. [ ] Run repo-wide lint/format gate:
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2895,7 +2895,7 @@ Document Agent Commands (where command files live and the REST API surface for l
    - Requirements:
      - Document where commands live (`codex_agents/<agent>/commands/*.json`).
      - Document the two REST endpoints and their payloads.
-2. [ ] Run repo-wide lint/format gate:
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2946,7 +2946,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
    - Requirements:
      - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
      - Mention per-conversation lock + abort-based cancellation semantics.
-2. [ ] Run repo-wide lint/format gate:
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -3026,7 +3026,7 @@ Keep the project tree map up to date after introducing new command-related serve
          - `client/src/test/useConversationTurns.commandMetadata.test.ts`
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
-2. [ ] Run repo-wide lint/format gate:
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -3143,7 +3143,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - Ensure the tracked project tree is accurate after all new files added by this story (server + client + tests).
    - What to verify/update:
      - All new files created in Tasks 1–21 appear in the tree with correct brief comments.
-14. [ ] Run repo-wide lint/format gate:
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface

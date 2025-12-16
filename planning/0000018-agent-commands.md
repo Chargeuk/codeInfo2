@@ -346,6 +346,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
      - Allow passing `command` metadata via flags to `chat.run(...)` and persist it on both the user and assistant turns for that run.
+     - Ensure the “Stopped” assistant turn created on abort also receives the same `command` metadata (this is required for cancelled in-flight command steps).
      - Keep default behavior unchanged when no `command` is provided.
 5. [ ] Add unit coverage for `command` persistence plumbing:
    - Docs to read:
@@ -640,10 +641,17 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Test requirements:
      - Omitting agentName returns all agents with commands arrays.
      - Invalid commands are excluded from MCP output.
-4. [ ] Update `projectStructure.md` after adding any new test files:
+4. [ ] Update existing MCP tools/list expectation test:
+   - Files to read:
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Files to edit:
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Requirements:
+     - Update the expected tool names to include `list_commands` (while `run_command` is not yet implemented in this task).
+5. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run repo-wide lint/format gate:
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -779,6 +787,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - Test requirements:
      - With a 3-step command, verify the unlocked helper is called 3 times with correct `stepIndex` and `totalSteps`.
      - Simulate abort after step 1 and verify step 2+ never execute.
+     - Edge case: while a command run is in progress (lock held), a concurrent agent run targeting the same `conversationId` must fail with `RUN_IN_PROGRESS`.
 4. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
@@ -844,6 +853,10 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Context7 `/ladjs/supertest`
    - Files to edit:
      - Add `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Test requirements:
+     - Main path: valid command returns `{ agentName, commandName, conversationId, modelId }`.
+     - Failure path: when a run is already in progress for the same `conversationId`, the route returns `409` with `code: RUN_IN_PROGRESS`.
+     - Failure path: invalid `commandName` (contains `/` or `..`) returns `400` with `code: COMMAND_INVALID`.
 4. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
@@ -904,10 +917,21 @@ Expose command execution via Agents MCP using the same server runner and error m
      - https://nodejs.org/api/test.html
    - Files to edit:
      - Add `server/src/test/unit/mcp-agents-commands-run.test.ts`
-4. [ ] Update `projectStructure.md` after adding tests:
+   - Test requirements:
+     - Main path returns `{ agentName, commandName, conversationId, modelId }`.
+     - Failure path: `RUN_IN_PROGRESS` returned when a run is already in progress for the same `conversationId`.
+     - Failure path: invalid `commandName` rejected with a stable error.
+4. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
+   - Files to read:
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Files to edit:
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Requirements:
+     - Update expected tool names to include `run_command` as well as `list_commands`.
+5. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run repo-wide lint/format gate:
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

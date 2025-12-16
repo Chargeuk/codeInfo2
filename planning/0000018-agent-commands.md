@@ -33,6 +33,7 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - Same `conversationId` must never process two runs at the same time; otherwise turns and `threadId` updates can interleave and corrupt the conversation timeline.
 - Command runs are multi-step: the conversation lock must be held for the entire command run (not per step), otherwise another run could slip in between steps and interleave turns.
 - Cancellation uses the existing abort mechanism (closing/aborting the HTTP request); the command runner must check `signal.aborted` between steps and never start the next step after abort.
+- Because v1 cancellation is “abort the in-flight request”, the client may not receive a normal success response when the user cancels. The cancellation outcome must therefore be visible via persisted turns (e.g. the “Stopped” assistant turn), which will appear when the UI refreshes/rehydrates the conversation.
 - For runs that start a new conversation (no `conversationId` provided), the server must generate a `conversationId` early and lock that id for the duration of the run.
 
 ### Command schema (v1; extendable)
@@ -51,11 +52,9 @@ Top-level object:
    - `content: string[]` – required, non-empty; each entry is a non-empty string (trimmed).
    - Execution: `instruction = content.join("\n")`, then call the existing agent runner once for this step.
 
-Legacy compatibility (required for this story):
-
 Legacy compatibility:
 
-- Not required in v1. Existing command JSON files (including the current example `improve_plan.json`) will be migrated to the canonical `items/type/message` format as part of this story’s tasks.
+- Not required in v1 (there is no existing command execution feature to remain compatible with). The example command file `codex_agents/planning_agent/commands/improve_plan.json` is already in the canonical `items/type/message` shape.
 
 ### Discovery + naming
 
@@ -146,6 +145,7 @@ Add two new tools to Agents MCP `5012`:
   - After execution completes, the UI shows each command step’s prompt content and the agent’s response for that step by re-fetching turns (no special step payload required).
   - Each command-run-created turn shows a small “Command run: <commandName>” note inside the chat bubble.
   - When the server responds with `RUN_IN_PROGRESS`, the UI surfaces a clear error (for example: “This conversation is already running; wait for it to finish or abort it.”).
+  - When persistence is unavailable (`mongoConnected === false` banner), the UI disables command execution (because the transcript cannot be re-fetched) and shows a clear message.
 
 - Validation rules (KISS; enforce only what we need now):
   - Command file must be valid JSON.
@@ -192,6 +192,7 @@ Add two new tools to Agents MCP `5012`:
 - Running commands in the main Chat UI (non-agents).
 - Persisting a separate “CommandRun” collection/entity in MongoDB (v1 uses a simple per-turn metadata field instead).
 - Cross-instance locking (multi-server coordination via Redis/DB).
+- Guardrails like max command file size or max step/item count (v1 has no explicit limits).
 
 ---
 
@@ -224,7 +225,6 @@ Gotchas to keep in mind while implementing this task:
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Express request lifecycle (`req.on('aborted')`, `res.on('close')`): Context7 `/expressjs/express`
 - Zod validation patterns (for MCP tool args / REST bodies): Context7 `/websites/v3_zod_dev`
-- Existing in-repo lock pattern (ingest): read `server/src/ingest/lock.ts` for the “acquire + finally release” style (do not reuse ingest lock directly; this story needs a per-conversation lock)
 
 #### Subtasks
 
@@ -236,15 +236,19 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
-     - `server/src/ingest/lock.ts`
+     - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper we should reuse)
 2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
-     - Create `server/src/agents/runLock.ts`
+     - Create `server/src/utils/keyedLock.ts`
+     - Update `server/src/agents/authSeed.ts` to reuse the shared helper (no behavior change; still single-flight per agent auth path)
+     - Create `server/src/agents/runLock.ts` (built on the shared helper)
    - Requirements:
      - Lock is keyed by `conversationId` (string).
-     - API should be tiny and explicit; e.g. `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
+     - Reuse the existing keyed lock approach currently implemented in `server/src/agents/authSeed.ts` (a `Map<string, Promise<void>>`-style keyed lock) by extracting it into `server/src/utils/keyedLock.ts` so we don’t duplicate lock logic.
+     - `server/src/agents/runLock.ts` API should be tiny and explicit: `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
+       - Important: unlike `authSeed` (which serializes callers), agent run locks must **reject** when already held (no queuing). The shared helper must support this (either via a separate `tryAcquire` API or via a small wrapper that can detect “held” state).
      - Lock must be released in a `finally` block even if the run fails/throws or is aborted.
 3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
    - Files to read:
@@ -260,16 +264,20 @@ Gotchas to keep in mind while implementing this task:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Only enforce the lock when `conversationId` is provided (existing conversation). New conversations (no `conversationId`) should not be blocked by other conversations.
+     - Compute the effective `conversationId` (provided or newly generated) first, then acquire the lock for that id before any provider call.
+     - This does not block other conversations (lock is keyed), but it *does* ensure that if another browser tab/window starts using the same `conversationId` mid-run, it is rejected.
      - On conflict, throw `{ code: 'RUN_IN_PROGRESS', reason?: string }`.
      - Release must happen in `finally` even on abort and errors.
 5. [ ] Map `RUN_IN_PROGRESS` in REST + MCP:
    - Files to edit:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
+     - `server/src/mcpAgents/router.ts`
+     - `server/src/mcp2/errors.ts`
    - Requirements:
      - REST: map `RUN_IN_PROGRESS` → HTTP `409` with JSON `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message: '...' }`.
-     - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message (so clients can retry later).
+     - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message so clients can retry later.
+       - KISS approach: add a dedicated error class (e.g. `RunInProgressError` with `.code = 409`) in `server/src/mcp2/errors.ts`, have tools throw it when the service returns `{ code: 'RUN_IN_PROGRESS' }`, and have the Agents MCP router map it to a JSON-RPC error consistently (similar to `ArchivedConversationError`).
 6. [ ] Add focused unit coverage for the lock behavior:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -278,6 +286,8 @@ Gotchas to keep in mind while implementing this task:
    - Files to edit:
      - `server/src/test/unit/agents-router-run.test.ts`
      - `server/src/test/unit/mcp-agents-tools.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - Update `server/src/test/unit/agents-authSeed.test.ts` if needed (only if the refactor changes imports/structure; assertions should remain the same)
    - Test requirements:
      - Main path: a normal run with no lock returns success as today.
      - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.
@@ -511,6 +521,7 @@ Implement a shared server function that discovers command JSON files for an agen
      }): Promise<{ commands: Array<{ name: string; description: string; disabled: boolean }> }>;
      ```
    - Requirements:
+     - If `agentName` does not match a discovered agent → throw `{ code: 'AGENT_NOT_FOUND' }` (so REST can return 404 and MCP can return a stable tool error).
      - If `commands/` folder missing → return `{ commands: [] }`.
      - Only include `*.json` files.
      - `name` is basename without `.json`.
@@ -523,6 +534,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - Test requirements:
      - No folder → empty list.
      - Invalid JSON file → included with `disabled: true` and “Invalid command file”.
+     - Unknown agentName → throws `{ code: 'AGENT_NOT_FOUND' }`.
 4. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
@@ -642,6 +654,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Add tool name: `list_commands`.
      - Input schema: `{ agentName?: string }`.
      - If agentName provided:
+       - If agent does not exist → return a stable tool error (404-style) with a safe message (do not silently return empty).
        - return `{ agentName, commands: [{ name, description }] }` (exclude disabled).
      - Else:
        - return `{ agents: [{ agentName, commands: [{ name, description }] }] }` for **all** agents.
@@ -1124,9 +1137,15 @@ Update the Agents page to list commands for the selected agent, show the selecte
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Calls `runAgentCommand({ agentName, commandName, conversationId, working_folder, signal })`.
-     - Uses existing AbortController and shares the same Abort button.
-     - On success: set `activeConversationId`, then call `refresh()` on `useConversationTurns` to show new turns.
-     - On 409 `RUN_IN_PROGRESS`: show a friendly error bubble (do not disable the UI; just inform the user the conversation is already running).
+      - Uses existing AbortController and shares the same Abort button.
+      - Gotcha: the Agents page only loads turns when `activeConversationId` exists in the sidebar `conversations` list (`knownConversationIds` gate). When a command run creates a new conversation, the UI must refresh the conversation list first so the new `conversationId` is recognized and turns can load.
+      - On success (existing or new conversation):
+        - Call `refreshConversations()` so the returned `conversationId` is present in the sidebar list.
+        - Set `activeConversationId` to the returned `conversationId`.
+        - Clear `messages` so the transcript renders from persisted turns (KISS; persisted turns do not include “segments” detail from live runs).
+        - Call `refresh()` on `useConversationTurns` (or rely on the hook’s initial fetch after the id becomes eligible) to show the newly appended turns.
+      - On 409 `RUN_IN_PROGRESS`: show a friendly error bubble (do not disable the UI; just inform the user the conversation is already running).
+      - If persistence is unavailable (`mongoConnected === false` banner), disable the Execute button and show a short message explaining command runs require history loading to display step outputs.
 4. [ ] Improve error handling for normal agent instructions when the conversation is in-flight:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`

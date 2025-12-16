@@ -241,11 +241,13 @@ Gotchas to keep in mind while implementing this task:
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
      - Context7 `/expressjs/express`
+     - Note: there is no existing per-conversation lock for agents/chat; the only lock-like helper today is the **global ingest lock** in `server/src/ingest/lock.ts` (TTL-based, reject-not-queue). We are *not* reusing it here because it is global, not keyed by `conversationId`, and includes TTL semantics we don’t need for v1.
    - Files to read:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
      - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper; use it as a reference only)
+     - Optional reference (do not reuse in this story): `server/src/ingest/lock.ts`
 2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
@@ -257,6 +259,20 @@ Gotchas to keep in mind while implementing this task:
      - API must be tiny and explicit: `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
      - Semantics: agent run locks must **reject** when already held (no queuing).
      - Lock must be released in a `finally` block even if the run fails/throws or is aborted.
+   - Implementation sketch (copy the shape, not necessarily the exact code):
+     ```ts
+     const active = new Set<string>();
+
+     export function tryAcquireConversationLock(conversationId: string): boolean {
+       if (active.has(conversationId)) return false;
+       active.add(conversationId);
+       return true;
+     }
+
+     export function releaseConversationLock(conversationId: string): void {
+       active.delete(conversationId);
+     }
+     ```
 3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
    - Files to read:
      - `server/src/agents/service.ts`
@@ -275,6 +291,18 @@ Gotchas to keep in mind while implementing this task:
      - This does not block other conversations (lock is keyed), but it *does* ensure that if another browser tab/window starts using the same `conversationId` mid-run, it is rejected.
      - On conflict, throw `{ code: 'RUN_IN_PROGRESS', reason?: string }`.
      - Release must happen in `finally` even on abort and errors.
+   - Implementation sketch (where to put the `try/finally`):
+     - In `runAgentInstruction(...)`, after computing `conversationId` and before calling `chat.run(...)`:
+       ```ts
+       if (!tryAcquireConversationLock(conversationId)) {
+         throw toRunAgentError('RUN_IN_PROGRESS', 'Conversation already has an in-flight run');
+       }
+       try {
+         // existing runAgentInstruction logic...
+       } finally {
+         releaseConversationLock(conversationId);
+       }
+       ```
 5. [ ] Map `RUN_IN_PROGRESS` in REST + MCP:
    - Files to edit:
      - `server/src/routes/agentsRun.ts`
@@ -283,6 +311,10 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/mcp2/errors.ts`
    - Requirements:
      - REST: map `RUN_IN_PROGRESS` → HTTP `409` with JSON `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message: '...' }`.
+       - Example response body (tests should assert this shape):
+         ```json
+         { "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "A run is already in progress for this conversation." }
+         ```
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message so clients can retry later.
        - KISS approach: add a dedicated error class (e.g. `RunInProgressError` with `.code = 409`) in `server/src/mcp2/errors.ts`, have tools throw it when the service returns `{ code: 'RUN_IN_PROGRESS' }`, and have the Agents MCP router map it to a JSON-RPC error consistently (similar to `ArchivedConversationError`).
 6. [ ] Add focused unit coverage for the lock behavior:
@@ -298,6 +330,10 @@ Gotchas to keep in mind while implementing this task:
      - Main path: a normal run with no lock returns success as today.
      - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.
      - Edge case: acquiring a lock for `conversationId='c1'` must not block a run for `conversationId='c2'`.
+   - Where to copy patterns from (junior-friendly pointers):
+     - REST test patterns: `server/src/test/unit/agents-router-run.test.ts` (Supertest + `buildApp()` helper).
+     - MCP tool patterns: `server/src/test/unit/mcp-agents-tools.test.ts` (uses `setToolDeps`/`resetToolDeps`).
+     - MCP router patterns: `server/src/test/unit/mcp-agents-router-run.test.ts` (spins up `http.createServer(handleAgentsRpc)` and POSTs JSON-RPC).
 7. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
@@ -807,6 +843,33 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
        - Call the unlocked internal “run instruction” helper with `command: { name, stepIndex: i+1, totalSteps }`.
      - Cancellation behavior:
        - When abort happens mid-step, the underlying chat persistence should produce a “Stopped” assistant turn; ensure it has `command` metadata (same `{ name, stepIndex, totalSteps }`).
+   - Implementation sketch (keep this structure so locks + abort are correct):
+     ```ts
+     const totalSteps = command.items.length;
+     const conversationId = params.conversationId ?? crypto.randomUUID();
+
+     if (!tryAcquireConversationLock(conversationId)) throw toRunAgentError('RUN_IN_PROGRESS');
+     try {
+       for (let i = 0; i < totalSteps; i++) {
+         if (params.signal?.aborted) break;
+         const item = command.items[i];
+         const instruction = item.content.join('\n');
+         await runAgentInstructionUnlocked({
+           ...params,
+           conversationId,
+           instruction,
+           command: { name: params.commandName, stepIndex: i + 1, totalSteps },
+         });
+       }
+       return { agentName: params.agentName, commandName: params.commandName, conversationId, modelId };
+     } finally {
+       releaseConversationLock(conversationId);
+     }
+     ```
+   - Reminder (do not miss these “gotchas”, even if you only read this subtask):
+     - The lock must be held for the *entire* multi-step run (not reacquired per step).
+     - `signal.aborted` must be checked *between* steps so later steps never start after cancel.
+     - Command metadata must tag BOTH the user turn and assistant turn for each step (Task 2/7 enable this plumbing).
 3. [ ] Add unit coverage for sequential execution + abort stop:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -867,6 +930,13 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - `POST /agents/:agentName/commands/run`
      - Body: `{ commandName: string, conversationId?: string, working_folder?: string }`
      - Response: `{ agentName, commandName, conversationId, modelId }`
+   - Cancellation wiring (must match existing Agents run route behavior):
+     - Copy the pattern from `server/src/routes/agentsRun.ts`:
+       - Create `const controller = new AbortController()`
+       - `req.on('aborted', () => controller.abort())`
+       - `res.on('close', () => { if (!res.writableEnded) controller.abort() })`
+       - Pass `signal: controller.signal` into `runAgentCommand(...)`
+     - Reminder: v1 cancellation is **abort the in-flight HTTP request**; the UI may not receive a “success” response when stopped, so the “Stopped” assistant turn must be persisted by the server (Task 2 + Task 8).
 2. [ ] Map runner errors to stable HTTP responses:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -875,6 +945,10 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - `COMMAND_INVALID` → 400 + code
      - `RUN_IN_PROGRESS` → 409 + code
      - `WORKING_FOLDER_*` → 400 + code
+   - Example error shapes (tests should assert these shapes, not text matching):
+     - 404: `{ "error": "not_found" }` (for unknown agent/command)
+     - 400: `{ "error": "invalid_request", "code": "COMMAND_INVALID", "message": "..." }`
+     - 409: `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`
 3. [ ] Add unit tests for the new route:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -885,6 +959,8 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - Main path: valid command returns `{ agentName, commandName, conversationId, modelId }`.
      - Failure path: when a run is already in progress for the same `conversationId`, the route returns `409` with `code: RUN_IN_PROGRESS`.
      - Failure path: invalid `commandName` (contains `/` or `..`) returns `400` with `code: COMMAND_INVALID`.
+   - Where to copy test patterns from:
+     - `server/src/test/unit/agents-router-run.test.ts` (Supertest + route wiring + stable error shape assertions)
 4. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
@@ -940,6 +1016,21 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Requirements:
      - Return JSON text payload of `{ agentName, commandName, conversationId, modelId }`.
      - Map `COMMAND_*`, `WORKING_FOLDER_*`, and `RUN_IN_PROGRESS` to stable tool errors with safe messages.
+   - Where to copy the pattern from:
+     - `server/src/mcpAgents/tools.ts` already has `runRunAgentInstruction(...)` which:
+       - validates args with Zod
+       - calls the service
+       - maps known service error codes to `InvalidParamsError` / `ArchivedConversationError` / `CodexUnavailableError`
+     - Implement `run_command` by mirroring that structure (new schema + new call + new mapping).
+   - Example JSON-RPC request (use this shape in tests):
+     ```json
+     {
+       "jsonrpc": "2.0",
+       "id": 1,
+       "method": "tools/call",
+       "params": { "name": "run_command", "arguments": { "agentName": "planning_agent", "commandName": "improve_plan" } }
+     }
+     ```
 3. [ ] Add unit tests:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -949,6 +1040,9 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Main path returns `{ agentName, commandName, conversationId, modelId }`.
      - Failure path: `RUN_IN_PROGRESS` returned when a run is already in progress for the same `conversationId`.
      - Failure path: invalid `commandName` rejected with a stable error.
+   - Where to copy test harness from:
+     - `server/src/test/unit/mcp-agents-router-run.test.ts` (HTTP server + JSON-RPC POST helper)
+     - `server/src/test/unit/mcp-agents-tools.test.ts` (direct `callTool()` dependency injection + error mapping assertions)
 4. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
@@ -1008,6 +1102,10 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - Requirements:
      - Calls `GET /agents/:agentName/commands`.
      - Returns `{ commands }` including disabled entries so the UI can show invalid commands as disabled.
+   - Implementation sketch (follow existing `serverBase` + URL building style in this file):
+     ```ts
+     const res = await fetch(new URL(`/agents/${encodeURIComponent(agentName)}/commands`, serverBase).toString());
+     ```
 2. [ ] Add client unit coverage for listing:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
@@ -1017,6 +1115,8 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - Test requirements:
      - Uses fetch mocking to confirm it hits `/agents/:agentName/commands`.
      - Returns the parsed `commands` array.
+   - Where to copy test patterns from:
+     - `client/src/test/agentsApi.workingFolder.payload.test.ts` (fetch mocking + asserting URL + body)
 3. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1068,6 +1168,8 @@ Add a focused client API helper for executing a selected command against an agen
      - Calls `POST /agents/:agentName/commands/run`.
      - Body: `{ commandName, conversationId?, working_folder? }`.
      - Propagates `signal` to fetch so the existing Abort button can cancel it.
+   - Reminder:
+     - Keep the “omit empty optionals” behavior consistent with `runAgentInstruction(...)` in this file (don’t send `working_folder: ""`).
 2. [ ] Add client unit coverage for running:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
@@ -1077,6 +1179,8 @@ Add a focused client API helper for executing a selected command against an agen
    - Test requirements:
      - Confirms it hits `/agents/:agentName/commands/run`.
      - Confirms `working_folder` and `conversationId` are omitted when not provided.
+   - Where to copy test patterns from:
+     - `client/src/test/agentsApi.workingFolder.payload.test.ts` (asserts optional payload behavior)
 3. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1247,6 +1351,24 @@ Update the Agents page to list commands for the selected agent and show the sele
      - Display label replaces `_` with spaces.
      - Disabled commands are unselectable and show description “Invalid command file”.
      - Show selected command Description below the dropdown.
+   - UI sketch (MUI components already imported in `AgentsPage.tsx`):
+     ```tsx
+     <FormControl fullWidth size="small">
+       <InputLabel id="command-label">Command</InputLabel>
+       <Select labelId="command-label" label="Command" value={selectedCommand ?? ''} onChange={...}>
+         {commands.map((cmd) => (
+           <MenuItem key={cmd.name} value={cmd.name} disabled={cmd.disabled}>
+             {cmd.name.replace(/_/g, ' ')}
+           </MenuItem>
+         ))}
+       </Select>
+     </FormControl>
+     <Typography variant="body2" color="text.secondary">
+       {selectedCommandSummary?.description ?? 'Select a command to see its description.'}
+     </Typography>
+     ```
+   - Reminder:
+     - Do **not** render the raw JSON contents anywhere in the UI (dropdown only shows names; description is read from JSON and displayed as plain text).
 3. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1294,6 +1416,23 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
      - Calls `runAgentCommand({ agentName, commandName, conversationId, working_folder, signal })`.
      - Uses the existing AbortController and shares the same Abort button.
      - If persistence is unavailable (`mongoConnected === false` banner), disable Execute and show a short message explaining command runs require history loading to display step outputs.
+   - UI sketch (keep it simple; disable conditions are the important part):
+     ```tsx
+     <Button
+       variant="contained"
+       disabled={!selectedCommandName || isRunning || persistenceUnavailable}
+       onClick={handleExecuteCommand}
+     >
+       Execute command
+     </Button>
+     {persistenceUnavailable ? (
+       <Typography variant="body2" color="text.secondary">
+         Commands require conversation history (Mongo) to display multi-step results.
+       </Typography>
+     ) : null}
+     ```
+   - Reminder:
+     - No client-side “global lock” in v1. Only disable Execute when *this* tab is running (`isRunning`) or Mongo is down; server enforces per-conversation locking and returns `RUN_IN_PROGRESS`.
 2. [ ] Implement success flow that refreshes conversations + turns:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
@@ -1309,6 +1448,8 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - When the API throws `status=409` and `code="RUN_IN_PROGRESS"`, show a friendly error bubble (do not disable the UI; just inform the user the conversation is already running).
+   - Example user-facing message (copy this exact phrasing so tests can assert it):
+     - “This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.”
 4. [ ] Surface `RUN_IN_PROGRESS` for normal agent instructions too:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
@@ -1365,6 +1506,14 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
    - Requirements:
      - If `turn.command` exists, render a small note like `Command run: <name> (<stepIndex>/<totalSteps>)`.
      - Keep styling subtle; do not interfere with normal markdown/tool rendering.
+   - UI sketch:
+     ```tsx
+     {turn.command ? (
+       <Typography variant="caption" color="text.secondary">
+         Command run: {turn.command.name} ({turn.command.stepIndex}/{turn.command.totalSteps})
+       </Typography>
+     ) : null}
+     ```
 3. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1409,16 +1558,27 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Test requirements:
      - Agent change fetches new commands list.
      - Disabled commands are rendered disabled/unselectable.
+   - Where to copy test patterns from:
+     - `client/src/test/agentsPage.list.test.tsx` (agents list + dropdown interaction)
+     - `client/src/test/agentsPage.description.test.tsx` (description rendering assertions)
 2. [ ] Add test coverage for running a command + turns refresh:
    - Files to edit:
      - Add `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Test requirements:
      - Execute calls the run endpoint and triggers turns refresh.
+   - Where to copy test patterns from:
+     - `client/src/test/agentsPage.run.test.tsx` (send/stop flow + fetch mocking)
+     - `client/src/test/agentsPage.turnHydration.test.tsx` (turn hydration from persisted turns)
 3. [ ] Add test coverage for conflict messaging:
    - Files to edit:
      - Add `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
    - Test requirements:
      - When the API throws `status=409` + `code="RUN_IN_PROGRESS"`, the UI shows the friendly message for both normal agent run and command run.
+   - Reminder:
+     - These tests should validate both:
+       - conflict from a command run attempt
+       - conflict from a normal agent instruction attempt
+     - because server locking is per-conversation and must protect multi-tab interactions.
 4. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 

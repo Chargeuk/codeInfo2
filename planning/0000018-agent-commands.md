@@ -41,10 +41,9 @@ Top-level object:
 
 Legacy compatibility (required for this story):
 
-- If a command file uses the existing legacy schema:
-  - `Events: { Chat_Input: string }[]`
-- Then it is treated as:
-  - `items: [{ type: "message", role: "user", content: [Chat_Input] }, ...]`
+Legacy compatibility:
+
+- Not required in v1. Existing command JSON files (including the current example `improve_plan.json`) will be migrated to the canonical `items/type/message` format as part of this story’s tasks.
 
 ### Discovery + naming
 
@@ -166,4 +165,4 @@ Add two new tools to Agents MCP `5012`:
 
 ## Questions
 
-1. Legacy format: do you want to keep compatibility for the current committed command schema (`Events` + `Chat_Input`) in v1, or should this story migrate existing command JSON files to the new `items/type/message` shape?
+(none)

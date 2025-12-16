@@ -471,8 +471,7 @@ Gotchas to keep in mind while implementing this task:
 ### 2. Mongo: add per-turn `command` metadata (`{ name, stepIndex, totalSteps }`)
 
 - Task Status: **completed**
-- Git Commits:
-
+- Git Commits: 1a9d5fc
 #### Overview
 
 Add an optional `command` field to persisted turns so the UI can render “Command run: <name> (2/12)” inside chat bubbles for both user and assistant turns created by command runs.

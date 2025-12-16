@@ -28,6 +28,8 @@ The intended approach for “catch-up” is:
 - While a conversation is actively streaming, the server provides incremental updates for the current in-flight turn from in-memory state.
 - The UI merges persisted turns with the in-memory streaming turn so the transcript reflects “so far” content without requiring the server to retain full histories in memory.
 - Catch-up must include **both** partial assistant text **and** interim tool-call progress/events so the viewed transcript looks identical to watching the stream in the originating tab.
+- When a client subscribes to a conversation mid-stream (for example by switching to it, or opening it in another tab), the server sends a **full in-flight turn snapshot** (assistant text so far + tool progress history so far) before streaming further incremental updates.
+- If a WebSocket reconnect occurs (network hiccup / laptop sleep), the client treats itself as potentially out of sync and reuses the existing snapshot mechanism: it re-fetches the conversation turns and then re-subscribes to the visible conversation stream.
 
 ### Realtime transport choice (v1)
 
@@ -76,6 +78,7 @@ WebSockets keep this as a single long-lived connection with explicit `subscribe`
 - Live streaming updates are tied to a `conversationId` so updates are routed to the correct transcript.
 - The server only retains in-memory streaming state for conversations that are currently streaming, and it is released promptly after completion/abort.
 - If the user loads a conversation that is not streaming, the UI does not show a streaming placeholder (snapshot-only).
+- Streaming events include sequence identifiers (at least per-conversation) so clients can ignore stale/out-of-order events during rapid conversation switching and safely reconcile subscriptions.
 
 ---
 
@@ -92,8 +95,6 @@ WebSockets keep this as a single long-lived connection with explicit `subscribe`
 
 ## Questions
 
-- Catch-up mechanics for in-flight streams:
-  - Do we need replay/sequence IDs for clients that connect late/reconnect, or is “snapshot + current in-flight turn state (assistant text + tool-call progress/events)” enough?
 - Subscription scope:
   - Should the client subscribe to all active streams by default (so switching is instant), or subscribe/unsubscribe per conversation and accept a small delay on switch?
   - (Current direction) Subscribe/unsubscribe per conversation (only visible conversation streams) plus an always-on sidebar subscription.

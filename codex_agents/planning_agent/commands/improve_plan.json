@@ -89,17 +89,17 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Does all the functionality, including happy apth, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
+      "content": ["Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
     },
     {
       "type": "message",
       "role": "user",
-      "content": ["Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Commit after making any changes."]
+      "content": ["Please ensure every task writing jest tests includes references to context7 tool jest documentation and every task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Commit after making any changes."]
     },
     {
       "type": "message",
       "role": "user",
-      "content": ["Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files. Commit after making any changes."]
+      "content": ["Ensure that every task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files and that task contains all added and removed files. Commit after making any changes."]
     },
     {
       "type": "message",

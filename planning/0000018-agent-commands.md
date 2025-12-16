@@ -622,7 +622,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 
 ### 3. Server: implement command JSON schema + validation helper (v1)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -639,7 +639,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 
 #### Subtasks
 
-1. [ ] Confirm the example command matches the intended schema:
+1. [x] Confirm the example command matches the intended schema:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -647,7 +647,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - Requirements:
      - Top-level `Description` string.
      - `items[]` with `{ type: "message", role: "user", content: string[] }`.
-2. [ ] Create command schema + parser helper:
+2. [x] Create command schema + parser helper:
    - Docs to read:
      - Context7 `/websites/v3_zod_dev`
      - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -660,7 +660,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - Requirements:
      - Only supports `type: "message"` and `role: "user"` in v1.
      - `content` must be a non-empty string array; trim entries during parse.
-3. [ ] Add a file-loader helper that returns a safe list summary:
+3. [x] Add a file-loader helper that returns a safe list summary:
    - Docs to read:
      - https://nodejs.org/api/fs.html
    - Files to edit:
@@ -675,7 +675,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - Requirements:
      - If JSON invalid or schema invalid → `{ disabled: true, description: "Invalid command file" }`.
      - If valid → `{ disabled: false, description: <Description from JSON> }`.
-4. [ ] Server unit test: valid command JSON parses as `{ ok: true }`:
+4. [x] Server unit test: valid command JSON parses as `{ ok: true }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -685,7 +685,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Provide a JSON string with `Description` + `items: [{ type: 'message', role: 'user', content: ['x'] }]`.
      - Assert `parseAgentCommandFile(...)` returns `{ ok: true }`.
-5. [ ] Server unit test: invalid JSON returns `{ ok: false }`:
+5. [x] Server unit test: invalid JSON returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -695,7 +695,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Call `parseAgentCommandFile('{ not valid json')`.
      - Assert it returns `{ ok: false }`.
-6. [ ] Server unit test: missing `Description` returns `{ ok: false }`:
+6. [x] Server unit test: missing `Description` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -705,7 +705,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Provide syntactically valid JSON with `items` but no `Description`.
      - Assert it returns `{ ok: false }`.
-7. [ ] Server unit test: empty/whitespace `Description` returns `{ ok: false }`:
+7. [x] Server unit test: empty/whitespace `Description` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -715,7 +715,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Provide JSON with `Description: "   "` and a valid `items` list.
      - Assert `{ ok: false }`.
-8. [ ] Server unit test: missing `items` returns `{ ok: false }`:
+8. [x] Server unit test: missing `items` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -725,7 +725,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Provide JSON with only `Description`.
      - Assert `{ ok: false }`.
-9. [ ] Server unit test: empty `items: []` returns `{ ok: false }`:
+9. [x] Server unit test: empty `items: []` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -735,7 +735,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Provide JSON with `items: []`.
      - Assert `{ ok: false }`.
-10. [ ] Server unit test: unsupported `type` returns `{ ok: false }`:
+10. [x] Server unit test: unsupported `type` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -745,7 +745,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with `{ type: 'other', role: 'user', content: ['x'] }`.
       - Assert `{ ok: false }`.
-11. [ ] Server unit test: unsupported `role` returns `{ ok: false }`:
+11. [x] Server unit test: unsupported `role` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -755,7 +755,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with `{ type: 'message', role: 'assistant', content: ['x'] }`.
       - Assert `{ ok: false }`.
-12. [ ] Server unit test: non-array `content` returns `{ ok: false }`:
+12. [x] Server unit test: non-array `content` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -765,7 +765,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with `content: 'not-an-array'`.
       - Assert `{ ok: false }`.
-13. [ ] Server unit test: empty `content: []` returns `{ ok: false }`:
+13. [x] Server unit test: empty `content: []` returns `{ ok: false }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -775,7 +775,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with `content: []`.
       - Assert `{ ok: false }`.
-14. [ ] Server unit test: whitespace-only `content` entries are rejected after trimming:
+14. [x] Server unit test: whitespace-only `content` entries are rejected after trimming:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -785,7 +785,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with `content: ['   ']`.
       - Assert `{ ok: false }`.
-15. [ ] Server unit test: unknown keys are rejected (`.strict()` behavior):
+15. [x] Server unit test: unknown keys are rejected (`.strict()` behavior):
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -795,7 +795,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON with an extra top-level field like `{ Description, items, extra: true }`.
       - Assert `{ ok: false }`.
-16. [ ] Server unit test: trimming behavior produces a clean `command` object:
+16. [x] Server unit test: trimming behavior produces a clean `command` object:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -805,7 +805,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Provide JSON where `content: ['  first  ', ' second ']`.
       - Assert `parseAgentCommandFile(...)` returns `{ ok: true }` and the parsed command contains `content: ['first', 'second']`.
-17. [ ] Server unit test: `loadAgentCommandSummary(...)` returns enabled summary for valid command file:
+17. [x] Server unit test: `loadAgentCommandSummary(...)` returns enabled summary for valid command file:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -815,7 +815,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Write a temp `*.json` file containing a valid command.
       - Call `loadAgentCommandSummary({ filePath, name })` and assert `{ disabled: false, description: <Description> }`.
-18. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when schema invalid:
+18. [x] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when schema invalid:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -825,7 +825,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Write a temp `*.json` file containing syntactically valid JSON that violates schema (e.g. `items: []`).
       - Assert summary is `{ disabled: true, description: 'Invalid command file' }`.
-19. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when file read fails:
+19. [x] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when file read fails:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -835,7 +835,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
     - What to implement:
       - Call `loadAgentCommandSummary({ filePath: '/does/not/exist.json', name: 'missing' })`.
       - Assert it returns `{ name: 'missing', disabled: true, description: 'Invalid command file' }`.
-20. [ ] Update `projectStructure.md` after adding new server files/tests:
+20. [x] Update `projectStructure.md` after adding new server files/tests:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -848,30 +848,59 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
          - `server/src/test/unit/agent-commands-loader.test.ts`
          - `server/src/test/unit/agent-commands-schema.test.ts`
        - Remove: (none)
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+21. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (no UI feature yet for this task):
      - Open `/agents` and confirm the page loads without errors.
      - Select an agent and run a simple instruction; confirm a response is persisted and shown.
      - Open `/chat` and confirm the page loads and can send a message (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Marked Task 3 in progress and confirmed `codex_agents/planning_agent/commands/improve_plan.json` matches the intended v1 schema shape.
+- 2025-12-16: Added `server/src/agents/commandsSchema.ts` with a strict Zod v1 schema and a safe `parseAgentCommandFile(...)` that trims and rejects empty/whitespace-only content.
+- 2025-12-16: Added `server/src/agents/commandsLoader.ts` to read command files and produce a safe `{ name, description, disabled }` summary (invalid/missing files return “Invalid command file”).
+- 2025-12-16: Added `server/src/test/unit/agent-commands-schema.test.ts` coverage for the happy-path v1 schema parse.
+- 2025-12-16: Added unit coverage for JSON parse failures returning `{ ok: false }`.
+- 2025-12-16: Added unit coverage for missing `Description` being rejected by the schema.
+- 2025-12-16: Added unit coverage for whitespace-only `Description` being rejected after trimming.
+- 2025-12-16: Added unit coverage for missing `items` being rejected.
+- 2025-12-16: Added unit coverage for `items: []` being rejected.
+- 2025-12-16: Added unit coverage for the v1 `type: message` enforcement.
+- 2025-12-16: Added unit coverage for the v1 `role: user` enforcement.
+- 2025-12-16: Added unit coverage for rejecting malformed `content` (must be a string array).
+- 2025-12-16: Added unit coverage for rejecting empty `content: []`.
+- 2025-12-16: Added unit coverage for trimming + rejecting whitespace-only content entries.
+- 2025-12-16: Added unit coverage for `.strict()` behavior (unknown keys rejected).
+- 2025-12-16: Added unit coverage ensuring the parsed command content is trimmed and returned in a clean normalized shape.
+- 2025-12-16: Added `server/src/test/unit/agent-commands-loader.test.ts` coverage for `loadAgentCommandSummary(...)` happy-path enabled summaries.
+- 2025-12-16: Added unit coverage for schema-invalid command files being surfaced as disabled “Invalid command file”.
+- 2025-12-16: Added unit coverage for missing/IO-error command files returning disabled summaries (no throw).
+- 2025-12-16: Updated `projectStructure.md` to include the new agent command schema/loader files and unit tests.
+- 2025-12-16: Validation: `npm run lint --workspaces` and `npm run format:check --workspaces` passed.
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Manual regression smoke via `http://host.docker.internal:5001/agents` + `/chat` (HTTP 200) and `POST http://host.docker.internal:5010/agents/coding_agent/run` succeeded (conversation persisted and `/conversations/:id/turns` returned turns).
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

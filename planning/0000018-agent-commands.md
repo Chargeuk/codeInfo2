@@ -16,6 +16,16 @@ We want to introduce **Agent Commands**: predefined, named “macros” stored a
 
 This functionality must also be exposed via the existing Agents MCP (port `5012`) so external tooling can list and run agent commands. Both the GUI (via REST) and MCP must call into the same shared server code for discovery, validation, and execution—there should not be separate “client-runner” and “server-runner” implementations.
 
+### Version notes (verified in repo)
+
+These versions matter for which external docs we should follow while implementing this story:
+
+- Runtime: Node `22.x` (repo requires `>=22`).
+- Client: React `19.2.x`, React Router `7.9.x`, MUI `6.4.x` (project uses `@mui/material ^6.4.1`), Jest `30.2.x` + Testing Library, ts-jest `29.4.x`.
+- Server: Express `5.x` (project uses `express ^5.0.0`), Mongoose `9.0.1`, Zod `3.25.76`.
+
+Deepwiki MCP note: Deepwiki does not currently have `Chargeuk/codeInfo2` indexed, so Deepwiki MCP queries fail until it is indexed (implementation must rely on repo code + Context7/MUI MCP + web docs instead).
+
 ### Key behavior
 
 - Each agent may optionally have a `commands/` folder containing `*.json` command files.
@@ -110,9 +120,8 @@ Add two new tools to Agents MCP `5012`:
   - There is exactly one server-side implementation that:
     1) loads a command JSON file,
     2) validates it,
-    3) normalizes legacy `Events/Chat_Input` into `items`,
-    4) executes steps sequentially by calling the existing agent runner,
-    5) returns aggregated results.
+    3) executes steps sequentially by calling the existing agent runner,
+    4) returns aggregated results.
   - Both REST and Agents MCP call the shared implementation (no client-side step execution loop).
   - Commands can be run:
     - with `conversationId` (continue existing conversation), or
@@ -150,7 +159,7 @@ Add two new tools to Agents MCP `5012`:
 - Validation rules (KISS; enforce only what we need now):
   - Command file must be valid JSON.
   - `Description` must be a non-empty string.
-  - Either `items` or legacy `Events` must be present (after normalization, `items.length >= 1`).
+  - `items` must be present and non-empty (`items.length >= 1`).
   - Supported item types:
     - only `type: "message"` in this story.
   - For `message` items:
@@ -329,14 +338,14 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 
 #### Documentation Locations
 
-- Mongoose schemas + nested objects: Context7 `/mongoosejs/mongoose`
+- Mongoose schemas + nested objects (project uses Mongoose `9.0.1`): Context7 `/websites/mongoosejs`
 - MongoDB document modeling (optional fields): https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
 
 #### Subtasks
 
 1. [ ] Read current turn persistence types and schemas:
    - Docs to read:
-     - Context7 `/mongoosejs/mongoose`
+     - Context7 `/websites/mongoosejs`
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
@@ -987,6 +996,8 @@ Add client API helpers used by the Agents page to list commands for a selected a
 #### Documentation Locations
 
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0`
+- ts-jest ESM preset (`ts-jest/presets/default-esm`): Context7 `/websites/kulshekhar_github_io-ts-jest-docs`
 
 #### Subtasks
 
@@ -1017,6 +1028,7 @@ Add client API helpers used by the Agents page to list commands for a selected a
 4. [ ] Add client unit tests:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
+     - Context7 `/websites/kulshekhar_github_io-ts-jest-docs`
    - Files to edit:
      - Add `client/src/test/agentsApi.commands.test.ts`
    - Test requirements:
@@ -1108,8 +1120,8 @@ Update the Agents page to list commands for the selected agent, show the selecte
 
 #### Documentation Locations
 
-- MUI Select + MenuItem disabled state: MUI MCP `@mui/material@7.2.0` (use `mcp__mui__useMuiDocs`)
-- MUI TextField + Button patterns: MUI MCP `@mui/material@7.2.0`
+- MUI Select + MenuItem disabled state: MUI MCP `@mui/material@6.4.12` (use `mcp__mui__useMuiDocs`)
+- MUI TextField + Button patterns: MUI MCP `@mui/material@6.4.12`
 - React state + effects: https://react.dev/reference/react
 
 #### Subtasks
@@ -1124,7 +1136,7 @@ Update the Agents page to list commands for the selected agent, show the selecte
      - Keep disabled commands in state so the dropdown can show them as disabled.
 2. [ ] Add the Commands dropdown + description panel:
    - Docs to read:
-     - MUI MCP `@mui/material@7.2.0`
+     - MUI MCP `@mui/material@6.4.12`
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -1162,7 +1174,7 @@ Update the Agents page to list commands for the selected agent, show the selecte
 6. [ ] Add client tests for the new UI behavior:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-     - MUI MCP `@mui/material@7.2.0`
+     - MUI MCP `@mui/material@6.4.12`
    - Files to edit:
      - Add `client/src/test/agentsPage.commandsList.test.tsx`
      - Add `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`

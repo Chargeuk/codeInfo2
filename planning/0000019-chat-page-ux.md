@@ -72,6 +72,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
   - Deletion is a **hard delete** (no retention window / audit log requirement in v1).
   - Deletion removes **both** the conversation record and all stored turns/tool calls for that conversation.
   - Deletion requires an explicit user confirmation (simple confirmation dialog) before the server is called.
+  - The server enforces a hard guardrail: only **archived** conversations may be permanently deleted (reject delete attempts for non-archived conversations).
 - Bulk actions are **all-or-nothing**: if any selected conversation cannot be processed, the server rejects the entire bulk request and no changes are applied.
 - For v1, bulk actions apply to the currently loaded conversations in the list (no “select all matches across pagination”).
 - Selection UX:
@@ -100,6 +101,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
   - conversation create/update/archive/restore/delete,
   - `lastMessageAt` changes and resorting.
  - When `mongoConnected === false`, live streaming is disabled and the UI surfaces a clear error message explaining that persistence is required for realtime updates/catch-up.
+- When `mongoConnected === false`, bulk archive/restore/permanent delete actions are also disabled, and the UI surfaces a clear error message explaining that persistence is required for safe conversation management.
 
 ### Reliability/consistency
 

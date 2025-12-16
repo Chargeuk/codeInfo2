@@ -470,7 +470,7 @@ Gotchas to keep in mind while implementing this task:
 
 ### 2. Mongo: add per-turn `command` metadata (`{ name, stepIndex, totalSteps }`)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -486,14 +486,14 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 
 #### Subtasks
 
-1. [ ] Read current turn persistence types and schemas:
+1. [x] Read current turn persistence types and schemas:
    - Docs to read:
      - Context7 `/websites/mongoosejs`
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
-2. [ ] Extend the Turn model/schema to include `command`:
+2. [x] Extend the Turn model/schema to include `command`:
    - Docs to read:
      - Context7 `/websites/mongoosejs`
      - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
@@ -505,7 +505,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Requirements:
      - Optional field (missing for normal turns).
      - Stored as a subdocument in Mongo.
-3. [ ] Plumb `command` through repository helpers:
+3. [x] Plumb `command` through repository helpers:
    - Docs to read:
      - Context7 `/websites/mongoosejs`
      - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
@@ -515,7 +515,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Requirements:
      - Extend `AppendTurnInput` and `TurnSummary` to include optional `command`.
      - Ensure `listTurns` includes the field in its returned JSON.
-4. [ ] Plumb `command` through chat persistence:
+4. [x] Plumb `command` through chat persistence:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -526,7 +526,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Allow passing `command` metadata via flags to `chat.run(...)` and persist it on both the user and assistant turns for that run.
      - Ensure the “Stopped” assistant turn created on abort also receives the same `command` metadata (this is required for cancelled in-flight command steps).
      - Keep default behavior unchanged when no `command` is provided.
-5. [ ] Server unit test update: ensure chat persistence tests compile with the new `turn.command` field:
+5. [x] Server unit test update: ensure chat persistence tests compile with the new `turn.command` field:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -536,7 +536,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Ensures normal (non-command) runs still persist user/assistant turns as before.
    - What to update:
      - Only adjust types/fixtures as needed (do not change the test’s behavioral assertions unless the new field requires it).
-6. [ ] Server unit test update: ensure base chat interface tests compile with the new `turn.command` field:
+6. [x] Server unit test update: ensure base chat interface tests compile with the new `turn.command` field:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -545,7 +545,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Confirms ChatInterface base behavior remains unchanged and the test suite remains green after adding optional metadata.
    - What to update:
      - Only adjust types/fixtures as needed.
-7. [ ] Server unit test (new): verify `command` metadata is persisted and returned by list APIs:
+7. [x] Server unit test (new): verify `command` metadata is persisted and returned by list APIs:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -556,7 +556,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Test cases to implement:
      - “stores + returns command when provided”
      - “omitting command keeps existing behavior”
-8. [ ] Server unit test (new): `chat.run(...)` persists `command` on BOTH the user turn and assistant turn:
+8. [x] Server unit test (new): `chat.run(...)` persists `command` on BOTH the user turn and assistant turn:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -569,7 +569,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Assert the stored turns include `command` on both:
        - the `role: 'user'` turn
        - the `role: 'assistant'` turn
-9. [ ] Server unit test (new): aborted run persists a `stopped` assistant turn that still includes `command`:
+9. [x] Server unit test (new): aborted run persists a `stopped` assistant turn that still includes `command`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -582,7 +582,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Abort before completion and assert:
        - assistant turn `status === 'stopped'`
        - assistant turn includes `command: { name, stepIndex, totalSteps }`.
-10. [ ] Update `projectStructure.md` after adding any new test files:
+10. [x] Update `projectStructure.md` after adding any new test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -592,27 +592,32 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - `server/src/test/unit/chat-command-metadata.test.ts`
        - `server/src/test/unit/turn-command-metadata.test.ts`
      - Remove: (none)
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Run an agent command (later tasks) and verify command bubbles show “2/12” style metadata.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Reviewed Mongoose schema/subdocument docs and the existing turn persistence + ChatInterface persistence flow for where to attach optional per-turn metadata.
+- 2025-12-16: Added optional per-turn `command` metadata to the Turn model/schema and plumbed it through `appendTurn` + `listTurns` so it round-trips from persistence to API payloads.
+- 2025-12-16: Updated `ChatInterface.run(...)` to accept `flags.command` and persist it on both user + assistant turns (including the `stopped` assistant turn when an AbortSignal is triggered).
+- 2025-12-16: Added server unit coverage for command metadata persistence (repo + chat) and updated `projectStructure.md` to include the new tests.
+- 2025-12-16: Manual verification note: the Agents UI command runner isn’t implemented until later tasks, so the “2/12” bubble rendering can’t be verified end-to-end yet; instead we verified via the Turns REST API after extending `POST /conversations/:id/turns` validation to accept `command` for debugging.
+- 2025-12-16: Validation: `npm run lint --workspaces`, `npm run format:check --workspaces`, `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, curl check against `http://host.docker.internal:5010`, then `npm run compose:down`.
 
 ---
 

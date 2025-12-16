@@ -6,6 +6,12 @@ export type TurnRole = 'user' | 'assistant' | 'system';
 export type TurnStatus = 'ok' | 'stopped' | 'failed';
 export type TurnSource = 'REST' | 'MCP';
 
+export interface TurnCommandMetadata {
+  name: string;
+  stepIndex: number;
+  totalSteps: number;
+}
+
 export interface Turn {
   conversationId: string;
   role: TurnRole;
@@ -15,10 +21,20 @@ export interface Turn {
   toolCalls: Record<string, unknown> | null;
   status: TurnStatus;
   source: TurnSource;
+  command?: TurnCommandMetadata;
   createdAt: Date;
 }
 
 export type TurnDocument = HydratedDocument<Turn>;
+
+const turnCommandSchema = new Schema<TurnCommandMetadata>(
+  {
+    name: { type: String, required: true },
+    stepIndex: { type: Number, required: true },
+    totalSteps: { type: Number, required: true },
+  },
+  { _id: false },
+);
 
 const turnSchema = new Schema<Turn>(
   {
@@ -34,6 +50,7 @@ const turnSchema = new Schema<Turn>(
     toolCalls: { type: Schema.Types.Mixed, default: null },
     status: { type: String, enum: ['ok', 'stopped', 'failed'], required: true },
     source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
+    command: { type: turnCommandSchema, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

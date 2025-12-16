@@ -1083,7 +1083,7 @@ Implement a shared server function that discovers command JSON files for an agen
 ### 5. REST: `GET /agents/:agentName/commands`
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 2e9f02a, fd1d268
 
 #### Overview
 

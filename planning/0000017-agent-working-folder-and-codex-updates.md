@@ -241,6 +241,7 @@ Reuse and extend the existing ingest path mapping module to support mapping an a
 - In this environment, `npm run e2e` required `CODEX_HOME` to be set to a host-shared path (used `CODEX_HOME=$PWD/codex`) to avoid Docker Desktop “mounts denied” errors.
 - Completed the manual `/agents` + `/chat` smoke check with Playwright and captured screenshots under `test-results/screenshots/`.
 
+
 ---
 
 ### 2. Server: wire working_folder into agent execution (service + ChatInterfaceCodex)
@@ -1253,7 +1254,7 @@ Update Codex reasoning-effort options across server validation and client UI, pl
 
 ### 9. Documentation + project structure updates
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1267,7 +1268,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 #### Subtasks
 
-1. [ ] Update `README.md`:
+1. [x] Update `README.md`:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/openai/codex` (for wording around `model_reasoning_effort`)
@@ -1287,7 +1288,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
      - Under the Codex section, add:
        - model list includes `gpt-5.2`
        - reasoning effort includes `xhigh` and it is passed through as `model_reasoning_effort="xhigh"`
-2. [ ] Update `design.md`:
+2. [x] Update `design.md`:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://www.markdownguide.org/basic-syntax/
@@ -1303,7 +1304,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
        - REST route `sequenceDiagram` for `POST /agents/:agentName/run` showing the 400 error path
        - MCP `sequenceDiagram` showing JSON-RPC call → tool validation → service → Codex
        - Reasoning-effort `flowchart` that explicitly mentions the SDK type mismatch but runtime pass-through for `xhigh`
-3. [ ] Update `projectStructure.md` for files added/changed by this story:
+3. [x] Update `projectStructure.md` for files added/changed by this story:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1311,12 +1312,12 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
    - Instructions:
      - Add one line entry for every file added by Tasks 2, 4, and 6 (new unit test files).
      - Verify no “planned file” is missing from `projectStructure.md` before marking this subtask complete.
-4. [ ] Run formatting check for the repo:
+4. [x] Run formatting check for the repo:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Command:
      - `npm run format:check --workspaces`
-5. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+5. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -1329,21 +1330,35 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check to validate docs match behaviour (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check to validate docs match behaviour (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - Verify `/agents` shows `working_folder` and the mapping/error behaviour matches the docs
    - Verify `/chat` includes `gpt-5.2` and `xhigh` as documented
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Subtask 1: updated `README.md` to document the optional `working_folder` request field (rules, resolution order, and stable error codes) and to note Codex models include `gpt-5.2`.
+- Subtask 2: updated `design.md` with an `Agent working_folder overrides` section and verified the required Mermaid diagrams are present (resolution flowchart, REST 400 error path, MCP tool flow, and reasoning-effort/xhigh notes).
+- Subtask 3: verified `projectStructure.md` already includes entries for the new unit test files added in Tasks 2/4/6; no structural updates required for Task 9.
+- Subtask 4: ran `npm run format:check --workspaces` and confirmed Prettier is clean across all workspaces.
+- Subtask 5: ran the repo-wide lint + format gate (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+- Testing 1: `npm run build --workspace server`.
+- Testing 2: `npm run build --workspace client`.
+- Testing 3: `npm run test --workspace server`.
+- Testing 4: `npm run test --workspace client`.
+- Testing 5: `CODEX_HOME=$PWD/codex npm run e2e`.
+- Testing 6: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing 7: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing 8: ran a headless Playwright check against `http://host.docker.internal:5001` with API rewrite from `http://localhost:5010` -> `http://host.docker.internal:5010`; verified `/agents` shows `working_folder`, `/chat` Codex models include `gpt-5.2`, and Codex reasoning effort includes `xhigh`; saved screenshots to `test-results/screenshots/0000017-09-agents-working-folder.png`, `test-results/screenshots/0000017-09-chat-codex-models.png`, and `test-results/screenshots/0000017-09-chat-xhigh.png`.
+- Testing 9: `CODEX_HOME=$PWD/codex npm run compose:down`.
+
 
 ---
 

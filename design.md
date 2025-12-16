@@ -323,9 +323,10 @@ sequenceDiagram
   end
 ```
 
-### Agent working_folder resolution
+### Agent working_folder overrides
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
+- Agent `config.toml` remains the source of truth for defaults; `working_folder` only overrides Codex workingDirectory for that call.
 - Resolution tries a host→container mapping first (when `HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
 - Stable error codes returned by the service when resolution fails:
   - `WORKING_FOLDER_INVALID` (non-absolute input)

@@ -470,7 +470,7 @@ Gotchas to keep in mind while implementing this task:
 
 ### 2. Mongo: add per-turn `command` metadata (`{ name, stepIndex, totalSteps }`)
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview

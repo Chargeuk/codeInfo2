@@ -241,6 +241,7 @@ Gotchas to keep in mind while implementing this task:
 - Zod v3 schema validation: Context7 `/websites/v3_zod_dev` (how `.safeParse()`/`.strict()` validation should be done for tool args/bodies)
 - SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (used by server unit tests to call Express routes and assert response shapes)
 - JSON-RPC 2.0 error semantics: https://www.jsonrpc.org/specification (Agents MCP is JSON-RPC; needed to map service errors to stable JSON-RPC errors)
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid` (needed to update `design.md` diagrams when adding the per-conversation lock flow)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
@@ -352,10 +353,23 @@ Gotchas to keep in mind while implementing this task:
      - Start `http.createServer(handleAgentsRpc)` (copy the harness pattern from the existing test in this file).
      - Acquire the lock for a known `conversationId` and send a JSON-RPC `tools/call` request to `run_agent_instruction` using that `conversationId`.
      - Assert: JSON-RPC response contains an error with the expected stable code/message (per Task 1 mapping rules).
-9. [ ] Update `projectStructure.md` after adding any new files:
+9. [ ] Update `design.md` with lock/concurrency flow + Mermaid diagram:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - The per-conversation lock is a new architecture constraint; it must be documented where developers look for runtime behavior.
+   - Required updates:
+     - Add (or extend) a Mermaid sequence diagram that shows:
+       - UI/REST or MCP caller attempts a run
+       - Service acquires per-conversation lock
+       - On second concurrent call: service rejects with `RUN_IN_PROGRESS` (REST 409 / MCP tool error)
+     - Add a short bullet list explaining “lock scope = conversationId only” and “in-memory per process (no cross-instance coordination)”.
+10. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-10. [ ] Run repo-wide lint/format gate:
+11. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -860,6 +874,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 - Node.js `path` utilities: https://nodejs.org/api/path.html (prevent path traversal via `commandName` and build a safe file path)
 - Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions (how to generate a new `conversationId` for new command runs)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for multi-step execution are written with Node’s runner)
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid` (needed to update `design.md` with the command-run sequence diagram and abort/lock notes)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
@@ -937,7 +952,18 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 4. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Update `design.md` with the command-run flow + Mermaid sequence diagram:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - This task introduces the core “Agent Command” execution flow (multi-step runner + abort stop). It must be documented as a sequence diagram so future developers understand step ordering and cancellation semantics.
+   - Required diagram content:
+     - Actors: `Client(UI or MCP)`, `Server(REST/MCP)`, `AgentsService`, `Codex`.
+     - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
+     - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -975,6 +1001,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 - HTTP status semantics (400/404/409): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (stable REST mappings for command errors and `RUN_IN_PROGRESS`)
 - SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (unit tests for the POST route)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (server unit tests use Node’s runner)
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid` (needed to update `design.md` when adding the new REST command-run endpoint flow)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
@@ -1023,7 +1050,17 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 4. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Update `design.md` with REST command endpoints + Mermaid diagram updates:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - This task adds a new REST surface (`POST /agents/:agentName/commands/run`) and concrete error mapping rules; these must be reflected in architecture docs to keep the system understandable.
+   - Required updates:
+     - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
+     - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1059,6 +1096,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (Agents MCP tool behavior and error envelopes)
 - Zod v3 parsing: Context7 `/websites/v3_zod_dev` (validate tool args; reject invalid inputs safely)
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html (MCP tool tests use Node’s runner)
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid` (needed to update `design.md` when adding the Agents MCP command-run tool flow)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
@@ -1114,7 +1152,18 @@ Expose command execution via Agents MCP using the same server runner and error m
 5. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run repo-wide lint/format gate:
+6. [ ] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - This task expands the Agents MCP interface and adds a new automation surface; the architecture docs must describe the tool names and the shared “service runner” relationship.
+   - Required updates:
+     - Document the two Agents MCP tools and their argument shapes at a high level (no full JSON examples needed in design.md).
+     - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
+     - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
+7. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1497,6 +1546,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 - AbortController / AbortSignal: https://developer.mozilla.org/en-US/docs/Web/API/AbortController (the Execute run must be cancellable via the existing Abort mechanism)
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409 (server conflict surfaced as `RUN_IN_PROGRESS`)
 - React hooks: https://react.dev/reference/react (state transitions around execute + refresh)
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid` (needed to update `design.md` for the UI “select command → execute → refresh turns” flow)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test suite includes Cucumber; useful when interpreting `npm run test --workspace server` failures)
 
 #### Subtasks
@@ -1548,7 +1598,17 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Requirements:
      - When `runAgentInstruction(...)` fails with `status=409` and `code="RUN_IN_PROGRESS"`, show the same friendly message as command runs.
      - This must work when a second browser window/tab tries to run against the same `conversationId`.
-5. [ ] Run repo-wide lint/format gate:
+5. [ ] Update `design.md` with the Agents UI command flow + Mermaid diagram updates:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - This task changes the user-facing flow on `/agents` by adding a command dropdown and execute action that refreshes conversation history; it must be captured in the architecture docs so future UI work stays consistent.
+   - Required updates:
+     - Add a short section describing: “commands list refresh on agent change”, “execute returns `{ conversationId, modelId }` and UI re-fetches turns”, and “no client-side global lock; server rejects with RUN_IN_PROGRESS”.
+     - Add (or extend) a Mermaid flowchart or sequence diagram showing: select agent → fetch commands → execute → refresh conversations → hydrate turns.
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1759,7 +1819,7 @@ Document Agent Commands (where command files live and the REST API surface for l
 
 #### Overview
 
-Add a Mermaid sequence diagram and document the cancellation + per-conversation locking semantics for Agent Commands.
+Consolidate and sanity-check all architecture/flow updates to `design.md` made throughout this story (several earlier tasks now include explicit `design.md` updates). Ensure the final diagrams are complete, consistent, and match the actual implemented behavior.
 
 #### Documentation Locations
 

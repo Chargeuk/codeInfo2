@@ -404,6 +404,9 @@ Gotchas to keep in mind while implementing this task:
 12. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add: `server/src/agents/runLock.ts`
+     - Remove: (none)
 13. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -523,6 +526,11 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 10. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add:
+       - `server/src/test/unit/chat-command-metadata.test.ts`
+       - `server/src/test/unit/turn-command-metadata.test.ts`
+     - Remove: (none)
 11. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -730,11 +738,13 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add:
-       - `server/src/agents/commandsSchema.ts`
-       - `server/src/agents/commandsLoader.ts`
-       - `server/src/test/unit/agent-commands-schema.test.ts`
-       - `server/src/test/unit/agent-commands-loader.test.ts`
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add:
+         - `server/src/agents/commandsLoader.ts`
+         - `server/src/agents/commandsSchema.ts`
+         - `server/src/test/unit/agent-commands-loader.test.ts`
+         - `server/src/test/unit/agent-commands-schema.test.ts`
+       - Remove: (none)
 21. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -869,6 +879,9 @@ Implement a shared server function that discovers command JSON files for an agen
 11. [ ] Update `projectStructure.md` after adding any new test files:
     - Files to edit:
       - `projectStructure.md`
+    - Files to add/remove entries for (must list all files changed by this task):
+      - Add: `server/src/test/unit/agent-commands-list.test.ts`
+      - Remove: (none)
 12. [ ] Run repo-wide lint/format gate:
     - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -959,6 +972,11 @@ Expose command listing to the GUI via REST using the shared list function. The r
 7. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add:
+       - `server/src/routes/agentsCommands.ts`
+       - `server/src/test/unit/agents-commands-router-list.test.ts`
+     - Remove: (none)
 8. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1062,6 +1080,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 8. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add: `server/src/test/unit/mcp-agents-commands-list.test.ts`
+     - Remove: (none)
 9. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1331,6 +1352,11 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 15. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add:
+       - `server/src/agents/commandsRunner.ts`
+       - `server/src/test/unit/agent-commands-runner.test.ts`
+     - Remove: (none)
 16. [ ] Update `design.md` with the command-run flow + Mermaid sequence diagram:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
@@ -1493,6 +1519,9 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 12. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add: `server/src/test/unit/agents-commands-router-run.test.ts`
+     - Remove: (none)
 13. [ ] Update `design.md` with REST command endpoints + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
@@ -1650,6 +1679,9 @@ Expose command execution via Agents MCP using the same server runner and error m
 12. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
+   - Files to add/remove entries for (must list all files changed by this task):
+     - Add: `server/src/test/unit/mcp-agents-commands-run.test.ts`
+     - Remove: (none)
 13. [ ] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
@@ -1736,7 +1768,10 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add `client/src/test/agentsApi.commandsList.test.ts` with a short description.
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add: `client/src/test/agentsApi.commandsList.test.ts`
+       - Remove: (none)
+     - Ensure the entry has a short description (what it covers).
 5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1814,7 +1849,10 @@ Add a focused client API helper for executing a selected command against an agen
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add `client/src/test/agentsApi.commandsRun.test.ts` with a short description.
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add: `client/src/test/agentsApi.commandsRun.test.ts`
+       - Remove: (none)
+     - Ensure the entry has a short description (what it covers).
 5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1889,7 +1927,10 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add `client/src/test/agentsApi.errors.test.ts` with a short description.
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add: `client/src/test/agentsApi.errors.test.ts`
+       - Remove: (none)
+     - Ensure the entry has a short description (what it covers).
 7. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
@@ -1961,9 +2002,11 @@ Support the “KISS” command execution response by adding a refresh method to 
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add:
-       - `client/src/test/useConversationTurns.refresh.test.ts`
-       - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add:
+         - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+         - `client/src/test/useConversationTurns.refresh.test.ts`
+       - Remove: (none)
      - Ensure each entry has a short description (what it covers).
 6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
@@ -2341,13 +2384,15 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add:
-       - `client/src/test/agentsPage.commandsList.test.tsx`
-       - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
-       - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
-       - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
-       - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
-       - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+     - Files to add/remove entries for (must list all files changed by this task):
+       - Add:
+         - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+         - `client/src/test/agentsPage.commandsList.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+       - Remove: (none)
      - Ensure each entry has a short description (what it covers).
 13. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
@@ -2483,6 +2528,37 @@ Keep the project tree map up to date after introducing new command-related serve
      - `projectStructure.md`
    - Requirements:
      - Add new files created by this story and keep comments accurate.
+     - Files to add/remove entries for (must list all files changed by Story 0000018):
+       - Add (server runtime):
+         - `server/src/agents/commandsLoader.ts`
+         - `server/src/agents/commandsRunner.ts`
+         - `server/src/agents/commandsSchema.ts`
+         - `server/src/agents/runLock.ts`
+         - `server/src/routes/agentsCommands.ts`
+       - Add (server tests):
+         - `server/src/test/unit/agent-commands-list.test.ts`
+         - `server/src/test/unit/agent-commands-loader.test.ts`
+         - `server/src/test/unit/agent-commands-runner.test.ts`
+         - `server/src/test/unit/agent-commands-schema.test.ts`
+         - `server/src/test/unit/agents-commands-router-list.test.ts`
+         - `server/src/test/unit/agents-commands-router-run.test.ts`
+         - `server/src/test/unit/chat-command-metadata.test.ts`
+         - `server/src/test/unit/mcp-agents-commands-list.test.ts`
+         - `server/src/test/unit/mcp-agents-commands-run.test.ts`
+         - `server/src/test/unit/turn-command-metadata.test.ts`
+       - Add (client tests):
+         - `client/src/test/agentsApi.commandsList.test.ts`
+         - `client/src/test/agentsApi.commandsRun.test.ts`
+         - `client/src/test/agentsApi.errors.test.ts`
+         - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+         - `client/src/test/agentsPage.commandsList.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+         - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+         - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+         - `client/src/test/useConversationTurns.refresh.test.ts`
+       - Remove: (none)
 2. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 

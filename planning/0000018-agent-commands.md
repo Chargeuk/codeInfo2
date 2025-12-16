@@ -568,6 +568,7 @@ Implement a shared server function that discovers command JSON files for an agen
      - Only include `*.json` files.
      - `name` is basename without `.json`.
      - Use the loader from Task 3 to compute `{ description, disabled }`.
+     - No caching in v1: always read the directory contents from disk each time this function is called so new/edited command files appear immediately.
 3. [ ] Add unit coverage for list logic:
    - Docs to read:
      - https://nodejs.org/api/test.html

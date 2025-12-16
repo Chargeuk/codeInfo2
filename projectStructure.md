@@ -371,6 +371,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/agents-working-folder.test.ts — unit coverage for resolving agent working folder into a Codex workingDirectory override
 - server/src/test/unit/agent-commands-schema.test.ts — unit coverage for v1 agent command JSON schema parsing/strictness/trimming
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
+- server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache)
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)

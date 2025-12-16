@@ -19,6 +19,7 @@ import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
 
+import { loadAgentCommandSummary } from './commandsLoader.js';
 import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';
 import {
@@ -302,4 +303,43 @@ export async function runAgentInstruction(
   } finally {
     releaseConversationLock(conversationId);
   }
+}
+
+export async function listAgentCommands(params: {
+  agentName: string;
+}): Promise<{
+  commands: Array<{ name: string; description: string; disabled: boolean }>;
+}> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  const commandsDir = path.join(agent.home, 'commands');
+  const dirents = await fs
+    .readdir(commandsDir, { withFileTypes: true })
+    .catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+
+  if (!dirents) return { commands: [] };
+
+  const jsonEntries = dirents.filter(
+    (dirent) =>
+      dirent.isFile() &&
+      dirent.name.toLowerCase().endsWith('.json') &&
+      dirent.name.length > '.json'.length,
+  );
+
+  const commands = await Promise.all(
+    jsonEntries.map(async (dirent) => {
+      const name = path.basename(dirent.name, path.extname(dirent.name));
+      const filePath = path.join(commandsDir, dirent.name);
+      return loadAgentCommandSummary({ filePath, name });
+    }),
+  );
+
+  commands.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { commands };
 }

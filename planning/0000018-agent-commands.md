@@ -906,7 +906,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 
 ### 4. Server: list agent commands (shared service)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -928,7 +928,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - Files to read:
      - `server/src/agents/discovery.ts`
      - `server/src/agents/service.ts`
-2. [ ] Add a new shared function to list commands for an agent:
+2. [x] Add a new shared function to list commands for an agent:
    - Docs to read:
      - https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
      - https://nodejs.org/api/path.html
@@ -947,7 +947,7 @@ Implement a shared server function that discovers command JSON files for an agen
      - `name` is basename without `.json`.
      - Use the loader from Task 3 to compute `{ description, disabled }`.
      - No caching in v1: always read the directory contents from disk each time this function is called so new/edited command files appear immediately.
-3. [ ] Server unit test: missing `commands/` folder returns empty list:
+3. [x] Server unit test: missing `commands/` folder returns empty list:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -957,7 +957,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Call `listAgentCommands({ agentName })` for a discovered agent without a `commands/` directory.
      - Assert response is `{ commands: [] }`.
-4. [ ] Server unit test: valid command JSON appears as enabled entry:
+4. [x] Server unit test: valid command JSON appears as enabled entry:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -970,7 +970,7 @@ Implement a shared server function that discovers command JSON files for an agen
        - `name === 'improve_plan'`
        - `disabled === false`
        - `description` equals the JSON `Description`.
-5. [ ] Server unit test: invalid command JSON (syntax) appears as disabled entry:
+5. [x] Server unit test: invalid command JSON (syntax) appears as disabled entry:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -980,7 +980,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Create a `commands/bad.json` fixture (invalid JSON) under a temporary agent folder for the test.
      - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
-6. [ ] Server unit test: invalid command JSON (schema) appears as disabled entry:
+6. [x] Server unit test: invalid command JSON (schema) appears as disabled entry:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -990,7 +990,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Create a `commands/bad-schema.json` fixture containing syntactically valid JSON that violates schema (e.g. `items: []`).
      - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
-7. [ ] Server unit test: non-JSON files are ignored:
+7. [x] Server unit test: non-JSON files are ignored:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1000,7 +1000,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Create `commands/README.md` and `commands/notes.txt` in the temp agent folder.
      - Assert they are not returned in the commands list.
-8. [ ] Server unit test: results are sorted by `name` for deterministic UI ordering:
+8. [x] Server unit test: results are sorted by `name` for deterministic UI ordering:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1010,7 +1010,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Create two valid command files `z.json` and `a.json`.
      - Assert the returned `commands` array is ordered `a` then `z`.
-9. [ ] Server unit test: “no caching” behavior (list reflects new files on the next call):
+9. [x] Server unit test: “no caching” behavior (list reflects new files on the next call):
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1021,7 +1021,7 @@ Implement a shared server function that discovers command JSON files for an agen
      - Call `listAgentCommands(...)` once and assert only command `a` is present.
      - Create a new valid command file `b.json` after the first call.
      - Call `listAgentCommands(...)` again and assert both `a` and `b` are present.
-10. [ ] Server unit test: unknown agentName throws `{ code: 'AGENT_NOT_FOUND' }`:
+10. [x] Server unit test: unknown agentName throws `{ code: 'AGENT_NOT_FOUND' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1032,7 +1032,7 @@ Implement a shared server function that discovers command JSON files for an agen
     - What to implement:
       - Call `listAgentCommands({ agentName: 'does-not-exist' })`.
       - Assert it throws `{ code: 'AGENT_NOT_FOUND' }`.
-11. [ ] Update `projectStructure.md` after adding any new test files:
+11. [x] Update `projectStructure.md` after adding any new test files:
    - Docs to read:
      - https://github.github.com/gfm/
     - Files to edit:
@@ -1040,30 +1040,43 @@ Implement a shared server function that discovers command JSON files for an agen
     - Files to add/remove entries for (must list all files changed by this task):
       - Add: `server/src/test/unit/agent-commands-list.test.ts`
       - Remove: (none)
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (service-only task; REST/UI wiring not added yet):
      - Open `/agents` and confirm the page loads without errors.
      - Select an agent and run a simple instruction; confirm a response is persisted and shown.
      - Open `/chat` and confirm the page loads and can send a message (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - 2025-12-16: Marked Task 4 in progress; reviewed existing agent discovery (`discoverAgents`) and shared agents service patterns to align command listing with existing agent-home resolution.
+- 2025-12-16: Added `listAgentCommands(...)` to the shared agents service; it discovers the agent via `discoverAgents()`, returns `[]` when `commands/` is missing, filters to `*.json`, uses the Task 3 loader to compute `description/disabled`, and sorts results by name for deterministic UI ordering.
+- 2025-12-16: Added `server/src/test/unit/agent-commands-list.test.ts` covering missing `commands/`, valid/invalid (syntax and schema) command files, ignoring non-JSON entries, deterministic sorting, no-caching behavior, and unknown-agent errors.
+- 2025-12-16: Updated `projectStructure.md` to include `server/src/test/unit/agent-commands-list.test.ts`.
+- 2025-12-16: Validation: `npm run lint --workspaces` passed; `npm run format:check --workspaces` passed (fixed formatting via `npm run format --workspace server`).
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Manual regression smoke via `http://host.docker.internal:5001/agents` + `/chat` (HTTP 200) and `POST http://host.docker.internal:5010/agents/coding_agent/run` succeeded (conversation persisted and `/conversations/:id/turns` returned turns).
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

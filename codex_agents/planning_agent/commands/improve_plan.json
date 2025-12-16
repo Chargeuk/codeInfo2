@@ -19,7 +19,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question."]
+      "content": ["Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm, remembering to use the conversationId where appropriate for follow-up questions. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question."]
     },
     {
       "type": "message",
@@ -34,7 +34,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify if there are no changes that would help."]
+      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify for the sake of it if there are no changes that would help."]
     },
     {
       "type": "message",

@@ -994,7 +994,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 
 ### 7. Codex updates: add model gpt-5.2
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1011,7 +1011,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Subtasks
 
-1. [ ] Update the fixed model list returned for Codex:
+1. [x] Update the fixed model list returned for Codex:
    - Docs to read:
      - Context7 `/expressjs/express`
    - Files to read:
@@ -1022,7 +1022,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
      - `key: 'gpt-5.2'`
      - `displayName: 'gpt-5.2'`
      - `type: 'codex'`
-2. [ ] **Test (client UI, Jest/RTL)**: provider model list includes `gpt-5.2` when Codex is selected
+2. [x] **Test (client UI, Jest/RTL)**: provider model list includes `gpt-5.2` when Codex is selected
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -1046,14 +1046,14 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
    - Description:
      - update the mocked `/chat/models?provider=codex` payload to include `gpt-5.2`
      - assert the dropdown options include `gpt-5.2`.
-3. [ ] Verification commands:
+3. [x] Verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - `npm run lint --workspace server`
    - `npm run lint --workspace client`
    - `npm run test --workspace server`
    - `npm run test --workspace client`
-4. [ ] Repo-wide lint + format gate (must be the last subtask in every task):
+4. [x] Repo-wide lint + format gate (must be the last subtask in every task):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Run:
@@ -1066,21 +1066,34 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - `/chat` model dropdown includes `gpt-5.2` when provider is Codex (primary story behaviour)
    - `/agents` still loads and runs (baseline regression)
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Task 7 completed: added Codex model `gpt-5.2` to the server fixed list and updated client tests/fixtures.
+- Subtask 1: appended `gpt-5.2` to the `codexModels` array returned by `GET /chat/models?provider=codex`.
+- Subtask 2: updated client Jest/RTL fixtures that mock `/chat/models?provider=codex` and added an assertion that the model dropdown includes `gpt-5.2`.
+- Subtask 3: verified lint + tests (`npm run lint --workspace server`, `npm run lint --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`).
+- Subtask 4: verified repo-wide lint + format gate (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+- Testing 1: `npm run build --workspace server`.
+- Testing 2: `npm run build --workspace client`.
+- Testing 3: `npm run test --workspace server`.
+- Testing 4: `npm run test --workspace client`.
+- Testing 5: `CODEX_HOME=$PWD/codex npm run e2e`.
+- Testing 6: `CODEX_HOME=$PWD/codex npm run compose:build`.
+- Testing 7: `CODEX_HOME=$PWD/codex npm run compose:up`.
+- Testing 8: manual checks against mapped ports: confirmed `gpt-5.2` appears in the `/chat` model dropdown when provider is Codex and `/agents` loads; saved screenshots to `test-results/screenshots/task7-*.png`.
+- Testing 9: `CODEX_HOME=$PWD/codex npm run compose:down`.
 
 ---
 

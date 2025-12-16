@@ -15,7 +15,7 @@ You must follow these steps in order to correctly work through the story:
 4. Implement every Subtask sequentially, and when a single subtask is completed, you must mark it's checkbox and update the implementation notes so other developers know exactly where you are up to. Repeat this until all subtasks are complete.
 5. Implement every Testing step sequentially, using the mapped Docker ports using http://host.docker.internal:[port] for Manual Playwright-MCP tests, and when a single testing step is completed, you must mark it's checkbox and update the implementation notes so other developers know exactly where you are up to. Repeat this until all testing steps are complete are complete. If you find issues during the testing steps, you should fix them.
 6. Mark the Task Status as Completed
-7. Commit, but don't push, your changes with a comment that summerises the Task Overview and your Implementation Notes.
+7. Commit, but don't push, your changes with a comment that summarises the Task Overview and your Implementation Notes.
 8. Document the Git Commits you made for this task within the Git Commits list for the task.
 9. Commit, but don't push, your changes with a comment indicating that you are marking the git commit.
 

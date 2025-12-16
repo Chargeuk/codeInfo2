@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { listAgents, runAgentInstruction } from '../agents/service.js';
+import {
+  listAgents,
+  listAgentCommands,
+  runAgentInstruction,
+} from '../agents/service.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
@@ -21,6 +25,7 @@ export {
 };
 
 export const LIST_AGENTS_TOOL_NAME = 'list_agents';
+export const LIST_COMMANDS_TOOL_NAME = 'list_commands';
 export const RUN_AGENT_INSTRUCTION_TOOL_NAME = 'run_agent_instruction';
 
 type AgentRunError =
@@ -48,8 +53,17 @@ const runParamsSchema = z
 
 type RunParams = z.infer<typeof runParamsSchema>;
 
+const listCommandsParamsSchema = z
+  .object({
+    agentName: z.string().min(1).optional(),
+  })
+  .strict();
+
+type ListCommandsParams = z.infer<typeof listCommandsParamsSchema>;
+
 type CallToolDeps = {
   listAgents: typeof listAgents;
+  listAgentCommands: typeof listAgentCommands;
   runAgentInstruction: typeof runAgentInstruction;
   signal?: AbortSignal;
 };
@@ -75,6 +89,24 @@ function listAgentsDefinition() {
       type: 'object',
       additionalProperties: false,
       properties: {},
+    },
+  } as const;
+}
+
+function listCommandsDefinition() {
+  return {
+    name: LIST_COMMANDS_TOOL_NAME,
+    description:
+      'List the available command macros for Codex agents. When agentName is omitted, returns commands for all agents.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        agentName: {
+          type: 'string',
+          description: 'Optional agent folder name to list commands for.',
+        },
+      },
     },
   } as const;
 }
@@ -113,7 +145,13 @@ function runAgentInstructionDefinition() {
 }
 
 export async function listTools(): Promise<ToolListResult> {
-  return { tools: [listAgentsDefinition(), runAgentInstructionDefinition()] };
+  return {
+    tools: [
+      listAgentsDefinition(),
+      listCommandsDefinition(),
+      runAgentInstructionDefinition(),
+    ],
+  };
 }
 
 async function runListAgents(deps: Partial<CallToolDeps>) {
@@ -121,6 +159,66 @@ async function runListAgents(deps: Partial<CallToolDeps>) {
   const result = await resolvedListAgents();
   return {
     content: [{ type: 'text', text: JSON.stringify(result) }],
+  } as const;
+}
+
+function validateListCommandsParams(params: unknown): ListCommandsParams {
+  const parsed = listCommandsParamsSchema.safeParse(params ?? {});
+  if (!parsed.success) {
+    throw new InvalidParamsError('Invalid params', parsed.error.format());
+  }
+  return parsed.data;
+}
+
+async function runListCommands(params: unknown, deps: Partial<CallToolDeps>) {
+  const parsed = validateListCommandsParams(params);
+
+  const resolvedListAgents = deps.listAgents ?? listAgents;
+  const resolvedListAgentCommands = deps.listAgentCommands ?? listAgentCommands;
+
+  if (parsed.agentName) {
+    try {
+      const result = await resolvedListAgentCommands({
+        agentName: parsed.agentName,
+      });
+      const commands = result.commands
+        .filter((command) => !command.disabled)
+        .map((command) => ({
+          name: command.name,
+          description: command.description,
+        }));
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({ agentName: parsed.agentName, commands }),
+          },
+        ],
+      } as const;
+    } catch (err) {
+      if (isAgentRunError(err) && err.code === 'AGENT_NOT_FOUND') {
+        throw new InvalidParamsError('Agent not found');
+      }
+      throw err;
+    }
+  }
+
+  const agentsResult = await resolvedListAgents();
+  const agents = await Promise.all(
+    agentsResult.agents.map(async (agent) => {
+      const result = await resolvedListAgentCommands({ agentName: agent.name });
+      const commands = result.commands
+        .filter((command) => !command.disabled)
+        .map((command) => ({
+          name: command.name,
+          description: command.description,
+        }));
+      return { agentName: agent.name, commands };
+    }),
+  );
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify({ agents }) }],
   } as const;
 }
 
@@ -203,6 +301,10 @@ export async function callTool(
 
   if (name === LIST_AGENTS_TOOL_NAME) {
     return runListAgents(mergedDeps);
+  }
+
+  if (name === LIST_COMMANDS_TOOL_NAME) {
+    return runListCommands(args, mergedDeps);
   }
 
   if (name === RUN_AGENT_INSTRUCTION_TOOL_NAME) {

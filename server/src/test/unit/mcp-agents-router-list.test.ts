@@ -13,7 +13,7 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
-test('tools/list returns exactly list_agents and run_agent_instruction', async () => {
+test('tools/list returns exactly list_agents, list_commands and run_agent_instruction', async () => {
   const server = http.createServer(handleAgentsRpc);
   server.listen(0);
   const { port } = server.address() as AddressInfo;
@@ -25,7 +25,11 @@ test('tools/list returns exactly list_agents and run_agent_instruction', async (
     const names = (body.result.tools as Array<{ name: string }>).map(
       (tool) => tool.name,
     );
-    assert.deepEqual(names.sort(), ['list_agents', 'run_agent_instruction']);
+    assert.deepEqual(names.sort(), [
+      'list_agents',
+      'list_commands',
+      'run_agent_instruction',
+    ]);
   } finally {
     server.close();
   }

@@ -463,6 +463,14 @@ Gotchas to keep in mind while implementing this task:
 - 2025-12-16: Testing: `npm run e2e` passed.
 - 2025-12-16: Testing: `npm run compose:build` passed.
 - 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Manual MCP call via `POST http://host.docker.internal:5012` (`tools/call` name=`list_commands`) returned `{ agents: [{ agentName, commands: [...] }] }` and excluded invalid/disabled commands.
+- 2025-12-16: Testing: `npm run compose:down` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
 - 2025-12-16: Testing: Verified `RUN_IN_PROGRESS` using two concurrent REST calls against `http://host.docker.internal:5010` (second call returned HTTP 409 with `{ error: "conflict", code: "RUN_IN_PROGRESS" }`).
 - 2025-12-16: Testing: `npm run compose:down` passed.
 
@@ -1069,6 +1077,7 @@ Implement a shared server function that discovers command JSON files for an agen
 - 2025-12-16: Updated `projectStructure.md` to include `server/src/test/unit/agent-commands-list.test.ts`.
 - 2025-12-16: Validation: `npm run lint --workspaces` passed; `npm run format:check --workspaces` passed (fixed formatting via `npm run format --workspace server`).
 - 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
 - 2025-12-16: Testing: `npm run build --workspace client` passed.
 - 2025-12-16: Testing: `npm run test --workspace server` passed.
 - 2025-12-16: Testing: `npm run test --workspace client` passed.
@@ -1224,7 +1233,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
 
 ### 6. Agents MCP: add `list_commands` tool
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1240,13 +1249,13 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 
 #### Subtasks
 
-1. [ ] Read existing Agents MCP tool patterns:
+1. [x] Read existing Agents MCP tool patterns:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/mcpAgents/tools.ts`
      - `server/src/mcpAgents/router.ts`
-2. [ ] Add tool definition + handler:
+2. [x] Add tool definition + handler:
    - Docs to read:
      - https://www.jsonrpc.org/specification
      - Context7 `/websites/v3_zod_dev`
@@ -1260,7 +1269,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
        - return `{ agentName, commands: [{ name, description }] }` (exclude disabled).
      - Else:
        - return `{ agents: [{ agentName, commands: [{ name, description }] }] }` for **all** agents.
-3. [ ] Server unit test (Agents MCP tool): omitting `agentName` returns all agents and valid commands only:
+3. [x] Server unit test (Agents MCP tool): omitting `agentName` returns all agents and valid commands only:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1273,7 +1282,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Call `callTool('list_commands', {})` and assert:
        - output includes all agents
        - invalid/disabled commands are not included in MCP output.
-4. [ ] Server unit test (Agents MCP tool): unknown `agentName` returns a stable tool error:
+4. [x] Server unit test (Agents MCP tool): unknown `agentName` returns a stable tool error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1284,7 +1293,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - What to implement:
      - Call `callTool('list_commands', { agentName: 'does-not-exist' })`.
      - Assert the tool throws the expected “invalid params / not found” tool error (per Task 6 requirements).
-5. [ ] Server unit test (Agents MCP tool): `agentName` provided with no commands returns `{ commands: [] }`:
+5. [x] Server unit test (Agents MCP tool): `agentName` provided with no commands returns `{ commands: [] }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1296,7 +1305,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - Stub `listAgents()` to include `planning_agent`.
      - Stub `listAgentCommands({ agentName: 'planning_agent' })` to return `{ commands: [] }`.
      - Call `callTool('list_commands', { agentName: 'planning_agent' })` and assert JSON result contains `commands: []`.
-6. [ ] Server unit test (Agents MCP tool): invalid params are rejected (empty `agentName`):
+6. [x] Server unit test (Agents MCP tool): invalid params are rejected (empty `agentName`):
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1307,7 +1316,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - What to implement:
      - Call `callTool('list_commands', { agentName: '' })`.
      - Assert it throws an invalid-params style tool error.
-7. [ ] Update existing MCP tools/list expectation test:
+7. [x] Update existing MCP tools/list expectation test:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -1316,7 +1325,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Requirements:
      - Update the expected tool names to include `list_commands` (while `run_command` is not yet implemented in this task).
-8. [ ] Update `projectStructure.md` after adding any new test files:
+8. [x] Update `projectStructure.md` after adding any new test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -1324,27 +1333,32 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - Remove: (none)
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Use an MCP client to call `list_commands` and verify output shape.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Marked Task 6 in progress; reviewed existing Agents MCP tool patterns in `server/src/mcpAgents/tools.ts` and `server/src/mcpAgents/router.ts` to match JSON-RPC mapping, strict Zod validation, and test stubbing approach.
+- 2025-12-16: Implemented MCP tool `list_commands` in `server/src/mcpAgents/tools.ts`, including strict Zod validation, a single-agent response shape, and an all-agents default that filters out disabled/invalid commands.
+- 2025-12-16: Added `server/src/test/unit/mcp-agents-commands-list.test.ts` covering list_commands all-agents default, disabled-command filtering, unknown-agent errors, empty-command lists, and strict Zod validation.
+- 2025-12-16: Updated `server/src/test/unit/mcp-agents-router-list.test.ts` to expect the new MCP tool in the tools/list output.
+- 2025-12-16: Updated `projectStructure.md` to include `server/src/test/unit/mcp-agents-commands-list.test.ts` and refreshed MCP tool/test descriptions.
+- 2025-12-16: Validation: `npm run lint --workspaces` passed; `npm run format:check --workspaces` initially failed for server files and was fixed via `npm run format --workspace server` before re-running `npm run format:check --workspaces` successfully.
 
 ---
 

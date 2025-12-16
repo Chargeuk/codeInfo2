@@ -378,11 +378,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
-- server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/run_agent_instruction) delegating to shared agents service
+- server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/list_commands/run_agent_instruction) delegating to shared agents service
 - server/src/mcpAgents/types.ts — Agents MCP JSON-RPC types and response helpers
 - server/src/mcpAgents/errors.ts — Codex unavailable error for Agents MCP tool calls
 - server/src/mcpAgents/codexAvailability.ts — Codex CLI availability check used for Agents MCP gating
-- server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly two tools
+- server/src/test/unit/mcp-agents-router-list.test.ts — unit coverage that Agents MCP exposes exactly three tools
+- server/src/test/unit/mcp-agents-commands-list.test.ts — unit coverage for Agents MCP list_commands output shapes, filtering, and param errors
 - server/src/test/unit/mcp-agents-router-run.test.ts — unit coverage that Agents MCP returns JSON text content with segments
 - server/src/test/unit/mcp-agents-tools.test.ts — unit coverage for tools-layer argument forwarding and invalid-params error mapping
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs

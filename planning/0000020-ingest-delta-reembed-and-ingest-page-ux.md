@@ -42,6 +42,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
   - For files whose content has changed (based on a file hash), performs a file-level replacement by deleting all vectors for `{ root, relPath }` and re-embedding the file.
   - Embeds and ingests files that are new (not previously present for that folder).
   - Leaves vectors for unchanged files untouched.
+  - Automatically upgrades legacy roots (ingested before the Mongo per-file index existed): if there is no per-file index data for the root, delete all existing vectors for that root and re-ingest, populating the per-file index as part of that run.
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
   - Store a file path including filename (relative to the ingested root, or another agreed representation).
   - Store a file hash (and any other identifiers needed for diffing).
@@ -81,7 +82,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 5. **Model lock + delta:** should a delta re-ingest be allowed only when the locked embedding model matches, or do we ever support migrating embeddings to a new model (likely out of scope for v1)?
 6. **Directory picker details:** what is the allowed base (default `/data` vs `HOST_INGEST_DIR`), do we support browsing multiple bases, and how do we present/validate container-path vs host-path expectations in the UI copy?
 7. **Performance constraints:** what folder sizes/repos are the target? This affects whether scanning Chroma metadatas is acceptable or whether we must add the per-file index collection.
-8. **Backward compatibility:** how do we treat roots ingested before we add any new metadata fields (if any)? Should re-ingest auto-upgrade them during the first delta run?
+8. **Backward compatibility:** agreed: re-ingest auto-upgrades legacy roots during the first delta run. If there is no Mongo per-file index data for that root, remove all vectors for the root prior to re-ingesting, and populate the per-file index as part of that run.
 
 ---
 

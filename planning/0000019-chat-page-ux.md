@@ -43,6 +43,16 @@ We will use **WebSockets** (one connection per browser tab) rather than SSE for 
 
 WebSockets keep this as a single long-lived connection with explicit `subscribe`/`unsubscribe` messages, and allow us to add new event types later without creating additional long-lived HTTP streams.
 
+### Future direction (planned reuse for Agents tab)
+
+The Conversations sidebar should be reusable in a later story for the Agents tab by introducing an optional “agent filter” input:
+- The shared Conversations component accepts an optional `agentName` (or equivalent) prop.
+- When `agentName` is omitted, it behaves exactly like the current Chat sidebar (shows non-agent chat history).
+- When `agentName` is provided, it filters the conversations list to only those associated with that agent (matching the existing server-side `agentName` concept used by the Agents page).
+- The Agents page will supply the selected agent to this shared Conversations component based on the user’s agent selection in the Agents panel.
+
+This story does not need to implement the Agents UI reuse, but the Chat sidebar/streaming design should avoid assumptions that would block it (for example, it should be possible to filter the list snapshot and live sidebar updates by `agentName` on the client).
+
 ---
 
 ## Acceptance Criteria
@@ -100,8 +110,7 @@ WebSockets keep this as a single long-lived connection with explicit `subscribe`
 
 ## Questions
 
-- Future direction / reuse:
-  - When reusing this for the Agents tab, do we want a shared “conversation list” component with an `agentName` (or equivalent) filter, or separate list implementations that share the realtime transport only?
+(none)
 
 ---
 

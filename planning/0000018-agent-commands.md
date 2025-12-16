@@ -224,6 +224,7 @@ Gotchas to keep in mind while implementing this task:
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Express request lifecycle (`req.on('aborted')`, `res.on('close')`): Context7 `/expressjs/express`
 - Zod validation patterns (for MCP tool args / REST bodies): Context7 `/websites/v3_zod_dev`
+- Existing in-repo lock pattern (ingest): read `server/src/ingest/lock.ts` for the “acquire + finally release” style (do not reuse ingest lock directly; this story needs a per-conversation lock)
 
 #### Subtasks
 
@@ -235,6 +236,7 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
+     - `server/src/ingest/lock.ts`
 2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
@@ -252,19 +254,23 @@ Gotchas to keep in mind while implementing this task:
    - Requirements:
      - Add `RUN_IN_PROGRESS` to the internal error codes used by agents/commands runs.
      - Ensure the error shape is safe (no stack traces leaked).
-4. [ ] Apply the per-conversation lock to existing agent runs (REST + MCP):
+4. [ ] Apply the per-conversation lock in the shared agents service (covers REST + MCP automatically):
    - Files to read:
-     - `server/src/routes/agentsRun.ts`
-     - `server/src/mcpAgents/tools.ts`
+     - `server/src/agents/service.ts`
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Only enforce the lock when `conversationId` is provided (existing conversation). New conversations (no `conversationId`) should not be blocked by other conversations.
+     - On conflict, throw `{ code: 'RUN_IN_PROGRESS', reason?: string }`.
+     - Release must happen in `finally` even on abort and errors.
+5. [ ] Map `RUN_IN_PROGRESS` in REST + MCP:
    - Files to edit:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
-     - REST: only enforce the lock when `conversationId` is provided (existing conversation). New conversations (no `conversationId`) should not be blocked by other conversations.
      - REST: map `RUN_IN_PROGRESS` → HTTP `409` with JSON `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message: '...' }`.
-     - MCP: only enforce the lock when `conversationId` is provided; if omitted, the server creates a new conversation and runs as normal.
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message (so clients can retry later).
-5. [ ] Add focused unit coverage for the lock behavior:
+6. [ ] Add focused unit coverage for the lock behavior:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -276,10 +282,10 @@ Gotchas to keep in mind while implementing this task:
      - Main path: a normal run with no lock returns success as today.
      - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.
      - Edge case: acquiring a lock for `conversationId='c1'` must not block a run for `conversationId='c2'`.
-6. [ ] Update `projectStructure.md` after adding any new files:
+7. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-7. [ ] Run repo-wide lint/format gate:
+8. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -348,7 +354,13 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
      - Allow passing `command` metadata via flags to `chat.run(...)` and persist it on both the user and assistant turns for that run.
      - Ensure the “Stopped” assistant turn created on abort also receives the same `command` metadata (this is required for cancelled in-flight command steps).
      - Keep default behavior unchanged when no `command` is provided.
-5. [ ] Add unit coverage for `command` persistence plumbing:
+5. [ ] Validate existing ChatInterface unit tests still compile and pass:
+   - Files to read:
+     - `server/src/test/unit/chat-interface-run-persistence.test.ts`
+     - `server/src/test/unit/chat-interface-base.test.ts`
+   - Requirements:
+     - If TypeScript method override signatures need widening due to the new optional `command` field, update these tests accordingly without changing their assertions unless necessary.
+6. [ ] Add unit coverage for `command` persistence plumbing:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -356,10 +368,10 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Test requirements:
      - Verify `appendTurn` stores and `listTurns` returns `command` when provided.
      - Verify missing `command` does not break existing behavior.
-6. [ ] Update `projectStructure.md` after adding any new test files:
+7. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
-7. [ ] Run repo-wide lint/format gate:
+8. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -696,11 +708,8 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - `server/src/agents/service.ts`
    - Requirements:
      - Keep the exported `runAgentInstruction(...)` signature stable for existing callers.
-     - Implement `runAgentInstruction(...)` as:
-       - when `conversationId` is provided: acquire per-conversation lock (Task 1 helper)
-       - when omitted: create a new conversationId and run without needing to contend with other conversations
-       - call internal helper
-       - release lock in `finally` (only if it was acquired)
+     - Keep the locking behavior implemented in Task 1 (do not add a second lock layer here).
+     - The internal helper must NOT acquire the per-conversation lock; it is used by the multi-step command runner (Task 8) which holds the lock for the entire command run.
      - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
 3. [ ] Update unit tests to cover both paths:
    - Files to read:

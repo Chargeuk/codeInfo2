@@ -906,7 +906,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 
 ### 4. Server: list agent commands (shared service)
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview
@@ -922,7 +922,7 @@ Implement a shared server function that discovers command JSON files for an agen
 
 #### Subtasks
 
-1. [ ] Read existing agent discovery shape (to locate agent home folders):
+1. [x] Read existing agent discovery shape (to locate agent home folders):
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -1063,7 +1063,7 @@ Implement a shared server function that discovers command JSON files for an agen
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Marked Task 4 in progress; reviewed existing agent discovery (`discoverAgents`) and shared agents service patterns to align command listing with existing agent-home resolution.
 
 ---
 

@@ -431,13 +431,6 @@ Gotchas to keep in mind while implementing this task:
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/agents/runLock.ts`
      - Remove: (none)
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -452,6 +445,7 @@ Gotchas to keep in mind while implementing this task:
    - Attempt a second run against the same conversation from another browser window/tab and confirm it fails with `RUN_IN_PROGRESS` and surfaces a clear error.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -582,13 +576,6 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
        - `server/src/test/unit/chat-command-metadata.test.ts`
        - `server/src/test/unit/turn-command-metadata.test.ts`
      - Remove: (none)
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -602,6 +589,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Run an agent command (later tasks) and verify command bubbles show “2/12” style metadata.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -836,13 +824,6 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
          - `server/src/test/unit/agent-commands-loader.test.ts`
          - `server/src/test/unit/agent-commands-schema.test.ts`
        - Remove: (none)
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -856,6 +837,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - Not applicable yet (schema only); verify server unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -998,13 +980,6 @@ Implement a shared server function that discovers command JSON files for an agen
     - Files to add/remove entries for (must list all files changed by this task):
       - Add: `server/src/test/unit/agent-commands-list.test.ts`
       - Remove: (none)
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1018,6 +993,7 @@ Implement a shared server function that discovers command JSON files for an agen
    - Not applicable yet (service only); verify server unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1129,13 +1105,6 @@ Expose command listing to the GUI via REST using the shared list function. The r
        - `server/src/routes/agentsCommands.ts`
        - `server/src/test/unit/agents-commands-router-list.test.ts`
      - Remove: (none)
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1149,6 +1118,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - On `/agents`, changing agents refreshes command list (after UI work).
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1257,13 +1227,6 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - Remove: (none)
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1277,6 +1240,7 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - Use an MCP client to call `list_commands` and verify output shape.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1336,13 +1300,6 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - Confirms tool arg validation and error mapping still work once the service is refactored internally.
    - What to update:
      - Keep existing behavioral assertions; only update mocks/types as required.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1356,6 +1313,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
    - Basic `/agents` run still works without commands.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1592,13 +1550,6 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Actors: `Client(UI or MCP)`, `Server(REST/MCP)`, `AgentsService`, `Codex`.
      - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
      - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1612,6 +1563,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - Not applicable yet (no UI/REST wired); verify server unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1792,13 +1744,6 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Required updates:
      - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
      - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1812,6 +1757,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Execute a command via curl and confirm turns are appended.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -1990,13 +1936,6 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Document the two Agents MCP tools and their argument shapes at a high level (no full JSON examples needed in design.md).
      - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
      - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2010,6 +1949,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Call MCP `run_command` and confirm it returns `{ conversationId, modelId }`.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2082,13 +2022,6 @@ Add a focused client API helper for listing commands for the selected agent. Thi
        - Add: `client/src/test/agentsApi.commandsList.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2102,6 +2035,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - Not applicable yet (API helper only); verify client unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2176,13 +2110,6 @@ Add a focused client API helper for executing a selected command against an agen
        - Add: `client/src/test/agentsApi.commandsRun.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2196,6 +2123,7 @@ Add a focused client API helper for executing a selected command against an agen
    - Not applicable yet (API helper only); verify client unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2278,13 +2206,6 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
        - Add: `client/src/test/agentsApi.errors.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2298,6 +2219,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - Not applicable yet (API only); verify client unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2375,13 +2297,6 @@ Support the “KISS” command execution response by adding a refresh method to 
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2395,6 +2310,7 @@ Support the “KISS” command execution response by adding a refresh method to 
    - Not applicable yet (hook only); verify unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2456,13 +2372,6 @@ Update the Agents page to list commands for the selected agent and show the sele
      ```
    - Reminder:
      - Do **not** render the raw JSON contents anywhere in the UI (dropdown only shows names; description is read from JSON and displayed as plain text).
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2477,6 +2386,7 @@ Update the Agents page to list commands for the selected agent and show the sele
    - Invalid commands appear disabled.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2570,13 +2480,6 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Required updates:
      - Add a short section describing: “commands list refresh on agent change”, “execute returns `{ conversationId, modelId }` and UI re-fetches turns”, and “no client-side global lock; server rejects with RUN_IN_PROGRESS”.
      - Add (or extend) a Mermaid flowchart or sequence diagram showing: select agent → fetch commands → execute → refresh conversations → hydrate turns.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2591,6 +2494,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - When a second browser window/tab tries to run against the same `conversationId`, the UI shows the `RUN_IN_PROGRESS` message.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2642,13 +2546,6 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
        </Typography>
      ) : null}
      ```
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2662,6 +2559,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
    - Running a command appends turns that include the “Command run … (2/12)” note.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2845,13 +2743,6 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
          - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2865,6 +2756,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - Not applicable (tests only); verify client unit tests pass.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2895,13 +2787,6 @@ Document Agent Commands (where command files live and the REST API surface for l
    - Requirements:
      - Document where commands live (`codex_agents/<agent>/commands/*.json`).
      - Document the two REST endpoints and their payloads.
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2915,6 +2800,7 @@ Document Agent Commands (where command files live and the REST API surface for l
    - N/A (docs); rely on prior tasks + final verification.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -2946,13 +2832,6 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
    - Requirements:
      - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
      - Mention per-conversation lock + abort-based cancellation semantics.
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2966,6 +2845,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
    - N/A (docs); rely on prior tasks + final verification.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -3026,13 +2906,6 @@ Keep the project tree map up to date after introducing new command-related serve
          - `client/src/test/useConversationTurns.commandMetadata.test.ts`
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3046,6 +2919,7 @@ Keep the project tree map up to date after introducing new command-related serve
    - N/A (docs); rely on prior tasks + final verification.
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)
@@ -3077,46 +2951,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - File to read:
      - `planning/0000018-agent-commands.md`
-2. [ ] Build the server:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run build --workspace server`
-3. [ ] Build the client:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run build --workspace client`
-4. [ ] Perform a clean docker build:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run compose:build`
-5. [ ] Start docker compose:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run compose:up`
-6. [ ] Run server tests:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run test --workspace server`
-7. [ ] Run client tests:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run test --workspace client`
-8. [ ] Run e2e tests:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run e2e`
-9. [ ] Manual Playwright-MCP check + screenshots:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - Use Playwright MCP to capture screenshots under `test-results/screenshots/`:
-     - `0000018-22-agents-commands-dropdown.png`
-     - `0000018-22-agents-command-run-annotated-turns.png`
-     - `0000018-22-agents-command-abort-stopped-turn.png`
-10. [ ] Stop docker compose:
-   - Docs to read:
-     - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-   - `npm run compose:down`
-11. [ ] Documentation update check: `README.md`
+2. [ ] Documentation update check: `README.md`
    - Docs to read:
      - https://github.github.com/gfm/
    - Document: `README.md`
@@ -3125,7 +2960,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
    - What to verify/update:
      - Command file location (`codex_agents/<agentName>/commands/*.json`) and the v1 schema summary.
      - Any new curl examples and error codes (`RUN_IN_PROGRESS`, `COMMAND_INVALID`, etc.).
-12. [ ] Documentation update check: `design.md`
+3. [ ] Documentation update check: `design.md`
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://github.github.com/gfm/#fenced-code-blocks
@@ -3135,7 +2970,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
    - What to verify/update:
      - Mermaid diagrams render correctly and match the implemented behavior.
      - The concurrency section documents: “lock scope = conversationId only”, “in-memory per process”, “no cross-instance coordination”.
-13. [ ] Documentation update check: `projectStructure.md`
+4. [ ] Documentation update check: `projectStructure.md`
    - Docs to read:
      - https://github.github.com/gfm/
    - Document: `projectStructure.md`
@@ -3143,13 +2978,6 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - Ensure the tracked project tree is accurate after all new files added by this story (server + client + tests).
    - What to verify/update:
      - All new files created in Tasks 1–21 appear in the tree with correct brief comments.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3162,6 +2990,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 8. [ ] Manual Playwright-MCP check (screenshots as above)
 9. [ ] `npm run compose:down`
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Implementation notes
 
 - (empty)

@@ -22,6 +22,8 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - The list of available commands is refreshed every time commands are listed (REST or MCP), and the UI refreshes the list whenever the selected agent changes.
 - Executing a command runs through its steps sequentially, feeding each step into the agent (reusing `conversationId` between steps).
 - Commands accept an optional `working_folder` (absolute path), reusing the existing Agents “working folder” input field and the existing server-side resolution/mapping logic from Story `0000017`.
+- Command-run turns appear as normal agent chat turns, but each turn created by a command run is annotated so the UI can show a small “Command run: <name>” note inside the chat bubble.
+- Command runs are cancellable: cancelling stops the in-flight step (best-effort) and prevents any subsequent steps from running.
 
 ### Command schema (v1; extendable)
 
@@ -63,11 +65,7 @@ Legacy compatibility:
      - `conversationId?: string` (optional; if omitted the server starts a new agent conversation)
      - `working_folder?: string` (optional; absolute path; same rules as `POST /agents/:agentName/run`)
    - Response:
-     - `agentName: string`
-     - `commandName: string`
-     - `conversationId: string` (always returned)
-     - `modelId: string`
-     - `steps: Array<{ role: "user"; content: string[]; segments: unknown[] }>`
+     - KISS: return only `{ agentName: string, commandName: string, conversationId: string, modelId: string }` and let the UI re-fetch turns to render results.
 
 ### MCP API shape (Agents MCP additions; proposed)
 
@@ -97,6 +95,7 @@ Add two new tools to Agents MCP `5012`:
   - REST exposes `GET /agents/:agentName/commands` returning `{ commands: [{ name, description, disabled? }] }`.
   - Agents MCP exposes a `list_commands` tool that can list by agent or list all.
   - `list_commands` without `agentName` returns **all agents**, including agents with no `commands/` folder, with `commands: []`.
+  - Only valid (non-disabled) commands are returned via Agents MCP `list_commands`.
 
 - Agent command execution (shared server path):
   - There is exactly one server-side implementation that:
@@ -110,6 +109,10 @@ Add two new tools to Agents MCP `5012`:
     - with `conversationId` (continue existing conversation), or
     - without `conversationId` (start new conversation).
   - Commands accept optional `working_folder` and reuse Story `0000017` rules (absolute path required; host mapping attempted under `HOST_INGEST_DIR`; fallback to literal directory; errors are safe).
+  - Command execution returns a minimal REST payload `{ agentName, commandName, conversationId, modelId }`; the client refreshes turns to render outputs.
+  - Cancellation:
+    - Cancelling a command run stops the current in-flight step best-effort (abort provider call) and guarantees no further steps execute.
+    - Cancelling must not append partial/empty follow-up steps after the cancel occurs.
 
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.
@@ -119,7 +122,8 @@ Add two new tools to Agents MCP `5012`:
     - an “Execute” button.
   - UI does not show the command JSON.
   - If the working folder field is populated, it is passed as `working_folder` when executing the selected command.
-  - After execution completes, the UI shows each command step’s prompt content and the agent’s response for that step (using returned `steps[]` data).
+  - After execution completes, the UI shows each command step’s prompt content and the agent’s response for that step by re-fetching turns (no special step payload required).
+  - Each command-run-created turn shows a small “Command run: <commandName>” note inside the chat bubble.
 
 - Validation rules (KISS; enforce only what we need now):
   - Command file must be valid JSON.
@@ -153,13 +157,13 @@ Add two new tools to Agents MCP `5012`:
 
 ## Out Of Scope
 
-- Streaming command execution results step-by-step to the UI (v1 may be synchronous and return the final aggregated result).
+- Streaming command execution results step-by-step to the UI (v1 may be synchronous and return only `{ conversationId, modelId, ... }`).
 - Partial execution controls (run step ranges, skip steps, retry a failed step).
 - UI editing/creating commands from the browser.
 - A richer command metadata model (`title`, `tags`, `icons`, keyboard shortcuts).
 - Non-message command item types (e.g. “pause/confirm”, “set variable”, “select file”, “run tool directly”).
 - Running commands in the main Chat UI (non-agents).
-- Persisting command run groupings as a first-class “CommandRun” entity in MongoDB (v1 may rely on existing conversation/turn persistence).
+- Persisting a separate “CommandRun” collection/entity in MongoDB (v1 uses a simple per-turn metadata field instead).
 
 ---
 

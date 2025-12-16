@@ -45,7 +45,14 @@ export async function listGitTracked(root: string): Promise<GitTrackedResult> {
   }
   try {
     const { stdout } = await execFile('git', ['-C', root, 'ls-files', '-z']);
-    return { ok: true, paths: stdout.split('\0').filter(Boolean) };
+    const paths = stdout.split('\0').filter(Boolean);
+    if (paths.length === 0) {
+      baseLogger.warn(
+        { root },
+        'git ls-files returned 0 paths; ingest discovery may fail (check .git/index / sparse checkout / worktree state)',
+      );
+    }
+    return { ok: true, paths };
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     return { ok: false, error: err };

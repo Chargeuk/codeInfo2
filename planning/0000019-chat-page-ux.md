@@ -33,6 +33,7 @@ The intended approach for “catch-up” is:
   - it refreshes the conversation list snapshot,
   - it re-fetches the visible conversation turns snapshot,
   - then re-subscribes to the sidebar stream and the visible conversation stream.
+- If the user navigates away from the Chat page (for example to the Ingest page), the client stops streaming (unsubscribes from the transcript and sidebar streams). When the user returns to the Chat page, the client resumes by re-snapshotting and re-subscribing, using the same catch-up approach as reconnects.
 
 ### Realtime transport choice (v1)
 
@@ -69,9 +70,16 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - When viewing `Archived`, users can bulk **permanently delete** the selected conversations:
   - Deletion is a **hard delete** (no retention window / audit log requirement in v1).
   - Deletion removes **both** the conversation record and all stored turns/tool calls for that conversation.
-  - Deletion requires an explicit user confirmation (confirmation dialog) before the server is called.
+  - Deletion requires an explicit user confirmation (simple confirmation dialog) before the server is called.
 - Bulk actions are **all-or-nothing**: if any selected conversation cannot be processed, the server rejects the entire bulk request and no changes are applied.
 - For v1, bulk actions apply to the currently loaded conversations in the list (no “select all matches across pagination”).
+- Selection UX:
+  - Multi-select is driven by checkboxes.
+  - Selection is cleared when the user changes the view filter (`Active` / `Active & Archived` / `Archived`).
+  - Selection is retained while streaming sidebar updates arrive (for example, new conversations appearing or re-sorting by `lastMessageAt`).
+- Bulk action UX when the active/open conversation is included:
+  - The conversation is removed/moved in the sidebar as usual, and the user sees a toast confirming the change.
+  - The main transcript does not force-refresh mid-view; any already-rendered content remains visible until the user navigates away or selects another conversation.
 
 ### Chat streaming – snapshot + live updates across conversations/windows
 
@@ -86,6 +94,9 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
   - new conversations appear automatically when created elsewhere,
   - conversations move between views when archived/restored elsewhere,
   - deleted conversations disappear automatically when deleted elsewhere.
+- Sidebar live updates scope is intentionally minimal in v1:
+  - conversation create/update/archive/restore/delete,
+  - `lastMessageAt` changes and resorting.
 
 ### Reliability/consistency
 
@@ -97,20 +108,79 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 
 ---
 
+## WebSocket protocol (proposal – to finalize before tasking)
+
+This story will introduce a single WebSocket connection per browser tab. The protocol below is the intended shape so the work can be task-sized consistently.
+
+### Connection
+
+- Endpoint: `GET /ws` (exact path TBD in implementation).
+- Client opens one socket on app load (or on Chat page mount); this story’s UX requires:
+  - sidebar stream subscription while on Chat page,
+  - transcript stream subscription for the currently visible conversation while on Chat page.
+- On leaving the Chat route, the client unsubscribes from both sidebar + transcript streams. On returning, it re-snapshots then re-subscribes.
+
+### Client → Server messages
+
+All messages are JSON objects with `type` and a client-generated `requestId` for debugging.
+
+- `type: "subscribe_sidebar"`
+  - `{ type, requestId }`
+- `type: "unsubscribe_sidebar"`
+  - `{ type, requestId }`
+- `type: "subscribe_conversation"`
+  - `{ type, requestId, conversationId: string }`
+- `type: "unsubscribe_conversation"`
+  - `{ type, requestId, conversationId: string }`
+
+### Server → Client events
+
+All events are JSON objects with `type`. Events include sequence identifiers to support dedupe/out-of-order guarding.
+
+- Sidebar events (single global stream)
+  - `type: "sidebar_snapshot"` – optional, but may be useful for debugging; primary snapshot remains the existing REST list fetch.
+  - `type: "conversation_upsert"`
+    - `{ type, seq: number, conversation: { conversationId, title, provider, model, source, lastMessageAt, archived, agentName? } }`
+  - `type: "conversation_delete"`
+    - `{ type, seq: number, conversationId: string }`
+
+- Transcript events (scoped to a `conversationId`)
+  - `type: "inflight_snapshot"`
+    - Sent immediately after `subscribe_conversation` when a run is currently in progress.
+    - `{ type, conversationId, seq: number, inflight: { assistantText: string, toolEvents: unknown[], startedAt: string } }`
+  - `type: "assistant_delta"`
+    - `{ type, conversationId, seq: number, delta: string }`
+  - `type: "tool_event"`
+    - Interim tool progress/events (so viewers match the originating tab).
+    - `{ type, conversationId, seq: number, event: unknown }`
+  - `type: "turn_final"`
+    - Marks completion of the in-flight turn and carries any final metadata needed by the UI.
+    - `{ type, conversationId, seq: number, status: "ok" | "stopped" | "failed" }`
+
+### Sequence IDs (minimum)
+
+- Sidebar events use a monotonically increasing `seq` per socket (or per server process) so the client can ignore stale/out-of-order list updates.
+- Transcript events use a monotonically increasing `seq` per `conversationId` so the client can ignore stale/out-of-order deltas/events during rapid switching.
+
+Note: the persisted transcript remains the source of truth; sequence IDs are primarily to prevent UI glitches from late-arriving events rather than to enable full replay.
+
+---
+
 ## Out Of Scope
 
 - “Select all” across the entire result set (server-side bulk operations over all matches).
-- Complex selection gestures (shift-click ranges, keyboard navigation) beyond basic multi-select.
+- Complex selection gestures (shift-click ranges, keyboard navigation) beyond basic checkbox multi-select.
 - Editing conversation titles, tagging, folders, or search within conversations.
 - Cross-instance fan-out or locking (multi-server coordination). v1 assumes a single server process for live fan-out.
 - Changing the MCP tool request/response formats or the persisted MCP turn schema. This story only improves how those existing turns/streams are displayed in the browser.
 - Introducing an explicit “cancel run” endpoint for non-UI initiated runs (cancellation remains via existing abort/disconnect mechanisms where applicable).
+- Sidebar “extra” live indicators (typing/streaming badges, token previews, tool-progress badges) beyond minimal create/update/delete + resorting.
 
 ---
 
 ## Questions
 
-(none)
+(none – ready for tasking once the WebSocket protocol above is reviewed and accepted as final for v1.)
 
 ---
 

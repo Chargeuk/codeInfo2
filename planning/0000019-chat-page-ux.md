@@ -21,12 +21,21 @@ Separately, live streaming in the GUI is scoped to the active request that start
 This story improves the Chat page UX in two ways:
 
 1. **Bulk conversation management**: allow multi-select and bulk actions (archive / restore / permanent delete) with a clearer 3-state conversation filter (`Active`, `Active & Archived`, `Archived`).
-2. **Live conversation streaming everywhere**: any in-progress conversation (started via REST/Web UI, or via MCP) can be viewed from any browser window; switching between conversations shows a snapshot of the conversation so far and continues receiving updates for that conversation while it streams.
+2. **Live updates (transcript + sidebar)**: live updates are available across browser windows for both the active transcript and the conversation sidebar. The transcript streams only for the currently visible conversation, while the sidebar receives updates so new conversations appear (and removals/archives/restores reflect) without manual refresh.
 
 The intended approach for “catch-up” is:
 - The client continues to load the persisted snapshot (existing “load turns for a conversation” mechanism).
 - While a conversation is actively streaming, the server provides incremental updates for the current in-flight turn from in-memory state.
 - The UI merges persisted turns with the in-memory streaming turn so the transcript reflects “so far” content without requiring the server to retain full histories in memory.
+
+### Realtime transport choice (v1)
+
+We will use **WebSockets** (one connection per browser tab) rather than SSE for fan-out of realtime events, because we need:
+- Dynamic subscriptions: only the **visible** conversation transcript should stream (subscribe on view, unsubscribe on switch).
+- Always-on sidebar updates: the conversation list should update in real time when conversations are created/updated/archived/restored/deleted from another browser window.
+- Near-term reuse: a follow-up story is expected to apply the same realtime + management model to the **Agents** tab, so the transport should support multiple “channels” (chat list, agents list, active conversation) over a single connection.
+
+WebSockets keep this as a single long-lived connection with explicit `subscribe`/`unsubscribe` messages, and allow us to add new event types later without creating additional long-lived HTTP streams.
 
 ---
 
@@ -55,6 +64,10 @@ The intended approach for “catch-up” is:
 - A user can switch between conversations and see the correct live stream for whichever conversation is actively streaming.
 - If the same conversation is viewed in multiple browser windows, both windows receive the same live updates while the run is in progress.
 - In-progress MCP conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
+- Conversation sidebar updates stream in real time:
+  - new conversations appear automatically when created elsewhere,
+  - conversations move between views when archived/restored elsewhere,
+  - deleted conversations disappear automatically when deleted elsewhere.
 
 ### Reliability/consistency
 
@@ -77,13 +90,14 @@ The intended approach for “catch-up” is:
 
 ## Questions
 
-- Live streaming transport:
-  - Prefer Server-Sent Events (SSE) or WebSocket for conversation event fan-out? (SSE is simpler, but we should align with existing patterns and infra.)
 - Catch-up precision for in-flight turns:
   - Is it sufficient to provide “current assistant content so far” only (tokens), or do we need to include interim tool-call progress events as well?
   - Do we need replay/sequence IDs for clients that connect late, or is “snapshot + current partial turn buffer” enough?
 - Subscription scope:
   - Should the client subscribe to all active streams by default (so switching is instant), or subscribe/unsubscribe per conversation and accept a small delay on switch?
+  - (Current direction) Subscribe/unsubscribe per conversation (only visible conversation streams) plus an always-on sidebar subscription.
+ - Future direction / reuse:
+  - When reusing this for the Agents tab, do we want a shared “conversation list” component with an `agentName` (or equivalent) filter, or separate list implementations that share the realtime transport only?
 
 ---
 

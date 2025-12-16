@@ -1946,9 +1946,27 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - `0000018-22-agents-command-abort-stopped-turn.png`
 10. [ ] Stop docker compose:
    - `npm run compose:down`
-11. [ ] Ensure docs remain correct:
-   - Verify `README.md`, `design.md`, `projectStructure.md` are updated and accurate.
-12. [ ] Run repo-wide lint/format gate:
+11. [ ] Documentation update check: `README.md`
+   - Document: `README.md`
+   - Purpose:
+     - Ensure the repo-level documentation reflects the final Agent Commands feature and the REST endpoints (`GET /agents/:agentName/commands`, `POST /agents/:agentName/commands/run`).
+   - What to verify/update:
+     - Command file location (`codex_agents/<agentName>/commands/*.json`) and the v1 schema summary.
+     - Any new curl examples and error codes (`RUN_IN_PROGRESS`, `COMMAND_INVALID`, etc.).
+12. [ ] Documentation update check: `design.md`
+   - Document: `design.md`
+   - Purpose:
+     - Ensure all architecture/flow changes made by this story are captured, including per-conversation locking, abort-based cancellation, and command-run execution flow.
+   - What to verify/update:
+     - Mermaid diagrams render correctly and match the implemented behavior.
+     - The concurrency section documents: “lock scope = conversationId only”, “in-memory per process”, “no cross-instance coordination”.
+13. [ ] Documentation update check: `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Purpose:
+     - Ensure the tracked project tree is accurate after all new files added by this story (server + client + tests).
+   - What to verify/update:
+     - All new files created in Tasks 1–21 appear in the tree with correct brief comments.
+14. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

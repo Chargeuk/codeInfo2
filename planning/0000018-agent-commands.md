@@ -26,6 +26,7 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - Command-run turn metadata uses a single structured field: `command: { name, stepIndex, totalSteps }` so the UI can show progress like “2/12”.
 - Command runs are cancellable by reusing the existing abort mechanism: the UI aborts the in-flight HTTP request (AbortController) and the server aborts the provider call via an AbortSignal; the command runner must stop after the current step and never execute subsequent steps once aborted.
 - Concurrency is blocked with a simple **global lock**: while any agent run or command run is in progress, the UI disables starting new runs (except Abort), and the server rejects concurrent REST/MCP run requests.
+- The global lock is implemented as an in-memory, per-server-process lock (no cross-instance coordination in v1).
 
 ### Command schema (v1; extendable)
 
@@ -123,6 +124,7 @@ Add two new tools to Agents MCP `5012`:
       - REST `POST /agents/:agentName/commands/run`
       - Agents MCP `run_agent_instruction`
       - Agents MCP `run_command`
+    - The global lock is in-memory per server process and does not coordinate across multiple server instances in v1.
 
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.

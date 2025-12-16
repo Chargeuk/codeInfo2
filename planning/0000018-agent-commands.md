@@ -38,7 +38,7 @@ Deepwiki MCP note: Deepwiki does not currently have `Chargeuk/codeInfo2` indexed
 - Commands accept an optional `working_folder` (absolute path), reusing the existing Agents “working folder” input field and the existing server-side resolution/mapping logic from Story `0000017`.
 - Command-run turns appear as normal agent chat turns, but each turn created by a command run is annotated so the UI can show a small “Command run: <name>” note inside the chat bubble.
 - Command-run turn metadata uses a single structured field: `command: { name, stepIndex, totalSteps }` so the UI can show progress like “2/12”.
-- Command runs are cancellable by reusing the existing abort mechanism: the UI aborts the in-flight HTTP request (AbortController) and the server aborts the provider call via an AbortSignal; the command runner must stop after the current step and never execute subsequent steps once aborted.
+- Command runs are cancellable by reusing the existing abort mechanism: the caller (Agents UI via REST, or an MCP client) aborts the in-flight HTTP request (AbortController) and the server aborts the provider call via an AbortSignal; the command runner must stop after the current step and never execute subsequent steps once aborted.
 - Concurrency is blocked with an in-memory, per-server-process **per-conversation lock**: while a run is in progress for a given `conversationId`, the server rejects concurrent REST/MCP run requests targeting the same `conversationId` (including from multiple browser tabs/windows).
 - The UI does not implement client-side locking in v1; it relies on server rejection and shows a clear error when a run is already in progress.
 
@@ -47,7 +47,7 @@ Deepwiki MCP note: Deepwiki does not currently have `Chargeuk/codeInfo2` indexed
 - Same `conversationId` must never process two runs at the same time; otherwise turns and `threadId` updates can interleave and corrupt the conversation timeline.
 - Command runs are multi-step: the conversation lock must be held for the entire command run (not per step), otherwise another run could slip in between steps and interleave turns.
 - Cancellation uses the existing abort mechanism (closing/aborting the HTTP request); the command runner must check `signal.aborted` between steps and never start the next step after abort.
-- Because v1 cancellation is “abort the in-flight request”, the client may not receive a normal success response when the user cancels. The cancellation outcome must therefore be visible via persisted turns (e.g. the “Stopped” assistant turn), which will appear when the UI refreshes/rehydrates the conversation.
+- Because v1 cancellation is “abort the in-flight request”, the caller may not receive a normal success response when the user cancels/disconnects. The cancellation outcome must therefore be visible via persisted turns (e.g. the “Stopped” assistant turn), which will appear when the UI refreshes/rehydrates the conversation.
 - For runs that start a new conversation (no `conversationId` provided), the server must generate a `conversationId` early and lock that id for the duration of the run.
 
 ### Command schema (v1; extendable)
@@ -79,7 +79,8 @@ Legacy compatibility:
 
 1. List commands for an agent:
    - `GET /agents/:agentName/commands`
-   - Response: `{ commands: Array<{ name: string; description: string }> }`
+   - Response: `{ commands: Array<{ name: string; description: string; disabled?: boolean }> }`
+     - `disabled` is only used by REST to surface invalid command files in the UI as unselectable.
 
 2. Run a command:
    - `POST /agents/:agentName/commands/run`
@@ -231,6 +232,7 @@ Gotchas to keep in mind while implementing this task:
 - This lock must reject concurrent runs for the same `conversationId` even when they come from different browser windows/tabs.
 - Command runs are multi-step and must hold the conversation lock for the entire run (implemented in later tasks, but the lock helper must support this).
 - Cancellation is abort-based; lock release must always happen in `finally`, including abort/error cases.
+- Agents MCP runs are long-lived HTTP requests; if an MCP client aborts/disconnects while a run is in-flight, the server should propagate an AbortSignal to the shared service so the provider run can stop (v1 uses process-local locks and must not “leak” locks until completion).
 
 #### Documentation Locations
 
@@ -253,6 +255,7 @@ Gotchas to keep in mind while implementing this task:
      - Note: there is no existing per-conversation lock for agents/chat; the only lock-like helper today is the **global ingest lock** in `server/src/ingest/lock.ts` (TTL-based, reject-not-queue). We are *not* reusing it here because it is global, not keyed by `conversationId`, and includes TTL semantics we don’t need for v1.
    - Files to read:
      - `server/src/routes/agentsRun.ts`
+     - `server/src/mcpAgents/router.ts` (Agents MCP HTTP handler; needed to understand how to abort long-running tool calls)
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
      - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper; use it as a reference only)
@@ -326,7 +329,26 @@ Gotchas to keep in mind while implementing this task:
          ```
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message so clients can retry later.
        - KISS approach: add a dedicated error class (e.g. `RunInProgressError` with `.code = 409`) in `server/src/mcp2/errors.ts`, have tools throw it when the service returns `{ code: 'RUN_IN_PROGRESS' }`, and have the Agents MCP router map it to a JSON-RPC error consistently (similar to `ArchivedConversationError`).
-6. [ ] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
+6. [ ] Agents MCP: propagate AbortSignal into the shared agents service (cancel-on-disconnect):
+   - Docs to read:
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+     - https://nodejs.org/api/http.html#event-close (request/response lifecycle and when “close” fires)
+   - Files to read:
+     - `server/src/mcpAgents/router.ts`
+     - `server/src/mcpAgents/tools.ts`
+   - Files to edit:
+     - `server/src/mcpAgents/router.ts`
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Create a per-request `AbortController` inside `handleAgentsRpc(...)`.
+     - Abort it when the MCP HTTP connection closes before the JSON-RPC response is written:
+       - `req.on('aborted', ...)` (existing repo pattern; note: Node marks it deprecated but it is already used in `server/src/routes/agentsRun.ts`)
+       - `res.on('close', ...)` with the same `if (!res.writableEnded)` guard pattern used in `agentsRun.ts`.
+     - Thread the resulting `AbortSignal` into the tool call path so `run_agent_instruction` (and later `run_command`) can pass it into `runAgentInstruction(...)` / `runAgentCommand(...)`.
+       - KISS approach: extend `callTool(...)` in `server/src/mcpAgents/tools.ts` to accept an optional context `{ signal?: AbortSignal }`, and have `handleAgentsRpc` pass it only for `tools/call`.
+     - Gotcha to document in code/comments/tests:
+       - The MCP router reads the whole request body before dispatch; cancellation only matters once the long-running tool call begins.
+7. [ ] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
    - Test type: server unit (Node `node:test` + SuperTest)
    - Location: `server/src/test/unit/agents-router-run.test.ts`
    - Purpose:
@@ -336,7 +358,7 @@ Gotchas to keep in mind while implementing this task:
      - Acquire the conversation lock for `conversationId='c1'` (using the new `server/src/agents/runLock.ts` helper), then `POST /agents/<agentName>/run` with body `{ instruction: 'hello', conversationId: 'c1' }`.
      - Assert: `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
      - Also add an “edge” assertion in the same file: lock `c1` must not block a run for `conversationId='c2'`.
-7. [ ] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
+8. [ ] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
    - Purpose:
@@ -344,7 +366,7 @@ Gotchas to keep in mind while implementing this task:
    - What to implement:
      - Force `callTool('run_agent_instruction', ...)` to hit a locked `conversationId` by acquiring the lock first.
      - Assert: the tool call throws the expected MCP error type/code for “run already in progress” (per Task 1 mapping rules).
-8. [ ] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
+9. [ ] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
    - Test type: server unit (Node `node:test`, HTTP server)
    - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
    - Purpose:
@@ -353,7 +375,20 @@ Gotchas to keep in mind while implementing this task:
      - Start `http.createServer(handleAgentsRpc)` (copy the harness pattern from the existing test in this file).
      - Acquire the lock for a known `conversationId` and send a JSON-RPC `tools/call` request to `run_agent_instruction` using that `conversationId`.
      - Assert: JSON-RPC response contains an error with the expected stable code/message (per Task 1 mapping rules).
-9. [ ] Update `design.md` with lock/concurrency flow + Mermaid diagram:
+10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts the tool call (signal propagation):
+   - Test type: server unit (Node `node:test`, HTTP server)
+   - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Purpose:
+     - Ensures MCP callers can cancel a long-running run by aborting the HTTP request, and the server propagates the abort to the shared service.
+   - What to implement:
+     - Use `setToolDeps({ runAgentInstruction: async (params) => { ... } })` to provide a stub that:
+       - captures `params.signal` (newly added) and asserts it is an AbortSignal
+       - waits until `signal.aborted === true` (attach an `abort` event listener), then returns or throws
+     - Start `http.createServer(handleAgentsRpc)` and issue a `fetch(..., { signal })` JSON-RPC `tools/call` request to `run_agent_instruction`.
+     - Once the stub confirms it has started (use a Promise barrier), abort the client `fetch` and assert:
+       - the stub observed `signal.aborted === true`
+       - the server does not hang (test completes).
+11. [ ] Update `design.md` with lock/concurrency flow + Mermaid diagram:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -366,10 +401,10 @@ Gotchas to keep in mind while implementing this task:
        - Service acquires per-conversation lock
        - On second concurrent call: service rejects with `RUN_IN_PROGRESS` (REST 409 / MCP tool error)
      - Add a short bullet list explaining “lock scope = conversationId only” and “in-memory per process (no cross-instance coordination)”.
-10. [ ] Update `projectStructure.md` after adding any new files:
+12. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-11. [ ] Run repo-wide lint/format gate:
+13. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1194,6 +1229,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Return JSON text payload of `{ agentName, commandName, conversationId, modelId }`.
+     - Propagate cancellation: forward the per-request `AbortSignal` (from `handleAgentsRpc` context added in Task 1) into `runAgentCommand({ ..., signal })` so aborting the MCP HTTP request stops the current step and prevents further steps.
      - Map `COMMAND_*`, `WORKING_FOLDER_*`, and `RUN_IN_PROGRESS` to stable tool errors with safe messages.
    - Where to copy the pattern from:
      - `server/src/mcpAgents/tools.ts` already has `runRunAgentInstruction(...)` which:

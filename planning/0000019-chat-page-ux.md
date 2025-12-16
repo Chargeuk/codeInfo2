@@ -197,6 +197,12 @@ These findings are based on the current repository implementation and are includ
   - MCP HTTP JSON-RPC servers (not streaming, no HTTP upgrade).
 - Implementing this story’s WebSocket design requires adding a new WebSocket endpoint and a server-side publish/subscribe layer.
 
+### Ingest page updates (today)
+
+- The Ingest page does **not** use SSE today. It uses client-side **polling** via `GET /ingest/status/:runId` on an interval (~2s while active) implemented in `client/src/hooks/useIngestStatus.ts`, and served by `server/src/routes/ingestStart.ts`.
+- There is SSE used elsewhere (for example `GET /logs/stream` in `server/src/routes/logs.ts` consumed via `EventSource` in `client/src/hooks/useLogs.ts`), but ingest status updates are plain JSON polling.
+- Story 19 must **not** change the ingest polling mechanism or break it; ingest status polling must continue to work exactly as-is.
+
 ### Conversation management API gaps (today)
 
 - The REST API currently supports single-item archive/restore (`POST /conversations/:id/archive|restore`) and list/turn endpoints (`GET /conversations`, `GET /conversations/:id/turns`). There are **no** bulk endpoints and **no** permanent delete endpoints. Story 19 will need to add these.

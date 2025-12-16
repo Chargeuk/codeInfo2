@@ -109,12 +109,12 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["The last subtask of every task should be: 'Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.' Please add this subtask to any tasks that do not have it as the last subtask. Commit after making any changes."]
+      "content": ["The Subtask sections should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Commit after making any changes."]
     },
     {
       "type": "message",
       "role": "user",
-      "content": ["The Subtask sections should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Commit after making any changes."]
+      "content": ["The last subtask of every task should be: 'Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.' Please add this subtask to any tasks that do not have it as the last subtask. Commit after making any changes."]
     },
     {
       "type": "message",

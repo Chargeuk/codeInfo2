@@ -33,7 +33,8 @@ The intended approach for “catch-up” is:
   - it refreshes the conversation list snapshot,
   - it re-fetches the visible conversation turns snapshot,
   - then re-subscribes to the sidebar stream and the visible conversation stream.
-- If the user navigates away from the Chat page (for example to the Ingest page), the client stops streaming (unsubscribes from the transcript and sidebar streams). When the user returns to the Chat page, the client resumes by re-snapshotting and re-subscribing, using the same catch-up approach as reconnects.
+- If the user navigates away from the Chat page (for example to the Ingest page), the client stops **receiving** streaming updates by unsubscribing from the transcript and sidebar streams. This does **not** cancel the underlying run on the server; the run continues unless the user explicitly stops it (existing Stop button).
+  - When the user returns to the Chat page, the client resumes viewing by re-snapshotting and re-subscribing, using the same catch-up approach as reconnects.
 
 ### Realtime transport choice (v1)
 
@@ -90,6 +91,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - In-progress MCP conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
 - When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events.
 - Transcript streaming is scoped to the currently visible conversation only: when the user switches conversations, the client unsubscribes from the prior conversation stream and subscribes to the newly visible one.
+- Starting a run in the Chat page and then navigating away does not cancel generation; the run continues to completion unless the user explicitly stops it using the existing Stop button.
 - Conversation sidebar updates stream in real time:
   - new conversations appear automatically when created elsewhere,
   - conversations move between views when archived/restored elsewhere,
@@ -97,6 +99,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - Sidebar live updates scope is intentionally minimal in v1:
   - conversation create/update/archive/restore/delete,
   - `lastMessageAt` changes and resorting.
+ - When `mongoConnected === false`, live streaming is disabled and the UI surfaces a clear error message explaining that persistence is required for realtime updates/catch-up.
 
 ### Reliability/consistency
 
@@ -111,6 +114,8 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 ## WebSocket protocol (proposal – to finalize before tasking)
 
 This story will introduce a single WebSocket connection per browser tab. The protocol below is the intended shape so the work can be task-sized consistently.
+
+Status: **accepted for v1** (no further protocol decisions required before tasking, aside from selecting concrete URL path + naming during implementation).
 
 ### Connection
 

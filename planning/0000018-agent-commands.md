@@ -6,6 +6,10 @@ This story follows `planning/plan_format.md`.
 
 Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
 
+Story convention (important for this repo’s planning style):
+- Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
+- Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
+
 ---
 
 ## Description

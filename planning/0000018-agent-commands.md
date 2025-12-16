@@ -907,7 +907,7 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 ### 4. Server: list agent commands (shared service)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 0ab4bee
 
 #### Overview
 

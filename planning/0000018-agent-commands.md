@@ -234,10 +234,13 @@ Gotchas to keep in mind while implementing this task:
 
 #### Documentation Locations
 
-- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller (for cancellation wiring and checking `signal.aborted`)
-- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-- Express request lifecycle (`req.on('aborted')`, `res.on('close')`): Context7 `/expressjs/express`
-- Zod validation patterns (for MCP tool args / REST bodies): Context7 `/websites/v3_zod_dev`
+- Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller (how we stop in-flight runs when the client aborts/disconnects)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (repo unit tests use Node’s built-in test runner; needed for new lock tests)
+- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409 (REST conflict response for `RUN_IN_PROGRESS`)
+- Express 5 routing/request lifecycle: Context7 `/expressjs/express` (how to attach `req.on('aborted')` / `res.on('close')` and build routers consistently)
+- Zod v3 schema validation: Context7 `/websites/v3_zod_dev` (how `.safeParse()`/`.strict()` validation should be done for tool args/bodies)
+- SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (used by server unit tests to call Express routes and assert response shapes)
+- JSON-RPC 2.0 error semantics: https://www.jsonrpc.org/specification (Agents MCP is JSON-RPC; needed to map service errors to stable JSON-RPC errors)
 
 #### Subtasks
 
@@ -375,8 +378,9 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 
 #### Documentation Locations
 
-- Mongoose schemas + nested objects (project uses Mongoose `9.0.1`): Context7 `/websites/mongoosejs`
-- MongoDB document modeling (optional fields): https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+- Mongoose schemas + subdocuments: Context7 `/websites/mongoosejs` (how to add an optional nested object field to a schema without breaking existing documents)
+- MongoDB document modeling: https://www.mongodb.com/docs/manual/core/data-modeling-introduction/ (why optional fields are safe and how schema evolution works)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests added in this task use Node’s built-in runner)
 
 #### Subtasks
 
@@ -460,9 +464,10 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
 
 #### Documentation Locations
 
-- Zod object schema + unions: Context7 `/websites/v3_zod_dev`
-- Node.js filesystem (`fs.promises.readFile`, directory listing): https://nodejs.org/api/fs.html
-- JSON parsing safety: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- Zod v3 object schemas/unions: Context7 `/websites/v3_zod_dev` (for defining the v1 command schema and returning safe parse results)
+- Node.js filesystem (`fs.promises.readFile`, `readdir`): https://nodejs.org/api/fs.html (for reading command files from disk)
+- `JSON.parse(...)`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse (how JSON parse failures surface and must be handled)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for schema parsing are written with Node’s test runner)
 
 #### Subtasks
 
@@ -545,8 +550,9 @@ Implement a shared server function that discovers command JSON files for an agen
 
 #### Documentation Locations
 
-- Node.js directory listing (`fs.readdir`): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
-- Node.js path utilities: https://nodejs.org/api/path.html
+- Node.js filesystem directory listing (`fs.readdir`): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options (to enumerate `commands/*.json` with no caching)
+- Node.js path utilities: https://nodejs.org/api/path.html (safe basename handling and cross-platform joins)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for directory listing behavior use Node’s runner)
 
 #### Subtasks
 
@@ -618,8 +624,10 @@ Expose command listing to the GUI via REST using the shared list function. The r
 
 #### Documentation Locations
 
-- Express routing: Context7 `/expressjs/express`
-- HTTP 404 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+- Express 5 routing: Context7 `/expressjs/express` (how to add a new GET route and wire it into the app)
+- HTTP 404 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404 (REST behavior for unknown `agentName`)
+- SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (used to unit test the new REST route)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (server unit tests use Node’s runner)
 
 #### Subtasks
 
@@ -682,8 +690,9 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 
 #### Documentation Locations
 
-- JSON-RPC 2.0 errors: https://www.jsonrpc.org/specification
-- Zod parsing: Context7 `/websites/v3_zod_dev`
+- JSON-RPC 2.0 errors: https://www.jsonrpc.org/specification (Agents MCP is JSON-RPC; `list_commands` must return stable error codes/messages)
+- Zod v3 parsing: Context7 `/websites/v3_zod_dev` (how MCP tool args should be validated with `.safeParse()` and `.strict()` objects)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for the MCP tool use Node’s runner)
 
 #### Subtasks
 
@@ -756,7 +765,8 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
 
 #### Documentation Locations
 
-- Node.js async/await + try/finally: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch
+- `try { } finally { }` (async/await safety): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch (why lock release must happen in `finally` even when aborted)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (this refactor updates unit tests written with Node’s runner)
 
 #### Subtasks
 
@@ -809,8 +819,10 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 
 #### Documentation Locations
 
-- Node.js AbortSignal usage: https://nodejs.org/api/globals.html#class-abortcontroller
-- Node.js `path` utilities (safe filename handling): https://nodejs.org/api/path.html
+- Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller (how abort propagates and how to check `signal.aborted` between steps)
+- Node.js `path` utilities: https://nodejs.org/api/path.html (prevent path traversal via `commandName` and build a safe file path)
+- Node.js `crypto.randomUUID()`: https://nodejs.org/api/crypto.html#cryptorandomuuidoptions (how to generate a new `conversationId` for new command runs)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (unit tests for multi-step execution are written with Node’s runner)
 
 #### Subtasks
 
@@ -920,8 +932,11 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 
 #### Documentation Locations
 
-- Express routing + JSON body parsing: Context7 `/expressjs/express`
-- HTTP 400/404/409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Express 5 routing + body parsing: Context7 `/expressjs/express` (how to add a POST route and wire abort handling consistently)
+- Node.js `AbortController`: https://nodejs.org/api/globals.html#class-abortcontroller (route cancellation wiring via AbortSignal)
+- HTTP status semantics (400/404/409): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status (stable REST mappings for command errors and `RUN_IN_PROGRESS`)
+- SuperTest (HTTP route testing): Context7 `/ladjs/supertest` (unit tests for the POST route)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (server unit tests use Node’s runner)
 
 #### Subtasks
 
@@ -1002,8 +1017,9 @@ Expose command execution via Agents MCP using the same server runner and error m
 
 #### Documentation Locations
 
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-- Zod parsing: Context7 `/websites/v3_zod_dev`
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (Agents MCP tool behavior and error envelopes)
+- Zod v3 parsing: Context7 `/websites/v3_zod_dev` (validate tool args; reject invalid inputs safely)
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html (MCP tool tests use Node’s runner)
 
 #### Subtasks
 
@@ -1280,7 +1296,10 @@ Support the “KISS” command execution response by adding a refresh method to 
 
 #### Documentation Locations
 
-- React hooks patterns: https://react.dev/reference/react
+- React hooks reference: https://react.dev/reference/react (implementing `refresh()` and handling state updates safely)
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (the hook re-fetches turns; helps ensure correct fetch + abort usage)
+- Jest 30 + TypeScript: Context7 `/websites/jestjs_io_30_0` (client unit tests run under Jest and must use the project’s Jest patterns)
+- React Testing Library: Context7 `/websites/testing-library` (tests in this repo render components/hooks via Testing Library patterns)
 
 #### Subtasks
 
@@ -1332,9 +1351,10 @@ Update the Agents page to list commands for the selected agent and show the sele
 
 #### Documentation Locations
 
-- MUI Select + MenuItem disabled state: MUI MCP `@mui/material@6.4.12` (use `mcp__mui__useMuiDocs`)
-- MUI Typography + layout patterns: MUI MCP `@mui/material@6.4.12`
-- React state + effects: https://react.dev/reference/react
+- MUI Select API (disabled options): MUI MCP `@mui/material@6.4.12` (use `mcp__mui__fetchDocs` for `Select`/`MenuItem` to confirm disabled behavior)
+- MUI MenuItem API (disabled state): MUI MCP `@mui/material@6.4.12` (ensures invalid commands can be shown but not selectable)
+- MUI FormControl/InputLabel/Typography APIs: MUI MCP `@mui/material@6.4.12` (layout + labeling for accessible dropdown UI)
+- React state/effects: https://react.dev/reference/react (fetch-on-agent-change and derived selection state)
 
 #### Subtasks
 
@@ -1408,9 +1428,10 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 
 #### Documentation Locations
 
-- MUI Button disabled state: MUI MCP `@mui/material@6.4.12`
-- AbortController / AbortSignal: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
-- React hooks: https://react.dev/reference/react
+- MUI Button API: MUI MCP `@mui/material@6.4.12` (disabled state + primary action styling for Execute)
+- AbortController / AbortSignal: https://developer.mozilla.org/en-US/docs/Web/API/AbortController (the Execute run must be cancellable via the existing Abort mechanism)
+- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409 (server conflict surfaced as `RUN_IN_PROGRESS`)
+- React hooks: https://react.dev/reference/react (state transitions around execute + refresh)
 
 #### Subtasks
 
@@ -1495,7 +1516,8 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 
 #### Documentation Locations
 
-- MUI Typography: MUI MCP `@mui/material@6.4.12`
+- MUI Typography API: MUI MCP `@mui/material@6.4.12` (how to render subtle “Command run … (2/12)” notes)
+- React rendering basics: https://react.dev/reference/react (conditional rendering of metadata without disrupting markdown/tool UI)
 
 #### Subtasks
 
@@ -1552,8 +1574,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 
 #### Documentation Locations
 
-- Jest 30: Context7 `/websites/jestjs_io_30_0`
-- MUI: MUI MCP `@mui/material@6.4.12`
+- Jest 30: Context7 `/websites/jestjs_io_30_0` (test runner and mocking conventions used in this repo)
+- React Testing Library: Context7 `/websites/testing-library` (rendering AgentsPage and querying by role/text like a user)
+- Testing Library user-event: Context7 `/testing-library/user-event` (simulating user clicks/types for dropdown + execute flows)
+- React Router v7 (Memory router): Context7 `/remix-run/react-router/react-router_7.9.4` (tests use `createMemoryRouter` + `RouterProvider`)
+- MUI components: MUI MCP `@mui/material@6.4.12` (dropdown/button rendering in tests)
 
 #### Subtasks
 
@@ -1748,10 +1773,11 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker/Compose: Context7 `/docker/docs` (clean builds and compose up/down validation)
+- Playwright: Context7 `/microsoft/playwright` (how screenshots/assertions work and where snapshots land)
+- Jest 30: Context7 `/websites/jestjs_io_30_0` (repo unit test runner behavior for both front-end and back-end workspaces)
+- Cucumber guide (quick feature/step conventions): https://cucumber.io/docs/guides/10-minute-tutorial/ (shared Cucumber vocabulary and structure)
+- Cucumber guide (CI considerations): https://cucumber.io/docs/guides/continuous-integration/ (helps ensure Cucumber runs reliably in automation/CI)
 
 #### Subtasks
 

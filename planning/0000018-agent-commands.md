@@ -982,7 +982,17 @@ Add client API helpers used by the Agents page to list commands for a selected a
      ```ts
      export async function runAgentCommand(params: { agentName: string; commandName: string; conversationId?: string; working_folder?: string; signal?: AbortSignal; }): Promise<{ agentName: string; commandName: string; conversationId: string; modelId: string }>;
      ```
-3. [ ] Add client unit tests:
+3. [ ] Add consistent structured error parsing for agent endpoints:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/Response/json
+   - Files to read:
+     - `client/src/api/agents.ts`
+   - Files to edit:
+     - `client/src/api/agents.ts`
+   - Requirements:
+     - Update `runAgentInstruction(...)` and `runAgentCommand(...)` to parse JSON error bodies when available and surface a stable `{ status, code?, message }` shape (either via a custom `Error` subclass or a discriminated object).
+     - Specifically ensure `409` with `{ code: "RUN_IN_PROGRESS" }` can be detected by the UI without string parsing.
+4. [ ] Add client unit tests:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -990,7 +1000,8 @@ Add client API helpers used by the Agents page to list commands for a selected a
    - Test requirements:
      - List hits `/agents/:agentName/commands`.
      - Run hits `/agents/:agentName/commands/run` and passes `working_folder` when provided.
-4. [ ] Run repo-wide lint/format gate:
+     - Failure path: when the server returns `409` with `code: RUN_IN_PROGRESS`, the API surfaces a structured error that includes `status=409` and `code="RUN_IN_PROGRESS"`.
+5. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1106,15 +1117,21 @@ Update the Agents page to list commands for the selected agent, show the selecte
      - Calls `runAgentCommand({ agentName, commandName, conversationId, working_folder, signal })`.
      - Uses existing AbortController and shares the same Abort button.
      - On success: set `activeConversationId`, then call `refresh()` on `useConversationTurns` to show new turns.
-     - On 409 `RUN_IN_PROGRESS`: show a friendly error bubble and keep UI usable.
-4. [ ] Render command metadata in the transcript:
+     - On 409 `RUN_IN_PROGRESS`: show a friendly error bubble (do not disable the UI; just inform the user the conversation is already running).
+4. [ ] Improve error handling for normal agent instructions when the conversation is in-flight:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - When `runAgentInstruction(...)` fails with 409 + `RUN_IN_PROGRESS`, show the same friendly message as command runs.
+     - This must work when a second browser window/tab tries to run against the same `conversationId`.
+5. [ ] Render command metadata in the transcript:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - When mapping turns to messages, if `turn.command` exists, render a small note inside the message bubble like:
        - `Command run: <name> (<stepIndex>/<totalSteps>)`
      - Apply to both user and assistant messages.
-5. [ ] Add client tests for the new UI behavior:
+6. [ ] Add client tests for the new UI behavior:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - MUI MCP `@mui/material@7.2.0`
@@ -1125,7 +1142,8 @@ Update the Agents page to list commands for the selected agent, show the selecte
      - Agent change fetches new commands list.
      - Execute calls the run endpoint and triggers turns refresh.
      - Disabled commands are rendered disabled.
-6. [ ] Run repo-wide lint/format gate:
+     - Failure path: 409 `RUN_IN_PROGRESS` surfaces a friendly error for both normal agent run and command run.
+7. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

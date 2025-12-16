@@ -995,8 +995,7 @@ Expose `working_folder` through the Agents MCP tool `run_agent_instruction` and 
 ### 7. Codex updates: add model gpt-5.2
 
 - Task Status: **completed**
-- Git Commits:
-
+- Git Commits: 59d5cb4
 #### Overview
 
 Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2`, and update any dependent tests/fixtures.

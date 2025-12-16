@@ -1373,8 +1373,8 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 
 ### 7. Server: refactor agent execution into locked wrapper + unlocked internal helper
 
-- Task Status: **to_do**
-- Git Commits:
+- Task Status: **completed**
+- Git Commits: e215aa0
 
 #### Overview
 
@@ -1388,12 +1388,12 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
 
 #### Subtasks
 
-1. [ ] Read current `runAgentInstruction` implementation:
+1. [x] Read current `runAgentInstruction` implementation:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `server/src/agents/service.ts`
-2. [ ] Extract an internal helper that runs a single instruction without acquiring the per-conversation lock:
+2. [x] Extract an internal helper that runs a single instruction without acquiring the per-conversation lock:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -1403,7 +1403,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - Keep the locking behavior implemented in Task 1 (do not add a second lock layer here).
      - The internal helper must NOT acquire the per-conversation lock; it is used by the multi-step command runner (Task 8) which holds the lock for the entire command run.
      - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
-3. [ ] Server unit test update (REST): confirm `/agents/:agentName/run` behavior is unchanged after refactor:
+3. [x] Server unit test update (REST): confirm `/agents/:agentName/run` behavior is unchanged after refactor:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1414,7 +1414,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
    - What to update:
      - If the refactor changes the dependency injection shape, update the `buildApp()` wiring in this test file.
      - Keep existing assertions; only update mocks/types as required.
-4. [ ] Server unit test update (Agents MCP): confirm `run_agent_instruction` tool behavior is unchanged after refactor:
+4. [x] Server unit test update (Agents MCP): confirm `run_agent_instruction` tool behavior is unchanged after refactor:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1424,27 +1424,40 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
      - Confirms tool arg validation and error mapping still work once the service is refactored internally.
    - What to update:
      - Keep existing behavioral assertions; only update mocks/types as required.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
-   - Basic `/agents` run still works without commands.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
+   - Basic `/agents` run still works without commands (verified by calling `GET /agents` and `POST /agents/planning_agent/run` against the compose server).
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Marked Task 7 in progress; reviewed Task 7 subtasks/tests and the existing `runAgentInstruction(...)` flow in `server/src/agents/service.ts` to plan the locked wrapper + unlocked internal helper refactor.
+- 2025-12-16: Subtask 1 complete: reviewed `runAgentInstruction(...)` in `server/src/agents/service.ts`, confirmed the per-conversation lock is acquired before agent discovery, and verified `chat.run(...)` already supports `flags.command` metadata plumbing.
+- 2025-12-16: Subtask 2 complete: refactored `server/src/agents/service.ts` to introduce `runAgentInstructionUnlocked(...)` (no lock acquisition) and kept `runAgentInstruction(...)` as a thin locked wrapper; added optional `command` metadata plumbing so each run can tag turns via `chat.run(...)` flags.
+- 2025-12-16: Subtask 3+4 complete: verified the REST router test (`server/src/test/unit/agents-router-run.test.ts`) and Agents MCP tools test (`server/src/test/unit/mcp-agents-tools.test.ts`) require no behavioral assertion changes because the exported `runAgentInstruction(...)` signature and error mapping remain stable.
+- 2025-12-16: Subtask 5 complete: `npm run lint --workspaces` passed; `npm run format:check --workspaces` initially failed due to `server/src/agents/service.ts` formatting and was fixed via `npm run format --workspace server` before re-running `npm run format:check --workspaces` successfully.
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Manual `/agents` smoke check passed (`GET /agents` returned both agents; `POST /agents/planning_agent/run` returned an OK response).
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

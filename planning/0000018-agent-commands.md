@@ -4,7 +4,7 @@
 
 This story follows `planning/plan_format.md`.
 
-For now this document only defines **Description**, **Acceptance Criteria**, **Out Of Scope**, and **Questions**. Tasks will be added after the Questions section is resolved.
+Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
 
 ---
 
@@ -189,3 +189,1038 @@ Add two new tools to Agents MCP `5012`:
 ## Questions
 
 (none)
+
+---
+
+# Tasks
+
+### 1. Global run lock + `RUN_IN_PROGRESS` across Agents REST + MCP
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Add a simple in-memory, per-server-process global lock that blocks concurrent agent runs and command runs. Apply it consistently across Agents REST and Agents MCP, returning a stable `RUN_IN_PROGRESS` error (REST: HTTP 409).
+
+#### Documentation Locations
+
+- Node.js `AbortController` and `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller (for cancellation wiring and checking `signal.aborted`)
+- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Express request lifecycle (`req.on('aborted')`, `res.on('close')`): Context7 `/expressjs/express`
+- Zod validation patterns (for MCP tool args / REST bodies): Context7 `/websites/v3_zod_dev`
+
+#### Subtasks
+
+1. [ ] Read existing abort / run plumbing patterns:
+   - Docs to read:
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+     - Context7 `/expressjs/express`
+   - Files to read:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/mcpAgents/tools.ts`
+     - `server/src/agents/service.ts`
+2. [ ] Add a new global lock helper (in-memory, per-process):
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - Create `server/src/agents/runLock.ts`
+   - Requirements:
+     - API should be tiny and explicit; e.g. `tryAcquireRunLock(): boolean` + `releaseRunLock(): void`.
+     - Lock must be released in a `finally` block even if the run fails/throws.
+3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
+   - Files to read:
+     - `server/src/agents/service.ts`
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Add `RUN_IN_PROGRESS` to the internal error codes used by agents/commands runs.
+     - Ensure the error shape is safe (no stack traces leaked).
+4. [ ] Apply the global lock to existing agent runs (REST + MCP):
+   - Files to read:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/mcpAgents/tools.ts`
+   - Files to edit:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - REST: map `RUN_IN_PROGRESS` → HTTP `409` with JSON `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message: '...' }`.
+     - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message (so clients can retry later).
+5. [ ] Add focused unit coverage for the lock behavior:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://www.jsonrpc.org/specification (error codes overview)
+   - Files to edit:
+     - `server/src/test/unit/agents-router-run.test.ts`
+     - `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Test requirements:
+     - Simulate “run already in progress” by acquiring the lock, then call the route/tool and assert `RUN_IN_PROGRESS`.
+6. [ ] Update `projectStructure.md` after adding any new files:
+   - Files to edit:
+     - `projectStructure.md`
+7. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Start an agent run and confirm the UI disables new runs (except Abort).
+   - Attempt a second run (REST or MCP) and confirm it fails with `RUN_IN_PROGRESS`.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 2. Mongo: add per-turn `command` metadata (`{ name, stepIndex, totalSteps }`)
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Add an optional `command` field to persisted turns so the UI can render “Command run: <name> (2/12)” inside chat bubbles for both user and assistant turns created by command runs.
+
+#### Documentation Locations
+
+- Mongoose schemas + nested objects: Context7 `/mongoosejs/mongoose`
+- MongoDB document modeling (optional fields): https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
+
+#### Subtasks
+
+1. [ ] Read current turn persistence types and schemas:
+   - Docs to read:
+     - Context7 `/mongoosejs/mongoose`
+   - Files to read:
+     - `server/src/mongo/turn.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
+2. [ ] Extend the Turn model/schema to include `command`:
+   - Files to edit:
+     - `server/src/mongo/turn.ts`
+   - Required field shape:
+     - `command?: { name: string; stepIndex: number; totalSteps: number }`
+   - Requirements:
+     - Optional field (missing for normal turns).
+     - Stored as a subdocument in Mongo.
+3. [ ] Plumb `command` through repository helpers:
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Extend `AppendTurnInput` and `TurnSummary` to include optional `command`.
+     - Ensure `listTurns` includes the field in its returned JSON.
+4. [ ] Plumb `command` through chat persistence:
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterface.ts`
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterface.ts`
+   - Requirements:
+     - Allow passing `command` metadata via flags to `chat.run(...)` and persist it on both the user and assistant turns for that run.
+     - Keep default behavior unchanged when no `command` is provided.
+5. [ ] Add unit coverage for `command` persistence plumbing:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/turn-command-metadata.test.ts`
+   - Test requirements:
+     - Verify `appendTurn` stores and `listTurns` returns `command` when provided.
+     - Verify missing `command` does not break existing behavior.
+6. [ ] Update `projectStructure.md` after adding any new test files:
+   - Files to edit:
+     - `projectStructure.md`
+7. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Run an agent command (later tasks) and verify command bubbles show “2/12” style metadata.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 3. Server: implement command JSON schema + validation helper (v1)
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Define the command JSON schema (based on `improve_plan.json`) and implement validation that produces a safe summary for listing (including disabled entries with description “Invalid command file”).
+
+#### Documentation Locations
+
+- Zod object schema + unions: Context7 `/websites/v3_zod_dev`
+- Node.js filesystem (`fs.promises.readFile`, directory listing): https://nodejs.org/api/fs.html
+- JSON parsing safety: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+
+#### Subtasks
+
+1. [ ] Confirm the example command matches the intended schema:
+   - Files to read:
+     - `codex_agents/planning_agent/commands/improve_plan.json`
+   - Requirements:
+     - Top-level `Description` string.
+     - `items[]` with `{ type: "message", role: "user", content: string[] }`.
+2. [ ] Create command schema + parser helper:
+   - Docs to read:
+     - Context7 `/websites/v3_zod_dev`
+     - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+   - Files to edit:
+     - Create `server/src/agents/commandsSchema.ts`
+   - Required exports (copy names exactly):
+     - `export type AgentCommandItem = ...`
+     - `export type AgentCommandFile = ...`
+     - `export function parseAgentCommandFile(jsonText: string): { ok: true; command: AgentCommandFile } | { ok: false }`
+   - Requirements:
+     - Only supports `type: "message"` and `role: "user"` in v1.
+     - `content` must be a non-empty string array; trim entries during parse.
+3. [ ] Add a file-loader helper that returns a safe list summary:
+   - Docs to read:
+     - https://nodejs.org/api/fs.html
+   - Files to edit:
+     - Create `server/src/agents/commandsLoader.ts`
+   - Required exported function:
+     ```ts
+     export async function loadAgentCommandSummary(params: {
+       filePath: string;
+       name: string;
+     }): Promise<{ name: string; description: string; disabled: boolean }>;
+     ```
+   - Requirements:
+     - If JSON invalid or schema invalid → `{ disabled: true, description: "Invalid command file" }`.
+     - If valid → `{ disabled: false, description: <Description from JSON> }`.
+4. [ ] Add unit tests for schema parsing + invalid handling:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/agent-commands-schema.test.ts`
+   - Test requirements:
+     - Valid parse returns ok.
+     - Invalid JSON returns `{ ok: false }`.
+     - Invalid schema returns `{ ok: false }`.
+5. [ ] Update `projectStructure.md` after adding new server files/tests:
+   - Files to edit:
+     - `projectStructure.md`
+6. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Not applicable yet (schema only); verify server unit tests pass.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 4. Server: list agent commands (shared service)
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Implement a shared server function that discovers command JSON files for an agent and returns their `{ name, description, disabled }` summaries (no REST/MCP wiring yet).
+
+#### Documentation Locations
+
+- Node.js directory listing (`fs.readdir`): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
+- Node.js path utilities: https://nodejs.org/api/path.html
+
+#### Subtasks
+
+1. [ ] Read existing agent discovery shape (to locate agent home folders):
+   - Files to read:
+     - `server/src/agents/discovery.ts`
+     - `server/src/agents/service.ts`
+2. [ ] Add a new shared function to list commands for an agent:
+   - Docs to read:
+     - https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
+     - https://nodejs.org/api/path.html
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Required export (copy name exactly):
+     ```ts
+     export async function listAgentCommands(params: {
+       agentName: string;
+     }): Promise<{ commands: Array<{ name: string; description: string; disabled: boolean }> }>;
+     ```
+   - Requirements:
+     - If `commands/` folder missing → return `{ commands: [] }`.
+     - Only include `*.json` files.
+     - `name` is basename without `.json`.
+     - Use the loader from Task 3 to compute `{ description, disabled }`.
+3. [ ] Add unit coverage for list logic:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/agent-commands-list.test.ts`
+   - Test requirements:
+     - No folder → empty list.
+     - Invalid JSON file → included with `disabled: true` and “Invalid command file”.
+4. [ ] Update `projectStructure.md` after adding any new test files:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Not applicable yet (service only); verify server unit tests pass.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 5. REST: `GET /agents/:agentName/commands`
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Expose command listing to the GUI via REST using the shared list function. The response must include disabled invalid entries so the UI can show them as unselectable.
+
+#### Documentation Locations
+
+- Express routing: Context7 `/expressjs/express`
+- HTTP 404 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+
+#### Subtasks
+
+1. [ ] Create a new router for agent commands:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+   - Files to edit:
+     - Create `server/src/routes/agentsCommands.ts`
+   - Requirements:
+     - Add `GET /agents/:agentName/commands`.
+     - Use `listAgentCommands({ agentName })`.
+     - If agent not found → 404 `{ error: 'not_found' }`.
+2. [ ] Wire the new router into server startup:
+   - Files to read:
+     - `server/src/index.ts`
+   - Files to edit:
+     - `server/src/index.ts`
+3. [ ] Add unit coverage for the REST route:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - Add `server/src/test/unit/agents-commands-router-list.test.ts`
+   - Test requirements:
+     - Valid agent returns `{ commands: [...] }`.
+     - Invalid command included with `disabled: true`.
+4. [ ] Update `projectStructure.md` after adding any new files:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - On `/agents`, changing agents refreshes command list (after UI work).
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 6. Agents MCP: add `list_commands` tool
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Expose command listing via Agents MCP `5012`. `list_commands` must return all agents (when agentName omitted) but list only valid commands (exclude disabled/invalid).
+
+#### Documentation Locations
+
+- JSON-RPC 2.0 errors: https://www.jsonrpc.org/specification
+- Zod parsing: Context7 `/websites/v3_zod_dev`
+
+#### Subtasks
+
+1. [ ] Read existing Agents MCP tool patterns:
+   - Files to read:
+     - `server/src/mcpAgents/tools.ts`
+     - `server/src/mcpAgents/router.ts`
+2. [ ] Add tool definition + handler:
+   - Docs to read:
+     - https://www.jsonrpc.org/specification
+     - Context7 `/websites/v3_zod_dev`
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Add tool name: `list_commands`.
+     - Input schema: `{ agentName?: string }`.
+     - If agentName provided:
+       - return `{ agentName, commands: [{ name, description }] }` (exclude disabled).
+     - Else:
+       - return `{ agents: [{ agentName, commands: [{ name, description }] }] }` for **all** agents.
+3. [ ] Add unit coverage:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/mcp-agents-commands-list.test.ts`
+   - Test requirements:
+     - Omitting agentName returns all agents with commands arrays.
+     - Invalid commands are excluded from MCP output.
+4. [ ] Update `projectStructure.md` after adding any new test files:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Use an MCP client to call `list_commands` and verify output shape.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 7. Server: refactor agent execution into locked wrapper + unlocked internal helper
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Refactor agents execution so the global lock can be acquired once for a command run while still calling the same core “run one instruction” logic for each step without deadlocking.
+
+#### Documentation Locations
+
+- Node.js async/await + try/finally: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/try...catch
+
+#### Subtasks
+
+1. [ ] Read current `runAgentInstruction` implementation:
+   - Files to read:
+     - `server/src/agents/service.ts`
+2. [ ] Extract an internal helper that runs a single instruction without acquiring the global lock:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Keep the exported `runAgentInstruction(...)` signature stable for existing callers.
+     - Implement `runAgentInstruction(...)` as:
+       - acquire global lock (Task 1 helper)
+       - call internal helper
+       - release in `finally`
+     - Internal helper should accept an additional optional `command` metadata object (for later tasks) and pass it to `chat.run(...)`.
+3. [ ] Update unit tests to cover both paths:
+   - Files to read:
+     - `server/src/test/unit/agents-router-run.test.ts`
+   - Files to edit:
+     - Update/add tests as needed to confirm behavior unchanged for normal runs.
+4. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Basic `/agents` run still works without commands.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 8. Server: implement command execution runner (sequential steps + abort stop)
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Implement a shared `runAgentCommand(...)` function that loads a command file, acquires the global lock once, runs each step sequentially as an agent instruction (joining `content[]` with `\n`), tags turns with `command` metadata, and stops after the current step if aborted.
+
+#### Documentation Locations
+
+- Node.js AbortSignal usage: https://nodejs.org/api/globals.html#class-abortcontroller
+- Node.js `path` utilities (safe filename handling): https://nodejs.org/api/path.html
+
+#### Subtasks
+
+1. [ ] Add a command loader that returns the full parsed command (not just summary):
+   - Files to read:
+     - `server/src/agents/commandsSchema.ts`
+   - Files to edit:
+     - `server/src/agents/commandsLoader.ts`
+   - Requirements:
+     - Add `loadAgentCommandFile({ filePath })` that returns `{ ok: true, command } | { ok: false }`.
+2. [ ] Implement `runAgentCommand(...)` in the agents service:
+   - Docs to read:
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+     - https://nodejs.org/api/path.html
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Required export:
+     ```ts
+     export async function runAgentCommand(params: {
+       agentName: string;
+       commandName: string;
+       conversationId?: string;
+       working_folder?: string;
+       signal?: AbortSignal;
+       source: 'REST' | 'MCP';
+     }): Promise<{ agentName: string; commandName: string; conversationId: string; modelId: string }>;
+     ```
+   - Requirements:
+     - Validate `commandName` contains no `/`, `\\`, or `..`.
+     - Acquire the global lock once for the entire run.
+     - Load/parse the command file; invalid → `COMMAND_INVALID`.
+     - For each step `i`:
+       - If `signal?.aborted`, stop before starting next step.
+       - Build `instruction = content.join(\"\\n\")`.
+       - Call the unlocked internal “run instruction” helper with `command: { name, stepIndex: i+1, totalSteps }`.
+     - Cancellation behavior:
+       - When abort happens mid-step, the underlying chat persistence should produce a “Stopped” assistant turn; ensure it has `command` metadata (same `{ name, stepIndex, totalSteps }`).
+3. [ ] Add unit coverage for sequential execution + abort stop:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/agent-commands-runner.test.ts`
+   - Test requirements:
+     - With a 3-step command, verify the unlocked helper is called 3 times with correct `stepIndex` and `totalSteps`.
+     - Simulate abort after step 1 and verify step 2+ never execute.
+4. [ ] Update `projectStructure.md` after adding any new files:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Not applicable yet (no UI/REST wired); verify server unit tests pass.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 9. REST: `POST /agents/:agentName/commands/run`
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Expose command execution to the GUI via REST using the shared runner. Response is minimal; UI re-fetches turns.
+
+#### Documentation Locations
+
+- Express routing + JSON body parsing: Context7 `/expressjs/express`
+- HTTP 400/404/409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+
+#### Subtasks
+
+1. [ ] Add the REST route:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+   - Route contract:
+     - `POST /agents/:agentName/commands/run`
+     - Body: `{ commandName: string, conversationId?: string, working_folder?: string }`
+     - Response: `{ agentName, commandName, conversationId, modelId }`
+2. [ ] Map runner errors to stable HTTP responses:
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+   - Requirements:
+     - `COMMAND_NOT_FOUND` → 404
+     - `COMMAND_INVALID` → 400 + code
+     - `RUN_IN_PROGRESS` → 409 + code
+     - `WORKING_FOLDER_*` → 400 + code
+3. [ ] Add unit tests for the new route:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - Add `server/src/test/unit/agents-commands-router-run.test.ts`
+4. [ ] Update `projectStructure.md` after adding tests:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Execute a command via curl and confirm turns are appended.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 10. Agents MCP: add `run_command` tool
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Expose command execution via Agents MCP using the same server runner and error mapping rules.
+
+#### Documentation Locations
+
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Zod parsing: Context7 `/websites/v3_zod_dev`
+
+#### Subtasks
+
+1. [ ] Add the tool definition + args schema:
+   - Docs to read:
+     - https://www.jsonrpc.org/specification
+     - Context7 `/websites/v3_zod_dev`
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Input schema:
+     - `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`
+2. [ ] Implement the handler using `runAgentCommand(...)`:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Return JSON text payload of `{ agentName, commandName, conversationId, modelId }`.
+     - Map `COMMAND_*`, `WORKING_FOLDER_*`, and `RUN_IN_PROGRESS` to stable tool errors with safe messages.
+3. [ ] Add unit tests:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - Add `server/src/test/unit/mcp-agents-commands-run.test.ts`
+4. [ ] Update `projectStructure.md` after adding tests:
+   - Files to edit:
+     - `projectStructure.md`
+5. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Call MCP `run_command` and confirm it returns `{ conversationId, modelId }`.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 11. Client API: add `listAgentCommands()` and `runAgentCommand()`
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Add client API helpers used by the Agents page to list commands for a selected agent and execute a selected command.
+
+#### Documentation Locations
+
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+
+#### Subtasks
+
+1. [ ] Add a list API call:
+   - Files to edit:
+     - `client/src/api/agents.ts`
+   - Required export:
+     ```ts
+     export async function listAgentCommands(agentName: string): Promise<{ commands: Array<{ name: string; description: string; disabled: boolean }> }>;
+     ```
+2. [ ] Add a run API call:
+   - Files to edit:
+     - `client/src/api/agents.ts`
+   - Required export:
+     ```ts
+     export async function runAgentCommand(params: { agentName: string; commandName: string; conversationId?: string; working_folder?: string; signal?: AbortSignal; }): Promise<{ agentName: string; commandName: string; conversationId: string; modelId: string }>;
+     ```
+3. [ ] Add client unit tests:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - Add `client/src/test/agentsApi.commands.test.ts`
+   - Test requirements:
+     - List hits `/agents/:agentName/commands`.
+     - Run hits `/agents/:agentName/commands/run` and passes `working_folder` when provided.
+4. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Not applicable yet (API only); verify client unit tests pass.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 12. Client: add turns refresh + include `command` metadata in `StoredTurn`
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Support the “KISS” command execution response by adding a refresh method to `useConversationTurns` and extending `StoredTurn` to include optional `command` metadata returned by the server.
+
+#### Documentation Locations
+
+- React hooks patterns: https://react.dev/reference/react
+
+#### Subtasks
+
+1. [ ] Extend `StoredTurn` with optional `command`:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Required type:
+     - `command?: { name: string; stepIndex: number; totalSteps: number }`
+2. [ ] Add a `refresh()` function to the hook:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Requirements:
+     - `refresh()` re-fetches the newest page (`replace` mode) without requiring a conversationId change.
+3. [ ] Add unit tests for refresh behavior:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - Add `client/src/test/useConversationTurns.refresh.test.ts`
+4. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Not applicable yet (hook only); verify unit tests pass.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 13. Client UI: commands dropdown + execute + in-bubble “Command run” note
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Update the Agents page to list commands for the selected agent, show the selected command description, execute a command using the working folder field, refresh turns to display results, and display per-turn command metadata in the transcript.
+
+#### Documentation Locations
+
+- MUI Select + MenuItem disabled state: MUI MCP `@mui/material@7.2.0` (use `mcp__mui__useMuiDocs`)
+- MUI TextField + Button patterns: MUI MCP `@mui/material@7.2.0`
+- React state + effects: https://react.dev/reference/react
+
+#### Subtasks
+
+1. [ ] Add command list state and fetch-on-agent-change:
+   - Docs to read:
+     - https://react.dev/reference/react/useEffect
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - On agent change, call `listAgentCommands(selectedAgentName)` and store results.
+     - Keep disabled commands in state so the dropdown can show them as disabled.
+2. [ ] Add the Commands dropdown + description panel:
+   - Docs to read:
+     - MUI MCP `@mui/material@7.2.0`
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Dropdown options use command `name` as value.
+     - Display label replaces `_` with spaces.
+     - Disabled commands are unselectable and show description “Invalid command file”.
+     - Show selected command Description below the dropdown.
+3. [ ] Add “Execute command” button:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Calls `runAgentCommand({ agentName, commandName, conversationId, working_folder, signal })`.
+     - Uses existing AbortController and shares the same Abort button.
+     - On success: set `activeConversationId`, then call `refresh()` on `useConversationTurns` to show new turns.
+     - On 409 `RUN_IN_PROGRESS`: show a friendly error bubble and keep UI usable.
+4. [ ] Render command metadata in the transcript:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - When mapping turns to messages, if `turn.command` exists, render a small note inside the message bubble like:
+       - `Command run: <name> (<stepIndex>/<totalSteps>)`
+     - Apply to both user and assistant messages.
+5. [ ] Add client tests for the new UI behavior:
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - MUI MCP `@mui/material@7.2.0`
+   - Files to edit:
+     - Add `client/src/test/agentsPage.commandsList.test.tsx`
+     - Add `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Test requirements:
+     - Agent change fetches new commands list.
+     - Execute calls the run endpoint and triggers turns refresh.
+     - Disabled commands are rendered disabled.
+6. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - `/agents` lists commands for the selected agent.
+   - Invalid commands appear disabled.
+   - Running a command appends turns with “Command run: … (2/12)” notes.
+   - Abort during a command run stops subsequent steps and creates a “Stopped” assistant turn for the in-flight step.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 14. Docs: update `README.md`, `design.md`, and `projectStructure.md`
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Document Agent Commands (schema, REST/MCP APIs, cancellation, global lock, and turn metadata) and keep the project tree up to date.
+
+#### Documentation Locations
+
+- Mermaid syntax: Context7 `/mermaid-js/mermaid`
+- MCP overview (terminology only): https://modelcontextprotocol.io/
+
+#### Subtasks
+
+1. [ ] Update `README.md`:
+   - Files to edit:
+     - `README.md`
+   - Requirements:
+     - Document where commands live (`codex_agents/<agent>/commands/*.json`).
+     - Document the two REST endpoints and their payloads.
+2. [ ] Update `design.md` with diagrams:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
+     - Mention global lock + abort-based cancellation semantics.
+3. [ ] Update `projectStructure.md`:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add new files created by this story and keep comments accurate.
+4. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - N/A (docs); rely on prior tasks + final verification.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)
+
+---
+
+### 15. Final verification + acceptance criteria validation
+
+- Task Status: **to_do**
+- Git Commits:
+
+#### Overview
+
+Run the full verification suite, confirm all acceptance criteria are met, and capture screenshots proving the UI command workflow works end-to-end.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Confirm acceptance criteria checklist against the implemented behavior:
+   - File to read:
+     - `planning/0000018-agent-commands.md`
+2. [ ] Build the server:
+   - `npm run build --workspace server`
+3. [ ] Build the client:
+   - `npm run build --workspace client`
+4. [ ] Perform a clean docker build:
+   - `npm run compose:build`
+5. [ ] Start docker compose:
+   - `npm run compose:up`
+6. [ ] Run server tests:
+   - `npm run test --workspace server`
+7. [ ] Run client tests:
+   - `npm run test --workspace client`
+8. [ ] Run e2e tests:
+   - `npm run e2e`
+9. [ ] Manual Playwright-MCP check + screenshots:
+   - Use Playwright MCP to capture screenshots under `test-results/screenshots/`:
+     - `0000018-15-agents-commands-dropdown.png`
+     - `0000018-15-agents-command-run-annotated-turns.png`
+     - `0000018-15-agents-command-abort-stopped-turn.png`
+10. [ ] Stop docker compose:
+   - `npm run compose:down`
+11. [ ] Ensure docs remain correct:
+   - Verify `README.md`, `design.md`, `projectStructure.md` are updated and accurate.
+12. [ ] Run repo-wide lint/format gate:
+   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (screenshots as above)
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (empty)

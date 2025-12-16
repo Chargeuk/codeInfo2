@@ -13,7 +13,7 @@ export type ApprovalPolicy =
   | 'on-failure'
   | 'untrusted';
 
-export type ModelReasoningEffort = 'low' | 'medium' | 'high';
+export type ModelReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
 
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;

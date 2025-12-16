@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import type {
@@ -12,6 +13,7 @@ import {
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
+import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
@@ -36,6 +38,7 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
 export type RunAgentInstructionParams = {
   agentName: string;
   instruction: string;
+  working_folder?: string;
   conversationId?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
@@ -52,7 +55,9 @@ type RunAgentErrorCode =
   | 'AGENT_NOT_FOUND'
   | 'CONVERSATION_ARCHIVED'
   | 'AGENT_MISMATCH'
-  | 'CODEX_UNAVAILABLE';
+  | 'CODEX_UNAVAILABLE'
+  | 'WORKING_FOLDER_INVALID'
+  | 'WORKING_FOLDER_NOT_FOUND';
 
 type RunAgentError = {
   code: RunAgentErrorCode;
@@ -61,6 +66,56 @@ type RunAgentError = {
 
 const toRunAgentError = (code: RunAgentErrorCode, reason?: string) =>
   ({ code, reason }) satisfies RunAgentError;
+
+export async function resolveWorkingFolderWorkingDirectory(
+  working_folder: string | undefined,
+): Promise<string | undefined> {
+  if (!working_folder || !working_folder.trim()) return undefined;
+
+  const workingFolder = working_folder;
+  const normalized = workingFolder.replace(/\\/g, '/');
+  const raw = workingFolder;
+  if (!(path.posix.isAbsolute(normalized) || path.win32.isAbsolute(raw))) {
+    throw {
+      code: 'WORKING_FOLDER_INVALID',
+      reason: 'working_folder must be an absolute path',
+    } as const;
+  }
+
+  const hostIngestDir = process.env.HOST_INGEST_DIR;
+  const codexWorkdir =
+    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
+
+  const isDirectory = async (dirPath: string): Promise<boolean> => {
+    const stat = await fs.stat(dirPath).catch(() => null);
+    return Boolean(stat && stat.isDirectory());
+  };
+
+  if (hostIngestDir && hostIngestDir.length > 0) {
+    const normalizedHostIngestDir = hostIngestDir.replace(/\\/g, '/');
+    if (
+      path.posix.isAbsolute(normalizedHostIngestDir) &&
+      path.posix.isAbsolute(normalized)
+    ) {
+      const mapped = mapHostWorkingFolderToWorkdir({
+        hostIngestDir,
+        codexWorkdir,
+        hostWorkingFolder: workingFolder,
+      });
+
+      if ('mappedPath' in mapped) {
+        if (await isDirectory(mapped.mappedPath)) return mapped.mappedPath;
+      }
+    }
+  }
+
+  if (await isDirectory(workingFolder)) return workingFolder;
+
+  throw {
+    code: 'WORKING_FOLDER_NOT_FOUND',
+    reason: 'working_folder not found',
+  } as const;
+}
 
 async function getConversation(
   conversationId: string,
@@ -194,6 +249,10 @@ export async function runAgentInstruction(
     throw err;
   }
 
+  const workingDirectoryOverride = await resolveWorkingFolderWorkingDirectory(
+    params.working_folder,
+  );
+
   const responder = new McpResponder();
   chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
   chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
@@ -207,6 +266,9 @@ export async function runAgentInstruction(
       threadId,
       useConfigDefaults: true,
       codexHome: agent.home,
+      ...(workingDirectoryOverride !== undefined
+        ? { workingDirectoryOverride }
+        : {}),
       disableSystemContext: true,
       systemPrompt,
       signal: params.signal,

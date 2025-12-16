@@ -6,7 +6,11 @@ import {
 import { getClient as getLmClient } from '../lmstudio/clientPool.js';
 import { baseLogger } from '../logger.js';
 
-const getChromaUrl = () => process.env.CHROMA_URL ?? 'http://localhost:8000';
+function getChromaUrl(): string {
+  const raw = process.env.CHROMA_URL;
+  if (!raw || raw.trim() === '') return 'http://localhost:8000';
+  return raw;
+}
 type MinimalCollection = {
   modify: (opts: { metadata?: Record<string, unknown> }) => Promise<void>;
   count: () => Promise<number>;
@@ -44,12 +48,24 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   }
 }
 
+function toChromaClientArgs(connectionString: string): {
+  host: string;
+  port: number;
+  ssl: boolean;
+} {
+  const normalized = connectionString.includes('://')
+    ? connectionString
+    : `http://${connectionString}`;
+  const url = new URL(normalized);
+  const ssl = url.protocol === 'https:';
+  const port = url.port ? Number(url.port) : 8000;
+  return { host: url.hostname, port, ssl };
+}
+
 async function getClient() {
   const chromaUrl = getChromaUrl();
   if (!client) {
-    client = new ChromaClient({
-      path: chromaUrl,
-    } as unknown as { path: string });
+    client = new ChromaClient(toChromaClientArgs(chromaUrl));
   }
   return client;
 }

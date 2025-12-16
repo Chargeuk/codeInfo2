@@ -71,3 +71,60 @@ test('POST /agents/:agentName/run returns a stable success payload shape', async
   assert.equal(res.body.modelId.length > 0, true);
   assert.equal(Array.isArray(res.body.segments), true);
 });
+
+test('POST /agents/:agentName/run forwards working_folder to the service', async () => {
+  let received: unknown;
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async (params: unknown) => {
+        received = params;
+        return {
+          agentName: 'coding_agent',
+          conversationId: 'conv-1',
+          modelId: 'model-from-config',
+          segments: [{ type: 'answer', text: 'ok' }],
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello', working_folder: '/tmp' });
+
+  assert.equal(res.status, 200);
+  assert.equal(
+    (received as { working_folder?: string }).working_folder,
+    '/tmp',
+  );
+});
+
+test('POST /agents/:agentName/run maps WORKING_FOLDER_INVALID to 400 + code', async () => {
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async () => {
+        throw { code: 'WORKING_FOLDER_INVALID' };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello', working_folder: '/tmp' });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(res.body.code, 'WORKING_FOLDER_INVALID');
+});
+
+test('POST /agents/:agentName/run maps WORKING_FOLDER_NOT_FOUND to 400 + code', async () => {
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async () => {
+        throw { code: 'WORKING_FOLDER_NOT_FOUND' };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello', working_folder: '/tmp' });
+
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'invalid_request');
+  assert.equal(res.body.code, 'WORKING_FOLDER_NOT_FOUND');
+});

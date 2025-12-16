@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
-import test, { afterEach, beforeEach } from 'node:test';
-import { mapIngestPath } from '../../ingest/pathMap.js';
+import test, { afterEach, beforeEach, describe } from 'node:test';
+import {
+  mapHostWorkingFolderToWorkdir,
+  mapIngestPath,
+} from '../../ingest/pathMap.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
 
@@ -46,4 +49,51 @@ test('handles non-standard paths without throwing', () => {
   assert.equal(result.repo, 'repo');
   assert.equal(result.relPath, 'nested/path.md');
   assert.equal(result.hostPath, '/host/base/repo/nested/path.md');
+});
+
+describe('mapHostWorkingFolderToWorkdir', () => {
+  test('maps host path under ingest root', () => {
+    const result = mapHostWorkingFolderToWorkdir({
+      hostIngestDir: '/host/base',
+      codexWorkdir: '/data',
+      hostWorkingFolder: '/host/base/repo/sub',
+    });
+
+    assert.ok('mappedPath' in result);
+    assert.equal(result.relPath, 'repo/sub');
+    assert.ok(result.mappedPath.endsWith('/data/repo/sub'));
+  });
+
+  test('rejects outside ingest root', () => {
+    const result = mapHostWorkingFolderToWorkdir({
+      hostIngestDir: '/host/base',
+      codexWorkdir: '/data',
+      hostWorkingFolder: '/host/other/repo',
+    });
+
+    assert.ok('error' in result);
+    assert.equal(result.error.code, 'OUTSIDE_HOST_INGEST_DIR');
+  });
+
+  test('rejects prefix-but-not-child', () => {
+    const result = mapHostWorkingFolderToWorkdir({
+      hostIngestDir: '/host/base',
+      codexWorkdir: '/data',
+      hostWorkingFolder: '/host/base2/repo',
+    });
+
+    assert.ok('error' in result);
+    assert.equal(result.error.code, 'OUTSIDE_HOST_INGEST_DIR');
+  });
+
+  test('rejects non-absolute input', () => {
+    const result = mapHostWorkingFolderToWorkdir({
+      hostIngestDir: '/host/base',
+      codexWorkdir: '/data',
+      hostWorkingFolder: 'relative/path',
+    });
+
+    assert.ok('error' in result);
+    assert.equal(result.error.code, 'INVALID_ABSOLUTE_PATH');
+  });
 });

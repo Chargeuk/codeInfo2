@@ -50,6 +50,7 @@ const reasoningOptions: Array<{
   value: ModelReasoningEffort;
   label: string;
 }> = [
+  { value: 'xhigh', label: 'XHigh' },
   { value: 'high', label: 'High (default)' },
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },

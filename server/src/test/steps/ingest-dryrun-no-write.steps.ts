@@ -37,8 +37,15 @@ type StatusBody = { state?: string; counts?: { embedded?: number } };
 setDefaultTimeout(20_000);
 
 async function vectorsState() {
+  const chromaUrl = process.env.CHROMA_URL ?? 'http://localhost:8000';
+  const normalized = chromaUrl.includes('://')
+    ? chromaUrl
+    : `http://${chromaUrl}`;
+  const url = new URL(normalized);
   const client = new ChromaClient({
-    path: process.env.CHROMA_URL ?? 'http://localhost:8000',
+    host: url.hostname,
+    port: url.port ? Number(url.port) : 8000,
+    ssl: url.protocol === 'https:',
   });
   const collections = await client.listCollections();
   const exists = collections.some((c) => c.name === VECTOR_COLLECTION);

@@ -20,7 +20,7 @@ services:
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - AGENTS_MCP_PORT=5012
     volumes:
-      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - ./e2e/fixtures:/fixtures:ro
       - ./e2e/fixtures/repo:/data:ro
@@ -43,7 +43,7 @@ services:
       context: .
       dockerfile: client/Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:6010}
+        VITE_API_URL: ${VITE_API_URL:-http://host.docker.internal:6010}
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
     image: codeinfo2-client-e2e
     ports:

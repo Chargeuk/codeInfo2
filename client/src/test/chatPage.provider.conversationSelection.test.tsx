@@ -94,6 +94,11 @@ function mockApi() {
               displayName: 'gpt-5.1-codex-max',
               type: 'codex',
             },
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+            },
           ],
         }),
       }) as unknown as Response;

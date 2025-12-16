@@ -11,7 +11,7 @@ It introduces “LLM agents”: named, Codex-only assistants with their own Code
   - one tool to list available agents
   - one tool to run an instruction for a named agent (with thread continuation via `conversationId`)
 
-This story must heavily reuse existing chat infrastructure (`ChatInterface`, `ChatInterfaceCodex`, persistence, and `McpResponder`) and must not add provider/model selection for agents. Agents always use the existing Codex *run flag defaults* (sandbox/websearch/network/approval/reasoning), but use a per-agent system prompt from `system_prompt.txt` when present and otherwise run with **no** system prompt (global `SYSTEM_CONTEXT` disabled for agent runs).
+This story must heavily reuse existing chat infrastructure (`ChatInterface`, `ChatInterfaceCodex`, persistence, and `McpResponder`) and must not add provider/model selection for agents. Agents always use the existing Codex _run flag defaults_ (sandbox/websearch/network/approval/reasoning), but use a per-agent system prompt from `system_prompt.txt` when present and otherwise run with **no** system prompt (global `SYSTEM_CONTEXT` disabled for agent runs).
 
 ## Description
 
@@ -71,7 +71,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
   - If `${agentHome}/description.md` exists, its contents are returned as the agent `description` in list responses.
 - Auth seeding (runs on every discovery read):
   - Every time the agent home folders are read/validated (for `list_agents`, UI list refresh, or server-side agent lookups), the system must attempt auth seeding.
-  - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) *does* contain `auth.json`, then `auth.json` is copied into that agent home.
+  - If an agent home does not contain `auth.json`, and the primary Codex home (existing `CODEINFO_CODEX_HOME`) _does_ contain `auth.json`, then `auth.json` is copied into that agent home.
   - This is idempotent: never overwrite an existing agent `auth.json`.
 - Per-agent system prompt:
   - If `${CODEINFO_CODEX_AGENT_HOME}/${agentName}/system_prompt.txt` exists, it is used as the agent system prompt for new conversations.
@@ -91,8 +91,6 @@ Agent conversations must be persisted just like existing chats, but must carry e
 - Any change that requires committing secrets or `auth.json` into git.
 
 ## Questions
-
-
 
 # Implementation Plan
 
@@ -116,7 +114,7 @@ Agent conversations must be persisted just like existing chats, but must carry e
 
 ### 1. Refactor Codex creation to support per-agent Codex home (no global env mutation)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 2855bc0, e447c75, 3355edd, 7fe7cc8, c8d01e3, 3ec07e7, fc4d30b, e6a2528, 9907c5f, 9807854, fcbba34
 
 #### Overview
@@ -271,14 +269,15 @@ This is a prerequisite for everything else in this story.
    - Required updates:
      - Add the new server unit test files created in this task under the Server section (unit tests).
 10. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -310,10 +309,9 @@ This is a prerequisite for everything else in this story.
 
 ---
 
-
 ### 2. Mongo + repo: store `agentName` on conversations (top-level optional)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 4985d74, 77a4b1e, f92dad5
 
 #### Overview
@@ -383,7 +381,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
      - `design.md`
    - Implementation steps:
      - Document `Conversation.agentName?: string` and how it separates Chat vs Agents history.
-     - Add/extend a Mermaid diagram showing the conversation model/persistence flow including the new `agentName` field and the “Chat = __none__ vs Agents = named agent” separation.
+     - Add/extend a Mermaid diagram showing the conversation model/persistence flow including the new `agentName` field and the “Chat = **none** vs Agents = named agent” separation.
 5. [x] Update `projectStructure.md` for schema/index changes.
    - Files to edit:
      - `projectStructure.md`
@@ -427,7 +425,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 
 ### 3. Agent discovery (filesystem list + optional description + system prompt presence)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: fda15d4, b194fb6
 
 #### Overview
@@ -541,14 +539,15 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
        - `server/src/agents/discovery.ts`
        - the new discovery unit test file(s)
 10. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -577,7 +576,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 
 ### 4. Auth seeding for agents (runs on every discovery read)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: aecdfef, 04867b7, b869052, e2442f7, ebcdf14, 6dadd72, f8acaa1, 02bdad5, fb9a817, 71acc0d, 3345d5b
 
 #### Overview
@@ -689,24 +688,27 @@ This task implements that logic and wires it into the discovery read path so it 
      - Add a Mermaid flow diagram for “Auth seeding on discovery read” showing:
        - discovery read → for each agent: if missing `auth.json` and primary has `auth.json` then copy (never overwrite) → warnings on failure → continue listing.
 10. [x] Update `projectStructure.md` for new auth seeding modules/files.
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure the new auth seeding helper and any related test/support files are discoverable from the project structure docs.
-   - Required updates:
-     - Add entries for:
-       - `server/src/agents/authSeed.ts`
-       - any new unit test file(s) created for auth seeding
-       - `.dockerignore` (if created by this task)
+
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Ensure the new auth seeding helper and any related test/support files are discoverable from the project structure docs.
+- Required updates:
+  - Add entries for:
+    - `server/src/agents/authSeed.ts`
+    - any new unit test file(s) created for auth seeding
+    - `.dockerignore` (if created by this task)
+
 11. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -737,7 +739,7 @@ This task implements that logic and wires it into the discovery read path so it 
 
 ### 5. Docker/Compose wiring for agent homes
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 4e30b2b, 7ae34a3
 
 #### Overview
@@ -849,12 +851,11 @@ This task also exposes the Agents MCP port (`5012`) in compose so external clien
 - Documented the Compose mount + Agents MCP URL in `README.md` and added a deployment/wiring Mermaid diagram in `design.md`.
 - Verified with `docker compose ... config`, full lint/format checks, server/client builds, server/client tests, full `npm run e2e`, and full `npm run compose:build` + `npm run compose:up` + Playwright load check + `npm run compose:down`.
 
-
 ---
 
 ### 6. Server endpoint: list available agents (name + optional description)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: fe40b16, 3c6887e, 34ab87c, 7d25a3e
 
 #### Overview
@@ -899,7 +900,11 @@ This endpoint is the single source of truth for:
      - Follow the existing router factory pattern (`createXRouter(deps?: Partial<Deps>)`).
      - Handler response shape (exact JSON):
        ```json
-       { "agents": [ { "name": "coding_agent", "description": "# ...", "warnings": [] } ] }
+       {
+         "agents": [
+           { "name": "coding_agent", "description": "# ...", "warnings": [] }
+         ]
+       }
        ```
 3. [x] Wire `createAgentsRouter()` into the main server app.
    - Files to edit:
@@ -958,14 +963,15 @@ This endpoint is the single source of truth for:
        - `server/src/routes/agents.ts`
        - the new `GET /agents` unit test file(s)
 10. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -982,6 +988,7 @@ This endpoint is the single source of truth for:
 9. [x] `npm run compose:down`
 
 #### Implementation notes
+
 - Added `server/src/agents/service.ts` as the shared listing surface (`listAgents()`), returning only REST/MCP-safe fields and leaving `runAgentInstruction()` stubbed for Task 7.
 - Implemented `GET /agents` in `server/src/routes/agents.ts` using the router factory pattern and wired it into `server/src/index.ts`.
 - Added Supertest unit coverage for `GET /agents` in `server/src/test/unit/agents-router-list.test.ts` to lock down response shape and optional description handling.
@@ -992,7 +999,7 @@ This endpoint is the single source of truth for:
 
 ### 7. Server endpoint: run an agent instruction (`POST /agents/:agentName/run`)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 11a1f38
 
 #### Overview
@@ -1147,23 +1154,26 @@ Critical requirement: the REST path and MCP path must share the same implementat
      - Add a Mermaid sequence/flow diagram showing:
        - GUI/MCP → `runAgentInstruction()` → create/load conversation (agentName rules) → (optional) prefix `system_prompt.txt` on first turn → call Codex with `threadId` → persist `flags.threadId` → return `{ segments }`.
 10. [x] Update `projectStructure.md` for new REST agent run modules.
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure newly added route modules and tests for agent execution are documented.
-   - Required updates:
-     - Add entries for:
-       - `server/src/routes/agentsRun.ts`
-       - any new unit test file(s) created for `POST /agents/:agentName/run`
+
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Ensure newly added route modules and tests for agent execution are documented.
+- Required updates:
+  - Add entries for:
+    - `server/src/routes/agentsRun.ts`
+    - any new unit test file(s) created for `POST /agents/:agentName/run`
+
 11. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1194,7 +1204,7 @@ Critical requirement: the REST path and MCP path must share the same implementat
 
 ### 8. Server endpoint: list conversations filtered by agent
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 428ae30
 
 #### Overview
@@ -1311,14 +1321,15 @@ Important semantics (must be implemented exactly):
    - Required updates:
      - Add entries for the new unit test file(s) created by this task.
 10. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1347,12 +1358,11 @@ Important semantics (must be implemented exactly):
   - `GET /conversations?agentName=__none__` excludes agent conversations.
   - `GET /conversations?agentName=coding_agent` returns only `coding_agent` conversations.
 
-
 ---
 
 ### 9. Implement Agents MCP server (port 5012) with `list_agents` and `run_agent_instruction`
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: be75bfb
 
 #### Overview
@@ -1463,42 +1473,49 @@ Hard requirements:
      - Stub tool deps (like `mcp2/tools.ts` does) so `run_agent_instruction` returns a deterministic payload.
      - Call `tools/call` and assert the JSON string in `result.content[0].text` parses and contains the required fields.
 10. [x] Update docs.
-   - Files to edit:
-     - `README.md`
-   - Required doc details:
-     - URL: `http://localhost:5012`
-     - Example `initialize` / `tools/list` / `tools/call` curl commands.
+
+- Files to edit:
+  - `README.md`
+- Required doc details:
+  - URL: `http://localhost:5012`
+  - Example `initialize` / `tools/list` / `tools/call` curl commands.
+
 11. [x] Update architecture docs (design + Mermaid) for Agents MCP 5012.
-   - Docs to read (this subtask):
-     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Ensure the new external integration surface is documented consistently with MCP v2.
-   - Implementation steps:
-     - Add a Mermaid diagram showing:
-       - MCP client → Agents MCP server (`5012`) → `tools/list` / `tools/call` → shared agents service → Codex run.
+
+- Docs to read (this subtask):
+  - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Ensure the new external integration surface is documented consistently with MCP v2.
+- Implementation steps:
+  - Add a Mermaid diagram showing:
+    - MCP client → Agents MCP server (`5012`) → `tools/list` / `tools/call` → shared agents service → Codex run.
+
 12. [x] Update `projectStructure.md` for new MCP Agents server modules.
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure the new MCP server entrypoint/router/tools and associated tests are documented.
-   - Required updates:
-     - Add entries for:
-       - `server/src/mcpAgents/server.ts`
-       - `server/src/mcpAgents/router.ts`
-       - `server/src/mcpAgents/types.ts` (if created)
-       - `server/src/mcpAgents/tools.ts`
-       - new MCP unit test file(s)
+
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Ensure the new MCP server entrypoint/router/tools and associated tests are documented.
+- Required updates:
+  - Add entries for:
+    - `server/src/mcpAgents/server.ts`
+    - `server/src/mcpAgents/router.ts`
+    - `server/src/mcpAgents/types.ts` (if created)
+    - `server/src/mcpAgents/tools.ts`
+    - new MCP unit test file(s)
+
 13. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1532,7 +1549,7 @@ Hard requirements:
 
 ### 10. Add Agents GUI page (`/agents`) and navigation
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 98a7abc, f3fbb33, 76cbe68, eab69d0, 4aa19de, f236de4, 08aa635, 6a95faf, cc70d56, f77651e, e927399
 
 #### Overview
@@ -1715,79 +1732,92 @@ Implementation constraint: reuse existing Chat page components where possible (e
        - transcript is cleared
        - `activeConversationId` is cleared (indirectly via next send starting a new conversation)
 10. [x] Client test (RTL/Jest): Selecting a conversation continues that conversationId on the next send.
-   - Test type:
-     - Client RTL/Jest test
-   - Test location:
-     - Create `client/src/test/agentsPage.conversationSelection.test.tsx`
-   - Purpose:
-     - Ensure “continue by selecting from history” works without manual id entry.
-   - Test description:
-     - Mock `GET /conversations?agentName=coding_agent` to return an item with `conversationId: 'c1'`.
-     - Click that conversation in the sidebar and send an instruction.
-     - Assert the `POST /agents/coding_agent/run` payload includes `conversationId: 'c1'`.
+
+- Test type:
+  - Client RTL/Jest test
+- Test location:
+  - Create `client/src/test/agentsPage.conversationSelection.test.tsx`
+- Purpose:
+  - Ensure “continue by selecting from history” works without manual id entry.
+- Test description:
+  - Mock `GET /conversations?agentName=coding_agent` to return an item with `conversationId: 'c1'`.
+  - Click that conversation in the sidebar and send an instruction.
+  - Assert the `POST /agents/coding_agent/run` payload includes `conversationId: 'c1'`.
+
 11. [x] Client test (RTL/Jest): Selecting a conversation hydrates and renders stored turn history.
-   - Test type:
-     - Client RTL/Jest test
-   - Test location:
-     - Create `client/src/test/agentsPage.turnHydration.test.tsx`
-   - Purpose:
-     - Ensure Agents page behaves like Chat by showing the transcript for an existing conversation when selected.
-   - Test description:
-     - Mock:
-       - `GET /conversations?agentName=coding_agent` → returns `{ items: [{ conversationId: 'c1', title: '...', provider:'codex', model:'...', lastMessageAt:'...' }] }`
-       - `GET /conversations/c1/turns` → returns a user + assistant turn.
-     - Click the conversation row and assert the transcript renders both turns.
+
+- Test type:
+  - Client RTL/Jest test
+- Test location:
+  - Create `client/src/test/agentsPage.turnHydration.test.tsx`
+- Purpose:
+  - Ensure Agents page behaves like Chat by showing the transcript for an existing conversation when selected.
+- Test description:
+  - Mock:
+    - `GET /conversations?agentName=coding_agent` → returns `{ items: [{ conversationId: 'c1', title: '...', provider:'codex', model:'...', lastMessageAt:'...' }] }`
+    - `GET /conversations/c1/turns` → returns a user + assistant turn.
+  - Click the conversation row and assert the transcript renders both turns.
+
 12. [x] Client test (RTL/Jest): Running an instruction renders thinking/answer and a vector summary tool row.
-   - Test type:
-     - Client RTL/Jest test
-   - Test location:
-     - Create `client/src/test/agentsPage.run.test.tsx`
-   - Purpose:
-     - Ensure the page displays the same “segments” semantics as `codebase_question` and reuses Chat rendering patterns.
-   - Test description:
-     - Mock `POST /agents/coding_agent/run` to return:
-       - `segments: [{ type:'thinking', text:'...' }, { type:'vector_summary', files:[...] }, { type:'answer', text:'...' }]`
-     - Assert:
-       - thinking UI is present (collapsed/expandable)
-       - answer Markdown renders
-       - a tool row exists for `vector_summary`
+
+- Test type:
+  - Client RTL/Jest test
+- Test location:
+  - Create `client/src/test/agentsPage.run.test.tsx`
+- Purpose:
+  - Ensure the page displays the same “segments” semantics as `codebase_question` and reuses Chat rendering patterns.
+- Test description:
+  - Mock `POST /agents/coding_agent/run` to return:
+    - `segments: [{ type:'thinking', text:'...' }, { type:'vector_summary', files:[...] }, { type:'answer', text:'...' }]`
+  - Assert:
+    - thinking UI is present (collapsed/expandable)
+    - answer Markdown renders
+    - a tool row exists for `vector_summary`
+
 13. [x] Update docs.
-   - Files to edit:
-     - `README.md`
-   - Required doc details:
-     - Where to find Agents page (`/agents`)
-     - How conversation continuation works (select from history)
+
+- Files to edit:
+  - `README.md`
+- Required doc details:
+  - Where to find Agents page (`/agents`)
+  - How conversation continuation works (select from history)
+
 14. [x] Update architecture docs (design + Mermaid) for Agents UI flow.
-   - Docs to read (this subtask):
-     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Document the UI interaction flow so Stop/New Conversation/agent switching behavior is unambiguous.
-   - Implementation steps:
-     - Add a Mermaid flow diagram showing:
-       - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
-       - send instruction → `POST /agents/:agentName/run`
-       - agent switch → abort → reset convo → refresh history.
+
+- Docs to read (this subtask):
+  - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Document the UI interaction flow so Stop/New Conversation/agent switching behavior is unambiguous.
+- Implementation steps:
+  - Add a Mermaid flow diagram showing:
+    - initial load → `GET /agents` → select agent → `GET /conversations?agentName=...`
+    - send instruction → `POST /agents/:agentName/run`
+    - agent switch → abort → reset convo → refresh history.
+
 15. [x] Update `projectStructure.md` for new client agents modules and tests.
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure newly added client page/API modules and test files are documented.
-   - Required updates:
-     - Add entries for:
-       - `client/src/pages/AgentsPage.tsx`
-       - `client/src/api/agents.ts`
-       - new Agents page test file(s)
+
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Ensure newly added client page/API modules and test files are documented.
+- Required updates:
+  - Add entries for:
+    - `client/src/pages/AgentsPage.tsx`
+    - `client/src/api/agents.ts`
+    - new Agents page test file(s)
+
 16. [x] Run lint + format checks (all workspaces) and fix any failures.
-   - Commands (must run both):
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If either fails:
-     - Rerun with fix scripts where available (examples):
-       - `npm run lint:fix --workspaces`
-       - `npm run format --workspaces`
-     - Manually resolve any remaining issues, then rerun the two check commands until they pass.
+
+- Commands (must run both):
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If either fails:
+  - Rerun with fix scripts where available (examples):
+    - `npm run lint:fix --workspaces`
+    - `npm run format --workspaces`
+  - Manually resolve any remaining issues, then rerun the two check commands until they pass.
 
 #### Testing
 
@@ -1813,12 +1843,11 @@ Implementation constraint: reuse existing Chat page components where possible (e
 - Added RTL/Jest coverage for listing/description rendering, run abort/reset on agent change, conversation continuation via sidebar selection, turn hydration, and segment rendering (thinking + vector summary + answer).
 - Verified locally via the Task 10 testing checklist: server/client builds, server/client tests, e2e, compose build/up/down, and a Playwright smoke script confirming `/agents` can run an instruction against `coding_agent`.
 
-
 ---
 
 ### 11. Final task – verify against acceptance criteria
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: dec8e6b, 554cc2c
 
 #### Overview
@@ -1868,9 +1897,9 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
    - `/agents` loads, lists agents, shows agent description, and can run an instruction
    - Agents MCP `5012` responds to initialize/tools/list/tools/call
    - Save screenshots to `./test-results/screenshots/` named:
-      - `0000016-11-chat.png`
-      - `0000016-11-agents.png`
-      - `0000016-11-mcp-5012.png`
+     - `0000016-11-chat.png`
+     - `0000016-11-agents.png`
+     - `0000016-11-mcp-5012.png`
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -1897,7 +1926,7 @@ Validate all acceptance criteria, run full builds/tests, validate clean docker b
 
 ### 12. Agents respect per-agent Codex `config.toml` defaults (approval/sandbox/model/reasoning)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: f7f688b, cf3a81e, 8407f0d, f49d724, 2cef5ee, ee0d820, 226e3e0, bc8c191
 
 #### Overview
@@ -2006,7 +2035,7 @@ Fix agent runs so they can execute commands and follow the agent’s Codex confi
 
 ### 13. Final task – verify against acceptance criteria (post-Task 12)
 
-- Task Status: __done__
+- Task Status: **done**
 - Git Commits: 27ab17c, f0e100e, 1a1d1d0, 1792bf5, 9f69b82, 7ac2b3d, 911ea81, 63a03a4, 5e70725, db893ef, ccb0275, ddc1074, 717e907, 21e6c0f, 648d7a9, b556a68
 
 #### Overview
@@ -2046,7 +2075,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 8. [x] Run lint + format checks (all workspaces) and fix any failures.
    - Commands (must run both):
      - `npm run lint --workspaces`
-      - `npm run format:check --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Testing
 
@@ -2081,6 +2110,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 ## Story 0000016 – LLM Agents (GUI + MCP 5012)
 
 ### What shipped
+
 - Added first-class “agents”: named, Codex-only assistants discoverable from `CODEINFO_CODEX_AGENT_HOME/<agentName>` (direct subfolders containing `config.toml`).
 - Added Agents UI (`/agents`) with a constrained control bar (agent selector, Stop, New conversation), agent description rendering, and conversation history filtered per agent.
 - Added Agents MCP v2 JSON-RPC server on port `5012` exposing exactly `list_agents` and `run_agent_instruction`.
@@ -2088,6 +2118,7 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 - Persisted agent conversations/turns in MongoDB with `conversation.agentName` so `/chat` stays “clean” (non-agent only) while `/agents` shows per-agent conversations.
 
 ### Key implementation details
+
 - Codex can now run with an explicit per-request Codex home without mutating `process.env`: Codex SDK options inject `CODEX_HOME` via `buildCodexOptions({ codexHome })`.
 - Agent execution uses per-agent `system_prompt.txt` on first turn only, and disables the global `SYSTEM_CONTEXT` for agent runs so prompts don’t leak into persisted user turns.
 - Agent execution defaults (model/sandbox/approval/reasoning/network/web-search) are sourced from the agent’s `config.toml`; the server avoids sending overlapping `ThreadOptions` by using `useConfigDefaults`.
@@ -2095,12 +2126,13 @@ Re-validate all acceptance criteria after Task 12, including that agent runs can
 - Thread continuation is via server `conversationId`, with Codex `threadId` stored only under `Conversation.flags.threadId` using a `$set` update to avoid clobbering other flags.
 
 ### Docker / Compose
+
 - `docker-compose.yml` mounts `./codex_agents` to `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents`; Agents MCP is exposed on `http://localhost:5012`.
 
 ### Tests / docs
+
 - Added/updated server unit tests and client tests covering discovery, auth seeding, REST/MCP shapes, and config-driven agent defaults.
 - Updated `README.md`, `design.md`, and `projectStructure.md` to document the new agents surfaces and flows.
 ```
-
 
 ---

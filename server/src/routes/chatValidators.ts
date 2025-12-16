@@ -11,6 +11,8 @@ const DEFAULT_WEB_SEARCH_ENABLED = true;
 const DEFAULT_APPROVAL_POLICY: ApprovalMode = 'on-failure';
 const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 
+type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
+
 type Provider = 'codex' | 'lmstudio';
 
 export type ChatRequestBody = {
@@ -38,7 +40,7 @@ export type ValidatedChatRequest = {
     networkAccessEnabled?: boolean;
     webSearchEnabled?: boolean;
     approvalPolicy?: ApprovalMode;
-    modelReasoningEffort?: ModelReasoningEffort;
+    modelReasoningEffort?: AppModelReasoningEffort;
   };
   warnings: string[];
 };
@@ -66,11 +68,12 @@ const approvalPolicies: ApprovalMode[] = [
   'untrusted',
 ] as ApprovalMode[];
 
-const modelReasoningEfforts: ModelReasoningEffort[] = [
+const modelReasoningEfforts: AppModelReasoningEffort[] = [
   'low',
   'medium',
   'high',
-] as ModelReasoningEffort[];
+  'xhigh',
+] as AppModelReasoningEffort[];
 
 export function validateChatRequest(
   body: ChatRequestBody | unknown,
@@ -204,7 +207,7 @@ export function validateChatRequest(
     if (
       typeof modelReasoningEffort !== 'string' ||
       !modelReasoningEfforts.includes(
-        modelReasoningEffort as ModelReasoningEffort,
+        modelReasoningEffort as AppModelReasoningEffort,
       )
     ) {
       throw new ChatValidationError(
@@ -217,7 +220,7 @@ export function validateChatRequest(
       );
     } else {
       codexFlags.modelReasoningEffort =
-        modelReasoningEffort as ModelReasoningEffort;
+        modelReasoningEffort as AppModelReasoningEffort;
     }
   } else if (provider === 'codex') {
     codexFlags.modelReasoningEffort = DEFAULT_MODEL_REASONING_EFFORT;

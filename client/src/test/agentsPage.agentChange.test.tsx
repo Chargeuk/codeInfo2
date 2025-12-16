@@ -107,10 +107,14 @@ describe('Agents page - agent change', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
 
+    const workingFolder = await screen.findByRole('textbox', {
+      name: 'working_folder',
+    });
     const input = await screen.findByTestId('agent-input');
     const send = await screen.findByTestId('agent-send');
     const stop = await screen.findByTestId('agent-stop');
 
+    await userEvent.type(workingFolder, '/abs/path');
     await userEvent.type(input, 'Do work');
     await act(async () => {
       await userEvent.click(send);
@@ -128,6 +132,11 @@ describe('Agents page - agent change', () => {
 
     await waitFor(() => expect(abortTriggered).toBe(true));
     await waitFor(() => expect(screen.queryByText('Do work')).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('textbox', { name: 'working_folder' }),
+      ).toHaveValue(''),
+    );
 
     const inputAfter = await screen.findByTestId('agent-input');
     await userEvent.type(inputAfter, 'Second');

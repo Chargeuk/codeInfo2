@@ -12,13 +12,16 @@ type Deps = {
 type AgentRunBody = {
   instruction?: unknown;
   conversationId?: unknown;
+  working_folder?: unknown;
 };
 
 type AgentRunError =
   | { code: 'AGENT_NOT_FOUND' }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
-  | { code: 'CODEX_UNAVAILABLE'; reason?: string };
+  | { code: 'CODEX_UNAVAILABLE'; reason?: string }
+  | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
+  | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string };
 
 const isAgentRunError = (err: unknown): err is AgentRunError =>
   Boolean(err) &&
@@ -30,6 +33,7 @@ const validateBody = (
 ): {
   instruction: string;
   conversationId?: string;
+  working_folder?: string;
 } => {
   const candidate = (body ?? {}) as AgentRunBody;
 
@@ -47,7 +51,18 @@ const validateBody = (
       ? rawConversationId
       : undefined;
 
-  return { instruction: rawInstruction, conversationId };
+  const rawWorkingFolder = candidate.working_folder;
+  if (rawWorkingFolder !== undefined && rawWorkingFolder !== null) {
+    if (typeof rawWorkingFolder !== 'string') {
+      throw new Error('working_folder must be a string');
+    }
+  }
+  const working_folder =
+    typeof rawWorkingFolder === 'string' && rawWorkingFolder.trim().length > 0
+      ? rawWorkingFolder.trim()
+      : undefined;
+
+  return { instruction: rawInstruction, conversationId, working_folder };
 };
 
 export function createAgentsRunRouter(
@@ -72,7 +87,11 @@ export function createAgentsRunRouter(
       return res.status(400).json({ error: 'payload too large' });
     }
 
-    let parsedBody: { instruction: string; conversationId?: string };
+    let parsedBody: {
+      instruction: string;
+      conversationId?: string;
+      working_folder?: string;
+    };
     try {
       parsedBody = validateBody(req.body);
     } catch (err) {
@@ -96,6 +115,7 @@ export function createAgentsRunRouter(
       const result: RunAgentInstructionResult = await deps.runAgentInstruction({
         agentName,
         instruction: parsedBody.instruction,
+        working_folder: parsedBody.working_folder,
         conversationId: parsedBody.conversationId,
         signal: controller.signal,
         source: 'REST',
@@ -120,6 +140,16 @@ export function createAgentsRunRouter(
           return res
             .status(503)
             .json({ error: 'codex_unavailable', reason: err.reason });
+        }
+        if (
+          err.code === 'WORKING_FOLDER_INVALID' ||
+          err.code === 'WORKING_FOLDER_NOT_FOUND'
+        ) {
+          return res.status(400).json({
+            error: 'invalid_request',
+            code: err.code,
+            message: err.reason ?? 'working_folder validation failed',
+          });
         }
       }
 

@@ -57,6 +57,11 @@ export function createChatModelsRouter({
           displayName: 'gpt-5.1',
           type: 'codex',
         },
+        {
+          key: 'gpt-5.2',
+          displayName: 'gpt-5.2',
+          type: 'codex',
+        },
       ];
 
       const response: ChatModelsResponse = {

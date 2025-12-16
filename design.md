@@ -74,7 +74,22 @@ sequenceDiagram
 ### Chat page (models list)
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with a Provider `<Select>` (LM Studio default, OpenAI Codex when detected) to the left of the Model `<Select>`. The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+- Codex-only controls live in a collapsible **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `xhigh`, `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+
+#### Codex reasoning effort flow
+
+- `xhigh` is intentionally treated as an app-level value: the installed `@openai/codex-sdk` TypeScript union may not include it yet, but the runtime adapter forwards the string through to the Codex CLI as `--config model_reasoning_effort="..."`.
+
+```mermaid
+flowchart LR
+  UI[UI: /chat\nCodex flags panel] -->|select xhigh| Req[POST /chat\nmodelReasoningEffort: 'xhigh']
+  Req --> V[server validateChatRequest\naccepts low/medium/high/xhigh]
+  V --> C[ChatInterfaceCodex\nthreadOptions.modelReasoningEffort]
+  C --> SDK[@openai/codex-sdk\nexec args: --config model_reasoning_effort="xhigh"]
+  SDK --> CLI[Codex CLI]
+
+  Note[TS note: SDK types may lag\n(ModelReasoningEffort excludes 'xhigh')] -.-> C
+```
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
 - Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 
@@ -157,6 +172,33 @@ flowchart LR
   Tools --> Svc[Agents service\\nlistAgents()/runAgentInstruction()]
   Svc --> Disc[discoverAgents()\\n+ auth seeding]
   Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
+```
+
+- `run_agent_instruction` accepts an optional `working_folder` (absolute path string). It is resolved by the shared agents service using the same rules as REST (host-path mapping when possible, literal fallback).
+- If `working_folder` is invalid or does not exist, Agents MCP returns a JSON-RPC invalid-params style tool error (safe message only).
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant MCP as Agents MCP\\n:5012
+  participant Tools as Tool registry\\ncallTool()
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>MCP: tools/call run_agent_instruction\\n{ agentName, instruction, conversationId?, working_folder? }
+  MCP->>Tools: callTool('run_agent_instruction', args)
+  Tools->>Svc: runAgentInstruction(... working_folder?)
+  alt working_folder invalid or not found
+    Svc-->>Tools: throw WORKING_FOLDER_INVALID/WORKING_FOLDER_NOT_FOUND
+    Tools-->>MCP: InvalidParamsError (safe message)
+    MCP-->>Client: JSON-RPC error (-32602)
+  else resolved
+    Svc->>Codex: runStreamed(... workingDirectoryOverride)
+    Codex-->>Svc: streamed events + thread id
+    Svc-->>Tools: { agentName, conversationId, modelId, segments }
+    Tools-->>MCP: tool result (JSON text payload)
+    MCP-->>Client: JSON-RPC result
+  end
 ```
 
 ### Agent discovery
@@ -247,13 +289,80 @@ sequenceDiagram
   Svc-->>Client: { agentName, conversationId, modelId, segments }
 ```
 
+### POST /agents/:agentName/run (REST)
+
+- Request body:
+  - `instruction: string` (required)
+  - `conversationId?: string`
+  - `working_folder?: string` (optional; absolute path string)
+- Working-folder resolution errors map to HTTP 400 with a stable error code:
+  - `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', message: '...' }`
+  - `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', message: '...' }`
+
+```mermaid
+sequenceDiagram
+  participant Browser as Browser UI
+  participant Route as Express route\\nPOST /agents/:agentName/run
+  participant Svc as Agents service\\nrunAgentInstruction()
+  participant Codex as ChatInterfaceCodex
+
+  Browser->>Route: POST { instruction, conversationId?, working_folder? }
+  Route->>Svc: runAgentInstruction(... working_folder?)
+  Svc->>Svc: resolveWorkingFolderWorkingDirectory()
+  alt working_folder invalid
+    Svc-->>Route: throw WORKING_FOLDER_INVALID
+    Route-->>Browser: 400 { error: invalid_request, code: WORKING_FOLDER_INVALID }
+  else working_folder not found
+    Svc-->>Route: throw WORKING_FOLDER_NOT_FOUND
+    Route-->>Browser: 400 { error: invalid_request, code: WORKING_FOLDER_NOT_FOUND }
+  else resolved
+    Svc->>Codex: runStreamed(... workingDirectoryOverride)
+    Codex-->>Svc: streamed events
+    Svc-->>Route: { agentName, conversationId, modelId, segments }
+    Route-->>Browser: 200 JSON
+  end
+```
+
+### Agent working_folder overrides
+
+- Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
+- Agent `config.toml` remains the source of truth for defaults; `working_folder` only overrides Codex workingDirectory for that call.
+- Resolution tries a host→container mapping first (when `HOST_INGEST_DIR` is set and both paths are POSIX-absolute after `\\`→`/` normalization), then falls back to using the literal path as provided.
+- Stable error codes returned by the service when resolution fails:
+  - `WORKING_FOLDER_INVALID` (non-absolute input)
+  - `WORKING_FOLDER_NOT_FOUND` (no directory exists)
+
+```mermaid
+flowchart TD
+  A[working_folder provided?] -->|no / blank| D[Use default Codex workdir]
+  A -->|yes| B[Validate absolute path]
+  B -->|invalid| E[Throw WORKING_FOLDER_INVALID]
+  B -->|ok| C[Try host→workdir mapping]
+  C -->|mapped dir exists| F[Use mapped workingDirectory]
+  C -->|mapping not possible or dir missing| G[Check literal dir exists]
+  G -->|exists| H[Use literal workingDirectory]
+  G -->|missing| I[Throw WORKING_FOLDER_NOT_FOUND]
+```
+
 ### Agents UI flow (browser)
 
 - The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
   - agent selector dropdown
   - Stop (abort)
   - New conversation (reset)
+- The run form includes an optional `working_folder` field (absolute path) above the instruction input.
+  - Reset behavior: agent change and New conversation clear `working_folder`.
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
+
+```mermaid
+flowchart TD
+  WF[Enter working_folder (optional)] --> Instr[Enter instruction]
+  Instr --> Send[POST /agents/<agentName>/run\n(instruction + working_folder? + conversationId?)]
+  Send -->|200| RenderOk[Render segments\n(thinking / vector_summary / answer)]
+  Send -->|error| RenderErr[Append error message]
+  RenderOk --> Ready[Ready to send]
+  RenderErr --> Ready
+```
 
 ```mermaid
 flowchart TD

@@ -161,6 +161,11 @@ function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
               displayName: 'gpt-5.1-codex-max',
               type: 'codex',
             },
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
+              type: 'codex',
+            },
           ],
         }),
       }) as unknown as Response;
@@ -243,6 +248,11 @@ function mockCodexToolsMissing() {
             {
               key: 'gpt-5.1-codex-max',
               displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+            {
+              key: 'gpt-5.2',
+              displayName: 'gpt-5.2',
               type: 'codex',
             },
           ],
@@ -377,6 +387,10 @@ describe('Chat provider selection', () => {
     await waitFor(() =>
       expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
     );
+
+    await userEvent.click(modelSelect);
+    await screen.findByRole('option', { name: 'gpt-5.2' });
+    await userEvent.keyboard('{Escape}');
 
     const input = await screen.findByTestId('chat-input');
     const sendButton = screen.getByTestId('chat-send');

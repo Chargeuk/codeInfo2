@@ -159,7 +159,24 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ planning/ â€” story plans and template
 â”‚  â”œâ”€ 0000001-initial-skeleton-setup.md â€” plan for story 0000001
 â”‚  â”œâ”€ 0000002-lmstudio-config.md â€” plan for story 0000002
-â”‚  â”œâ”€ 0000003-logging-and-log-viewer.md â€” plan for story 0000003 (current)
+â”‚  â”œâ”€ 0000003-logging-and-log-viewer.md â€” plan for story 0000003
+â”‚  â”œâ”€ 0000004-lmstudio-chat.md â€” plan for story 0000004
+â”‚  â”œâ”€ 0000005-ingest-embeddings.md â€” plan for story 0000005
+â”‚  â”œâ”€ 0000006-lmstudio-chroma-tools.md â€” plan for story 0000006
+â”‚  â”œâ”€ 0000007-ingest-visibility.md â€” plan for story 0000007
+â”‚  â”œâ”€ 0000008-tool-visibility.md â€” plan for story 0000008
+â”‚  â”œâ”€ 0000009-frontend-log-source.md â€” plan for story 0000009
+â”‚  â”œâ”€ 0000010-codex-cli-integration.md â€” plan for story 0000010
+â”‚  â”œâ”€ 0000011-codex-flags.md â€” plan for story 0000011
+â”‚  â”œâ”€ 0000012-mcp-chat-interface.md â€” plan for story 0000012
+â”‚  â”œâ”€ 0000013-conversation-persistence.md â€” plan for story 0000013
+â”‚  â”œâ”€ 0000014-chat-interface-refactor.md â€” plan for story 0000014
+â”‚  â”œâ”€ 0000015-mcp-common-refactor.md â€” plan for story 0000015
+â”‚  â”œâ”€ 0000016-llm-agents.md â€” plan for story 0000016
+â”‚  â”œâ”€ 0000017-agent-working-folder-and-codex-updates.md â€” plan for story 0000017
+â”‚  â”œâ”€ 0000018-agent-commands.md â€” plan for story 0000018
+â”‚  â”œâ”€ 0000019-chat-page-ux.md â€” plan for story 0000019 (current)
+â”‚  â”œâ”€ 0000020-ingest-delta-reembed-and-ingest-page-ux.md â€” plan for story 0000020
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores

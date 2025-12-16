@@ -20,7 +20,7 @@ services:
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
       - AGENTS_MCP_PORT=5012
     volumes:
-      - ${CODEX_HOME:-$HOME/.codex}:/host/codex:ro
+      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
       - ./logs:/app/logs
       - ./e2e/fixtures:/fixtures:ro
       - ./e2e/fixtures/repo:/data:ro

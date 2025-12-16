@@ -1366,7 +1366,7 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 
 ### 10. Final task – verify against acceptance criteria
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1386,13 +1386,13 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 
 **Docs to read (repeat):** Context7 `/docker/docs`, Context7 `/microsoft/playwright`, Context7 `/typicode/husky`, Context7 `/mermaid-js/mermaid`, Context7 `/websites/jestjs_io_30_0`, https://cucumber.io/docs/guides/
 
-1. [ ] Build the server: `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] Build the client: `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] Perform a clean docker build (server): `docker build -f server/Dockerfile .` (Docs: Context7 `/docker/docs`)
-4. [ ] Ensure `README.md` is updated with any required description changes and any new commands added by this story. (Docs: https://www.markdownguide.org/basic-syntax/)
-5. [ ] Ensure `design.md` is updated with any required description changes (include any new diagrams if needed). (Docs: https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`)
-6. [ ] Ensure `projectStructure.md` is up to date. (Docs: https://www.markdownguide.org/basic-syntax/)
-7. [ ] Repo-wide lint + format gate (must be the last subtask in every task) (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script):
+1. [x] Build the server: `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] Build the client: `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] Perform a clean docker build (server): `docker build -f server/Dockerfile .` (Docs: Context7 `/docker/docs`)
+4. [x] Ensure `README.md` is updated with any required description changes and any new commands added by this story. (Docs: https://www.markdownguide.org/basic-syntax/)
+5. [x] Ensure `design.md` is updated with any required description changes (include any new diagrams if needed). (Docs: https://www.markdownguide.org/basic-syntax/, Context7 `/mermaid-js/mermaid`)
+6. [x] Ensure `projectStructure.md` is up to date. (Docs: https://www.markdownguide.org/basic-syntax/)
+7. [x] Repo-wide lint + format gate (must be the last subtask in every task) (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script):
    - Run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1403,21 +1403,21 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
 
 #### Testing
 
-1. [ ] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-2. [ ] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
-3. [ ] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
-4. [ ] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
-5. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-6. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-7. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-8. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+1. [x] `npm run build --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+2. [x] `npm run build --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script)
+3. [x] `npm run test --workspace server` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://cucumber.io/docs/guides/)
+4. [x] `npm run test --workspace client` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/websites/jestjs_io_30_0`)
+5. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+6. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+7. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+8. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
    - All story behaviours are visible in the UI (`working_folder`, `gpt-5.2`, `xhigh`) and docs match behaviour (primary story behaviour)
    - General regression smoke: `/chat`, `/agents`, `/ingest`, `/logs` load without errors
-9. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-10. [ ] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
-11. [ ] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-12. [ ] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
-13. [ ] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
+9. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+10. [x] `npm run e2e` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/microsoft/playwright`)
+11. [x] `npm run compose:build` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+12. [x] `npm run compose:up` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+13. [x] Manual Playwright-MCP check (Docs: Context7 `/microsoft/playwright`, Context7 `/docker/docs`):
     - `/agents` can run an instruction with a valid `working_folder` and the run uses the expected working directory
     - `/agents` returns a clear error for an invalid `working_folder`
     - Agents MCP `5012` accepts `working_folder` and returns a clear error for invalid paths
@@ -1427,8 +1427,29 @@ Re-validate all acceptance criteria after implementation, including end-to-end a
       - `0000017-10-agents-working-folder.png`
       - `0000017-10-mcp-5012-working-folder.png`
       - `0000017-10-chat-codex-models.png`
-14. [ ] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
+14. [x] `npm run compose:down` (Docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script, Context7 `/docker/docs`)
 
 #### Implementation notes
 
-- (fill during implementation)
+- Subtask 1: `npm run build --workspace server`.
+- Subtask 2: `npm run build --workspace client`.
+- Subtask 3: `docker build -f server/Dockerfile .`.
+- Subtask 4: updated `README.md` to document `CODEINFO_HOST_CODEX_HOME` for Docker Compose (avoids `CODEX_HOME` collisions in Codex/agent environments).
+- Follow-up fix: updated `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.e2e.yml` to use `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` instead of `${CODEX_HOME:-$HOME/.codex}` for the host Codex home mount.
+- Subtask 5: reviewed `design.md` (no further changes required for Task 10).
+- Subtask 6: reviewed `projectStructure.md` (no further changes required for Task 10).
+- Subtask 7: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+- Testing 1: `npm run build --workspace server`.
+- Testing 2: `npm run build --workspace client`.
+- Testing 3: `npm run test --workspace server`.
+- Testing 4: `npm run test --workspace client`.
+- Testing 5: `npm run e2e` (25 passed; 2 skipped).
+- Testing 6: `npm run compose:build`.
+- Testing 7: `npm run compose:up`.
+- Testing 8: headless Playwright smoke against `http://host.docker.internal:5001` (API rewrite from `http://localhost:5010` -> `http://host.docker.internal:5010`); verified `/chat`, `/agents`, `/ingest`, `/logs` load and `working_folder`, `gpt-5.2`, and `xhigh` are visible.
+- Testing 9: `npm run compose:down`.
+- Testing 10: `npm run e2e` (25 passed; 2 skipped).
+- Testing 11: `npm run compose:build`.
+- Testing 12: `npm run compose:up`.
+- Testing 13: headless Playwright/MCP validation against `http://host.docker.internal:5001` + `http://host.docker.internal:5012`; verified `/agents` valid/invalid `working_folder`, MCP `tools/call run_agent_instruction` valid/invalid `working_folder`, and `/chat` Codex model list + `xhigh`; saved screenshots to `test-results/screenshots/0000017-10-agents-working-folder.png`, `test-results/screenshots/0000017-10-mcp-5012-working-folder.png`, and `test-results/screenshots/0000017-10-chat-codex-models.png`.
+- Testing 14: `npm run compose:down`.

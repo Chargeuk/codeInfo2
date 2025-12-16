@@ -24,8 +24,8 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - Commands accept an optional `working_folder` (absolute path), reusing the existing Agents “working folder” input field and the existing server-side resolution/mapping logic from Story `0000017`.
 - Command-run turns appear as normal agent chat turns, but each turn created by a command run is annotated so the UI can show a small “Command run: <name>” note inside the chat bubble.
 - Command-run turn metadata uses a single structured field: `command: { name, stepIndex, totalSteps }` so the UI can show progress like “2/12”.
-- Command runs are cancellable: cancelling stops the in-flight step (best-effort) and prevents any subsequent steps from running.
-- Concurrency is blocked: while an agent run or command run is in progress for a given agent conversation, the UI disables starting new runs (except Abort), and the server rejects concurrent REST/MCP run requests.
+- Command runs are cancellable by reusing the existing abort mechanism: the UI aborts the in-flight HTTP request (AbortController) and the server aborts the provider call via an AbortSignal; the command runner must stop after the current step and never execute subsequent steps once aborted.
+- Concurrency is blocked with a simple **global lock**: while any agent run or command run is in progress, the UI disables starting new runs (except Abort), and the server rejects concurrent REST/MCP run requests.
 
 ### Command schema (v1; extendable)
 
@@ -113,11 +113,16 @@ Add two new tools to Agents MCP `5012`:
   - Commands accept optional `working_folder` and reuse Story `0000017` rules (absolute path required; host mapping attempted under `HOST_INGEST_DIR`; fallback to literal directory; errors are safe).
   - Command execution returns a minimal REST payload `{ agentName, commandName, conversationId, modelId }`; the client refreshes turns to render outputs.
   - Cancellation:
-    - Cancelling a command run stops the current in-flight step best-effort (abort provider call) and guarantees no further steps execute.
-    - Cancelling must not append partial/empty follow-up steps after the cancel occurs.
-    - When cancelling during an in-flight step, the server appends an assistant turn indicating the step was cancelled (with the `command` metadata set for that step).
+    - Cancelling a command run reuses the existing abort flow (abort HTTP request → server AbortSignal → provider abort) and guarantees no further steps execute.
+    - The command runner must check `signal.aborted` between steps and never start the next step after an abort.
+    - When cancelling during an in-flight step, the server appends an assistant turn indicating the step was cancelled (existing “Stopped” messaging is acceptable) with the `command` metadata set for that step.
   - Concurrency:
-    - While a run is in progress for an agent conversation, REST and MCP must reject new run requests with a stable error code.
+    - While any run is in progress (global lock), REST and MCP must reject new run requests with `RUN_IN_PROGRESS`.
+    - The global lock must apply consistently to:
+      - REST `POST /agents/:agentName/run`
+      - REST `POST /agents/:agentName/commands/run`
+      - Agents MCP `run_agent_instruction`
+      - Agents MCP `run_command`
 
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.
@@ -169,6 +174,7 @@ Add two new tools to Agents MCP `5012`:
 ## Out Of Scope
 
 - Streaming command execution results step-by-step to the UI (v1 may be synchronous and return only `{ conversationId, modelId, ... }`).
+- An explicit cancel endpoint/tool for command runs (v1 cancellation is via aborting the in-flight request; follow-up steps must not run after abort).
 - Partial execution controls (run step ranges, skip steps, retry a failed step).
 - UI editing/creating commands from the browser.
 - A richer command metadata model (`title`, `tags`, `icons`, keyboard shortcuts).

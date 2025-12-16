@@ -1082,7 +1082,7 @@ Implement a shared server function that discovers command JSON files for an agen
 
 ### 5. REST: `GET /agents/:agentName/commands`
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1099,7 +1099,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
 
 #### Subtasks
 
-1. [ ] Create a new router for agent commands:
+1. [x] Create a new router for agent commands:
    - Docs to read:
      - Context7 `/expressjs/express`
    - Files to edit:
@@ -1108,7 +1108,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Add `GET /agents/:agentName/commands`.
      - Use `listAgentCommands({ agentName })`.
      - If agent not found → 404 `{ error: 'not_found' }`.
-2. [ ] Wire the new router into server startup:
+2. [x] Wire the new router into server startup:
    - Docs to read:
      - Context7 `/expressjs/express`
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -1123,7 +1123,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
      - Keep wiring consistent with the existing Agents routes:
        - Ensure `express.json()` (or equivalent) is registered before the router so the POST body can be read in Task 9.
        - Prefer the same dependency-injection style used elsewhere in `server/src/index.ts` (so unit tests can build minimal apps by importing the router factory directly).
-   - Implementation sketch (adapt to the existing structure in `server/src/index.ts`):
+     - Implementation sketch (adapt to the existing structure in `server/src/index.ts`):
      ```ts
      // server/src/index.ts
      import { createAgentsCommandsRouter } from './routes/agentsCommands';
@@ -1131,7 +1131,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
 
      app.use('/agents', createAgentsCommandsRouter({ listAgentCommands, runAgentCommand }));
      ```
-3. [ ] Server unit test (REST): valid agent returns `{ commands: [...] }`:
+3. [x] Server unit test (REST): valid agent returns `{ commands: [...] }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1142,7 +1142,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - What to implement:
      - Stub `listAgentCommands(...)` to return a non-empty list.
      - `GET /agents/:agentName/commands` and assert `status === 200` and `body.commands` is an array.
-4. [ ] Server unit test (REST): invalid command appears disabled in REST response:
+4. [x] Server unit test (REST): invalid command appears disabled in REST response:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1153,7 +1153,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - What to implement:
      - Stub `listAgentCommands(...)` to include `{ name: 'bad', description: 'Invalid command file', disabled: true }`.
      - Assert response includes that entry and `disabled === true`.
-5. [ ] Server unit test (REST): unknown `agentName` returns HTTP 404 `{ error: 'not_found' }`:
+5. [x] Server unit test (REST): unknown `agentName` returns HTTP 404 `{ error: 'not_found' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1164,7 +1164,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - What to implement:
      - Stub `listAgentCommands(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
      - Assert `status === 404` and body is `{ error: 'not_found' }`.
-6. [ ] Server unit test (REST): agent with no commands returns `{ commands: [] }`:
+6. [x] Server unit test (REST): agent with no commands returns `{ commands: [] }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1175,7 +1175,7 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - What to implement:
      - Stub `listAgentCommands(...)` to return `{ commands: [] }`.
      - Assert `status === 200` and `body.commands` is an empty array.
-7. [ ] Update `projectStructure.md` after adding any new files:
+7. [x] Update `projectStructure.md` after adding any new files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -1185,27 +1185,40 @@ Expose command listing to the GUI via REST using the shared list function. The r
        - `server/src/routes/agentsCommands.ts`
        - `server/src/test/unit/agents-commands-router-list.test.ts`
      - Remove: (none)
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - On `/agents`, changing agents refreshes command list (after UI work).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Added `server/src/routes/agentsCommands.ts` exposing `GET /agents/:agentName/commands` (mounted under `/agents`) and mapped `AGENT_NOT_FOUND` to HTTP 404 `{ error: 'not_found' }`.
+- 2025-12-16: Wired `createAgentsCommandsRouter()` into `server/src/index.ts` via `app.use('/agents', ...)` so Task 9 can add the `POST /:agentName/commands/run` endpoint without changing mount points.
+- 2025-12-16: Added `server/src/test/unit/agents-commands-router-list.test.ts` covering success shape, disabled entries, unknown agent 404 mapping, and empty list behavior.
+- 2025-12-16: Updated `projectStructure.md` for the new route + unit test.
+- 2025-12-16: Validation: `npm run lint --workspaces` passed; `npm run format:check --workspaces` passed (after running `npm run format --workspace server`).
+- 2025-12-16: Testing: `npm run build --workspace server` passed (fixed a unit-test stub type to satisfy TS build).
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Manual check: confirmed REST payloads via `http://host.docker.internal:5010/agents` and `http://host.docker.internal:5010/agents/planning_agent/commands` (HTTP 200). Captured `/agents` screenshot using Playwright at `test-results/screenshots/0000018-5-agents.png`.
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

@@ -701,7 +701,7 @@ Extend the client API wrapper so `working_folder` can be sent to the server (wit
 ### 5. GUI: add optional working_folder control to Agents page
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 23f7376
 
 - `23f7376` DEV-0000017 - Task 5: working_folder field in Agents UI
 
@@ -1099,7 +1099,7 @@ Update the fixed Codex model list surfaced by the server so it includes `gpt-5.2
 ### 8. Codex updates: add reasoning effort xhigh
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: a69bc3b
 
 #### Overview
 

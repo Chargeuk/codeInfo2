@@ -245,19 +245,17 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/routes/agentsRun.ts`
      - `server/src/mcpAgents/tools.ts`
      - `server/src/agents/service.ts`
-     - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper we should reuse)
+     - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper; use it as a reference only)
 2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
-     - Create `server/src/utils/keyedLock.ts`
-     - Update `server/src/agents/authSeed.ts` to reuse the shared helper (no behavior change; still single-flight per agent auth path)
-     - Create `server/src/agents/runLock.ts` (built on the shared helper)
+     - Create `server/src/agents/runLock.ts`
    - Requirements:
      - Lock is keyed by `conversationId` (string).
-     - Reuse the existing keyed lock approach currently implemented in `server/src/agents/authSeed.ts` (a `Map<string, Promise<void>>`-style keyed lock) by extracting it into `server/src/utils/keyedLock.ts` so we don’t duplicate lock logic.
-     - `server/src/agents/runLock.ts` API should be tiny and explicit: `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
-       - Important: unlike `authSeed` (which serializes callers), agent run locks must **reject** when already held (no queuing). The shared helper must support this (either via a separate `tryAcquire` API or via a small wrapper that can detect “held” state).
+     - KISS: implement this directly with an in-memory `Set<string>` or `Map<string, true>` and keep it isolated to agent runs (do **not** refactor `authSeed` in this story).
+     - API must be tiny and explicit: `tryAcquireConversationLock(conversationId: string): boolean` + `releaseConversationLock(conversationId: string): void`.
+     - Semantics: agent run locks must **reject** when already held (no queuing).
      - Lock must be released in a `finally` block even if the run fails/throws or is aborted.
 3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
    - Files to read:
@@ -296,7 +294,6 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/test/unit/agents-router-run.test.ts`
      - `server/src/test/unit/mcp-agents-tools.test.ts`
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
-     - Update `server/src/test/unit/agents-authSeed.test.ts` if needed (only if the refactor changes imports/structure; assertions should remain the same)
    - Test requirements:
      - Main path: a normal run with no lock returns success as today.
      - Failure path: simulate “run already in progress” for a specific `conversationId` by acquiring the lock, then call the route/tool with that same `conversationId` and assert `RUN_IN_PROGRESS`.

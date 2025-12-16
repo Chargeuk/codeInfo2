@@ -623,7 +623,7 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
 ### 3. Server: implement command JSON schema + validation helper (v1)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: eda66d2
 
 #### Overview
 

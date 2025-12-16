@@ -1,69 +1,125 @@
 {
   "Description": "Improve an existing plan by refining tasks, adding details, or restructuring for clarity and efficiency.",
-  "Events": [
+  "items": [
     {
-      "Chat_Input": "Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."
+      "type": "message",
+      "role": "user",
+      "content": ["Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."]
     },
     {
-      "Chat_Input": "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find."
+      "type": "message",
+      "role": "user",
+      "content": ["Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required."]
     },
     {
-      "Chat_Input": "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question."
+      "type": "message",
+      "role": "user",
+      "content": ["Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Use the code_info, Context7, deepwiki & mui MCP servers, as well as internet searches to check that any assumptions made about library usage, interfaces, components, etc... are valid and up-to-date based on the version of the libraries being used. Note that if the library is available in code_info, then it is likely to be the correct version of the library and information from there should superseede other MCP servers. You MUST use the tools, never make assumptions, even for things like React, Typescript, Mongo, Mongoose, etc... Update the plan and tasks based on what you find."
+      "type": "message",
+      "role": "user",
+      "content": ["Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm, remembering to use the conversationId where appropriate for follow-up questions. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Some of the tasks look quite big, could they be split up without loosing any information? - Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable."
+      "type": "message",
+      "role": "user",
+      "content": ["Use the code_info, Context7, deepwiki & mui MCP servers, as well as internet searches to check that any assumptions made about library usage, interfaces, components, etc... are valid and up-to-date based on the version of the libraries being used. Note that if the library is available in code_info, then it is likely to be the correct version of the library and information from there should superseede other MCP servers. You MUST use the tools, never make assumptions, even for things like React, Typescript, Mongo, Mongoose, etc... Update the plan and tasks based on what you find. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify if there are no changes that would help."
+      "type": "message",
+      "role": "user",
+      "content": ["Some of the tasks look quite big, could they be split up without loosing any information? - Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit."
+      "type": "message",
+      "role": "user",
+      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have tings that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this."
+      "type": "message",
+      "role": "user",
+      "content": ["Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Commit after making any changes."]
     },
     {
-      "Chat_Input": "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address (the best option for cucumber is a subpath of https://cucumber.io/docs/guides/). You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information."
+      "type": "message",
+      "role": "user",
+      "content": ["Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this & commit after making any changes."]
     },
     {
-      "Chat_Input": "In various tasks you have a single subtask for a number of tests to write or change, or vague test requirements. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose."
+      "type": "message",
+      "role": "user",
+      "content": ["It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address (the best option for cucumber is a subpath of https://cucumber.io/docs/guides/). You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task."
+      "type": "message",
+      "role": "user",
+      "content": ["Does all the functionality, including happy apth, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files."
+      "type": "message",
+      "role": "user",
+      "content": ["In various tasks you have a single subtask for a number of tests to write or change, or vague test requirements. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. These tasks should reference the mermaid docs via context 7 so the created diagrams correctly match the Mermaid specification."
+      "type": "message",
+      "role": "user",
+      "content": ["Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Commit after making any changes."]
     },
     {
-      "Chat_Input": "In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose."
+      "type": "message",
+      "role": "user",
+      "content": ["Ensure that any task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find."
+      "type": "message",
+      "role": "user",
+      "content": ["Ensure the tasks that update archetecture or add flows also update design.md with the required information and mermaid diagrams. These tasks should reference the mermaid docs via context 7 so the created diagrams correctly match the Mermaid specification. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question."
+      "type": "message",
+      "role": "user",
+      "content": ["In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk, but don't simplify if there are no changes that would help."
+      "type": "message",
+      "role": "user",
+      "content": ["Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit."
+      "type": "message",
+      "role": "user",
+      "content": ["Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
     },
     {
-      "Chat_Input": "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find."
+      "type": "message",
+      "role": "user",
+      "content": ["Please ensure every task writing jest tests includes references to context7 tool jest documentation and every task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Commit after making any changes."]
     },
     {
-      "Chat_Input": "The last subtask of every task should be: 'Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.' Please add this subtask to any tasks that do not have it as the last subtask."
+      "type": "message",
+      "role": "user",
+      "content": ["Ensure that every task adding files has a subtask to explicitly update projectStructure.md after all subtasks that add or remove files and that task contains all added and removed files. Commit after making any changes."]
     },
     {
-      "Chat_Input": [
-        "The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:",
+      "type": "message",
+      "role": "user",
+      "content": ["Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["The Subtask sections should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["The last subtask of every task should be: 'Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.' Please add this subtask to any tasks that do not have it as the last subtask. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:",
         "1. [ ] `npm run build --workspace server`",
         "2. [ ] `npm run build --workspace client`",
         "3. [ ] `npm run test --workspace server`",
@@ -77,3 +133,4 @@
     }
   ]
 }
+

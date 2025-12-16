@@ -1359,6 +1359,15 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
 - 2025-12-16: Updated `server/src/test/unit/mcp-agents-router-list.test.ts` to expect the new MCP tool in the tools/list output.
 - 2025-12-16: Updated `projectStructure.md` to include `server/src/test/unit/mcp-agents-commands-list.test.ts` and refreshed MCP tool/test descriptions.
 - 2025-12-16: Validation: `npm run lint --workspaces` passed; `npm run format:check --workspaces` initially failed for server files and was fixed via `npm run format --workspace server` before re-running `npm run format:check --workspaces` successfully.
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Manual MCP call via `POST http://host.docker.internal:5012` (`tools/call` name=`list_commands`) returned `{"agents":[{"agentName":"coding_agent","commands":[]},{"agentName":"planning_agent","commands":[{"name":"improve_plan","description":"..."}]}]}` and excluded invalid/disabled commands.
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

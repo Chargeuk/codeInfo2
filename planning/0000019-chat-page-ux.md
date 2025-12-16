@@ -41,7 +41,10 @@ The intended approach for “catch-up” is:
 - Users can select multiple conversations in the sidebar (multi-select).
 - When viewing `Active` or `Active & Archived`, users can bulk archive the selected conversations.
 - When viewing `Archived`, users can bulk restore the selected conversations.
-- When viewing `Archived`, users can bulk **permanently delete** the selected conversations (with a clear confirmation step).
+- When viewing `Archived`, users can bulk **permanently delete** the selected conversations:
+  - Deletion is a **hard delete** (no retention window / audit log requirement in v1).
+  - Deletion removes **both** the conversation record and all stored turns/tool calls for that conversation.
+  - Deletion requires an explicit user confirmation (confirmation dialog) before the server is called.
 - For v1, bulk actions apply to the currently loaded conversations in the list (no “select all matches across pagination”).
 
 ### Chat streaming – snapshot + live updates across conversations/windows
@@ -73,9 +76,6 @@ The intended approach for “catch-up” is:
 
 ## Questions
 
-- Permanent delete semantics:
-  - Does “delete permanently” remove the conversation record only, or also all stored turns/tool calls for that conversation?
-  - Are there retention requirements (soft delete period, audit logs), or is hard delete acceptable?
 - Error handling expectations for bulk actions:
   - If some selected conversations fail to archive/restore/delete (archived already, missing, permission), should we do best-effort with per-item results, or fail the entire bulk request?
 - Live streaming transport:
@@ -91,4 +91,3 @@ The intended approach for “catch-up” is:
 # Tasks
 
 (Not yet created — this story is still in the “Description/Acceptance Criteria/Out Of Scope/Questions” phase.)
-

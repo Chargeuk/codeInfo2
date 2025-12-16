@@ -1369,6 +1369,8 @@ Ensure documentation reflects the new API surface and that `projectStructure.md`
 - Task Status: **completed**
 - Git Commits:
 
+- `fd3da3c` DEV-0000017 - Task 10: Final verification + Compose CODEX_HOME fix
+
 #### Overview
 
 Re-validate all acceptance criteria after implementation, including end-to-end agent runs from the GUI and MCP with valid/invalid `working_folder` values, plus the updated Codex model/reasoning options.

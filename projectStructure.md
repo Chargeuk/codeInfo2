@@ -355,6 +355,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
+- server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
 - server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)

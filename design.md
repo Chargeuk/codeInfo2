@@ -201,6 +201,32 @@ sequenceDiagram
   end
 ```
 
+#### Per-conversation run lock
+
+- Agent runs (REST and Agents MCP) acquire an in-memory, per-process lock keyed by `conversationId`.
+- While a run holds the lock, any concurrent run targeting the same `conversationId` is rejected with `RUN_IN_PROGRESS` (REST HTTP 409 / Agents MCP JSON-RPC error 409).
+- This lock is not cross-instance coordinated (multiple server processes do not share lock state).
+
+```mermaid
+sequenceDiagram
+  participant CallerA as REST caller (Agents UI)
+  participant CallerB as MCP caller
+  participant Svc as Agents service
+runAgentInstruction()
+  participant Codex as Codex provider
+
+  CallerA->>Svc: runAgentInstruction(conversationId=c1)
+  Svc->>Svc: tryAcquireConversationLock(c1)
+  Svc->>Codex: run(...)
+
+  CallerB->>Svc: runAgentInstruction(conversationId=c1)
+  Svc-->>CallerB: RUN_IN_PROGRESS (409)
+
+  Codex-->>Svc: done
+  Svc->>Svc: releaseConversationLock(c1)
+  Svc-->>CallerA: success
+```
+
 ### Agent discovery
 
 - Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.

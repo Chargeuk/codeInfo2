@@ -4,6 +4,10 @@ import { test } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 
+import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
 import { createAgentsRunRouter } from '../../routes/agentsRun.js';
 
 function buildApp(deps?: {
@@ -127,4 +131,41 @@ test('POST /agents/:agentName/run maps WORKING_FOLDER_NOT_FOUND to 400 + code', 
   assert.equal(res.status, 400);
   assert.equal(res.body.error, 'invalid_request');
   assert.equal(res.body.code, 'WORKING_FOLDER_NOT_FOUND');
+});
+
+function buildRealApp() {
+  const app = express();
+  app.use(express.json());
+  app.use(createAgentsRunRouter());
+  return app;
+}
+
+test('POST /agents/:agentName/run maps RUN_IN_PROGRESS to 409 conflict + stable payload', async () => {
+  assert.equal(tryAcquireConversationLock('c1'), true);
+  try {
+    const res = await request(buildRealApp())
+      .post('/agents/__nonexistent__/run')
+      .send({ instruction: 'hello', conversationId: 'c1' });
+
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'conflict');
+    assert.equal(res.body.code, 'RUN_IN_PROGRESS');
+    assert.equal(typeof res.body.message, 'string');
+    assert.equal(res.body.message.length > 0, true);
+  } finally {
+    releaseConversationLock('c1');
+  }
+});
+
+test('POST /agents/:agentName/run lock is keyed by conversationId (c1 lock does not block c2)', async () => {
+  assert.equal(tryAcquireConversationLock('c1'), true);
+  try {
+    const res = await request(buildRealApp())
+      .post('/agents/__nonexistent__/run')
+      .send({ instruction: 'hello', conversationId: 'c2' });
+
+    assert.notEqual(res.status, 409);
+  } finally {
+    releaseConversationLock('c1');
+  }
 });

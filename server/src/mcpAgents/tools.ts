@@ -4,6 +4,7 @@ import { listAgents, runAgentInstruction } from '../agents/service.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
+  RunInProgressError,
   ToolNotFoundError,
 } from '../mcp2/errors.js';
 
@@ -12,7 +13,12 @@ import type { ToolDefinition } from './types.js';
 
 export type ToolListResult = { tools: ToolDefinition[] };
 
-export { InvalidParamsError, ToolNotFoundError, ArchivedConversationError };
+export {
+  InvalidParamsError,
+  ToolNotFoundError,
+  ArchivedConversationError,
+  RunInProgressError,
+};
 
 export const LIST_AGENTS_TOOL_NAME = 'list_agents';
 export const RUN_AGENT_INSTRUCTION_TOOL_NAME = 'run_agent_instruction';
@@ -21,6 +27,7 @@ type AgentRunError =
   | { code: 'AGENT_NOT_FOUND' }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
+  | { code: 'RUN_IN_PROGRESS'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string };
@@ -44,6 +51,7 @@ type RunParams = z.infer<typeof runParamsSchema>;
 type CallToolDeps = {
   listAgents: typeof listAgents;
   runAgentInstruction: typeof runAgentInstruction;
+  signal?: AbortSignal;
 };
 
 const defaultDeps: Partial<CallToolDeps> = {};
@@ -139,6 +147,7 @@ async function runRunAgentInstruction(
       instruction: parsed.instruction,
       conversationId: parsed.conversationId,
       working_folder: parsed.working_folder,
+      signal: deps.signal,
       source: 'MCP',
     });
     return {
@@ -161,6 +170,13 @@ async function runRunAgentInstruction(
       }
       if (err.code === 'AGENT_NOT_FOUND') {
         throw new InvalidParamsError('Agent not found');
+      }
+      if (err.code === 'RUN_IN_PROGRESS') {
+        throw new RunInProgressError('RUN_IN_PROGRESS', {
+          code: 'RUN_IN_PROGRESS',
+          message:
+            err.reason ?? 'A run is already in progress for this conversation.',
+        });
       }
       if (err.code === 'WORKING_FOLDER_INVALID') {
         throw new InvalidParamsError(err.reason ?? 'Invalid working_folder');

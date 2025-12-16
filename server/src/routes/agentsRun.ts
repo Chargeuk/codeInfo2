@@ -19,6 +19,7 @@ type AgentRunError =
   | { code: 'AGENT_NOT_FOUND' }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
+  | { code: 'RUN_IN_PROGRESS'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string };
@@ -135,6 +136,15 @@ export function createAgentsRunRouter(
         }
         if (err.code === 'AGENT_MISMATCH') {
           return res.status(400).json({ error: 'agent_mismatch' });
+        }
+        if (err.code === 'RUN_IN_PROGRESS') {
+          return res.status(409).json({
+            error: 'conflict',
+            code: 'RUN_IN_PROGRESS',
+            message:
+              err.reason ??
+              'A run is already in progress for this conversation.',
+          });
         }
         if (err.code === 'CODEX_UNAVAILABLE') {
           return res

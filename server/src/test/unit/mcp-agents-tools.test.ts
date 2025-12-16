@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { InvalidParamsError, callTool } from '../../mcpAgents/tools.js';
+import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
+  InvalidParamsError,
+  RunInProgressError,
+  callTool,
+} from '../../mcpAgents/tools.js';
 
 test('callTool run_agent_instruction forwards working_folder to agents service', async () => {
   let received: unknown;
@@ -64,4 +72,26 @@ test('callTool maps WORKING_FOLDER_* errors to InvalidParamsError', async () => 
       ),
     InvalidParamsError,
   );
+});
+
+test('callTool run_agent_instruction maps RUN_IN_PROGRESS to RunInProgressError', async () => {
+  assert.equal(tryAcquireConversationLock('c1'), true);
+  try {
+    await assert.rejects(
+      () =>
+        callTool('run_agent_instruction', {
+          agentName: '__nonexistent__',
+          instruction: 'Say hello',
+          conversationId: 'c1',
+        }),
+      (err) => {
+        assert.ok(err instanceof RunInProgressError);
+        assert.equal((err as RunInProgressError).code, 409);
+        assert.equal((err as RunInProgressError).message, 'RUN_IN_PROGRESS');
+        return true;
+      },
+    );
+  } finally {
+    releaseConversationLock('c1');
+  }
 });

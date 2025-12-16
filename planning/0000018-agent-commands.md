@@ -220,7 +220,7 @@ Add two new tools to Agents MCP `5012`:
 
 ### 1. Per-conversation run lock + `RUN_IN_PROGRESS` across Agents REST + MCP
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -248,7 +248,7 @@ Gotchas to keep in mind while implementing this task:
 
 #### Subtasks
 
-1. [ ] Read existing abort / run plumbing patterns:
+1. [x] Read existing abort / run plumbing patterns:
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
      - Context7 `/expressjs/express`
@@ -260,7 +260,7 @@ Gotchas to keep in mind while implementing this task:
      - `server/src/agents/service.ts`
      - `server/src/agents/authSeed.ts` (contains an existing keyed in-memory lock helper; use it as a reference only)
      - Optional reference (do not reuse in this story): `server/src/ingest/lock.ts`
-2. [ ] Add a new per-conversation lock helper (in-memory, per-process):
+2. [x] Add a new per-conversation lock helper (in-memory, per-process):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
@@ -285,7 +285,7 @@ Gotchas to keep in mind while implementing this task:
        active.delete(conversationId);
      }
      ```
-3. [ ] Extend the agents error union to include `RUN_IN_PROGRESS`:
+3. [x] Extend the agents error union to include `RUN_IN_PROGRESS`:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -295,7 +295,7 @@ Gotchas to keep in mind while implementing this task:
    - Requirements:
      - Add `RUN_IN_PROGRESS` to the internal error codes used by agents/commands runs.
      - Ensure the error shape is safe (no stack traces leaked).
-4. [ ] Apply the per-conversation lock in the shared agents service (covers REST + MCP automatically):
+4. [x] Apply the per-conversation lock in the shared agents service (covers REST + MCP automatically):
    - Docs to read:
      - Context7 `/expressjs/express`
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -321,7 +321,7 @@ Gotchas to keep in mind while implementing this task:
          releaseConversationLock(conversationId);
        }
        ```
-5. [ ] Map `RUN_IN_PROGRESS` in REST + MCP:
+5. [x] Map `RUN_IN_PROGRESS` in REST + MCP:
    - Docs to read:
      - Context7 `/expressjs/express`
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -338,7 +338,7 @@ Gotchas to keep in mind while implementing this task:
          ```
      - MCP: map `RUN_IN_PROGRESS` → a tool error with a stable code/message so clients can retry later.
        - KISS approach: add a dedicated error class (e.g. `RunInProgressError` with `.code = 409`) in `server/src/mcp2/errors.ts`, have tools throw it when the service returns `{ code: 'RUN_IN_PROGRESS' }`, and have the Agents MCP router map it to a JSON-RPC error consistently (similar to `ArchivedConversationError`).
-6. [ ] Agents MCP: propagate AbortSignal into the shared agents service (cancel-on-disconnect):
+6. [x] Agents MCP: propagate AbortSignal into the shared agents service (cancel-on-disconnect):
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
      - https://nodejs.org/api/http.html#event-close (request/response lifecycle and when “close” fires)
@@ -357,7 +357,7 @@ Gotchas to keep in mind while implementing this task:
        - KISS approach: extend `callTool(...)` in `server/src/mcpAgents/tools.ts` to accept an optional context `{ signal?: AbortSignal }`, and have `handleAgentsRpc` pass it only for `tools/call`.
      - Gotcha to document in code/comments/tests:
        - The MCP router reads the whole request body before dispatch; cancellation only matters once the long-running tool call begins.
-7. [ ] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
+7. [x] Server unit test (REST route): verify `RUN_IN_PROGRESS` maps to HTTP 409 on `/agents/:agentName/run`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -370,7 +370,7 @@ Gotchas to keep in mind while implementing this task:
      - Acquire the conversation lock for `conversationId='c1'` (using the new `server/src/agents/runLock.ts` helper), then `POST /agents/<agentName>/run` with body `{ instruction: 'hello', conversationId: 'c1' }`.
      - Assert: `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
      - Also add an “edge” assertion in the same file: lock `c1` must not block a run for `conversationId='c2'`.
-8. [ ] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
+8. [x] Server unit test (Agents MCP tool handler): verify tool returns a stable conflict error for `RUN_IN_PROGRESS`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -381,7 +381,7 @@ Gotchas to keep in mind while implementing this task:
    - What to implement:
      - Force `callTool('run_agent_instruction', ...)` to hit a locked `conversationId` by acquiring the lock first.
      - Assert: the tool call throws the expected MCP error type/code for “run already in progress” (per Task 1 mapping rules).
-9. [ ] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
+9. [x] Server unit test (Agents MCP router): verify JSON-RPC response is stable for `RUN_IN_PROGRESS`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -393,7 +393,7 @@ Gotchas to keep in mind while implementing this task:
      - Start `http.createServer(handleAgentsRpc)` (copy the harness pattern from the existing test in this file).
      - Acquire the lock for a known `conversationId` and send a JSON-RPC `tools/call` request to `run_agent_instruction` using that `conversationId`.
      - Assert: JSON-RPC response contains an error with the expected stable code/message (per Task 1 mapping rules).
-10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts the tool call (signal propagation):
+10. [x] Server unit test (Agents MCP router): aborting the HTTP request aborts the tool call (signal propagation):
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -410,7 +410,7 @@ Gotchas to keep in mind while implementing this task:
      - Once the stub confirms it has started (use a Promise barrier), abort the client `fetch` and assert:
        - the stub observed `signal.aborted === true`
        - the server does not hang (test completes).
-11. [ ] Update `design.md` with lock/concurrency flow + Mermaid diagram:
+11. [x] Update `design.md` with lock/concurrency flow + Mermaid diagram:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -423,7 +423,7 @@ Gotchas to keep in mind while implementing this task:
        - Service acquires per-conversation lock
        - On second concurrent call: service rejects with `RUN_IN_PROGRESS` (REST 409 / MCP tool error)
      - Add a short bullet list explaining “lock scope = conversationId only” and “in-memory per process (no cross-instance coordination)”.
-12. [ ] Update `projectStructure.md` after adding any new files:
+12. [x] Update `projectStructure.md` after adding any new files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -431,28 +431,41 @@ Gotchas to keep in mind while implementing this task:
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/agents/runLock.ts`
      - Remove: (none)
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Start an agent run from one browser window/tab.
    - Attempt a second run against the same conversation from another browser window/tab and confirm it fails with `RUN_IN_PROGRESS` and surfaces a clear error.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-16: Marked Task 1 in progress; reviewed existing abort + run patterns in REST + MCP and the shared agents service.
+- 2025-12-16: Added `server/src/agents/runLock.ts` with a simple per-process Set-based lock keyed by `conversationId`.
+- 2025-12-16: Added per-conversation lock acquisition in `server/src/agents/service.ts`, plus REST (HTTP 409) + MCP (JSON-RPC error 409) mappings for `RUN_IN_PROGRESS`, and threaded AbortSignal from Agents MCP HTTP disconnects into `runAgentInstruction(...)`.
+- 2025-12-16: Updated `design.md` (per-conversation lock flow) and `projectStructure.md` (added `server/src/agents/runLock.ts`).
+- 2025-12-16: Ran `npm run lint --workspaces` and `npm run format:check --workspaces` (fixed server formatting via `npm run format --workspace server`).
+- 2025-12-16: Testing: `npm run build --workspace server` passed.
+- 2025-12-16: Testing: `npm run build --workspace client` passed.
+- 2025-12-16: Testing: `npm run test --workspace server` passed.
+- 2025-12-16: Testing: `npm run test --workspace client` passed.
+- 2025-12-16: Testing: `npm run e2e` passed.
+- 2025-12-16: Testing: `npm run compose:build` passed.
+- 2025-12-16: Testing: `npm run compose:up` passed.
+- 2025-12-16: Testing: Verified `RUN_IN_PROGRESS` using two concurrent REST calls against `http://host.docker.internal:5010` (second call returned HTTP 409 with `{ error: "conflict", code: "RUN_IN_PROGRESS" }`).
+- 2025-12-16: Testing: `npm run compose:down` passed.
 
 ---
 

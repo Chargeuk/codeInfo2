@@ -499,10 +499,31 @@ Add an optional `command` field to persisted turns so the UI can render “Comma
    - Test cases to implement:
      - “stores + returns command when provided”
      - “omitting command keeps existing behavior”
-8. [ ] Update `projectStructure.md` after adding any new test files:
+8. [ ] Server unit test (new): `chat.run(...)` persists `command` on BOTH the user turn and assistant turn:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/chat-command-metadata.test.ts`
+   - Purpose:
+     - Ensures command runs can tag each “step” as normal chat turns and the UI can render metadata on both sides of the exchange.
+   - What to implement:
+     - Build a minimal ChatInterface subclass test harness (copy patterns from `server/src/test/unit/chat-interface-base.test.ts`) that uses memory persistence.
+     - Call `chat.run('hello', { command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 } }, conversationId, modelId)`.
+     - Assert the stored turns include `command` on both:
+       - the `role: 'user'` turn
+       - the `role: 'assistant'` turn
+9. [ ] Server unit test (new): aborted run persists a `stopped` assistant turn that still includes `command`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/chat-command-metadata.test.ts`
+   - Purpose:
+     - Ensures cancellation persistence requirements are met: the in-flight step produces a visible “Stopped” assistant turn and it must be tagged with the same `command` metadata.
+   - What to implement:
+     - Create an `AbortController` and pass `signal: controller.signal` via flags.
+     - Abort before completion and assert:
+       - assistant turn `status === 'stopped'`
+       - assistant turn includes `command: { name, stepIndex, totalSteps }`.
+10. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
-9. [ ] Run repo-wide lint/format gate:
+11. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -593,18 +614,128 @@ Define the command JSON schema (based on `improve_plan.json`) and implement vali
    - What to implement:
      - Call `parseAgentCommandFile('{ not valid json')`.
      - Assert it returns `{ ok: false }`.
-6. [ ] Server unit test: invalid schema returns `{ ok: false }`:
+6. [ ] Server unit test: missing `Description` returns `{ ok: false }`:
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
    - Purpose:
-     - Ensures schema validation rejects unsupported shapes (e.g. missing fields, wrong types).
+     - Ensures schema validation rejects missing required fields (corner case that would otherwise crash listing or produce blank UI).
    - What to implement:
-     - Provide syntactically valid JSON that violates schema (for example: `items: []` or `role: 'assistant'`).
+     - Provide syntactically valid JSON with `items` but no `Description`.
      - Assert it returns `{ ok: false }`.
-7. [ ] Update `projectStructure.md` after adding new server files/tests:
+7. [ ] Server unit test: empty/whitespace `Description` returns `{ ok: false }`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+   - Purpose:
+     - Prevents confusing UX where a command appears with a blank description.
+   - What to implement:
+     - Provide JSON with `Description: "   "` and a valid `items` list.
+     - Assert `{ ok: false }`.
+8. [ ] Server unit test: missing `items` returns `{ ok: false }`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+   - Purpose:
+     - Ensures the discriminated union schema does not accept partial/legacy shapes.
+   - What to implement:
+     - Provide JSON with only `Description`.
+     - Assert `{ ok: false }`.
+9. [ ] Server unit test: empty `items: []` returns `{ ok: false }`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+   - Purpose:
+     - Ensures commands always have at least one executable step.
+   - What to implement:
+     - Provide JSON with `items: []`.
+     - Assert `{ ok: false }`.
+10. [ ] Server unit test: unsupported `type` returns `{ ok: false }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Enforces v1 “type: message only” rule so future types can be added safely without ambiguity.
+    - What to implement:
+      - Provide JSON with `{ type: 'other', role: 'user', content: ['x'] }`.
+      - Assert `{ ok: false }`.
+11. [ ] Server unit test: unsupported `role` returns `{ ok: false }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Enforces v1 “role: user only” rule (explicitly requested).
+    - What to implement:
+      - Provide JSON with `{ type: 'message', role: 'assistant', content: ['x'] }`.
+      - Assert `{ ok: false }`.
+12. [ ] Server unit test: non-array `content` returns `{ ok: false }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Prevents runtime crashes when command content is malformed.
+    - What to implement:
+      - Provide JSON with `content: 'not-an-array'`.
+      - Assert `{ ok: false }`.
+13. [ ] Server unit test: empty `content: []` returns `{ ok: false }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Ensures each step produces a non-empty instruction.
+    - What to implement:
+      - Provide JSON with `content: []`.
+      - Assert `{ ok: false }`.
+14. [ ] Server unit test: whitespace-only `content` entries are rejected after trimming:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Prevents “empty lines only” steps that would appear as blank user turns.
+    - What to implement:
+      - Provide JSON with `content: ['   ']`.
+      - Assert `{ ok: false }`.
+15. [ ] Server unit test: unknown keys are rejected (`.strict()` behavior):
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Ensures schema is extendable via explicit future changes, not by silently accepting typos.
+    - What to implement:
+      - Provide JSON with an extra top-level field like `{ Description, items, extra: true }`.
+      - Assert `{ ok: false }`.
+16. [ ] Server unit test: trimming behavior produces a clean `command` object:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-schema.test.ts`
+    - Purpose:
+      - Guarantees execution joins clean strings and avoids leading/trailing whitespace bugs.
+    - What to implement:
+      - Provide JSON where `content: ['  first  ', ' second ']`.
+      - Assert `parseAgentCommandFile(...)` returns `{ ok: true }` and the parsed command contains `content: ['first', 'second']`.
+17. [ ] Server unit test: `loadAgentCommandSummary(...)` returns enabled summary for valid command file:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-loader.test.ts`
+    - Purpose:
+      - Ensures the listing UX uses the command file’s Description and marks valid commands enabled.
+    - What to implement:
+      - Write a temp `*.json` file containing a valid command.
+      - Call `loadAgentCommandSummary({ filePath, name })` and assert `{ disabled: false, description: <Description> }`.
+18. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when schema invalid:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-loader.test.ts`
+    - Purpose:
+      - Ensures invalid-but-parseable JSON becomes “Invalid command file” (disabled) for REST listing.
+    - What to implement:
+      - Write a temp `*.json` file containing syntactically valid JSON that violates schema (e.g. `items: []`).
+      - Assert summary is `{ disabled: true, description: 'Invalid command file' }`.
+19. [ ] Server unit test: `loadAgentCommandSummary(...)` returns disabled summary when file read fails:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-loader.test.ts`
+    - Purpose:
+      - Covers the “file missing / IO error” corner case deterministically (no chmod tricks).
+    - What to implement:
+      - Call `loadAgentCommandSummary({ filePath: '/does/not/exist.json', name: 'missing' })`.
+      - Assert it returns `{ name: 'missing', disabled: true, description: 'Invalid command file' }`.
+20. [ ] Update `projectStructure.md` after adding new server files/tests:
    - Files to edit:
      - `projectStructure.md`
-8. [ ] Run repo-wide lint/format gate:
+   - Requirements:
+     - Add:
+       - `server/src/agents/commandsSchema.ts`
+       - `server/src/agents/commandsLoader.ts`
+       - `server/src/test/unit/agent-commands-schema.test.ts`
+       - `server/src/test/unit/agent-commands-loader.test.ts`
+21. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -675,7 +806,18 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Call `listAgentCommands({ agentName })` for a discovered agent without a `commands/` directory.
      - Assert response is `{ commands: [] }`.
-4. [ ] Server unit test: invalid command JSON appears as disabled entry:
+4. [ ] Server unit test: valid command JSON appears as enabled entry:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-list.test.ts`
+   - Purpose:
+     - Confirms a normal, valid command file is surfaced to the UI as selectable.
+   - What to implement:
+     - Create `commands/improve_plan.json` under a temporary agent folder for the test (valid JSON matching schema).
+     - Assert it is returned with:
+       - `name === 'improve_plan'`
+       - `disabled === false`
+       - `description` equals the JSON `Description`.
+5. [ ] Server unit test: invalid command JSON (syntax) appears as disabled entry:
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
@@ -683,19 +825,52 @@ Implement a shared server function that discovers command JSON files for an agen
    - What to implement:
      - Create a `commands/bad.json` fixture (invalid JSON) under a temporary agent folder for the test.
      - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
-5. [ ] Server unit test: unknown agentName throws `{ code: 'AGENT_NOT_FOUND' }`:
+6. [ ] Server unit test: invalid command JSON (schema) appears as disabled entry:
    - Test type: server unit (Node `node:test`)
    - Location: `server/src/test/unit/agent-commands-list.test.ts`
    - Purpose:
-     - Ensures REST/MCP can map unknown agents to stable “not found” errors.
+     - Ensures “valid JSON but wrong shape” is treated as invalid and does not crash listing.
    - What to implement:
-     - Call `listAgentCommands({ agentName: 'does-not-exist' })`.
-     - Assert it throws `{ code: 'AGENT_NOT_FOUND' }`.
-6. [ ] Update `projectStructure.md` after adding any new test files:
-   - Files to edit:
-     - `projectStructure.md`
-7. [ ] Run repo-wide lint/format gate:
-   - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
+     - Create a `commands/bad-schema.json` fixture containing syntactically valid JSON that violates schema (e.g. `items: []`).
+     - Assert it is returned with `disabled: true` and `description === 'Invalid command file'`.
+7. [ ] Server unit test: non-JSON files are ignored:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-list.test.ts`
+   - Purpose:
+     - Ensures only `*.json` files are treated as commands.
+   - What to implement:
+     - Create `commands/README.md` and `commands/notes.txt` in the temp agent folder.
+     - Assert they are not returned in the commands list.
+8. [ ] Server unit test: results are sorted by `name` for deterministic UI ordering:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-list.test.ts`
+   - Purpose:
+     - Prevents UI dropdown ordering from changing between runs/OSes.
+   - What to implement:
+     - Create two valid command files `z.json` and `a.json`.
+     - Assert the returned `commands` array is ordered `a` then `z`.
+9. [ ] Server unit test: “no caching” behavior (list reflects new files on the next call):
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-list.test.ts`
+   - Purpose:
+     - Confirms the requirement “commands list refreshed every time it is requested”.
+   - What to implement:
+     - Call `listAgentCommands(...)` once and assert only command `a` is present.
+     - Create a new valid command file `b.json` after the first call.
+     - Call `listAgentCommands(...)` again and assert both `a` and `b` are present.
+10. [ ] Server unit test: unknown agentName throws `{ code: 'AGENT_NOT_FOUND' }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-list.test.ts`
+    - Purpose:
+      - Ensures REST/MCP can map unknown agents to stable “not found” errors.
+    - What to implement:
+      - Call `listAgentCommands({ agentName: 'does-not-exist' })`.
+      - Assert it throws `{ code: 'AGENT_NOT_FOUND' }`.
+11. [ ] Update `projectStructure.md` after adding any new test files:
+    - Files to edit:
+      - `projectStructure.md`
+12. [ ] Run repo-wide lint/format gate:
+    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
 
@@ -765,10 +940,26 @@ Expose command listing to the GUI via REST using the shared list function. The r
    - What to implement:
      - Stub `listAgentCommands(...)` to include `{ name: 'bad', description: 'Invalid command file', disabled: true }`.
      - Assert response includes that entry and `disabled === true`.
-5. [ ] Update `projectStructure.md` after adding any new files:
+5. [ ] Server unit test (REST): unknown `agentName` returns HTTP 404 `{ error: 'not_found' }`:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
+   - Purpose:
+     - Ensures the UI can distinguish “no such agent” from “agent has no commands”.
+   - What to implement:
+     - Stub `listAgentCommands(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
+     - Assert `status === 404` and body is `{ error: 'not_found' }`.
+6. [ ] Server unit test (REST): agent with no commands returns `{ commands: [] }`:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-list.test.ts`
+   - Purpose:
+     - Confirms the route returns a consistent payload shape even when empty.
+   - What to implement:
+     - Stub `listAgentCommands(...)` to return `{ commands: [] }`.
+     - Assert `status === 200` and `body.commands` is an empty array.
+7. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run repo-wide lint/format gate:
+8. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -844,17 +1035,34 @@ Expose command listing via Agents MCP `5012`. `list_commands` must return all ag
    - What to implement:
      - Call `callTool('list_commands', { agentName: 'does-not-exist' })`.
      - Assert the tool throws the expected “invalid params / not found” tool error (per Task 6 requirements).
-4. [ ] Update existing MCP tools/list expectation test:
+5. [ ] Server unit test (Agents MCP tool): `agentName` provided with no commands returns `{ commands: [] }`:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
+   - Purpose:
+     - Confirms behavior differs from “unknown agent”: an existing agent can legitimately have zero commands.
+   - What to implement:
+     - Stub `listAgents()` to include `planning_agent`.
+     - Stub `listAgentCommands({ agentName: 'planning_agent' })` to return `{ commands: [] }`.
+     - Call `callTool('list_commands', { agentName: 'planning_agent' })` and assert JSON result contains `commands: []`.
+6. [ ] Server unit test (Agents MCP tool): invalid params are rejected (empty `agentName`):
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-list.test.ts`
+   - Purpose:
+     - Ensures Zod schema validation is strict and avoids ambiguous behavior.
+   - What to implement:
+     - Call `callTool('list_commands', { agentName: '' })`.
+     - Assert it throws an invalid-params style tool error.
+7. [ ] Update existing MCP tools/list expectation test:
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Files to edit:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Requirements:
      - Update the expected tool names to include `list_commands` (while `run_command` is not yet implemented in this task).
-5. [ ] Update `projectStructure.md` after adding any new test files:
+8. [ ] Update `projectStructure.md` after adding any new test files:
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run repo-wide lint/format gate:
+9. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1049,10 +1257,81 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Start a command run that holds the lock (e.g. a helper that awaits a promise).
      - While it is in-flight, attempt a second run against the same `conversationId`.
      - Assert the second run fails with `{ code: 'RUN_IN_PROGRESS' }`.
-4. [ ] Update `projectStructure.md` after adding any new files:
+6. [ ] Server unit test: `instruction` passed to each step equals `content.join('\\n')` (with trimmed content):
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+   - Purpose:
+     - Confirms the runner executes exactly what the JSON defines (no accidental extra whitespace, no missing newlines).
+   - What to implement:
+     - Use a command item with `content: ['  first  ', 'second ']`.
+     - Assert the unlocked helper receives `instruction === 'first\\nsecond'`.
+7. [ ] Server unit test: `working_folder` is forwarded to the unlocked helper for every step:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+   - Purpose:
+     - Ensures the command runner behaves the same as normal agent runs regarding working folder overrides.
+   - What to implement:
+     - Call `runAgentCommand({ ..., working_folder: '/abs/path' })` and assert every unlocked-helper call receives `working_folder: '/abs/path'`.
+8. [ ] Server unit test: when `conversationId` is omitted, a new id is generated and reused for all steps:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+   - Purpose:
+     - Ensures the command run can start a brand-new conversation and all steps append to the same conversation.
+   - What to implement:
+     - Call `runAgentCommand({ agentName, commandName, source: 'REST' })` without `conversationId`.
+     - Assert the unlocked helper is called with the same `conversationId` for every step and the returned result uses that same id.
+9. [ ] Server unit test: when `conversationId` is provided, it is reused and returned unchanged:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+   - Purpose:
+     - Prevents accidental new-conversation creation when the user intends to run a command in an existing chat.
+   - What to implement:
+     - Call `runAgentCommand({ ..., conversationId: 'c1' })` and assert the result returns `conversationId === 'c1'`.
+10. [ ] Server unit test: invalid `commandName` values are rejected with `{ code: 'COMMAND_INVALID' }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+    - Purpose:
+      - Prevents path traversal and keeps v1 naming contract (filename basename only).
+    - What to implement:
+      - Attempt `runAgentCommand` with `commandName: '../bad'`, `commandName: 'a/b'`, and `commandName: 'a\\\\b'`.
+      - Assert each throws `{ code: 'COMMAND_INVALID' }`.
+11. [ ] Server unit test: missing command file throws `{ code: 'COMMAND_NOT_FOUND' }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+    - Purpose:
+      - Ensures REST/MCP can map “command not found” to a stable 404-style error.
+    - What to implement:
+      - Ensure no matching `commands/<commandName>.json` exists for the discovered agent.
+      - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_NOT_FOUND' }`.
+12. [ ] Server unit test: invalid command file throws `{ code: 'COMMAND_INVALID' }`:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+    - Purpose:
+      - Ensures malformed command files fail safely and do not partially execute.
+    - What to implement:
+      - Create an invalid command JSON file (syntax or schema invalid).
+      - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_INVALID' }` and the unlocked helper is never called.
+13. [ ] Server unit test: step failure stops execution and releases the lock:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+    - Purpose:
+      - Ensures we do not execute later steps after a failure, and we don’t leak locks on thrown errors.
+    - What to implement:
+      - Stub the unlocked helper so step 2 throws an error.
+      - Assert step 3 is never executed.
+      - After the call rejects, start a second run for the same `conversationId` and assert it can acquire the lock (i.e., does not fail with `RUN_IN_PROGRESS`).
+14. [ ] Server unit test: lock is per-conversation and does not block other conversations:
+    - Test type: server unit (Node `node:test`)
+    - Location: `server/src/test/unit/agent-commands-runner.test.ts`
+    - Purpose:
+      - Confirms the user requirement that different chats can run concurrently.
+    - What to implement:
+      - Start a command run for `conversationId='c1'` that blocks on a Promise barrier.
+      - Start a second command run for `conversationId='c2'` and assert it proceeds (does not throw `RUN_IN_PROGRESS`).
+15. [ ] Update `projectStructure.md` after adding any new files:
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Update `design.md` with the command-run flow + Mermaid sequence diagram:
+16. [ ] Update `design.md` with the command-run flow + Mermaid sequence diagram:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1063,7 +1342,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Actors: `Client(UI or MCP)`, `Server(REST/MCP)`, `AgentsService`, `Codex`.
      - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
      - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
-6. [ ] Run repo-wide lint/format gate:
+17. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1162,10 +1441,59 @@ Expose command execution to the GUI via REST using the shared runner. Response i
        - body includes `{ error: 'invalid_request', code: 'COMMAND_INVALID' }`.
    - Reference test harness:
      - Copy the SuperTest wiring style from `server/src/test/unit/agents-router-run.test.ts`.
-6. [ ] Update `projectStructure.md` after adding tests:
+6. [ ] Server unit test (REST): `COMMAND_NOT_FOUND` maps to HTTP 404 `{ error: 'not_found' }`:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Purpose:
+     - Ensures the UI can show a clean “command not found” error when a user selects a stale command name.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
+     - Assert `status === 404` and body is `{ error: 'not_found' }`.
+7. [ ] Server unit test (REST): `COMMAND_INVALID` from runner maps to HTTP 400 with stable body:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Purpose:
+     - Ensures invalid command files (schema/syntax) surface as a stable request error.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID', reason: 'Invalid command file' }`.
+     - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'COMMAND_INVALID' }`.
+8. [ ] Server unit test (REST): `WORKING_FOLDER_INVALID` maps to HTTP 400 with stable body:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Purpose:
+     - Matches existing agent-run behavior for invalid working folder input.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`.
+     - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' }`.
+9. [ ] Server unit test (REST): `WORKING_FOLDER_NOT_FOUND` maps to HTTP 400 with stable body:
+   - Test type: server unit (Node `node:test` + SuperTest)
+   - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Purpose:
+     - Ensures callers get a clear, non-500 error when the folder doesn’t exist.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
+     - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
+10. [ ] Server unit test (REST): unknown agent maps to HTTP 404 `{ error: 'not_found' }`:
+    - Test type: server unit (Node `node:test` + SuperTest)
+    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+    - Purpose:
+      - Ensures stable behavior when the UI references a removed/renamed agent.
+    - What to implement:
+      - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
+      - Assert `status === 404` and body is `{ error: 'not_found' }`.
+11. [ ] Server unit test (REST): aborting the HTTP request aborts the runner via AbortSignal:
+    - Test type: server unit (Node `node:test`, HTTP server + fetch AbortController)
+    - Location: `server/src/test/unit/agents-commands-router-run.test.ts`
+    - Purpose:
+      - Ensures v1 cancellation semantics work for command runs: closing/aborting the HTTP request must abort the in-flight provider call and stop subsequent steps.
+    - What to implement:
+      - Build an Express app with `createAgentsCommandsRouter({ runAgentCommand: stub })` and start it on an ephemeral port.
+      - Stub `runAgentCommand` to capture `params.signal` and await until it is aborted (use an `abort` event listener).
+      - Start a `fetch` POST request with a client-side `AbortController`, then abort it and assert the stub observed `signal.aborted === true`.
+12. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
-7. [ ] Update `design.md` with REST command endpoints + Mermaid diagram updates:
+13. [ ] Update `design.md` with REST command endpoints + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1175,7 +1503,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Required updates:
      - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
      - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
-8. [ ] Run repo-wide lint/format gate:
+14. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1272,17 +1600,57 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Assert it throws an invalid-params style error (per Task 10 mapping rules).
    - Reference harness:
      - Copy dependency injection patterns from `server/src/test/unit/mcp-agents-tools.test.ts`.
-6. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
+6. [ ] Server unit test (Agents MCP tool): `COMMAND_NOT_FOUND` maps to a stable tool error:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
+   - Purpose:
+     - Ensures MCP callers can treat “no such command” as an invalid params/not-found style error (no string parsing).
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
+     - Assert the tool call throws the expected stable tool error type/code.
+7. [ ] Server unit test (Agents MCP tool): `COMMAND_INVALID` maps to a stable tool error:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
+   - Purpose:
+     - Ensures invalid command file/schema is reported safely to MCP callers.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID' }`.
+     - Assert the tool call throws an invalid-params style tool error.
+8. [ ] Server unit test (Agents MCP tool): `WORKING_FOLDER_*` errors map to invalid-params tool errors:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
+   - Purpose:
+     - Keeps MCP behavior aligned with existing `run_agent_instruction` working-folder validation rules.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`, assert invalid-params tool error.
+     - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`, assert invalid-params tool error.
+9. [ ] Server unit test (Agents MCP tool): unknown agent maps to a stable tool error:
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-agents-commands-run.test.ts`
+   - Purpose:
+     - Ensures the MCP surface does not silently return empty/ok results for unknown agents.
+   - What to implement:
+     - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
+     - Assert invalid-params style tool error (safe message).
+10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts `run_command` via AbortSignal:
+    - Test type: server unit (Node `node:test`, HTTP server + fetch AbortController)
+    - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
+    - Purpose:
+      - Ensures MCP cancellation behavior is consistent for both `run_agent_instruction` and `run_command`.
+    - What to implement:
+      - Set tool deps so `runAgentCommand` captures `params.signal` and waits for abort.
+      - Send a JSON-RPC `tools/call` request for `run_command` using `fetch(..., { signal })`, then abort the client signal and assert the stub saw `signal.aborted === true`.
+11. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
    - Files to read:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Files to edit:
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Requirements:
      - Update expected tool names to include `run_command` as well as `list_commands`.
-7. [ ] Update `projectStructure.md` after adding tests:
+12. [ ] Update `projectStructure.md` after adding tests:
    - Files to edit:
      - `projectStructure.md`
-8. [ ] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
+13. [ ] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1293,7 +1661,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Document the two Agents MCP tools and their argument shapes at a high level (no full JSON examples needed in design.md).
      - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
      - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
-9. [ ] Run repo-wide lint/format gate:
+14. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1580,12 +1948,24 @@ Support the “KISS” command execution response by adding a refresh method to 
      - Ensures command execution can trigger a turns refresh without changing `conversationId`.
    - What to implement:
      - Mock the turns endpoint and verify calling `refresh()` causes a new fetch and sets `lastMode === 'replace'`.
-4. [ ] Update `projectStructure.md` after adding new client test files:
+4. [ ] Client unit test (Jest): turns API `command` metadata is preserved in `StoredTurn`:
+   - Test type: client unit (Jest)
+   - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Purpose:
+     - Ensures the UI can render `Command run: ... (2/12)` from persisted turns without any extra mapping layer.
+   - What to implement:
+     - Mock `/conversations/:id/turns` returning an item that includes:
+       - `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`
+     - Assert the hook returns a `StoredTurn` containing that `command` field unchanged.
+5. [ ] Update `projectStructure.md` after adding new client test files:
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add `client/src/test/useConversationTurns.refresh.test.ts` with a short description.
-5. [ ] Run repo-wide lint/format gate:
+     - Add:
+       - `client/src/test/useConversationTurns.refresh.test.ts`
+       - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+     - Ensure each entry has a short description (what it covers).
+6. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing
@@ -1916,7 +2296,48 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Confirms the same per-conversation lock messaging is used for both agent instructions and command runs.
    - What to implement:
      - Mock `/agents/:agentName/run` to respond with 409 `RUN_IN_PROGRESS` and assert the same message appears.
-7. [ ] Update `projectStructure.md` after adding new client test files:
+7. [ ] Client UI unit test (Jest/RTL): command names display with underscores replaced by spaces:
+   - Test type: client unit (Jest + React Testing Library)
+   - Location: `client/src/test/agentsPage.commandsList.test.tsx`
+   - Purpose:
+     - Confirms the dropdown shows friendly labels without changing the underlying `commandName` value sent to the server.
+   - What to implement:
+     - Mock commands list containing `{ name: 'improve_plan', description: 'd', disabled: false }`.
+     - Assert the rendered option text includes `improve plan` (space) rather than `improve_plan`.
+8. [ ] Client UI unit test (Jest/RTL): selecting a command shows its Description (and does not show JSON):
+   - Test type: client unit (Jest + React Testing Library)
+   - Location: `client/src/test/agentsPage.commandsList.test.tsx`
+   - Purpose:
+     - Ensures the UI meets the story requirement: show Description only, never raw JSON.
+   - What to implement:
+     - Select a command and assert the description panel renders the description text.
+     - Assert the UI does not render any `{"Description":`-style JSON content.
+9. [ ] Client UI unit test (Jest/RTL): Execute is disabled when Mongo persistence is unavailable:
+   - Test type: client unit (Jest + React Testing Library)
+   - Location: `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+   - Purpose:
+     - Matches the story’s KISS requirement: command execution UI relies on persisted turns for multi-step output, so it must be disabled when `mongoConnected === false`.
+   - What to implement:
+     - Mock `/health` returning `{ mongoConnected: false }`.
+     - Assert the Execute button is disabled and the explanatory message is visible.
+10. [ ] Client UI unit test (Jest/RTL): per-turn “Command run … (2/12)” note renders in bubbles:
+    - Test type: client unit (Jest + React Testing Library)
+    - Location: `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+    - Purpose:
+      - Ensures the final UX requirement is met: command-origin turns are clearly labelled with step progress.
+    - What to implement:
+      - Mock turn hydration to return at least one user and assistant turn with `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`.
+      - Assert the bubble includes `Command run: improve_plan (2/12)`.
+11. [ ] Client UI unit test (Jest/RTL): Stop aborts an in-flight command execute request:
+    - Test type: client unit (Jest + React Testing Library)
+    - Location: `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+    - Purpose:
+      - Ensures v1 cancellation works from the UI: the existing Stop button aborts the in-flight command run request.
+    - What to implement:
+      - Mock the command-run `fetch` to return a Promise that never resolves, and capture the `signal` passed to fetch.
+      - Click Execute, then click Stop.
+      - Assert the captured `signal.aborted === true`.
+12. [ ] Update `projectStructure.md` after adding new client test files:
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -1924,8 +2345,11 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
        - `client/src/test/agentsPage.commandsList.test.tsx`
        - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
        - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+       - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+       - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+       - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
      - Ensure each entry has a short description (what it covers).
-8. [ ] Run repo-wide lint/format gate:
+13. [ ] Run repo-wide lint/format gate:
    - Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun fix scripts and manually resolve remaining issues.
 
 #### Testing

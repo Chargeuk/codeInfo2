@@ -23,7 +23,9 @@ This functionality must also be exposed via the existing Agents MCP (port `5012`
 - Executing a command runs through its steps sequentially, feeding each step into the agent (reusing `conversationId` between steps).
 - Commands accept an optional `working_folder` (absolute path), reusing the existing Agents “working folder” input field and the existing server-side resolution/mapping logic from Story `0000017`.
 - Command-run turns appear as normal agent chat turns, but each turn created by a command run is annotated so the UI can show a small “Command run: <name>” note inside the chat bubble.
+- Command-run turn metadata uses a single structured field: `command: { name, stepIndex, totalSteps }` so the UI can show progress like “2/12”.
 - Command runs are cancellable: cancelling stops the in-flight step (best-effort) and prevents any subsequent steps from running.
+- Concurrency is blocked: while an agent run or command run is in progress for a given agent conversation, the UI disables starting new runs (except Abort), and the server rejects concurrent REST/MCP run requests.
 
 ### Command schema (v1; extendable)
 
@@ -113,6 +115,9 @@ Add two new tools to Agents MCP `5012`:
   - Cancellation:
     - Cancelling a command run stops the current in-flight step best-effort (abort provider call) and guarantees no further steps execute.
     - Cancelling must not append partial/empty follow-up steps after the cancel occurs.
+    - When cancelling during an in-flight step, the server appends an assistant turn indicating the step was cancelled (with the `command` metadata set for that step).
+  - Concurrency:
+    - While a run is in progress for an agent conversation, REST and MCP must reject new run requests with a stable error code.
 
 - Agents UI:
   - When the selected agent changes, the UI fetches and replaces the commands list for that agent.
@@ -121,9 +126,11 @@ Add two new tools to Agents MCP `5012`:
     - the selected command’s `Description`,
     - an “Execute” button.
   - UI does not show the command JSON.
+  - Invalid command entries are visible but disabled/unselectable in the dropdown.
   - If the working folder field is populated, it is passed as `working_folder` when executing the selected command.
   - After execution completes, the UI shows each command step’s prompt content and the agent’s response for that step by re-fetching turns (no special step payload required).
   - Each command-run-created turn shows a small “Command run: <commandName>” note inside the chat bubble.
+  - While a run is in progress, the UI disables starting new runs and only allows Abort.
 
 - Validation rules (KISS; enforce only what we need now):
   - Command file must be valid JSON.
@@ -142,6 +149,8 @@ Add two new tools to Agents MCP `5012`:
   - New command errors:
     - `COMMAND_NOT_FOUND` – requested `commandName` does not exist for that agent.
     - `COMMAND_INVALID` – JSON parse failure, schema invalid, unsupported item type/role.
+  - Concurrency:
+    - `RUN_IN_PROGRESS` – a run is already in progress for the targeted agent conversation.
   - Listing invalid commands:
     - When listing commands, invalid command files must still appear in the list as disabled entries (so users can see something exists but cannot run it).
     - Disabled entries may use a placeholder description (for example “Invalid command file”) if the JSON cannot be parsed.
@@ -150,8 +159,10 @@ Add two new tools to Agents MCP `5012`:
     - `COMMAND_NOT_FOUND` → 404
     - `COMMAND_INVALID` → 400 with `{ error: "invalid_request", code: "COMMAND_INVALID", message: "..." }`
     - `WORKING_FOLDER_*` → 400 (existing behavior)
+    - `RUN_IN_PROGRESS` → 409 with `{ error: "conflict", code: "RUN_IN_PROGRESS", message: "..." }`
   - MCP mapping:
     - invalid params (including `COMMAND_*` and `WORKING_FOLDER_*`) must be returned as invalid-params style tool errors with safe messages.
+    - `RUN_IN_PROGRESS` must be returned as a tool error with a stable code/message (so callers can treat it as a conflict/retry-later condition).
 
 ---
 

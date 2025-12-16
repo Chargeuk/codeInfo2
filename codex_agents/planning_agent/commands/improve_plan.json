@@ -114,6 +114,11 @@
     {
       "type": "message",
       "role": "user",
+      "content": ["The last Subtasks should not be commands to build code or tun tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
       "content": ["The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:",
         "1. [ ] `npm run build --workspace server`",
         "2. [ ] `npm run build --workspace client`",

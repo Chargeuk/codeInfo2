@@ -18,6 +18,11 @@ Today, ingest (and re-embed) behaves like a full rebuild of a folder’s embeddi
 
 We want to introduce a **delta re-ingest** mechanism driven by **file content hashes** so that when a user requests a re-ingest, the server only re-embeds files that are new or have changed, and removes embeddings for files that have been deleted.
 
+To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we will introduce a lightweight **per-file index stored in MongoDB** (for example `ingest_files`) keyed by `{ root, relPath }` and storing `fileHash` (and any other small fields we decide are useful). This index is used to:
+- detect deleted files (present in the index but not found on disk),
+- detect changed files (hash differs), and
+- detect new files (present on disk but not in the index).
+
 Separately, the Ingest page UI has a couple of small usability issues:
 - When the embedding model is locked, the same info notice appears twice (once on the page and once inside the form). We want to show it only once to reduce noise.
 - The “Folder path” field is currently text-only; we want an optional “Choose folder…” affordance that helps users select a folder path more reliably.
@@ -38,6 +43,9 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
   - Store a file path including filename (relative to the ingested root, or another agreed representation).
   - Store a file hash (and any other identifiers needed for diffing).
+- A per-file index is persisted in **MongoDB** and is the primary source of truth for delta decisions:
+  - It is keyed by `{ root, relPath }` and stores `fileHash` (minimum).
+  - Delta re-ingest uses this index to detect new/changed/deleted files without scanning all chunk metadata in Chroma.
 - Re-ingest remains safe/robust:
   - Cancelling a run cleans up only the in-progress vectors for that run (no partial corruption of existing unchanged vectors).
   - Concurrency is controlled (no simultaneous ingest/re-ingest against the same collections beyond existing locking rules).
@@ -56,13 +64,14 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Sophisticated “partial file” diffs at the chunk level (v1 can treat a changed file as “delete all chunks for that file, then re-add”).
 - Full “native OS folder picker that reveals absolute filesystem paths” in a standard browser environment, if it requires switching to an upload-based ingest model or a desktop wrapper (see Questions).
 - A browser-native folder picker that depends on local filesystem selection and implies upload-based ingest or a desktop wrapper (we will use a server-backed directory picker instead).
+- Storing the per-file index inside Chroma (we will store it in MongoDB instead).
 - Any UI redesign beyond the two specific Ingest page adjustments described above.
 
 ---
 
 ## Questions
 
-1. **Source of truth for diffing:** should we diff by scanning existing vectors’ metadata in Chroma, or should we introduce a dedicated per-file index (e.g., a new `ingest_files` collection keyed by `{root, relPath}` with `fileHash` and timestamps) to avoid scanning all chunk metadata?
+1. **Mongo per-file index shape:** what exact Mongo schema do we want for the per-file index (minimum `{ root, relPath, fileHash }`; optionally `updatedAt`, `sizeBytes`, `mtimeMs`, `chunkerVersion/configHash`, `lastEmbeddedAt`) and what indexes should we add for performance?
 2. **Chunk IDs / update strategy:** do we want stable chunk IDs (e.g., `{root}:{relPath}:{chunkIndex}` or `chunkHash`) so we can upsert, or is the v1 strategy “delete all vectors for `{root, relPath}` then re-add” sufficient?
 3. **Path representation:** the current chunk metadata stores `relPath`. Is that sufficient for “path including filename”, or do we need to store additional fields (e.g., `absContainerPath`, `repo`, `hostPath`) to support future UI and tool-citation use-cases?
 4. **Chunking/config versioning:** should delta logic consider a `chunkerVersion` / `configHash` so that a re-ingest can be forced even when `fileHash` is unchanged but chunking rules change?

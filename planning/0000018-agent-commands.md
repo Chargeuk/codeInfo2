@@ -1923,7 +1923,6 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 - 2025-12-17: Updated `design.md` + `projectStructure.md` to include the new REST endpoint and tests.
 - 2025-12-17: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; applied `npm run format --workspace server` to fix Prettier output.
 - 2025-12-17: Testing 1/9: `npm run build --workspace server`.
-- 2025-12-17: Added `codex_agents/planning_agent/commands/smoke.json` as a fast, single-step command so MCP `run_command` can be manually verified without running the long `improve_plan` macro.
 - 2025-12-17: Testing 2/9: `npm run build --workspace client`.
 - 2025-12-17: Testing 3/9: `npm run test --workspace server`.
 - 2025-12-17: Testing 4/9: `npm run test --workspace client`.
@@ -2133,6 +2132,16 @@ Expose command execution via Agents MCP using the same server runner and error m
 - 2025-12-17: Updated `projectStructure.md` for the new MCP tool/test file and adjusted MCP tool list descriptions.
 - 2025-12-17: Updated `design.md` to document Agents MCP `list_commands`/`run_command` plus a `run_command` sequence diagram and tool argument shapes.
 - 2025-12-17: Ran `npm run lint --workspaces` and `npm run format:check --workspaces` (both clean).
+- 2025-12-17: Added `codex_agents/planning_agent/commands/smoke.json` as a fast, single-step command so MCP `run_command` can be manually verified without running the long `improve_plan` macro.
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: MCP `tools/call` `run_command` (planning_agent/smoke) returned `{ conversationId: "f8da5345-df88-4b18-8ddc-43872602dacd", modelId: "gpt-5.2" }` via `http://host.docker.internal:5012`.
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
 
 ---
 

@@ -2677,7 +2677,7 @@ Update the Agents page to list commands for the selected agent and show the sele
 
 ### 16. Client UI: execute command button + server conflict messaging
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2695,7 +2695,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 
 #### Subtasks
 
-1. [ ] Add “Execute command” button + handler:
+1. [x] Add “Execute command” button + handler:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2721,7 +2721,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
      ```
    - Reminder:
      - No client-side “global lock” in v1. Only disable Execute when *this* tab is running (`isRunning`) or Mongo is down; server enforces per-conversation locking and returns `RUN_IN_PROGRESS`.
-2. [ ] Implement success flow that refreshes conversations + turns:
+2. [x] Implement success flow that refreshes conversations + turns:
    - Docs to read:
      - Context7 `/websites/mongoosejs`
      - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
@@ -2735,7 +2735,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
        - Set `activeConversationId` to the returned `conversationId`.
        - Clear `messages` so the transcript renders from persisted turns (KISS; persisted turns do not include “segments” detail from live runs).
        - Call `refresh()` on `useConversationTurns` (or rely on the hook’s initial fetch after the id becomes eligible) to show the newly appended turns.
-3. [ ] Surface `RUN_IN_PROGRESS` for command execution:
+3. [x] Surface `RUN_IN_PROGRESS` for command execution:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2744,7 +2744,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
      - When the API throws `status=409` and `code="RUN_IN_PROGRESS"`, show a friendly error bubble (do not disable the UI; just inform the user the conversation is already running).
    - Example user-facing message (copy this exact phrasing so tests can assert it):
      - “This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.”
-4. [ ] Surface `RUN_IN_PROGRESS` for normal agent instructions too:
+4. [x] Surface `RUN_IN_PROGRESS` for normal agent instructions too:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2752,7 +2752,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Requirements:
      - When `runAgentInstruction(...)` fails with `status=409` and `code="RUN_IN_PROGRESS"`, show the same friendly message as command runs.
      - This must work when a second browser window/tab tries to run against the same `conversationId`.
-5. [ ] Update `design.md` with the Agents UI command flow + Mermaid diagram updates:
+5. [x] Update `design.md` with the Agents UI command flow + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -2762,28 +2762,34 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
    - Required updates:
      - Add a short section describing: “commands list refresh on agent change”, “execute returns `{ conversationId, modelId }` and UI re-fetches turns”, and “no client-side global lock; server rejects with RUN_IN_PROGRESS”.
      - Add (or extend) a Mermaid flowchart or sequence diagram showing: select agent → fetch commands → execute → refresh conversations → hydrate turns.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Execute button runs a command and the transcript refreshes from persisted turns.
    - When a second browser window/tab tries to run against the same `conversationId`, the UI shows the `RUN_IN_PROGRESS` message.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 16 implementation.
+- 2025-12-17: Subtasks 1-4 complete: added Execute Command button wired to `runAgentCommand`, disabled when Mongo persistence is down, refreshes conversations + rehydrates turns on success, and surfaces `RUN_IN_PROGRESS` as a stable friendly bubble for both commands and normal instructions.
+- 2025-12-17: Subtask 5 complete: updated `design.md` Agents UI flow to include command list refresh, execute flow, and conflict handling.
+- 2025-12-17: Subtask 6 complete: `npm run lint --workspaces` and `npm run format:check --workspaces` passing.
+- 2025-12-17: Testing steps 1-5 complete: server+client build, server+client tests, and `npm run e2e` passing.
+- 2025-12-17: Testing steps 6-9 complete: `npm run compose:build`, `npm run compose:up`, manual UI check via Playwright against `http://host.docker.internal:5001`, then `npm run compose:down`.
+- 2025-12-17: Manual check gotcha in container environments: the client bundle’s baked `VITE_API_URL` must point at `http://host.docker.internal:5010` (not `http://localhost:5010`) to avoid accidentally calling an in-container server on localhost.
 
 ---
 

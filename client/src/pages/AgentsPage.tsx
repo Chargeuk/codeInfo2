@@ -32,7 +32,9 @@ import {
 import {
   listAgentCommands,
   listAgents,
+  runAgentCommand,
   runAgentInstruction,
+  AgentApiError,
 } from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
@@ -210,6 +212,7 @@ export default function AgentsPage() {
     error: turnsErrorMessage,
     hasMore: turnsHasMore,
     loadOlder,
+    refresh: refreshTurns,
     reset: resetTurns,
   } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
 
@@ -471,6 +474,26 @@ export default function AgentsPage() {
         setInput(lastSentRef.current);
         return;
       }
+
+      if (
+        err instanceof AgentApiError &&
+        err.status === 409 &&
+        err.code === 'RUN_IN_PROGRESS'
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+            role: 'assistant',
+            content:
+              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+            kind: 'error',
+            streamStatus: 'failed',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
       const message =
         (err as Error).message || 'Failed to run agent instruction.';
       setMessages((prev) => [
@@ -491,6 +514,97 @@ export default function AgentsPage() {
       setIsRunning(false);
     }
   };
+
+  const handleExecuteCommand = useCallback(async () => {
+    if (
+      !selectedAgentName ||
+      !selectedCommandName ||
+      isRunning ||
+      persistenceUnavailable
+    ) {
+      return;
+    }
+
+    stop();
+    const controller = new AbortController();
+    runControllerRef.current = controller;
+    setIsRunning(true);
+
+    try {
+      const result = await runAgentCommand({
+        agentName: selectedAgentName,
+        commandName: selectedCommandName,
+        working_folder: workingFolder.trim() || undefined,
+        conversationId: activeConversationId,
+        signal: controller.signal,
+      });
+
+      const isSameConversation = result.conversationId === activeConversationId;
+      await refreshConversations();
+      setActiveConversationId(result.conversationId);
+      setMessages([]);
+      resetTurns();
+      lastHydratedRef.current = null;
+
+      if (isSameConversation && shouldLoadTurns) {
+        await refreshTurns();
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        return;
+      }
+
+      if (
+        err instanceof AgentApiError &&
+        err.status === 409 &&
+        err.code === 'RUN_IN_PROGRESS'
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+            role: 'assistant',
+            content:
+              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+            kind: 'error',
+            streamStatus: 'failed',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
+
+      const message = (err as Error).message || 'Failed to run agent command.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+          role: 'assistant',
+          content: message,
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      if (runControllerRef.current === controller) {
+        runControllerRef.current = null;
+      }
+      setIsRunning(false);
+    }
+  }, [
+    activeConversationId,
+    isRunning,
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+    resetTurns,
+    selectedAgentName,
+    selectedCommandName,
+    shouldLoadTurns,
+    stop,
+    workingFolder,
+  ]);
 
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
@@ -732,6 +846,34 @@ export default function AgentsPage() {
             >
               {selectedCommandDescription}
             </Typography>
+
+            <Stack spacing={0.75} alignItems="flex-start">
+              <Button
+                type="button"
+                variant="contained"
+                disabled={
+                  !selectedCommandName ||
+                  isRunning ||
+                  persistenceUnavailable ||
+                  controlsDisabled ||
+                  selectedAgent?.disabled
+                }
+                onClick={handleExecuteCommand}
+                data-testid="agent-command-execute"
+              >
+                Execute command
+              </Button>
+              {persistenceUnavailable ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="agent-command-persistence-note"
+                >
+                  Commands require conversation history (Mongo) to display
+                  multi-step results.
+                </Typography>
+              ) : null}
+            </Stack>
 
             {selectedAgent?.warnings?.length ? (
               <Alert severity="warning" data-testid="agent-warnings">

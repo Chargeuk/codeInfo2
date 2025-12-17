@@ -2585,7 +2585,7 @@ Support the “KISS” command execution response by adding a refresh method to 
 
 ### 15. Client UI: commands dropdown + description (list-only)
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview

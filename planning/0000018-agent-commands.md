@@ -2876,7 +2876,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 
 ### 18. Client tests: commands list + run + disabled entries + conflict errors
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2894,7 +2894,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 
 #### Subtasks
 
-1. [ ] Client UI unit test (Jest/RTL): switching agents fetches a new commands list:
+1. [x] Client UI unit test (Jest/RTL): switching agents fetches a new commands list:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2909,7 +2909,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Simulate switching the Agent select and assert the dropdown options update accordingly.
    - Reference patterns:
      - `client/src/test/agentsPage.list.test.tsx` (agents list + dropdown interaction)
-2. [ ] Client UI unit test (Jest/RTL): invalid commands are rendered disabled/unselectable:
+2. [x] Client UI unit test (Jest/RTL): invalid commands are rendered disabled/unselectable:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2921,7 +2921,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Mock commands list containing `{ name: 'bad', description: 'Invalid command file', disabled: true }`.
      - Assert the corresponding option is `disabled` and cannot be selected.
-3. [ ] Client UI unit test (Jest/RTL): clicking Execute calls the run endpoint:
+3. [x] Client UI unit test (Jest/RTL): clicking Execute calls the run endpoint:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2935,7 +2935,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Select a command, click Execute, and assert `fetch` was called with `/agents/<agent>/commands/run`.
    - Reference patterns:
      - `client/src/test/agentsPage.run.test.tsx` (send flow + fetch mocking)
-4. [ ] Client UI unit test (Jest/RTL): successful execute refreshes conversations and hydrates turns:
+4. [x] Client UI unit test (Jest/RTL): successful execute refreshes conversations and hydrates turns:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2950,7 +2950,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Assert the UI calls the conversations refresh endpoint and then fetches turns for the new conversation.
    - Reference patterns:
      - `client/src/test/agentsPage.turnHydration.test.tsx` (turn hydration from persisted turns)
-5. [ ] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for command execute:
+5. [x] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for command execute:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2962,7 +2962,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Mock command run to throw `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
      - Assert the UI renders the friendly conflict message.
-6. [ ] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for normal agent send:
+6. [x] Client UI unit test (Jest/RTL): `RUN_IN_PROGRESS` conflict message shows for normal agent send:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2973,7 +2973,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
      - Confirms the same per-conversation lock messaging is used for both agent instructions and command runs.
    - What to implement:
      - Mock `/agents/:agentName/run` to respond with 409 `RUN_IN_PROGRESS` and assert the same message appears.
-7. [ ] Client UI unit test (Jest/RTL): command names display with underscores replaced by spaces:
+7. [x] Client UI unit test (Jest/RTL): command names display with underscores replaced by spaces:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2985,7 +2985,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Mock commands list containing `{ name: 'improve_plan', description: 'd', disabled: false }`.
      - Assert the rendered option text includes `improve plan` (space) rather than `improve_plan`.
-8. [ ] Client UI unit test (Jest/RTL): selecting a command shows its Description (and does not show JSON):
+8. [x] Client UI unit test (Jest/RTL): selecting a command shows its Description (and does not show JSON):
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -2997,7 +2997,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Select a command and assert the description panel renders the description text.
      - Assert the UI does not render any `{"Description":`-style JSON content.
-9. [ ] Client UI unit test (Jest/RTL): Execute is disabled when Mongo persistence is unavailable:
+9. [x] Client UI unit test (Jest/RTL): Execute is disabled when Mongo persistence is unavailable:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -3009,7 +3009,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
    - What to implement:
      - Mock `/health` returning `{ mongoConnected: false }`.
      - Assert the Execute button is disabled and the explanatory message is visible.
-10. [ ] Client UI unit test (Jest/RTL): per-turn “Command run … (2/12)” note renders in bubbles:
+10. [x] Client UI unit test (Jest/RTL): per-turn “Command run … (2/12)” note renders in bubbles:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -3021,7 +3021,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
     - What to implement:
       - Mock turn hydration to return at least one user and assistant turn with `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`.
       - Assert the bubble includes `Command run: improve_plan (2/12)`.
-11. [ ] Client UI unit test (Jest/RTL): Stop aborts an in-flight command execute request:
+11. [x] Client UI unit test (Jest/RTL): Stop aborts an in-flight command execute request:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/websites/testing-library`
@@ -3035,7 +3035,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
       - Mock the command-run `fetch` to return a Promise that never resolves, and capture the `signal` passed to fetch.
       - Click Execute, then click Stop.
       - Assert the captured `signal.aborted === true`.
-12. [ ] Update `projectStructure.md` after adding new client test files:
+12. [x] Update `projectStructure.md` after adding new client test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -3051,31 +3051,42 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
          - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression + feature smoke check (tests task; feature should now be complete):
      - Open `/agents`, select an agent, and confirm the Commands dropdown lists command names (no JSON shown).
      - Select a command and confirm its Description is shown.
      - Execute a command and confirm new turns appear annotated with “Command run: … (step/total)”.
      - Press Abort during a command run and confirm a “Stopped” assistant turn appears for the in-flight step.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- Added `client/src/test/agentsPage.commandsList.test.tsx` covering command list refresh on agent change, disabled options, underscore label formatting, and description rendering without leaking JSON.
+- Added `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx` covering execute POST payload and the post-run refresh + turns hydration flow.
+- Added `client/src/test/agentsPage.commandsRun.conflict.test.tsx` covering `RUN_IN_PROGRESS` messaging for both command executes and normal instruction sends.
+- Added `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx` covering the persistence-unavailable disabled Execute state.
+- Added `client/src/test/agentsPage.commandMetadataRender.test.tsx` covering rendering of the per-turn command metadata note.
+- Added `client/src/test/agentsPage.commandsRun.abort.test.tsx` covering Stop aborting an in-flight command execute request.
+- Updated `projectStructure.md` to include the new Agents command UI test files.
+- Ran `npm run lint --workspaces` (pass) and `npm run format:check --workspaces`; fixed Prettier warnings by running `npm run format --workspace client`.
+- Completed full verification for this task: server/client builds, server/client tests, e2e, and compose build/up/down.
+- Manual Playwright smoke check: verified `planning_agent` command list + description rendering, command-run bubble annotations (`Command run: … (step/total)`), and abort behavior producing an aborted/stopped assistant turn when re-selecting the refreshed conversation.
+- Gotcha: when running browser checks from inside a container, rebuild the compose client with `VITE_API_URL=http://host.docker.internal:5010` so the browser hits the compose server (otherwise `/agents/:agent/commands` can 404 against a different localhost server).
+- Gotcha: Jest `userEvent` cannot click disabled MUI elements (`pointer-events: none`), so tests assert disabled state; mock `fetch` handlers must check `/commands/run` before `/commands` to avoid substring collisions.
 
 ---
 

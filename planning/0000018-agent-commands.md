@@ -3093,7 +3093,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 ### 19. Docs: update `README.md` (Agent Commands overview + REST endpoints)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 8b43572
 
 #### Overview
 

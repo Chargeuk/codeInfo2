@@ -2585,7 +2585,7 @@ Support the “KISS” command execution response by adding a refresh method to 
 
 ### 15. Client UI: commands dropdown + description (list-only)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2602,7 +2602,7 @@ Update the Agents page to list commands for the selected agent and show the sele
 
 #### Subtasks
 
-1. [ ] Add command list state and fetch-on-agent-change:
+1. [x] Add command list state and fetch-on-agent-change:
    - Docs to read:
      - https://react.dev/reference/react/useEffect
    - Files to edit:
@@ -2610,7 +2610,7 @@ Update the Agents page to list commands for the selected agent and show the sele
    - Requirements:
      - On agent change, call `listAgentCommands(selectedAgentName)` and store results.
      - Keep disabled commands in state so the dropdown can show them as disabled.
-2. [ ] Add the Commands dropdown + description panel:
+2. [x] Add the Commands dropdown + description panel:
    - Docs to read:
      - MUI MCP `@mui/material@6.4.12`
    - Files to edit:
@@ -2638,28 +2638,40 @@ Update the Agents page to list commands for the selected agent and show the sele
      ```
    - Reminder:
      - Do **not** render the raw JSON contents anywhere in the UI (dropdown only shows names; description is read from JSON and displayed as plain text).
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - `/agents` lists commands for the selected agent and updates when switching agents.
    - Invalid commands appear disabled.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 15 client commands dropdown + description (list-only).
+- 2025-12-17: Subtask 1/3: Added `commands` state + `listAgentCommands(...)` fetch-on-agent-change effect in `client/src/pages/AgentsPage.tsx`, keeping disabled commands in the returned list for UI display.
+- 2025-12-17: Subtask 2/3: Added a Commands dropdown + description panel in `client/src/pages/AgentsPage.tsx`, rendering disabled commands as unselectable with an "Invalid command file" hint and showing the selected command description as plain text.
+- 2025-12-17: Subtask 3/3: Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual check against host ports: rebuilt the client with `VITE_API_URL=http://host.docker.internal:5010` (so the browser inside Docker hits the right server), temporarily added an invalid `codex_agents/planning_agent/commands/invalid_command.json` to confirm the option renders disabled, and validated via a headless Playwright script that `/agents` lists commands and switches agent command lists (script output: `manual-playwright: ok`).
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
 
 ---
 

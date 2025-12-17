@@ -29,7 +29,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { listAgents, runAgentInstruction } from '../api/agents';
+import {
+  listAgentCommands,
+  listAgents,
+  runAgentInstruction,
+} from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import type { ChatMessage, ToolCall } from '../hooks/useChatStream';
@@ -55,6 +59,13 @@ export default function AgentsPage() {
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
   >(undefined);
+
+  const [commands, setCommands] = useState<
+    Array<{ name: string; description: string; disabled: boolean }>
+  >([]);
+  const [commandsError, setCommandsError] = useState<string | null>(null);
+  const [commandsLoading, setCommandsLoading] = useState(false);
+  const [selectedCommandName, setSelectedCommandName] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const orderedMessages = useMemo<ChatMessage[]>(
@@ -115,6 +126,59 @@ export default function AgentsPage() {
 
   const effectiveAgentName = selectedAgentName || '__none__';
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedAgentName) {
+      setCommands([]);
+      setCommandsError(null);
+      setCommandsLoading(false);
+      setSelectedCommandName('');
+      return;
+    }
+
+    setCommandsLoading(true);
+    setCommandsError(null);
+    void listAgentCommands(selectedAgentName)
+      .then((result) => {
+        if (cancelled) return;
+        const nextCommands = result.commands ?? [];
+        setCommands(nextCommands);
+        setSelectedCommandName((prev) =>
+          nextCommands.some((cmd) => cmd.name === prev && !cmd.disabled)
+            ? prev
+            : '',
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCommandsError((err as Error).message);
+        setCommands([]);
+        setSelectedCommandName('');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setCommandsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAgentName]);
+
+  const selectedCommand = useMemo(
+    () => commands.find((cmd) => cmd.name === selectedCommandName),
+    [commands, selectedCommandName],
+  );
+
+  const selectedCommandDescription = useMemo(() => {
+    if (!selectedCommandName || !selectedCommand) {
+      return 'Select a command to see its description.';
+    }
+    if (selectedCommand.disabled) return 'Invalid command file.';
+    const description = selectedCommand.description.trim();
+    return description || 'No description provided.';
+  }, [selectedCommand, selectedCommandName]);
+
   const {
     conversations,
     includeArchived,
@@ -174,9 +238,17 @@ export default function AgentsPage() {
       const next = event.target.value;
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
+      setSelectedCommandName('');
       resetConversation();
     },
     [resetConversation, selectedAgentName],
+  );
+
+  const handleCommandChange = useCallback(
+    (event: SelectChangeEvent<string>) => {
+      setSelectedCommandName(event.target.value);
+    },
+    [],
   );
 
   const toggleThink = (id: string) => {
@@ -603,6 +675,63 @@ export default function AgentsPage() {
                 </Button>
               </Stack>
             </Stack>
+
+            {commandsError ? (
+              <Alert severity="error" data-testid="agent-commands-error">
+                {commandsError}
+              </Alert>
+            ) : null}
+
+            <FormControl
+              fullWidth
+              size="small"
+              disabled={
+                controlsDisabled ||
+                isRunning ||
+                selectedAgent?.disabled ||
+                commandsLoading
+              }
+            >
+              <InputLabel id="agent-command-select-label">Command</InputLabel>
+              <Select
+                labelId="agent-command-select-label"
+                label="Command"
+                value={selectedCommandName}
+                onChange={handleCommandChange}
+                inputProps={{ 'data-testid': 'agent-command-select' }}
+              >
+                <MenuItem value="" disabled>
+                  Select a command
+                </MenuItem>
+                {commands.map((cmd) => (
+                  <MenuItem
+                    key={cmd.name}
+                    value={cmd.name}
+                    disabled={cmd.disabled}
+                    data-testid={`agent-command-option-${cmd.name}`}
+                  >
+                    <Stack spacing={0.25}>
+                      <Typography variant="body2">
+                        {cmd.name.replace(/_/g, ' ')}
+                      </Typography>
+                      {cmd.disabled ? (
+                        <Typography variant="caption" color="text.secondary">
+                          Invalid command file
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="agent-command-description"
+            >
+              {selectedCommandDescription}
+            </Typography>
 
             {selectedAgent?.warnings?.length ? (
               <Alert severity="warning" data-testid="agent-warnings">

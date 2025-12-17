@@ -2252,8 +2252,8 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 
 ### 12. Client API: add `runAgentCommand()` (REST `POST /agents/:agentName/commands/run`)
 
-- Task Status: **to_do**
-- Git Commits:
+- Task Status: **completed**
+- Git Commits: 1b31eac
 
 #### Overview
 
@@ -2269,7 +2269,7 @@ Add a focused client API helper for executing a selected command against an agen
 
 #### Subtasks
 
-1. [ ] Add the run API call:
+1. [x] Add the run API call:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2284,7 +2284,7 @@ Add a focused client API helper for executing a selected command against an agen
      - Propagates `signal` to fetch so the existing Abort button can cancel it.
    - Reminder:
      - Keep the “omit empty optionals” behavior consistent with `runAgentInstruction(...)` in this file (don’t send `working_folder: ""`).
-2. [ ] Client unit test (Jest): runAgentCommand calls `POST /agents/:agentName/commands/run`:
+2. [x] Client unit test (Jest): runAgentCommand calls `POST /agents/:agentName/commands/run`:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2297,7 +2297,7 @@ Add a focused client API helper for executing a selected command against an agen
        - URL includes `/agents/<agentName>/commands/run`
        - `method === 'POST'`
        - `content-type === 'application/json'`
-3. [ ] Client unit test (Jest): optional payload fields are omitted when not provided:
+3. [x] Client unit test (Jest): optional payload fields are omitted when not provided:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
@@ -2308,7 +2308,7 @@ Add a focused client API helper for executing a selected command against an agen
      - Call `runAgentCommand({ agentName, commandName })` and assert the JSON body does **not** include `working_folder` or `conversationId`.
    - Reference:
      - Copy “omit empty optionals” assertion style from `client/src/test/agentsApi.workingFolder.payload.test.ts`.
-4. [ ] Update `projectStructure.md` after adding new client test files:
+4. [x] Update `projectStructure.md` after adding new client test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -2318,29 +2318,43 @@ Add a focused client API helper for executing a selected command against an agen
        - Add: `client/src/test/agentsApi.commandsRun.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (API helper only; UI not changed yet):
      - Open `/agents` and confirm the page loads without errors.
      - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 12 client runAgentCommand API + unit coverage.
+- 2025-12-17: Subtask 1/5: Added `runAgentCommand(...)` to `client/src/api/agents.ts` hitting `POST /agents/:agentName/commands/run` with abort support and omit-empty optional fields.
+- 2025-12-17: Subtask 2/5: Added `client/src/test/agentsApi.commandsRun.test.ts` asserting `POST /agents/:agentName/commands/run` with JSON body + headers.
+- 2025-12-17: Subtask 3/5: Added Jest coverage that `runAgentCommand()` omits `working_folder`/`conversationId` when not provided.
+- 2025-12-17: Subtask 4/5: Updated `projectStructure.md` to include `client/src/test/agentsApi.commandsRun.test.ts`.
+- 2025-12-17: Subtask 5/5: Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200 and `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `440529c6-fb3e-4944-b2e6-cfa90a430b0c`).
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
 
 ---
 

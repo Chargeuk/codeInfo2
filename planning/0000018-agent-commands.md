@@ -2148,8 +2148,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 ### 11. Client API: add `listAgentCommands()` (REST `GET /agents/:agentName/commands`)
 
 - Task Status: **completed**
-- Git Commits:
-
+- Git Commits: a36ea69
 #### Overview
 
 Add a focused client API helper for listing commands for the selected agent. This is used by the Commands dropdown in the Agents UI.

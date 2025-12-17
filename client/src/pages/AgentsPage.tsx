@@ -313,6 +313,7 @@ export default function AgentsPage() {
             id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
+            ...(turn.command ? { command: turn.command } : {}),
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
             createdAt: turn.createdAt,
@@ -1036,6 +1037,22 @@ export default function AgentsPage() {
                             }}
                           >
                             <Stack spacing={1}>
+                              {message.command ? (
+                                <Typography
+                                  variant="caption"
+                                  data-testid="command-run-note"
+                                  sx={{
+                                    lineHeight: 1.2,
+                                    color: isUser
+                                      ? 'rgba(255,255,255,0.75)'
+                                      : 'text.secondary',
+                                  }}
+                                >
+                                  Command run: {message.command.name} (
+                                  {message.command.stepIndex}/
+                                  {message.command.totalSteps})
+                                </Typography>
+                              ) : null}
                               {message.role === 'assistant' &&
                                 message.streamStatus && (
                                   <Chip

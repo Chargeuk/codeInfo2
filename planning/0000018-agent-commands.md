@@ -2795,7 +2795,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 
 ### 17. Client UI: render per-turn “Command run … (2/12)” metadata in bubbles
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2810,7 +2810,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 
 #### Subtasks
 
-1. [ ] Extend the turns → messages mapping to carry command metadata:
+1. [x] Extend the turns → messages mapping to carry command metadata:
    - Docs to read:
      - https://react.dev/reference/react
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
@@ -2822,7 +2822,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
    - Requirements:
      - Ensure the message objects used for rendering bubbles carry `command` metadata for both user and assistant turns.
      - Do not manufacture metadata: when a turn has no `command`, the corresponding message must not have it either.
-2. [ ] Render the note inside both user and assistant bubbles:
+2. [x] Render the note inside both user and assistant bubbles:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2838,27 +2838,39 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
        </Typography>
      ) : null}
      ```
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Running a command appends turns that include the “Command run … (2/12)” note.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- Updated `ChatMessage` to optionally carry `command` metadata and wired `mapTurnsToMessages()` to pass through `StoredTurn.command` without manufacturing values.
+- Added a subtle `Typography` caption inside chat bubbles when `message.command` is present, using a lower-contrast color for user bubbles so it remains readable on the primary background.
+- Ran `npm run lint --workspaces` successfully; fixed `AgentsPage.tsx` formatting with Prettier and re-checked `npm run format:check --workspaces`.
+- Testing: server build passes (`npm run build --workspace server`).
+- Testing: client build passes (`npm run build --workspace client`).
+- Testing: server tests pass (`npm run test --workspace server`).
+- Testing: client tests pass (`npm run test --workspace client`).
+- Testing: e2e passes (`npm run e2e`).
+- Testing: docker compose images build (`npm run compose:build`).
+- Testing: docker compose starts (`npm run compose:up`).
+- Manual check: ran the `planning_agent` `smoke` command and verified both bubbles render `Command run: smoke (1/1)`.
+- Testing: docker compose stopped (`npm run compose:down`).
+- Gotcha: when running the manual browser check from inside the dev container, the compose UI is baked with `VITE_API_URL=http://localhost:5010`, so Playwright must route those requests to `http://host.docker.internal:5010` to avoid accidentally hitting the container-local server instance.
 
 ---
 

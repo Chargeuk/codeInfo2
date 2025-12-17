@@ -269,33 +269,48 @@ runAgentInstruction()
   - `RUN_IN_PROGRESS` → 409 `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message }`
 - The runner acquires the per-conversation lock once and holds it for the entire command run so steps cannot interleave with another run targeting the same `conversationId`.
 - Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
-- The runner checks `AbortSignal.aborted` between steps; if abort triggers mid-step the chat layer persists a `Stopped` assistant turn and still tags that step with `turn.command`.
+- Cancellation is abort-based: the client aborts the in-flight HTTP request (AbortController), the server propagates that abort to the provider call via an `AbortSignal`, and the runner stops after the current step (never starts the next step once aborted).
+- If abort triggers mid-step, the chat layer persists a `Stopped` assistant turn (status `stopped`) and still tags that step with `turn.command`. The caller may not receive a normal JSON response because the request was aborted.
 
 ```mermaid
 sequenceDiagram
-  participant Client as Client (UI or MCP)
-  participant Server as Server (REST)
+  participant UI as Agents UI
+  participant API as Server (REST)
   participant Svc as AgentsService
+  participant Runner as Command runner
   participant Codex as Codex
 
-  Client->>Server: POST /agents/:agentName/commands/run
-  Server->>Svc: runAgentCommand(...)
-  Svc->>Svc: load command JSON (commands/<name>.json)
-  Svc->>Svc: tryAcquireConversationLock(conversationId)
+  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, conversationId?, working_folder? }
+  Note over API: Creates an AbortController\n(req 'aborted' / res 'close' => controller.abort())
+  API->>Svc: runAgentCommand(..., signal)
+  Svc->>Runner: runAgentCommandRunner(...)\n(load JSON + acquire lock)
+  Runner->>Runner: tryAcquireConversationLock(conversationId)
 
   alt RUN_IN_PROGRESS
-    Svc-->>Server: { code: RUN_IN_PROGRESS }
-    Server-->>Client: 409 conflict
+    Runner-->>Svc: throw RUN_IN_PROGRESS
+    Svc-->>API: error
+    API-->>UI: 409 conflict
   else ok
     loop for each step
-      Svc->>Svc: if signal.aborted => stop
-      Svc->>Codex: run(stepInstruction, command metadata)
-      Codex-->>Svc: streamed events / completion (or Stopped on abort)
+      alt signal.aborted
+        Runner-->>Runner: stop (do not start next step)
+      else continue
+        Runner->>Svc: runAgentInstructionUnlocked(step)\n+ turn.command metadata
+        Svc->>Codex: runStreamed(step, signal)
+        Codex-->>Svc: streamed events (or stopped on abort)
+        Svc-->>Runner: { modelId }
+      end
     end
 
-    Svc->>Svc: releaseConversationLock(conversationId)
-    Svc-->>Server: { agentName, commandName, conversationId, modelId }
-    Server-->>Client: 200 success
+    Runner->>Runner: releaseConversationLock(conversationId)
+    Runner-->>Svc: { agentName, commandName, conversationId, modelId }
+    Svc-->>API: result
+    API-->>UI: 200 { ... }
+  end
+
+  opt User cancels
+    UI--xAPI: AbortController.abort()\n(connection closes)
+    Note over Runner: Once aborted, no further steps start;\nlock is still released in finally.
   end
 ```
 

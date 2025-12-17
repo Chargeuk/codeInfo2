@@ -3152,7 +3152,7 @@ Document Agent Commands (where command files live and the REST API surface for l
 
 ### 20. Docs: update `design.md` (sequence diagram + cancellation + locking)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -3167,7 +3167,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
 
 #### Subtasks
 
-1. [ ] Update `design.md` with diagrams:
+1. [x] Update `design.md` with diagrams:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -3175,27 +3175,37 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
    - Requirements:
      - Add a Mermaid sequence diagram for command run (UI → REST → service → Codex).
      - Mention per-conversation lock + abort-based cancellation semantics.
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - N/A (docs); rely on prior tasks + final verification.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- Updated `design.md` to make agent command execution flows explicit, including per-conversation locking and abort-based cancellation.
+- Verified repo-wide lint/format health for this doc change: `npm run lint --workspaces` and `npm run format:check --workspaces` both pass.
+- Test step 1: `npm run build --workspace server` passes.
+- Test step 2: `npm run build --workspace client` passes.
+- Test step 3: `npm run test --workspace server` passes (note: existing Chroma "default-embed" warnings observed but tests still pass).
+- Test step 4: `npm run test --workspace client` passes (note: existing React/Jest console warnings about `act(...)` observed but tests still pass).
+- Test step 5: `npm run e2e` passes.
+- Test step 6: `npm run compose:build` passes.
+- Test step 7: `npm run compose:up` passes.
+- Test step 8: Manual Playwright-MCP check is N/A for docs-only task; rely on e2e + prior story verification.
+- Test step 9: `npm run compose:down` passes.
 
 ---
 

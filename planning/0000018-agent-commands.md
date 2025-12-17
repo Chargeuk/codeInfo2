@@ -3211,7 +3211,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
 
 ### 21. Docs: update `projectStructure.md` (new files from Story 0000018)
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview

@@ -2147,7 +2147,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 
 ### 11. Client API: add `listAgentCommands()` (REST `GET /agents/:agentName/commands`)
 
-- Task Status: **to_do**
+- Task Status: **in_progress**
 - Git Commits:
 
 #### Overview

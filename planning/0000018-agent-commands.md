@@ -3212,7 +3212,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
 ### 21. Docs: update `projectStructure.md` (new files from Story 0000018)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: e5c1294
 
 #### Overview
 

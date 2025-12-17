@@ -2147,7 +2147,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 
 ### 11. Client API: add `listAgentCommands()` (REST `GET /agents/:agentName/commands`)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2163,7 +2163,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 
 #### Subtasks
 
-1. [ ] Add the list API call:
+1. [x] Add the list API call:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2179,7 +2179,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      ```ts
      const res = await fetch(new URL(`/agents/${encodeURIComponent(agentName)}/commands`, serverBase).toString());
      ```
-2. [ ] Client unit test (Jest): listAgentCommands calls `GET /agents/:agentName/commands`:
+2. [x] Client unit test (Jest): listAgentCommands calls `GET /agents/:agentName/commands`:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2191,7 +2191,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
      - Mock `fetch` and assert it is called with `/agents/<agentName>/commands`.
    - Reference:
      - Copy fetch-mocking style from `client/src/test/agentsApi.workingFolder.payload.test.ts`.
-3. [ ] Client unit test (Jest): listAgentCommands returns parsed `{ commands }` including `disabled` entries:
+3. [x] Client unit test (Jest): listAgentCommands returns parsed `{ commands }` including `disabled` entries:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
@@ -2201,7 +2201,7 @@ Add a focused client API helper for listing commands for the selected agent. Thi
    - What to implement:
      - Mock a JSON response containing a `commands` array with both enabled and disabled entries.
      - Assert the returned value matches the parsed structure.
-4. [ ] Update `projectStructure.md` after adding new client test files:
+4. [x] Update `projectStructure.md` after adding new client test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -2211,29 +2211,43 @@ Add a focused client API helper for listing commands for the selected agent. Thi
        - Add: `client/src/test/agentsApi.commandsList.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (API helper only; UI not changed yet):
      - Open `/agents` and confirm the page loads without errors.
      - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 11 client listAgentCommands API + unit coverage.
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
+- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200 and `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `16b2777e-fa85-4fd5-a784-5fbc8a2d8e9f`).
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Subtask 5/5: Ran `npm run lint --workspaces` + `npm run format:check --workspaces`; fixed Prettier via `npm run format --workspace client`.
+- 2025-12-17: Subtask 4/5: Updated `projectStructure.md` to include the new `agentsApi.commandsList` client unit test entry.
+- 2025-12-17: Subtask 2/5: Added `client/src/test/agentsApi.commandsList.test.ts` to assert URL structure for `GET /agents/:agentName/commands`.
+- 2025-12-17: Subtask 3/5: Added Jest coverage that `listAgentCommands()` returns parsed `{ commands }` including disabled entries.
+- 2025-12-17: Subtask 1/5: Added `listAgentCommands(agentName)` to `client/src/api/agents.ts` with safe parsing and `disabled` passthrough.
 
 ---
 

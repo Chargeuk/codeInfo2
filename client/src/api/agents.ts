@@ -40,6 +40,46 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
       .filter(Boolean) as AgentSummary[],
   };
 }
+export async function listAgentCommands(agentName: string): Promise<{
+  commands: Array<{ name: string; description: string; disabled: boolean }>;
+}> {
+  const res = await fetch(
+    new URL(
+      `/agents/${encodeURIComponent(agentName)}/commands`,
+      serverBase,
+    ).toString(),
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load agent commands (${res.status})`);
+  }
+  const data = (await res.json()) as { commands?: unknown };
+  const commands = Array.isArray(data.commands)
+    ? (data.commands as unknown[])
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const record = item as Record<string, unknown>;
+          const name =
+            typeof record.name === 'string' ? record.name : undefined;
+          if (!name) return null;
+          return {
+            name,
+            description:
+              typeof record.description === 'string' ? record.description : '',
+            disabled:
+              typeof record.disabled === 'boolean' ? record.disabled : false,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  return {
+    commands: commands as Array<{
+      name: string;
+      description: string;
+      disabled: boolean;
+    }>,
+  };
+}
 
 export async function runAgentInstruction(params: {
   agentName: string;

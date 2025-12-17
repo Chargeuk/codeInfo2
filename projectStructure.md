@@ -399,3 +399,5 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
+- client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` re-fetching the newest page in `replace` mode
+- client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering

@@ -1929,8 +1929,10 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 - 2025-12-17: Testing 5/9: `npm run e2e`.
 - 2025-12-17: Testing 6/9: `npm run compose:build`.
 - 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200; `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `a2ceb559-2030-4c2d-a166-8649a68c7b5f`).
 - 2025-12-17: Testing 8/9: Manual curl run + abort confirmed `POST /agents/planning_agent/commands/run` appends turns (conversation `8bf05ddf-fcf4-431b-9f5e-09c114f1108c` shows `command` metadata + `stopped` assistant turn).
 - 2025-12-17: Testing 9/9: `npm run compose:down`.
+- 2025-12-17: Completed Task 14.
 
 ---
 
@@ -2479,7 +2481,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 
 ### 14. Client: add turns refresh + include `command` metadata in `StoredTurn`
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2496,7 +2498,7 @@ Support the “KISS” command execution response by adding a refresh method to 
 
 #### Subtasks
 
-1. [ ] Extend `StoredTurn` with optional `command`:
+1. [x] Extend `StoredTurn` with optional `command`:
    - Docs to read:
      - https://react.dev/reference/react
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2508,14 +2510,14 @@ Support the “KISS” command execution response by adding a refresh method to 
    - Requirements:
      - The field must remain optional so existing turns continue to typecheck and render.
      - When the server includes `command` on a turn, the hook must preserve it as-is (no renaming or transformation), so UI rendering can rely on `turn.command` directly.
-2. [ ] Add a `refresh()` function to the hook:
+2. [x] Add a `refresh()` function to the hook:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
      - `refresh()` re-fetches the newest page (`replace` mode) without requiring a conversationId change.
-3. [ ] Client unit test (Jest): `useConversationTurns.refresh()` re-fetches the newest page in `replace` mode:
+3. [x] Client unit test (Jest): `useConversationTurns.refresh()` re-fetches the newest page in `replace` mode:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2525,7 +2527,7 @@ Support the “KISS” command execution response by adding a refresh method to 
      - Ensures command execution can trigger a turns refresh without changing `conversationId`.
    - What to implement:
      - Mock the turns endpoint and verify calling `refresh()` causes a new fetch and sets `lastMode === 'replace'`.
-4. [ ] Client unit test (Jest): turns API `command` metadata is preserved in `StoredTurn`:
+4. [x] Client unit test (Jest): turns API `command` metadata is preserved in `StoredTurn`:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Test type: client unit (Jest)
@@ -2536,7 +2538,7 @@ Support the “KISS” command execution response by adding a refresh method to 
      - Mock `/conversations/:id/turns` returning an item that includes:
        - `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 12 }`
      - Assert the hook returns a `StoredTurn` containing that `command` field unchanged.
-5. [ ] Update `projectStructure.md` after adding new client test files:
+5. [x] Update `projectStructure.md` after adding new client test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -2548,29 +2550,36 @@ Support the “KISS” command execution response by adding a refresh method to 
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
      - Ensure each entry has a short description (what it covers).
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (hook-only change; UI not changed yet):
      - Open `/agents` and confirm the page loads without errors.
      - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 14 client turns refresh + StoredTurn.command metadata.
+- 2025-12-17: Subtask 1/6: Extended `StoredTurn` in `client/src/hooks/useConversationTurns.ts` to include optional `command` metadata for command-run turns.
+- 2025-12-17: Subtask 2/6: Added `refresh()` to `useConversationTurns` to re-fetch the newest page in `replace` mode without changing `conversationId`.
+- 2025-12-17: Subtask 3/6: Added `client/src/test/useConversationTurns.refresh.test.ts` covering refresh re-fetch + `lastMode === 'replace'`.
+- 2025-12-17: Subtask 4/6: Added `client/src/test/useConversationTurns.commandMetadata.test.ts` ensuring `command` metadata is preserved on returned turns.
+- 2025-12-17: Subtask 5/6: Updated `projectStructure.md` to include the two new `useConversationTurns.*` test files.
+- 2025-12-17: Subtask 6/6: Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
 
 ---
 

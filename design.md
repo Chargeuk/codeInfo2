@@ -174,8 +174,8 @@ flowchart LR
 ```mermaid
 flowchart LR
   Client[MCP client] -->|initialize/tools\\nlist/tools\\ncall| MCP[Agents MCP\\n:5012]
-  MCP --> Tools[Tool registry\\n(list_agents/run_agent_instruction)]
-  Tools --> Svc[Agents service\\nlistAgents()/runAgentInstruction()]
+  MCP --> Tools[Tool registry\\n(list_agents/list_commands/run_agent_instruction/run_command)]
+  Tools --> Svc[Agents service\\nlistAgents()/listAgentCommands()/runAgentInstruction()/runAgentCommand()]
   Svc --> Disc[discoverAgents()\\n+ auth seeding]
   Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
 ```

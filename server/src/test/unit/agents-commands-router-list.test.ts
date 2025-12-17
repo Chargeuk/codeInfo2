@@ -15,10 +15,21 @@ function buildApp(params: {
   listAgentCommands: (args: {
     agentName: string;
   }) => Promise<{ commands: AgentCommandSummary[] }>;
+  runAgentCommand?: (args: unknown) => Promise<unknown>;
 }) {
   const app = express();
   app.use(express.json());
-  app.use('/agents', createAgentsCommandsRouter(params));
+  app.use(
+    '/agents',
+    createAgentsCommandsRouter({
+      ...params,
+      runAgentCommand:
+        params.runAgentCommand ??
+        (async () => {
+          throw new Error('not implemented');
+        }),
+    } as unknown as Parameters<typeof createAgentsCommandsRouter>[0]),
+  );
   return app;
 }
 

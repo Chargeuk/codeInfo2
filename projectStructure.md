@@ -365,12 +365,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
 - server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
 - server/src/routes/agentsRun.ts — `POST /agents/:agentName/run` agent execution endpoint (REST; delegates to shared service)
-- server/src/routes/agentsCommands.ts — `GET /agents/:agentName/commands` agent command listing endpoint (REST; includes disabled invalid entries)
+- server/src/routes/agentsCommands.ts — agent command endpoints: `GET /agents/:agentName/commands` (list) + `POST /agents/:agentName/commands/run` (execute)
 - server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)
 - server/src/test/unit/agents-authSeed.test.ts — unit coverage for agent auth seeding (copy/no-overwrite/concurrency)
 - server/src/test/unit/agents-router-list.test.ts — Supertest coverage for `GET /agents` response shape and description handling
 - server/src/test/unit/agents-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/run` validation/error mapping/shape
 - server/src/test/unit/agents-commands-router-list.test.ts — Supertest coverage for `GET /agents/:agentName/commands` response shape and 404 mapping
+- server/src/test/unit/agents-commands-router-run.test.ts — Supertest coverage for `POST /agents/:agentName/commands/run` validation/error mapping/abort wiring
 - server/src/test/unit/agents-working-folder.test.ts — unit coverage for resolving agent working folder into a Codex workingDirectory override
 - server/src/test/unit/agent-commands-schema.test.ts — unit coverage for v1 agent command JSON schema parsing/strictness/trimming
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)

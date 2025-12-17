@@ -1725,7 +1725,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 
 ### 9. REST: `POST /agents/:agentName/commands/run`
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1744,7 +1744,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 
 #### Subtasks
 
-1. [ ] Add the REST route:
+1. [x] Add the REST route:
    - Docs to read:
      - Context7 `/expressjs/express`
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -1761,7 +1761,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
        - `res.on('close', () => { if (!res.writableEnded) controller.abort() })`
        - Pass `signal: controller.signal` into `runAgentCommand(...)`
      - Reminder: v1 cancellation is **abort the in-flight HTTP request**; the UI may not receive a “success” response when stopped, so the “Stopped” assistant turn must be persisted by the server (Task 2 + Task 8).
-2. [ ] Map runner errors to stable HTTP responses:
+2. [x] Map runner errors to stable HTTP responses:
    - Docs to read:
      - Context7 `/expressjs/express`
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -1776,7 +1776,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
      - 404: `{ "error": "not_found" }` (for unknown agent/command)
      - 400: `{ "error": "invalid_request", "code": "COMMAND_INVALID", "message": "..." }`
      - 409: `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`
-3. [ ] Server unit test (REST): valid command run returns `{ agentName, commandName, conversationId, modelId }`:
+3. [x] Server unit test (REST): valid command run returns `{ agentName, commandName, conversationId, modelId }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1787,7 +1787,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to return a stable payload.
      - `POST /agents/:agentName/commands/run` with `{ commandName: 'improve_plan' }` and assert the JSON shape.
-4. [ ] Server unit test (REST): `RUN_IN_PROGRESS` returns HTTP 409 with stable body:
+4. [x] Server unit test (REST): `RUN_IN_PROGRESS` returns HTTP 409 with stable body:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1798,7 +1798,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'RUN_IN_PROGRESS' }`.
      - Assert `status === 409` and body includes `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
-5. [ ] Server unit test (REST): invalid `commandName` returns HTTP 400 with `COMMAND_INVALID`:
+5. [x] Server unit test (REST): invalid `commandName` returns HTTP 400 with `COMMAND_INVALID`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1812,7 +1812,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
        - body includes `{ error: 'invalid_request', code: 'COMMAND_INVALID' }`.
    - Reference test harness:
      - Copy the SuperTest wiring style from `server/src/test/unit/agents-router-run.test.ts`.
-6. [ ] Server unit test (REST): `COMMAND_NOT_FOUND` maps to HTTP 404 `{ error: 'not_found' }`:
+6. [x] Server unit test (REST): `COMMAND_NOT_FOUND` maps to HTTP 404 `{ error: 'not_found' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1823,7 +1823,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
      - Assert `status === 404` and body is `{ error: 'not_found' }`.
-7. [ ] Server unit test (REST): `COMMAND_INVALID` from runner maps to HTTP 400 with stable body:
+7. [x] Server unit test (REST): `COMMAND_INVALID` from runner maps to HTTP 400 with stable body:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1834,7 +1834,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID', reason: 'Invalid command file' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'COMMAND_INVALID' }`.
-8. [ ] Server unit test (REST): `WORKING_FOLDER_INVALID` maps to HTTP 400 with stable body:
+8. [x] Server unit test (REST): `WORKING_FOLDER_INVALID` maps to HTTP 400 with stable body:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1845,7 +1845,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_INVALID' }`.
-9. [ ] Server unit test (REST): `WORKING_FOLDER_NOT_FOUND` maps to HTTP 400 with stable body:
+9. [x] Server unit test (REST): `WORKING_FOLDER_NOT_FOUND` maps to HTTP 400 with stable body:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1856,7 +1856,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`.
      - Assert `status === 400` and body includes `{ error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND' }`.
-10. [ ] Server unit test (REST): unknown agent maps to HTTP 404 `{ error: 'not_found' }`:
+10. [x] Server unit test (REST): unknown agent maps to HTTP 404 `{ error: 'not_found' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1867,7 +1867,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
     - What to implement:
       - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
       - Assert `status === 404` and body is `{ error: 'not_found' }`.
-11. [ ] Server unit test (REST): aborting the HTTP request aborts the runner via AbortSignal:
+11. [x] Server unit test (REST): aborting the HTTP request aborts the runner via AbortSignal:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -1879,7 +1879,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
       - Build an Express app with `createAgentsCommandsRouter({ runAgentCommand: stub })` and start it on an ephemeral port.
       - Stub `runAgentCommand` to capture `params.signal` and await until it is aborted (use an `abort` event listener).
       - Start a `fetch` POST request with a client-side `AbortController`, then abort it and assert the stub observed `signal.aborted === true`.
-12. [ ] Update `projectStructure.md` after adding tests:
+12. [x] Update `projectStructure.md` after adding tests:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -1887,7 +1887,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/agents-commands-router-run.test.ts`
      - Remove: (none)
-13. [ ] Update `design.md` with REST command endpoints + Mermaid diagram updates:
+13. [x] Update `design.md` with REST command endpoints + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1897,27 +1897,40 @@ Expose command execution to the GUI via REST using the shared runner. Response i
    - Required updates:
      - In the Agent Commands section, list the new REST endpoint and its minimal response shape.
      - In the existing command-run sequence diagram, show the REST route as the entry point (and include the `RUN_IN_PROGRESS` 409 branch).
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Execute a command via curl and confirm turns are appended.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 9 REST command run endpoint + unit tests.
+- 2025-12-17: Added `POST /agents/:agentName/commands/run` with abort wiring and stable error mappings.
+- 2025-12-17: Added SuperTest + fetch AbortController unit coverage for the new REST command-run endpoint.
+- 2025-12-17: Updated `design.md` + `projectStructure.md` to include the new REST endpoint and tests.
+- 2025-12-17: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; applied `npm run format --workspace server` to fix Prettier output.
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual curl run + abort confirmed `POST /agents/planning_agent/commands/run` appends turns (conversation `8bf05ddf-fcf4-431b-9f5e-09c114f1108c` shows `command` metadata + `stopped` assistant turn).
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
 
 ---
 

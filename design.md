@@ -230,6 +230,13 @@ runAgentInstruction()
 #### Agent command execution (macros)
 
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
+- REST endpoints:
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled }] }`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+- REST error mapping (command run):
+  - `COMMAND_NOT_FOUND` → 404 `{ error: 'not_found' }`
+  - `COMMAND_INVALID` → 400 `{ error: 'invalid_request', code: 'COMMAND_INVALID', message }`
+  - `RUN_IN_PROGRESS` → 409 `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message }`
 - The runner acquires the per-conversation lock once and holds it for the entire command run so steps cannot interleave with another run targeting the same `conversationId`.
 - Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
 - The runner checks `AbortSignal.aborted` between steps; if abort triggers mid-step the chat layer persists a `Stopped` assistant turn and still tags that step with `turn.command`.
@@ -237,24 +244,29 @@ runAgentInstruction()
 ```mermaid
 sequenceDiagram
   participant Client as Client (UI or MCP)
-  participant Server as Server (REST/MCP)
+  participant Server as Server (REST)
   participant Svc as AgentsService
   participant Codex as Codex
 
-  Client->>Server: run command (agentName, commandName, conversationId?)
+  Client->>Server: POST /agents/:agentName/commands/run
   Server->>Svc: runAgentCommand(...)
   Svc->>Svc: load command JSON (commands/<name>.json)
   Svc->>Svc: tryAcquireConversationLock(conversationId)
 
-  loop for each step
-    Svc->>Svc: if signal.aborted => stop
-    Svc->>Codex: run(stepInstruction, command metadata)
-    Codex-->>Svc: streamed events / completion (or Stopped on abort)
-  end
+  alt RUN_IN_PROGRESS
+    Svc-->>Server: { code: RUN_IN_PROGRESS }
+    Server-->>Client: 409 conflict
+  else ok
+    loop for each step
+      Svc->>Svc: if signal.aborted => stop
+      Svc->>Codex: run(stepInstruction, command metadata)
+      Codex-->>Svc: streamed events / completion (or Stopped on abort)
+    end
 
-  Svc->>Svc: releaseConversationLock(conversationId)
-  Svc-->>Server: { conversationId, modelId }
-  Server-->>Client: success
+    Svc->>Svc: releaseConversationLock(conversationId)
+    Svc-->>Server: { agentName, commandName, conversationId, modelId }
+    Server-->>Client: 200 success
+  end
 ```
 
 ### Agent discovery

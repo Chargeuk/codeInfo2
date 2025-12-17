@@ -2233,20 +2233,20 @@ Add a focused client API helper for listing commands for the selected agent. Thi
 #### Implementation notes
 
 - 2025-12-17: Started Task 11 client listAgentCommands API + unit coverage.
-- 2025-12-17: Testing 9/9: `npm run compose:down`.
-- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200 and `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `16b2777e-fa85-4fd5-a784-5fbc8a2d8e9f`).
-- 2025-12-17: Testing 7/9: `npm run compose:up`.
-- 2025-12-17: Testing 6/9: `npm run compose:build`.
-- 2025-12-17: Testing 5/9: `npm run e2e`.
-- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
-- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
-- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
-- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
-- 2025-12-17: Subtask 5/5: Ran `npm run lint --workspaces` + `npm run format:check --workspaces`; fixed Prettier via `npm run format --workspace client`.
-- 2025-12-17: Subtask 4/5: Updated `projectStructure.md` to include the new `agentsApi.commandsList` client unit test entry.
+- 2025-12-17: Subtask 1/5: Added `listAgentCommands(agentName)` to `client/src/api/agents.ts` with safe parsing and `disabled` passthrough.
 - 2025-12-17: Subtask 2/5: Added `client/src/test/agentsApi.commandsList.test.ts` to assert URL structure for `GET /agents/:agentName/commands`.
 - 2025-12-17: Subtask 3/5: Added Jest coverage that `listAgentCommands()` returns parsed `{ commands }` including disabled entries.
-- 2025-12-17: Subtask 1/5: Added `listAgentCommands(agentName)` to `client/src/api/agents.ts` with safe parsing and `disabled` passthrough.
+- 2025-12-17: Subtask 4/5: Updated `projectStructure.md` to include the new `agentsApi.commandsList` client unit test entry.
+- 2025-12-17: Subtask 5/5: Ran `npm run lint --workspaces` + `npm run format:check --workspaces`; fixed Prettier via `npm run format --workspace client`.
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200 and `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `16b2777e-fa85-4fd5-a784-5fbc8a2d8e9f`).
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
 
 ---
 

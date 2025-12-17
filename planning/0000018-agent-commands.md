@@ -1463,7 +1463,7 @@ Refactor agents execution so the per-conversation lock can be acquired once for 
 
 ### 8. Server: implement command execution runner (sequential steps + abort stop)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1481,7 +1481,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
 
 #### Subtasks
 
-1. [ ] Add a command loader that returns the full parsed command (not just summary):
+1. [x] Add a command loader that returns the full parsed command (not just summary):
    - Docs to read:
      - Context7 `/websites/mongoosejs`
      - https://www.mongodb.com/docs/manual/core/data-modeling-introduction/
@@ -1492,7 +1492,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - `server/src/agents/commandsLoader.ts`
    - Requirements:
      - Add `loadAgentCommandFile({ filePath })` that returns `{ ok: true, command } | { ok: false }`.
-2. [ ] Implement `runAgentCommand(...)` in the agents service:
+2. [x] Implement `runAgentCommand(...)` in the agents service:
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
      - https://nodejs.org/api/path.html
@@ -1546,7 +1546,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - The lock must be held for the *entire* multi-step run (not reacquired per step).
      - `signal.aborted` must be checked *between* steps so later steps never start after cancel.
      - Command metadata must tag BOTH the user turn and assistant turn for each step (Task 2/7 enable this plumbing).
-3. [ ] Server unit test: multi-step command executes all steps sequentially:
+3. [x] Server unit test: multi-step command executes all steps sequentially:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1558,7 +1558,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Stub the unlocked internal helper and assert it is called 3 times with:
        - `stepIndex` = 1, 2, 3
        - `totalSteps` = 3
-4. [ ] Server unit test: abort after step 1 prevents steps 2+ from running:
+4. [x] Server unit test: abort after step 1 prevents steps 2+ from running:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -1569,7 +1569,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - What to implement:
      - Use an `AbortController`; after first step completes, call `controller.abort()`.
      - Assert the helper is not called for step 2/3.
-5. [ ] Server unit test: per-conversation lock blocks concurrent run during command execution:
+5. [x] Server unit test: per-conversation lock blocks concurrent run during command execution:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1580,7 +1580,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Start a command run that holds the lock (e.g. a helper that awaits a promise).
      - While it is in-flight, attempt a second run against the same `conversationId`.
      - Assert the second run fails with `{ code: 'RUN_IN_PROGRESS' }`.
-6. [ ] Server unit test: `instruction` passed to each step equals `content.join('\\n')` (with trimmed content):
+6. [x] Server unit test: `instruction` passed to each step equals `content.join('\\n')` (with trimmed content):
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1590,7 +1590,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - What to implement:
      - Use a command item with `content: ['  first  ', 'second ']`.
      - Assert the unlocked helper receives `instruction === 'first\\nsecond'`.
-7. [ ] Server unit test: `working_folder` is forwarded to the unlocked helper for every step:
+7. [x] Server unit test: `working_folder` is forwarded to the unlocked helper for every step:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1599,7 +1599,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Ensures the command runner behaves the same as normal agent runs regarding working folder overrides.
    - What to implement:
      - Call `runAgentCommand({ ..., working_folder: '/abs/path' })` and assert every unlocked-helper call receives `working_folder: '/abs/path'`.
-8. [ ] Server unit test: when `conversationId` is omitted, a new id is generated and reused for all steps:
+8. [x] Server unit test: when `conversationId` is omitted, a new id is generated and reused for all steps:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1609,7 +1609,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
    - What to implement:
      - Call `runAgentCommand({ agentName, commandName, source: 'REST' })` without `conversationId`.
      - Assert the unlocked helper is called with the same `conversationId` for every step and the returned result uses that same id.
-9. [ ] Server unit test: when `conversationId` is provided, it is reused and returned unchanged:
+9. [x] Server unit test: when `conversationId` is provided, it is reused and returned unchanged:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Test type: server unit (Node `node:test`)
@@ -1618,7 +1618,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Prevents accidental new-conversation creation when the user intends to run a command in an existing chat.
    - What to implement:
      - Call `runAgentCommand({ ..., conversationId: 'c1' })` and assert the result returns `conversationId === 'c1'`.
-10. [ ] Server unit test: invalid `commandName` values are rejected with `{ code: 'COMMAND_INVALID' }`:
+10. [x] Server unit test: invalid `commandName` values are rejected with `{ code: 'COMMAND_INVALID' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -1628,7 +1628,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
     - What to implement:
       - Attempt `runAgentCommand` with `commandName: '../bad'`, `commandName: 'a/b'`, and `commandName: 'a\\\\b'`.
       - Assert each throws `{ code: 'COMMAND_INVALID' }`.
-11. [ ] Server unit test: missing command file throws `{ code: 'COMMAND_NOT_FOUND' }`:
+11. [x] Server unit test: missing command file throws `{ code: 'COMMAND_NOT_FOUND' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1639,7 +1639,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
     - What to implement:
       - Ensure no matching `commands/<commandName>.json` exists for the discovered agent.
       - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_NOT_FOUND' }`.
-12. [ ] Server unit test: invalid command file throws `{ code: 'COMMAND_INVALID' }`:
+12. [x] Server unit test: invalid command file throws `{ code: 'COMMAND_INVALID' }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -1649,7 +1649,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
     - What to implement:
       - Create an invalid command JSON file (syntax or schema invalid).
       - Assert `runAgentCommand(...)` throws `{ code: 'COMMAND_INVALID' }` and the unlocked helper is never called.
-13. [ ] Server unit test: step failure stops execution and releases the lock:
+13. [x] Server unit test: step failure stops execution and releases the lock:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -1660,7 +1660,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
       - Stub the unlocked helper so step 2 throws an error.
       - Assert step 3 is never executed.
       - After the call rejects, start a second run for the same `conversationId` and assert it can acquire the lock (i.e., does not fail with `RUN_IN_PROGRESS`).
-14. [ ] Server unit test: lock is per-conversation and does not block other conversations:
+14. [x] Server unit test: lock is per-conversation and does not block other conversations:
    - Docs to read:
      - https://nodejs.org/api/test.html
     - Test type: server unit (Node `node:test`)
@@ -1670,7 +1670,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
     - What to implement:
       - Start a command run for `conversationId='c1'` that blocks on a Promise barrier.
       - Start a second command run for `conversationId='c2'` and assert it proceeds (does not throw `RUN_IN_PROGRESS`).
-15. [ ] Update `projectStructure.md` after adding any new files:
+15. [x] Update `projectStructure.md` after adding any new files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -1680,7 +1680,7 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
        - `server/src/agents/commandsRunner.ts`
        - `server/src/test/unit/agent-commands-runner.test.ts`
      - Remove: (none)
-16. [ ] Update `design.md` with the command-run flow + Mermaid sequence diagram:
+16. [x] Update `design.md` with the command-run flow + Mermaid sequence diagram:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1691,29 +1691,35 @@ Implement a shared `runAgentCommand(...)` function that loads a command file, ac
      - Actors: `Client(UI or MCP)`, `Server(REST/MCP)`, `AgentsService`, `Codex`.
      - Steps: `load command JSON` → `acquire conversation lock` → `step loop` → `abort check between steps` → `release lock`.
      - Note: clarify that on abort mid-step, the assistant turn is persisted as `Stopped` and tagged with `turn.command`.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (runner exists but is not wired to UI/REST yet):
      - Open `/agents` and confirm the page loads without errors.
      - Run a normal agent instruction and confirm the conversation/turns still persist correctly (baseline regression for locking/cancellation work from earlier tasks).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Added `loadAgentCommandFile({ filePath })` and reused it for command summaries.
+- 2025-12-17: Added `server/src/agents/commandsRunner.ts` implementing sequential step execution with an in-memory per-conversation lock and `AbortSignal` checks between steps.
+- 2025-12-17: Added `runAgentCommand(...)` to `server/src/agents/service.ts` and extended agent run error codes to include `COMMAND_NOT_FOUND` / `COMMAND_INVALID`.
+- 2025-12-17: Added `server/src/test/unit/agent-commands-runner.test.ts` covering sequencing, abort stop, instruction joining, working folder forwarding, lock behavior, invalid/missing commands, and lock release on failure.
+- 2025-12-17: Updated `design.md` + `projectStructure.md` to document the runner flow + new files.
+- 2025-12-17: Verified `npm run lint --workspaces`, `npm run format:check --workspaces`, server/client builds, server/client tests, `npm run e2e`, and compose build/up/manual check/down.
+
 
 ---
 

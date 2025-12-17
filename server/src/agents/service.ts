@@ -21,6 +21,7 @@ import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
 
 import { loadAgentCommandSummary } from './commandsLoader.js';
+import { runAgentCommandRunner } from './commandsRunner.js';
 import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';
 import {
@@ -62,6 +63,8 @@ type RunAgentErrorCode =
   | 'CONVERSATION_ARCHIVED'
   | 'AGENT_MISMATCH'
   | 'RUN_IN_PROGRESS'
+  | 'COMMAND_NOT_FOUND'
+  | 'COMMAND_INVALID'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND';
@@ -199,6 +202,35 @@ export async function runAgentInstruction(
   } finally {
     releaseConversationLock(conversationId);
   }
+}
+
+export async function runAgentCommand(params: {
+  agentName: string;
+  commandName: string;
+  conversationId?: string;
+  working_folder?: string;
+  signal?: AbortSignal;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  agentName: string;
+  commandName: string;
+  conversationId: string;
+  modelId: string;
+}> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  return await runAgentCommandRunner({
+    agentName: params.agentName,
+    agentHome: agent.home,
+    commandName: params.commandName,
+    conversationId: params.conversationId,
+    working_folder: params.working_folder,
+    signal: params.signal,
+    source: params.source,
+    runAgentInstructionUnlocked,
+  });
 }
 
 export async function runAgentInstructionUnlocked(params: {

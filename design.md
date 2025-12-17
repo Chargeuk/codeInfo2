@@ -227,6 +227,36 @@ runAgentInstruction()
   Svc-->>CallerA: success
 ```
 
+#### Agent command execution (macros)
+
+- Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
+- The runner acquires the per-conversation lock once and holds it for the entire command run so steps cannot interleave with another run targeting the same `conversationId`.
+- Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
+- The runner checks `AbortSignal.aborted` between steps; if abort triggers mid-step the chat layer persists a `Stopped` assistant turn and still tags that step with `turn.command`.
+
+```mermaid
+sequenceDiagram
+  participant Client as Client (UI or MCP)
+  participant Server as Server (REST/MCP)
+  participant Svc as AgentsService
+  participant Codex as Codex
+
+  Client->>Server: run command (agentName, commandName, conversationId?)
+  Server->>Svc: runAgentCommand(...)
+  Svc->>Svc: load command JSON (commands/<name>.json)
+  Svc->>Svc: tryAcquireConversationLock(conversationId)
+
+  loop for each step
+    Svc->>Svc: if signal.aborted => stop
+    Svc->>Codex: run(stepInstruction, command metadata)
+    Codex-->>Svc: streamed events / completion (or Stopped on abort)
+  end
+
+  Svc->>Svc: releaseConversationLock(conversationId)
+  Svc-->>Server: { conversationId, modelId }
+  Server-->>Client: success
+```
+
 ### Agent discovery
 
 - Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`.

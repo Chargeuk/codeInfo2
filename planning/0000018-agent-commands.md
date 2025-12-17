@@ -1938,7 +1938,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 ### 10. Agents MCP: add `run_command` tool
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 9351fb0
 
 #### Overview
 

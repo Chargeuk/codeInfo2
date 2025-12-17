@@ -195,3 +195,86 @@ test('tools/call run_agent_instruction aborts tool call on disconnect (AbortSign
     server.close();
   }
 });
+
+test('tools/call run_command aborts tool call on disconnect (AbortSignal propagation)', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  let startedResolve: (() => void) | undefined;
+  const started = new Promise<void>((resolve) => {
+    startedResolve = resolve;
+  });
+
+  let abortedResolve: (() => void) | undefined;
+  const aborted = new Promise<void>((resolve) => {
+    abortedResolve = resolve;
+  });
+
+  setToolDeps({
+    runAgentCommand: async (params) => {
+      const signal = (params as { signal?: AbortSignal }).signal;
+      assert.equal(
+        Boolean(signal && typeof signal.aborted === 'boolean'),
+        true,
+      );
+      startedResolve?.();
+
+      await new Promise<void>((resolve) => {
+        if (!signal) return resolve();
+        if (signal.aborted) return resolve();
+        signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+
+      abortedResolve?.();
+
+      return {
+        agentName: 'planning_agent',
+        commandName: 'improve_plan',
+        conversationId: 'c1',
+        modelId: 'm1',
+      };
+    },
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const url = `http://127.0.0.1:${port}`;
+    const controller = new AbortController();
+
+    const fetchPromise = fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 44,
+        method: 'tools/call',
+        params: {
+          name: 'run_command',
+          arguments: {
+            agentName: 'planning_agent',
+            commandName: 'improve_plan',
+          },
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    await started;
+    controller.abort();
+
+    await assert.rejects(fetchPromise, (err) => {
+      return Boolean(
+        err && typeof err === 'object' && (err as Error).name === 'AbortError',
+      );
+    });
+
+    await aborted;
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});

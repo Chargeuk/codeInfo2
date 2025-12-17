@@ -13,7 +13,7 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
-test('tools/list returns exactly list_agents, list_commands and run_agent_instruction', async () => {
+test('tools/list returns exactly list_agents, list_commands, run_agent_instruction and run_command', async () => {
   const server = http.createServer(handleAgentsRpc);
   server.listen(0);
   const { port } = server.address() as AddressInfo;
@@ -29,6 +29,7 @@ test('tools/list returns exactly list_agents, list_commands and run_agent_instru
       'list_agents',
       'list_commands',
       'run_agent_instruction',
+      'run_command',
     ]);
   } finally {
     server.close();

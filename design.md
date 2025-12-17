@@ -160,10 +160,16 @@ flowchart LR
 ### Agents MCP (JSON-RPC)
 
 - The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
-- It exposes exactly two tools:
+- It exposes four tools:
   - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
+  - `list_commands` (always available; lists enabled command macros for one agent or all agents).
   - `run_agent_instruction` (Codex-backed; returns `CODE_INFO_LLM_UNAVAILABLE` when the Codex CLI is missing or the selected agent home is not usable).
-- Both tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
+  - `run_command` (Codex-backed; runs an agent command macro and returns a minimal `{ agentName, commandName, conversationId, modelId }` response).
+- Tool argument shapes (high level):
+  - `list_commands`: `{ agentName?: string }`.
+  - `run_agent_instruction`: `{ agentName: string, instruction: string, conversationId?: string, working_folder?: string }`.
+  - `run_command`: `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`.
+- All tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
 
 ```mermaid
 flowchart LR
@@ -196,6 +202,30 @@ sequenceDiagram
     Svc->>Codex: runStreamed(... workingDirectoryOverride)
     Codex-->>Svc: streamed events + thread id
     Svc-->>Tools: { agentName, conversationId, modelId, segments }
+    Tools-->>MCP: tool result (JSON text payload)
+    MCP-->>Client: JSON-RPC result
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant MCP as Agents MCP\n:5012
+  participant Tools as Tool registry\ncallTool()
+  participant Svc as Agents service\nrunAgentCommand()
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>MCP: tools/call run_command\n{ agentName, commandName, conversationId?, working_folder? }
+  MCP->>Tools: callTool('run_command', args)
+  Tools->>Svc: runAgentCommand(..., signal?)
+  alt RUN_IN_PROGRESS
+    Svc-->>Tools: throw RUN_IN_PROGRESS
+    Tools-->>MCP: RunInProgressError (code=409, data.code=RUN_IN_PROGRESS)
+    MCP-->>Client: JSON-RPC error (409)
+  else ok
+    Svc->>Codex: run sequential steps
+    Codex-->>Svc: done
+    Svc-->>Tools: { agentName, commandName, conversationId, modelId }
     Tools-->>MCP: tool result (JSON text payload)
     MCP-->>Client: JSON-RPC result
   end

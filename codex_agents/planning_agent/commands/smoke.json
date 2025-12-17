@@ -1,0 +1,12 @@
+{
+  "Description": "Smoke-test command macro for validating run_command wiring (single quick step).",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Reply with exactly: ok"
+      ]
+    }
+  ]
+}

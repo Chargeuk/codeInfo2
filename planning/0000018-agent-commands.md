@@ -1923,6 +1923,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 - 2025-12-17: Updated `design.md` + `projectStructure.md` to include the new REST endpoint and tests.
 - 2025-12-17: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; applied `npm run format --workspace server` to fix Prettier output.
 - 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Added `codex_agents/planning_agent/commands/smoke.json` as a fast, single-step command so MCP `run_command` can be manually verified without running the long `improve_plan` macro.
 - 2025-12-17: Testing 2/9: `npm run build --workspace client`.
 - 2025-12-17: Testing 3/9: `npm run test --workspace server`.
 - 2025-12-17: Testing 4/9: `npm run test --workspace client`.
@@ -1936,7 +1937,7 @@ Expose command execution to the GUI via REST using the shared runner. Response i
 
 ### 10. Agents MCP: add `run_command` tool
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -1953,7 +1954,7 @@ Expose command execution via Agents MCP using the same server runner and error m
 
 #### Subtasks
 
-1. [ ] Add the tool definition + args schema:
+1. [x] Add the tool definition + args schema:
    - Docs to read:
      - https://www.jsonrpc.org/specification
      - Context7 `/websites/v3_zod_dev`
@@ -1961,7 +1962,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - `server/src/mcpAgents/tools.ts`
    - Input schema:
      - `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`
-2. [ ] Implement the handler using `runAgentCommand(...)`:
+2. [x] Implement the handler using `runAgentCommand(...)`:
    - Docs to read:
      - Context7 `/websites/v3_zod_dev`
      - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -1987,7 +1988,7 @@ Expose command execution via Agents MCP using the same server runner and error m
        "params": { "name": "run_command", "arguments": { "agentName": "planning_agent", "commandName": "improve_plan" } }
      }
      ```
-3. [ ] Server unit test (Agents MCP tool): `run_command` success returns `{ agentName, commandName, conversationId, modelId }`:
+3. [x] Server unit test (Agents MCP tool): `run_command` success returns `{ agentName, commandName, conversationId, modelId }`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -1998,7 +1999,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to return `{ agentName, commandName, conversationId, modelId }`.
      - Call `callTool('run_command', { agentName, commandName })` and assert the JSON text content parses to that shape.
-4. [ ] Server unit test (Agents MCP tool): `RUN_IN_PROGRESS` surfaces as a stable tool error:
+4. [x] Server unit test (Agents MCP tool): `RUN_IN_PROGRESS` surfaces as a stable tool error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2009,7 +2010,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'RUN_IN_PROGRESS' }`.
      - Assert the tool call throws the expected stable MCP error (per Task 10 mapping rules).
-5. [ ] Server unit test (Agents MCP tool): invalid `commandName` is rejected with a stable error:
+5. [x] Server unit test (Agents MCP tool): invalid `commandName` is rejected with a stable error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2022,7 +2023,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Assert it throws an invalid-params style error (per Task 10 mapping rules).
    - Reference harness:
      - Copy dependency injection patterns from `server/src/test/unit/mcp-agents-tools.test.ts`.
-6. [ ] Server unit test (Agents MCP tool): `COMMAND_NOT_FOUND` maps to a stable tool error:
+6. [x] Server unit test (Agents MCP tool): `COMMAND_NOT_FOUND` maps to a stable tool error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2033,7 +2034,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_NOT_FOUND' }`.
      - Assert the tool call throws the expected stable tool error type/code.
-7. [ ] Server unit test (Agents MCP tool): `COMMAND_INVALID` maps to a stable tool error:
+7. [x] Server unit test (Agents MCP tool): `COMMAND_INVALID` maps to a stable tool error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2044,7 +2045,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'COMMAND_INVALID' }`.
      - Assert the tool call throws an invalid-params style tool error.
-8. [ ] Server unit test (Agents MCP tool): `WORKING_FOLDER_*` errors map to invalid-params tool errors:
+8. [x] Server unit test (Agents MCP tool): `WORKING_FOLDER_*` errors map to invalid-params tool errors:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2055,7 +2056,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_INVALID' }`, assert invalid-params tool error.
      - Stub `runAgentCommand(...)` to throw `{ code: 'WORKING_FOLDER_NOT_FOUND' }`, assert invalid-params tool error.
-9. [ ] Server unit test (Agents MCP tool): unknown agent maps to a stable tool error:
+9. [x] Server unit test (Agents MCP tool): unknown agent maps to a stable tool error:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://www.jsonrpc.org/specification
@@ -2066,7 +2067,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - What to implement:
      - Stub `runAgentCommand(...)` to throw `{ code: 'AGENT_NOT_FOUND' }`.
      - Assert invalid-params style tool error (safe message).
-10. [ ] Server unit test (Agents MCP router): aborting the HTTP request aborts `run_command` via AbortSignal:
+10. [x] Server unit test (Agents MCP router): aborting the HTTP request aborts `run_command` via AbortSignal:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -2078,7 +2079,7 @@ Expose command execution via Agents MCP using the same server runner and error m
     - What to implement:
       - Set tool deps so `runAgentCommand` captures `params.signal` and waits for abort.
       - Send a JSON-RPC `tools/call` request for `run_command` using `fetch(..., { signal })`, then abort the client signal and assert the stub saw `signal.aborted === true`.
-11. [ ] Update existing MCP tools/list expectation test (now that `run_command` exists):
+11. [x] Update existing MCP tools/list expectation test (now that `run_command` exists):
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
@@ -2087,7 +2088,7 @@ Expose command execution via Agents MCP using the same server runner and error m
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Requirements:
      - Update expected tool names to include `run_command` as well as `list_commands`.
-12. [ ] Update `projectStructure.md` after adding tests:
+12. [x] Update `projectStructure.md` after adding tests:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -2095,7 +2096,7 @@ Expose command execution via Agents MCP using the same server runner and error m
    - Files to add/remove entries for (must list all files changed by this task):
      - Add: `server/src/test/unit/mcp-agents-commands-run.test.ts`
      - Remove: (none)
-13. [ ] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
+13. [x] Update `design.md` with Agents MCP tools (`list_commands` / `run_command`) + Mermaid diagram updates:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -2106,27 +2107,32 @@ Expose command execution via Agents MCP using the same server runner and error m
      - Document the two Agents MCP tools and their argument shapes at a high level (no full JSON examples needed in design.md).
      - Add (or extend) a Mermaid sequence diagram path showing MCP `tools/call` → shared agents service → Codex.
      - Mention how `RUN_IN_PROGRESS` surfaces for MCP callers (tool error with stable code/message).
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Call MCP `run_command` and confirm it returns `{ conversationId, modelId }`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Marked Task 10 as in_progress.
+- 2025-12-17: Added Agents MCP tool `run_command` (schema + handler) in `server/src/mcpAgents/tools.ts` and wired Codex availability checks for MCP in `server/src/mcpAgents/router.ts`.
+- 2025-12-17: Added MCP unit coverage for `run_command` and updated MCP router/tools-list tests.
+- 2025-12-17: Updated `projectStructure.md` for the new MCP tool/test file and adjusted MCP tool list descriptions.
+- 2025-12-17: Updated `design.md` to document Agents MCP `list_commands`/`run_command` plus a `run_command` sequence diagram and tool argument shapes.
+- 2025-12-17: Ran `npm run lint --workspaces` and `npm run format:check --workspaces` (both clean).
 
 ---
 

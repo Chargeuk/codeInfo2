@@ -12,6 +12,7 @@ import {
   callTool,
   listTools,
   RUN_AGENT_INSTRUCTION_TOOL_NAME,
+  RUN_COMMAND_TOOL_NAME,
 } from './tools.js';
 import {
   JsonRpcRequest,
@@ -134,7 +135,8 @@ export async function handleAgentsRpc(
         }
 
         if (
-          name === RUN_AGENT_INSTRUCTION_TOOL_NAME &&
+          (name === RUN_AGENT_INSTRUCTION_TOOL_NAME ||
+            name === RUN_COMMAND_TOOL_NAME) &&
           !(await isCodexCliAvailable())
         ) {
           return jsonRpcError(

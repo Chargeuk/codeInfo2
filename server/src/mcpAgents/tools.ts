@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   listAgents,
   listAgentCommands,
+  runAgentCommand,
   runAgentInstruction,
 } from '../agents/service.js';
 import {
@@ -27,12 +28,15 @@ export {
 export const LIST_AGENTS_TOOL_NAME = 'list_agents';
 export const LIST_COMMANDS_TOOL_NAME = 'list_commands';
 export const RUN_AGENT_INSTRUCTION_TOOL_NAME = 'run_agent_instruction';
+export const RUN_COMMAND_TOOL_NAME = 'run_command';
 
 type AgentRunError =
   | { code: 'AGENT_NOT_FOUND' }
   | { code: 'CONVERSATION_ARCHIVED' }
   | { code: 'AGENT_MISMATCH' }
   | { code: 'RUN_IN_PROGRESS'; reason?: string }
+  | { code: 'COMMAND_NOT_FOUND' }
+  | { code: 'COMMAND_INVALID' }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string }
   | { code: 'CODEX_UNAVAILABLE'; reason?: string };
@@ -53,6 +57,28 @@ const runParamsSchema = z
 
 type RunParams = z.infer<typeof runParamsSchema>;
 
+const safeCommandNameSchema = z
+  .string()
+  .min(1)
+  .refine((value) => {
+    const name = value.trim();
+    if (!name) return false;
+    if (name.includes('/') || name.includes('\\')) return false;
+    if (name.includes('..')) return false;
+    return true;
+  }, 'commandName must not contain path separators or ..');
+
+const runCommandParamsSchema = z
+  .object({
+    agentName: z.string().min(1),
+    commandName: safeCommandNameSchema,
+    conversationId: z.string().min(1).optional(),
+    working_folder: z.string().min(1).optional(),
+  })
+  .strict();
+
+type RunCommandParams = z.infer<typeof runCommandParamsSchema>;
+
 const listCommandsParamsSchema = z
   .object({
     agentName: z.string().min(1).optional(),
@@ -65,6 +91,7 @@ type CallToolDeps = {
   listAgents: typeof listAgents;
   listAgentCommands: typeof listAgentCommands;
   runAgentInstruction: typeof runAgentInstruction;
+  runAgentCommand: typeof runAgentCommand;
   signal?: AbortSignal;
 };
 
@@ -144,12 +171,47 @@ function runAgentInstructionDefinition() {
   } as const;
 }
 
+function runCommandDefinition() {
+  return {
+    name: RUN_COMMAND_TOOL_NAME,
+    description:
+      'Run a named command macro for a Codex agent and return a minimal response including conversationId and modelId.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['agentName', 'commandName'],
+      properties: {
+        agentName: {
+          type: 'string',
+          description: 'Agent folder name under CODEINFO_CODEX_AGENT_HOME.',
+        },
+        commandName: {
+          type: 'string',
+          description:
+            'Command macro name (without .json) under <agent>/commands/.',
+        },
+        conversationId: {
+          type: 'string',
+          description:
+            'Optional conversation id to continue an existing agent conversation.',
+        },
+        working_folder: {
+          type: 'string',
+          description:
+            'Optional absolute working folder to run the command from. When provided, the server may map host paths under HOST_INGEST_DIR into the Codex workdir and validates that the resolved directory exists.',
+        },
+      },
+    },
+  } as const;
+}
+
 export async function listTools(): Promise<ToolListResult> {
   return {
     tools: [
       listAgentsDefinition(),
       listCommandsDefinition(),
       runAgentInstructionDefinition(),
+      runCommandDefinition(),
     ],
   };
 }
@@ -230,6 +292,76 @@ function validateRunParams(params: unknown): RunParams {
   return parsed.data;
 }
 
+function validateRunCommandParams(params: unknown): RunCommandParams {
+  const parsed = runCommandParamsSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new InvalidParamsError('Invalid params', parsed.error.format());
+  }
+  return parsed.data;
+}
+
+async function runRunCommand(params: unknown, deps: Partial<CallToolDeps>) {
+  const parsed = validateRunCommandParams(params);
+
+  const resolvedRunAgentCommand = deps.runAgentCommand ?? runAgentCommand;
+
+  try {
+    const result = await resolvedRunAgentCommand({
+      agentName: parsed.agentName,
+      commandName: parsed.commandName,
+      conversationId: parsed.conversationId,
+      working_folder: parsed.working_folder,
+      signal: deps.signal,
+      source: 'MCP',
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result) }],
+    } as const;
+  } catch (err) {
+    if (isAgentRunError(err)) {
+      if (err.code === 'CONVERSATION_ARCHIVED') {
+        throw new ArchivedConversationError(
+          'Conversation is archived and must be restored before use',
+        );
+      }
+      if (err.code === 'CODEX_UNAVAILABLE') {
+        throw new CodexUnavailableError(err.reason);
+      }
+      if (err.code === 'AGENT_MISMATCH') {
+        throw new InvalidParamsError(
+          'Conversation belongs to a different agent',
+        );
+      }
+      if (err.code === 'AGENT_NOT_FOUND') {
+        throw new InvalidParamsError('Agent not found');
+      }
+      if (err.code === 'RUN_IN_PROGRESS') {
+        throw new RunInProgressError('RUN_IN_PROGRESS', {
+          code: 'RUN_IN_PROGRESS',
+          message:
+            err.reason ?? 'A run is already in progress for this conversation.',
+        });
+      }
+      if (err.code === 'COMMAND_NOT_FOUND') {
+        throw new InvalidParamsError('Command not found');
+      }
+      if (err.code === 'COMMAND_INVALID') {
+        throw new InvalidParamsError('Invalid command');
+      }
+      if (err.code === 'WORKING_FOLDER_INVALID') {
+        throw new InvalidParamsError(err.reason ?? 'Invalid working_folder');
+      }
+      if (err.code === 'WORKING_FOLDER_NOT_FOUND') {
+        throw new InvalidParamsError(
+          err.reason ?? 'working_folder directory not found',
+        );
+      }
+    }
+    throw err;
+  }
+}
+
 async function runRunAgentInstruction(
   params: unknown,
   deps: Partial<CallToolDeps>,
@@ -305,6 +437,10 @@ export async function callTool(
 
   if (name === LIST_COMMANDS_TOOL_NAME) {
     return runListCommands(args, mergedDeps);
+  }
+
+  if (name === RUN_COMMAND_TOOL_NAME) {
+    return runRunCommand(args, mergedDeps);
   }
 
   if (name === RUN_AGENT_INSTRUCTION_TOOL_NAME) {

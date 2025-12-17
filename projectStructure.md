@@ -383,8 +383,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/agent-commands-loader.test.ts — unit coverage for loading command summaries from disk (valid/invalid/missing)
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache)
 - server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior)
+- server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
+- server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
 - server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/list_commands/run_agent_instruction/run_command) delegating to shared agents service
@@ -405,5 +407,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
+- client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown refresh, disabled entries, labels, and description display
+- client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
+- client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send
+- client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page disables command execution when persistence is unavailable (mongoConnected=false)
+- client/src/test/agentsPage.commandMetadataRender.test.tsx — Agents page renders per-turn command metadata note with step progress (e.g., 2/12)
+- client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop aborts an in-flight command execution request
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` re-fetching the newest page in `replace` mode
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering

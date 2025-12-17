@@ -3211,7 +3211,7 @@ Consolidate and sanity-check all architecture/flow updates to `design.md` made t
 
 ### 21. Docs: update `projectStructure.md` (new files from Story 0000018)
 
-- Task Status: **in_progress**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -3225,7 +3225,7 @@ Keep the project tree map up to date after introducing new command-related serve
 
 #### Subtasks
 
-1. [ ] Update `projectStructure.md`:
+1. [x] Update `projectStructure.md`:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -3263,27 +3263,37 @@ Keep the project tree map up to date after introducing new command-related serve
          - `client/src/test/useConversationTurns.commandMetadata.test.ts`
          - `client/src/test/useConversationTurns.refresh.test.ts`
        - Remove: (none)
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - N/A (docs); rely on prior tasks + final verification.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- Updated `projectStructure.md` to explicitly list Story 0000018’s command-metadata server unit tests and the Agents page command-run UI tests (so the doc matches the task’s “full paths” checklist).
+- Verified docs-only changes don’t break repo hygiene: `npm run lint --workspaces` and `npm run format:check --workspaces` both pass.
+- Test step 1: `npm run build --workspace server` passes.
+- Test step 2: `npm run build --workspace client` passes.
+- Test step 3: `npm run test --workspace server` passes (note: existing Chroma `default-embed` warnings observed but tests still pass).
+- Test step 4: `npm run test --workspace client` passes (note: existing React/Jest console warnings about `act(...)` and Node VM modules observed but tests still pass).
+- Test step 5: `npm run e2e` passes.
+- Test step 6: `npm run compose:build` passes.
+- Test step 7: `npm run compose:up` passes.
+- Test step 8: Manual Playwright-MCP check is N/A for docs-only task; rely on e2e + prior story verification.
+- Test step 9: `npm run compose:down` passes.
 
 ---
 

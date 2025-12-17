@@ -2360,7 +2360,7 @@ Add a focused client API helper for executing a selected command against an agen
 
 ### 13. Client API: structured error parsing for agents endpoints (including `RUN_IN_PROGRESS`)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -2376,14 +2376,14 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 
 #### Subtasks
 
-1. [ ] Define a small structured error type for agent API calls:
+1. [x] Define a small structured error type for agent API calls:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/agents.ts`
    - Requirements:
      - Surface `{ status: number; code?: string; message: string }` via a custom `Error` subclass (preferred) or equivalent, so callers can reliably branch on `status` and `code`.
-2. [ ] Update `runAgentInstruction(...)` to use structured errors:
+2. [x] Update `runAgentInstruction(...)` to use structured errors:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2391,7 +2391,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - Requirements:
      - When response is JSON, prefer `{ code, message }` fields from body if present.
      - Keep existing behavior for non-JSON error bodies (fallback to text).
-3. [ ] Update `runAgentCommand(...)` to use structured errors:
+3. [x] Update `runAgentCommand(...)` to use structured errors:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2402,7 +2402,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
        - Fall back to `await res.text()` when the body is not JSON.
        - Preserve `status` on the thrown error so UI code can reliably branch on `status === 409` and `code === 'RUN_IN_PROGRESS'`.
      - Do not wrap/convert abort errors: an aborted request should still behave like the existing `runAgentInstruction(...)` (the caller treats abort as cancellation, not a server error).
-4. [ ] Client unit test (Jest): `runAgentInstruction(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
+4. [x] Client unit test (Jest): `runAgentInstruction(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2413,7 +2413,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - What to implement:
      - Mock `fetch` to return `status=409` and JSON `{ code: 'RUN_IN_PROGRESS', message: '...' }`.
      - Assert the thrown error exposes `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
-5. [ ] Client unit test (Jest): `runAgentCommand(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
+5. [x] Client unit test (Jest): `runAgentCommand(...)` throws structured error for 409 `RUN_IN_PROGRESS`:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2424,7 +2424,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
    - What to implement:
      - Mock `fetch` to return `status=409` and JSON `{ code: 'RUN_IN_PROGRESS', message: '...' }`.
      - Assert the thrown error exposes `{ status: 409, code: 'RUN_IN_PROGRESS' }`.
-6. [ ] Update `projectStructure.md` after adding new client test files:
+6. [x] Update `projectStructure.md` after adding new client test files:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -2434,29 +2434,46 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
        - Add: `client/src/test/agentsApi.errors.test.ts`
        - Remove: (none)
      - Ensure the entry has a short description (what it covers).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Regression smoke check (API-only change; UI not changed yet):
      - Open `/agents` and confirm the page loads without errors.
      - Run a normal agent instruction and confirm it still works end-to-end (baseline regression).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Started Task 13 client structured error parsing for agents API endpoints.
+- 2025-12-17: Subtask 1/7: Added `AgentApiError` + `{ status, code, message }` contract in `client/src/api/agents.ts`.
+- 2025-12-17: Subtask 2/7: Updated `runAgentInstruction(...)` to parse JSON error bodies and throw `AgentApiError` (preserving abort behavior).
+- 2025-12-17: Subtask 3/7: Updated `runAgentCommand(...)` to match `runAgentInstruction(...)` structured error behavior.
+- 2025-12-17: Subtask 4/7: Added Jest coverage for `runAgentInstruction(...)` 409 `RUN_IN_PROGRESS` structured error.
+- 2025-12-17: Subtask 5/7: Added Jest coverage for `runAgentCommand(...)` 409 `RUN_IN_PROGRESS` structured error.
+- 2025-12-17: Subtask 6/7: Updated `projectStructure.md` to include `client/src/test/agentsApi.errors.test.ts`.
+- 2025-12-17: Subtask 7/7: Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2025-12-17: Testing 1/9: `npm run build --workspace server`.
+- 2025-12-17: Testing 2/9: `npm run build --workspace client`.
+- 2025-12-17: Testing 3/9: `npm run test --workspace server`.
+- 2025-12-17: Testing 4/9: `npm run test --workspace client`.
+- 2025-12-17: Testing 5/9: `npm run e2e`.
+- 2025-12-17: Testing 6/9: `npm run compose:build`.
+- 2025-12-17: Testing 7/9: `npm run compose:up`.
+- 2025-12-17: Testing 8/9: Manual smoke check via host ports: `GET http://host.docker.internal:5001/agents` returned 200; `POST http://host.docker.internal:5010/agents/planning_agent/run` returned 200 (conversation `5dca3b66-56bb-4a1d-b378-d8b2cac70f4a`).
+- 2025-12-17: Testing 9/9: `npm run compose:down`.
+- 2025-12-17: Completed Task 13.
 
 ---
 

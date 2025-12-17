@@ -5,6 +5,77 @@ type AgentSummary = {
   warnings?: string[];
 };
 
+export type AgentApiErrorDetails = {
+  status: number;
+  code?: string;
+  message: string;
+};
+
+export class AgentApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(details: AgentApiErrorDetails) {
+    super(details.message);
+    this.name = 'AgentApiError';
+    this.status = details.status;
+    this.code = details.code;
+  }
+}
+
+function isJsonContentType(contentType: string | null | undefined) {
+  if (!contentType) return false;
+  const normalized = contentType.toLowerCase();
+  return (
+    normalized.includes('application/json') || normalized.includes('+json')
+  );
+}
+
+async function parseAgentApiErrorResponse(res: Response): Promise<{
+  code?: string;
+  message?: string;
+  text?: string;
+}> {
+  const contentType =
+    typeof res.headers?.get === 'function'
+      ? res.headers.get('content-type')
+      : null;
+
+  if (isJsonContentType(contentType)) {
+    try {
+      const data = (await res.json()) as unknown;
+      if (data && typeof data === 'object') {
+        const record = data as Record<string, unknown>;
+        return {
+          code: typeof record.code === 'string' ? record.code : undefined,
+          message:
+            typeof record.message === 'string' ? record.message : undefined,
+        };
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }
+
+  const text = await res.text().catch(() => '');
+  return { text: text || undefined };
+}
+
+async function throwAgentApiError(
+  res: Response,
+  baseMessage: string,
+): Promise<never> {
+  const parsed = await parseAgentApiErrorResponse(res);
+  const message =
+    parsed.message ?? `${baseMessage}${parsed.text ? `: ${parsed.text}` : ''}`;
+  throw new AgentApiError({
+    status: res.status,
+    code: parsed.code,
+    message,
+  });
+}
+
 const serverBase =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta).env?.VITE_API_URL) ??
@@ -114,9 +185,9 @@ export async function runAgentInstruction(params: {
     },
   );
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to run agent instruction (${res.status})${text ? `: ${text}` : ''}`,
+    await throwAgentApiError(
+      res,
+      `Failed to run agent instruction (${res.status})`,
     );
   }
   const data = (await res.json()) as Record<string, unknown>;
@@ -165,9 +236,9 @@ export async function runAgentCommand(params: {
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Failed to run agent command (${res.status})${text ? `: ${text}` : ''}`,
+    await throwAgentApiError(
+      res,
+      `Failed to run agent command (${res.status})`,
     );
   }
 

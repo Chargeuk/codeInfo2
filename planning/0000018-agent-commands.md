@@ -2877,7 +2877,7 @@ Render the per-turn `command` metadata inside chat bubbles so users can see whic
 ### 18. Client tests: commands list + run + disabled entries + conflict errors
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 124218f
 
 #### Overview
 

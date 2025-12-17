@@ -397,3 +397,4 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations
 - client/src/test/agentsApi.workingFolder.payload.test.ts — Agents API wrapper includes `working_folder` only when non-empty
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
+- client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent

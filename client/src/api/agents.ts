@@ -130,3 +130,57 @@ export async function runAgentInstruction(params: {
   }
   return { agentName, conversationId, modelId, segments };
 }
+
+export async function runAgentCommand(params: {
+  agentName: string;
+  commandName: string;
+  conversationId?: string;
+  working_folder?: string;
+  signal?: AbortSignal;
+}): Promise<{
+  agentName: string;
+  commandName: string;
+  conversationId: string;
+  modelId: string;
+}> {
+  const res = await fetch(
+    new URL(
+      `/agents/${encodeURIComponent(params.agentName)}/commands/run`,
+      serverBase,
+    ).toString(),
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        commandName: params.commandName,
+        ...(params.conversationId
+          ? { conversationId: params.conversationId }
+          : {}),
+        ...(params.working_folder?.trim()
+          ? { working_folder: params.working_folder }
+          : {}),
+      }),
+      signal: params.signal,
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to run agent command (${res.status})${text ? `: ${text}` : ''}`,
+    );
+  }
+
+  const data = (await res.json()) as Record<string, unknown>;
+  const agentName = typeof data.agentName === 'string' ? data.agentName : '';
+  const commandName =
+    typeof data.commandName === 'string' ? data.commandName : '';
+  const conversationId =
+    typeof data.conversationId === 'string' ? data.conversationId : '';
+  const modelId = typeof data.modelId === 'string' ? data.modelId : '';
+  if (!agentName || !commandName || !conversationId || !modelId) {
+    throw new Error('Invalid agent command run response');
+  }
+
+  return { agentName, commandName, conversationId, modelId };
+}

@@ -2796,7 +2796,7 @@ Add the “Execute command” button, wire it to the new API, and ensure the UI 
 ### 17. Client UI: render per-turn “Command run … (2/12)” metadata in bubbles
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 16cfa59
 
 #### Overview
 

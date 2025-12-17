@@ -2361,7 +2361,7 @@ Add a focused client API helper for executing a selected command against an agen
 ### 13. Client API: structured error parsing for agents endpoints (including `RUN_IN_PROGRESS`)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 41cacc2
 
 #### Overview
 

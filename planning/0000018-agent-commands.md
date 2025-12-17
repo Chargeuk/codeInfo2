@@ -3153,7 +3153,7 @@ Document Agent Commands (where command files live and the REST API surface for l
 ### 20. Docs: update `design.md` (sequence diagram + cancellation + locking)
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 49bc9f1
 
 #### Overview
 

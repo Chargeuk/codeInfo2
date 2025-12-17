@@ -89,6 +89,19 @@ codex_agents/<agentName>/
 
 - Agent Commands (macros):
   - Commands live alongside an agent under `codex_agents/<agentName>/commands/*.json` (file basename is the command name).
+  - Command file schema (v1):
+    ```json
+    {
+      "Description": "Refine a story plan for clarity and completeness.",
+      "items": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": ["Step 1 prompt...", "Step 1 continues..."]
+        }
+      ]
+    }
+    ```
   - List available commands for an agent:
     - `curl -s http://localhost:5010/agents/coding_agent/commands | jq`
     - Example response:

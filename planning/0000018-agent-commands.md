@@ -3299,7 +3299,7 @@ Keep the project tree map up to date after introducing new command-related serve
 
 ### 22. Final verification + acceptance criteria validation
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -3317,12 +3317,12 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 
 #### Subtasks
 
-1. [ ] Confirm acceptance criteria checklist against the implemented behavior:
+1. [x] Confirm acceptance criteria checklist against the implemented behavior:
    - Docs to read:
      - https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - File to read:
      - `planning/0000018-agent-commands.md`
-2. [ ] Documentation update check: `README.md`
+2. [x] Documentation update check: `README.md`
    - Docs to read:
      - https://github.github.com/gfm/
    - Document: `README.md`
@@ -3331,7 +3331,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
    - What to verify/update:
      - Command file location (`codex_agents/<agentName>/commands/*.json`) and the v1 schema summary.
      - Any new curl examples and error codes (`RUN_IN_PROGRESS`, `COMMAND_INVALID`, etc.).
-3. [ ] Documentation update check: `design.md`
+3. [x] Documentation update check: `design.md`
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://github.github.com/gfm/#fenced-code-blocks
@@ -3341,7 +3341,7 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
    - What to verify/update:
      - Mermaid diagrams render correctly and match the implemented behavior.
      - The concurrency section documents: “lock scope = conversationId only”, “in-memory per process”, “no cross-instance coordination”.
-4. [ ] Documentation update check: `projectStructure.md`
+4. [x] Documentation update check: `projectStructure.md`
    - Docs to read:
      - https://github.github.com/gfm/
    - Document: `projectStructure.md`
@@ -3349,23 +3349,43 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
      - Ensure the tracked project tree is accurate after all new files added by this story (server + client + tests).
    - What to verify/update:
      - All new files created in Tasks 1–21 appear in the tree with correct brief comments.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (screenshots as above)
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (screenshots as above)
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- 2025-12-17: Verified Story 0000018 acceptance criteria against the implemented REST/MCP endpoints, server command runner, per-conversation lock behavior, and Agents UI affordances (commands list + disabled items + execute + per-turn command metadata notes).
+- 2025-12-17: Updated `README.md` with a concise Agent Commands v1 JSON schema example and re-verified the REST error-code notes for `RUN_IN_PROGRESS`/`COMMAND_INVALID`.
+- 2025-12-17: Verified `design.md` diagrams and flows still match the implemented Agent Commands behavior (lock scope, abort-based cancellation, shared service path for REST + MCP).
+- 2025-12-17: Verified `projectStructure.md` already includes all Story 0000018 files (server command runner/schema/routes + client command UI + tests).
+- 2025-12-17: Repo hygiene passes: `npm run lint --workspaces` and `npm run format:check --workspaces`.
+- 2025-12-17: Test 1: `npm run build --workspace server` passes.
+- 2025-12-17: Test 2: `npm run build --workspace client` passes.
+- 2025-12-17: Test 3: `npm run test --workspace server` passes (note: existing Chroma `default-embed` warnings observed but tests still pass).
+- 2025-12-17: Test 4: `npm run test --workspace client` passes (note: existing Jest/React `act(...)` warnings and Node VM module warnings observed but tests still pass).
+- 2025-12-17: Test 5: `npm run e2e` passes.
+- 2025-12-17: Test 6: `npm run compose:build` passes.
+- 2025-12-17: Test 7: `npm run compose:up` passes.
+- 2025-12-17: Test 8: Manual Playwright check against `http://host.docker.internal:5001/agents`:
+  - Captured screenshots in `./test-results/screenshots/`:
+    - `0000018-22-agents-command-dropdown.png`
+    - `0000018-22-agents-command-selected.png`
+    - `0000018-22-agents-command-run-metadata.png`
+    - `0000018-22-agents-run-in-progress.png`
+  - Verified command execution displays per-turn `Command run: <name> (step/total)` notes.
+  - Verified concurrent run is rejected with `RUN_IN_PROGRESS` and surfaced as a friendly error bubble in the second tab.
+- 2025-12-17: Test 9: `npm run compose:down` passes.

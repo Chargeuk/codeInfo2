@@ -3092,7 +3092,7 @@ Add focused client tests for the new Commands UI flow (listing, disabled entries
 
 ### 19. Docs: update `README.md` (Agent Commands overview + REST endpoints)
 
-- Task Status: **to_do**
+- Task Status: **completed**
 - Git Commits:
 
 #### Overview
@@ -3106,7 +3106,7 @@ Document Agent Commands (where command files live and the REST API surface for l
 
 #### Subtasks
 
-1. [ ] Update `README.md`:
+1. [x] Update `README.md`:
    - Docs to read:
      - https://github.github.com/gfm/
    - Files to edit:
@@ -3114,27 +3114,39 @@ Document Agent Commands (where command files live and the REST API surface for l
    - Requirements:
      - Document where commands live (`codex_agents/<agent>/commands/*.json`).
      - Document the two REST endpoints and their payloads.
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
      - https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - N/A (docs); rely on prior tasks + final verification.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (empty)
+- Updated `README.md` Agents section with an Agent Commands overview (where command files live) and REST examples for listing/running commands.
+- Included the stable error payloads (`COMMAND_INVALID`, `WORKING_FOLDER_*`, `RUN_IN_PROGRESS`) so callers know what to handle.
+- Also refreshed the Agents MCP “Tools” list so it matches the implemented `list_commands`/`run_command` tooling.
+- Verified docs change is clean under `npm run lint --workspaces` and `npm run format:check --workspaces`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Testing: Manual Playwright-MCP check marked N/A for docs-only change.
+- Testing: `npm run compose:down`.
 
 ---
 

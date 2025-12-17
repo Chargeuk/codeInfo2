@@ -2482,7 +2482,7 @@ Add consistent, structured error parsing for agent-related API calls so the UI c
 ### 14. Client: add turns refresh + include `command` metadata in `StoredTurn`
 
 - Task Status: **completed**
-- Git Commits:
+- Git Commits: 03f0020
 
 #### Overview
 

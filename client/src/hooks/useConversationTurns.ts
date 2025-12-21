@@ -13,6 +13,7 @@ export type StoredTurn = {
   provider: string;
   toolCalls?: Record<string, unknown> | null;
   status: 'ok' | 'stopped' | 'failed';
+  command?: { name: string; stepIndex: number; totalSteps: number };
   createdAt: string;
 };
 
@@ -32,6 +33,7 @@ type State = {
   error?: string;
   hasMore: boolean;
   loadOlder: () => Promise<void>;
+  refresh: () => Promise<void>;
   reset: () => void;
 };
 
@@ -153,10 +155,15 @@ export function useConversationTurns(conversationId?: string): State {
     await fetchPage('prepend');
   }, [fetchPage, hasMore, isLoading]);
 
+  const refresh = useCallback(async () => {
+    await fetchPage('replace');
+  }, [fetchPage]);
+
   const reset = useCallback(() => {
     setTurns([]);
     setLastPage([]);
     setLastMode(null);
+    cursorRef.current = undefined;
     setHasMore(false);
     setIsError(false);
     setError(undefined);
@@ -173,6 +180,7 @@ export function useConversationTurns(conversationId?: string): State {
       error,
       hasMore,
       loadOlder,
+      refresh,
       reset,
     }),
     [
@@ -184,6 +192,7 @@ export function useConversationTurns(conversationId?: string): State {
       error,
       hasMore,
       loadOlder,
+      refresh,
       reset,
     ],
   );

@@ -27,6 +27,7 @@ export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  command?: { name: string; stepIndex: number; totalSteps: number };
   kind?: 'error' | 'status';
   think?: string;
   thinkStreaming?: boolean;

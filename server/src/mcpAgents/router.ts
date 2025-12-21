@@ -7,10 +7,12 @@ import { CodexUnavailableError } from './errors.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
+  RunInProgressError,
   ToolNotFoundError,
   callTool,
   listTools,
   RUN_AGENT_INSTRUCTION_TOOL_NAME,
+  RUN_COMMAND_TOOL_NAME,
 } from './tools.js';
 import {
   JsonRpcRequest,
@@ -35,6 +37,17 @@ export async function handleAgentsRpc(
   res: ServerResponse,
 ) {
   const body = await readBody(req);
+
+  const controller = new AbortController();
+  const handleDisconnect = () => {
+    if (controller.signal.aborted) return;
+    controller.abort();
+  };
+  req.on('aborted', handleDisconnect);
+  res.on('close', () => {
+    if (res.writableEnded) return;
+    handleDisconnect();
+  });
   const writeHeadersIfNeeded = () => {
     if (res.headersSent) return;
     res.writeHead(200, {
@@ -122,7 +135,8 @@ export async function handleAgentsRpc(
         }
 
         if (
-          name === RUN_AGENT_INSTRUCTION_TOOL_NAME &&
+          (name === RUN_AGENT_INSTRUCTION_TOOL_NAME ||
+            name === RUN_COMMAND_TOOL_NAME) &&
           !(await isCodexCliAvailable())
         ) {
           return jsonRpcError(
@@ -133,7 +147,9 @@ export async function handleAgentsRpc(
         }
 
         try {
-          const result = await callTool(name, args);
+          const result = await callTool(name, args, {
+            signal: controller.signal,
+          });
           return jsonRpcResult(requestId, result);
         } catch (err) {
           if (err instanceof CodexUnavailableError) {
@@ -156,6 +172,10 @@ export async function handleAgentsRpc(
 
           if (err instanceof ArchivedConversationError) {
             return jsonRpcError(requestId, err.code, err.message);
+          }
+
+          if (err instanceof RunInProgressError) {
+            return jsonRpcError(requestId, err.code, err.message, err.data);
           }
 
           if (err instanceof ToolNotFoundError) {

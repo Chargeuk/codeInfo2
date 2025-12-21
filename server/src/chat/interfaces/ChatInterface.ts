@@ -6,11 +6,32 @@ import {
   type AppendTurnInput,
   type TurnSummary,
 } from '../../mongo/repo.js';
-import type { Turn, TurnSource, TurnStatus } from '../../mongo/turn.js';
+import type {
+  Turn,
+  TurnCommandMetadata,
+  TurnSource,
+  TurnStatus,
+} from '../../mongo/turn.js';
 import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
 } from '../memoryPersistence.js';
+
+const parseCommandMetadata = (
+  input: unknown,
+): TurnCommandMetadata | undefined => {
+  if (!input || typeof input !== 'object') return undefined;
+  const value = input as Record<string, unknown>;
+  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  const stepIndex = value.stepIndex;
+  const totalSteps = value.totalSteps;
+  if (!name.length) return undefined;
+  if (typeof stepIndex !== 'number' || !Number.isFinite(stepIndex))
+    return undefined;
+  if (typeof totalSteps !== 'number' || !Number.isFinite(totalSteps))
+    return undefined;
+  return { name, stepIndex, totalSteps };
+};
 
 export interface ChatTokenEvent {
   type: 'token';
@@ -101,6 +122,9 @@ export abstract class ChatInterface extends EventEmitter {
     const skipPersistence = Boolean(
       (flags ?? {}) && (flags as { skipPersistence?: boolean }).skipPersistence,
     );
+    const command = parseCommandMetadata(
+      (flags as { command?: unknown })?.command,
+    );
     const createdAt = new Date();
     const userStatus: TurnStatus = 'ok';
 
@@ -167,6 +191,7 @@ export abstract class ChatInterface extends EventEmitter {
           model,
           provider,
           source,
+          command,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -179,6 +204,7 @@ export abstract class ChatInterface extends EventEmitter {
           model,
           provider,
           source,
+          command,
           toolCalls: null,
           status: userStatus,
           createdAt,
@@ -223,6 +249,7 @@ export abstract class ChatInterface extends EventEmitter {
         model,
         provider,
         source,
+        command,
         status,
         toolCalls,
         skipPersistence,
@@ -266,6 +293,7 @@ export abstract class ChatInterface extends EventEmitter {
     model: string;
     provider: string;
     source: TurnSource;
+    command?: TurnCommandMetadata;
     status: TurnStatus;
     toolCalls: ChatToolResultEvent[];
     skipPersistence: boolean;
@@ -276,6 +304,7 @@ export abstract class ChatInterface extends EventEmitter {
       model,
       provider,
       source,
+      command,
       status,
       toolCalls,
       skipPersistence,
@@ -290,6 +319,7 @@ export abstract class ChatInterface extends EventEmitter {
       model,
       provider,
       source,
+      command,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,
       status,
       createdAt: new Date(),

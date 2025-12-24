@@ -144,6 +144,7 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
   - Used by the existing Stop button to cancel the currently running turn without relying on HTTP request abort.
   - `{ type, requestId, conversationId: string, inflightId: string }`
   - `inflightId` is stable for the lifetime of a single in-progress turn. For turns started in the Chat UI, the client generates it and includes it in `POST /chat`. For turns started elsewhere (e.g. MCP), the client learns it from `inflight_snapshot`/`assistant_delta` and caches it for Stop.
+  - Transport: primary implementation is WS (`cancel_inflight` message). De-risking fallback: also expose `POST /chat/cancel` that accepts the same `conversationId` + `inflightId` so Stop still works if the WS is temporarily disconnected.
 
 ### Server → Client events
 
@@ -240,6 +241,7 @@ These findings are based on the current repository implementation and are includ
 - Cross-instance fan-out or locking (multi-server coordination). v1 assumes a single server process for live fan-out.
 - Changing the MCP tool request/response formats or the persisted MCP turn schema. This story only improves how those existing turns/streams are displayed in the browser.
 - Introducing a public “cancel run” API beyond the existing Stop button semantics (Stop will cancel the in-flight run via `cancel_inflight`; leaving the page/unsubscribing must not cancel).
+  - Note: a `POST /chat/cancel` endpoint is allowed as a transport fallback for the existing Stop semantics (it is not a new “cancel product feature”; it is reliability plumbing for `cancel_inflight`).
 - Sidebar “extra” live indicators (typing/streaming badges, token previews, tool-progress badges) beyond minimal create/update/delete + resorting.
 
 ---
@@ -373,7 +375,16 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Files to edit: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
    - Docs (read before coding): story WS protocol section in this doc
    - Critical constraints (do not skip): cancellation must be idempotent (re-sending cancel should not crash)
-11. [ ] Extend the REST chat request contract:
+11. [ ] Add REST cancellation fallback for Stop: `POST /chat/cancel` that cancels by `conversationId` + `inflightId`
+   - Why this exists: if the WS is temporarily disconnected, Stop must still be able to cancel the run (SSE abort no longer cancels when `cancelOnDisconnect=false`)
+   - Files to create: `server/src/routes/chatCancel.ts`
+   - Files to edit: `server/src/index.ts` (mount router)
+   - Docs (read before coding): Express Router (Context7) `/expressjs/express`, Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod
+   - Acceptance criteria:
+     - returns 200 `{ status: 'ok' }` when cancellation succeeds
+     - returns 404 `{ error: 'not_found' }` when `conversationId`/`inflightId` does not match an active inflight
+     - is idempotent: cancelling an already-cancelled inflight does not crash and returns a stable response
+12. [ ] Extend the REST chat request contract:
    - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`)
    - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility)
    - Files to edit: `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`
@@ -385,17 +396,18 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      inflightId: z.string().min(1).optional(),
      cancelOnDisconnect: z.boolean().optional(),
      ```
-12. [ ] Update `POST /chat` to register a run in the in-flight registry at start (creating `inflightId` server-side when missing), attach a cancel handle, and broadcast an immediate `inflight_snapshot` to existing subscribers
+13. [ ] Update `POST /chat` to register a run in the in-flight registry at start (creating `inflightId` server-side when missing), attach a cancel handle, and broadcast an immediate `inflight_snapshot` to existing subscribers
    - Files to edit: `server/src/routes/chat.ts`
    - Files to edit/create: `server/src/ws/inflightRegistry.ts`, `server/src/ws/hub.ts`
    - Docs (read before coding): Context7 `/websockets/ws/8_18_3`
    - Critical constraints (do not skip): register and broadcast the `inflight_snapshot` before the first token/tool/analysis delta so late subscribers can catch up and Stop can work
-13. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
+14. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
    - if `cancelOnDisconnect === true` (default), preserve today’s behavior (abort underlying run on disconnect)
    - if `cancelOnDisconnect === false`, stop writing SSE frames for that response **without aborting** the underlying run (only `cancel_inflight` should abort)
    - Files to edit: `server/src/routes/chat.ts`
    - Docs (read before coding): Node HTTP request events https://nodejs.org/api/http.html#event-close
    - Critical constraints (do not skip): Chat UI detaches by aborting fetch, but must not implicitly cancel generation when `cancelOnDisconnect=false`
+   - Implementation gotcha (current code bug to avoid repeating): Node/Express `res.on('close', handler)` does not pass a reason argument; do not pass a typed `handleDisconnect(reason)` directly or you will get `reason=undefined` and accidentally cancel. Use explicit wrappers (e.g. `() => handleDisconnect('close')`) and keep a separate `transportClosed` flag for “stop writing” vs “abort run”.
    - Implementation sketch (pattern):
 
      ```ts
@@ -404,23 +416,23 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
        endStream(res); // always stop writing to this response
      };
      ```
-14. [ ] Emit transcript events from **REST Chat** (`POST /chat`) into the hub while preserving existing SSE responses:
+15. [ ] Emit transcript events from **REST Chat** (`POST /chat`) into the hub while preserving existing SSE responses:
    - Codex provider: `token` → `assistant_delta`, `analysis` → `analysis_delta`, tool events → `tool_event`, completion → `turn_final`
    - LM Studio provider: same mapping (including tool events)
    - Files to edit: `server/src/routes/chat.ts`
    - Docs (read before coding): story WS protocol section in this doc, Context7 `/websockets/ws/8_18_3`
    - Critical constraints (do not skip): keep the existing SSE stream output unchanged so current client tests continue to pass while WS is added
-15. [ ] Emit transcript events from **MCP v2 tools** that call `ChatInterface.run` (e.g. `codebase_question`) into the hub
+16. [ ] Emit transcript events from **MCP v2 tools** that call `ChatInterface.run` (e.g. `codebase_question`) into the hub
    - Ensure `inflightId` is generated server-side (because there is no `POST /chat` payload) and an `inflight_snapshot` is broadcast before the first delta/tool event so late subscribers can cancel and catch up
    - Files to edit: `server/src/mcp2/tools/codebaseQuestion.ts`
    - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
    - Docs (read before coding): story WS protocol section in this doc
-16. [ ] Emit transcript events from **Agents runs** (REST + MCP) that call `ChatInterface.run` into the hub (so MCP/Agents-initiated runs stream live in Chat)
+17. [ ] Emit transcript events from **Agents runs** (REST + MCP) that call `ChatInterface.run` into the hub (so MCP/Agents-initiated runs stream live in Chat)
    - Ensure `inflightId` is generated server-side and an `inflight_snapshot` is broadcast before the first delta/tool event
    - Files to edit: `server/src/agents/service.ts`
    - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
    - Docs (read before coding): story WS protocol section in this doc
-17. [ ] Enforce a single in-flight run per conversation across Chat + MCP + Agents:
+18. [ ] Enforce a single in-flight run per conversation across Chat + MCP + Agents:
    - reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`)
    - return a stable 409 `RUN_IN_PROGRESS` error for conflicts
    - Files to edit: `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
@@ -428,85 +440,97 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Docs (read before coding): story “Reliability/consistency” section in this doc
    - Critical constraints (do not skip): acquire lock before starting provider execution and always release in `finally`
    - Done when: concurrent runs for the same conversationId return 409 and do not interleave persistence/events
-18. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
+19. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
    - Files to read: `server/src/routes/chat.ts` (`recordAssistantTurn`), `server/src/chat/interfaces/ChatInterface.ts`
    - Files to edit (as needed): `server/src/routes/chat.ts`, `server/src/ws/hub.ts`
    - Docs (read before coding): story WS protocol section in this doc
    - Critical constraints (do not skip): do not call `appendTurn` twice for the assistant (watch for new WS code accidentally re-persisting)
-19. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
+20. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
    - Files to edit (likely): `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`
    - Files to edit (later, bulk): `server/src/routes/conversations.ts` (bulk endpoints) and the repo helpers in `server/src/mongo/repo.ts`
    - Docs (read before coding): story WS protocol section in this doc
    - Critical constraints (do not skip): emit events only after persistence succeeds (and after transaction commit for bulk)
-20. [ ] Server integration test (Node): WebSocket connect + disconnect lifecycle
+21. [ ] Server integration test (Node): WebSocket connect + disconnect lifecycle
    - Location: `server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts`
    - Purpose: ensure multiple sockets can connect, subscribe, and close without crashing the server and without leaking subscription state
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
-21. [ ] Server integration test (Node): WebSocket message validation rejects invalid JSON
+22. [ ] Server integration test (Node): WebSocket message validation rejects invalid JSON
    - Location: `server/src/test/integration/ws.validation.invalidJson.test.ts`
    - Purpose: ensure invalid JSON never crashes the server and produces a stable error response (or closes cleanly)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
-22. [ ] Server integration test (Node): WebSocket message validation rejects unknown `type`
+23. [ ] Server integration test (Node): WebSocket message validation rejects unknown `type`
    - Location: `server/src/test/integration/ws.validation.unknownType.test.ts`
    - Purpose: ensure unknown `type` does not crash the server and produces a stable error response
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
-23. [ ] Server integration test (Node): Sidebar subscribe/unsubscribe lifecycle
+24. [ ] Server integration test (Node): Sidebar subscribe/unsubscribe lifecycle
    - Location: `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts`
    - Purpose: ensure `subscribe_sidebar` begins delivery and `unsubscribe_sidebar` stops delivery for that socket
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-24. [ ] Server integration test (Node): Transcript subscribe when idle (no inflight)
+25. [ ] Server integration test (Node): Transcript subscribe when idle (no inflight)
    - Location: `server/src/test/integration/ws.conversation.subscribeIdle.test.ts`
    - Purpose: ensure subscribing to a conversation with no inflight run does not emit an `inflight_snapshot`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-25. [ ] Server integration test (Node): Transcript subscribe mid-run catch-up snapshot
+26. [ ] Server integration test (Node): Transcript subscribe mid-run catch-up snapshot
    - Location: `server/src/test/integration/ws.conversation.catchupSnapshot.test.ts`
    - Purpose: ensure `subscribe_conversation` immediately receives `inflight_snapshot` with current assistant text, analysis text, and current tool state when a run is already in progress
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-26. [ ] Server integration test (Node): Sidebar `seq` monotonicity
+27. [ ] Server integration test (Node): Sidebar `seq` monotonicity
    - Location: `server/src/test/integration/ws.seq.sidebarMonotonic.test.ts`
    - Purpose: ensure sidebar events include a monotonically increasing `seq` so clients can ignore stale events
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-27. [ ] Server integration test (Node): Transcript `seq` monotonicity per conversation
+28. [ ] Server integration test (Node): Transcript `seq` monotonicity per conversation
    - Location: `server/src/test/integration/ws.seq.transcriptMonotonic.test.ts`
    - Purpose: ensure transcript events for a conversation include a monotonically increasing `seq`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-28. [ ] Server integration test (Node): `cancel_inflight` happy path
+29. [ ] Server integration test (Node): `cancel_inflight` happy path
    - Location: `server/src/test/integration/ws.cancel.happyPath.test.ts`
    - Purpose: ensure `cancel_inflight` aborts the run and emits `turn_final` with status `stopped`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
-29. [ ] Server integration test (Node): `cancel_inflight` idempotency
+30. [ ] Server integration test (Node): `cancel_inflight` idempotency
    - Location: `server/src/test/integration/ws.cancel.idempotent.test.ts`
    - Purpose: ensure sending `cancel_inflight` twice does not crash and does not emit duplicate finals
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-30. [ ] Server integration test (Node): `cancel_inflight` invalid input handling
+31. [ ] Server integration test (Node): `cancel_inflight` invalid input handling
    - Location: `server/src/test/integration/ws.cancel.invalid.test.ts`
    - Purpose: ensure unknown `conversationId` and mismatched `inflightId` return a stable error and do not crash
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-31. [ ] Server integration test (Node): detach semantics when `cancelOnDisconnect=false`
+32. [ ] Server integration test (Node): REST cancel fallback happy path (`POST /chat/cancel`)
+   - Location: `server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts`
+   - Purpose: ensure the REST cancellation endpoint cancels a running inflight and the run ends as `stopped`
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
+33. [ ] Server integration test (Node): REST cancel fallback not found (`POST /chat/cancel`)
+   - Location: `server/src/test/integration/chat.cancelEndpoint.notFound.test.ts`
+   - Purpose: ensure cancelling an unknown `conversationId`/`inflightId` returns 404 and does not crash
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
+34. [ ] Server integration test (Node): REST cancel fallback idempotency (`POST /chat/cancel`)
+   - Location: `server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts`
+   - Purpose: ensure cancelling an already-cancelled inflight returns a stable response and does not crash
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
+35. [ ] Server integration test (Node): detach semantics when `cancelOnDisconnect=false`
    - Location: `server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts`
    - Purpose: ensure aborting the SSE response stops writing to that client but does not abort the underlying provider run
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Node HTTP close event https://nodejs.org/api/http.html#event-close
-32. [ ] Server integration test (Node): backward compatibility when `cancelOnDisconnect` is omitted
+36. [ ] Server integration test (Node): backward compatibility when `cancelOnDisconnect` is omitted
    - Location: `server/src/test/integration/chat.detach.defaultCancels.test.ts`
    - Purpose: ensure today’s behavior remains: disconnect/abort cancels provider execution when `cancelOnDisconnect` is not provided
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-33. [ ] Server unit test (Node): inflight registry cleanup
+37. [ ] Server unit test (Node): inflight registry cleanup
    - Location: `server/src/test/unit/inflightRegistry.cleanup.test.ts`
    - Purpose: ensure inflight entries are removed after `turn_final` and after explicit cancel to prevent memory growth
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-34. [ ] Update docs: `design.md` (WS + inflight architecture + protocol flow diagrams)
+38. [ ] Update docs: `design.md` (WS + inflight architecture + protocol flow diagrams)
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid diagrams and narrative describing WS hub + inflight registry + sequence IDs + snapshot/delta events
    - Purpose: document the new WS hub/inflight registry modules, sequence IDs, and the snapshot/delta event flows as Mermaid diagrams so future changes stay consistent
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-35. [ ] Update docs: `projectStructure.md` (new `server/src/ws/*` modules and new test files)
+39. [ ] Update docs: `projectStructure.md` (new `server/src/ws/*` modules and new test files)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: add the new server WS modules and new server test files created in Task 1
    - Purpose: list any new folders/files introduced by Task 1 (WS server/hub/registry/types and any new server tests) after all code changes land
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-36. [ ] Run full linting (`npm run lint --workspaces`)
+40. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -992,9 +1016,11 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
    - Docs (read before coding): story WS protocol section in this doc
    - Done when: Stop works even if this tab did not start the run
-14. [ ] Update Stop behavior to send `cancel_inflight` over WS (conversationId + inflightId)
-   - Files to edit: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
-   - Docs (read before coding): story WS protocol section in this doc
+14. [ ] Update Stop behavior to cancel via `conversationId` + `inflightId` without relying on SSE abort side-effects:
+   - Primary: send `cancel_inflight` over WS
+   - Fallback (de-risk): if WS is disconnected, call `POST /chat/cancel`
+   - Files to edit: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+   - Docs (read before coding): story WS protocol section in this doc, Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Critical constraints (do not skip): Stop is the only user action that should cancel generation; switching/navigating must not cancel
 15. [ ] Refactor non-Stop flows so they do not cancel generation:
    - switching conversations unsubscribes from the prior transcript stream and subscribes to the new one
@@ -1003,7 +1029,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Files to edit: `client/src/pages/ChatPage.tsx` (the unmount effect currently calls `stop()`), `client/src/hooks/useChatStream.ts` (`setConversation` currently calls `stop()`)
    - Docs (read before coding): story “Current streaming behavior (today)” section in this doc
    - Critical constraints (do not skip): detaching should abort the SSE fetch (to stop reading) but must not trigger cancellation unless the user pressed Stop
-16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it via `cancel_inflight` (not HTTP abort), then clear transcript state while keeping the existing model/provider rules
+16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it (WS `cancel_inflight`, with REST `POST /chat/cancel` fallback) then clear transcript state while keeping the existing model/provider rules
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
    - Docs (read before coding): story WS protocol section in this doc
 17. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
@@ -1051,39 +1077,43 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Files to edit/create: `client/src/test/chatPage.stop.wsCancel.test.tsx` (new) or update `client/src/test/chatPage.stop.test.tsx`
    - Purpose: ensure Stop semantics match Story 19 (explicit cancel only) and do not depend on fetch abort side-effects
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-28. [ ] Client RTL test (Jest + Testing Library): Stop works even if this tab did not start the run (inflightId learned from `inflight_snapshot`)
+28. [ ] Client RTL test (Jest + Testing Library): Stop falls back to `POST /chat/cancel` when WS is disconnected
+   - Files to edit/create: `client/src/test/chatPage.stop.httpCancelFallback.test.tsx` (new)
+   - Purpose: ensure Stop still cancels even when the WS transport is temporarily unavailable
+   - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+29. [ ] Client RTL test (Jest + Testing Library): Stop works even if this tab did not start the run (inflightId learned from `inflight_snapshot`)
    - Files to edit/create: `client/src/test/chatWs.stopFromViewerTab.test.tsx` (new)
    - Purpose: ensure any viewer can stop a run (dashboard workflow) once it learns the inflightId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-29. [ ] Client RTL test (Jest + Testing Library): leaving Chat/unmount and switching conversations does not cancel generation (detach semantics)
+30. [ ] Client RTL test (Jest + Testing Library): leaving Chat/unmount and switching conversations does not cancel generation (detach semantics)
    - Files to edit/create: `client/src/test/chatWs.detachSemantics.test.tsx` (new) or update `client/src/test/chatPage.stream.test.tsx`
    - Purpose: ensure only explicit Stop triggers cancellation, while navigation/switching only unsubscribes
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-30. [ ] Client RTL test (Jest + Testing Library): persistence gating disables WS subscriptions and shows a clear message when `mongoConnected === false`
+31. [ ] Client RTL test (Jest + Testing Library): persistence gating disables WS subscriptions and shows a clear message when `mongoConnected === false`
    - Files to edit/create: `client/src/test/chatPersistenceBanner.wsGating.test.tsx` (new) or update `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure realtime subscriptions/catch-up are disabled when persistence is off, without breaking chat send/stop
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
-31. [ ] Client RTL test (Jest + Testing Library): “New conversation” cancels the in-flight run via `cancel_inflight` and clears transcript state
+32. [ ] Client RTL test (Jest + Testing Library): “New conversation” cancels the in-flight run via `cancel_inflight` and clears transcript state
    - Files to edit/create: `client/src/test/chatPage.newConversation.wsCancel.test.tsx` (new) or update `client/src/test/chatPage.newConversation.test.tsx`
    - Purpose: ensure “New conversation” performs an explicit cancel (not just abort) before resetting local transcript state
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-32. [ ] Client RTL test (Jest + Testing Library): selecting an existing conversation restores Codex `threadId` from `flags.threadId` and next send includes it
+33. [ ] Client RTL test (Jest + Testing Library): selecting an existing conversation restores Codex `threadId` from `flags.threadId` and next send includes it
    - Files to edit/create: `client/src/test/chatPage.codexThreadIdRestore.test.tsx` (new) or update `client/src/test/chatSendPayload.test.tsx`
    - Purpose: ensure Codex continuation works across reloads/tabs by restoring the persisted threadId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-33. [ ] Update docs: `design.md` (client WS subscribe/catch-up + Stop/detach flows as Mermaid diagrams)
+34. [ ] Update docs: `design.md` (client WS subscribe/catch-up + Stop/detach flows as Mermaid diagrams)
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid diagrams describing connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering, and Stop vs detach behavior
    - Purpose: document the client lifecycle (connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering) and Stop vs detach semantics as Mermaid diagrams
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-34. [ ] Update docs: `projectStructure.md` (new client WS hook/tests)
+35. [ ] Update docs: `projectStructure.md` (new client WS hook/tests)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: add any new client files created in Task 4 (WS hook/service and new RTL tests)
    - Purpose: list any new client files introduced by Task 4 (WS hook/service, new tests) after all code changes land
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-35. [ ] Run full linting (`npm run lint --workspaces`)
+36. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

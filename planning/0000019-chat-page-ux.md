@@ -150,7 +150,7 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
 All events are JSON objects with `type`. Events include sequence identifiers to support dedupe/out-of-order guarding.
 
 - Sidebar events (single global stream)
-  - `type: "sidebar_snapshot"` – optional, but may be useful for debugging; primary snapshot remains the existing REST list fetch.
+  - `type: "sidebar_snapshot"` – optional (debug only). Simplification (de-risking): do not implement in v1 unless it becomes necessary; primary snapshot remains the existing REST list fetch.
   - `type: "conversation_upsert"`
     - `{ type, seq: number, conversation: { conversationId, title, provider, model, source, lastMessageAt, archived, agentName? } }`
   - `type: "conversation_delete"`
@@ -159,7 +159,8 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
 - Transcript events (scoped to a `conversationId`)
   - `type: "inflight_snapshot"`
     - Sent immediately after `subscribe_conversation` when a run is currently in progress, and broadcast to existing subscribers when a new in-flight turn starts (snapshot may be empty until the first delta/tool event arrives).
-    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, analysisText: string, toolEvents: unknown[], startedAt: string } }`
+    - Simplification (de-risking): snapshot carries **current tool state** (not raw tool event history). The UI only needs the current set of tool rows (requesting/done/error + latest stage/result) to look the same as the originating tab.
+    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, analysisText: string, tools: unknown[], startedAt: string } }`
   - `type: "assistant_delta"`
     - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
   - `type: "analysis_delta"`
@@ -275,19 +276,20 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 3. [ ] Define the WS protocol types + runtime validation (client message union + server event union)
    - Recommended: a small `server/src/ws/types.ts` plus Zod validators for inbound client messages so malformed payloads never crash the server
 4. [ ] Create the WS server bootstrap (e.g., `server/src/ws/server.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
-   - Prefer `WebSocketServer({ server, path: '/ws' })` or `noServer + server.on('upgrade')` patterns supported by ws v8.x (Context7 `/websockets/ws/8_18_3`)
+   - Simplification (de-risking): prefer `WebSocketServer({ server, path: '/ws' })` and avoid manual `upgrade` routing unless there is a concrete need (Context7 `/websockets/ws/8_18_3`)
 5. [ ] Implement per-socket connection state (requestId logging, subscriptions, and safe JSON send) and add minimal server-side logging for connect/disconnect and message validation errors
 6. [ ] Implement the in-flight registry data model (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`:
    - start an in-flight record at run start (even before first token)
    - append assistant text deltas
    - append analysis deltas
-   - append tool events (`tool-request` / `tool-result`) with bounded history
+   - maintain **current tool state** per callId (requesting/done/error + latest stage/result/error), bounded by a max tool count
    - track timestamps and final status
-7. [ ] Define bounded in-flight retention (max tool events, any max chars/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks
-8. [ ] Implement the WS hub/pubsub backbone (e.g., `server/src/ws/hub.ts`) using a logStore-style architecture:
+7. [ ] Define bounded in-flight retention (max tool count, max chars/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks
+8. [ ] Implement the WS hub/pubsub backbone (e.g., `server/src/ws/hub.ts`) with a simple subscribe/unsubscribe model:
    - `subscribe_sidebar` / `unsubscribe_sidebar` (global sidebar stream with a monotonic `seq`)
    - `subscribe_conversation` / `unsubscribe_conversation` (per-conversation transcript stream with a monotonic `seq` per `conversationId`)
    - `cancel_inflight` routing into the in-flight registry cancel handle
+   - Simplification (de-risking): do **not** implement WS replay/backlog buffering in v1; rely on the existing REST snapshots on reconnect, and rely on `inflight_snapshot` for mid-stream catch-up
 9. [ ] Implement WS message handling + error responses (invalid JSON, unknown `type`, missing required fields) and ensure the server never crashes on malformed messages
 10. [ ] Implement domain-safe `cancel_inflight` handling (unknown `conversationId`/`inflightId`, already-finalized inflight) with stable, non-crashing error responses
 11. [ ] Extend the REST chat request contract:
@@ -309,7 +311,8 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - return a stable 409 `RUN_IN_PROGRESS` error for conflicts
 18. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
 19. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
-20. [ ] Add server unit/integration/Cucumber tests for WS hub routing, sequence IDs, inflight snapshots (including mid-stream subscribe catch-up), WS lifecycle, and the updated disconnect/stop semantics
+20. [ ] Add server unit + Node integration tests for WS hub routing, sequence IDs, inflight snapshots (including mid-stream subscribe catch-up), WS lifecycle, and the updated disconnect/stop semantics
+   - Simplification (de-risking): add/adjust Cucumber coverage only where it provides clear end-to-end value; prefer Node integration tests for WS protocol behavior
 21. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
 22. [ ] Run full linting (`npm run lint --workspaces`)
 
@@ -365,7 +368,8 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 11. [ ] Update default Mongo URI(s) used by server + Compose to settings needed for transactions:
    - audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Important: keep `directConnection=true` (transactions work with it; replica-set discovery fails without it due to the current rs member host being `localhost:27017`). Optionally add `replicaSet=rs0` explicitly alongside `directConnection=true`.
-12. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
+12. [ ] Add server unit + integration tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
+   - Simplification (de-risking): only add Cucumber scenarios if there is a gap that cannot be covered cleanly via Node integration tests
 13. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
 14. [ ] Run full linting (`npm run lint --workspaces`)
 
@@ -463,7 +467,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - unsubscribe previous conversationId when switching
    - subscribe newly visible conversationId
    - on reconnect: re-fetch visible conversation turns snapshot before resubscribing
-8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including tool events)
+8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including current tool state)
 9. [ ] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
 10. [ ] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
 11. [ ] Apply client-side sequence guards:

@@ -55,6 +55,14 @@ const appendTurnSchema = z
     provider: z.string().min(1),
     source: z.enum(['REST', 'MCP']).optional(),
     toolCalls: z.record(z.unknown()).nullable().optional(),
+    command: z
+      .object({
+        name: z.string().min(1),
+        stepIndex: z.number().int().min(1),
+        totalSteps: z.number().int().min(1),
+      })
+      .strict()
+      .optional(),
     status: z.enum(['ok', 'stopped', 'failed']),
   })
   .strict();

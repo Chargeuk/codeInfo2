@@ -29,7 +29,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { listAgents, runAgentInstruction } from '../api/agents';
+import {
+  listAgentCommands,
+  listAgents,
+  runAgentCommand,
+  runAgentInstruction,
+  AgentApiError,
+} from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import type { ChatMessage, ToolCall } from '../hooks/useChatStream';
@@ -55,6 +61,13 @@ export default function AgentsPage() {
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
   >(undefined);
+
+  const [commands, setCommands] = useState<
+    Array<{ name: string; description: string; disabled: boolean }>
+  >([]);
+  const [commandsError, setCommandsError] = useState<string | null>(null);
+  const [commandsLoading, setCommandsLoading] = useState(false);
+  const [selectedCommandName, setSelectedCommandName] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const orderedMessages = useMemo<ChatMessage[]>(
@@ -115,6 +128,59 @@ export default function AgentsPage() {
 
   const effectiveAgentName = selectedAgentName || '__none__';
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedAgentName) {
+      setCommands([]);
+      setCommandsError(null);
+      setCommandsLoading(false);
+      setSelectedCommandName('');
+      return;
+    }
+
+    setCommandsLoading(true);
+    setCommandsError(null);
+    void listAgentCommands(selectedAgentName)
+      .then((result) => {
+        if (cancelled) return;
+        const nextCommands = result.commands ?? [];
+        setCommands(nextCommands);
+        setSelectedCommandName((prev) =>
+          nextCommands.some((cmd) => cmd.name === prev && !cmd.disabled)
+            ? prev
+            : '',
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCommandsError((err as Error).message);
+        setCommands([]);
+        setSelectedCommandName('');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setCommandsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAgentName]);
+
+  const selectedCommand = useMemo(
+    () => commands.find((cmd) => cmd.name === selectedCommandName),
+    [commands, selectedCommandName],
+  );
+
+  const selectedCommandDescription = useMemo(() => {
+    if (!selectedCommandName || !selectedCommand) {
+      return 'Select a command to see its description.';
+    }
+    if (selectedCommand.disabled) return 'Invalid command file.';
+    const description = selectedCommand.description.trim();
+    return description || 'No description provided.';
+  }, [selectedCommand, selectedCommandName]);
+
   const {
     conversations,
     includeArchived,
@@ -146,6 +212,7 @@ export default function AgentsPage() {
     error: turnsErrorMessage,
     hasMore: turnsHasMore,
     loadOlder,
+    refresh: refreshTurns,
     reset: resetTurns,
   } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
 
@@ -174,9 +241,17 @@ export default function AgentsPage() {
       const next = event.target.value;
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
+      setSelectedCommandName('');
       resetConversation();
     },
     [resetConversation, selectedAgentName],
+  );
+
+  const handleCommandChange = useCallback(
+    (event: SelectChangeEvent<string>) => {
+      setSelectedCommandName(event.target.value);
+    },
+    [],
   );
 
   const toggleThink = (id: string) => {
@@ -238,6 +313,7 @@ export default function AgentsPage() {
             id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
+            ...(turn.command ? { command: turn.command } : {}),
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
             createdAt: turn.createdAt,
@@ -399,6 +475,26 @@ export default function AgentsPage() {
         setInput(lastSentRef.current);
         return;
       }
+
+      if (
+        err instanceof AgentApiError &&
+        err.status === 409 &&
+        err.code === 'RUN_IN_PROGRESS'
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+            role: 'assistant',
+            content:
+              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+            kind: 'error',
+            streamStatus: 'failed',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
       const message =
         (err as Error).message || 'Failed to run agent instruction.';
       setMessages((prev) => [
@@ -419,6 +515,97 @@ export default function AgentsPage() {
       setIsRunning(false);
     }
   };
+
+  const handleExecuteCommand = useCallback(async () => {
+    if (
+      !selectedAgentName ||
+      !selectedCommandName ||
+      isRunning ||
+      persistenceUnavailable
+    ) {
+      return;
+    }
+
+    stop();
+    const controller = new AbortController();
+    runControllerRef.current = controller;
+    setIsRunning(true);
+
+    try {
+      const result = await runAgentCommand({
+        agentName: selectedAgentName,
+        commandName: selectedCommandName,
+        working_folder: workingFolder.trim() || undefined,
+        conversationId: activeConversationId,
+        signal: controller.signal,
+      });
+
+      const isSameConversation = result.conversationId === activeConversationId;
+      await refreshConversations();
+      setActiveConversationId(result.conversationId);
+      setMessages([]);
+      resetTurns();
+      lastHydratedRef.current = null;
+
+      if (isSameConversation && shouldLoadTurns) {
+        await refreshTurns();
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        return;
+      }
+
+      if (
+        err instanceof AgentApiError &&
+        err.status === 409 &&
+        err.code === 'RUN_IN_PROGRESS'
+      ) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+            role: 'assistant',
+            content:
+              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+            kind: 'error',
+            streamStatus: 'failed',
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
+
+      const message = (err as Error).message || 'Failed to run agent command.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+          role: 'assistant',
+          content: message,
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      if (runControllerRef.current === controller) {
+        runControllerRef.current = null;
+      }
+      setIsRunning(false);
+    }
+  }, [
+    activeConversationId,
+    isRunning,
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+    resetTurns,
+    selectedAgentName,
+    selectedCommandName,
+    shouldLoadTurns,
+    stop,
+    workingFolder,
+  ]);
 
   const controlsDisabled =
     agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
@@ -604,6 +791,91 @@ export default function AgentsPage() {
               </Stack>
             </Stack>
 
+            {commandsError ? (
+              <Alert severity="error" data-testid="agent-commands-error">
+                {commandsError}
+              </Alert>
+            ) : null}
+
+            <FormControl
+              fullWidth
+              size="small"
+              disabled={
+                controlsDisabled ||
+                isRunning ||
+                selectedAgent?.disabled ||
+                commandsLoading
+              }
+            >
+              <InputLabel id="agent-command-select-label">Command</InputLabel>
+              <Select
+                labelId="agent-command-select-label"
+                label="Command"
+                value={selectedCommandName}
+                onChange={handleCommandChange}
+                inputProps={{ 'data-testid': 'agent-command-select' }}
+              >
+                <MenuItem value="" disabled>
+                  Select a command
+                </MenuItem>
+                {commands.map((cmd) => (
+                  <MenuItem
+                    key={cmd.name}
+                    value={cmd.name}
+                    disabled={cmd.disabled}
+                    data-testid={`agent-command-option-${cmd.name}`}
+                  >
+                    <Stack spacing={0.25}>
+                      <Typography variant="body2">
+                        {cmd.name.replace(/_/g, ' ')}
+                      </Typography>
+                      {cmd.disabled ? (
+                        <Typography variant="caption" color="text.secondary">
+                          Invalid command file
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="agent-command-description"
+            >
+              {selectedCommandDescription}
+            </Typography>
+
+            <Stack spacing={0.75} alignItems="flex-start">
+              <Button
+                type="button"
+                variant="contained"
+                disabled={
+                  !selectedCommandName ||
+                  isRunning ||
+                  persistenceUnavailable ||
+                  controlsDisabled ||
+                  selectedAgent?.disabled
+                }
+                onClick={handleExecuteCommand}
+                data-testid="agent-command-execute"
+              >
+                Execute command
+              </Button>
+              {persistenceUnavailable ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="agent-command-persistence-note"
+                >
+                  Commands require conversation history (Mongo) to display
+                  multi-step results.
+                </Typography>
+              ) : null}
+            </Stack>
+
             {selectedAgent?.warnings?.length ? (
               <Alert severity="warning" data-testid="agent-warnings">
                 {selectedAgent.warnings.join('\n')}
@@ -765,6 +1037,22 @@ export default function AgentsPage() {
                             }}
                           >
                             <Stack spacing={1}>
+                              {message.command ? (
+                                <Typography
+                                  variant="caption"
+                                  data-testid="command-run-note"
+                                  sx={{
+                                    lineHeight: 1.2,
+                                    color: isUser
+                                      ? 'rgba(255,255,255,0.75)'
+                                      : 'text.secondary',
+                                  }}
+                                >
+                                  Command run: {message.command.name} (
+                                  {message.command.stepIndex}/
+                                  {message.command.totalSteps})
+                                </Typography>
+                              ) : null}
                               {message.role === 'assistant' &&
                                 message.streamStatus && (
                                   <Chip

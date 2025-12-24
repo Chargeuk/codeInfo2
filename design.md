@@ -160,16 +160,22 @@ flowchart LR
 ### Agents MCP (JSON-RPC)
 
 - The server runs a dedicated MCP v2-style JSON-RPC listener for agents on `AGENTS_MCP_PORT` (default `5012`).
-- It exposes exactly two tools:
+- It exposes four tools:
   - `list_agents` (always available; returns agent summaries including `disabled`/`warnings` when Codex is not usable for that agent).
+  - `list_commands` (always available; lists enabled command macros for one agent or all agents).
   - `run_agent_instruction` (Codex-backed; returns `CODE_INFO_LLM_UNAVAILABLE` when the Codex CLI is missing or the selected agent home is not usable).
-- Both tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
+  - `run_command` (Codex-backed; runs an agent command macro and returns a minimal `{ agentName, commandName, conversationId, modelId }` response).
+- Tool argument shapes (high level):
+  - `list_commands`: `{ agentName?: string }`.
+  - `run_agent_instruction`: `{ agentName: string, instruction: string, conversationId?: string, working_folder?: string }`.
+  - `run_command`: `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`.
+- All tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
 
 ```mermaid
 flowchart LR
   Client[MCP client] -->|initialize/tools\\nlist/tools\\ncall| MCP[Agents MCP\\n:5012]
-  MCP --> Tools[Tool registry\\n(list_agents/run_agent_instruction)]
-  Tools --> Svc[Agents service\\nlistAgents()/runAgentInstruction()]
+  MCP --> Tools[Tool registry\\n(list_agents/list_commands/run_agent_instruction/run_command)]
+  Tools --> Svc[Agents service\\nlistAgents()/listAgentCommands()/runAgentInstruction()/runAgentCommand()]
   Svc --> Disc[discoverAgents()\\n+ auth seeding]
   Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
 ```
@@ -198,6 +204,113 @@ sequenceDiagram
     Svc-->>Tools: { agentName, conversationId, modelId, segments }
     Tools-->>MCP: tool result (JSON text payload)
     MCP-->>Client: JSON-RPC result
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant MCP as Agents MCP\n:5012
+  participant Tools as Tool registry\ncallTool()
+  participant Svc as Agents service\nrunAgentCommand()
+  participant Codex as Codex (per-agent CODEX_HOME)
+
+  Client->>MCP: tools/call run_command\n{ agentName, commandName, conversationId?, working_folder? }
+  MCP->>Tools: callTool('run_command', args)
+  Tools->>Svc: runAgentCommand(..., signal?)
+  alt RUN_IN_PROGRESS
+    Svc-->>Tools: throw RUN_IN_PROGRESS
+    Tools-->>MCP: RunInProgressError (code=409, data.code=RUN_IN_PROGRESS)
+    MCP-->>Client: JSON-RPC error (409)
+  else ok
+    Svc->>Codex: run sequential steps
+    Codex-->>Svc: done
+    Svc-->>Tools: { agentName, commandName, conversationId, modelId }
+    Tools-->>MCP: tool result (JSON text payload)
+    MCP-->>Client: JSON-RPC result
+  end
+```
+
+#### Per-conversation run lock
+
+- Agent runs (REST and Agents MCP) acquire an in-memory, per-process lock keyed by `conversationId`.
+- While a run holds the lock, any concurrent run targeting the same `conversationId` is rejected with `RUN_IN_PROGRESS` (REST HTTP 409 / Agents MCP JSON-RPC error 409).
+- This lock is not cross-instance coordinated (multiple server processes do not share lock state).
+
+```mermaid
+sequenceDiagram
+  participant CallerA as REST caller (Agents UI)
+  participant CallerB as MCP caller
+  participant Svc as Agents service
+runAgentInstruction()
+  participant Codex as Codex provider
+
+  CallerA->>Svc: runAgentInstruction(conversationId=c1)
+  Svc->>Svc: tryAcquireConversationLock(c1)
+  Svc->>Codex: run(...)
+
+  CallerB->>Svc: runAgentInstruction(conversationId=c1)
+  Svc-->>CallerB: RUN_IN_PROGRESS (409)
+
+  Codex-->>Svc: done
+  Svc->>Svc: releaseConversationLock(c1)
+  Svc-->>CallerA: success
+```
+
+#### Agent command execution (macros)
+
+- Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
+- REST endpoints:
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled }] }`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+- REST error mapping (command run):
+  - `COMMAND_NOT_FOUND` → 404 `{ error: 'not_found' }`
+  - `COMMAND_INVALID` → 400 `{ error: 'invalid_request', code: 'COMMAND_INVALID', message }`
+  - `RUN_IN_PROGRESS` → 409 `{ error: 'conflict', code: 'RUN_IN_PROGRESS', message }`
+- The runner acquires the per-conversation lock once and holds it for the entire command run so steps cannot interleave with another run targeting the same `conversationId`.
+- Steps execute sequentially; each step runs as a normal agent instruction with `turn.command` metadata `{ name, stepIndex, totalSteps }`.
+- Cancellation is abort-based: the client aborts the in-flight HTTP request (AbortController), the server propagates that abort to the provider call via an `AbortSignal`, and the runner stops after the current step (never starts the next step once aborted).
+- If abort triggers mid-step, the chat layer persists a `Stopped` assistant turn (status `stopped`) and still tags that step with `turn.command`. The caller may not receive a normal JSON response because the request was aborted.
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant API as Server (REST)
+  participant Svc as AgentsService
+  participant Runner as Command runner
+  participant Codex as Codex
+
+  UI->>API: POST /agents/:agentName/commands/run\n{ commandName, conversationId?, working_folder? }
+  Note over API: Creates an AbortController\n(req 'aborted' / res 'close' => controller.abort())
+  API->>Svc: runAgentCommand(..., signal)
+  Svc->>Runner: runAgentCommandRunner(...)\n(load JSON + acquire lock)
+  Runner->>Runner: tryAcquireConversationLock(conversationId)
+
+  alt RUN_IN_PROGRESS
+    Runner-->>Svc: throw RUN_IN_PROGRESS
+    Svc-->>API: error
+    API-->>UI: 409 conflict
+  else ok
+    loop for each step
+      alt signal.aborted
+        Runner-->>Runner: stop (do not start next step)
+      else continue
+        Runner->>Svc: runAgentInstructionUnlocked(step)\n+ turn.command metadata
+        Svc->>Codex: runStreamed(step, signal)
+        Codex-->>Svc: streamed events (or stopped on abort)
+        Svc-->>Runner: { modelId }
+      end
+    end
+
+    Runner->>Runner: releaseConversationLock(conversationId)
+    Runner-->>Svc: { agentName, commandName, conversationId, modelId }
+    Svc-->>API: result
+    API-->>UI: 200 { ... }
+  end
+
+  opt User cancels
+    UI--xAPI: AbortController.abort()\n(connection closes)
+    Note over Runner: Once aborted, no further steps start;\nlock is still released in finally.
   end
 ```
 
@@ -348,11 +461,15 @@ flowchart TD
 
 - The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
   - agent selector dropdown
+  - command selector dropdown (refreshed on agent change)
+  - Execute command (runs selected command)
   - Stop (abort)
   - New conversation (reset)
 - The run form includes an optional `working_folder` field (absolute path) above the instruction input.
   - Reset behavior: agent change and New conversation clear `working_folder`.
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
+- Command runs do not use client-side locking; the server rejects concurrent runs for the same `conversationId` with `RUN_IN_PROGRESS` (HTTP 409), and the UI surfaces this as a friendly error.
+- After a successful command run, the UI refreshes the conversation list and hydrates the transcript from persisted turns so multi-step results show in order.
 
 ```mermaid
 flowchart TD
@@ -368,6 +485,8 @@ flowchart TD
 flowchart TD
   Load[Open /agents] --> ListAgents[GET /agents]
   ListAgents --> SelectAgent[Select agent]
+  SelectAgent --> ListCommands[GET /agents/<agentName>/commands]
+  ListCommands --> SelectCommand{Select command?}
   SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
   ListConvos --> SelectConvo{Select conversation?}
   SelectConvo -->|Yes| HydrateTurns[GET /conversations/<id>/turns]
@@ -377,6 +496,10 @@ flowchart TD
   Ready --> Send[POST /agents/<agentName>/run]
   Send --> Render[Render segments (thinking/vector_summary/answer)]
   Render --> ListConvos
+  SelectCommand -->|Yes| Execute[POST /agents/<agentName>/commands/run]
+  Execute -->|200| RefreshConvos[Refresh conversations]
+  RefreshConvos --> HydrateTurns
+  Execute -->|409 RUN_IN_PROGRESS| CmdErr[Render friendly conflict message]
   SelectAgent --> SwitchAgent[Change agent]
   SwitchAgent --> Abort[Abort in-flight run]
   Abort --> Reset[Reset conversation + clear transcript]

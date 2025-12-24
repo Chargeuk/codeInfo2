@@ -17,10 +17,17 @@ import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
+import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
 
+import { loadAgentCommandSummary } from './commandsLoader.js';
+import { runAgentCommandRunner } from './commandsRunner.js';
 import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';
+import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from './runLock.js';
 import type { AgentSummary } from './types.js';
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
@@ -55,6 +62,9 @@ type RunAgentErrorCode =
   | 'AGENT_NOT_FOUND'
   | 'CONVERSATION_ARCHIVED'
   | 'AGENT_MISMATCH'
+  | 'RUN_IN_PROGRESS'
+  | 'COMMAND_NOT_FOUND'
+  | 'COMMAND_INVALID'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND';
@@ -175,6 +185,64 @@ async function ensureAgentConversation(params: {
 export async function runAgentInstruction(
   params: RunAgentInstructionParams,
 ): Promise<RunAgentInstructionResult> {
+  const conversationId = params.conversationId ?? crypto.randomUUID();
+  if (!tryAcquireConversationLock(conversationId)) {
+    throw toRunAgentError(
+      'RUN_IN_PROGRESS',
+      'A run is already in progress for this conversation.',
+    );
+  }
+
+  try {
+    return await runAgentInstructionUnlocked({
+      ...params,
+      conversationId,
+      mustExist: Boolean(params.conversationId),
+    });
+  } finally {
+    releaseConversationLock(conversationId);
+  }
+}
+
+export async function runAgentCommand(params: {
+  agentName: string;
+  commandName: string;
+  conversationId?: string;
+  working_folder?: string;
+  signal?: AbortSignal;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  agentName: string;
+  commandName: string;
+  conversationId: string;
+  modelId: string;
+}> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  return await runAgentCommandRunner({
+    agentName: params.agentName,
+    agentHome: agent.home,
+    commandName: params.commandName,
+    conversationId: params.conversationId,
+    working_folder: params.working_folder,
+    signal: params.signal,
+    source: params.source,
+    runAgentInstructionUnlocked,
+  });
+}
+
+export async function runAgentInstructionUnlocked(params: {
+  agentName: string;
+  instruction: string;
+  working_folder?: string;
+  conversationId: string;
+  mustExist?: boolean;
+  command?: TurnCommandMetadata;
+  signal?: AbortSignal;
+  source: 'REST' | 'MCP';
+}): Promise<RunAgentInstructionResult> {
   const fallbackModelId = 'gpt-5.1-codex-max';
 
   const discovered = await discoverAgents();
@@ -188,18 +256,19 @@ export async function runAgentInstruction(
     throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
   }
 
-  const conversationId = params.conversationId ?? crypto.randomUUID();
-  const isNewConversation = !params.conversationId;
+  const conversationId = params.conversationId;
 
-  let existingConversation: Conversation | null = null;
-  if (!isNewConversation) {
-    existingConversation = await getConversation(conversationId);
-    if (!existingConversation) throw toRunAgentError('AGENT_NOT_FOUND');
-    if (existingConversation.archivedAt)
-      throw toRunAgentError('CONVERSATION_ARCHIVED');
-    if ((existingConversation.agentName ?? '') !== params.agentName) {
-      throw toRunAgentError('AGENT_MISMATCH');
-    }
+  const existingConversation = await getConversation(conversationId);
+  const isNewConversation = !existingConversation;
+  if (params.mustExist && isNewConversation)
+    throw toRunAgentError('AGENT_NOT_FOUND');
+  if (existingConversation?.archivedAt)
+    throw toRunAgentError('CONVERSATION_ARCHIVED');
+  if (
+    existingConversation &&
+    (existingConversation.agentName ?? '') !== params.agentName
+  ) {
+    throw toRunAgentError('AGENT_MISMATCH');
   }
 
   const configuredModelId = await readAgentModelId(agent.configPath);
@@ -273,6 +342,7 @@ export async function runAgentInstruction(
       systemPrompt,
       signal: params.signal,
       source: params.source,
+      ...(params.command ? { command: params.command } : {}),
     },
     conversationId,
     modelId,
@@ -285,4 +355,43 @@ export async function runAgentInstruction(
     modelId,
     segments,
   };
+}
+
+export async function listAgentCommands(params: {
+  agentName: string;
+}): Promise<{
+  commands: Array<{ name: string; description: string; disabled: boolean }>;
+}> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  const commandsDir = path.join(agent.home, 'commands');
+  const dirents = await fs
+    .readdir(commandsDir, { withFileTypes: true })
+    .catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+
+  if (!dirents) return { commands: [] };
+
+  const jsonEntries = dirents.filter(
+    (dirent) =>
+      dirent.isFile() &&
+      dirent.name.toLowerCase().endsWith('.json') &&
+      dirent.name.length > '.json'.length,
+  );
+
+  const commands = await Promise.all(
+    jsonEntries.map(async (dirent) => {
+      const name = path.basename(dirent.name, path.extname(dirent.name));
+      const filePath = path.join(commandsDir, dirent.name);
+      return loadAgentCommandSummary({ filePath, name });
+    }),
+  );
+
+  commands.sort((a, b) => a.name.localeCompare(b.name));
+
+  return { commands };
 }

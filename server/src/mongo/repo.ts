@@ -5,7 +5,14 @@ import {
   ConversationProvider,
   ConversationSource,
 } from './conversation.js';
-import { TurnModel, Turn, TurnRole, TurnStatus, TurnSource } from './turn.js';
+import {
+  TurnModel,
+  Turn,
+  TurnCommandMetadata,
+  TurnRole,
+  TurnStatus,
+  TurnSource,
+} from './turn.js';
 
 export interface CreateConversationInput {
   conversationId: string;
@@ -35,6 +42,7 @@ export interface AppendTurnInput {
   source?: TurnSource;
   toolCalls?: Record<string, unknown> | null;
   status: TurnStatus;
+  command?: TurnCommandMetadata;
   createdAt?: Date;
 }
 
@@ -132,6 +140,7 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     source: input.source ?? 'REST',
     toolCalls: input.toolCalls ?? null,
     status: input.status,
+    command: input.command,
     createdAt,
   });
 
@@ -211,6 +220,7 @@ export interface TurnSummary {
   source: TurnSource;
   toolCalls: Record<string, unknown> | null;
   status: TurnStatus;
+  command?: TurnCommandMetadata;
   createdAt: Date;
 }
 
@@ -239,6 +249,7 @@ export async function listTurns(
     source: (doc as Turn).source ?? 'REST',
     toolCalls: doc.toolCalls ?? null,
     status: doc.status,
+    command: doc.command,
     createdAt: doc.createdAt,
   }));
 

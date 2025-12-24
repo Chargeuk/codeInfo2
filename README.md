@@ -87,12 +87,70 @@ codex_agents/<agentName>/
     - The response `conversationId` is the server conversation id used for history and continuation.
     - Codex continuation uses an internal thread id persisted as `Conversation.flags.threadId`.
 
+- Agent Commands (macros):
+  - Commands live alongside an agent under `codex_agents/<agentName>/commands/*.json` (file basename is the command name).
+  - Command file schema (v1):
+    ```json
+    {
+      "Description": "Refine a story plan for clarity and completeness.",
+      "items": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": ["Step 1 prompt...", "Step 1 continues..."]
+        }
+      ]
+    }
+    ```
+  - List available commands for an agent:
+    - `curl -s http://localhost:5010/agents/coding_agent/commands | jq`
+    - Example response:
+      ```json
+      {
+        "commands": [
+          {
+            "name": "improve_plan",
+            "description": "Refine a story plan for clarity and completeness.",
+            "disabled": false
+          }
+        ]
+      }
+      ```
+  - Run a command:
+    - `curl -s -X POST http://localhost:5010/agents/coding_agent/commands/run -H 'content-type: application/json' -d '{"commandName":"improve_plan"}' | jq`
+    - Optional arguments:
+      - `conversationId` (continue an existing agent conversation)
+      - `working_folder` (absolute path; resolved like `/agents/:agentName/run`)
+    - Example request:
+      ```json
+      {
+        "commandName": "improve_plan",
+        "conversationId": "<conversationId>",
+        "working_folder": "/host/base/repo"
+      }
+      ```
+    - Example response:
+      ```json
+      {
+        "agentName": "coding_agent",
+        "commandName": "improve_plan",
+        "conversationId": "<conversationId>",
+        "modelId": "<modelId>"
+      }
+      ```
+    - Error notes:
+      - Missing agent/command returns 404 `{ "error": "not_found" }`.
+      - Validation errors return 400 `{ "error": "invalid_request", "code": "COMMAND_INVALID" | "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND", "message": "..." }`.
+      - Concurrent runs return 409 `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`.
+
 ### Agents MCP (JSON-RPC)
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5012` (Compose exposes it; e2e compose maps to `http://localhost:6012`).
 - Tools:
   - `list_agents`
+  - `list_commands`
   - `run_agent_instruction`
+  - `run_command`
 - `run_agent_instruction` optional arguments: `conversationId` and `working_folder` (absolute path; resolved like REST).
 - Quick smoke (host/compose):
   - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | jq`

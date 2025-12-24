@@ -1,4 +1,15 @@
 #!/bin/sh
+
+# Skip husky hooks when running from Windows on WSL filesystem
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if echo "$PWD" | grep -q "^//wsl"; then
+      echo "husky: Skipping pre-commit hook (Windows accessing WSL filesystem)"
+      exit 0
+    fi
+    ;;
+esac
+
 # Husky v9+ friendly hook: avoid npx PATH issues (e.g., SourceTree embedded Git).
 
 # Ensure Node is available. Try common install locations used by GUI Git clients
@@ -30,4 +41,4 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
-lint-staged
+npx lint-staged

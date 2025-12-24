@@ -1096,49 +1096,49 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
-   - Files to edit: `README.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
-   - Files to edit: `design.md`
-   - Docs (read before doing): Mermaid https://mermaid.js.org/
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
-   - Files to edit: `projectStructure.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-7. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
-   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
-   - Command to run (for summary input): `git log --oneline --decorate -20`
-   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
-8. [ ] Playwright e2e test: cross-tab inflight catch-up (Tab B joins mid-run and sees `inflight_snapshot` then continues receiving deltas)
+4. [ ] Playwright e2e test: cross-tab inflight catch-up (Tab B joins mid-run and sees `inflight_snapshot` then continues receiving deltas)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: verify the “multi-conversation dashboard” workflow works across tabs
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-9. [ ] Playwright e2e test: detach vs Stop (navigating away does not cancel; explicit Stop cancels and transcript reflects stopped)
+5. [ ] Playwright e2e test: detach vs Stop (navigating away does not cancel; explicit Stop cancels and transcript reflects stopped)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: verify Story 19’s detach semantics and explicit cancellation behavior end-to-end
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-10. [ ] Playwright e2e test: WS reconnect behavior (reload/network blip causes list + transcript REST refresh before resubscribe)
+6. [ ] Playwright e2e test: WS reconnect behavior (reload/network blip causes list + transcript REST refresh before resubscribe)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: prevent regressions where reconnect merges stale WS deltas into an out-of-date UI snapshot
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-11. [ ] Playwright e2e test: bulk archive (multi-select archive in `Active` view updates the list immediately)
+7. [ ] Playwright e2e test: bulk archive (multi-select archive in `Active` view updates the list immediately)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: verify the bulk archive UX works end-to-end and list stays consistent
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-12. [ ] Playwright e2e test: bulk restore (restore in `Archived` view works)
+8. [ ] Playwright e2e test: bulk restore (restore in `Archived` view works)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: verify bulk restore and archived-only filtering works end-to-end
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-13. [ ] Playwright e2e test: permanent delete requires confirmation and removes items from the list
+9. [ ] Playwright e2e test: permanent delete requires confirmation and removes items from the list
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: ensure permanent deletion cannot happen without explicit confirmation
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
+10. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+   - Files to edit: `README.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+11. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Files to edit: `design.md`
+   - Docs (read before doing): Mermaid https://mermaid.js.org/
+12. [ ] Ensure `projectStructure.md` is updated after all file additions/removals in this story (including new `e2e/*.spec.ts` files)
+   - Files to edit: `projectStructure.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+13. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
+   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
+   - Command to run (for summary input): `git log --oneline --decorate -20`
+   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
 
 
 #### Testing

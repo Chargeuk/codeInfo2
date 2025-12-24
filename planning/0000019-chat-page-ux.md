@@ -270,6 +270,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 - AbortController (server-side cancellation wiring; keep detach separate from cancel): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Express Router/app structure (understand how `app.listen()` returns an HTTP server to attach ws): Context7 `/expressjs/express` (Router)
 - Zod validation (use `z.discriminatedUnion('type', ...)` + `safeParse` to validate inbound WS messages without throwing): DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
+- Mermaid (diagrams for WS architecture + event flow in `design.md`): Context7 `/mermaid-js/mermaid`
 - Node test runner (WS protocol/inflight integration tests): https://nodejs.org/api/test.html
 - npm run-script (workspace build/test commands referenced in this task): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Docker Compose (task verification commands): https://docs.docker.com/compose/
@@ -493,9 +494,9 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Location: `server/src/test/unit/inflightRegistry.cleanup.test.ts`
    - Purpose: ensure inflight entries are removed after `turn_final` and after explicit cancel to prevent memory growth
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-34. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
+34. [ ] Update docs: `design.md`, `projectStructure.md` (document WS + inflight architecture changes and add Mermaid diagrams for protocol/flow + updated Stop/detach semantics)
    - Files to edit: `design.md`, `projectStructure.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+   - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
 35. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -534,6 +535,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 - MongoDB transactions overview (transaction prerequisites + semantics): https://www.mongodb.com/docs/manual/core/transactions/
 - Express routing (bulk endpoints + error responses): Context7 `/expressjs/express` (Router)
 - Zod validation (request schemas; reject empty/oversized bulk requests safely): DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
+- Mermaid (diagrams for bulk API flows and invariants in `design.md`): Context7 `/mermaid-js/mermaid`
 - Node test runner (unit/integration tests for routes/repo): https://nodejs.org/api/test.html
 - Docker Compose (local verification commands referenced in this task): https://docs.docker.com/compose/
 - npm run-script (workspace build/test commands referenced in this task): https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -684,9 +686,9 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Files to edit: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Docs (read before coding): MongoDB transactions https://www.mongodb.com/docs/manual/core/transactions/
    - Critical constraints (do not skip): do not remove `directConnection=true` until the replica-set host config is fixed
-30. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
+30. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md` (document the new bulk flows + invariants and add Mermaid diagrams)
    - Files to edit: `design.md`, `projectStructure.md`, `README.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+   - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
 31. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -733,6 +735,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 - URLSearchParams (building the conversations list query string): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - Testing Library (RTL patterns for UI behavior tests): https://testing-library.com/docs/react-testing-library/intro/
 - Jest (test runner used by the client workspace): Context7 `/jestjs/jest`
+- Mermaid (diagrams for sidebar/bulk UX flow in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -826,9 +829,9 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Location: `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure when `mongoConnected === false` the bulk UI is disabled and a clear message is shown
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
-20. [ ] Update docs: `design.md`, `projectStructure.md`
+20. [ ] Update docs: `design.md`, `projectStructure.md` (document the new sidebar/bulk UX flow and add Mermaid diagrams)
    - Files to edit: `design.md`, `projectStructure.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+   - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
 21. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -872,6 +875,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 - MUI Snackbar (optional lightweight “toast” confirmations): https://llms.mui.com/material-ui/6.4.12/components/snackbars.md
 - Testing Library (WS subscription + UI behavior tests): https://testing-library.com/docs/react-testing-library/intro/
 - Jest (test runner used by the client workspace): Context7 `/jestjs/jest`
+- Mermaid (diagrams for the Chat WS subscribe/catch-up flow and Stop/detach semantics in `design.md`): Context7 `/mermaid-js/mermaid`
 
 #### Subtasks
 
@@ -1034,9 +1038,9 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Files to edit/create: `client/src/test/chatPage.codexThreadIdRestore.test.tsx` (new) or update `client/src/test/chatSendPayload.test.tsx`
    - Purpose: ensure Codex continuation works across reloads/tabs by restoring the persisted threadId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-33. [ ] Update docs: `design.md`, `projectStructure.md`
+33. [ ] Update docs: `design.md`, `projectStructure.md` (document the new client subscribe/catch-up and Stop/detach flows and add Mermaid diagrams)
    - Files to edit: `design.md`, `projectStructure.md`
-   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+   - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
 34. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -1129,9 +1133,9 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 10. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Files to edit: `README.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-11. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+11. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Files to edit: `design.md`
-   - Docs (read before doing): Mermaid https://mermaid.js.org/
+   - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`
 12. [ ] Ensure `projectStructure.md` is updated after all file additions/removals in this story (including new `e2e/*.spec.ts` files)
    - Files to edit: `projectStructure.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/

@@ -100,7 +100,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - Sidebar live updates scope is intentionally minimal in v1:
   - conversation create/update/archive/restore/delete,
   - `lastMessageAt` changes and resorting.
- - When `mongoConnected === false`, live streaming is disabled and the UI surfaces a clear error message explaining that persistence is required for realtime updates/catch-up.
+- When `mongoConnected === false`, live streaming (sidebar + transcript subscriptions) is disabled and the UI surfaces a clear message explaining that persistence is required for realtime updates/catch-up (the user can still explicitly Stop an in-flight run).
 - When `mongoConnected === false`, bulk archive/restore/permanent delete actions are also disabled, and the UI surfaces a clear error message explaining that persistence is required for safe conversation management.
 
 ### Reliability/consistency
@@ -142,6 +142,7 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
 - `type: "cancel_inflight"`
   - Used by the existing Stop button to cancel the currently running turn without relying on HTTP request abort.
   - `{ type, requestId, conversationId: string, inflightId: string }`
+  - `inflightId` is stable for the lifetime of a single in-progress turn. For turns started in the Chat UI, the client generates it and includes it in `POST /chat`. For turns started elsewhere (e.g. MCP), the client learns it from `inflight_snapshot`/`assistant_delta` and caches it for Stop.
 
 ### Server → Client events
 
@@ -156,7 +157,7 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
 
 - Transcript events (scoped to a `conversationId`)
   - `type: "inflight_snapshot"`
-    - Sent immediately after `subscribe_conversation` when a run is currently in progress.
+    - Sent immediately after `subscribe_conversation` when a run is currently in progress, and broadcast to existing subscribers when a new in-flight turn starts (snapshot may be empty until the first delta/tool event arrives).
     - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, toolEvents: unknown[], startedAt: string } }`
   - `type: "assistant_delta"`
     - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
@@ -206,6 +207,7 @@ These findings are based on the current repository implementation and are includ
 ### Conversation management API gaps (today)
 
 - The REST API currently supports single-item archive/restore (`POST /conversations/:id/archive|restore`) and list/turn endpoints (`GET /conversations`, `GET /conversations/:id/turns`). There are **no** bulk endpoints and **no** permanent delete endpoints. Story 19 will need to add these.
+- `GET /conversations` only supports a boolean archived mode (active-only vs active+archived). There is no archived-only list mode today, so the 3-state filter requires extending the list API.
 
 ### Mongo transactions / atomicity risk (today)
 
@@ -261,15 +263,18 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 #### Subtasks
 
-1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
+1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/mongo/repo.ts`
 2. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
-3. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events + timestamps, and exposing snapshot/delta helpers
+3. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events (bounded history) + timestamps, and storing an optional cancel handle (e.g., AbortController) for `cancel_inflight`
 4. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`
-5. [ ] Emit transcript events from chat execution (Codex + LM Studio) into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic
-6. [ ] Emit sidebar events on conversation create/update/archive/restore/delete via repo/route hooks
-7. [ ] Add server unit/integration tests for hub routing, sequence IDs, inflight snapshots, and WS connection lifecycle
-8. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes)
-9. [ ] Run full linting (`npm run lint --workspaces`)
+5. [ ] Extend the REST chat run contract to support a stable inflight id: accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`), register it in the in-flight registry at run start, and include `inflightId` in WS transcript events so the UI can cancel a run even before the first token arrives
+6. [ ] Emit transcript events from all chat execution entrypoints (REST `POST /chat` + MCP tools that call ChatInterface.run) (Codex + LM Studio) into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic
+7. [ ] Change `POST /chat` disconnect semantics: when the HTTP client disconnects, stop writing SSE frames for that response **without aborting** the underlying run; the run must continue (captured in in-flight registry + persisted on completion) and only an explicit Stop/cancel may abort it
+8. [ ] Implement WS message validation + error responses (invalid JSON, unknown `type`, missing required fields), and ensure the server never crashes on malformed messages
+9. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) via repo-level or route-level hooks (ensure updates from `POST /chat` and MCP executions also publish)
+10. [ ] Add server unit/integration/Cucumber tests for hub routing, sequence IDs, inflight snapshots, WS lifecycle, and the updated “disconnect does not cancel run” behavior (update existing cancellation coverage accordingly)
+11. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
+12. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -303,13 +308,15 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 #### Subtasks
 
 1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
-2. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
-3. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
-4. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
-5. [ ] Update default Mongo URI(s) to replica-set aware settings needed for transactions (document any changes in README and env files)
-6. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases
-7. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
-8. [ ] Run full linting (`npm run lint --workspaces`)
+2. [ ] Extend the conversations list API to support the 3-state sidebar filter (Active / Active & Archived / Archived), e.g. add an archived-only mode (while keeping existing `archived=true` behavior for active+archived), and update router + repo query + tests
+3. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
+4. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
+5. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
+6. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
+7. [ ] Update default Mongo URI(s) to replica-set aware settings needed for transactions (document any changes in README and env files)
+8. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
+9. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
+10. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -343,12 +350,14 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
-3. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
-4. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling
-5. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
-6. [ ] Add/ अपडेट client RTL tests for filter modes, selection behavior, bulk action flows, and disabled state
-7. [ ] Update docs: `design.md`, `projectStructure.md`
-8. [ ] Run full linting (`npm run lint --workspaces`)
+3. [ ] Ensure the list snapshot strategy supports all 3 filter views (either fetch “active+archived” then filter locally, or add/extend query params) without breaking pagination
+4. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
+5. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
+6. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure rejection leaves UI unchanged)
+7. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
+8. [ ] Add/ update client RTL tests for filter modes, selection behavior, “open conversation included in bulk action” behavior, all-or-nothing error paths, and disabled state
+9. [ ] Update docs: `design.md`, `projectStructure.md`
+10. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -382,12 +391,15 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 
 1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
 2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/reconnect, requestId generation, and subscribe/unsubscribe helpers
-3. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount; refresh snapshot before resubscribe
-4. [ ] Implement transcript subscription for the active conversation with inflight snapshot merge and delta/tool-event handling
-5. [ ] Update Stop behavior to send `cancel_inflight` over WS and avoid cancelling runs on route change/unmount
-6. [ ] Add client tests for WS subscription, inflight catch-up, and Stop semantics (update existing tests to new behavior)
-7. [ ] Update docs: `design.md`, `projectStructure.md`
-8. [ ] Run full linting (`npm run lint --workspaces`)
+3. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and store it for cancellation
+4. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
+5. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount; refresh snapshot before resubscribe
+6. [ ] Implement transcript subscription for the active conversation with inflight snapshot merge and delta/tool-event handling
+7. [ ] Update Stop behavior to send `cancel_inflight` over WS (conversationId + inflightId) and avoid cancelling runs on route change/unmount
+8. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
+9. [ ] Add client tests for WS subscription, inflight catch-up, persistence-gating, and Stop semantics (update existing tests to new behavior)
+10. [ ] Update docs: `design.md`, `projectStructure.md`
+11. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -430,6 +442,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+8. [ ] Ensure Playwright coverage includes (or is updated to include) at least: (a) starting a run then navigating away does not cancel it, and (b) a second tab can subscribe and see inflight catch-up/live updates
 
 #### Testing
 

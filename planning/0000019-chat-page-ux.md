@@ -1077,6 +1077,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 - Husky (git hook behavior if lint/test hooks are involved): Context7 `/typicode/husky`
 - Mermaid (diagram syntax + security/sanitization considerations): Context7 `/mermaid-js/mermaid`
 - Jest (client unit tests + snapshot behavior): Context7 `/jestjs/jest`
+- Cucumber guides (all guides index; baseline reference for running/writing Cucumber in this repo): https://cucumber.io/docs/guides/
 - Cucumber guide (basic workflow + step definitions): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Cucumber guide (CI usage patterns and exit codes): https://cucumber.io/docs/guides/continuous-integration/
 - Cucumber reference (tags/filtering and “Running Cucumber” sections): https://cucumber.io/docs/cucumber/api/

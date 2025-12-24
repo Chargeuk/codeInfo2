@@ -494,10 +494,19 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Location: `server/src/test/unit/inflightRegistry.cleanup.test.ts`
    - Purpose: ensure inflight entries are removed after `turn_final` and after explicit cancel to prevent memory growth
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-34. [ ] Update docs: `design.md`, `projectStructure.md` (document WS + inflight architecture changes and add Mermaid diagrams for protocol/flow + updated Stop/detach semantics)
-   - Files to edit: `design.md`, `projectStructure.md`
+34. [ ] Update docs: `design.md` (WS + inflight architecture + protocol flow diagrams)
+   - Files to edit: `design.md`
+   - Location: `design.md`
+   - Description: add/update Mermaid diagrams and narrative describing WS hub + inflight registry + sequence IDs + snapshot/delta events
+   - Purpose: document the new WS hub/inflight registry modules, sequence IDs, and the snapshot/delta event flows as Mermaid diagrams so future changes stay consistent
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-35. [ ] Run full linting (`npm run lint --workspaces`)
+35. [ ] Update docs: `projectStructure.md` (new `server/src/ws/*` modules and new test files)
+   - Files to edit: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: add the new server WS modules and new server test files created in Task 1
+   - Purpose: list any new folders/files introduced by Task 1 (WS server/hub/registry/types and any new server tests) after all code changes land
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+36. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -686,10 +695,25 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Files to edit: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Docs (read before coding): MongoDB transactions https://www.mongodb.com/docs/manual/core/transactions/
    - Critical constraints (do not skip): do not remove `directConnection=true` until the replica-set host config is fixed
-30. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md` (document the new bulk flows + invariants and add Mermaid diagrams)
-   - Files to edit: `design.md`, `projectStructure.md`, `README.md`
+30. [ ] Update docs: `design.md` (bulk archive/restore/delete flows + invariants as Mermaid diagrams)
+   - Files to edit: `design.md`
+   - Location: `design.md`
+   - Description: add/update Mermaid diagrams describing bulk endpoints, transaction boundaries, invariants, and emitted WS list events
+   - Purpose: document the new bulk APIs, all-or-nothing semantics, delete guardrails, and emitted WS list events as a Mermaid flow diagram
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-31. [ ] Run full linting (`npm run lint --workspaces`)
+31. [ ] Update docs: `README.md` (bulk endpoints + 3-state list query)
+   - Files to edit: `README.md`
+   - Location: `README.md`
+   - Description: add/update README sections so developers can discover and use the new conversation list modes and bulk endpoints
+   - Purpose: describe the new `GET /conversations?archived=only` mode and the bulk endpoints so developers can call the correct APIs
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+32. [ ] Update docs: `projectStructure.md` (new server bulk route/repo/test files)
+   - Files to edit: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: add any new server files created in Task 2 (routes/repo changes and new integration tests)
+   - Purpose: list any new files introduced by Task 2 (new route helpers, repo helpers, and new server integration tests) after all code changes land
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+33. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -829,10 +853,19 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Location: `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure when `mongoConnected === false` the bulk UI is disabled and a clear message is shown
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
-20. [ ] Update docs: `design.md`, `projectStructure.md` (document the new sidebar/bulk UX flow and add Mermaid diagrams)
-   - Files to edit: `design.md`, `projectStructure.md`
+20. [ ] Update docs: `design.md` (sidebar multi-select + 3-state filter UX flow as Mermaid diagrams)
+   - Files to edit: `design.md`
+   - Location: `design.md`
+   - Description: add/update Mermaid diagrams describing the sidebar filter states, selection model, bulk actions, and confirmation flow
+   - Purpose: document the client-side sidebar interaction flow (filter state, selection state, confirmation dialog, and bulk action calls) as Mermaid diagrams
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-21. [ ] Run full linting (`npm run lint --workspaces`)
+21. [ ] Update docs: `projectStructure.md` (new client sidebar/bulk files and tests)
+   - Files to edit: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: add any new client files created in Task 3 (sidebar component changes, related hooks, and new RTL tests)
+   - Purpose: list any new client files introduced by Task 3 (components/hooks and new RTL tests) after all code changes land
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+22. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1038,10 +1071,19 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Files to edit/create: `client/src/test/chatPage.codexThreadIdRestore.test.tsx` (new) or update `client/src/test/chatSendPayload.test.tsx`
    - Purpose: ensure Codex continuation works across reloads/tabs by restoring the persisted threadId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-33. [ ] Update docs: `design.md`, `projectStructure.md` (document the new client subscribe/catch-up and Stop/detach flows and add Mermaid diagrams)
-   - Files to edit: `design.md`, `projectStructure.md`
+33. [ ] Update docs: `design.md` (client WS subscribe/catch-up + Stop/detach flows as Mermaid diagrams)
+   - Files to edit: `design.md`
+   - Location: `design.md`
+   - Description: add/update Mermaid diagrams describing connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering, and Stop vs detach behavior
+   - Purpose: document the client lifecycle (connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering) and Stop vs detach semantics as Mermaid diagrams
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-34. [ ] Run full linting (`npm run lint --workspaces`)
+34. [ ] Update docs: `projectStructure.md` (new client WS hook/tests)
+   - Files to edit: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: add any new client files created in Task 4 (WS hook/service and new RTL tests)
+   - Purpose: list any new client files introduced by Task 4 (WS hook/service, new tests) after all code changes land
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+35. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1132,12 +1174,21 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
 10. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Files to edit: `README.md`
+   - Location: `README.md`
+   - Description: update README to reflect the new Story 19 user-visible behaviors (bulk actions, archived-only list mode, live WS updates) and any new run commands
+   - Purpose: keep repo onboarding accurate so new developers know how to run/test the system and what features exist
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 11. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Files to edit: `design.md`
+   - Location: `design.md`
+   - Description: add/update Mermaid architecture + flow diagrams created during Tasks 1–4, and ensure the narrative matches the implemented behavior
+   - Purpose: keep architectural documentation and flows aligned with the code to reduce future regressions
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`
 12. [ ] Ensure `projectStructure.md` is updated after all file additions/removals in this story (including new `e2e/*.spec.ts` files)
    - Files to edit: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: list every added/removed/moved file and any new folders introduced by this story (server WS modules, client hooks/tests, e2e specs)
+   - Purpose: keep the repo structure map accurate for onboarding and for planning future work
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 13. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
    - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`

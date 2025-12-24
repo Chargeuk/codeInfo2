@@ -271,34 +271,47 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/agents/runLock.ts`, `server/src/mongo/repo.ts`
    - Reuse/reference patterns from: `server/src/logStore.ts` (sequence + subscribe/unsubscribe pub-sub), `server/src/routes/logs.ts` (SSE stream heartbeats + replay), `server/src/ingest/lock.ts` (TTL lock/release pattern)
-2. [ ] Add WebSocket server dependency (`ws`) to the `server` workspace (and any required types) so the WebSocket endpoint can be implemented in Node
-3. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
-   - Prefer `WebSocketServer({ server, path: '/ws' })` or `noServer + server.on('upgrade')` routing patterns supported by ws v8.x (Context7 `/websockets/ws/8_18_3`)
-4. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events (bounded history) + timestamps, and storing an optional cancel handle (e.g., AbortController) for `cancel_inflight`
-5. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`:
-   - Prefer reusing the existing `server/src/logStore.ts` architecture (monotonic seq + `subscribe()` returning an unsubscribe) for the hub’s internal fan-out and bounded event buffering; avoid inventing a completely new subscription pattern
-6. [ ] Extend the REST chat run contract to support a stable inflight id + detach semantics:
-   - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`), register it in the in-flight registry at run start, and include `inflightId` in WS transcript events so the UI can cancel a run even before the first token arrives
-   - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility): when `false`, an HTTP disconnect/abort must close SSE without aborting the underlying run (the Chat UI will send `cancel_inflight` explicitly for Stop)
-7. [ ] Ensure `inflightId` is always available for cancellation: when a run is started without an `inflightId` (e.g., via MCP), generate one server-side at run start, register it, and broadcast an immediate `inflight_snapshot` to existing subscribers even before the first token/tool event arrives
-8. [ ] Enforce a single in-flight run per conversation: reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`) for Chat runs (REST + MCP) and return a stable 409 `RUN_IN_PROGRESS` error for conflicts
-9. [ ] Emit transcript events from all ChatInterface-run execution entrypoints into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic:
-   - REST Chat: `POST /chat` (Codex + LM Studio)
-   - MCP v2 tools that call ChatInterface.run (e.g., `codebase_question`)
-   - Agents REST + Agents MCP executions that call ChatInterface.run (so “MCP-initiated runs” stream live in Chat)
-   - Ensure **analysis deltas** are captured (Codex emits `analysis` frames used by the current Chat UI reasoning renderer)
-10. [ ] Define bounded in-flight retention explicitly (max tool events, any max bytes/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks; add test coverage for cleanup behavior
-   - Prefer logStore-style bounded buffering rather than bespoke unbounded arrays
-11. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
-   - if `cancelOnDisconnect === true` (default), preserve today’s behavior (abort underlying run on abort/disconnect)
-   - if `cancelOnDisconnect === false`, stop writing SSE frames for that response **without aborting** the underlying run; the run must continue (captured in in-flight registry + persisted on completion) and only an explicit Stop/cancel may abort it
-12. [ ] Implement WS message validation + error responses (invalid JSON, unknown `type`, missing required fields), and ensure the server never crashes on malformed messages
-13. [ ] Ensure domain-safe WS handling for `cancel_inflight` (unknown `conversationId`/`inflightId`, already-finalized inflight, permission/state errors) with stable, non-crashing error responses
-14. [ ] Audit and fix any duplicate persistence side effects in `POST /chat` so Codex + LM Studio runs persist exactly one assistant turn and do not double-update the conversation list (this is required to keep WS `conversation_upsert` events stable)
-15. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops); ensure emission covers **all** conversation creation/update call sites (REST Chat ensureConversation, MCP ensureConversation, Agents ensureConversation, and archive/restore/bulk routes)
-16. [ ] Add server unit/integration/Cucumber tests for hub routing, sequence IDs, inflight snapshots (including mid-stream subscribe catch-up), WS lifecycle, and the updated disconnect/stop semantics (update existing cancellation coverage accordingly)
-17. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
-18. [ ] Run full linting (`npm run lint --workspaces`)
+2. [ ] Add WebSocket server dependency (`ws`) to the `server` workspace (and any required types)
+3. [ ] Define the WS protocol types + runtime validation (client message union + server event union)
+   - Recommended: a small `server/src/ws/types.ts` plus Zod validators for inbound client messages so malformed payloads never crash the server
+4. [ ] Create the WS server bootstrap (e.g., `server/src/ws/server.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
+   - Prefer `WebSocketServer({ server, path: '/ws' })` or `noServer + server.on('upgrade')` patterns supported by ws v8.x (Context7 `/websockets/ws/8_18_3`)
+5. [ ] Implement per-socket connection state (requestId logging, subscriptions, and safe JSON send) and add minimal server-side logging for connect/disconnect and message validation errors
+6. [ ] Implement the in-flight registry data model (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`:
+   - start an in-flight record at run start (even before first token)
+   - append assistant text deltas
+   - append analysis deltas
+   - append tool events (`tool-request` / `tool-result`) with bounded history
+   - track timestamps and final status
+7. [ ] Define bounded in-flight retention (max tool events, any max chars/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks
+8. [ ] Implement the WS hub/pubsub backbone (e.g., `server/src/ws/hub.ts`) using a logStore-style architecture:
+   - `subscribe_sidebar` / `unsubscribe_sidebar` (global sidebar stream with a monotonic `seq`)
+   - `subscribe_conversation` / `unsubscribe_conversation` (per-conversation transcript stream with a monotonic `seq` per `conversationId`)
+   - `cancel_inflight` routing into the in-flight registry cancel handle
+9. [ ] Implement WS message handling + error responses (invalid JSON, unknown `type`, missing required fields) and ensure the server never crashes on malformed messages
+10. [ ] Implement domain-safe `cancel_inflight` handling (unknown `conversationId`/`inflightId`, already-finalized inflight) with stable, non-crashing error responses
+11. [ ] Extend the REST chat request contract:
+   - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`)
+   - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility)
+12. [ ] Update `POST /chat` to register a run in the in-flight registry at start (creating `inflightId` server-side when missing), attach a cancel handle, and broadcast an immediate `inflight_snapshot` to existing subscribers
+13. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
+   - if `cancelOnDisconnect === true` (default), preserve today’s behavior (abort underlying run on disconnect)
+   - if `cancelOnDisconnect === false`, stop writing SSE frames for that response **without aborting** the underlying run (only `cancel_inflight` should abort)
+14. [ ] Emit transcript events from **REST Chat** (`POST /chat`) into the hub while preserving existing SSE responses:
+   - Codex provider: `token` → `assistant_delta`, `analysis` → `analysis_delta`, tool events → `tool_event`, completion → `turn_final`
+   - LM Studio provider: same mapping (including tool events)
+15. [ ] Emit transcript events from **MCP v2 tools** that call `ChatInterface.run` (e.g. `codebase_question`) into the hub
+   - Ensure `inflightId` is generated server-side (because there is no `POST /chat` payload) and an `inflight_snapshot` is broadcast before the first delta/tool event so late subscribers can cancel and catch up
+16. [ ] Emit transcript events from **Agents runs** (REST + MCP) that call `ChatInterface.run` into the hub (so MCP/Agents-initiated runs stream live in Chat)
+   - Ensure `inflightId` is generated server-side and an `inflight_snapshot` is broadcast before the first delta/tool event
+17. [ ] Enforce a single in-flight run per conversation across Chat + MCP + Agents:
+   - reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`)
+   - return a stable 409 `RUN_IN_PROGRESS` error for conflicts
+18. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
+19. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
+20. [ ] Add server unit/integration/Cucumber tests for WS hub routing, sequence IDs, inflight snapshots (including mid-stream subscribe catch-up), WS lifecycle, and the updated disconnect/stop semantics
+21. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
+22. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -332,17 +345,29 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 #### Subtasks
 
 1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
-2. [ ] Extend the conversations list API to support the 3-state sidebar filter (Active / Active & Archived / Archived), add `archived=only` mode (while keeping existing `archived=true` behavior for active+archived), and update router + repo query + tests
-3. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
-4. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
+2. [ ] Extend the conversations list API to support the 3-state sidebar filter:
+   - Active (default)
+   - Active & Archived (`archived=true`)
+   - Archived-only (`archived=only`)
+   - Keep existing `archived=true` behavior for active+archived; add archived-only without breaking older clients
+3. [ ] Update the repo query logic to support archived-only mode (without relying on client-side filtering)
+4. [ ] Add/adjust server tests covering list pagination across all three modes
+5. [ ] Add request validation for bulk operations (conversationId list, max size, dedupe/normalize, reject empty)
+6. [ ] Implement `POST /conversations/bulk/archive` with all-or-nothing semantics
+7. [ ] Implement `POST /conversations/bulk/restore` with all-or-nothing semantics
+8. [ ] Implement `POST /conversations/bulk/delete` with all-or-nothing semantics:
+   - enforce archived-only delete (reject non-archived IDs)
+   - delete conversations and turns in a single transaction
+   - return structured errors
    - Important (Mongoose v9): avoid parallel operations inside the transaction executor (no Promise.all); prefer single `updateMany`/`deleteMany` calls or sequential awaits (Context7 `/automattic/mongoose/9.0.1` transactions)
-5. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
-6. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
-7. [ ] Update default Mongo URI(s) to replica-set aware settings needed for transactions (audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`)
+9. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
+10. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
+11. [ ] Update default Mongo URI(s) used by server + Compose to settings needed for transactions:
+   - audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Important: keep `directConnection=true` (transactions work with it; replica-set discovery fails without it due to the current rs member host being `localhost:27017`). Optionally add `replicaSet=rs0` explicitly alongside `directConnection=true`.
-8. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
-9. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
-10. [ ] Run full linting (`npm run lint --workspaces`)
+12. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
+13. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
+14. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -378,14 +403,21 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Reuse/reference patterns from: `client/src/components/ingest/RootsTable.tsx` (checkbox multi-select + bulk action toolbar + indeterminate select-all)
    - Note: the existing chat sidebar is already implemented in `client/src/components/chat/ConversationList.tsx` using MUI `List` + a `Switch` filter; extend/refactor this component rather than introducing a new sidebar list implementation
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
-3. [ ] Ensure the list snapshot strategy supports all 3 filter views using the list API modes: Active (default), Active & Archived (`archived=true`), Archived (`archived=only`) without breaking pagination
-4. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
-5. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
-6. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure rejection leaves UI unchanged)
-7. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
-8. [ ] Add/ update client RTL tests for filter modes, selection behavior, “open conversation included in bulk action” behavior, all-or-nothing error paths, and disabled state
-9. [ ] Update docs: `design.md`, `projectStructure.md`
-10. [ ] Run full linting (`npm run lint --workspaces`)
+3. [ ] Refactor the conversations list fetch logic to support all 3 filter modes (Active default, `archived=true`, `archived=only`) without breaking pagination
+4. [ ] Add checkbox multi-select per conversation row and an indeterminate select-all control for the current view (reuse RootsTable patterns)
+5. [ ] Add a bulk action toolbar with context-appropriate actions:
+   - Active / Active & Archived: bulk archive
+   - Archived: bulk restore + bulk permanent delete
+6. [ ] Implement a permanent delete confirmation dialog (explicit user confirmation before calling the server)
+7. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
+8. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure all-or-nothing rejection leaves UI unchanged)
+9. [ ] Confirm UX for “open conversation included in bulk action”:
+   - conversation is removed/moved in the sidebar, toast confirms action
+   - transcript remains stable (no forced refresh) until user navigates
+10. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
+11. [ ] Add/update client RTL tests for filter modes, selection behavior, “open conversation included in bulk action” behavior, all-or-nothing error paths, and disabled state
+12. [ ] Update docs: `design.md`, `projectStructure.md`
+13. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 
@@ -419,21 +451,37 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 
 1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/logging/transport.ts` (backoff/retry pacing) and `client/src/hooks/useLogs.ts` (SSE reconnect + subscription lifecycle patterns, even though WS is different)
-2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/reconnect, requestId generation, and subscribe/unsubscribe helpers
-3. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and store it for cancellation
-4. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
-5. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount; on reconnect, refresh the list snapshot before resubscribing
-6. [ ] Implement transcript subscription for the active conversation with inflight snapshot merge and delta/tool-event handling; on reconnect, re-fetch the visible conversation turns snapshot before resubscribing
-7. [ ] Cache `inflightId` for the visible conversation from inbound `inflight_snapshot` / `assistant_delta` / `tool_event` events so Stop can cancel runs that were started outside the current tab
-8. [ ] Handle `analysis_delta` in the transcript stream so Codex reasoning state renders identically when a user switches tabs mid-run
-9. [ ] Apply sequence guards client-side: ignore out-of-order `seq` events for both sidebar and transcript streams to prevent glitches during rapid switching or reconnects
-10. [ ] Update Stop behavior to send `cancel_inflight` over WS (conversationId + inflightId); in the interim, closing/aborting the SSE fetch should not cancel the run when `cancelOnDisconnect=false`
-11. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it via `cancel_inflight` (not HTTP abort), then clear transcript state while keeping the existing model/provider rules
-12. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
-13. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
-14. [ ] Add client tests for WS subscription, inflight catch-up (including analysis), persistence-gating, Stop semantics, “New conversation” semantics, and Codex threadId restore (update existing tests to new behavior)
-15. [ ] Update docs: `design.md`, `projectStructure.md`
-16. [ ] Run full linting (`npm run lint --workspaces`)
+2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/disconnect, requestId generation, and safe JSON send
+3. [ ] Add reconnect strategy (backoff + jitter) and ensure event handlers are resilient to reconnect storms (reuse `client/src/logging/transport.ts` pacing patterns)
+4. [ ] Implement subscribe/unsubscribe helpers for `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`
+5. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
+6. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount:
+   - subscribe on mount
+   - unsubscribe on unmount
+   - on reconnect: refresh the list snapshot before resubscribing
+7. [ ] Implement transcript subscription lifecycle for the active conversation:
+   - unsubscribe previous conversationId when switching
+   - subscribe newly visible conversationId
+   - on reconnect: re-fetch visible conversation turns snapshot before resubscribing
+8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including tool events)
+9. [ ] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
+10. [ ] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
+11. [ ] Apply client-side sequence guards:
+   - sidebar events: ignore out-of-order `seq` updates
+   - transcript events: ignore out-of-order `seq` per conversationId
+12. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and pass `cancelOnDisconnect=false`; store `inflightId` for cancellation
+13. [ ] Cache `inflightId` for the visible conversation from inbound WS events (`inflight_snapshot` / deltas / tool events) so Stop can cancel runs started outside the current tab
+14. [ ] Update Stop behavior to send `cancel_inflight` over WS (conversationId + inflightId)
+15. [ ] Refactor non-Stop flows so they do not cancel generation:
+   - switching conversations unsubscribes from the prior transcript stream and subscribes to the new one
+   - leaving the Chat route unsubscribes from sidebar/transcript streams
+   - any SSE abort used to detach should not send `cancel_inflight` (only explicit Stop should cancel)
+16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it via `cancel_inflight` (not HTTP abort), then clear transcript state while keeping the existing model/provider rules
+17. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
+18. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
+19. [ ] Add client tests for WS subscription, inflight catch-up (including analysis), persistence-gating, Stop semantics, “New conversation” semantics, and Codex threadId restore (update existing tests to new behavior)
+20. [ ] Update docs: `design.md`, `projectStructure.md`
+21. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 

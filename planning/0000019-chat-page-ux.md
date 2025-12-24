@@ -263,9 +263,9 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 #### Documentation Locations
 
 - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- ws (Node WebSocket server) docs: https://github.com/websockets/ws
+- ws (Node WebSocket server) docs: Context7 `/websockets/ws/8_18_3`
 - Node.js net/http upgrade basics: https://nodejs.org/api/http.html#event-upgrade
-- Mongoose sessions/transactions: https://mongoosejs.com/docs/transactions.html
+- Mongoose sessions/transactions (v9.0.1): Context7 `/automattic/mongoose/9.0.1` (transactions)
 
 #### Subtasks
 
@@ -273,6 +273,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Reuse/reference patterns from: `server/src/logStore.ts` (sequence + subscribe/unsubscribe pub-sub), `server/src/routes/logs.ts` (SSE stream heartbeats + replay), `server/src/ingest/lock.ts` (TTL lock/release pattern)
 2. [ ] Add WebSocket server dependency (`ws`) to the `server` workspace (and any required types) so the WebSocket endpoint can be implemented in Node
 3. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
+   - Prefer `WebSocketServer({ server, path: '/ws' })` or `noServer + server.on('upgrade')` routing patterns supported by ws v8.x (Context7 `/websockets/ws/8_18_3`)
 4. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events (bounded history) + timestamps, and storing an optional cancel handle (e.g., AbortController) for `cancel_inflight`
 5. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`:
    - Prefer reusing the existing `server/src/logStore.ts` architecture (monotonic seq + `subscribe()` returning an unsubscribe) for the hub’s internal fan-out and bounded event buffering; avoid inventing a completely new subscription pattern
@@ -334,6 +335,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 2. [ ] Extend the conversations list API to support the 3-state sidebar filter (Active / Active & Archived / Archived), add `archived=only` mode (while keeping existing `archived=true` behavior for active+archived), and update router + repo query + tests
 3. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
 4. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
+   - Important (Mongoose v9): avoid parallel operations inside the transaction executor (no Promise.all); prefer single `updateMany`/`deleteMany` calls or sequential awaits (Context7 `/automattic/mongoose/9.0.1` transactions)
 5. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
 6. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
 7. [ ] Update default Mongo URI(s) to replica-set aware settings needed for transactions (audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`)
@@ -367,13 +369,14 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 #### Documentation Locations
 
-- MUI Lists/Checkboxes/Dialogs (MUI MCP docs): @mui/material
+- MUI Lists/Checkboxes/Dialogs/ToggleButtonGroup (MUI MCP docs, repo uses `@mui/material@^6.4.1`): @mui/material
 - React state + effects: https://react.dev/learn
 
 #### Subtasks
 
 1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/components/ingest/RootsTable.tsx` (checkbox multi-select + bulk action toolbar + indeterminate select-all)
+   - Note: the existing chat sidebar is already implemented in `client/src/components/chat/ConversationList.tsx` using MUI `List` + a `Switch` filter; extend/refactor this component rather than introducing a new sidebar list implementation
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
 3. [ ] Ensure the list snapshot strategy supports all 3 filter views using the list API modes: Active (default), Active & Archived (`archived=true`), Archived (`archived=only`) without breaking pagination
 4. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
@@ -410,7 +413,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 #### Documentation Locations
 
 - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React Router navigation lifecycle: https://reactrouter.com/en/main/start/overview
+- React Router (repo uses `react-router-dom@7.9.6`): Context7 `/remix-run/react-router/react-router_7.9.4` (hooks + navigation)
 
 #### Subtasks
 

@@ -589,8 +589,45 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 54. [ ] Update docs: `projectStructure.md` (new `server/src/ws/*` modules and new test files)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: add the new server WS modules and new server test files created in Task 1
-   - Purpose: list any new folders/files introduced by Task 1 (WS server/hub/registry/types and any new server tests) after all code changes land
+   - Description: add every new/moved/removed server file created in Task 1 (WS foundation + in-flight registry + Stop cancel fallback + tests)
+   - Required file list (must be complete; update based on what you actually created):
+     - New server modules: `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/ws/inflightRegistry.ts`, `server/src/ws/hub.ts`, `server/src/routes/chatCancel.ts`
+     - New server Node integration tests:
+       - `server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts`
+       - `server/src/test/integration/ws.validation.invalidJson.test.ts`
+       - `server/src/test/integration/ws.validation.unknownType.test.ts`
+       - `server/src/test/integration/ws.validation.subscribeConversation.missingConversationId.test.ts`
+       - `server/src/test/integration/ws.validation.cancelInflight.missingInflightId.test.ts`
+       - `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts`
+       - `server/src/test/integration/ws.conversation.subscribeIdle.test.ts`
+       - `server/src/test/integration/ws.conversation.catchupSnapshot.test.ts`
+       - `server/src/test/integration/ws.mcp2.codebaseQuestion.inflightBroadcast.test.ts`
+       - `server/src/test/integration/ws.agents.runInstruction.inflightBroadcast.test.ts`
+       - `server/src/test/integration/ws.seq.sidebarMonotonic.test.ts`
+       - `server/src/test/integration/ws.seq.transcriptMonotonic.test.ts`
+       - `server/src/test/integration/ws.cancel.happyPath.test.ts`
+       - `server/src/test/integration/ws.cancel.idempotent.test.ts`
+       - `server/src/test/integration/ws.cancel.invalid.test.ts`
+       - `server/src/test/integration/ws.restChat.inflightBroadcast.test.ts`
+       - `server/src/test/integration/chat.runLock.conflict.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onChatCreateUpdate.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onArchive.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onRestore.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.notFound.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.validationError.test.ts`
+       - `server/src/test/integration/chat.validators.cancelOnDisconnect.invalidType.test.ts`
+       - `server/src/test/integration/chat.validators.inflightId.invalid.test.ts`
+       - `server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts`
+       - `server/src/test/integration/chat.detach.defaultCancels.test.ts`
+     - New server Node unit tests:
+       - `server/src/test/unit/inflightRegistry.cleanup.test.ts`
+       - `server/src/test/unit/inflightRegistry.tools.currentState.test.ts`
+       - `server/src/test/unit/inflightRegistry.tools.maxCount.test.ts`
+       - `server/src/test/mcp2/tools/codebaseQuestion.runLock.conflict.test.ts`
+     - Removed files: none expected (if you delete/move anything, list it explicitly)
+   - Purpose: keep the repo structure map accurate and make WS/inflight/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 55. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
@@ -804,8 +841,33 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 34. [ ] Update docs: `projectStructure.md` (new server bulk route/repo/test files)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: add any new server files created in Task 2 (routes/repo changes and new integration tests)
-   - Purpose: list any new files introduced by Task 2 (new route helpers, repo helpers, and new server integration tests) after all code changes land
+   - Description: add every new/moved/removed server file created in Task 2 (bulk routes, list query extensions, and tests)
+   - Required file list (must be complete; update based on what you actually created):
+     - New server Node integration tests:
+       - `server/src/test/integration/conversations.list.active.test.ts`
+       - `server/src/test/integration/conversations.list.includeArchived.test.ts`
+       - `server/src/test/integration/conversations.list.archivedOnly.test.ts`
+       - `server/src/test/integration/conversations.list.agentNameNone.test.ts`
+       - `server/src/test/integration/conversations.list.pagination.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.success.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.success.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
+     - New server Node unit tests:
+       - `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
+       - `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
+       - `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
+     - Removed files: none expected (if you delete/move anything, list it explicitly)
+   - Purpose: keep the repo structure map accurate and make bulk API/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 35. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
@@ -960,8 +1022,12 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 22. [ ] Update docs: `projectStructure.md` (new client sidebar/bulk files and tests)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: add any new client files created in Task 3 (sidebar component changes, related hooks, and new RTL tests)
-   - Purpose: list any new client files introduced by Task 3 (components/hooks and new RTL tests) after all code changes land
+   - Description: add every new/moved/removed client file created in Task 3 (sidebar 3-state filter + multi-select + bulk actions + tests)
+   - Required file list (must be complete; update based on what you actually created):
+     - New client API module (if created as planned): `client/src/api/conversations.ts`
+     - New client Jest tests (if created as separate files): `client/src/test/chatSidebar.agentFilterQuery.test.tsx`
+     - Removed files: none expected (if you delete/move anything, list it explicitly)
+   - Purpose: keep the repo structure map accurate and make client bulk-sidebar additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 23. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
@@ -1192,8 +1258,29 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 37. [ ] Update docs: `projectStructure.md` (new client WS hook/tests)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: add any new client files created in Task 4 (WS hook/service and new RTL tests)
-   - Purpose: list any new client files introduced by Task 4 (WS hook/service, new tests) after all code changes land
+   - Description: add every new/moved/removed client file created in Task 4 (Chat WS hook + realtime subscriptions + Stop/detach changes + tests)
+   - Required file list (must be complete; update based on what you actually created):
+     - New client WS hook/service: `client/src/hooks/useChatWs.ts`
+     - New client Jest tests (if created as separate files):
+       - `client/src/test/chatWs.sidebarAgentFilter.test.tsx`
+       - `client/src/test/chatWs.sidebarSubscribe.test.tsx`
+       - `client/src/test/chatWs.sidebarUnsubscribe.test.tsx`
+       - `client/src/test/chatWs.transcriptSubscribe.test.tsx`
+       - `client/src/test/chatWs.transcriptSwitching.test.tsx`
+       - `client/src/test/chatWs.inflightSnapshotRendering.test.tsx`
+       - `client/src/test/chatWs.assistantDelta.test.tsx`
+       - `client/src/test/chatWs.analysisDelta.test.tsx`
+       - `client/src/test/chatWs.seqGuards.test.tsx`
+       - `client/src/test/chatPage.stop.wsCancel.test.tsx`
+       - `client/src/test/chatPage.stop.httpCancelFallback.test.tsx`
+       - `client/src/test/chatWs.stopFromViewerTab.test.tsx`
+       - `client/src/test/chatWs.detachSemantics.test.tsx`
+       - `client/src/test/chatPersistenceBanner.wsGating.test.tsx`
+       - `client/src/test/chatPage.newConversation.wsCancel.test.tsx`
+       - `client/src/test/chatPage.newConversation.httpCancelFallback.test.tsx`
+       - `client/src/test/chatPage.codexThreadIdRestore.test.tsx`
+     - Removed files: none expected (if you delete/move anything, list it explicitly)
+   - Purpose: keep the repo structure map accurate and make client realtime/WS additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 38. [ ] Run full linting (`npm run lint --workspaces`)
    - Command: `npm run lint --workspaces`
@@ -1300,6 +1387,87 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: list every added/removed/moved file and any new folders introduced by this story (server WS modules, client hooks/tests, e2e specs)
+   - Required file list (must be complete; update based on what you actually created):
+     - Task 1 (server WS + cancel fallback + tests):
+       - `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/ws/inflightRegistry.ts`, `server/src/ws/hub.ts`, `server/src/routes/chatCancel.ts`
+       - `server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts`
+       - `server/src/test/integration/ws.validation.invalidJson.test.ts`
+       - `server/src/test/integration/ws.validation.unknownType.test.ts`
+       - `server/src/test/integration/ws.validation.subscribeConversation.missingConversationId.test.ts`
+       - `server/src/test/integration/ws.validation.cancelInflight.missingInflightId.test.ts`
+       - `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts`
+       - `server/src/test/integration/ws.conversation.subscribeIdle.test.ts`
+       - `server/src/test/integration/ws.conversation.catchupSnapshot.test.ts`
+       - `server/src/test/integration/ws.mcp2.codebaseQuestion.inflightBroadcast.test.ts`
+       - `server/src/test/integration/ws.agents.runInstruction.inflightBroadcast.test.ts`
+       - `server/src/test/integration/ws.seq.sidebarMonotonic.test.ts`
+       - `server/src/test/integration/ws.seq.transcriptMonotonic.test.ts`
+       - `server/src/test/integration/ws.cancel.happyPath.test.ts`
+       - `server/src/test/integration/ws.cancel.idempotent.test.ts`
+       - `server/src/test/integration/ws.cancel.invalid.test.ts`
+       - `server/src/test/integration/ws.restChat.inflightBroadcast.test.ts`
+       - `server/src/test/integration/chat.runLock.conflict.test.ts`
+       - `server/src/test/mcp2/tools/codebaseQuestion.runLock.conflict.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onChatCreateUpdate.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onArchive.test.ts`
+       - `server/src/test/integration/ws.sidebar.upsert.onRestore.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.notFound.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts`
+       - `server/src/test/integration/chat.cancelEndpoint.validationError.test.ts`
+       - `server/src/test/integration/chat.validators.cancelOnDisconnect.invalidType.test.ts`
+       - `server/src/test/integration/chat.validators.inflightId.invalid.test.ts`
+       - `server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts`
+       - `server/src/test/integration/chat.detach.defaultCancels.test.ts`
+       - `server/src/test/unit/inflightRegistry.cleanup.test.ts`
+       - `server/src/test/unit/inflightRegistry.tools.currentState.test.ts`
+       - `server/src/test/unit/inflightRegistry.tools.maxCount.test.ts`
+     - Task 2 (server bulk + list modes + tests):
+       - `server/src/test/integration/conversations.list.active.test.ts`
+       - `server/src/test/integration/conversations.list.includeArchived.test.ts`
+       - `server/src/test/integration/conversations.list.archivedOnly.test.ts`
+       - `server/src/test/integration/conversations.list.agentNameNone.test.ts`
+       - `server/src/test/integration/conversations.list.pagination.test.ts`
+       - `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
+       - `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
+       - `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.success.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
+       - `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.success.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
+       - `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
+       - `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
+       - `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
+     - Task 3 (client bulk sidebar + tests):
+       - `client/src/api/conversations.ts`
+       - `client/src/test/chatSidebar.agentFilterQuery.test.tsx`
+     - Task 4 (client WS hook + tests):
+       - `client/src/hooks/useChatWs.ts`
+       - `client/src/test/chatWs.sidebarAgentFilter.test.tsx`
+       - `client/src/test/chatWs.sidebarSubscribe.test.tsx`
+       - `client/src/test/chatWs.sidebarUnsubscribe.test.tsx`
+       - `client/src/test/chatWs.transcriptSubscribe.test.tsx`
+       - `client/src/test/chatWs.transcriptSwitching.test.tsx`
+       - `client/src/test/chatWs.inflightSnapshotRendering.test.tsx`
+       - `client/src/test/chatWs.assistantDelta.test.tsx`
+       - `client/src/test/chatWs.analysisDelta.test.tsx`
+       - `client/src/test/chatWs.seqGuards.test.tsx`
+       - `client/src/test/chatPage.stop.wsCancel.test.tsx`
+       - `client/src/test/chatPage.stop.httpCancelFallback.test.tsx`
+       - `client/src/test/chatWs.stopFromViewerTab.test.tsx`
+       - `client/src/test/chatWs.detachSemantics.test.tsx`
+       - `client/src/test/chatPersistenceBanner.wsGating.test.tsx`
+       - `client/src/test/chatPage.newConversation.wsCancel.test.tsx`
+       - `client/src/test/chatPage.newConversation.httpCancelFallback.test.tsx`
+       - `client/src/test/chatPage.codexThreadIdRestore.test.tsx`
+     - Task 5 (e2e): `e2e/chat-live-updates.spec.ts`, `e2e/chat-bulk-actions.spec.ts`
+     - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate for onboarding and for planning future work
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 13. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)

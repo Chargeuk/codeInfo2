@@ -1,3 +1,5 @@
+import { isTransientReconnect } from '../../agents/transientReconnect.js';
+
 import type {
   ChatAnalysisEvent,
   ChatCompleteEvent,
@@ -34,6 +36,8 @@ export class McpResponder {
   private answerText = '';
   private conversationId: string | null = null;
   private errorMessage: string | null = null;
+  private transientReconnectCount = 0;
+  private transientReconnectLastMessage: string | null = null;
 
   handle(event: ChatEvent) {
     switch (event.type) {
@@ -53,7 +57,7 @@ export class McpResponder {
         this.conversationId = event.threadId;
         break;
       case 'error':
-        this.errorMessage = (event as ChatErrorEvent).message;
+        this.handleError(event as ChatErrorEvent);
         break;
       default:
         break;
@@ -87,6 +91,14 @@ export class McpResponder {
     return this.toolResults;
   }
 
+  getTransientReconnectCount() {
+    return this.transientReconnectCount;
+  }
+
+  getTransientReconnectLastMessage() {
+    return this.transientReconnectLastMessage;
+  }
+
   private handleAnalysis(event: ChatAnalysisEvent) {
     const delta = event.content;
     if (!delta) return;
@@ -112,6 +124,16 @@ export class McpResponder {
     if (event.threadId) {
       this.conversationId = event.threadId;
     }
+  }
+
+  private handleError(event: ChatErrorEvent) {
+    const message = event.message;
+    if (isTransientReconnect(message)) {
+      this.transientReconnectCount += 1;
+      this.transientReconnectLastMessage = message;
+      return;
+    }
+    this.errorMessage = message;
   }
 }
 

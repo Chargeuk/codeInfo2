@@ -3389,3 +3389,206 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
   - Verified command execution displays per-turn `Command run: <name> (step/total)` notes.
   - Verified concurrent run is rejected with `RUN_IN_PROGRESS` and surfaced as a friendly error bubble in the second tab.
 - 2025-12-17: Test 9: `npm run compose:down` passes.
+
+---
+
+### 23. Resilience: transient reconnect handling + command retries + diagnostics
+
+- Task Status: **completed**
+- Git Commits: 1065ab9
+
+#### Overview
+
+Harden agent command execution against transient Codex reconnect events so a single “Reconnecting... 1/5” error does not fail a command run. This task implements (1) non-fatal handling for transient reconnect errors, (2) retry logic per command step with backoff, and (3) richer diagnostics so transient failures are observable without stopping the run.
+
+#### Documentation Locations
+
+- Node.js Errors: https://nodejs.org/api/errors.html (error classification patterns and safe error handling)
+- Node.js Timers (`setTimeout`, backoff helpers): https://nodejs.org/api/timers.html (retry delay implementation)
+- Pino logging: https://getpino.io/#/docs/api (structured logging for transient errors and retry attempts)
+- AbortController / AbortSignal: https://nodejs.org/api/globals.html#class-abortcontroller (ensure retries stop when aborted)
+- JSON-RPC 2.0 error semantics: https://www.jsonrpc.org/specification (ensure MCP mapping remains stable when transient errors occur)
+
+#### Subtasks
+
+1. [x] Read current error plumbing and command execution flow:
+   - Docs to read:
+     - https://nodejs.org/api/errors.html
+     - https://getpino.io/#/docs/api
+   - Files to read:
+     - `server/src/chat/responders/McpResponder.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/logger.ts`
+2. [x] Add transient error classification (do **not** throw on reconnect):
+   - Files to edit:
+     - `server/src/chat/responders/McpResponder.ts` (or a small helper module in `server/src/agents/`)
+   - Requirements:
+     - Treat “Reconnecting... n/m” as **non-fatal** using this exact pattern:
+       - `/^Reconnecting\\.\\.\\.\\s+\\d+\\/\\d+$/`
+     - Keep the logic in a tiny helper, for example:
+       ```ts
+       export const isTransientReconnect = (message: string | null | undefined) =>
+         Boolean(message && /^Reconnecting\\.\\.\\.\\s+\\d+\\/\\d+$/.test(message));
+       ```
+     - Record the transient error for diagnostics (log + optional in-memory counter), but do not throw from `McpResponder.toResult()` when only transient errors were seen.
+     - Ensure terminal errors still throw and fail the command.
+3. [x] Add retry logic per command step (item 2 from the recommendations):
+   - Docs to read:
+     - https://nodejs.org/api/timers.html
+   - Files to edit:
+     - `server/src/agents/commandsRunner.ts`
+   - Requirements:
+     - Wrap each step execution in a retry loop when the failure is classified as transient.
+     - Use **these fixed defaults** (copy into code as constants):
+       - `MAX_ATTEMPTS = 3`
+       - `BASE_DELAY_MS = 500`
+       - Backoff: `delay = BASE_DELAY_MS * 2 ** (attempt - 1)`
+       - Optional jitter: `delay += Math.floor(Math.random() * 100)` (ok to omit if you want determinism in tests)
+     - Respect AbortSignal: if `signal.aborted` is true, stop immediately and do **not** retry.
+     - Do not start the next step after a failure that exhausts retries; the command run must end with a terminal error.
+     - Add a small helper (local to `commandsRunner.ts` or a new `server/src/agents/retry.ts`), and make the delay function injectable for tests:
+       - Default: `delayWithAbort`
+       - Test override: `sleep = () => Promise.resolve()` to avoid real timers
+       ```ts
+       const delayWithAbort = (ms: number, signal?: AbortSignal) =>
+         new Promise<void>((resolve, reject) => {
+           if (signal?.aborted) return reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+           const timer = setTimeout(resolve, ms);
+           signal?.addEventListener(
+             'abort',
+             () => {
+               clearTimeout(timer);
+               reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+             },
+             { once: true },
+           );
+         });
+       ```
+     - Retry loop sketch (copy shape, not necessarily exact code):
+       ```ts
+       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+         if (signal?.aborted) break;
+         try { return await runStep(); }
+         catch (err) {
+           if (!isTransientReconnect(err?.message) || attempt === MAX_ATTEMPTS) throw err;
+           await delayWithAbort(BASE_DELAY_MS * 2 ** (attempt - 1), signal);
+         }
+       }
+       ```
+4. [x] Add better diagnostics (item 6 from the recommendations):
+   - Docs to read:
+     - https://getpino.io/#/docs/api
+   - Files to edit:
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Log transient errors with `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts`.
+     - Log when a retry succeeds (include total attempts).
+     - Log when retries are exhausted (include last error message).
+     - Ensure logs avoid leaking sensitive content from prompts.
+5. [x] Server unit test: transient error is ignored by `McpResponder`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/mcp-responder-transient-error.test.ts` (new)
+   - Purpose:
+     - Verify “Reconnecting... 1/5” does **not** cause `toResult()` to throw.
+   - What to implement:
+     - Feed `McpResponder.handle({ type: 'error', message: 'Reconnecting... 1/5' })`
+     - Then call `toResult(...)` and assert it returns segments without throwing.
+6. [x] Server unit test: command runner retries transient error and succeeds:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner-retry.test.ts` (new)
+   - Purpose:
+     - Mock `runAgentInstructionUnlocked` to throw a transient error twice, then succeed.
+     - Assert the command runner returns success and emits retry logs.
+   - What to implement:
+     - Stub `runAgentInstructionUnlocked` to throw `new Error('Reconnecting... 1/5')` on attempts 1–2.
+     - Return a resolved value on attempt 3.
+     - Assert call count equals 3 and result is successful.
+7. [x] Server unit test: retries stop on abort:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Test type: server unit (Node `node:test`)
+   - Location: `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` (new)
+   - Purpose:
+     - Ensure retries do not occur after `signal.aborted` becomes true.
+   - What to implement:
+     - Use a signal you can abort between attempts; assert only one attempt is made after abort.
+     - Follow existing repo test patterns (`node:test` + `mock.fn()`).
+     - Use the injectable delay to avoid real timers (pass `sleep: () => Promise.resolve()`).
+     - Example snippet (matches current unit test style):
+       ```ts
+       import test, { mock } from 'node:test';
+
+       test('retries stop on abort', async () => {
+         const controller = new AbortController();
+         const runStep = mock.fn()
+           .mockRejectedValueOnce(new Error('Reconnecting... 1/5'));
+
+         const promise = runWithRetry({
+           runStep,
+           signal: controller.signal,
+           sleep: () => Promise.resolve(),
+         });
+
+         controller.abort();
+         await assert.rejects(promise);
+         assert.equal(runStep.mock.calls.length, 1);
+       });
+       ```
+8. [x] Documentation update: add a brief “Transient reconnect handling” note in `design.md`:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Document retry/backoff behavior and the non-fatal reconnect handling.
+9. [x] Documentation update: add new files to `projectStructure.md` (if new tests/helpers were added):
+   - Docs to read:
+     - https://github.github.com/gfm/
+   - Files to edit:
+     - `projectStructure.md`
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
+   - Executed `smoke` via host-mapped Compose port and confirmed the run completes successfully:
+     - `POST http://host.docker.internal:5010/agents/planning_agent/commands/run` with `{ "commandName": "smoke" }` returned 200 and a stable payload.
+   - Verified server logs include the command-run metadata for the returned `conversationId`.
+   - Note: `improve_plan` is 24 steps and can take a long time to complete; retry behavior is covered by the unit tests added in this task.
+9. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- 2025-12-24: Read the current agent command execution flow end-to-end (`agentsCommands` route -> `agents/service.ts` -> `agents/commandsRunner.ts` -> `runAgentInstructionUnlocked` -> `McpResponder`) and confirmed transient reconnects were being treated as terminal errors.
+- 2025-12-24: Implemented transient reconnect classification via `server/src/agents/transientReconnect.ts` and updated `server/src/chat/responders/McpResponder.ts` to track transient reconnect events without throwing from `toResult()`.
+- 2025-12-24: Added per-step transient retry/backoff in `server/src/agents/commandsRunner.ts` using a reusable `runWithRetry` helper (`server/src/agents/retry.ts`) with AbortSignal-aware sleep injection for tests.
+- 2025-12-24: Added structured diagnostics for transient reconnects: retry attempt/success/exhausted logs in the command runner, and a post-run warning log in `server/src/agents/service.ts` when Codex emits non-fatal reconnect events.
+- 2025-12-24: Added unit coverage for transient handling + retries:
+  - `server/src/test/unit/mcp-responder-transient-error.test.ts`
+  - `server/src/test/unit/agent-commands-runner-retry.test.ts`
+  - `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
+- 2025-12-24: Documented transient reconnect behavior and retry defaults in `design.md`, and updated `projectStructure.md` to include the new helper + test files.
+- 2025-12-24: Repo hygiene: `npm run lint --workspaces` passes; `npm run format:check --workspaces` passes after applying `npm run format --workspace server`.
+- 2025-12-24: Testing 1/9: `npm run build --workspace server` passes.
+- 2025-12-24: Testing 2/9: `npm run build --workspace client` passes.
+- 2025-12-24: Testing 3/9: `npm run test --workspace server` passes.
+- 2025-12-24: Testing 4/9: `npm run test --workspace client` passes.
+- 2025-12-24: Testing 5/9: `npm run e2e` passes.
+- 2025-12-24: Testing 6/9: `npm run compose:build` passes.
+- 2025-12-24: Testing 7/9: `npm run compose:up` passes.
+- 2025-12-24: Testing 8/9: Manual command run against `http://host.docker.internal:5010` succeeded (`commandName=smoke`, conversation `f4fb88ad-4397-4dd3-b340-c54a2fdf707f`); verified command metadata in `./logs/server.1.log`.
+- 2025-12-24: Testing 9/9: `npm run compose:down` passes.

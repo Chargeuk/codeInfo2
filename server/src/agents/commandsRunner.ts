@@ -2,11 +2,24 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { baseLogger } from '../logger.js';
+
 import { loadAgentCommandFile } from './commandsLoader.js';
+import { runWithRetry } from './retry.js';
 import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
+import { getErrorMessage, isTransientReconnect } from './transientReconnect.js';
+
+const MAX_ATTEMPTS = 3;
+const BASE_DELAY_MS = 500;
+
+type LoggerLike = {
+  info: (obj: Record<string, unknown>, msg: string) => void;
+  warn: (obj: Record<string, unknown>, msg: string) => void;
+  error: (obj: Record<string, unknown>, msg: string) => void;
+};
 
 export type RunAgentCommandRunnerParams = {
   agentName: string;
@@ -16,6 +29,8 @@ export type RunAgentCommandRunnerParams = {
   working_folder?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
+  logger?: LoggerLike;
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   runAgentInstructionUnlocked: (params: {
     agentName: string;
     instruction: string;
@@ -95,6 +110,7 @@ export async function runAgentCommandRunner(
   const mustExist = Boolean(params.conversationId);
 
   let modelId = 'gpt-5.1-codex-max';
+  const logger = params.logger ?? (baseLogger as LoggerLike);
 
   try {
     for (let i = 0; i < totalSteps; i++) {
@@ -109,15 +125,66 @@ export async function runAgentCommandRunner(
         totalSteps,
       };
 
-      const res = await params.runAgentInstructionUnlocked({
-        agentName: params.agentName,
-        instruction,
-        working_folder: params.working_folder,
-        conversationId,
-        mustExist,
-        command: stepMeta,
+      const res = await runWithRetry({
+        runStep: async () =>
+          params.runAgentInstructionUnlocked({
+            agentName: params.agentName,
+            instruction,
+            working_folder: params.working_folder,
+            conversationId,
+            mustExist,
+            command: stepMeta,
+            signal: params.signal,
+            source: params.source,
+          }),
+        isRetryableError: (err) =>
+          isTransientReconnect(getErrorMessage(err) ?? null),
+        maxAttempts: MAX_ATTEMPTS,
+        baseDelayMs: BASE_DELAY_MS,
         signal: params.signal,
-        source: params.source,
+        sleep: params.sleep,
+        onRetry: ({ attempt, maxAttempts, error, delayMs }) => {
+          logger.warn(
+            {
+              agentName: params.agentName,
+              commandName,
+              conversationId,
+              stepIndex: stepMeta.stepIndex,
+              attempt,
+              maxAttempts,
+              delayMs,
+              errorMessage: getErrorMessage(error) ?? null,
+            },
+            'transient reconnect; retrying command step',
+          );
+        },
+        onSuccessAfterRetry: ({ attempts, maxAttempts }) => {
+          logger.info(
+            {
+              agentName: params.agentName,
+              commandName,
+              conversationId,
+              stepIndex: stepMeta.stepIndex,
+              attempts,
+              maxAttempts,
+            },
+            'command step succeeded after retry',
+          );
+        },
+        onExhausted: ({ attempt, maxAttempts, error }) => {
+          logger.error(
+            {
+              agentName: params.agentName,
+              commandName,
+              conversationId,
+              stepIndex: stepMeta.stepIndex,
+              attempt,
+              maxAttempts,
+              errorMessage: getErrorMessage(error) ?? null,
+            },
+            'command retries exhausted',
+          );
+        },
       });
 
       modelId = res.modelId;

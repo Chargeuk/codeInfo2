@@ -15,6 +15,9 @@ let environment: StartedDockerComposeEnvironment | null = null;
 let envPromise: Promise<StartedDockerComposeEnvironment> | null = null;
 let stopping = false;
 
+process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
+process.env.TESTCONTAINERS_HOST_OVERRIDE ??= 'host.docker.internal';
+
 setDefaultTimeout(120_000);
 
 async function ensureContainer() {

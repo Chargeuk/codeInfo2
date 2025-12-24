@@ -122,7 +122,7 @@ Status: **accepted for v1** (no further protocol decisions required before taski
 
 ### Connection
 
-- Endpoint: `GET /ws` (exact path TBD in implementation).
+- Endpoint: `GET /ws`.
 - Client opens one socket on app load (or on Chat page mount); this story’s UX requires:
   - sidebar stream subscription while on Chat page,
   - transcript stream subscription for the currently visible conversation while on Chat page.
@@ -310,7 +310,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 #### Subtasks
 
 1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
-2. [ ] Extend the conversations list API to support the 3-state sidebar filter (Active / Active & Archived / Archived), e.g. add an archived-only mode (while keeping existing `archived=true` behavior for active+archived), and update router + repo query + tests
+2. [ ] Extend the conversations list API to support the 3-state sidebar filter (Active / Active & Archived / Archived), add `archived=only` mode (while keeping existing `archived=true` behavior for active+archived), and update router + repo query + tests
 3. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
 4. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
 5. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
@@ -352,7 +352,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
-3. [ ] Ensure the list snapshot strategy supports all 3 filter views (either fetch “active+archived” then filter locally, or add/extend query params) without breaking pagination
+3. [ ] Ensure the list snapshot strategy supports all 3 filter views using the list API modes: Active (default), Active & Archived (`archived=true`), Archived (`archived=only`) without breaking pagination
 4. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
 5. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
 6. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure rejection leaves UI unchanged)

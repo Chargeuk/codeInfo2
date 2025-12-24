@@ -272,57 +272,196 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/agents/runLock.ts`, `server/src/mongo/repo.ts`
    - Reuse/reference patterns from: `server/src/logStore.ts` (sequence + subscribe/unsubscribe pub-sub), `server/src/routes/logs.ts` (SSE stream heartbeats + replay), `server/src/ingest/lock.ts` (TTL lock/release pattern)
+   - Docs (read before coding):
+     - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - ws docs: Context7 `/websockets/ws/8_18_3`
+     - Node upgrade event: https://nodejs.org/api/http.html#event-upgrade
+     - Mongoose transactions: https://mongoosejs.com/docs/transactions.html
 2. [ ] Add WebSocket server dependency (`ws`) to the `server` workspace (and any required types)
+   - Files to edit: `server/package.json`
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3` (install + server usage)
+   - Implementation sketch:
+
+     ```ts
+     import { WebSocketServer } from 'ws';
+     ```
+
+   - Done when: `npm run build --workspace server` succeeds after installing `ws`
 3. [ ] Define the WS protocol types + runtime validation (client message union + server event union)
-   - Recommended: a small `server/src/ws/types.ts` plus Zod validators for inbound client messages so malformed payloads never crash the server
+   - Files to create: `server/src/ws/types.ts`
+   - Files to edit (if you split validators): `server/src/ws/types.ts` (or a dedicated `server/src/ws/validators.ts`)
+   - Docs (read before coding): Zod docs https://zod.dev/ (discriminated unions)
+   - Critical constraints (do not skip): every inbound client message must be validated; invalid/malformed payloads must never crash the server
+   - Implementation sketch:
+
+     ```ts
+     const clientMessageSchema = z.discriminatedUnion('type', [
+       z.object({ type: z.literal('subscribe_sidebar'), requestId: z.string() }),
+       z.object({ type: z.literal('unsubscribe_sidebar'), requestId: z.string() }),
+       z.object({
+         type: z.literal('subscribe_conversation'),
+         requestId: z.string(),
+         conversationId: z.string().min(1),
+       }),
+       // ...
+     ]);
+     ```
 4. [ ] Create the WS server bootstrap (e.g., `server/src/ws/server.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
    - Simplification (de-risking): prefer `WebSocketServer({ server, path: '/ws' })` and avoid manual `upgrade` routing unless there is a concrete need (Context7 `/websockets/ws/8_18_3`)
+   - Files to create: `server/src/ws/server.ts`
+   - Files to edit: `server/src/index.ts`
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3` (WebSocketServer `server` + `path`)
+   - Implementation sketch (wiring into existing Express server):
+
+     ```ts
+     // server/src/index.ts
+     server = app.listen(Number(PORT), () => baseLogger.info(`Server on ${PORT}`));
+     if (server) startChatWsServer({ server, path: '/ws' });
+     ```
+
+   - Done when: WS server starts without breaking existing REST endpoints
 5. [ ] Implement per-socket connection state (requestId logging, subscriptions, and safe JSON send) and add minimal server-side logging for connect/disconnect and message validation errors
+   - Files to edit: `server/src/ws/server.ts`
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket, Context7 `/websockets/ws/8_18_3` (connection/message/close)
+   - Critical constraints (do not skip): always wrap JSON.parse and JSON.stringify sends; one bad client must not break other clients
 6. [ ] Implement the in-flight registry data model (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`:
    - start an in-flight record at run start (even before first token)
    - append assistant text deltas
    - append analysis deltas
    - maintain **current tool state** per callId (requesting/done/error + latest stage/result/error), bounded by a max tool count
    - track timestamps and final status
+   - Files to create: `server/src/ws/inflightRegistry.ts`
+   - Docs (read before coding): story WS protocol section in this doc, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Implementation sketch (tool state, not history):
+
+     ```ts
+     type ToolState = { id: string; name?: string; status: 'requesting' | 'done' | 'error'; stage?: string };
+     // Key by callIdOut string so you can update the same row when tool-result arrives.
+     const toolsById = new Map<string, ToolState>();
+     ```
 7. [ ] Define bounded in-flight retention (max tool count, max chars/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks
+   - Files to edit: `server/src/ws/inflightRegistry.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): in-flight state must be removed on `turn_final` and on explicit cancellation
 8. [ ] Implement the WS hub/pubsub backbone (e.g., `server/src/ws/hub.ts`) with a simple subscribe/unsubscribe model:
    - `subscribe_sidebar` / `unsubscribe_sidebar` (global sidebar stream with a monotonic `seq`)
    - `subscribe_conversation` / `unsubscribe_conversation` (per-conversation transcript stream with a monotonic `seq` per `conversationId`)
    - `cancel_inflight` routing into the in-flight registry cancel handle
    - Simplification (de-risking): do **not** implement WS replay/backlog buffering in v1; rely on the existing REST snapshots on reconnect, and rely on `inflight_snapshot` for mid-stream catch-up
+   - Files to create: `server/src/ws/hub.ts`
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3` (broadcasting), MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Done when: multiple sockets can subscribe/unsubscribe without leaks, and events include `seq`
 9. [ ] Implement WS message handling + error responses (invalid JSON, unknown `type`, missing required fields) and ensure the server never crashes on malformed messages
+   - Files to edit: `server/src/ws/server.ts`, `server/src/ws/types.ts`
+   - Docs (read before coding): Zod docs https://zod.dev/
+   - Implementation sketch:
+
+     ```ts
+     let msg: unknown;
+     try { msg = JSON.parse(raw.toString()); } catch { /* send error */ }
+     const parsed = clientMessageSchema.safeParse(msg);
+     if (!parsed.success) { /* send error */ }
+     ```
 10. [ ] Implement domain-safe `cancel_inflight` handling (unknown `conversationId`/`inflightId`, already-finalized inflight) with stable, non-crashing error responses
+   - Files to edit: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): cancellation must be idempotent (re-sending cancel should not crash)
 11. [ ] Extend the REST chat request contract:
    - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`)
    - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility)
+   - Files to edit: `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`
+   - Docs (read before coding): Zod docs https://zod.dev/, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Critical constraints (do not skip): default behavior must remain unchanged for existing clients (`cancelOnDisconnect` defaults to true)
+   - Implementation sketch (Zod add-ons):
+
+     ```ts
+     inflightId: z.string().min(1).optional(),
+     cancelOnDisconnect: z.boolean().optional(),
+     ```
 12. [ ] Update `POST /chat` to register a run in the in-flight registry at start (creating `inflightId` server-side when missing), attach a cancel handle, and broadcast an immediate `inflight_snapshot` to existing subscribers
+   - Files to edit: `server/src/routes/chat.ts`
+   - Files to edit/create: `server/src/ws/inflightRegistry.ts`, `server/src/ws/hub.ts`
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3`
+   - Critical constraints (do not skip): register and broadcast the `inflight_snapshot` before the first token/tool/analysis delta so late subscribers can catch up and Stop can work
 13. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
    - if `cancelOnDisconnect === true` (default), preserve today’s behavior (abort underlying run on disconnect)
    - if `cancelOnDisconnect === false`, stop writing SSE frames for that response **without aborting** the underlying run (only `cancel_inflight` should abort)
+   - Files to edit: `server/src/routes/chat.ts`
+   - Docs (read before coding): Node HTTP request events https://nodejs.org/api/http.html#event-close
+   - Critical constraints (do not skip): Chat UI detaches by aborting fetch, but must not implicitly cancel generation when `cancelOnDisconnect=false`
+   - Implementation sketch (pattern):
+
+     ```ts
+     const handleDisconnect = () => {
+       if (cancelOnDisconnect) controller.abort();
+       endStream(res); // always stop writing to this response
+     };
+     ```
 14. [ ] Emit transcript events from **REST Chat** (`POST /chat`) into the hub while preserving existing SSE responses:
    - Codex provider: `token` → `assistant_delta`, `analysis` → `analysis_delta`, tool events → `tool_event`, completion → `turn_final`
    - LM Studio provider: same mapping (including tool events)
+   - Files to edit: `server/src/routes/chat.ts`
+   - Docs (read before coding): story WS protocol section in this doc, Context7 `/websockets/ws/8_18_3`
+   - Critical constraints (do not skip): keep the existing SSE stream output unchanged so current client tests continue to pass while WS is added
 15. [ ] Emit transcript events from **MCP v2 tools** that call `ChatInterface.run` (e.g. `codebase_question`) into the hub
    - Ensure `inflightId` is generated server-side (because there is no `POST /chat` payload) and an `inflight_snapshot` is broadcast before the first delta/tool event so late subscribers can cancel and catch up
+   - Files to edit: `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
+   - Docs (read before coding): story WS protocol section in this doc
 16. [ ] Emit transcript events from **Agents runs** (REST + MCP) that call `ChatInterface.run` into the hub (so MCP/Agents-initiated runs stream live in Chat)
    - Ensure `inflightId` is generated server-side and an `inflight_snapshot` is broadcast before the first delta/tool event
+   - Files to edit: `server/src/agents/service.ts`
+   - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
+   - Docs (read before coding): story WS protocol section in this doc
 17. [ ] Enforce a single in-flight run per conversation across Chat + MCP + Agents:
    - reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`)
    - return a stable 409 `RUN_IN_PROGRESS` error for conflicts
+   - Files to edit: `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Files to read: `server/src/agents/runLock.ts`
+   - Docs (read before coding): story “Reliability/consistency” section in this doc
+   - Critical constraints (do not skip): acquire lock before starting provider execution and always release in `finally`
+   - Done when: concurrent runs for the same conversationId return 409 and do not interleave persistence/events
 18. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
+   - Files to read: `server/src/routes/chat.ts` (`recordAssistantTurn`), `server/src/chat/interfaces/ChatInterface.ts`
+   - Files to edit (as needed): `server/src/routes/chat.ts`, `server/src/ws/hub.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): do not call `appendTurn` twice for the assistant (watch for new WS code accidentally re-persisting)
 19. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
+   - Files to edit (likely): `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`
+   - Files to edit (later, bulk): `server/src/routes/conversations.ts` (bulk endpoints) and the repo helpers in `server/src/mongo/repo.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): emit events only after persistence succeeds (and after transaction commit for bulk)
 20. [ ] Add server unit + Node integration tests for WS hub routing, sequence IDs, inflight snapshots (including mid-stream subscribe catch-up), WS lifecycle, and the updated disconnect/stop semantics
    - Simplification (de-risking): add/adjust Cucumber coverage only where it provides clear end-to-end value; prefer Node integration tests for WS protocol behavior
+   - Files to read: `server/src/test/unit/*`, `server/src/test/integration/*` (existing patterns)
+   - Files to create: `server/src/test/integration/ws-*.test.ts` (or similar)
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3` (client connections)
+   - Implementation sketch (test client):
+
+     ```ts
+     import WebSocket from 'ws';
+     const ws = new WebSocket('ws://localhost:5010/ws');
+     ws.send(JSON.stringify({ type: 'subscribe_sidebar', requestId: 't1' }));
+     ```
 21. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
+   - Files to edit: `design.md`, `projectStructure.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 22. [ ] Run full linting (`npm run lint --workspaces`)
+   - Command: `npm run lint --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
 
@@ -348,38 +487,96 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 #### Subtasks
 
 1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
+   - Docs (read before coding):
+     - Express routing: https://expressjs.com/en/guide/routing.html
+     - Mongoose transactions: https://mongoosejs.com/docs/transactions.html
+     - MongoDB transactions: https://www.mongodb.com/docs/manual/core/transactions/
 2. [ ] Extend the conversations list API to support the 3-state sidebar filter:
    - Active (default)
    - Active & Archived (`archived=true`)
    - Archived-only (`archived=only`)
    - Keep existing `archived=true` behavior for active+archived; add archived-only without breaking older clients
+   - Files to edit: `server/src/routes/conversations.ts` (query schema + handler)
+   - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html, Zod docs https://zod.dev/
+   - Implementation sketch (query parsing):
+
+     ```ts
+     archived: z.union([z.literal('true'), z.literal('false'), z.literal('only')]).optional()
+     ```
+
+   - Done when: `GET /conversations?archived=only` returns only archived items, while `archived=true` keeps the old meaning (active + archived)
 3. [ ] Update the repo query logic to support archived-only mode (without relying on client-side filtering)
+   - Files to edit: `server/src/mongo/repo.ts` (`listConversations`)
+   - Files to read: `server/src/mongo/conversation.ts` (archivedAt field)
+   - Docs (read before coding): Mongoose queries https://mongoosejs.com/docs/queries.html
+   - Critical constraints (do not skip): filtering must happen server-side so pagination/cursors remain correct
 4. [ ] Add/adjust server tests covering list pagination across all three modes
+   - Files to edit/create: `server/src/test/unit/*conversations*.test.ts` (or similar existing coverage)
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
+   - Done when: tests cover paging for (a) default, (b) archived=true, (c) archived=only
 5. [ ] Add request validation for bulk operations (conversationId list, max size, dedupe/normalize, reject empty)
+   - Files to edit: `server/src/routes/conversations.ts`
+   - Docs (read before coding): Zod docs https://zod.dev/
+   - Implementation sketch:
+
+     ```ts
+     const bulkSchema = z.object({ conversationIds: z.array(z.string().min(1)).min(1).max(100) }).strict();
+     ```
+
+   - Done when: empty lists are rejected with 400 and oversized requests fail fast
 6. [ ] Implement `POST /conversations/bulk/archive` with all-or-nothing semantics
+   - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
+   - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
+   - Critical constraints (do not skip): if any ID cannot be archived, reject the entire request and apply no changes
 7. [ ] Implement `POST /conversations/bulk/restore` with all-or-nothing semantics
+   - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
+   - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
+   - Critical constraints (do not skip): if any ID cannot be restored, reject the entire request and apply no changes
 8. [ ] Implement `POST /conversations/bulk/delete` with all-or-nothing semantics:
    - enforce archived-only delete (reject non-archived IDs)
    - delete conversations and turns in a single transaction
    - return structured errors
    - Important (Mongoose v9): avoid parallel operations inside the transaction executor (no Promise.all); prefer single `updateMany`/`deleteMany` calls or sequential awaits (Context7 `/automattic/mongoose/9.0.1` transactions)
+   - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
+   - Files to read: `server/src/mongo/turn.ts` (turn deletion)
+   - Docs (read before coding): Mongoose transactions https://mongoosejs.com/docs/transactions.html
+   - Critical constraints (do not skip): enforce archived-only deletion in the server even if the UI is supposed to only send archived IDs
 9. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
+   - Files to edit: `server/src/mongo/repo.ts`
+   - Docs (read before coding): Mongoose docs https://mongoosejs.com/
 10. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
+   - Files to edit: `server/src/routes/conversations.ts`
+   - Files to edit: `server/src/ws/hub.ts` (event emission API)
+   - Docs (read before coding): story WS protocol section in this doc
 11. [ ] Update default Mongo URI(s) used by server + Compose to settings needed for transactions:
    - audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Important: keep `directConnection=true` (transactions work with it; replica-set discovery fails without it due to the current rs member host being `localhost:27017`). Optionally add `replicaSet=rs0` explicitly alongside `directConnection=true`.
+   - Files to edit: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
+   - Docs (read before coding): MongoDB transactions https://www.mongodb.com/docs/manual/core/transactions/
+   - Critical constraints (do not skip): do not remove `directConnection=true` until the replica-set host config is fixed
 12. [ ] Add server unit + integration tests covering bulk archive/restore/delete success and failure cases (including all-or-nothing rejection cases)
    - Simplification (de-risking): only add Cucumber scenarios if there is a gap that cannot be covered cleanly via Node integration tests
+   - Files to edit/create: `server/src/test/unit/*conversations*.test.ts` and/or `server/src/test/integration/*conversations*.test.ts`
+   - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 13. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
+   - Files to edit: `design.md`, `projectStructure.md`, `README.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 14. [ ] Run full linting (`npm run lint --workspaces`)
+   - Command: `npm run lint --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
 
@@ -406,30 +603,80 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/components/ingest/RootsTable.tsx` (checkbox multi-select + bulk action toolbar + indeterminate select-all)
    - Note: the existing chat sidebar is already implemented in `client/src/components/chat/ConversationList.tsx` using MUI `List` + a `Switch` filter; extend/refactor this component rather than introducing a new sidebar list implementation
+   - Docs (read before coding):
+     - Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+     - Checkboxes: https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
+     - Dialogs: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
+     - ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+     - React state/effects: https://react.dev/learn
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
+   - Files to edit: `client/src/components/chat/ConversationList.tsx`
+   - Docs (read before coding):
+     - ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+     - React state: https://react.dev/learn/state-a-components-memory
+   - Critical constraints (do not skip): selection must clear when switching the filter so bulk actions cannot apply to “hidden” items
 3. [ ] Refactor the conversations list fetch logic to support all 3 filter modes (Active default, `archived=true`, `archived=only`) without breaking pagination
+   - Files to edit: `client/src/hooks/useConversations.ts`
+   - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+   - Critical constraints (do not skip): do not do client-side archived filtering for archived-only mode because it breaks cursor pagination
 4. [ ] Add checkbox multi-select per conversation row and an indeterminate select-all control for the current view (reuse RootsTable patterns)
+   - Files to edit: `client/src/components/chat/ConversationList.tsx`
+   - Files to read: `client/src/components/ingest/RootsTable.tsx` (indeterminate select-all + selection set patterns)
+   - Docs (read before coding): Checkboxes https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md, Lists https://llms.mui.com/material-ui/6.4.12/components/lists.md
+   - Critical constraints (do not skip): multi-select must not break single-select “open conversation” behavior
 5. [ ] Add a bulk action toolbar with context-appropriate actions:
    - Active / Active & Archived: bulk archive
    - Archived: bulk restore + bulk permanent delete
+   - Files to edit: `client/src/components/chat/ConversationList.tsx`
+   - Docs (read before coding): MUI Toolbar https://llms.mui.com/material-ui/6.4.12/api/toolbar.md
+   - Critical constraints (do not skip): only show actions that are valid for the current filter view
 6. [ ] Implement a permanent delete confirmation dialog (explicit user confirmation before calling the server)
+   - Files to edit: `client/src/components/chat/ConversationList.tsx` (or extract a small dialog component under `client/src/components/chat/`)
+   - Docs (read before coding): Dialogs https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
+   - Critical constraints (do not skip): deleting must require explicit confirmation every time (no “silent delete”)
 7. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
+   - Files to edit: `client/src/components/chat/ConversationList.tsx`, `client/src/pages/ChatPage.tsx`
+   - Docs (read before coding): React state https://react.dev/learn/state-a-components-memory
+   - Critical constraints (do not skip): selection should be keyed by `conversationId` (stable) not by array index
 8. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure all-or-nothing rejection leaves UI unchanged)
+   - Files to create: `client/src/api/conversations.ts`
+   - Files to edit: `client/src/hooks/useConversations.ts` (expose bulk helpers or call helpers from Chat page)
+   - Files to edit: `client/src/pages/ChatPage.tsx` (trigger bulk ops and surface success/error)
+   - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
+   - Note (repo reality): there is no shared “toast” helper today; implement a simple MUI `Snackbar`+`Alert` in Chat page or ConversationList if you need transient confirmations
 9. [ ] Confirm UX for “open conversation included in bulk action”:
    - conversation is removed/moved in the sidebar, toast confirms action
    - transcript remains stable (no forced refresh) until user navigates
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversationTurns.ts`
+   - Docs (read before coding): React state https://react.dev/learn
+   - Critical constraints (do not skip): do not automatically navigate away or clear the transcript when the selected conversation is archived/deleted by a bulk action
 10. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
+   - Files to edit: `client/src/hooks/usePersistenceStatus.ts`, `client/src/components/chat/ConversationList.tsx`
+   - Docs (read before coding): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
+   - Critical constraints (do not skip): when persistence is disabled, bulk operations must be disabled in the UI (and ideally avoided on the server too)
 11. [ ] Add/update client RTL tests for filter modes, selection behavior, “open conversation included in bulk action” behavior, all-or-nothing error paths, and disabled state
+   - Files to edit/create: `client/src/test/*chatPage*.test.tsx` and/or `client/src/test/*ConversationList*.test.tsx`
+   - Files to read: existing Chat page tests under `client/src/test/`
+   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
 12. [ ] Update docs: `design.md`, `projectStructure.md`
+   - Files to edit: `design.md`, `projectStructure.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 13. [ ] Run full linting (`npm run lint --workspaces`)
+   - Command: `npm run lint --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
+   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
 
 #### Implementation notes
 
@@ -455,45 +702,129 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 
 1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/logging/transport.ts` (backoff/retry pacing) and `client/src/hooks/useLogs.ts` (SSE reconnect + subscription lifecycle patterns, even though WS is different)
+   - Docs (read before coding):
+     - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React effects: https://react.dev/learn/synchronizing-with-effects
+     - React Router (repo uses `react-router-dom@7.9.6`): Context7 `/remix-run/react-router/react-router_7.9.4`
+     - This story’s WS protocol section (in this file)
 2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/disconnect, requestId generation, and safe JSON send
+   - Files to create: `client/src/hooks/useChatWs.ts`
+   - Files to read: `client/src/hooks/useChatStream.ts` (serverBase URL pattern)
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Implementation sketch (derive ws URL from serverBase):
+
+     ```ts
+     const httpUrl = new URL('/ws', serverBase);
+     httpUrl.protocol = httpUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+     const ws = new WebSocket(httpUrl.toString());
+     ```
+
+   - Critical constraints (do not skip): always guard JSON parse and keep the socket closed on unmount to prevent leaks
 3. [ ] Add reconnect strategy (backoff + jitter) and ensure event handlers are resilient to reconnect storms (reuse `client/src/logging/transport.ts` pacing patterns)
+   - Files to edit: `client/src/hooks/useChatWs.ts`
+   - Files to read: `client/src/logging/transport.ts`
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Done when: temporary disconnects reconnect automatically without freezing the UI
 4. [ ] Implement subscribe/unsubscribe helpers for `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`
+   - Files to edit: `client/src/hooks/useChatWs.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Implementation sketch:
+
+     ```ts
+     ws.send(JSON.stringify({ type: 'subscribe_sidebar', requestId }));
+     ws.send(JSON.stringify({ type: 'subscribe_conversation', requestId, conversationId }));
+     ```
 5. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/usePersistenceStatus.ts`
+   - Docs (read before coding): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
+   - Critical constraints (do not skip): gating applies to both sidebar + transcript WS subscriptions
 6. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount:
    - subscribe on mount
    - unsubscribe on unmount
    - on reconnect: refresh the list snapshot before resubscribing
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useChatWs.ts`
+   - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects
+   - Critical constraints (do not skip): on reconnect, always refresh REST list first, then apply WS deltas
 7. [ ] Implement transcript subscription lifecycle for the active conversation:
    - unsubscribe previous conversationId when switching
    - subscribe newly visible conversationId
    - on reconnect: re-fetch visible conversation turns snapshot before resubscribing
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversationTurns.ts`, `client/src/hooks/useChatWs.ts`
+   - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects
+   - Critical constraints (do not skip): transcript subscription must be scoped to the currently visible conversation only
 8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including current tool state)
+   - Files to edit: `client/src/pages/ChatPage.tsx` (render pipeline), `client/src/hooks/useChatStream.ts` (message/tool shaping helpers)
+   - Docs (read before coding): story WS protocol section in this doc
+   - Implementation sketch (high level):
+     - persisted turns come from `useConversationTurns`
+     - WS inflight state becomes one synthetic “assistant” message at the end of the transcript
 9. [ ] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
+   - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): update the same in-flight message/tool rows in-place (don’t append a new message per event)
 10. [ ] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
+   - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useChatStream.ts` (reuse reasoning parser)
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): analysis text must remain hidden/collapsible exactly like the current SSE reasoning renderer
 11. [ ] Apply client-side sequence guards:
    - sidebar events: ignore out-of-order `seq` updates
    - transcript events: ignore out-of-order `seq` per conversationId
+   - Files to edit: `client/src/hooks/useChatWs.ts`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Done when: rapid switching does not cause “old events” to overwrite newer UI state
 12. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and pass `cancelOnDisconnect=false`; store `inflightId` for cancellation
+   - Files to edit: `client/src/hooks/useChatStream.ts`
+   - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Critical constraints (do not skip): `cancelOnDisconnect=false` must only be used for Chat UI streaming requests (so navigating away detaches without canceling)
 13. [ ] Cache `inflightId` for the visible conversation from inbound WS events (`inflight_snapshot` / deltas / tool events) so Stop can cancel runs started outside the current tab
+   - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Done when: Stop works even if this tab did not start the run
 14. [ ] Update Stop behavior to send `cancel_inflight` over WS (conversationId + inflightId)
+   - Files to edit: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
+   - Docs (read before coding): story WS protocol section in this doc
+   - Critical constraints (do not skip): Stop is the only user action that should cancel generation; switching/navigating must not cancel
 15. [ ] Refactor non-Stop flows so they do not cancel generation:
    - switching conversations unsubscribes from the prior transcript stream and subscribes to the new one
    - leaving the Chat route unsubscribes from sidebar/transcript streams
    - any SSE abort used to detach should not send `cancel_inflight` (only explicit Stop should cancel)
+   - Files to edit: `client/src/pages/ChatPage.tsx` (the unmount effect currently calls `stop()`), `client/src/hooks/useChatStream.ts` (`setConversation` currently calls `stop()`)
+   - Docs (read before coding): story “Current streaming behavior (today)” section in this doc
+   - Critical constraints (do not skip): detaching should abort the SSE fetch (to stop reading) but must not trigger cancellation unless the user pressed Stop
 16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it via `cancel_inflight` (not HTTP abort), then clear transcript state while keeping the existing model/provider rules
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
+   - Docs (read before coding): story WS protocol section in this doc
 17. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
+   - Files to edit: `client/src/hooks/useChatStream.ts` (add a way to set threadId when selecting a conversation), `client/src/pages/ChatPage.tsx` (read `selectedConversation.flags.threadId`)
+   - Files to read: `client/src/hooks/useConversations.ts` (flags already exist on list items)
+   - Docs (read before coding): this story’s “Current streaming behavior (today)” section (in this file)
+   - Critical constraints (do not skip): do not reset threadId to null when switching to an existing Codex conversation; the whole point is to resume the same Codex thread
 18. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
+   - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useConversations.ts`
+   - Files to read: `server/src/mongo/repo.ts` (`agentName` query semantics)
+   - Docs (read before coding): story WS protocol section in this doc
 19. [ ] Add client tests for WS subscription, inflight catch-up (including analysis), persistence-gating, Stop semantics, “New conversation” semantics, and Codex threadId restore (update existing tests to new behavior)
+   - Files to edit/create: `client/src/test/chatPage.*.test.tsx` (extend existing Chat page tests)
+   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
 20. [ ] Update docs: `design.md`, `projectStructure.md`
+   - Files to edit: `design.md`, `projectStructure.md`
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 21. [ ] Run full linting (`npm run lint --workspaces`)
+   - Command: `npm run lint --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
+   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
 
 #### Implementation notes
 
@@ -522,21 +853,34 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 #### Subtasks
 
 1. [ ] Build the server
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Docs (read before doing): Mermaid https://mermaid.js.org/
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+   - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
 8. [ ] Ensure Playwright coverage includes (or is updated to include) at least: (a) starting a run then navigating away does not cancel it, and (b) a second tab can subscribe and see inflight catch-up/live updates
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
 
 #### Testing
 
 1. [ ] Run the client jest tests
+   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
 2. [ ] Run the server cucumber tests
+   - Docs (read before doing): Cucumber https://cucumber.io/docs/guides/
 3. [ ] Restart the docker environment
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Run the e2e tests
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
 5. [ ] Use the playwright mcp tool to manually check the application, saving screenshots to `./test-results/screenshots/` - Each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and the name of the screenshot
+   - Docs (read before doing): Playwright screenshots https://playwright.dev/docs/screenshots
 
 #### Implementation notes
 

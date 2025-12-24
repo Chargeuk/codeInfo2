@@ -3394,7 +3394,6 @@ Run the full verification suite, confirm all acceptance criteria are met, and ca
 
 ### 23. Resilience: transient reconnect handling + command retries + diagnostics
 
-- Task Status: **in_progress**
 - Task Status: **completed**
 - Git Commits: 1065ab9
 

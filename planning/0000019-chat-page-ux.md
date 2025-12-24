@@ -243,4 +243,202 @@ These findings are based on the current repository implementation and are includ
 
 # Tasks
 
-(Not yet created — this story is still in the “Description/Acceptance Criteria/Out Of Scope/Questions” phase.)
+### 1. WebSocket foundation + in-flight registry (server)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI can subscribe to live sidebar updates and in-progress transcript streams across tabs. This task establishes the pub/sub backbone, sequence IDs, and snapshot/delta event flow without changing client UX yet.
+
+#### Documentation Locations
+
+- MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- ws (Node WebSocket server) docs: https://github.com/websockets/ws
+- Node.js net/http upgrade basics: https://nodejs.org/api/http.html#event-upgrade
+- Mongoose sessions/transactions: https://mongoosejs.com/docs/transactions.html
+
+#### Subtasks
+
+1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
+2. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
+3. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events + timestamps, and exposing snapshot/delta helpers
+4. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`
+5. [ ] Emit transcript events from chat execution (Codex + LM Studio) into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic
+6. [ ] Emit sidebar events on conversation create/update/archive/restore/delete via repo/route hooks
+7. [ ] Add server unit/integration tests for hub routing, sequence IDs, inflight snapshots, and WS connection lifecycle
+8. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes)
+9. [ ] Run full linting (`npm run lint --workspaces`)
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Bulk conversation APIs + hard delete (server)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add bulk archive/restore/delete APIs with archived-only delete guardrails and all-or-nothing semantics, plus deletion of associated turns/tool calls. This enables the client to perform multi-select actions safely and keeps persistence consistent.
+
+#### Documentation Locations
+
+- Mongoose sessions/transactions: https://mongoosejs.com/docs/transactions.html
+- MongoDB transactions overview: https://www.mongodb.com/docs/manual/core/transactions/
+- Express routing: https://expressjs.com/en/guide/routing.html
+
+#### Subtasks
+
+1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
+2. [ ] Add bulk endpoints (e.g., `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete`) with request validation and all-or-nothing semantics
+3. [ ] Enforce archived-only delete (reject non-archived IDs), delete conversations and turns in a single transaction, and return structured errors
+4. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
+5. [ ] Update default Mongo URI(s) to replica-set aware settings needed for transactions (document any changes in README and env files)
+6. [ ] Add server unit/Cucumber tests covering bulk archive/restore/delete success and failure cases
+7. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
+8. [ ] Run full linting (`npm run lint --workspaces`)
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Conversation sidebar filter + multi-select + bulk actions (client)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI to the Chat sidebar with proper confirmation and persistence gating. This enables efficient conversation management without leaving the Chat page.
+
+#### Documentation Locations
+
+- MUI Lists/Checkboxes/Dialogs (MUI MCP docs): @mui/material
+- React state + effects: https://react.dev/learn
+
+#### Subtasks
+
+1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
+3. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
+4. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling
+5. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
+6. [ ] Add/ अपडेट client RTL tests for filter modes, selection behavior, bulk action flows, and disabled state
+7. [ ] Update docs: `design.md`, `projectStructure.md`
+8. [ ] Run full linting (`npm run lint --workspaces`)
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Run client tests (`npm run test --workspace client`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Live sidebar + transcript streaming subscriptions (client)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Add WebSocket connection management on the Chat page, including sidebar live updates and transcript catch-up/subscription for the active conversation. Update Stop behavior to cancel in-flight runs without relying on HTTP aborts and ensure navigation away only unsubscribes.
+
+#### Documentation Locations
+
+- MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React Router navigation lifecycle: https://reactrouter.com/en/main/start/overview
+
+#### Subtasks
+
+1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/reconnect, requestId generation, and subscribe/unsubscribe helpers
+3. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount; refresh snapshot before resubscribe
+4. [ ] Implement transcript subscription for the active conversation with inflight snapshot merge and delta/tool-event handling
+5. [ ] Update Stop behavior to send `cancel_inflight` over WS and avoid cancelling runs on route change/unmount
+6. [ ] Add client tests for WS subscription, inflight catch-up, and Stop semantics (update existing tests to new behavior)
+7. [ ] Update docs: `design.md`, `projectStructure.md`
+8. [ ] Run full linting (`npm run lint --workspaces`)
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Run client tests (`npm run test --workspace client`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Final Task – Full verification + documentation + PR summary
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Verify the story end-to-end against the acceptance criteria, perform full clean builds and tests, update documentation, and generate a PR comment summarizing all changes.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] Perform a clean docker build
+4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] Run the client jest tests
+2. [ ] Run the server cucumber tests
+3. [ ] Restart the docker environment
+4. [ ] Run the e2e tests
+5. [ ] Use the playwright mcp tool to manually check the application, saving screenshots to `./test-results/screenshots/` - Each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+- 

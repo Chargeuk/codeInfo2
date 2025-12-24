@@ -3425,7 +3425,13 @@ Harden agent command execution against transient Codex reconnect events so a sin
    - Files to edit:
      - `server/src/chat/responders/McpResponder.ts` (or a small helper module in `server/src/agents/`)
    - Requirements:
-     - Treat “Reconnecting... n/m” (and equivalent transient reconnect messages) as **non-fatal**.
+     - Treat “Reconnecting... n/m” as **non-fatal** using this exact pattern:
+       - `/^Reconnecting\\.\\.\\.\\s+\\d+\\/\\d+$/`
+     - Keep the logic in a tiny helper, for example:
+       ```ts
+       export const isTransientReconnect = (message: string | null | undefined) =>
+         Boolean(message && /^Reconnecting\\.\\.\\.\\s+\\d+\\/\\d+$/.test(message));
+       ```
      - Record the transient error for diagnostics (log + optional in-memory counter), but do not throw from `McpResponder.toResult()` when only transient errors were seen.
      - Ensure terminal errors still throw and fail the command.
 3. [ ] Add retry logic per command step (item 2 from the recommendations):
@@ -3435,9 +3441,42 @@ Harden agent command execution against transient Codex reconnect events so a sin
      - `server/src/agents/commandsRunner.ts`
    - Requirements:
      - Wrap each step execution in a retry loop when the failure is classified as transient.
-     - Use bounded retries (e.g., max 3–5) with exponential backoff.
+     - Use **these fixed defaults** (copy into code as constants):
+       - `MAX_ATTEMPTS = 3`
+       - `BASE_DELAY_MS = 500`
+       - Backoff: `delay = BASE_DELAY_MS * 2 ** (attempt - 1)`
+       - Optional jitter: `delay += Math.floor(Math.random() * 100)` (ok to omit if you want determinism in tests)
      - Respect AbortSignal: if `signal.aborted` is true, stop immediately and do **not** retry.
      - Do not start the next step after a failure that exhausts retries; the command run must end with a terminal error.
+     - Add a small helper (local to `commandsRunner.ts` or a new `server/src/agents/retry.ts`), and make the delay function injectable for tests:
+       - Default: `delayWithAbort`
+       - Test override: `sleep = () => Promise.resolve()` to avoid real timers
+       ```ts
+       const delayWithAbort = (ms: number, signal?: AbortSignal) =>
+         new Promise<void>((resolve, reject) => {
+           if (signal?.aborted) return reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+           const timer = setTimeout(resolve, ms);
+           signal?.addEventListener(
+             'abort',
+             () => {
+               clearTimeout(timer);
+               reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+             },
+             { once: true },
+           );
+         });
+       ```
+     - Retry loop sketch (copy shape, not necessarily exact code):
+       ```ts
+       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+         if (signal?.aborted) break;
+         try { return await runStep(); }
+         catch (err) {
+           if (!isTransientReconnect(err?.message) || attempt === MAX_ATTEMPTS) throw err;
+           await delayWithAbort(BASE_DELAY_MS * 2 ** (attempt - 1), signal);
+         }
+       }
+       ```
 4. [ ] Add better diagnostics (item 6 from the recommendations):
    - Docs to read:
      - https://getpino.io/#/docs/api
@@ -3456,6 +3495,9 @@ Harden agent command execution against transient Codex reconnect events so a sin
    - Location: `server/src/test/unit/mcp-responder-transient-error.test.ts` (new)
    - Purpose:
      - Verify “Reconnecting... 1/5” does **not** cause `toResult()` to throw.
+   - What to implement:
+     - Feed `McpResponder.handle({ type: 'error', message: 'Reconnecting... 1/5' })`
+     - Then call `toResult(...)` and assert it returns segments without throwing.
 6. [ ] Server unit test: command runner retries transient error and succeeds:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -3464,6 +3506,10 @@ Harden agent command execution against transient Codex reconnect events so a sin
    - Purpose:
      - Mock `runAgentInstructionUnlocked` to throw a transient error twice, then succeed.
      - Assert the command runner returns success and emits retry logs.
+   - What to implement:
+     - Stub `runAgentInstructionUnlocked` to throw `new Error('Reconnecting... 1/5')` on attempts 1–2.
+     - Return a resolved value on attempt 3.
+     - Assert call count equals 3 and result is successful.
 7. [ ] Server unit test: retries stop on abort:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -3471,6 +3517,30 @@ Harden agent command execution against transient Codex reconnect events so a sin
    - Location: `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` (new)
    - Purpose:
      - Ensure retries do not occur after `signal.aborted` becomes true.
+   - What to implement:
+     - Use a signal you can abort between attempts; assert only one attempt is made after abort.
+     - Follow existing repo test patterns (`node:test` + `mock.fn()`).
+     - Use the injectable delay to avoid real timers (pass `sleep: () => Promise.resolve()`).
+     - Example snippet (matches current unit test style):
+       ```ts
+       import test, { mock } from 'node:test';
+
+       test('retries stop on abort', async () => {
+         const controller = new AbortController();
+         const runStep = mock.fn()
+           .mockRejectedValueOnce(new Error('Reconnecting... 1/5'));
+
+         const promise = runWithRetry({
+           runStep,
+           signal: controller.signal,
+           sleep: () => Promise.resolve(),
+         });
+
+         controller.abort();
+         await assert.rejects(promise);
+         assert.equal(runStep.mock.calls.length, 1);
+       });
+       ```
 8. [ ] Documentation update: add a brief “Transient reconnect handling” note in `design.md`:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`

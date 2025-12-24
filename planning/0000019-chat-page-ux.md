@@ -449,6 +449,22 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      const ws = new WebSocket('ws://localhost:5010/ws');
      ws.send(JSON.stringify({ type: 'subscribe_sidebar', requestId: 't1' }));
      ```
+
+   - Must-have test cases (happy path + errors + corners):
+     - Connect/disconnect: multiple sockets can connect, subscribe, and close without crashing the server.
+     - Message validation: invalid JSON → server returns a stable error event (or closes cleanly); unknown `type` → stable error event.
+     - Subscription lifecycle: `subscribe_sidebar` then `unsubscribe_sidebar` stops further sidebar events to that socket.
+     - Transcript subscribe when idle: `subscribe_conversation` for a conversation with no inflight run does not emit an `inflight_snapshot`.
+     - Transcript subscribe mid-run (catch-up): when a run is already in progress, `subscribe_conversation` immediately receives `inflight_snapshot` with the current partial assistant/analysis text and current tool state.
+     - Sequence monotonicity: `seq` increases monotonically for:
+       - sidebar events per socket, and
+       - transcript events per conversation.
+     - Cancellation happy path: `cancel_inflight` aborts the run and emits `turn_final` with status `stopped`.
+     - Cancellation idempotency: sending `cancel_inflight` twice does not crash and does not emit duplicate finals.
+     - Cancellation invalid input: unknown `conversationId` or wrong `inflightId` returns a stable error and does not crash.
+     - Detach semantics: `POST /chat` with `cancelOnDisconnect=false` keeps the provider running after the client aborts the SSE response.
+     - Backward compatibility: `POST /chat` with omitted `cancelOnDisconnect` preserves today’s behavior (disconnect cancels provider).
+     - Cleanup: inflight registry entries are removed after `turn_final` and after explicit cancel; memory does not grow unbounded.
 21. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
    - Files to edit: `design.md`, `projectStructure.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
@@ -537,11 +553,15 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 6. [ ] Implement `POST /conversations/bulk/archive` with all-or-nothing semantics
    - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
    - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
-   - Critical constraints (do not skip): if any ID cannot be archived, reject the entire request and apply no changes
+   - Critical constraints (do not skip):
+     - if any conversationId is not found, reject the entire request and apply no changes
+     - if a conversation is already archived, treat it as a valid no-op (idempotent) rather than failing the whole request
 7. [ ] Implement `POST /conversations/bulk/restore` with all-or-nothing semantics
    - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
    - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
-   - Critical constraints (do not skip): if any ID cannot be restored, reject the entire request and apply no changes
+   - Critical constraints (do not skip):
+     - if any conversationId is not found, reject the entire request and apply no changes
+     - if a conversation is already active (not archived), treat it as a valid no-op (idempotent) rather than failing the whole request
 8. [ ] Implement `POST /conversations/bulk/delete` with all-or-nothing semantics:
    - enforce archived-only delete (reject non-archived IDs)
    - delete conversations and turns in a single transaction
@@ -568,6 +588,30 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Simplification (de-risking): only add Cucumber scenarios if there is a gap that cannot be covered cleanly via Node integration tests
    - Files to edit/create: `server/src/test/unit/*conversations*.test.ts` and/or `server/src/test/integration/*conversations*.test.ts`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
+
+   - Must-have test cases (happy path + errors + corners):
+     - List API:
+       - default mode returns only non-archived conversations
+       - `archived=true` returns active + archived
+       - `archived=only` returns only archived
+       - pagination/cursor works in all three modes
+     - Bulk request validation:
+       - empty `conversationIds` → 400
+       - duplicates are accepted but de-duped server-side (or treated as no-op without double-updates)
+       - more than max IDs (e.g. >100) → 400
+     - Bulk archive:
+       - success (all ids exist) archives all
+       - includes already-archived ids → still succeeds (idempotent)
+       - includes unknown id → reject all, no changes
+     - Bulk restore:
+       - success restores all
+       - includes already-active ids → still succeeds (idempotent)
+       - includes unknown id → reject all, no changes
+     - Bulk delete:
+       - success deletes conversations and all turns
+       - includes any non-archived id → reject all, no deletions
+       - includes unknown id → reject all, no deletions
+       - transaction rollback: if turn deletion fails, conversation deletion is rolled back
 13. [ ] Update docs: `design.md`, `projectStructure.md`, `README.md`
    - Files to edit: `design.md`, `projectStructure.md`, `README.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
@@ -678,6 +722,24 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Files to edit/create: `client/src/test/*chatPage*.test.tsx` and/or `client/src/test/*ConversationList*.test.tsx`
    - Files to read: existing Chat page tests under `client/src/test/`
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
+
+   - Must-have test cases (happy path + errors + corners):
+     - Filter control:
+       - default is `Active`
+       - switching filter clears selection
+       - `Archived` filter uses `archived=only` (not client-side filtering)
+     - Multi-select:
+       - selecting rows toggles checkboxes
+       - select-all selects only the currently visible list (no “select across pagination”)
+       - indeterminate state works when some but not all visible items are selected
+     - Bulk archive/restore/delete:
+       - success shows confirmation messaging (Snackbar or Alert) and updates list
+       - server rejects (all-or-nothing) → UI selection remains and list does not partially update
+       - permanent delete requires confirmation dialog
+     - Open conversation included:
+       - bulk archive/delete of the selected conversation does not force-clear the transcript
+     - Persistence gating:
+       - when `mongoConnected === false`, bulk controls are disabled and the warning message is visible
 12. [ ] Update docs: `design.md`, `projectStructure.md`
    - Files to edit: `design.md`, `projectStructure.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
@@ -833,6 +895,29 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 19. [ ] Add client tests for WS subscription, inflight catch-up (including analysis), persistence-gating, Stop semantics, “New conversation” semantics, and Codex threadId restore (update existing tests to new behavior)
    - Files to edit/create: `client/src/test/chatPage.*.test.tsx` (extend existing Chat page tests)
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
+
+   - Must-have test cases (happy path + errors + corners):
+     - Sidebar subscription:
+       - ChatPage mount triggers sidebar subscribe when `mongoConnected === true`
+       - ChatPage unmount unsubscribes (and does not call Stop/cancel)
+     - Transcript subscription:
+       - selecting a conversation subscribes to that conversationId
+       - switching conversations unsubscribes previous conversationId and subscribes new one
+     - Inflight catch-up merge:
+       - `inflight_snapshot` renders partial assistant text + analysis + current tool state as a single in-flight UI section
+       - deltas update in-place (no duplicate assistant messages)
+     - Sequence guards:
+       - out-of-order `seq` events are ignored for both sidebar and transcript
+     - Stop semantics:
+       - Stop sends `cancel_inflight` when inflightId is known
+       - Stop works even if this tab did not start the run (inflightId learned from snapshot)
+     - Detach semantics:
+       - leaving Chat/unmount does not cancel generation (no `cancel_inflight`)
+       - switching conversations does not cancel generation
+     - Persistence gating:
+       - when `mongoConnected === false`, WS subscriptions are disabled and UI shows message
+     - Codex continuation:
+       - selecting an existing conversation restores `threadId` from `flags.threadId` and the next send includes it
 20. [ ] Update docs: `design.md`, `projectStructure.md`
    - Files to edit: `design.md`, `projectStructure.md`
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
@@ -900,6 +985,20 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
    - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
 8. [ ] Ensure Playwright coverage includes (or is updated to include) at least: (a) starting a run then navigating away does not cancel it, and (b) a second tab can subscribe and see inflight catch-up/live updates
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
+
+   - Must-have e2e scenarios (happy path + errors + corners):
+     - Cross-tab catch-up:
+       - Tab A starts a run and sees streaming.
+       - Tab B opens the same conversation mid-run and immediately sees `inflight_snapshot` content, then continues receiving deltas.
+     - Detach vs Stop:
+       - start a run, navigate away from Chat in the same tab, confirm the run continues (Tab B still sees progress and final output)
+       - press Stop explicitly, confirm the run stops and transcript reflects stopped status
+     - Bulk actions:
+       - multi-select archive in Active view updates list immediately
+       - restore in Archived view works
+       - permanent delete requires confirmation and removes items
+     - Reconnect:
+       - simulate a WS reconnect (page reload or network interruption) and confirm list snapshot refresh + transcript refresh happens before resubscribe
 
 #### Testing
 

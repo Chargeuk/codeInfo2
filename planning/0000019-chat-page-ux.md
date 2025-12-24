@@ -720,25 +720,25 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make WS/inflight/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+55. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Run full linting (`npm run lint --workspaces`)
-   - Files to read: `package.json`, `client/package.json`, `server/package.json`
-   - Command: `npm run lint --workspaces`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-4. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Ensure docker compose starts (`npm run compose:up`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-6. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
+5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
    - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
@@ -1009,25 +1009,25 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make bulk API/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+35. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Run full linting (`npm run lint --workspaces`)
-   - Files to read: `package.json`, `server/package.json`, `client/package.json`
-   - Command: `npm run lint --workspaces`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-4. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Ensure docker compose starts (`npm run compose:up`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-6. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
+5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
    - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
@@ -1194,25 +1194,25 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client bulk-sidebar additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Run full linting (`npm run lint --workspaces`)
-   - Files to read: `package.json`, `client/package.json`, `server/package.json`
-   - Command: `npm run lint --workspaces`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-4. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Ensure docker compose starts (`npm run compose:up`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-6. [ ] Run client tests (`npm run test --workspace client`)
+5. [ ] Run client tests (`npm run test --workspace client`)
    - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
@@ -1469,25 +1469,25 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client realtime/WS additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
+38. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Run full linting (`npm run lint --workspaces`)
-   - Files to read: `package.json`, `client/package.json`, `server/package.json`
-   - Command: `npm run lint --workspaces`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-4. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Ensure docker compose starts (`npm run compose:up`)
+4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-6. [ ] Run client tests (`npm run test --workspace client`)
+5. [ ] Run client tests (`npm run test --workspace client`)
    - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
@@ -1652,10 +1652,10 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate for onboarding and for planning future work
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-10. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
-   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
-   - Command to run (for summary input): `git log --oneline --decorate -20`
-   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 
 
 #### Testing
@@ -1686,6 +1686,10 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
    - Naming: each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and a short name
    - Suggested approach: run `npx playwright test e2e --headed` and use `page.screenshot(...)` in a temporary debug run or via `--debug` to capture before/after states
    - Docs (read before doing): Playwright screenshots https://playwright.dev/docs/screenshots
+9. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
+   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
+   - Command to run (for summary input): `git log --oneline --decorate -20`
+   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
 
 #### Implementation notes
 

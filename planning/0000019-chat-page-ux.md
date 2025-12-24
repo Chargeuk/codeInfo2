@@ -720,25 +720,25 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make WS/inflight/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-55. [ ] Run full linting (`npm run lint --workspaces`)
+#### Testing
+
+1. [ ] Run full linting (`npm run lint --workspaces`)
    - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-#### Testing
-
-1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
+6. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
    - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
@@ -1009,26 +1009,25 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make bulk API/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-35. [ ] Run full linting (`npm run lint --workspaces`)
+#### Testing
+
+1. [ ] Run full linting (`npm run lint --workspaces`)
    - Files to read: `package.json`, `server/package.json`, `client/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
-#### Testing
-
-1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
+6. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
    - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
@@ -1195,26 +1194,25 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client bulk-sidebar additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-23. [ ] Run full linting (`npm run lint --workspaces`)
+#### Testing
+
+1. [ ] Run full linting (`npm run lint --workspaces`)
    - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
-#### Testing
-
-1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run client tests (`npm run test --workspace client`)
+6. [ ] Run client tests (`npm run test --workspace client`)
    - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
@@ -1471,27 +1469,25 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client realtime/WS additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-38. [ ] Run full linting (`npm run lint --workspaces`)
+#### Testing
+
+1. [ ] Run full linting (`npm run lint --workspaces`)
    - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
-
-#### Testing
-
-1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the server (`npm run build --workspace server`)
    - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Build the client (`npm run build --workspace client`)
    - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+5. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run client tests (`npm run test --workspace client`)
+6. [ ] Run client tests (`npm run test --workspace client`)
    - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
@@ -1527,58 +1523,49 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 #### Subtasks
 
-1. [ ] Build the server (`npm run build --workspace server`)
-   - Files to read: `package.json`, `server/package.json`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
-   - Files to read: `package.json`, `client/package.json`
-   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-   - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Playwright e2e test: cross-tab inflight catch-up (Tab B joins mid-run and sees `inflight_snapshot` then continues receiving deltas)
+1. [ ] Playwright e2e test: cross-tab inflight catch-up (Tab B joins mid-run and sees `inflight_snapshot` then continues receiving deltas)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: verify the “multi-conversation dashboard” workflow works across tabs
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-5. [ ] Playwright e2e test: detach vs Stop (navigating away does not cancel; explicit Stop cancels and transcript reflects stopped)
+2. [ ] Playwright e2e test: detach vs Stop (navigating away does not cancel; explicit Stop cancels and transcript reflects stopped)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: verify Story 19’s detach semantics and explicit cancellation behavior end-to-end
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-6. [ ] Playwright e2e test: WS reconnect behavior (reload/network blip causes list + transcript REST refresh before resubscribe)
+3. [ ] Playwright e2e test: WS reconnect behavior (reload/network blip causes list + transcript REST refresh before resubscribe)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-live-updates.spec.ts`
    - Purpose: prevent regressions where reconnect merges stale WS deltas into an out-of-date UI snapshot
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-7. [ ] Playwright e2e test: bulk archive (multi-select archive in `Active` view updates the list immediately)
+4. [ ] Playwright e2e test: bulk archive (multi-select archive in `Active` view updates the list immediately)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: verify the bulk archive UX works end-to-end and list stays consistent
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-8. [ ] Playwright e2e test: bulk restore (restore in `Archived` view works)
+5. [ ] Playwright e2e test: bulk restore (restore in `Archived` view works)
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: verify bulk restore and archived-only filtering works end-to-end
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-9. [ ] Playwright e2e test: permanent delete requires confirmation and removes items from the list
+6. [ ] Playwright e2e test: permanent delete requires confirmation and removes items from the list
    - Test type: e2e (Playwright)
    - Files to edit/create: `e2e/chat-bulk-actions.spec.ts`
    - Purpose: ensure permanent deletion cannot happen without explicit confirmation
    - Docs (read before coding): Playwright https://playwright.dev/docs/intro
-10. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+7. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Files to edit: `README.md`
    - Location: `README.md`
    - Description: update README to reflect the new Story 19 user-visible behaviors (bulk actions, archived-only list mode, live WS updates) and any new run commands
    - Purpose: keep repo onboarding accurate so new developers know how to run/test the system and what features exist
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-11. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
+8. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid architecture + flow diagrams created during Tasks 1–4, and ensure the narrative matches the implemented behavior
    - Purpose: keep architectural documentation and flows aligned with the code to reduce future regressions
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`
-12. [ ] Ensure `projectStructure.md` is updated after all file additions/removals in this story (including new `e2e/*.spec.ts` files)
+9. [ ] Ensure `projectStructure.md` is updated after all file additions/removals in this story (including new `e2e/*.spec.ts` files)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: list every added/removed/moved file and any new folders introduced by this story (server WS modules, client hooks/tests, e2e specs)
@@ -1665,7 +1652,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate for onboarding and for planning future work
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-13. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
+10. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
    - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
    - Command to run (for summary input): `git log --oneline --decorate -20`
    - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
@@ -1673,19 +1660,28 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 #### Testing
 
-1. [ ] Run the client jest tests
-   - Files to read: `client/package.json`
-   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
-2. [ ] Run the server cucumber tests
-   - Files to read: `server/package.json`, `server/src/test/features/`
-   - Docs (read before doing): Cucumber https://cucumber.io/docs/guides/
-3. [ ] Restart the docker environment
+1. [ ] Build the server (`npm run build --workspace server`)
+   - Files to read: `package.json`, `server/package.json`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+2. [ ] Build the client (`npm run build --workspace client`)
+   - Files to read: `package.json`, `client/package.json`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+3. [ ] Perform a clean docker build (`npm run compose:build`)
    - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Run the e2e tests
+4. [ ] Run the client jest tests
+   - Files to read: `client/package.json`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
+5. [ ] Run the server cucumber tests
+   - Files to read: `server/package.json`, `server/src/test/features/`
+   - Docs (read before doing): Cucumber https://cucumber.io/docs/guides/
+6. [ ] Restart the docker environment
+   - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
+7. [ ] Run the e2e tests
    - Files to read: `playwright.config.ts`, `e2e/`
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-5. [ ] Manually smoke-check the application in a headed browser (Playwright) and save screenshots to `./test-results/screenshots/`
+8. [ ] Manually smoke-check the application in a headed browser (Playwright) and save screenshots to `./test-results/screenshots/`
    - Files to read: `playwright.config.ts`, `e2e/` (the Story 19 e2e specs), `test-results/` (existing output folder)
    - Naming: each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and a short name
    - Suggested approach: run `npx playwright test e2e --headed` and use `page.screenshot(...)` in a temporary debug run or via `--debug` to capture before/after states

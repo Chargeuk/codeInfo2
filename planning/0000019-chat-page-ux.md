@@ -270,21 +270,24 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 #### Subtasks
 
 1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/agents/runLock.ts`, `server/src/mongo/repo.ts`
+   - Reuse/reference patterns from: `server/src/logStore.ts` (sequence + subscribe/unsubscribe pub-sub), `server/src/routes/logs.ts` (SSE stream heartbeats + replay), `server/src/ingest/lock.ts` (TTL lock/release pattern)
 2. [ ] Add WebSocket server dependency (`ws`) to the `server` workspace (and any required types) so the WebSocket endpoint can be implemented in Node
 3. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
 4. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events (bounded history) + timestamps, and storing an optional cancel handle (e.g., AbortController) for `cancel_inflight`
-5. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`
+5. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`:
+   - Prefer reusing the existing `server/src/logStore.ts` architecture (monotonic seq + `subscribe()` returning an unsubscribe) for the hub’s internal fan-out and bounded event buffering; avoid inventing a completely new subscription pattern
 6. [ ] Extend the REST chat run contract to support a stable inflight id + detach semantics:
    - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`), register it in the in-flight registry at run start, and include `inflightId` in WS transcript events so the UI can cancel a run even before the first token arrives
    - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility): when `false`, an HTTP disconnect/abort must close SSE without aborting the underlying run (the Chat UI will send `cancel_inflight` explicitly for Stop)
 7. [ ] Ensure `inflightId` is always available for cancellation: when a run is started without an `inflightId` (e.g., via MCP), generate one server-side at run start, register it, and broadcast an immediate `inflight_snapshot` to existing subscribers even before the first token/tool event arrives
-8. [ ] Enforce a single in-flight run per conversation: acquire a per-`conversationId` run lock for Chat runs (REST + MCP) and return a stable 409 `RUN_IN_PROGRESS` error for conflicts
+8. [ ] Enforce a single in-flight run per conversation: reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`) for Chat runs (REST + MCP) and return a stable 409 `RUN_IN_PROGRESS` error for conflicts
 9. [ ] Emit transcript events from all ChatInterface-run execution entrypoints into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic:
    - REST Chat: `POST /chat` (Codex + LM Studio)
    - MCP v2 tools that call ChatInterface.run (e.g., `codebase_question`)
    - Agents REST + Agents MCP executions that call ChatInterface.run (so “MCP-initiated runs” stream live in Chat)
    - Ensure **analysis deltas** are captured (Codex emits `analysis` frames used by the current Chat UI reasoning renderer)
 10. [ ] Define bounded in-flight retention explicitly (max tool events, any max bytes/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks; add test coverage for cleanup behavior
+   - Prefer logStore-style bounded buffering rather than bespoke unbounded arrays
 11. [ ] Update `POST /chat` disconnect behavior to respect `cancelOnDisconnect`:
    - if `cancelOnDisconnect === true` (default), preserve today’s behavior (abort underlying run on abort/disconnect)
    - if `cancelOnDisconnect === false`, stop writing SSE frames for that response **without aborting** the underlying run; the run must continue (captured in in-flight registry + persisted on completion) and only an explicit Stop/cancel may abort it
@@ -370,6 +373,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 #### Subtasks
 
 1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+   - Reuse/reference patterns from: `client/src/components/ingest/RootsTable.tsx` (checkbox multi-select + bulk action toolbar + indeterminate select-all)
 2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
 3. [ ] Ensure the list snapshot strategy supports all 3 filter views using the list API modes: Active (default), Active & Archived (`archived=true`), Archived (`archived=only`) without breaking pagination
 4. [ ] Add checkbox multi-select with bulk action toolbar (archive/restore/delete) and confirmation dialog for permanent delete
@@ -411,6 +415,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 #### Subtasks
 
 1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+   - Reuse/reference patterns from: `client/src/logging/transport.ts` (backoff/retry pacing) and `client/src/hooks/useLogs.ts` (SSE reconnect + subscription lifecycle patterns, even though WS is different)
 2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/reconnect, requestId generation, and subscribe/unsubscribe helpers
 3. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and store it for cancellation
 4. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)

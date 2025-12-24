@@ -106,6 +106,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 ### Reliability/consistency
 
 - Live streaming updates are tied to a `conversationId` so updates are routed to the correct transcript.
+- v1 assumes a single in-flight turn per `conversationId`. Starting a second run for the same conversation while one is active should be rejected with a stable 409 `RUN_IN_PROGRESS` error so events and persistence cannot interleave.
 - The server only retains in-memory streaming state for conversations that are currently streaming, and it is released promptly after completion/abort.
 - If the user loads a conversation that is not streaming, the UI does not show a streaming placeholder (snapshot-only).
 - Streaming events include sequence identifiers (at least per-conversation) so clients can ignore stale/out-of-order events during rapid conversation switching and safely reconcile subscriptions.
@@ -263,18 +264,19 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 #### Subtasks
 
-1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/mongo/repo.ts`
+1. [ ] Files to read: `server/src/index.ts`, `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/chat/interfaces/ChatInterface.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, `server/src/chatStream.ts`, `server/src/routes/chatValidators.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/agents/service.ts`, `server/src/agents/runLock.ts`, `server/src/mongo/repo.ts`
 2. [ ] Create WebSocket server entrypoint (e.g., `server/src/ws/server.ts`, `server/src/ws/types.ts`) and wire it into `server/src/index.ts` using a configurable path (default `/ws`)
 3. [ ] Implement an in-flight registry (e.g., `server/src/ws/inflightRegistry.ts`) keyed by `conversationId` + `inflightId`, capturing assistant text so far + tool events (bounded history) + timestamps, and storing an optional cancel handle (e.g., AbortController) for `cancel_inflight`
 4. [ ] Add a pub/sub hub (e.g., `server/src/ws/hub.ts`) that supports `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`, `cancel_inflight` and broadcasts `conversation_upsert`, `conversation_delete`, `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`
 5. [ ] Extend the REST chat run contract to support a stable inflight id: accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`), register it in the in-flight registry at run start, and include `inflightId` in WS transcript events so the UI can cancel a run even before the first token arrives
-6. [ ] Emit transcript events from all chat execution entrypoints (REST `POST /chat` + MCP tools that call ChatInterface.run) (Codex + LM Studio) into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic
-7. [ ] Change `POST /chat` disconnect semantics: when the HTTP client disconnects, stop writing SSE frames for that response **without aborting** the underlying run; the run must continue (captured in in-flight registry + persisted on completion) and only an explicit Stop/cancel may abort it
-8. [ ] Implement WS message validation + error responses (invalid JSON, unknown `type`, missing required fields), and ensure the server never crashes on malformed messages
-9. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) via repo-level or route-level hooks (ensure updates from `POST /chat` and MCP executions also publish)
-10. [ ] Add server unit/integration/Cucumber tests for hub routing, sequence IDs, inflight snapshots, WS lifecycle, and the updated “disconnect does not cancel run” behavior (update existing cancellation coverage accordingly)
-11. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
-12. [ ] Run full linting (`npm run lint --workspaces`)
+6. [ ] Enforce a single in-flight run per conversation: acquire a per-`conversationId` run lock for Chat runs (REST + MCP) and return a stable 409 `RUN_IN_PROGRESS` error for conflicts
+7. [ ] Emit transcript events from all chat execution entrypoints (REST `POST /chat` + MCP tools that call ChatInterface.run) (Codex + LM Studio) into the hub while preserving existing SSE responses; ensure sequence IDs are per-conversation and monotonic
+8. [ ] Change `POST /chat` disconnect semantics: when the HTTP client disconnects, stop writing SSE frames for that response **without aborting** the underlying run; the run must continue (captured in in-flight registry + persisted on completion) and only an explicit Stop/cancel may abort it
+9. [ ] Implement WS message validation + error responses (invalid JSON, unknown `type`, missing required fields), and ensure the server never crashes on malformed messages
+10. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) via repo-level or route-level hooks (ensure updates from `POST /chat` and MCP executions also publish)
+11. [ ] Add server unit/integration/Cucumber tests for hub routing, sequence IDs, inflight snapshots, WS lifecycle, and the updated “disconnect does not cancel run” behavior (update existing cancellation coverage accordingly)
+12. [ ] Update docs: `design.md`, `projectStructure.md` (new ws/inflight modules and protocol notes, plus updated Stop semantics)
+13. [ ] Run full linting (`npm run lint --workspaces`)
 
 #### Testing
 

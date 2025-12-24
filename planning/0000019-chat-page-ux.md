@@ -926,7 +926,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 14. [ ] Client RTL test (Jest + Testing Library): Chat sidebar list request includes `agentName=__none__`
    - Location: `client/src/test/chatSidebar.agentFilterQuery.test.tsx` (new) or extend `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure the Chat sidebar continues to exclude agent conversations by using the server-side `agentName=__none__` filter
-   - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest https://jestjs.io/docs/getting-started
+   - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
 15. [ ] Client RTL test (Jest + Testing Library): checkbox selection + select-all + indeterminate state
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify multi-select behavior matches RootsTable patterns and stays consistent when list re-renders
@@ -978,7 +978,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
-   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
 #### Implementation notes
 
@@ -1122,7 +1122,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 20. [ ] Client RTL test (Jest + Testing Library): ChatPage subscribes to sidebar updates on mount when `mongoConnected === true`
    - Files to edit/create: `client/src/test/chatWs.sidebarSubscribe.test.tsx` (new) or extend existing `client/src/test/chatPage.*.test.tsx`
    - Purpose: ensure the sidebar live updates start when the Chat route mounts and persistence is available
-   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest https://jestjs.io/docs/getting-started
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
 21. [ ] Client RTL test (Jest + Testing Library): ChatPage unsubscribes from sidebar updates on unmount without sending `cancel_inflight`
    - Files to edit/create: `client/src/test/chatWs.sidebarUnsubscribe.test.tsx` (new) or extend existing `client/src/test/chatPage.stop.test.tsx`
    - Purpose: ensure leaving Chat detaches from WS updates but does not cancel the run server-side
@@ -1211,7 +1211,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
-   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
 #### Implementation notes
 
@@ -1312,7 +1312,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 1. [ ] Run the client jest tests
    - Files to read: `client/package.json`
-   - Docs (read before doing): Jest https://jestjs.io/docs/getting-started
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 2. [ ] Run the server cucumber tests
    - Files to read: `server/package.json`, `server/src/test/features/`
    - Docs (read before doing): Cucumber https://cucumber.io/docs/guides/

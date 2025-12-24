@@ -171,6 +171,13 @@ flowchart LR
   - `run_command`: `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`.
 - All tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
 
+#### Transient reconnect handling
+
+- Codex can emit transient reconnect errors like `Reconnecting... 1/5`.
+- `McpResponder` treats messages matching `/^Reconnecting\.\.\.\s+\d+\/\d+$/` as non-fatal: it tracks/counts them for diagnostics but does not fail `toResult()`.
+- Agent command macros retry per step when the *step call* fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
+- Retry logs include `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts` and avoid logging prompt content.
+
 ```mermaid
 flowchart LR
   Client[MCP client] -->|initialize/tools\\nlist/tools\\ncall| MCP[Agents MCP\\n:5012]

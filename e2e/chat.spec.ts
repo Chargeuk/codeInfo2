@@ -35,7 +35,7 @@ test('chat streams end-to-end', async ({ page }) => {
   ];
 
   if (useMockChat) {
-    await page.route('**/chat/providers', (route) =>
+    await page.route('**/chat/providers*', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -58,7 +58,7 @@ test('chat streams end-to-end', async ({ page }) => {
         }),
       }),
     );
-    await page.route('**/chat/models', (route) => {
+    await page.route('**/chat/models*', (route) => {
       const url = new URL(route.request().url());
       const provider = url.searchParams.get('provider') ?? 'lmstudio';
 
@@ -131,9 +131,20 @@ test('chat streams end-to-end', async ({ page }) => {
   const modelSelect = page.getByRole('combobox', { name: /Model/i });
   await expect(modelSelect).toBeEnabled({ timeout: 20000 });
   await modelSelect.click();
-  await page
-    .getByRole('option', { name: selectedModel.displayName, exact: false })
-    .click();
+
+  const option = page.getByRole('option', {
+    name: selectedModel.displayName,
+    exact: false,
+  });
+  const menuItem = page.getByRole('menuitem', {
+    name: selectedModel.displayName,
+    exact: false,
+  });
+  if (await option.count()) {
+    await option.click();
+  } else {
+    await menuItem.click();
+  }
   await expect(modelSelect).toHaveText(selectedModel.displayName, {
     timeout: 5000,
   });

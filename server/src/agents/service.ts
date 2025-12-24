@@ -14,6 +14,7 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
@@ -347,6 +348,24 @@ export async function runAgentInstructionUnlocked(params: {
     conversationId,
     modelId,
   );
+
+  const transientReconnectCount = responder.getTransientReconnectCount();
+  if (transientReconnectCount > 0) {
+    baseLogger.warn(
+      {
+        agentName: params.agentName,
+        conversationId,
+        modelId,
+        commandName: params.command?.name,
+        stepIndex: params.command?.stepIndex,
+        totalSteps: params.command?.totalSteps,
+        transientReconnectCount,
+        transientReconnectLastMessage:
+          responder.getTransientReconnectLastMessage(),
+      },
+      'transient reconnect events observed during agent run',
+    );
+  }
 
   const { segments } = responder.toResult(modelId, conversationId);
   return {

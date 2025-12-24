@@ -595,7 +595,11 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 #### Documentation Locations
 
-- MUI Lists/Checkboxes/Dialogs/ToggleButtonGroup (MUI MCP docs, repo uses `@mui/material@^6.4.1`): @mui/material
+- MUI List component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Checkbox component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
+- MUI Dialog component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
+- MUI ToggleButton/ToggleButtonGroup (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+- MUI Toolbar API (MUI MCP): https://llms.mui.com/material-ui/6.4.12/api/toolbar.md
 - React state + effects: https://react.dev/learn
 
 #### Subtasks
@@ -696,7 +700,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 #### Documentation Locations
 
 - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React Router (repo uses `react-router-dom@7.9.6`): Context7 `/remix-run/react-router/react-router_7.9.4` (hooks + navigation)
+- React Router: Context7 `/remix-run/react-router/react-router_7.9.4` (hooks + navigation)
 
 #### Subtasks
 

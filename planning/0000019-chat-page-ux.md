@@ -263,10 +263,16 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 #### Documentation Locations
 
-- MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- ws (Node WebSocket server) docs: Context7 `/websockets/ws/8_18_3`
-- Node.js net/http upgrade basics: https://nodejs.org/api/http.html#event-upgrade
-- Mongoose sessions/transactions (v9.0.1): Context7 `/automattic/mongoose/9.0.1` (transactions)
+- WebSockets (browser concepts + message lifecycle): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- ws (Node WebSocket server, `WebSocketServer({ server, path })`, connection/message events): Context7 `/websockets/ws/8_18_3`
+- Node HTTP server upgrade event (only needed if we must manually route upgrades): https://nodejs.org/api/http.html#event-upgrade
+- Node HTTP request/response lifecycle events (disconnect handling for SSE detaches): https://nodejs.org/api/http.html#event-close
+- AbortController (server-side cancellation wiring; keep detach separate from cancel): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- Express Router/app structure (understand how `app.listen()` returns an HTTP server to attach ws): Context7 `/expressjs/express` (Router)
+- Zod validation (use `z.discriminatedUnion('type', ...)` + `safeParse` to validate inbound WS messages without throwing): DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
+- Node test runner (WS protocol/inflight integration tests): https://nodejs.org/api/test.html
+- npm run-script (workspace build/test commands referenced in this task): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Docker Compose (task verification commands): https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -290,7 +296,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 3. [ ] Define the WS protocol types + runtime validation (client message union + server event union)
    - Files to create: `server/src/ws/types.ts`
    - Files to edit (if you split validators): `server/src/ws/types.ts` (or a dedicated `server/src/ws/validators.ts`)
-   - Docs (read before coding): Zod docs https://zod.dev/ (discriminated unions)
+   - Docs (read before coding): Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod (use `z.discriminatedUnion` + `safeParse` for inbound WS messages)
    - Critical constraints (do not skip): every inbound client message must be validated; invalid/malformed payloads must never crash the server
    - Implementation sketch:
 
@@ -353,7 +359,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Done when: multiple sockets can subscribe/unsubscribe without leaks, and events include `seq`
 9. [ ] Implement WS message handling + error responses (invalid JSON, unknown `type`, missing required fields) and ensure the server never crashes on malformed messages
    - Files to edit: `server/src/ws/server.ts`, `server/src/ws/types.ts`
-   - Docs (read before coding): Zod docs https://zod.dev/
+   - Docs (read before coding): Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod
    - Implementation sketch:
 
      ```ts
@@ -370,7 +376,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - accept an optional client-provided `inflightId` in `POST /chat` (validated in `chatValidators`)
    - accept an optional `cancelOnDisconnect` boolean in `POST /chat` (default `true` for backward compatibility)
    - Files to edit: `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`
-   - Docs (read before coding): Zod docs https://zod.dev/, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Docs (read before coding): Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Critical constraints (do not skip): default behavior must remain unchanged for existing clients (`cancelOnDisconnect` defaults to true)
    - Implementation sketch (Zod add-ons):
 
@@ -480,9 +486,13 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 
 #### Documentation Locations
 
-- Mongoose sessions/transactions: https://mongoosejs.com/docs/transactions.html
-- MongoDB transactions overview: https://www.mongodb.com/docs/manual/core/transactions/
-- Express routing: https://expressjs.com/en/guide/routing.html
+- Mongoose transactions (atomic bulk updates/deletes; avoid Promise.all inside transaction): Context7 `/automattic/mongoose/9.0.1` (transactions)
+- MongoDB transactions overview (transaction prerequisites + semantics): https://www.mongodb.com/docs/manual/core/transactions/
+- Express routing (bulk endpoints + error responses): Context7 `/expressjs/express` (Router)
+- Zod validation (request schemas; reject empty/oversized bulk requests safely): DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
+- Node test runner (unit/integration tests for routes/repo): https://nodejs.org/api/test.html
+- Docker Compose (local verification commands referenced in this task): https://docs.docker.com/compose/
+- npm run-script (workspace build/test commands referenced in this task): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Subtasks
 
@@ -497,7 +507,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Archived-only (`archived=only`)
    - Keep existing `archived=true` behavior for active+archived; add archived-only without breaking older clients
    - Files to edit: `server/src/routes/conversations.ts` (query schema + handler)
-   - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html, Zod docs https://zod.dev/
+   - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html, Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod
    - Implementation sketch (query parsing):
 
      ```ts
@@ -516,7 +526,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Done when: tests cover paging for (a) default, (b) archived=true, (c) archived=only
 5. [ ] Add request validation for bulk operations (conversationId list, max size, dedupe/normalize, reject empty)
    - Files to edit: `server/src/routes/conversations.ts`
-   - Docs (read before coding): Zod docs https://zod.dev/
+   - Docs (read before coding): Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod
    - Implementation sketch:
 
      ```ts
@@ -595,12 +605,18 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 #### Documentation Locations
 
-- MUI List component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/lists.md
-- MUI Checkbox component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
-- MUI Dialog component (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
-- MUI ToggleButton/ToggleButtonGroup (MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
-- MUI Toolbar API (MUI MCP): https://llms.mui.com/material-ui/6.4.12/api/toolbar.md
-- React state + effects: https://react.dev/learn
+- MUI List component (layout for conversation rows): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Checkbox component (multi-select + indeterminate select-all): https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
+- MUI Dialog component (permanent delete confirmation): https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
+- MUI ToggleButton/ToggleButtonGroup (3-state filter control): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+- MUI Toolbar API (bulk action toolbar): https://llms.mui.com/material-ui/6.4.12/api/toolbar.md
+- MUI Alert (error/success messaging): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI Snackbar (optional lightweight “toast” notifications): https://llms.mui.com/material-ui/6.4.12/components/snackbars.md
+- React state + effects (selection state + filter transitions): https://react.dev/learn
+- Fetch API (calling bulk endpoints): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- URLSearchParams (building the conversations list query string): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+- Testing Library (RTL patterns for UI behavior tests): https://testing-library.com/docs/react-testing-library/intro/
+- Jest (test runner used by the client workspace): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -700,7 +716,14 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 #### Documentation Locations
 
 - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React Router: Context7 `/remix-run/react-router/react-router_7.9.4` (hooks + navigation)
+- React effects (subscribe/unsubscribe lifecycle): https://react.dev/learn/synchronizing-with-effects
+- React Router (navigation + route scoping): Context7 `/remix-run/react-router/react-router_7.9.4` (hooks + navigation)
+- Fetch API (POST /chat, bulk refreshes on reconnect): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- AbortController (detaching SSE without cancelling generation when `cancelOnDisconnect=false`): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- MUI Alert (persistence gating messaging): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI Snackbar (optional lightweight “toast” confirmations): https://llms.mui.com/material-ui/6.4.12/components/snackbars.md
+- Testing Library (WS subscription + UI behavior tests): https://testing-library.com/docs/react-testing-library/intro/
+- Jest (test runner used by the client workspace): Context7 `/jestjs/jest`
 
 #### Subtasks
 
@@ -847,12 +870,17 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker Compose (rebuild/restart workflow and compose file reference): Context7 `/docker/docs` (Compose)
+- Playwright (end-to-end tests and screenshots): Context7 `/microsoft/playwright`
+- Husky (git hook behavior if lint/test hooks are involved): Context7 `/typicode/husky`
+- Mermaid (diagram syntax + security/sanitization considerations): Context7 `/mermaid-js/mermaid`
+- Jest (client unit tests + snapshot behavior): Context7 `/jestjs/jest`
+- Cucumber guide (basic workflow + step definitions): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guide (CI usage patterns and exit codes): https://cucumber.io/docs/guides/continuous-integration/
+- Cucumber reference (tags/filtering and “Running Cucumber” sections): https://cucumber.io/docs/cucumber/api/
+- Gherkin reference (feature file syntax rules): https://cucumber.io/docs/gherkin/reference
+- GitHub pull requests (PR summary/comment expectations): https://docs.github.com/en/pull-requests
+- Markdown basics (docs updates in README/design/projectStructure): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 

@@ -250,6 +250,20 @@ These findings are based on the current repository implementation and are includ
 
 (none – ready for tasking once the WebSocket protocol above is reviewed and accepted as final for v1.)
 
+## Ground rules for juniors (read before starting any subtask)
+
+- Run commands from the repo root unless a subtask says otherwise. Use `npm` (not yarn/pnpm). Expected tooling: Node.js 22+, npm 10+, Docker + Docker Compose.
+- Before coding, open the “Files to read” for your subtask and skim them end-to-end so you understand the local patterns (this repo has consistent test harness patterns per workspace).
+- Server tests are split:
+  - Node unit/integration tests: `npm run test:unit --workspace server` (uses `node:test` + `supertest`).
+  - Cucumber BDD tests: `npm run test:integration --workspace server`.
+- Client tests use Jest + React Testing Library: `npm run test --workspace client`.
+- Chat streaming today is SSE from `POST /chat` and aborting the HTTP request currently cancels generation. In this story we intentionally decouple “viewing” from “generation”: leaving Chat or switching conversations must only unsubscribe (no implicit cancel).
+- For this story, cancellation is explicit:
+  - primary: WS `cancel_inflight` message
+  - fallback: `POST /chat/cancel` (same payload) so Stop works even if WS is temporarily disconnected.
+- Mongo matters: when `mongoConnected === false`, realtime subscriptions and bulk archive/restore/delete must be gated off in the UI because conversation routes don’t have the same in-memory fallback behavior as `POST /chat`.
+
 ---
 
 # Tasks
@@ -340,7 +354,11 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - maintain **current tool state** per callId (requesting/done/error + latest stage/result/error), bounded by a max tool count
    - track timestamps and final status
    - Files to create: `server/src/ws/inflightRegistry.ts`
-   - Docs (read before coding): story WS protocol section in this doc, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (needed for this subtask):
+     - One in-flight record per `{ conversationId, inflightId }`.
+     - The registry must be able to produce an `inflight_snapshot` for late subscribers that includes assistant text so far, analysis text so far, and current tool states.
+     - Subsequent streaming updates are emitted as deltas (`assistant_delta`, `analysis_delta`) and tool updates (`tool_event`), then finalized with `turn_final`.
    - Implementation sketch (tool state, not history):
 
      ```ts
@@ -350,7 +368,8 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      ```
 7. [ ] Define bounded in-flight retention (max tool count, max chars/TTL) and ensure prompt cleanup on completion/abort/socket close to avoid memory leaks
    - Files to edit: `server/src/ws/inflightRegistry.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (needed for this subtask): cleanup is triggered on `turn_final` and on explicit cancellation (`cancel_inflight` / `POST /chat/cancel`).
    - Critical constraints (do not skip): in-flight state must be removed on `turn_final` and on explicit cancellation
 8. [ ] Implement the WS hub/pubsub backbone (e.g., `server/src/ws/hub.ts`) with a simple subscribe/unsubscribe model:
    - `subscribe_sidebar` / `unsubscribe_sidebar` (global sidebar stream with a monotonic `seq`)
@@ -373,7 +392,8 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      ```
 10. [ ] Implement domain-safe `cancel_inflight` handling (unknown `conversationId`/`inflightId`, already-finalized inflight) with stable, non-crashing error responses
    - Files to edit: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (client message): `{ type: 'cancel_inflight', requestId: string, conversationId: string, inflightId: string }`
    - Critical constraints (do not skip): cancellation must be idempotent (re-sending cancel should not crash)
 11. [ ] Add REST cancellation fallback for Stop: `POST /chat/cancel` that cancels by `conversationId` + `inflightId`
    - Why this exists: if the WS is temporarily disconnected, Stop must still be able to cancel the run (SSE abort no longer cancels when `cancelOnDisconnect=false`)
@@ -420,18 +440,21 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Codex provider: `token` → `assistant_delta`, `analysis` → `analysis_delta`, tool events → `tool_event`, completion → `turn_final`
    - LM Studio provider: same mapping (including tool events)
    - Files to edit: `server/src/routes/chat.ts`
-   - Docs (read before coding): story WS protocol section in this doc, Context7 `/websockets/ws/8_18_3`
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3`, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (server events): emit `inflight_snapshot` at run start, then stream deltas (`assistant_delta`, `analysis_delta`, `tool_event`) and finish with `turn_final`.
    - Critical constraints (do not skip): keep the existing SSE stream output unchanged so current client tests continue to pass while WS is added
 16. [ ] Emit transcript events from **MCP v2 tools** that call `ChatInterface.run` (e.g. `codebase_question`) into the hub
    - Ensure `inflightId` is generated server-side (because there is no `POST /chat` payload) and an `inflight_snapshot` is broadcast before the first delta/tool event so late subscribers can cancel and catch up
    - Files to edit: `server/src/mcp2/tools/codebaseQuestion.ts`
    - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (server events): broadcast `inflight_snapshot` before any deltas, then `assistant_delta`/`analysis_delta`/`tool_event`, then `turn_final`.
 17. [ ] Emit transcript events from **Agents runs** (REST + MCP) that call `ChatInterface.run` into the hub (so MCP/Agents-initiated runs stream live in Chat)
    - Ensure `inflightId` is generated server-side and an `inflight_snapshot` is broadcast before the first delta/tool event
    - Files to edit: `server/src/agents/service.ts`
    - Files to edit/create: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (server events): broadcast `inflight_snapshot` before any deltas, then `assistant_delta`/`analysis_delta`/`tool_event`, then `turn_final`.
 18. [ ] Enforce a single in-flight run per conversation across Chat + MCP + Agents:
    - reuse `server/src/agents/runLock.ts` (`tryAcquireConversationLock` / `releaseConversationLock`)
    - return a stable 409 `RUN_IN_PROGRESS` error for conflicts
@@ -443,140 +466,208 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 19. [ ] Ensure assistant turn persistence remains exactly-once for Codex + LM Studio (including with memory persistence), and ensure conversation meta updates do not double-trigger WS `conversation_upsert`
    - Files to read: `server/src/routes/chat.ts` (`recordAssistantTurn`), `server/src/chat/interfaces/ChatInterface.ts`
    - Files to edit (as needed): `server/src/routes/chat.ts`, `server/src/ws/hub.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (sidebar events): do not emit duplicate `conversation_upsert` for the same logical update.
    - Critical constraints (do not skip): do not call `appendTurn` twice for the assistant (watch for new WS code accidentally re-persisting)
 20. [ ] Emit sidebar events on conversation create/update/archive/restore/delete (including bulk ops) and ensure emission covers **all** call sites (REST Chat, MCP, Agents, archive/restore routes, bulk routes)
    - Files to edit (likely): `server/src/routes/chat.ts`, `server/src/routes/conversations.ts`, `server/src/agents/service.ts`
    - Files to edit (later, bulk): `server/src/routes/conversations.ts` (bulk endpoints) and the repo helpers in `server/src/mongo/repo.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (server events):
+     - `conversation_upsert`: `{ type: 'conversation_upsert', seq: number, conversation: { conversationId, title, provider, model, source, lastMessageAt, archived, agentName? } }`
+     - `conversation_delete`: `{ type: 'conversation_delete', seq: number, conversationId: string }`
    - Critical constraints (do not skip): emit events only after persistence succeeds (and after transaction commit for bulk)
 21. [ ] Server integration test (Node): WebSocket connect + disconnect lifecycle
+   - Files to create/edit: `server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts`
+   - Files to read: `server/src/test/integration/conversations.list.test.ts` (Node test + supertest patterns), `server/src/test/integration/chat-codex.test.ts` (streaming route test patterns), `server/src/ws/server.ts` (WS bootstrap), `server/src/index.ts` (HTTP server wiring)
    - Location: `server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts`
    - Purpose: ensure multiple sockets can connect, subscribe, and close without crashing the server and without leaking subscription state
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 22. [ ] Server integration test (Node): WebSocket message validation rejects invalid JSON
+   - Files to create/edit: `server/src/test/integration/ws.validation.invalidJson.test.ts`
+   - Files to read: `server/src/ws/types.ts` (Zod schemas), `server/src/ws/server.ts` (message parsing), `server/src/test/integration/conversations.list.test.ts` (Node test patterns)
    - Location: `server/src/test/integration/ws.validation.invalidJson.test.ts`
    - Purpose: ensure invalid JSON never crashes the server and produces a stable error response (or closes cleanly)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 23. [ ] Server integration test (Node): WebSocket message validation rejects unknown `type`
+   - Files to create/edit: `server/src/test/integration/ws.validation.unknownType.test.ts`
+   - Files to read: `server/src/ws/types.ts` (discriminated union), `server/src/ws/server.ts` (validation error handling)
    - Location: `server/src/test/integration/ws.validation.unknownType.test.ts`
    - Purpose: ensure unknown `type` does not crash the server and produces a stable error response
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 
 24. [ ] Server integration test (Node): WebSocket message validation rejects missing fields for subscribe_conversation
+   - Files to create/edit: `server/src/test/integration/ws.validation.subscribeConversation.missingConversationId.test.ts`
+   - Files to read: `server/src/ws/types.ts` (schema requirements), `server/src/ws/server.ts` (safeParse + response strategy)
    - Location: `server/src/test/integration/ws.validation.subscribeConversation.missingConversationId.test.ts`
    - Purpose: ensure `subscribe_conversation` without `conversationId` returns a stable error and never crashes the server
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 25. [ ] Server integration test (Node): WebSocket message validation rejects missing fields for cancel_inflight
+   - Files to create/edit: `server/src/test/integration/ws.validation.cancelInflight.missingInflightId.test.ts`
+   - Files to read: `server/src/ws/types.ts` (schema requirements), `server/src/ws/server.ts`
    - Location: `server/src/test/integration/ws.validation.cancelInflight.missingInflightId.test.ts`
    - Purpose: ensure `cancel_inflight` without `inflightId` returns a stable error and never crashes the server
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 26. [ ] Server integration test (Node): Sidebar subscribe/unsubscribe lifecycle
+   - Files to create/edit: `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts`
+   - Files to read: `server/src/ws/hub.ts` (subscribe/unsubscribe), `server/src/logStore.ts` (subscribe/unsubscribe pattern), `server/src/ws/server.ts` (socket state)
    - Location: `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts`
    - Purpose: ensure `subscribe_sidebar` begins delivery and `unsubscribe_sidebar` stops delivery for that socket
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 27. [ ] Server integration test (Node): Transcript subscribe when idle (no inflight)
+   - Files to create/edit: `server/src/test/integration/ws.conversation.subscribeIdle.test.ts`
+   - Files to read: `server/src/ws/inflightRegistry.ts` (empty/idle semantics), `server/src/ws/hub.ts` (subscribe_conversation)
    - Location: `server/src/test/integration/ws.conversation.subscribeIdle.test.ts`
    - Purpose: ensure subscribing to a conversation with no inflight run does not emit an `inflight_snapshot`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 28. [ ] Server integration test (Node): Transcript subscribe mid-run catch-up snapshot
+   - Files to create/edit: `server/src/test/integration/ws.conversation.catchupSnapshot.test.ts`
+   - Files to read: `server/src/ws/inflightRegistry.ts` (snapshot fields), `server/src/ws/hub.ts` (subscribe_conversation sends immediate snapshot)
    - Location: `server/src/test/integration/ws.conversation.catchupSnapshot.test.ts`
    - Purpose: ensure `subscribe_conversation` immediately receives `inflight_snapshot` with current assistant text, analysis text, and current tool state when a run is already in progress
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 29. [ ] Server integration test (Node): MCP codebase_question run emits inflight events to WS subscribers
+   - Files to create/edit: `server/src/test/integration/ws.mcp2.codebaseQuestion.inflightBroadcast.test.ts`
+   - Files to read: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` (existing MCP2 harness), `server/src/mcp2/tools/codebaseQuestion.ts` (tool implementation), `server/src/ws/hub.ts` (broadcast)
    - Location: `server/src/test/integration/ws.mcp2.codebaseQuestion.inflightBroadcast.test.ts`
    - Purpose: ensure WS `subscribe_conversation` receives `inflight_snapshot` and subsequent deltas/tool events when a run is started via MCP (no browser tab initiated it)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 30. [ ] Server integration test (Node): Agents run emits inflight events to WS subscribers
+   - Files to create/edit: `server/src/test/integration/ws.agents.runInstruction.inflightBroadcast.test.ts`
+   - Files to read: `server/src/test/unit/agents-router-run.test.ts` (agents route harness + conflict patterns), `server/src/agents/service.ts` (run implementation), `server/src/ws/hub.ts`
    - Location: `server/src/test/integration/ws.agents.runInstruction.inflightBroadcast.test.ts`
    - Purpose: ensure WS subscribers can observe in-flight progress when a conversation is run via Agents (future reuse of transport)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 31. [ ] Server integration test (Node): Sidebar `seq` monotonicity
+   - Files to create/edit: `server/src/test/integration/ws.seq.sidebarMonotonic.test.ts`
+   - Files to read: `server/src/ws/hub.ts` (seq assignment)
    - Location: `server/src/test/integration/ws.seq.sidebarMonotonic.test.ts`
    - Purpose: ensure sidebar events include a monotonically increasing `seq` so clients can ignore stale events
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 32. [ ] Server integration test (Node): Transcript `seq` monotonicity per conversation
+   - Files to create/edit: `server/src/test/integration/ws.seq.transcriptMonotonic.test.ts`
+   - Files to read: `server/src/ws/hub.ts` (per-conversation seq assignment)
    - Location: `server/src/test/integration/ws.seq.transcriptMonotonic.test.ts`
    - Purpose: ensure transcript events for a conversation include a monotonically increasing `seq`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 33. [ ] Server integration test (Node): `cancel_inflight` happy path
+   - Files to create/edit: `server/src/test/integration/ws.cancel.happyPath.test.ts`
+   - Files to read: `server/src/ws/hub.ts` (cancel routing), `server/src/ws/inflightRegistry.ts` (cancel handle)
    - Location: `server/src/test/integration/ws.cancel.happyPath.test.ts`
    - Purpose: ensure `cancel_inflight` aborts the run and emits `turn_final` with status `stopped`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, story WS protocol section in this doc
 34. [ ] Server integration test (Node): `cancel_inflight` idempotency
+   - Files to create/edit: `server/src/test/integration/ws.cancel.idempotent.test.ts`
+   - Files to read: `server/src/ws/hub.ts`, `server/src/ws/inflightRegistry.ts`
    - Location: `server/src/test/integration/ws.cancel.idempotent.test.ts`
    - Purpose: ensure sending `cancel_inflight` twice does not crash and does not emit duplicate finals
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 35. [ ] Server integration test (Node): `cancel_inflight` invalid input handling
+   - Files to create/edit: `server/src/test/integration/ws.cancel.invalid.test.ts`
+   - Files to read: `server/src/ws/hub.ts` (error response shape)
    - Location: `server/src/test/integration/ws.cancel.invalid.test.ts`
    - Purpose: ensure unknown `conversationId` and mismatched `inflightId` return a stable error and do not crash
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 36. [ ] Server integration test (Node): REST cancel fallback happy path (`POST /chat/cancel`)
+   - Files to create/edit: `server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts`
+   - Files to read: `server/src/test/integration/chat-codex.test.ts` (supertest streaming patterns), `server/src/routes/chatCancel.ts` (endpoint)
    - Location: `server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts`
    - Purpose: ensure the REST cancellation endpoint cancels a running inflight and the run ends as `stopped`
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 37. [ ] Server integration test (Node): REST cancel fallback not found (`POST /chat/cancel`)
+   - Files to create/edit: `server/src/test/integration/chat.cancelEndpoint.notFound.test.ts`
+   - Files to read: `server/src/routes/chatCancel.ts`
    - Location: `server/src/test/integration/chat.cancelEndpoint.notFound.test.ts`
    - Purpose: ensure cancelling an unknown `conversationId`/`inflightId` returns 404 and does not crash
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 38. [ ] Server integration test (Node): REST cancel fallback idempotency (`POST /chat/cancel`)
+   - Files to create/edit: `server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts`
+   - Files to read: `server/src/routes/chatCancel.ts`
    - Location: `server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts`
    - Purpose: ensure cancelling an already-cancelled inflight returns a stable response and does not crash
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 39. [ ] Server integration test (Node): `POST /chat` rejects invalid `cancelOnDisconnect` types
+   - Files to create/edit: `server/src/test/integration/chat.validators.cancelOnDisconnect.invalidType.test.ts`
+   - Files to read: `server/src/routes/chatValidators.ts` (Zod request schema)
    - Location: `server/src/test/integration/chat.validators.cancelOnDisconnect.invalidType.test.ts`
    - Purpose: ensure request validation returns 400 and does not start a run when `cancelOnDisconnect` is not a boolean
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 40. [ ] Server integration test (Node): `POST /chat` rejects invalid `inflightId`
+   - Files to create/edit: `server/src/test/integration/chat.validators.inflightId.invalid.test.ts`
+   - Files to read: `server/src/routes/chatValidators.ts`
    - Location: `server/src/test/integration/chat.validators.inflightId.invalid.test.ts`
    - Purpose: ensure request validation returns 400 for empty/invalid inflight IDs so cancellation cannot be spoofed or broken
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 41. [ ] Server integration test (Node): REST cancel endpoint rejects invalid body (`POST /chat/cancel`)
+   - Files to create/edit: `server/src/test/integration/chat.cancelEndpoint.validationError.test.ts`
+   - Files to read: `server/src/routes/chatCancel.ts` (body schema)
    - Location: `server/src/test/integration/chat.cancelEndpoint.validationError.test.ts`
    - Purpose: ensure missing/invalid `conversationId`/`inflightId` returns 400 validation_error and does not crash
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 42. [ ] Server integration test (Node): detach semantics when `cancelOnDisconnect=false`
+   - Files to create/edit: `server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts`
+   - Files to read: `server/src/routes/chat.ts` (disconnect handlers), `server/src/chatStream.ts` (SSE end)
    - Location: `server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts`
    - Purpose: ensure aborting the SSE response stops writing to that client but does not abort the underlying provider run
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Node HTTP close event https://nodejs.org/api/http.html#event-close
 43. [ ] Server integration test (Node): backward compatibility when `cancelOnDisconnect` is omitted
+   - Files to create/edit: `server/src/test/integration/chat.detach.defaultCancels.test.ts`
+   - Files to read: `server/src/routes/chat.ts`
    - Location: `server/src/test/integration/chat.detach.defaultCancels.test.ts`
    - Purpose: ensure today’s behavior remains: disconnect/abort cancels provider execution when `cancelOnDisconnect` is not provided
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 44. [ ] Server unit test (Node): inflight registry cleanup
+   - Files to create/edit: `server/src/test/unit/inflightRegistry.cleanup.test.ts`
+   - Files to read: `server/src/ws/inflightRegistry.ts` (public API)
    - Location: `server/src/test/unit/inflightRegistry.cleanup.test.ts`
    - Purpose: ensure inflight entries are removed after `turn_final` and after explicit cancel to prevent memory growth
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 
 45. [ ] Server integration test (Node): REST chat run emits inflight events to WS subscribers
+   - Files to create/edit: `server/src/test/integration/ws.restChat.inflightBroadcast.test.ts`
+   - Files to read: `server/src/test/integration/chat-codex.test.ts` (chat harness), `server/src/routes/chat.ts` (SSE route), `server/src/ws/hub.ts` (broadcast)
    - Location: `server/src/test/integration/ws.restChat.inflightBroadcast.test.ts`
    - Purpose: ensure `POST /chat`-initiated runs broadcast `inflight_snapshot` then subsequent `assistant_delta`/`analysis_delta`/`tool_event` and a final `turn_final` to subscribed sockets
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 46. [ ] Server integration test (Node): `POST /chat` run-lock conflict returns 409 `RUN_IN_PROGRESS`
+   - Files to create/edit: `server/src/test/integration/chat.runLock.conflict.test.ts`
+   - Files to read: `server/src/test/unit/agents-router-run.test.ts` (existing 409 conflict pattern), `server/src/agents/runLock.ts` (lock)
    - Location: `server/src/test/integration/chat.runLock.conflict.test.ts`
    - Purpose: ensure starting a second run for the same `conversationId` while one is in-flight returns 409 `{ error: 'conflict', code: 'RUN_IN_PROGRESS' }` and does not interleave persistence/events
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 47. [ ] Server MCP2 test (Node): `codebase_question` run-lock conflict returns 409 `RUN_IN_PROGRESS`
+   - Files to create/edit: `server/src/test/mcp2/tools/codebaseQuestion.runLock.conflict.test.ts`
+   - Files to read: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` (existing MCP2 harness), `server/src/agents/runLock.ts`
    - Location: `server/src/test/mcp2/tools/codebaseQuestion.runLock.conflict.test.ts`
    - Purpose: ensure MCP-initiated runs for a locked `conversationId` return a stable conflict and do not start streaming/persistence
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 48. [ ] Server integration test (Node): sidebar `conversation_upsert` on REST chat create/update
+   - Files to create/edit: `server/src/test/integration/ws.sidebar.upsert.onChatCreateUpdate.test.ts`
+   - Files to read: `server/src/routes/chat.ts` (create/update conversation meta), `server/src/ws/hub.ts` (sidebar broadcast)
    - Location: `server/src/test/integration/ws.sidebar.upsert.onChatCreateUpdate.test.ts`
    - Purpose: ensure when `POST /chat` creates a new conversation or updates `lastMessageAt`, subscribed sidebar sockets receive `conversation_upsert` for that conversation
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 49. [ ] Server integration test (Node): sidebar `conversation_upsert` on archive
+   - Files to create/edit: `server/src/test/integration/ws.sidebar.upsert.onArchive.test.ts`
+   - Files to read: `server/src/routes/conversations.ts` (archive endpoint), `server/src/ws/hub.ts`
    - Location: `server/src/test/integration/ws.sidebar.upsert.onArchive.test.ts`
    - Purpose: ensure `POST /conversations/:id/archive` emits `conversation_upsert` with `archived=true` to sidebar subscribers
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 50. [ ] Server integration test (Node): sidebar `conversation_upsert` on restore
+   - Files to create/edit: `server/src/test/integration/ws.sidebar.upsert.onRestore.test.ts`
+   - Files to read: `server/src/routes/conversations.ts` (restore endpoint), `server/src/ws/hub.ts`
    - Location: `server/src/test/integration/ws.sidebar.upsert.onRestore.test.ts`
    - Purpose: ensure `POST /conversations/:id/restore` emits `conversation_upsert` with `archived=false` to sidebar subscribers
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 51. [ ] Server unit test (Node): inflight registry tool state updates are in-place (no duplicates)
+   - Files to create/edit: `server/src/test/unit/inflightRegistry.tools.currentState.test.ts`
+   - Files to read: `server/src/ws/inflightRegistry.ts` (tool update behavior)
    - Location: `server/src/test/unit/inflightRegistry.tools.currentState.test.ts`
    - Purpose: ensure tool requests/results for the same `callId` update a single tool state row (current state), not an ever-growing history array
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 52. [ ] Server unit test (Node): inflight registry enforces bounds (max tool count)
+   - Files to create/edit: `server/src/test/unit/inflightRegistry.tools.maxCount.test.ts`
+   - Files to read: `server/src/ws/inflightRegistry.ts` (bound constants)
    - Location: `server/src/test/unit/inflightRegistry.tools.maxCount.test.ts`
    - Purpose: ensure the registry enforces a maximum number of tracked tools so a malicious or buggy provider cannot cause unbounded memory growth
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -630,19 +721,25 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Purpose: keep the repo structure map accurate and make WS/inflight/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 55. [ ] Run full linting (`npm run lint --workspaces`)
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
+   - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
@@ -698,22 +795,32 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Docs (read before coding): Mongoose queries https://mongoosejs.com/docs/queries.html
    - Critical constraints (do not skip): filtering must happen server-side so pagination/cursors remain correct
 4. [ ] Server integration test (Node): list API default mode (Active)
+   - Files to create/edit: `server/src/test/integration/conversations.list.active.test.ts`
+   - Files to read: `server/src/test/integration/conversations.list.test.ts` (existing list route test harness), `server/src/routes/conversations.ts` (list route)
    - Location: `server/src/test/integration/conversations.list.active.test.ts`
    - Purpose: ensure default `GET /conversations` returns only non-archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 5. [ ] Server integration test (Node): list API include archived (`archived=true`)
+   - Files to create/edit: `server/src/test/integration/conversations.list.includeArchived.test.ts`
+   - Files to read: `server/src/test/integration/conversations.list.test.ts`, `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.includeArchived.test.ts`
    - Purpose: ensure `GET /conversations?archived=true` returns both active and archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 6. [ ] Server integration test (Node): list API archived-only (`archived=only`)
+   - Files to create/edit: `server/src/test/integration/conversations.list.archivedOnly.test.ts`
+   - Files to read: `server/src/test/integration/conversations.list.test.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts` (query)
    - Location: `server/src/test/integration/conversations.list.archivedOnly.test.ts`
    - Purpose: ensure `GET /conversations?archived=only` returns only archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 7. [ ] Server integration test (Node): list API `agentName=__none__` filters out agent conversations
+   - Files to create/edit: `server/src/test/integration/conversations.list.agentNameNone.test.ts`
+   - Files to read: `server/src/test/unit/conversations-router-agent-filter.test.ts` (existing agent filter patterns), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.agentNameNone.test.ts`
    - Purpose: ensure the Chat page (which uses `agentName=__none__`) continues to hide agent conversations while still listing manual/MCP conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 8. [ ] Server integration test (Node): list API pagination/cursor
+   - Files to create/edit: `server/src/test/integration/conversations.list.pagination.test.ts`
+   - Files to read: `server/src/test/integration/conversations.list.test.ts` (cursor patterns), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.pagination.test.ts`
    - Purpose: ensure cursor pagination works correctly (no duplicates/missing items) for list endpoints
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -728,14 +835,20 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 
    - Done when: empty lists are rejected with 400 and oversized requests fail fast
 10. [ ] Server unit test (Node): bulk validation rejects empty list
+   - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
+   - Files to read: `server/src/routes/conversations.ts` (bulk schema)
    - Location: `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
    - Purpose: ensure `{ conversationIds: [] }` returns 400 and no DB changes occur
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
 11. [ ] Server unit test (Node): bulk validation rejects oversized list
+   - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
+   - Files to read: `server/src/routes/conversations.ts` (max size)
    - Location: `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
    - Purpose: ensure requests with too many IDs fail fast with 400
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 12. [ ] Server unit test (Node): bulk validation handles duplicates
+   - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
+   - Files to read: `server/src/routes/conversations.ts` (dedupe/idempotency expectation)
    - Location: `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
    - Purpose: ensure duplicate conversationIds are handled predictably (deduped or treated as idempotent no-ops)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -746,14 +859,20 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - if any conversationId is not found, reject the entire request and apply no changes
      - if a conversation is already archived, treat it as a valid no-op (idempotent) rather than failing the whole request
 14. [ ] Server integration test (Node): bulk archive success
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
+   - Files to read: `server/src/test/integration/conversations.archive.test.ts` (existing archive harness), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Purpose: ensure all conversations are archived when all IDs exist
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 15. [ ] Server integration test (Node): bulk archive idempotency
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
    - Purpose: ensure including already-archived IDs still succeeds without double-updating timestamps incorrectly
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 16. [ ] Server integration test (Node): bulk archive rejects unknown ID
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
    - Purpose: ensure any unknown conversationId rejects the whole request and applies no changes
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -764,14 +883,20 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - if any conversationId is not found, reject the entire request and apply no changes
      - if a conversation is already active (not archived), treat it as a valid no-op (idempotent) rather than failing the whole request
 18. [ ] Server integration test (Node): bulk restore success
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
+   - Files to read: `server/src/test/integration/conversations.archive.test.ts` (restore endpoint harness), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Purpose: ensure all conversations are restored when all IDs exist
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 19. [ ] Server integration test (Node): bulk restore idempotency
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
    - Purpose: ensure including already-active IDs still succeeds without breaking list ordering
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 20. [ ] Server integration test (Node): bulk restore rejects unknown ID
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
    - Purpose: ensure any unknown conversationId rejects the whole request and applies no changes
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -785,18 +910,26 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Docs (read before coding): Mongoose transactions https://mongoosejs.com/docs/transactions.html
    - Critical constraints (do not skip): enforce archived-only deletion in the server even if the UI is supposed to only send archived IDs
 22. [ ] Server integration test (Node): bulk delete success deletes turns
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
+   - Files to read: `server/src/test/integration/conversations.turns.test.ts` (turn creation patterns), `server/src/routes/conversations.ts` (bulk delete)
    - Location: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Purpose: ensure deleting archived conversations deletes the conversation record and all stored turns
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 23. [ ] Server integration test (Node): bulk delete rejects non-archived IDs
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
    - Purpose: ensure including any non-archived conversationId rejects the entire request and deletes nothing
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 24. [ ] Server integration test (Node): bulk delete rejects unknown ID
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
    - Purpose: ensure unknown conversationIds reject the entire request and delete nothing
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
 25. [ ] Server integration test (Node): bulk delete transaction rollback
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
    - Purpose: ensure if deleting turns fails, the transaction rolls back and conversations are not deleted
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
@@ -806,17 +939,24 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 27. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
    - Files to edit: `server/src/routes/conversations.ts`
    - Files to edit: `server/src/ws/hub.ts` (event emission API)
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): Context7 `/websockets/ws/8_18_3`
+   - Protocol reminder (ordering requirement): emit WS events only after the bulk transaction commits successfully; do not emit partial updates.
 28. [ ] Server integration test (Node): bulk archive emits WS upsert after commit
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
+   - Files to read: `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts` (WS harness), `server/src/routes/conversations.ts` (transaction boundary), `server/src/ws/hub.ts` (emit)
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_upsert` is emitted only after a successful bulk archive commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 
 29. [ ] Server integration test (Node): bulk restore emits WS upsert after commit
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_upsert` is emitted only after a successful bulk restore commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 30. [ ] Server integration test (Node): bulk delete emits WS delete after commit
+   - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
+   - Files to read: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_delete` is emitted only after a successful bulk delete commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
@@ -870,20 +1010,26 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Purpose: keep the repo structure map accurate and make bulk API/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 35. [ ] Run full linting (`npm run lint --workspaces`)
+   - Files to read: `package.json`, `server/package.json`, `client/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
+   - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
@@ -974,42 +1120,62 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Docs (read before coding): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Critical constraints (do not skip): when persistence is disabled, bulk operations must be disabled in the UI (and ideally avoided on the server too)
 11. [ ] Client RTL test (Jest + Testing Library): filter default is `Active`
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/components/chat/ConversationList.tsx` (UI under test), `client/src/test/chatSidebar.test.tsx` (existing harness)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure initial filter state is `Active` and archived conversations are not shown
-   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
+   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
 12. [ ] Client RTL test (Jest + Testing Library): changing filter clears selection
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/test/chatSidebar.test.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: prevent bulk actions from applying to “hidden” conversations after filter changes
-   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
+   - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
 13. [ ] Client RTL test (Jest + Testing Library): Archived view uses `archived=only` query
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/hooks/useConversations.ts` (query building), `client/src/test/useConversations.source.test.ts` (hook test patterns)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure the client fetches archived-only server-side (no client-side filtering that would break pagination)
-   - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+   - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Jest (Context7) `/websites/jestjs_io_30_0`
 14. [ ] Client RTL test (Jest + Testing Library): Chat sidebar list request includes `agentName=__none__`
+   - Files to edit/create: `client/src/test/chatSidebar.agentFilterQuery.test.tsx` (new) or extend `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/pages/ChatPage.tsx` (Chat uses `agentName=__none__`), `client/src/hooks/useConversations.ts` (query params)
    - Location: `client/src/test/chatSidebar.agentFilterQuery.test.tsx` (new) or extend `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure the Chat sidebar continues to exclude agent conversations by using the server-side `agentName=__none__` filter
    - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
 15. [ ] Client RTL test (Jest + Testing Library): checkbox selection + select-all + indeterminate state
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/components/ingest/RootsTable.tsx` (indeterminate select-all pattern), `client/src/components/chat/ConversationList.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify multi-select behavior matches RootsTable patterns and stays consistent when list re-renders
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, MUI Checkbox https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
 16. [ ] Client RTL test (Jest + Testing Library): bulk archive success updates list and shows confirmation
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/api/conversations.ts` (bulk API helper), `client/src/components/chat/ConversationList.tsx` (bulk UI)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify bulk archive action calls the bulk endpoint and the UI updates for the selected items
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, MUI Snackbar https://llms.mui.com/material-ui/6.4.12/components/snackbars.md
 17. [ ] Client RTL test (Jest + Testing Library): bulk action rejection leaves UI unchanged
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/api/conversations.ts`, `client/src/test/chatSidebar.test.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify all-or-nothing failures do not partially update list state or clear selection
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
 18. [ ] Client RTL test (Jest + Testing Library): permanent delete requires confirmation dialog
+   - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
+   - Files to read: `client/src/components/chat/ConversationList.tsx` (dialog wiring)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure delete is never triggered without explicit user confirmation
    - Docs (read before coding): MUI Dialog https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
 19. [ ] Client RTL test (Jest + Testing Library): open conversation included in bulk action does not clear transcript
+   - Files to edit/create: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+   - Files to read: `client/src/pages/ChatPage.tsx` (selection + transcript), `client/src/hooks/useConversationTurns.ts` (transcript fetch)
    - Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
    - Purpose: ensure bulk archive/delete does not force-refresh or clear the transcript mid-view
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
 20. [ ] Client RTL test (Jest + Testing Library): persistence gating disables bulk controls
+   - Files to edit/create: `client/src/test/chatPersistenceBanner.test.tsx`
+   - Files to read: `client/src/hooks/usePersistenceStatus.ts` (health fetch), `client/src/components/chat/ConversationList.tsx` (disabled UI state)
    - Location: `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure when `mongoConnected === false` the bulk UI is disabled and a clear message is shown
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
@@ -1030,20 +1196,26 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Purpose: keep the repo structure map accurate and make client bulk-sidebar additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 23. [ ] Run full linting (`npm run lint --workspaces`)
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
+   - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
 #### Implementation notes
@@ -1103,7 +1275,10 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Done when: temporary disconnects reconnect automatically without freezing the UI
 4. [ ] Implement subscribe/unsubscribe helpers for `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`
    - Files to edit: `client/src/hooks/useChatWs.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (client messages):
+     - Sidebar: `{ type: 'subscribe_sidebar', requestId }` / `{ type: 'unsubscribe_sidebar', requestId }`
+     - Transcript: `{ type: 'subscribe_conversation', requestId, conversationId }` / `{ type: 'unsubscribe_conversation', requestId, conversationId }`
    - Implementation sketch:
 
      ```ts
@@ -1130,23 +1305,29 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Critical constraints (do not skip): transcript subscription must be scoped to the currently visible conversation only
 8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including current tool state)
    - Files to edit: `client/src/pages/ChatPage.tsx` (render pipeline), `client/src/hooks/useChatStream.ts` (message/tool shaping helpers)
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (what you will receive while subscribed):
+     - Initial catch-up: `inflight_snapshot` includes `{ conversationId, inflightId, assistantText, analysisText, tools: [...] }`.
+     - Updates: `assistant_delta` / `analysis_delta` append text; `tool_event` updates current tool states; `turn_final` ends the inflight.
    - Implementation sketch (high level):
      - persisted turns come from `useConversationTurns`
      - WS inflight state becomes one synthetic “assistant” message at the end of the transcript
 9. [ ] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder: updates must be applied in-place to the current inflight UI for the active `{ conversationId, inflightId }`.
    - Critical constraints (do not skip): update the same in-flight message/tool rows in-place (don’t append a new message per event)
 10. [ ] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useChatStream.ts` (reuse reasoning parser)
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder: `analysis_delta` should update the same analysis panel state used by SSE reasoning rendering.
    - Critical constraints (do not skip): analysis text must remain hidden/collapsible exactly like the current SSE reasoning renderer
 11. [ ] Apply client-side sequence guards:
    - sidebar events: ignore out-of-order `seq` updates
    - transcript events: ignore out-of-order `seq` per conversationId
    - Files to edit: `client/src/hooks/useChatWs.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder: every inbound server event includes a `seq` and the client must ignore events with `seq <= lastSeen` for that stream.
    - Done when: rapid switching does not cause “old events” to overwrite newer UI state
 12. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and pass `cancelOnDisconnect=false`; store `inflightId` for cancellation
    - Files to edit: `client/src/hooks/useChatStream.ts`
@@ -1154,13 +1335,17 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Critical constraints (do not skip): `cancelOnDisconnect=false` must only be used for Chat UI streaming requests (so navigating away detaches without canceling)
 13. [ ] Cache `inflightId` for the visible conversation from inbound WS events (`inflight_snapshot` / deltas / tool events) so Stop can cancel runs started outside the current tab
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder: every transcript event includes `conversationId` and `inflightId`; cache the latest inflightId per conversation so Stop can target it.
    - Done when: Stop works even if this tab did not start the run
 14. [ ] Update Stop behavior to cancel via `conversationId` + `inflightId` without relying on SSE abort side-effects:
    - Primary: send `cancel_inflight` over WS
    - Fallback (de-risk): if WS is disconnected, call `POST /chat/cancel`
    - Files to edit: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
-   - Docs (read before coding): story WS protocol section in this doc, Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (cancel payloads):
+     - WS: `{ type: 'cancel_inflight', requestId, conversationId, inflightId }`
+     - HTTP fallback: `POST /chat/cancel` body `{ conversationId, inflightId }`
    - Critical constraints (do not skip): Stop is the only user action that should cancel generation; switching/navigating must not cancel
 15. [ ] Refactor non-Stop flows so they do not cancel generation:
    - switching conversations unsubscribes from the prior transcript stream and subscribes to the new one
@@ -1171,7 +1356,10 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Critical constraints (do not skip): detaching should abort the SSE fetch (to stop reading) but must not trigger cancellation unless the user pressed Stop
 16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it (WS `cancel_inflight`, with REST `POST /chat/cancel` fallback) then clear transcript state while keeping the existing model/provider rules
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (cancel payloads):
+     - WS: `{ type: 'cancel_inflight', requestId, conversationId, inflightId }`
+     - HTTP fallback: `POST /chat/cancel` body `{ conversationId, inflightId }`
 17. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
    - Files to edit: `client/src/hooks/useChatStream.ts` (add a way to set threadId when selecting a conversation), `client/src/pages/ChatPage.tsx` (read `selectedConversation.flags.threadId`)
    - Files to read: `client/src/hooks/useConversations.ts` (flags already exist on list items)
@@ -1180,7 +1368,8 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 18. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useConversations.ts`
    - Files to read: `server/src/mongo/repo.ts` (`agentName` query semantics)
-   - Docs (read before coding): story WS protocol section in this doc
+   - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Protocol reminder (sidebar events): `conversation_upsert` may include `agentName`; Chat page must ignore upserts/deletes that do not match its `agentName=__none__` filter.
 19. [ ] Client RTL test (Jest + Testing Library): sidebar ignores WS `conversation_upsert` for agent conversations when Chat uses `agentName=__none__`
    - Files to edit/create: `client/src/test/chatWs.sidebarAgentFilter.test.tsx` (new)
    - Purpose: ensure agent conversations do not appear in the Chat sidebar via realtime upserts (matches REST list filter)
@@ -1283,6 +1472,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Purpose: keep the repo structure map accurate and make client realtime/WS additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
 38. [ ] Run full linting (`npm run lint --workspaces`)
+   - Files to read: `package.json`, `client/package.json`, `server/package.json`
    - Command: `npm run lint --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1290,14 +1480,19 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
+   - Files to read: `package.json`, `server/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client (`npm run build --workspace client`)
+   - Files to read: `package.json`, `client/package.json`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build (`npm run compose:build`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 4. [ ] Ensure docker compose starts (`npm run compose:up`)
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 5. [ ] Run client tests (`npm run test --workspace client`)
+   - Files to read: `client/package.json`, `client/src/test/`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
 
 #### Implementation notes
@@ -1491,6 +1686,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
    - Files to read: `playwright.config.ts`, `e2e/`
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
 5. [ ] Manually smoke-check the application in a headed browser (Playwright) and save screenshots to `./test-results/screenshots/`
+   - Files to read: `playwright.config.ts`, `e2e/` (the Story 19 e2e specs), `test-results/` (existing output folder)
    - Naming: each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and a short name
    - Suggested approach: run `npx playwright test e2e --headed` and use `page.screenshot(...)` in a temporary debug run or via `--debug` to capture before/after states
    - Docs (read before doing): Playwright screenshots https://playwright.dev/docs/screenshots

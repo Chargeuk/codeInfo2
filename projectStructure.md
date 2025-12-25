@@ -157,6 +157,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
+â”‚  â”œâ”€ chat-live-updates.spec.ts — Story 19 realtime e2e (cross-tab inflight snapshot/deltas, detach vs Stop, reconnect resubscribe ordering)
+â”‚  â”œâ”€ chat-bulk-actions.spec.ts — Story 19 bulk actions e2e (archive/restore/delete + confirmation)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
 â”‚  â”œâ”€ chat-tools-visibility.spec.ts — chat tool detail UX e2e (closed state, params, repo expansion, vector aggregation, errors, thinking spinner idle/tool-wait behaviour)
 â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)

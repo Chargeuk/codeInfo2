@@ -270,8 +270,8 @@ These findings are based on the current repository implementation and are includ
 
 ### 1. WebSocket foundation + in-flight registry (server)
 
-- Task Status: __completed__
-- Git Commits: __to_do__
+- Task Status: __done__
+- Git Commits: 2178cd1, ce19a70
 
 #### Overview
 

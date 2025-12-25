@@ -77,6 +77,14 @@ test('shows persistence banner and disables archive controls when mongo is down'
   render(<ChatPage />);
 
   expect(await screen.findByTestId('persistence-banner')).toBeInTheDocument();
-  const toggle = screen.getByTestId('conversation-archived-toggle');
-  expect(toggle).toBeDisabled();
+  expect(
+    await screen.findByText('Bulk actions disabled while history is unavailable.'),
+  ).toBeInTheDocument();
+  const selectAllInput = screen
+    .getByTestId('conversation-select-all')
+    .querySelector('input');
+  if (!selectAllInput) {
+    throw new Error('Expected select-all checkbox input');
+  }
+  expect(selectAllInput).toBeDisabled();
 });

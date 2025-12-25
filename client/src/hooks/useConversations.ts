@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  archiveConversation as apiArchiveConversation,
+  bulkArchiveConversations as apiBulkArchiveConversations,
+  bulkDeleteConversations as apiBulkDeleteConversations,
+  bulkRestoreConversations as apiBulkRestoreConversations,
+  restoreConversation as apiRestoreConversation,
+} from '../api/conversations';
 
 const serverBase =
   (typeof import.meta !== 'undefined' &&
@@ -16,9 +23,11 @@ export type ConversationSummary = {
   flags?: Record<string, unknown>;
 };
 
+export type ConversationArchivedFilter = 'active' | 'all' | 'archived';
+
 type State = {
   conversations: ConversationSummary[];
-  includeArchived: boolean;
+  archivedFilter: ConversationArchivedFilter;
   isLoading: boolean;
   isError: boolean;
   error?: string;
@@ -27,7 +36,10 @@ type State = {
   loadMore: () => Promise<void>;
   archive: (conversationId: string) => Promise<void>;
   restore: (conversationId: string) => Promise<void>;
-  setIncludeArchived: (include: boolean) => void;
+  bulkArchive: (conversationIds: string[]) => Promise<void>;
+  bulkRestore: (conversationIds: string[]) => Promise<void>;
+  bulkDelete: (conversationIds: string[]) => Promise<void>;
+  setArchivedFilter: (filter: ConversationArchivedFilter) => void;
 };
 
 type ApiResponse = {
@@ -40,7 +52,8 @@ const PAGE_SIZE = 20;
 export function useConversations(params?: { agentName?: string }): State {
   const agentName = params?.agentName;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archivedFilter, setArchivedFilter] =
+    useState<ConversationArchivedFilter>('active');
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,11 +86,12 @@ export function useConversations(params?: { agentName?: string }): State {
         console.info('[conversations] fetch start', {
           mode,
           agentName,
-          includeArchived,
+          archivedFilter,
           cursor: cursorRef.current,
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
-        if (includeArchived) search.set('archived', 'true');
+        if (archivedFilter === 'all') search.set('archived', 'true');
+        if (archivedFilter === 'archived') search.set('archived', 'only');
         if (agentName) search.set('agentName', agentName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
         if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
@@ -99,10 +113,7 @@ export function useConversations(params?: { agentName?: string }): State {
         cursorRef.current = data.nextCursor;
         setConversations((prev) => {
           const merged = mode === 'append' ? [...prev, ...items] : items;
-          const filtered = includeArchived
-            ? merged
-            : merged.filter((item) => !item.archived);
-          return dedupeAndSort(filtered);
+          return dedupeAndSort(merged);
         });
         console.info('[conversations] fetch success', {
           mode,
@@ -122,7 +133,7 @@ export function useConversations(params?: { agentName?: string }): State {
         setIsLoading(false);
       }
     },
-    [agentName, includeArchived, dedupeAndSort],
+    [agentName, archivedFilter, dedupeAndSort],
   );
 
   useEffect(() => {
@@ -132,7 +143,7 @@ export function useConversations(params?: { agentName?: string }): State {
     setHasMore(false);
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-  }, [fetchPage, includeArchived, agentName]);
+  }, [fetchPage, archivedFilter, agentName]);
 
   const refresh = useCallback(async () => {
     cursorRef.current = undefined;
@@ -154,22 +165,20 @@ export function useConversations(params?: { agentName?: string }): State {
                 ? { ...conv, archived }
                 : conv,
             )
-            .filter((conv) => (includeArchived ? true : !conv.archived)),
+            .filter((conv) => {
+              if (archivedFilter === 'all') return true;
+              if (archivedFilter === 'archived') return Boolean(conv.archived);
+              return !conv.archived;
+            }),
         ),
       );
     },
-    [dedupeAndSort, includeArchived],
+    [archivedFilter, dedupeAndSort],
   );
 
   const archive = useCallback(
     async (conversationId: string) => {
-      await fetch(
-        new URL(
-          `/conversations/${conversationId}/archive`,
-          serverBase,
-        ).toString(),
-        { method: 'POST' },
-      );
+      await apiArchiveConversation({ conversationId });
       mutateArchiveFlag(conversationId, true);
     },
     [mutateArchiveFlag],
@@ -177,22 +186,74 @@ export function useConversations(params?: { agentName?: string }): State {
 
   const restore = useCallback(
     async (conversationId: string) => {
-      await fetch(
-        new URL(
-          `/conversations/${conversationId}/restore`,
-          serverBase,
-        ).toString(),
-        { method: 'POST' },
-      );
+      await apiRestoreConversation({ conversationId });
       mutateArchiveFlag(conversationId, false);
     },
     [mutateArchiveFlag],
   );
 
+  const bulkArchive = useCallback(
+    async (conversationIds: string[]) => {
+      if (!conversationIds.length) return;
+      await apiBulkArchiveConversations({ conversationIds });
+      setConversations((prev) => {
+        const selected = new Set(conversationIds);
+        const updated = prev.map((conv) =>
+          selected.has(conv.conversationId) ? { ...conv, archived: true } : conv,
+        );
+        return dedupeAndSort(
+          updated.filter((conv) => {
+            if (archivedFilter === 'all') return true;
+            if (archivedFilter === 'archived') return Boolean(conv.archived);
+            return !conv.archived;
+          }),
+        );
+      });
+    },
+    [archivedFilter, dedupeAndSort],
+  );
+
+  const bulkRestore = useCallback(
+    async (conversationIds: string[]) => {
+      if (!conversationIds.length) return;
+      await apiBulkRestoreConversations({ conversationIds });
+      setConversations((prev) => {
+        const selected = new Set(conversationIds);
+        const updated = prev.map((conv) =>
+          selected.has(conv.conversationId)
+            ? { ...conv, archived: false }
+            : conv,
+        );
+        return dedupeAndSort(
+          updated.filter((conv) => {
+            if (archivedFilter === 'all') return true;
+            if (archivedFilter === 'archived') return Boolean(conv.archived);
+            return !conv.archived;
+          }),
+        );
+      });
+    },
+    [archivedFilter, dedupeAndSort],
+  );
+
+  const bulkDelete = useCallback(
+    async (conversationIds: string[]) => {
+      if (!conversationIds.length) return;
+      await apiBulkDeleteConversations({ conversationIds });
+      setConversations((prev) => {
+        const selected = new Set(conversationIds);
+        return dedupeAndSort(
+          prev.filter((conv) => !selected.has(conv.conversationId)),
+        );
+      });
+    },
+    [dedupeAndSort],
+  );
+
   return useMemo(
     () => ({
       conversations,
-      includeArchived,
+      archivedFilter,
       isLoading,
       isError,
       error,
@@ -201,11 +262,14 @@ export function useConversations(params?: { agentName?: string }): State {
       loadMore,
       archive,
       restore,
-      setIncludeArchived,
+      bulkArchive,
+      bulkRestore,
+      bulkDelete,
+      setArchivedFilter,
     }),
     [
       conversations,
-      includeArchived,
+      archivedFilter,
       isLoading,
       isError,
       error,
@@ -214,7 +278,10 @@ export function useConversations(params?: { agentName?: string }): State {
       loadMore,
       archive,
       restore,
-      setIncludeArchived,
+      bulkArchive,
+      bulkRestore,
+      bulkDelete,
+      setArchivedFilter,
     ],
   );
 }

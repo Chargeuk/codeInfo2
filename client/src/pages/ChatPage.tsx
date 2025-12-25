@@ -108,8 +108,8 @@ export default function ChatPage() {
 
   const {
     conversations,
-    includeArchived,
-    setIncludeArchived,
+    archivedFilter,
+    setArchivedFilter,
     isLoading: conversationsLoading,
     isError: conversationsError,
     error: conversationsErrorMessage,
@@ -118,6 +118,9 @@ export default function ChatPage() {
     refresh: refreshConversations,
     archive: archiveConversation,
     restore: restoreConversation,
+    bulkArchive,
+    bulkRestore,
+    bulkDelete,
   } = useConversations({ agentName: '__none__' });
 
   const {
@@ -362,12 +365,10 @@ export default function ChatPage() {
 
   const handleArchive = async (id: string) => {
     await archiveConversation(id);
-    void refreshConversations();
   };
 
   const handleRestore = async (id: string) => {
     await restoreConversation(id);
-    void refreshConversations();
   };
 
   const handleTranscriptScroll = () => {
@@ -789,12 +790,16 @@ export default function ChatPage() {
               isError={conversationsError}
               error={conversationsErrorMessage}
               hasMore={conversationsHasMore}
-              includeArchived={includeArchived}
+              archivedFilter={archivedFilter}
               disabled={persistenceUnavailable || persistenceLoading}
+              persistenceUnavailable={persistenceUnavailable}
               onSelect={handleSelectConversation}
-              onToggleArchived={setIncludeArchived}
+              onArchivedFilterChange={setArchivedFilter}
               onArchive={handleArchive}
               onRestore={handleRestore}
+              onBulkArchive={bulkArchive}
+              onBulkRestore={bulkRestore}
+              onBulkDelete={bulkDelete}
               onLoadMore={loadMoreConversations}
               onRefresh={refreshConversations}
               onRetry={refreshConversations}

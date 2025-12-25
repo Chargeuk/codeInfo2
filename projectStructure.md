@@ -49,7 +49,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ NavBar.tsx â€” top navigation AppBar/Tabs
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
-|     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
+|     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with 3-state filter, multi-select, bulk archive/restore/delete, and confirmation dialog
 |     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
@@ -66,7 +66,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
-|     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
+|     |  |- useConversations.ts ? conversation list infinite scroll + 3-state filter and single/bulk archive/restore/delete helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
 |     |  |- usePersistenceStatus.ts ? polls /health for mongoConnected banner flag
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
@@ -75,6 +75,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
+|     |  - conversations.ts ? client wrapper for conversation archive/restore + bulk endpoints
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
@@ -427,8 +428,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/integration/mcp-persistence-source.test.ts — MCP persistence adds source metadata and persists MCP runs
 - codex_agents/planning_agent/commands/improve_plan.json — long-form planning macro used to refine story plans
 - codex_agents/planning_agent/commands/smoke.json — smoke-test planning macro for validating `run_command` wiring
+- client/src/api/conversations.ts — client wrapper for conversation archive/restore + bulk endpoints
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations
+- client/src/test/chatSidebar.test.tsx — chat sidebar filter, multi-select, and bulk action UI behavior
 - client/src/test/agentsApi.workingFolder.payload.test.ts — Agents API wrapper includes `working_folder` only when non-empty
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useConversations } from '../hooks/useConversations';
 
 const originalFetch = global.fetch;
@@ -66,5 +66,34 @@ describe('useConversations source metadata', () => {
     const firstUrl =
       fetchCalls[0]?.[0]?.toString?.() ?? String(fetchCalls[0]?.[0]);
     expect(firstUrl).toContain('agentName=__none__');
+  });
+
+  it('defaults to Active filter (no archived param)', async () => {
+    const { result } = renderHook(() => useConversations());
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
+      .fetch.mock.calls;
+    const firstUrl =
+      fetchCalls[0]?.[0]?.toString?.() ?? String(fetchCalls[0]?.[0]);
+    expect(firstUrl).not.toContain('archived=');
+  });
+
+  it('uses archived=only when filter is Archived', async () => {
+    const { result } = renderHook(() => useConversations());
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    await act(async () => {
+      result.current.setArchivedFilter('archived');
+    });
+
+    await waitFor(() => {
+      const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
+        .fetch.mock.calls;
+      expect(fetchCalls.length).toBeGreaterThan(1);
+      const lastUrl =
+        fetchCalls.at(-1)?.[0]?.toString?.() ?? String(fetchCalls.at(-1)?.[0]);
+      expect(lastUrl).toContain('archived=only');
+    });
   });
 });

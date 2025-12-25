@@ -1,23 +1,32 @@
 import ArchiveIcon from '@mui/icons-material/Archive';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RestoreIcon from '@mui/icons-material/Restore';
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
+  Snackbar,
   Stack,
-  Switch,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -29,6 +38,8 @@ export type ConversationListItem = {
   archived?: boolean;
 };
 
+export type ConversationArchivedFilter = 'active' | 'all' | 'archived';
+
 type Props = {
   conversations: ConversationListItem[];
   selectedId?: string;
@@ -36,13 +47,17 @@ type Props = {
   isError: boolean;
   error?: string;
   hasMore: boolean;
-  includeArchived: boolean;
+  archivedFilter: ConversationArchivedFilter;
   disabled?: boolean;
+  persistenceUnavailable?: boolean;
   variant?: 'chat' | 'agents';
   onSelect: (conversationId: string) => void;
-  onToggleArchived: (include: boolean) => void;
-  onArchive: (conversationId: string) => void;
-  onRestore: (conversationId: string) => void;
+  onArchivedFilterChange: (filter: ConversationArchivedFilter) => void;
+  onArchive: (conversationId: string) => Promise<void> | void;
+  onRestore: (conversationId: string) => Promise<void> | void;
+  onBulkArchive: (conversationIds: string[]) => Promise<void> | void;
+  onBulkRestore: (conversationIds: string[]) => Promise<void> | void;
+  onBulkDelete: (conversationIds: string[]) => Promise<void> | void;
   onLoadMore: () => Promise<void> | void;
   onRefresh: () => void;
   onRetry: () => void;
@@ -62,17 +77,31 @@ export function ConversationList({
   isError,
   error,
   hasMore,
-  includeArchived,
+  archivedFilter,
   disabled,
+  persistenceUnavailable,
   variant = 'chat',
   onSelect,
-  onToggleArchived,
+  onArchivedFilterChange,
   onArchive,
   onRestore,
+  onBulkArchive,
+  onBulkRestore,
+  onBulkDelete,
   onLoadMore,
   onRefresh,
   onRetry,
 }: Props) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [snackbar, setSnackbar] = useState<
+    | {
+        severity: 'success' | 'error';
+        message: string;
+      }
+    | null
+  >(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
   const sorted = useMemo(
     () =>
       [...conversations].sort((a, b) => {
@@ -83,6 +112,89 @@ export function ConversationList({
     [conversations],
   );
 
+  const busy = Boolean(disabled || isLoading);
+  const visibleIds = useMemo(
+    () => sorted.map((c) => c.conversationId),
+    [sorted],
+  );
+
+  useEffect(() => {
+    const visible = new Set(visibleIds);
+    setSelectedIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visibleIds]);
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectionCount = selectedIds.size;
+  const allSelected = visibleIds.length > 0 && selectionCount === visibleIds.length;
+  const indeterminate = selectionCount > 0 && selectionCount < visibleIds.length;
+
+  const toggleOne = (conversationId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(conversationId)) next.delete(conversationId);
+      else next.add(conversationId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (busy) return;
+    setSelectedIds((prev) => {
+      if (visibleIds.length === 0) return prev;
+      if (prev.size === visibleIds.length) return new Set();
+      return new Set(visibleIds);
+    });
+  };
+
+  const handleBulkArchive = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    try {
+      await onBulkArchive(ids);
+      clearSelection();
+      setSnackbar({ severity: 'success', message: `Archived ${ids.length} conversation(s).` });
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk archive failed.' });
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    try {
+      await onBulkRestore(ids);
+      clearSelection();
+      setSnackbar({ severity: 'success', message: `Restored ${ids.length} conversation(s).` });
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk restore failed.' });
+    }
+  };
+
+  const confirmBulkDelete = () => {
+    if (!selectedIds.size) return;
+    setDeleteOpen(true);
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    try {
+      await onBulkDelete(ids);
+      clearSelection();
+      setDeleteOpen(false);
+      setSnackbar({ severity: 'success', message: `Deleted ${ids.length} conversation(s).` });
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk delete failed.' });
+    }
+  };
+
   return (
     <Stack spacing={1} sx={{ height: '100%' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -91,24 +203,12 @@ export function ConversationList({
         </Typography>
         {variant === 'chat' && (
           <Stack direction="row" spacing={1} alignItems="center">
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <Typography variant="caption" color="text.secondary">
-                Show archived
-              </Typography>
-              <Switch
-                size="small"
-                checked={includeArchived}
-                onChange={(event) => onToggleArchived(event.target.checked)}
-                inputProps={{ 'data-testid': 'conversation-archived-toggle' }}
-                disabled={disabled}
-              />
-            </Stack>
             <Tooltip title="Refresh list">
               <span>
                 <IconButton
                   size="small"
                   onClick={onRefresh}
-                  disabled={disabled}
+                  disabled={busy}
                   aria-label="Refresh conversations"
                   data-testid="conversation-refresh"
                 >
@@ -119,6 +219,85 @@ export function ConversationList({
           </Stack>
         )}
       </Stack>
+
+      {variant === 'chat' && (
+        <Stack spacing={1}>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={archivedFilter}
+            onChange={(_, value) => {
+              if (!value) return;
+              clearSelection();
+              setDeleteOpen(false);
+              onArchivedFilterChange(value as ConversationArchivedFilter);
+            }}
+            aria-label="Conversation filter"
+            disabled={busy}
+            data-testid="conversation-filter"
+          >
+            <ToggleButton value="active">Active</ToggleButton>
+            <ToggleButton value="all">Active & Archived</ToggleButton>
+            <ToggleButton value="archived">Archived</ToggleButton>
+          </ToggleButtonGroup>
+
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Checkbox
+              inputProps={{ 'aria-label': 'Select all conversations' }}
+              checked={allSelected}
+              indeterminate={indeterminate}
+              onChange={handleSelectAll}
+              disabled={busy || visibleIds.length === 0}
+              data-testid="conversation-select-all"
+              size="small"
+            />
+            <Typography variant="body2" color="text.secondary">
+              {selectionCount} selected
+            </Typography>
+
+            {archivedFilter === 'archived' ? (
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => void handleBulkRestore()}
+                  disabled={busy || selectionCount === 0}
+                  data-testid="conversation-bulk-restore"
+                >
+                  Restore selected
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  onClick={confirmBulkDelete}
+                  disabled={busy || selectionCount === 0}
+                  startIcon={<DeleteForeverIcon fontSize="small" />}
+                  data-testid="conversation-bulk-delete"
+                >
+                  Delete selected
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => void handleBulkArchive()}
+                disabled={busy || selectionCount === 0}
+                data-testid="conversation-bulk-archive"
+              >
+                Archive selected
+              </Button>
+            )}
+
+            {persistenceUnavailable ? (
+              <Typography variant="caption" color="text.secondary">
+                Bulk actions disabled while history is unavailable.
+              </Typography>
+            ) : null}
+          </Stack>
+        </Stack>
+      )}
 
       {isError && (
         <Alert
@@ -162,7 +341,7 @@ export function ConversationList({
         ) : (
           <List dense disablePadding sx={{ flex: 1 }}>
             {sorted.map((conversation) => {
-              const selected = selectedId === conversation.conversationId;
+              const isActive = selectedId === conversation.conversationId;
               return (
                 <ListItem
                   key={conversation.conversationId}
@@ -174,10 +353,19 @@ export function ConversationList({
                           <IconButton
                             edge="end"
                             size="small"
-                            onClick={() =>
-                              onRestore(conversation.conversationId)
-                            }
-                            disabled={disabled}
+                            onClick={() => {
+                              void Promise.resolve(
+                                onRestore(conversation.conversationId),
+                              ).catch((err) => {
+                                setSnackbar({
+                                  severity: 'error',
+                                  message:
+                                    (err as Error).message ||
+                                    'Failed to restore conversation.',
+                                });
+                              });
+                            }}
+                            disabled={busy}
                             data-testid="conversation-restore"
                             aria-label="Restore conversation"
                           >
@@ -191,10 +379,19 @@ export function ConversationList({
                           <IconButton
                             edge="end"
                             size="small"
-                            onClick={() =>
-                              onArchive(conversation.conversationId)
-                            }
-                            disabled={disabled}
+                            onClick={() => {
+                              void Promise.resolve(
+                                onArchive(conversation.conversationId),
+                              ).catch((err) => {
+                                setSnackbar({
+                                  severity: 'error',
+                                  message:
+                                    (err as Error).message ||
+                                    'Failed to archive conversation.',
+                                });
+                              });
+                            }}
+                            disabled={busy}
                             data-testid="conversation-archive"
                             aria-label="Archive conversation"
                           >
@@ -206,19 +403,33 @@ export function ConversationList({
                   }
                 >
                   <ListItemButton
-                    selected={selected}
+                    selected={isActive}
                     onClick={() => onSelect(conversation.conversationId)}
-                    disabled={disabled}
+                    disabled={busy}
                     data-testid="conversation-row"
                     sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}
                   >
+                    {variant === 'chat' && (
+                      <Checkbox
+                        size="small"
+                        checked={selectedIds.has(conversation.conversationId)}
+                        disabled={busy}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() => toggleOne(conversation.conversationId)}
+                        inputProps={{
+                          'aria-label': `Select ${conversation.title || 'conversation'}`,
+                        }}
+                        data-testid="conversation-select"
+                        sx={{ p: 0.5, mr: 1 }}
+                      />
+                    )}
                     <ListItemText
                       disableTypography
                       primary={
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Typography
                             variant="body2"
-                            fontWeight={selected ? 700 : 600}
+                            fontWeight={isActive ? 700 : 600}
                             noWrap
                             data-testid="conversation-title"
                             sx={{ maxWidth: '14rem' }}
@@ -273,7 +484,7 @@ export function ConversationList({
             size="small"
             variant="text"
             onClick={() => onLoadMore()}
-            disabled={disabled || isLoading || !hasMore}
+            disabled={busy || !hasMore}
             data-testid="conversation-load-more"
           >
             {hasMore ? 'Load more' : 'No more'}
@@ -289,6 +500,47 @@ export function ConversationList({
           )}
         </Stack>
       </Box>
+
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        data-testid="conversation-delete-dialog"
+      >
+        <DialogTitle>Delete conversations permanently?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently delete {selectionCount} archived conversation(s).
+            This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void handleBulkDelete()}
+            data-testid="conversation-delete-confirm"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={Boolean(snackbar)}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(null)}
+      >
+        {snackbar ? (
+          <Alert
+            severity={snackbar.severity}
+            onClose={() => setSnackbar(null)}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        ) : null}
+      </Snackbar>
     </Stack>
   );
 }

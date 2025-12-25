@@ -757,7 +757,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 8. [x] Manual Playwright-MCP check (Task 1 focus: WS connect + inflight events + cancellation semantics)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
-     - Start the stack and open http://localhost:5001.
+     - Start the stack and open http://host.docker.internal:5001.
      - In Tab A, start a chat run; in Tab B, open the same conversation and confirm Tab B receives an initial catch-up snapshot then continues receiving deltas.
      - Click Stop in Tab A and confirm cancellation propagates to other tabs/viewers of that conversation.
      - Navigate away in Tab B (detach) and confirm it does not cancel the in-flight run.
@@ -1102,7 +1102,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 8. [x] Manual Playwright-MCP check (Task 2 focus: bulk archive/restore/delete semantics + WS list updates)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
-     - Start the stack and open http://localhost:5001.
+     - Start the stack and open http://host.docker.internal:5001.
      - In `Active` mode, create at least 2 conversations, then bulk-archive them and confirm they disappear from `Active` and appear in `Archived` views.
      - Bulk-restore from the `Archived` view and confirm they return to `Active`.
      - Attempt permanent delete on a non-archived conversation and confirm the server rejects it (no partial deletes).
@@ -1142,7 +1142,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 
 ### 3. Conversation sidebar filter + multi-select + bulk actions (client)
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview
@@ -1167,7 +1167,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 #### Subtasks
 
-1. [ ] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+1. [x] Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/usePersistenceStatus.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/components/ingest/RootsTable.tsx` (checkbox multi-select + bulk action toolbar + indeterminate select-all)
    - Note: the existing chat sidebar is already implemented in `client/src/components/chat/ConversationList.tsx` using MUI `List` + a `Switch` filter; extend/refactor this component rather than introducing a new sidebar list implementation
    - Docs (read before coding):
@@ -1176,118 +1176,118 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
      - Dialogs: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
      - ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
      - React state/effects: https://react.dev/learn
-2. [ ] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
+2. [x] Implement 3-state filter UI (`Active`, `Active & Archived`, `Archived`) and ensure selection clears on filter change
    - Files to edit: `client/src/components/chat/ConversationList.tsx`
    - Docs (read before coding):
      - ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
      - React state: https://react.dev/learn/state-a-components-memory
    - Critical constraints (do not skip): selection must clear when switching the filter so bulk actions cannot apply to “hidden” items
-3. [ ] Refactor the conversations list fetch logic to support all 3 filter modes (Active default, `archived=true`, `archived=only`) without breaking pagination
+3. [x] Refactor the conversations list fetch logic to support all 3 filter modes (Active default, `archived=true`, `archived=only`) without breaking pagination
    - Files to edit: `client/src/hooks/useConversations.ts`
    - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
    - Critical constraints (do not skip): do not do client-side archived filtering for archived-only mode because it breaks cursor pagination
-4. [ ] Add checkbox multi-select per conversation row and an indeterminate select-all control for the current view (reuse RootsTable patterns)
+4. [x] Add checkbox multi-select per conversation row and an indeterminate select-all control for the current view (reuse RootsTable patterns)
    - Files to edit: `client/src/components/chat/ConversationList.tsx`
    - Files to read: `client/src/components/ingest/RootsTable.tsx` (indeterminate select-all + selection set patterns)
    - Docs (read before coding): Checkboxes https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md, Lists https://llms.mui.com/material-ui/6.4.12/components/lists.md
    - Critical constraints (do not skip): multi-select must not break single-select “open conversation” behavior
-5. [ ] Add a bulk action toolbar with context-appropriate actions:
+5. [x] Add a bulk action toolbar with context-appropriate actions:
    - Active / Active & Archived: bulk archive
    - Archived: bulk restore + bulk permanent delete
    - Files to edit: `client/src/components/chat/ConversationList.tsx`
    - Docs (read before coding): MUI Toolbar https://llms.mui.com/material-ui/6.4.12/api/toolbar.md
    - Critical constraints (do not skip): only show actions that are valid for the current filter view
-6. [ ] Implement a permanent delete confirmation dialog (explicit user confirmation before calling the server)
+6. [x] Implement a permanent delete confirmation dialog (explicit user confirmation before calling the server)
    - Files to edit: `client/src/components/chat/ConversationList.tsx` (or extract a small dialog component under `client/src/components/chat/`)
    - Docs (read before coding): Dialogs https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
    - Critical constraints (do not skip): deleting must require explicit confirmation every time (no “silent delete”)
-7. [ ] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
+7. [x] Ensure selection is retained across sidebar live updates (upserts/resorts) and that bulk actions do not force-refresh the currently visible transcript mid-view
    - Files to edit: `client/src/components/chat/ConversationList.tsx`, `client/src/pages/ChatPage.tsx`
    - Docs (read before coding): React state https://react.dev/learn/state-a-components-memory
    - Critical constraints (do not skip): selection should be keyed by `conversationId` (stable) not by array index
-8. [ ] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure all-or-nothing rejection leaves UI unchanged)
+8. [x] Add API helpers for bulk endpoints and wire optimistic UI updates + toast/error handling (ensure all-or-nothing rejection leaves UI unchanged)
    - Files to create: `client/src/api/conversations.ts`
    - Files to edit: `client/src/hooks/useConversations.ts` (expose bulk helpers or call helpers from Chat page)
    - Files to edit: `client/src/pages/ChatPage.tsx` (trigger bulk ops and surface success/error)
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Note (repo reality): there is no shared “toast” helper today; implement a simple MUI `Snackbar`+`Alert` in Chat page or ConversationList if you need transient confirmations
-9. [ ] Confirm UX for “open conversation included in bulk action”:
+9. [x] Confirm UX for “open conversation included in bulk action”:
    - conversation is removed/moved in the sidebar, toast confirms action
    - transcript remains stable (no forced refresh) until user navigates
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversationTurns.ts`
    - Docs (read before coding): React state https://react.dev/learn
    - Critical constraints (do not skip): do not automatically navigate away or clear the transcript when the selected conversation is archived/deleted by a bulk action
-10. [ ] Disable bulk actions and show clear messaging when `mongoConnected === false`
+10. [x] Disable bulk actions and show clear messaging when `mongoConnected === false`
    - Files to edit: `client/src/hooks/usePersistenceStatus.ts`, `client/src/components/chat/ConversationList.tsx`
    - Docs (read before coding): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Critical constraints (do not skip): when persistence is disabled, bulk operations must be disabled in the UI (and ideally avoided on the server too)
-11. [ ] Client RTL test (Jest + Testing Library): filter default is `Active`
+11. [x] Client RTL test (Jest + Testing Library): filter default is `Active`
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/components/chat/ConversationList.tsx` (UI under test), `client/src/test/chatSidebar.test.tsx` (existing harness)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure initial filter state is `Active` and archived conversations are not shown
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
-12. [ ] Client RTL test (Jest + Testing Library): changing filter clears selection
+12. [x] Client RTL test (Jest + Testing Library): changing filter clears selection
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/components/chat/ConversationList.tsx`, `client/src/test/chatSidebar.test.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: prevent bulk actions from applying to “hidden” conversations after filter changes
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
-13. [ ] Client RTL test (Jest + Testing Library): Archived view uses `archived=only` query
+13. [x] Client RTL test (Jest + Testing Library): Archived view uses `archived=only` query
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/hooks/useConversations.ts` (query building), `client/src/test/useConversations.source.test.ts` (hook test patterns)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure the client fetches archived-only server-side (no client-side filtering that would break pagination)
    - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Jest (Context7) `/websites/jestjs_io_30_0`
-14. [ ] Client RTL test (Jest + Testing Library): Chat sidebar list request includes `agentName=__none__`
+14. [x] Client RTL test (Jest + Testing Library): Chat sidebar list request includes `agentName=__none__`
    - Files to edit/create: `client/src/test/chatSidebar.agentFilterQuery.test.tsx` (new) or extend `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/pages/ChatPage.tsx` (Chat uses `agentName=__none__`), `client/src/hooks/useConversations.ts` (query params)
    - Location: `client/src/test/chatSidebar.agentFilterQuery.test.tsx` (new) or extend `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure the Chat sidebar continues to exclude agent conversations by using the server-side `agentName=__none__` filter
    - Docs (read before coding): URLSearchParams https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
-15. [ ] Client RTL test (Jest + Testing Library): checkbox selection + select-all + indeterminate state
+15. [x] Client RTL test (Jest + Testing Library): checkbox selection + select-all + indeterminate state
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/components/ingest/RootsTable.tsx` (indeterminate select-all pattern), `client/src/components/chat/ConversationList.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify multi-select behavior matches RootsTable patterns and stays consistent when list re-renders
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/, MUI Checkbox https://llms.mui.com/material-ui/6.4.12/components/checkboxes.md
-16. [ ] Client RTL test (Jest + Testing Library): bulk archive success updates list and shows confirmation
+16. [x] Client RTL test (Jest + Testing Library): bulk archive success updates list and shows confirmation
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/api/conversations.ts` (bulk API helper), `client/src/components/chat/ConversationList.tsx` (bulk UI)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify bulk archive action calls the bulk endpoint and the UI updates for the selected items
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, MUI Snackbar https://llms.mui.com/material-ui/6.4.12/components/snackbars.md
-17. [ ] Client RTL test (Jest + Testing Library): bulk action rejection leaves UI unchanged
+17. [x] Client RTL test (Jest + Testing Library): bulk action rejection leaves UI unchanged
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/api/conversations.ts`, `client/src/test/chatSidebar.test.tsx`
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: verify all-or-nothing failures do not partially update list state or clear selection
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-18. [ ] Client RTL test (Jest + Testing Library): permanent delete requires confirmation dialog
+18. [x] Client RTL test (Jest + Testing Library): permanent delete requires confirmation dialog
    - Files to edit/create: `client/src/test/chatSidebar.test.tsx`
    - Files to read: `client/src/components/chat/ConversationList.tsx` (dialog wiring)
    - Location: `client/src/test/chatSidebar.test.tsx`
    - Purpose: ensure delete is never triggered without explicit user confirmation
    - Docs (read before coding): MUI Dialog https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
-19. [ ] Client RTL test (Jest + Testing Library): open conversation included in bulk action does not clear transcript
+19. [x] Client RTL test (Jest + Testing Library): open conversation included in bulk action does not clear transcript
    - Files to edit/create: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
    - Files to read: `client/src/pages/ChatPage.tsx` (selection + transcript), `client/src/hooks/useConversationTurns.ts` (transcript fetch)
    - Location: `client/src/test/chatPage.provider.conversationSelection.test.tsx`
    - Purpose: ensure bulk archive/delete does not force-refresh or clear the transcript mid-view
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-20. [ ] Client RTL test (Jest + Testing Library): persistence gating disables bulk controls
+20. [x] Client RTL test (Jest + Testing Library): persistence gating disables bulk controls
    - Files to edit/create: `client/src/test/chatPersistenceBanner.test.tsx`
    - Files to read: `client/src/hooks/usePersistenceStatus.ts` (health fetch), `client/src/components/chat/ConversationList.tsx` (disabled UI state)
    - Location: `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure when `mongoConnected === false` the bulk UI is disabled and a clear message is shown
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
-21. [ ] Update docs: `design.md` (sidebar multi-select + 3-state filter UX flow as Mermaid diagrams)
+21. [x] Update docs: `design.md` (sidebar multi-select + 3-state filter UX flow as Mermaid diagrams)
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid diagrams describing the sidebar filter states, selection model, bulk actions, and confirmation flow
    - Purpose: document the client-side sidebar interaction flow (filter state, selection state, confirmation dialog, and bulk action calls) as Mermaid diagrams
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-22. [ ] Update docs: `projectStructure.md` (new client sidebar/bulk files and tests)
+22. [x] Update docs: `projectStructure.md` (new client sidebar/bulk files and tests)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: add every new/moved/removed client file created in Task 3 (sidebar 3-state filter + multi-select + bulk actions + tests)
@@ -1303,38 +1303,38 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
    - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
    - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Files to read: `server/package.json`, `server/src/test/`
    - Command: `npm run test --workspace server`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
    - Command: `npm run test --workspace client`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 8. [ ] Manual Playwright-MCP check (Task 3 focus: sidebar filter + multi-select + bulk UI behavior)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
-     - Start the stack and open http://localhost:5001.
+     - Start the stack and open http://host.docker.internal:5001.
      - Verify the 3-state filter changes the list correctly and clears selection when switching filter.
      - Verify multi-select: select-all/indeterminate behavior, and that bulk action buttons enable/disable correctly.
      - Verify permanent delete shows a confirmation dialog and never deletes without explicit confirmation.
@@ -1347,7 +1347,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 #### Implementation notes
 
-- 
+- 2025-12-25: Marked Task 3 as __in_progress__ and reviewed existing client chat sidebar, conversations hook, and persistence status patterns.
 
 ---
 
@@ -1635,7 +1635,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 8. [ ] Manual Playwright-MCP check (Task 4 focus: WS reconnect + transcript subscription + Stop vs detach)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
-     - Start the stack and open http://localhost:5001.
+     - Start the stack and open http://host.docker.internal:5001.
      - Verify sidebar live updates: create/archive/restore and confirm the list updates without refresh.
      - Verify transcript live updates: in Tab A run a chat, in Tab B view the same conversation and confirm it catches up and streams deltas.
      - Verify reconnect safety: reload during/after a run and confirm REST refresh happens before WS deltas apply (no duplicate/out-of-order transcript).
@@ -1850,7 +1850,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 8. [ ] Manual Playwright-MCP check (final verification: Story 19 acceptance + broad regression pass)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports), `design.md` (flows), `e2e/` (Story 19 specs)
    - Manual checks (minimum):
-     - Start the stack and open http://localhost:5001.
+     - Start the stack and open http://host.docker.internal:5001.
      - Verify archived-only filter mode works and selection clears on filter change.
      - Verify bulk archive/restore/delete flows end-to-end, including delete confirmation and no partial failures.
      - Verify 2-tab behavior: Tab B can subscribe mid-run, sees snapshot then continues receiving deltas.

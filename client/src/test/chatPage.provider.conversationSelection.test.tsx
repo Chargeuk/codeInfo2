@@ -215,4 +215,37 @@ describe('Chat page provider follows selected conversation', () => {
     const transcript = await screen.findByTestId('chat-transcript');
     expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
   });
+
+  it('keeps transcript stable when the open conversation is bulk-archived', async () => {
+    mockApi();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Codex conversation');
+
+    const codexRowTitle = screen.getByText('Codex conversation');
+    const codexRow = codexRowTitle.closest('[data-testid="conversation-row"]');
+    if (!codexRow) {
+      throw new Error('Codex conversation row not found');
+    }
+    await userEvent.click(codexRow);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
+
+    const checkboxInput = within(codexRow)
+      .getByTestId('conversation-select')
+      .querySelector('input');
+    if (!checkboxInput) {
+      throw new Error('Conversation checkbox input not found');
+    }
+    await userEvent.click(checkboxInput);
+    await userEvent.click(screen.getByTestId('conversation-bulk-archive'));
+
+    await waitFor(() =>
+      expect(screen.queryByText('Codex conversation')).not.toBeInTheDocument(),
+    );
+
+    expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
+  });
 });

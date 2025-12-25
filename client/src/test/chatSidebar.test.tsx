@@ -1,11 +1,23 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { useState } from 'react';
+import { jest } from '@jest/globals';
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
+import { useMemo, useState } from 'react';
 import ConversationList, {
+  type ConversationArchivedFilter,
   type ConversationListItem,
 } from '../components/chat/ConversationList';
 
-function Wrapper() {
-  const [conversations, setConversations] = useState<ConversationListItem[]>([
+function Wrapper(params?: {
+  bulkArchiveReject?: boolean;
+  bulkDeleteSpy?: (ids: string[]) => void;
+}) {
+  const [allConversations, setAllConversations] = useState<ConversationListItem[]>([
     {
       conversationId: 'c1',
       title: 'First conversation',
@@ -14,22 +26,46 @@ function Wrapper() {
       lastMessageAt: '2025-01-02T00:00:00Z',
       archived: false,
     },
+    {
+      conversationId: 'c3',
+      title: 'Second conversation',
+      provider: 'lmstudio',
+      model: 'm1',
+      lastMessageAt: '2025-01-03T00:00:00Z',
+      archived: false,
+    },
+    {
+      conversationId: 'c2',
+      title: 'Archived conversation',
+      provider: 'lmstudio',
+      model: 'm1',
+      lastMessageAt: '2025-01-01T00:00:00Z',
+      archived: true,
+    },
   ]);
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archivedFilter, setArchivedFilter] = useState<ConversationArchivedFilter>('active');
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+
+  const conversations = useMemo(() => {
+    if (archivedFilter === 'all') return allConversations;
+    if (archivedFilter === 'archived') {
+      return allConversations.filter((c) => c.archived);
+    }
+    return allConversations.filter((c) => !c.archived);
+  }, [allConversations, archivedFilter]);
 
   const loadMore = async () => {
     setLoading(true);
-    setConversations((prev) => [
+    setAllConversations((prev) => [
       ...prev,
       {
-        conversationId: 'c2',
-        title: 'Second conversation',
+        conversationId: 'c4',
+        title: 'Third conversation',
         provider: 'lmstudio',
         model: 'm1',
-        lastMessageAt: '2025-01-01T00:00:00Z',
+        lastMessageAt: '2025-01-03T00:00:00Z',
         archived: false,
       },
     ]);
@@ -37,34 +73,55 @@ function Wrapper() {
     setLoading(false);
   };
 
-  const archive = (id: string) => {
-    setConversations((prev) =>
+  const archive = async (id: string) => {
+    setAllConversations((prev) =>
       prev.map((c) => (c.conversationId === id ? { ...c, archived: true } : c)),
     );
   };
 
-  const restore = (id: string) => {
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.conversationId === id ? { ...c, archived: false } : c,
-      ),
+  const restore = async (id: string) => {
+    setAllConversations((prev) =>
+      prev.map((c) => (c.conversationId === id ? { ...c, archived: false } : c)),
     );
+  };
+
+  const bulkArchive = async (ids: string[]) => {
+    if (params?.bulkArchiveReject) {
+      throw new Error('Server rejected bulk archive');
+    }
+    setAllConversations((prev) =>
+      prev.map((c) => (ids.includes(c.conversationId) ? { ...c, archived: true } : c)),
+    );
+  };
+
+  const bulkRestore = async (ids: string[]) => {
+    setAllConversations((prev) =>
+      prev.map((c) => (ids.includes(c.conversationId) ? { ...c, archived: false } : c)),
+    );
+  };
+
+  const bulkDelete = async (ids: string[]) => {
+    params?.bulkDeleteSpy?.(ids);
+    setAllConversations((prev) => prev.filter((c) => !ids.includes(c.conversationId)));
   };
 
   return (
     <ConversationList
       conversations={conversations}
-      selectedId={selected}
+      selectedId={selectedId}
       isLoading={loading}
       isError={false}
       error={undefined}
       hasMore={hasMore}
-      includeArchived={includeArchived}
+      archivedFilter={archivedFilter}
       disabled={false}
-      onSelect={setSelected}
-      onToggleArchived={setIncludeArchived}
+      onSelect={setSelectedId}
+      onArchivedFilterChange={setArchivedFilter}
       onArchive={archive}
       onRestore={restore}
+      onBulkArchive={bulkArchive}
+      onBulkRestore={bulkRestore}
+      onBulkDelete={bulkDelete}
       onLoadMore={loadMore}
       onRefresh={() => undefined}
       onRetry={() => undefined}
@@ -72,23 +129,121 @@ function Wrapper() {
   );
 }
 
-test('conversation list renders, loads more, and archives/restores', async () => {
+test('conversation list renders and loads more', async () => {
   render(<Wrapper />);
 
   expect(await screen.findByText('First conversation')).toBeInTheDocument();
+  expect(await screen.findByText('Second conversation')).toBeInTheDocument();
+  expect(screen.queryByText('Archived conversation')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByTestId('conversation-load-more'));
-  expect(await screen.findByText('Second conversation')).toBeInTheDocument();
+  expect(await screen.findByText('Third conversation')).toBeInTheDocument();
+});
 
-  fireEvent.click(screen.getAllByTestId('conversation-archive')[0]);
-  expect(
-    await screen.findByTestId('conversation-archived-chip'),
-  ).toBeInTheDocument();
+test('changing filter clears selection', async () => {
+  render(<Wrapper />);
 
-  const toggle = screen.getByTestId('conversation-archived-toggle');
-  fireEvent.click(toggle);
-  fireEvent.click(screen.getByTestId('conversation-restore'));
-  expect(
-    screen.queryByTestId('conversation-archived-chip'),
-  ).not.toBeInTheDocument();
+  expect(await screen.findByText('First conversation')).toBeInTheDocument();
+  const firstCheckboxInput = screen
+    .getAllByTestId('conversation-select')[0]
+    .querySelector('input');
+  if (!firstCheckboxInput) throw new Error('Checkbox input not found');
+  fireEvent.click(firstCheckboxInput);
+  expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+  const filter = screen.getByTestId('conversation-filter');
+  fireEvent.click(within(filter).getByText('Archived'));
+  expect(screen.getByText('0 selected')).toBeInTheDocument();
+});
+
+test('select-all checkbox supports checked and indeterminate', async () => {
+  render(<Wrapper />);
+
+  expect(await screen.findByText('First conversation')).toBeInTheDocument();
+  const selectAll = screen.getByTestId('conversation-select-all')
+    .querySelector('input');
+  if (!selectAll) throw new Error('Select-all input not found');
+
+  fireEvent.click(selectAll);
+  expect(screen.getByText('2 selected')).toBeInTheDocument();
+  expect((selectAll as HTMLInputElement).checked).toBe(true);
+
+  const firstCheckboxInput = screen
+    .getAllByTestId('conversation-select')[0]
+    .querySelector('input');
+  if (!firstCheckboxInput) throw new Error('Checkbox input not found');
+  fireEvent.click(firstCheckboxInput);
+  expect(screen.getByText('1 selected')).toBeInTheDocument();
+  expect((selectAll as HTMLInputElement).checked).toBe(false);
+  expect((selectAll as HTMLInputElement).getAttribute('data-indeterminate')).toBe(
+    'true',
+  );
+});
+
+test('bulk archive success updates list and shows snackbar', async () => {
+  render(<Wrapper />);
+
+  expect(await screen.findByText('First conversation')).toBeInTheDocument();
+  const firstRowTitle = screen.getByText('First conversation');
+  const firstRow = firstRowTitle.closest('[data-testid="conversation-row"]');
+  if (!firstRow) throw new Error('Conversation row not found');
+  const firstCheckboxInput = within(firstRow)
+    .getByTestId('conversation-select')
+    .querySelector('input');
+  if (!firstCheckboxInput) throw new Error('Checkbox input not found');
+  fireEvent.click(firstCheckboxInput);
+  fireEvent.click(screen.getByTestId('conversation-bulk-archive'));
+
+  expect(await screen.findByText(/Archived 1 conversation/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByText('First conversation')).not.toBeInTheDocument(),
+  );
+});
+
+test('bulk action rejection leaves UI unchanged and retains selection', async () => {
+  render(<Wrapper bulkArchiveReject />);
+
+  expect(await screen.findByText('First conversation')).toBeInTheDocument();
+  const firstRowTitle = screen.getByText('First conversation');
+  const firstRow = firstRowTitle.closest('[data-testid="conversation-row"]');
+  if (!firstRow) throw new Error('Conversation row not found');
+  const firstCheckboxInput = within(firstRow)
+    .getByTestId('conversation-select')
+    .querySelector('input');
+  if (!firstCheckboxInput) throw new Error('Checkbox input not found');
+  fireEvent.click(firstCheckboxInput);
+  fireEvent.click(screen.getByTestId('conversation-bulk-archive'));
+
+  expect(await screen.findByText('Server rejected bulk archive')).toBeInTheDocument();
+  expect(screen.getByText('1 selected')).toBeInTheDocument();
+  expect(screen.getByText('First conversation')).toBeInTheDocument();
+});
+
+test('permanent delete requires explicit confirmation', async () => {
+  const bulkDeleteSpy = jest.fn();
+  render(<Wrapper bulkDeleteSpy={bulkDeleteSpy} />);
+
+  const filter = screen.getByTestId('conversation-filter');
+  fireEvent.click(within(filter).getByText('Archived'));
+  expect(await screen.findByText('Archived conversation')).toBeInTheDocument();
+
+  const archivedCheckboxInput = screen
+    .getByTestId('conversation-select')
+    .querySelector('input');
+  if (!archivedCheckboxInput) throw new Error('Checkbox input not found');
+  fireEvent.click(archivedCheckboxInput);
+  fireEvent.click(screen.getByTestId('conversation-bulk-delete'));
+
+  expect(screen.getByTestId('conversation-delete-dialog')).toBeInTheDocument();
+  expect(bulkDeleteSpy).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByText('Cancel'));
+  await waitForElementToBeRemoved(() =>
+    screen.queryByTestId('conversation-delete-dialog'),
+  );
+  expect(bulkDeleteSpy).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByTestId('conversation-bulk-delete'));
+  fireEvent.click(screen.getByTestId('conversation-delete-confirm'));
+  expect(bulkDeleteSpy).toHaveBeenCalledWith(['c2']);
 });

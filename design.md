@@ -102,6 +102,59 @@ flowchart TB
   Commit -->|after commit| Ws[WsHub sidebar events\nconversation_upsert/delete]
 ```
 
+### Chat sidebar bulk UX (client)
+
+- Sidebar filter states map 1:1 to server list modes (no client-side archived-only filtering so pagination stays correct):
+  - `Active` -> `GET /conversations` (default)
+  - `Active & Archived` -> `GET /conversations?archived=true`
+  - `Archived` -> `GET /conversations?archived=only`
+- Selection model:
+  - Stored as a `Set<conversationId>` so it survives resorting/upserts.
+  - Cleared whenever the filter changes (prevents bulk actions applying to hidden items).
+  - Pruned when an item disappears from the current view (for example after archiving in `Active`).
+- Bulk actions are view-dependent:
+  - `Active` / `Active & Archived`: **Archive selected**
+  - `Archived`: **Restore selected**, **Delete selected** (requires confirmation dialog)
+- Persistence gating:
+  - When `/health` reports `mongoConnected=false`, the sidebar bulk controls are disabled and messaging clarifies why.
+
+```mermaid
+flowchart TB
+  Filter[Chat sidebar filter] -->|Active| Q1[GET /conversations]
+  Filter -->|Active & Archived| Q2[GET /conversations?archived=true]
+  Filter -->|Archived| Q3[GET /conversations?archived=only]
+  Filter --> Clear[Clear selectedIds]
+```
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Sidebar
+  participant API
+
+  User->>Sidebar: Toggle conversation checkboxes
+  Sidebar->>Sidebar: selectedIds = Set<conversationId>
+
+  alt Archive selected
+    User->>Sidebar: Click "Archive selected"
+    Sidebar->>API: POST /conversations/bulk/archive {conversationIds}
+    API-->>Sidebar: {status: ok} / error
+    Sidebar-->>User: Snackbar success/error
+  else Restore selected
+    User->>Sidebar: Click "Restore selected"
+    Sidebar->>API: POST /conversations/bulk/restore {conversationIds}
+    API-->>Sidebar: {status: ok} / error
+    Sidebar-->>User: Snackbar success/error
+  else Delete selected
+    User->>Sidebar: Click "Delete selected"
+    Sidebar->>Sidebar: Open confirmation dialog
+    User->>Sidebar: Confirm delete
+    Sidebar->>API: POST /conversations/bulk/delete {conversationIds}
+    API-->>Sidebar: {status: ok} / error
+    Sidebar-->>User: Snackbar success/error
+  end
+```
+
 ## Client skeleton
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.

@@ -43,10 +43,7 @@ export class WsHub {
     return next;
   }
 
-  private sendSidebar(
-    socket: WsSocketContext,
-    event: SidebarEventWithoutSeq,
-  ) {
+  private sendSidebar(socket: WsSocketContext, event: SidebarEventWithoutSeq) {
     socket.sidebarSeq += 1;
     safeJsonSend(socket, {
       ...event,

@@ -806,7 +806,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 
 ### 2. Bulk conversation APIs + hard delete (server)
 
-- Task Status: __to_do__
+- Task Status: __done__
 - Git Commits: __to_do__
 
 #### Overview
@@ -826,12 +826,12 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 
 #### Subtasks
 
-1. [ ] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
+1. [x] Files to read: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`, `server/src/mongo/conversation.ts`, `server/src/mongo/turn.ts`, `server/.env`, `docker-compose.yml`, `README.md`
    - Docs (read before coding):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Mongoose transactions: https://mongoosejs.com/docs/transactions.html
      - MongoDB transactions: https://www.mongodb.com/docs/manual/core/transactions/
-2. [ ] Extend the conversations list API to support the 3-state sidebar filter:
+2. [x] Extend the conversations list API to support the 3-state sidebar filter:
    - Active (default)
    - Active & Archived (`archived=true`)
    - Archived-only (`archived=only`)
@@ -845,42 +845,42 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      ```
 
    - Done when: `GET /conversations?archived=only` returns only archived items, while `archived=true` keeps the old meaning (active + archived)
-3. [ ] Update the repo query logic to support archived-only mode (without relying on client-side filtering)
+3. [x] Update the repo query logic to support archived-only mode (without relying on client-side filtering)
    - Files to edit: `server/src/mongo/repo.ts` (`listConversations`)
    - Files to read: `server/src/mongo/conversation.ts` (archivedAt field)
    - Docs (read before coding): Mongoose queries https://mongoosejs.com/docs/queries.html
    - Critical constraints (do not skip): filtering must happen server-side so pagination/cursors remain correct
-4. [ ] Server integration test (Node): list API default mode (Active)
+4. [x] Server integration test (Node): list API default mode (Active)
    - Files to create/edit: `server/src/test/integration/conversations.list.active.test.ts`
    - Files to read: `server/src/test/integration/conversations.list.test.ts` (existing list route test harness), `server/src/routes/conversations.ts` (list route)
    - Location: `server/src/test/integration/conversations.list.active.test.ts`
    - Purpose: ensure default `GET /conversations` returns only non-archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-5. [ ] Server integration test (Node): list API include archived (`archived=true`)
+5. [x] Server integration test (Node): list API include archived (`archived=true`)
    - Files to create/edit: `server/src/test/integration/conversations.list.includeArchived.test.ts`
    - Files to read: `server/src/test/integration/conversations.list.test.ts`, `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.includeArchived.test.ts`
    - Purpose: ensure `GET /conversations?archived=true` returns both active and archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-6. [ ] Server integration test (Node): list API archived-only (`archived=only`)
+6. [x] Server integration test (Node): list API archived-only (`archived=only`)
    - Files to create/edit: `server/src/test/integration/conversations.list.archivedOnly.test.ts`
    - Files to read: `server/src/test/integration/conversations.list.test.ts`, `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts` (query)
    - Location: `server/src/test/integration/conversations.list.archivedOnly.test.ts`
    - Purpose: ensure `GET /conversations?archived=only` returns only archived conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-7. [ ] Server integration test (Node): list API `agentName=__none__` filters out agent conversations
+7. [x] Server integration test (Node): list API `agentName=__none__` filters out agent conversations
    - Files to create/edit: `server/src/test/integration/conversations.list.agentNameNone.test.ts`
    - Files to read: `server/src/test/unit/conversations-router-agent-filter.test.ts` (existing agent filter patterns), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.agentNameNone.test.ts`
    - Purpose: ensure the Chat page (which uses `agentName=__none__`) continues to hide agent conversations while still listing manual/MCP conversations
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-8. [ ] Server integration test (Node): list API pagination/cursor
+8. [x] Server integration test (Node): list API pagination/cursor
    - Files to create/edit: `server/src/test/integration/conversations.list.pagination.test.ts`
    - Files to read: `server/src/test/integration/conversations.list.test.ts` (cursor patterns), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.list.pagination.test.ts`
    - Purpose: ensure cursor pagination works correctly (no duplicates/missing items) for list endpoints
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-9. [ ] Add request validation for bulk operations (conversationId list, max size, dedupe/normalize, reject empty)
+9. [x] Add request validation for bulk operations (conversationId list, max size, dedupe/normalize, reject empty)
    - Files to edit: `server/src/routes/conversations.ts`
    - Docs (read before coding): Zod (DeepWiki) `colinhacks/zod` https://deepwiki.com/colinhacks/zod
    - Implementation sketch:
@@ -890,73 +890,73 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      ```
 
    - Done when: empty lists are rejected with 400 and oversized requests fail fast
-10. [ ] Server unit test (Node): bulk validation rejects empty list
+10. [x] Server unit test (Node): bulk validation rejects empty list
    - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
    - Files to read: `server/src/routes/conversations.ts` (bulk schema)
    - Location: `server/src/test/unit/conversations.bulk.validation.empty.test.ts`
    - Purpose: ensure `{ conversationIds: [] }` returns 400 and no DB changes occur
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, DeepWiki `colinhacks/zod` https://deepwiki.com/colinhacks/zod
-11. [ ] Server unit test (Node): bulk validation rejects oversized list
+11. [x] Server unit test (Node): bulk validation rejects oversized list
    - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
    - Files to read: `server/src/routes/conversations.ts` (max size)
    - Location: `server/src/test/unit/conversations.bulk.validation.maxSize.test.ts`
    - Purpose: ensure requests with too many IDs fail fast with 400
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-12. [ ] Server unit test (Node): bulk validation handles duplicates
+12. [x] Server unit test (Node): bulk validation handles duplicates
    - Files to create/edit: `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
    - Files to read: `server/src/routes/conversations.ts` (dedupe/idempotency expectation)
    - Location: `server/src/test/unit/conversations.bulk.validation.duplicates.test.ts`
    - Purpose: ensure duplicate conversationIds are handled predictably (deduped or treated as idempotent no-ops)
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-13. [ ] Implement `POST /conversations/bulk/archive` with all-or-nothing semantics
+13. [x] Implement `POST /conversations/bulk/archive` with all-or-nothing semantics
    - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
    - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
    - Critical constraints (do not skip):
      - if any conversationId is not found, reject the entire request and apply no changes
      - if a conversation is already archived, treat it as a valid no-op (idempotent) rather than failing the whole request
-14. [ ] Server integration test (Node): bulk archive success
+14. [x] Server integration test (Node): bulk archive success
    - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Files to read: `server/src/test/integration/conversations.archive.test.ts` (existing archive harness), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Purpose: ensure all conversations are archived when all IDs exist
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-15. [ ] Server integration test (Node): bulk archive idempotency
+15. [x] Server integration test (Node): bulk archive idempotency
    - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.idempotent.test.ts`
    - Purpose: ensure including already-archived IDs still succeeds without double-updating timestamps incorrectly
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-16. [ ] Server integration test (Node): bulk archive rejects unknown ID
+16. [x] Server integration test (Node): bulk archive rejects unknown ID
    - Files to create/edit: `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.archive.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts`
    - Purpose: ensure any unknown conversationId rejects the whole request and applies no changes
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-17. [ ] Implement `POST /conversations/bulk/restore` with all-or-nothing semantics
+17. [x] Implement `POST /conversations/bulk/restore` with all-or-nothing semantics
    - Files to edit: `server/src/routes/conversations.ts`, `server/src/mongo/repo.ts`
    - Docs (read before coding): Express routing https://expressjs.com/en/guide/routing.html
    - Critical constraints (do not skip):
      - if any conversationId is not found, reject the entire request and apply no changes
      - if a conversation is already active (not archived), treat it as a valid no-op (idempotent) rather than failing the whole request
-18. [ ] Server integration test (Node): bulk restore success
+18. [x] Server integration test (Node): bulk restore success
    - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Files to read: `server/src/test/integration/conversations.archive.test.ts` (restore endpoint harness), `server/src/routes/conversations.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Purpose: ensure all conversations are restored when all IDs exist
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-19. [ ] Server integration test (Node): bulk restore idempotency
+19. [x] Server integration test (Node): bulk restore idempotency
    - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.idempotent.test.ts`
    - Purpose: ensure including already-active IDs still succeeds without breaking list ordering
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-20. [ ] Server integration test (Node): bulk restore rejects unknown ID
+20. [x] Server integration test (Node): bulk restore rejects unknown ID
    - Files to create/edit: `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.restore.success.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts`
    - Purpose: ensure any unknown conversationId rejects the whole request and applies no changes
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-21. [ ] Implement `POST /conversations/bulk/delete` with all-or-nothing semantics:
+21. [x] Implement `POST /conversations/bulk/delete` with all-or-nothing semantics:
    - enforce archived-only delete (reject non-archived IDs)
    - delete conversations and turns in a single transaction
    - return structured errors
@@ -965,76 +965,76 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Files to read: `server/src/mongo/turn.ts` (turn deletion)
    - Docs (read before coding): Mongoose transactions https://mongoosejs.com/docs/transactions.html
    - Critical constraints (do not skip): enforce archived-only deletion in the server even if the UI is supposed to only send archived IDs
-22. [ ] Server integration test (Node): bulk delete success deletes turns
+22. [x] Server integration test (Node): bulk delete success deletes turns
    - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Files to read: `server/src/test/integration/conversations.turns.test.ts` (turn creation patterns), `server/src/routes/conversations.ts` (bulk delete)
    - Location: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Purpose: ensure deleting archived conversations deletes the conversation record and all stored turns
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-23. [ ] Server integration test (Node): bulk delete rejects non-archived IDs
+23. [x] Server integration test (Node): bulk delete rejects non-archived IDs
    - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts`
    - Purpose: ensure including any non-archived conversationId rejects the entire request and deletes nothing
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-24. [ ] Server integration test (Node): bulk delete rejects unknown ID
+24. [x] Server integration test (Node): bulk delete rejects unknown ID
    - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts`
    - Purpose: ensure unknown conversationIds reject the entire request and delete nothing
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-25. [ ] Server integration test (Node): bulk delete transaction rollback
+25. [x] Server integration test (Node): bulk delete transaction rollback
    - Files to create/edit: `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.delete.rollback.test.ts`
    - Purpose: ensure if deleting turns fails, the transaction rolls back and conversations are not deleted
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html
-26. [ ] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
+26. [x] Update persistence helpers in `server/src/mongo/repo.ts` to support bulk operations + delete-by-conversationId
    - Files to edit: `server/src/mongo/repo.ts`
    - Docs (read before coding): Mongoose docs https://mongoosejs.com/
-27. [ ] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
+27. [x] Emit corresponding `conversation_upsert` / `conversation_delete` WS events only after a successful bulk transaction commit
    - Files to edit: `server/src/routes/conversations.ts`
    - Files to edit: `server/src/ws/hub.ts` (event emission API)
    - Docs (read before coding): Context7 `/websockets/ws/8_18_3`
    - Protocol reminder (ordering requirement): emit WS events only after the bulk transaction commits successfully; do not emit partial updates.
-28. [ ] Server integration test (Node): bulk archive emits WS upsert after commit
+28. [x] Server integration test (Node): bulk archive emits WS upsert after commit
    - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Files to read: `server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts` (WS harness), `server/src/routes/conversations.ts` (transaction boundary), `server/src/ws/hub.ts` (emit)
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_upsert` is emitted only after a successful bulk archive commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
 
-29. [ ] Server integration test (Node): bulk restore emits WS upsert after commit
+29. [x] Server integration test (Node): bulk restore emits WS upsert after commit
    - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_upsert` is emitted only after a successful bulk restore commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
-30. [ ] Server integration test (Node): bulk delete emits WS delete after commit
+30. [x] Server integration test (Node): bulk delete emits WS delete after commit
    - Files to create/edit: `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
    - Files to read: `server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts`
    - Location: `server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts`
    - Purpose: ensure WS `conversation_delete` is emitted only after a successful bulk delete commit
    - Docs (read before coding): Node test runner https://nodejs.org/api/test.html, Context7 `/websockets/ws/8_18_3`
-31. [ ] Update default Mongo URI(s) used by server + Compose to settings needed for transactions:
+31. [x] Update default Mongo URI(s) used by server + Compose to settings needed for transactions:
    - audit and update at least: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Important: keep `directConnection=true` (transactions work with it; replica-set discovery fails without it due to the current rs member host being `localhost:27017`). Optionally add `replicaSet=rs0` explicitly alongside `directConnection=true`.
    - Files to edit: `server/.env`, `.env.docker.example`, `.env.e2e`, `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`, `README.md`
    - Docs (read before coding): MongoDB transactions https://www.mongodb.com/docs/manual/core/transactions/
    - Critical constraints (do not skip): do not remove `directConnection=true` until the replica-set host config is fixed
-32. [ ] Update docs: `design.md` (bulk archive/restore/delete flows + invariants as Mermaid diagrams)
+32. [x] Update docs: `design.md` (bulk archive/restore/delete flows + invariants as Mermaid diagrams)
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid diagrams describing bulk endpoints, transaction boundaries, invariants, and emitted WS list events
    - Purpose: document the new bulk APIs, all-or-nothing semantics, delete guardrails, and emitted WS list events as a Mermaid flow diagram
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-33. [ ] Update docs: `README.md` (bulk endpoints + 3-state list query)
+33. [x] Update docs: `README.md` (bulk endpoints + 3-state list query)
    - Files to edit: `README.md`
    - Location: `README.md`
    - Description: add/update README sections so developers can discover and use the new conversation list modes and bulk endpoints
    - Purpose: describe the new `GET /conversations?archived=only` mode and the bulk endpoints so developers can call the correct APIs
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-34. [ ] Update docs: `projectStructure.md` (new server bulk route/repo/test files)
+34. [x] Update docs: `projectStructure.md` (new server bulk route/repo/test files)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: add every new/moved/removed server file created in Task 2 (bulk routes, list query extensions, and tests)
@@ -1065,41 +1065,41 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make bulk API/test additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-35. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+35. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
    - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
    - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
    - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Files to read: `server/package.json`, `server/src/test/`
    - Command: `npm run test --workspace server`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
    - Command: `npm run test --workspace client`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (Task 2 focus: bulk archive/restore/delete semantics + WS list updates)
+8. [x] Manual Playwright-MCP check (Task 2 focus: bulk archive/restore/delete semantics + WS list updates)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
      - Start the stack and open http://localhost:5001.
@@ -1108,14 +1108,35 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
      - Attempt permanent delete on a non-archived conversation and confirm the server rejects it (no partial deletes).
      - Confirm the sidebar updates live (upsert/delete events) after bulk actions without a refresh.
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 
 #### Implementation notes
 
-- 
+- 2025-12-25: Marked Task 2 as __in_progress__ and began implementation.
+- 2025-12-25: Reviewed existing conversations routes/repo/models, WS hub events, and Mongo URI configuration to align bulk APIs with current patterns.
+- 2025-12-25: Extended `GET /conversations` to accept `archived=only` (archived-only mode) while preserving existing `archived=true` semantics; added server-side filtering support in `listConversations` so pagination remains correct.
+- 2025-12-25: Added Node route-level tests covering the new list modes (active-only default, include archived, archived-only), `agentName=__none__`, and cursor pagination behavior.
+- 2025-12-25: Added Zod validation + normalization for bulk endpoints (non-empty, max 100 IDs, dedupe) and unit tests for empty/oversized/duplicate requests.
+- 2025-12-25: Added bulk conversation endpoints: `POST /conversations/bulk/archive`, `POST /conversations/bulk/restore`, `POST /conversations/bulk/delete` with all-or-nothing semantics (unknown IDs reject the whole request; delete enforces archived-only).
+- 2025-12-25: Implemented Mongoose-transaction-backed repo helpers for bulk archive/restore/delete; delete removes associated turns before deleting conversation records.
+- 2025-12-25: Added server tests for bulk archive/restore behavior, and repo-level tests ensuring delete removes turns and rejects non-archived/unknown IDs; added WS tests proving sidebar `conversation_upsert`/`conversation_delete` emit only after the bulk handler awaits the repo transaction.
+- 2025-12-25: Audited Mongo URI defaults across `.env` and Compose files; they already retain `directConnection=true` and Compose runs Mongo as a replica set, so no additional URI changes were required for transactions.
+- 2025-12-25: Updated `design.md` with Mermaid documentation for bulk list modes, transaction boundaries, invariants, and post-commit WS sidebar events.
+- 2025-12-25: Updated `README.md` with the new 3-state conversation list query (`archived=true|only`) and the bulk archive/restore/delete endpoints.
+- 2025-12-25: Updated `projectStructure.md` to include the new server bulk/list tests.
+- 2025-12-25: Ran workspace lint + Prettier checks; fixed formatting issues via `npm run format --workspace server`.
+- 2025-12-25: Testing: `npm run build --workspace server` passed.
+- 2025-12-25: Testing: `npm run build --workspace client` passed.
+- 2025-12-25: Testing: `npm run test --workspace server` passed.
+- 2025-12-25: Testing: `npm run test --workspace client` passed.
+- 2025-12-25: Testing: `npm run e2e` passed (fixed ingest cleanup to tolerate missing Chroma collections during root removal).
+- 2025-12-25: Testing: `npm run compose:build` passed.
+- 2025-12-25: Testing: `npm run compose:up` passed.
+- 2025-12-25: Testing: manual bulk API + WS check passed against `http://host.docker.internal:5010` / `ws://host.docker.internal:5010/ws` (bulk archive/restore/delete + archived-only guardrail).
+- 2025-12-25: Testing: `npm run compose:down` passed.
 
 ---
 

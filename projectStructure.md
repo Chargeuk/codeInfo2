@@ -391,7 +391,28 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
+- server/src/test/unit/conversations.bulk.validation.empty.test.ts — bulk conversations schema rejects empty id lists
+- server/src/test/unit/conversations.bulk.validation.maxSize.test.ts — bulk conversations schema rejects oversized id lists
+- server/src/test/unit/conversations.bulk.validation.duplicates.test.ts — bulk conversations routes dedupe ids before repo calls
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
+- server/src/test/integration/conversations.list.active.test.ts — conversations list default mode (active-only)
+- server/src/test/integration/conversations.list.includeArchived.test.ts — conversations list include archived (archived=true)
+- server/src/test/integration/conversations.list.archivedOnly.test.ts — conversations list archived-only (archived=only)
+- server/src/test/integration/conversations.list.agentNameNone.test.ts — conversations list `agentName=__none__` behavior
+- server/src/test/integration/conversations.list.pagination.test.ts — conversations list cursor pagination
+- server/src/test/integration/conversations.bulk.archive.success.test.ts — bulk archive success
+- server/src/test/integration/conversations.bulk.archive.idempotent.test.ts — bulk archive idempotency (route-level)
+- server/src/test/integration/conversations.bulk.archive.unknownIdRejects.test.ts — bulk archive rejects unknown ids
+- server/src/test/integration/conversations.bulk.restore.success.test.ts — bulk restore success
+- server/src/test/integration/conversations.bulk.restore.idempotent.test.ts — bulk restore idempotency (route-level)
+- server/src/test/integration/conversations.bulk.restore.unknownIdRejects.test.ts — bulk restore rejects unknown ids
+- server/src/test/integration/conversations.bulk.delete.successDeletesTurns.test.ts — bulk delete removes turns + conversations (repo-level)
+- server/src/test/integration/conversations.bulk.delete.rejectsNonArchived.test.ts — bulk delete rejects active conversations
+- server/src/test/integration/conversations.bulk.delete.unknownIdRejects.test.ts — bulk delete rejects unknown ids
+- server/src/test/integration/conversations.bulk.delete.rollback.test.ts — bulk delete aborts when turn deletion fails
+- server/src/test/integration/conversations.bulk.wsEvents.archiveAfterCommit.test.ts — bulk archive emits WS upsert after repo resolves
+- server/src/test/integration/conversations.bulk.wsEvents.restoreAfterCommit.test.ts — bulk restore emits WS upsert after repo resolves
+- server/src/test/integration/conversations.bulk.wsEvents.deleteAfterCommit.test.ts — bulk delete emits WS delete after repo resolves
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list
 - server/src/mcpAgents/tools.ts — Agents MCP tool registry (list_agents/list_commands/run_agent_instruction/run_command) delegating to shared agents service

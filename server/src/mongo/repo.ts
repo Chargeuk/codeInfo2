@@ -50,6 +50,7 @@ export interface ListConversationsParams {
   limit: number;
   cursor?: string | Date;
   includeArchived?: boolean;
+  archivedOnly?: boolean;
   agentName?: string;
 }
 
@@ -169,9 +170,8 @@ export async function listConversations(
   params: ListConversationsParams,
 ): Promise<{ items: ConversationSummary[] }> {
   const query: Record<string, unknown> = {};
-  if (!params.includeArchived) {
-    query.archivedAt = null;
-  }
+  if (params.archivedOnly) query.archivedAt = { $ne: null };
+  else if (!params.includeArchived) query.archivedAt = null;
 
   if (params.agentName !== undefined) {
     if (params.agentName === '__none__') {
@@ -254,6 +254,185 @@ export async function listTurns(
   }));
 
   return { items };
+}
+
+export type BulkOpError =
+  | {
+      ok: false;
+      error: 'not_found';
+      missingIds: string[];
+    }
+  | {
+      ok: false;
+      error: 'not_archived';
+      activeIds: string[];
+    }
+  | {
+      ok: false;
+      error: 'mongo_unavailable';
+      message: string;
+    };
+
+export type BulkConversationsResult =
+  | {
+      ok: true;
+      conversations: ConversationSummary[];
+    }
+  | BulkOpError;
+
+export type BulkDeleteResult =
+  | {
+      ok: true;
+      deletedConversationIds: string[];
+    }
+  | BulkOpError;
+
+function toConversationSummary(doc: Conversation): ConversationSummary {
+  return {
+    conversationId: doc._id,
+    provider: doc.provider,
+    model: doc.model,
+    title: doc.title,
+    agentName: doc.agentName,
+    source: (doc as Conversation).source ?? 'REST',
+    lastMessageAt: doc.lastMessageAt,
+    archived: doc.archivedAt != null,
+    flags: doc.flags ?? {},
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function missingIds(expected: string[], docs: { _id: string }[]): string[] {
+  const present = new Set(docs.map((doc) => doc._id));
+  return expected.filter((id) => !present.has(id));
+}
+
+export async function bulkArchiveConversations(params: {
+  conversationIds: string[];
+}): Promise<BulkConversationsResult> {
+  if (mongoose.connection.readyState !== 1) {
+    return {
+      ok: false,
+      error: 'mongo_unavailable',
+      message: 'Mongo is not connected',
+    };
+  }
+
+  const archivedAt = new Date();
+  return await mongoose.connection.transaction(async (session) => {
+    const docs = (await ConversationModel.find({
+      _id: { $in: params.conversationIds },
+    })
+      .session(session)
+      .lean()
+      .exec()) as Conversation[];
+
+    const missing = missingIds(params.conversationIds, docs);
+    if (missing.length > 0) {
+      return { ok: false, error: 'not_found', missingIds: missing };
+    }
+
+    await ConversationModel.updateMany(
+      { _id: { $in: params.conversationIds }, archivedAt: null },
+      { $set: { archivedAt } },
+      { session },
+    ).exec();
+
+    const updated = (await ConversationModel.find({
+      _id: { $in: params.conversationIds },
+    })
+      .session(session)
+      .lean()
+      .exec()) as Conversation[];
+
+    return { ok: true, conversations: updated.map(toConversationSummary) };
+  });
+}
+
+export async function bulkRestoreConversations(params: {
+  conversationIds: string[];
+}): Promise<BulkConversationsResult> {
+  if (mongoose.connection.readyState !== 1) {
+    return {
+      ok: false,
+      error: 'mongo_unavailable',
+      message: 'Mongo is not connected',
+    };
+  }
+
+  return await mongoose.connection.transaction(async (session) => {
+    const docs = (await ConversationModel.find({
+      _id: { $in: params.conversationIds },
+    })
+      .session(session)
+      .lean()
+      .exec()) as Conversation[];
+
+    const missing = missingIds(params.conversationIds, docs);
+    if (missing.length > 0) {
+      return { ok: false, error: 'not_found', missingIds: missing };
+    }
+
+    await ConversationModel.updateMany(
+      { _id: { $in: params.conversationIds }, archivedAt: { $ne: null } },
+      { $set: { archivedAt: null } },
+      { session },
+    ).exec();
+
+    const updated = (await ConversationModel.find({
+      _id: { $in: params.conversationIds },
+    })
+      .session(session)
+      .lean()
+      .exec()) as Conversation[];
+
+    return { ok: true, conversations: updated.map(toConversationSummary) };
+  });
+}
+
+export async function bulkDeleteArchivedConversations(params: {
+  conversationIds: string[];
+}): Promise<BulkDeleteResult> {
+  if (mongoose.connection.readyState !== 1) {
+    return {
+      ok: false,
+      error: 'mongo_unavailable',
+      message: 'Mongo is not connected',
+    };
+  }
+
+  return await mongoose.connection.transaction(async (session) => {
+    const docs = (await ConversationModel.find({
+      _id: { $in: params.conversationIds },
+    })
+      .session(session)
+      .lean()
+      .exec()) as Conversation[];
+
+    const missing = missingIds(params.conversationIds, docs);
+    if (missing.length > 0) {
+      return { ok: false, error: 'not_found', missingIds: missing };
+    }
+
+    const activeIds = docs
+      .filter((doc) => doc.archivedAt == null)
+      .map((doc) => doc._id);
+    if (activeIds.length > 0) {
+      return { ok: false, error: 'not_archived', activeIds };
+    }
+
+    await TurnModel.deleteMany(
+      { conversationId: { $in: params.conversationIds } },
+      { session },
+    ).exec();
+    await ConversationModel.deleteMany(
+      { _id: { $in: params.conversationIds } },
+      { session },
+    ).exec();
+
+    return { ok: true, deletedConversationIds: [...params.conversationIds] };
+  });
 }
 
 function toDate(value: string | Date): Date {

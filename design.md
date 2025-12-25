@@ -65,6 +65,43 @@ sequenceDiagram
   end
 ```
 
+### Bulk conversation management (server)
+
+- List filter modes (Chat sidebar):
+  - `GET /conversations` (default): active-only (non-archived)
+  - `GET /conversations?archived=true`: active + archived (backwards compatible)
+  - `GET /conversations?archived=only`: archived-only
+- Bulk endpoints validate `{ conversationIds }` (non-empty, max 100, deduped) and apply all-or-nothing semantics:
+  - `POST /conversations/bulk/archive`: archives all provided conversations
+  - `POST /conversations/bulk/restore`: restores all provided conversations
+  - `POST /conversations/bulk/delete`: permanently deletes archived conversations and all stored turns
+- Invariants:
+  - If any `conversationId` is missing, the whole request fails (no partial changes)
+  - Permanent delete is **archived-only**: any non-archived ID causes the whole request to fail
+  - DB mutations run inside a single Mongoose transaction; bulk WS sidebar events emit **only after commit**
+
+```mermaid
+flowchart TB
+  Client[Client] -->|POST /conversations/bulk/*\n{conversationIds}| Server[Server]
+  Server --> Validate{Validate + dedupe\n1..100 ids}
+  Validate -->|invalid| Bad[400 validation_error]
+
+  Validate -->|ok| Tx[Mongo transaction]
+  Tx --> Load[Load conversations by _id]
+  Load --> Missing{Any missing?}
+  Missing -->|yes| NF[404 not_found\nmissingIds]
+
+  Missing -->|no| Guard{Delete request?}
+  Guard -->|archive/restore| Mutate[updateMany + readback]
+  Guard -->|delete| Archived{All archived?}
+  Archived -->|no| NA[409 not_archived\nactiveIds]
+  Archived -->|yes| Delete[deleteMany turns\nthen deleteMany conversations]
+
+  Mutate --> Commit[Commit]
+  Delete --> Commit
+  Commit -->|after commit| Ws[WsHub sidebar events\nconversation_upsert/delete]
+```
+
 ## Client skeleton
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.

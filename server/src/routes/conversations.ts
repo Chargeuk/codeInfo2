@@ -5,6 +5,9 @@ import { ConversationModel } from '../mongo/conversation.js';
 import {
   archiveConversation as defaultArchiveConversation,
   appendTurn as defaultAppendTurn,
+  bulkArchiveConversations as defaultBulkArchiveConversations,
+  bulkDeleteArchivedConversations as defaultBulkDeleteArchivedConversations,
+  bulkRestoreConversations as defaultBulkRestoreConversations,
   createConversation as defaultCreateConversation,
   listConversations as defaultListConversations,
   listTurns as defaultListTurns,
@@ -18,9 +21,8 @@ const listConversationsQuerySchema = z
     limit: z.coerce.number().int().min(1).max(100).default(20),
     cursor: z.string().datetime().optional(),
     archived: z
-      .union([z.literal('true'), z.literal('false')])
-      .optional()
-      .transform((v) => v === 'true'),
+      .union([z.literal('true'), z.literal('false'), z.literal('only')])
+      .optional(),
     agentName: z.string().min(1).optional(),
   })
   .strict();
@@ -68,6 +70,12 @@ const appendTurnSchema = z
   })
   .strict();
 
+const bulkConversationIdsSchema = z
+  .object({
+    conversationIds: z.array(z.string().min(1)).min(1).max(100),
+  })
+  .strict();
+
 type ConversationLite = { _id: string; archivedAt: Date | null };
 
 type Deps = {
@@ -75,6 +83,9 @@ type Deps = {
   createConversation: typeof defaultCreateConversation;
   archiveConversation: typeof defaultArchiveConversation;
   restoreConversation: typeof defaultRestoreConversation;
+  bulkArchiveConversations: typeof defaultBulkArchiveConversations;
+  bulkRestoreConversations: typeof defaultBulkRestoreConversations;
+  bulkDeleteArchivedConversations: typeof defaultBulkDeleteArchivedConversations;
   listTurns: typeof defaultListTurns;
   appendTurn: typeof defaultAppendTurn;
   findConversationById: (id: string) => Promise<ConversationLite | null>;
@@ -86,6 +97,9 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
+    bulkArchiveConversations = defaultBulkArchiveConversations,
+    bulkRestoreConversations = defaultBulkRestoreConversations,
+    bulkDeleteArchivedConversations = defaultBulkDeleteArchivedConversations,
     listTurns = defaultListTurns,
     appendTurn = defaultAppendTurn,
     findConversationById = (id: string) =>
@@ -105,13 +119,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     }
 
     const { limit, cursor, archived, agentName } = parsed.data;
-    const includeArchived = archived === true;
+    const includeArchived = archived === 'true';
+    const archivedOnly = archived === 'only';
 
     try {
       const { items } = await listConversations({
         limit,
         cursor,
         includeArchived,
+        archivedOnly,
         agentName,
       });
 
@@ -160,6 +176,161 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       res.status(201).json({ conversationId });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
+    }
+  });
+
+  const normalizeConversationIds = (conversationIds: string[]) => {
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const id of conversationIds) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      normalized.push(id);
+    }
+    return normalized;
+  };
+
+  router.post('/conversations/bulk/archive', async (req, res) => {
+    const parsedBody = bulkConversationIdsSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        error: 'validation_error',
+        details: parsedBody.error.format(),
+      });
+    }
+
+    const conversationIds = normalizeConversationIds(
+      parsedBody.data.conversationIds,
+    );
+
+    try {
+      const result = await bulkArchiveConversations({ conversationIds });
+      if (!result.ok) {
+        if (result.error === 'not_found') {
+          return res
+            .status(404)
+            .json({ error: 'not_found', missingIds: result.missingIds });
+        }
+        if (result.error === 'mongo_unavailable') {
+          return res
+            .status(503)
+            .json({ error: 'mongo_unavailable', message: result.message });
+        }
+        return res.status(500).json({ error: 'server_error' });
+      }
+
+      for (const conversation of result.conversations) {
+        wsHub.emitConversationUpsert({
+          conversationId: conversation.conversationId,
+          title: conversation.title,
+          provider: conversation.provider,
+          model: conversation.model,
+          source: conversation.source,
+          lastMessageAt: conversation.lastMessageAt,
+          archived: conversation.archived,
+          ...(conversation.agentName
+            ? { agentName: conversation.agentName }
+            : {}),
+        });
+      }
+
+      return res.json({ status: 'ok' });
+    } catch (err) {
+      return res.status(500).json({ error: 'server_error', message: `${err}` });
+    }
+  });
+
+  router.post('/conversations/bulk/restore', async (req, res) => {
+    const parsedBody = bulkConversationIdsSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        error: 'validation_error',
+        details: parsedBody.error.format(),
+      });
+    }
+
+    const conversationIds = normalizeConversationIds(
+      parsedBody.data.conversationIds,
+    );
+
+    try {
+      const result = await bulkRestoreConversations({ conversationIds });
+      if (!result.ok) {
+        if (result.error === 'not_found') {
+          return res
+            .status(404)
+            .json({ error: 'not_found', missingIds: result.missingIds });
+        }
+        if (result.error === 'mongo_unavailable') {
+          return res
+            .status(503)
+            .json({ error: 'mongo_unavailable', message: result.message });
+        }
+        return res.status(500).json({ error: 'server_error' });
+      }
+
+      for (const conversation of result.conversations) {
+        wsHub.emitConversationUpsert({
+          conversationId: conversation.conversationId,
+          title: conversation.title,
+          provider: conversation.provider,
+          model: conversation.model,
+          source: conversation.source,
+          lastMessageAt: conversation.lastMessageAt,
+          archived: conversation.archived,
+          ...(conversation.agentName
+            ? { agentName: conversation.agentName }
+            : {}),
+        });
+      }
+
+      return res.json({ status: 'ok' });
+    } catch (err) {
+      return res.status(500).json({ error: 'server_error', message: `${err}` });
+    }
+  });
+
+  router.post('/conversations/bulk/delete', async (req, res) => {
+    const parsedBody = bulkConversationIdsSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({
+        error: 'validation_error',
+        details: parsedBody.error.format(),
+      });
+    }
+
+    const conversationIds = normalizeConversationIds(
+      parsedBody.data.conversationIds,
+    );
+
+    try {
+      const result = await bulkDeleteArchivedConversations({ conversationIds });
+      if (!result.ok) {
+        if (result.error === 'not_found') {
+          return res
+            .status(404)
+            .json({ error: 'not_found', missingIds: result.missingIds });
+        }
+        if (result.error === 'not_archived') {
+          return res
+            .status(409)
+            .json({ error: 'not_archived', activeIds: result.activeIds });
+        }
+        if (result.error === 'mongo_unavailable') {
+          return res
+            .status(503)
+            .json({ error: 'mongo_unavailable', message: result.message });
+        }
+        return res.status(500).json({ error: 'server_error' });
+      }
+
+      for (const conversationId of result.deletedConversationIds) {
+        wsHub.emitConversationDelete(conversationId);
+      }
+
+      return res.json({ status: 'ok' });
+    } catch (err) {
+      return res.status(500).json({ error: 'server_error', message: `${err}` });
     }
   });
 

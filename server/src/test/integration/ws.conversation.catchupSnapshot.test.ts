@@ -59,10 +59,7 @@ test('subscribe_conversation sends inflight_snapshot catch-up when run in progre
     assert.equal(inflightSnap.analysisText, 'Thinking');
     assert.equal(Array.isArray(inflightSnap.tools), true);
     const tools = inflightSnap.tools as unknown[];
-    assert.equal(
-      (tools[0] as Record<string, unknown> | undefined)?.id,
-      't1',
-    );
+    assert.equal((tools[0] as Record<string, unknown> | undefined)?.id, 't1');
   } finally {
     await server.close();
   }

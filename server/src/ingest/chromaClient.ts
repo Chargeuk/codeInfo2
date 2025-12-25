@@ -269,15 +269,19 @@ export async function deleteVectors(where: {
   where?: Record<string, unknown>;
   ids?: string[];
 }) {
-  const col = await getVectorsCollection();
-  const collection = col as unknown as {
-    delete: (opts?: {
-      where?: Record<string, unknown>;
-      ids?: string[];
-    }) => Promise<void>;
-  };
   baseLogger.info({ where }, 'deleteVectors start');
-  await collection.delete(where);
+  try {
+    const col = await getVectorsCollection();
+    const collection = col as unknown as {
+      delete: (opts?: {
+        where?: Record<string, unknown>;
+        ids?: string[];
+      }) => Promise<void>;
+    };
+    await collection.delete(where);
+  } catch (err) {
+    baseLogger.warn({ where, err }, 'deleteVectors ignored error');
+  }
   baseLogger.info({ where }, 'deleteVectors done');
 }
 
@@ -285,14 +289,18 @@ export async function deleteRoots(where: {
   where?: Record<string, unknown>;
   ids?: string[];
 }) {
-  const col = await getRootsCollection();
-  const collection = col as unknown as {
-    delete: (opts?: {
-      where?: Record<string, unknown>;
-      ids?: string[];
-    }) => Promise<void>;
-  };
-  await collection.delete(where);
+  try {
+    const col = await getRootsCollection();
+    const collection = col as unknown as {
+      delete: (opts?: {
+        where?: Record<string, unknown>;
+        ids?: string[];
+      }) => Promise<void>;
+    };
+    await collection.delete(where);
+  } catch (err) {
+    baseLogger.warn({ where, err }, 'deleteRoots ignored error');
+  }
 }
 
 export async function collectionIsEmpty(): Promise<boolean> {

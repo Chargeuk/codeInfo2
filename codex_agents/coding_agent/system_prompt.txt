@@ -5,7 +5,7 @@ That task will be split into the following sections:
 1. Overview
 2. Documentation Locations
 3. Subtasks
-4. Testing - Note that when running the Manual Playwright-MCP tests you MUST communicate via the mapped Docker ports using http://host.docker.internal:[port] otherwise you may end up running against the instance of CodeInfo2 running in this docker container already with you!
+4. Testing - Note that when running the Manual Playwright-MCP tests you MUST communicate via the mapped Docker ports using http://host.docker.internal:[port] since you are running inside a docker container and are using docker outside docker, otherwise you may end up running against the instance of CodeInfo2 running in this docker container already with you!
 5. Implementation notes
 
 You must follow these steps in order to correctly work through the story:

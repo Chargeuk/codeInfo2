@@ -86,6 +86,35 @@ if (!global.fetch) {
   global.fetch = jest.fn();
 }
 
+if (!global.WebSocket) {
+  class SimpleWebSocket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+
+    url: string;
+    readyState = SimpleWebSocket.CONNECTING;
+    onopen: ((ev: Event) => void) | null = null;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onerror: ((ev: Event) => void) | null = null;
+    onclose: ((ev: CloseEvent) => void) | null = null;
+
+    constructor(url: string) {
+      this.url = url;
+    }
+
+    send() {}
+    close() {
+      this.readyState = SimpleWebSocket.CLOSED;
+      this.onclose?.({} as CloseEvent);
+    }
+  }
+
+  // @ts-expect-error minimal polyfill for tests
+  global.WebSocket = SimpleWebSocket;
+}
+
 // Default fetch mock for tests; individual tests can override as needed.
 (global.fetch as jest.Mock).mockImplementation(
   async (input: RequestInfo | URL) => {

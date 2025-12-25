@@ -47,7 +47,7 @@ function streamFromFrames(frames: string[]) {
   });
 }
 
-test('chat send payload includes only conversationId and message', async () => {
+test('chat send payload includes inflightId and cancelOnDisconnect', async () => {
   let chatBody: Record<string, unknown> | null = null;
 
   mockFetch.mockImplementation(
@@ -113,7 +113,9 @@ test('chat send payload includes only conversationId and message', async () => {
 
   expect(chatBody).toBeTruthy();
   expect(chatBody?.conversationId).toBeDefined();
+  expect(chatBody?.inflightId).toBeDefined();
   expect(chatBody?.message).toBe('Hello world');
+  expect(chatBody?.cancelOnDisconnect).toBe(false);
   expect(chatBody?.provider).toBe('lmstudio');
   expect(chatBody?.model).toBe('m1');
   expect(chatBody).not.toHaveProperty('messages');

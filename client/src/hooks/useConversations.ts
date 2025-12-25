@@ -20,6 +20,7 @@ export type ConversationSummary = {
   source?: 'REST' | 'MCP';
   lastMessageAt?: string;
   archived?: boolean;
+  agentName?: string;
   flags?: Record<string, unknown>;
 };
 
@@ -39,6 +40,8 @@ type State = {
   bulkArchive: (conversationIds: string[]) => Promise<void>;
   bulkRestore: (conversationIds: string[]) => Promise<void>;
   bulkDelete: (conversationIds: string[]) => Promise<void>;
+  applySidebarUpsert: (conversation: ConversationSummary) => void;
+  applySidebarDelete: (conversationId: string) => void;
   setArchivedFilter: (filter: ConversationArchivedFilter) => void;
 };
 
@@ -75,6 +78,26 @@ export function useConversations(params?: { agentName?: string }): State {
         return bTime - aTime;
       });
   }, []);
+
+  const matchesAgentName = useCallback(
+    (incomingAgentName: string | undefined) => {
+      if (!agentName) return true;
+      if (agentName === '__none__') return !incomingAgentName;
+      return incomingAgentName === agentName;
+    },
+    [agentName],
+  );
+
+  const filterForArchivedMode = useCallback(
+    (items: ConversationSummary[]) => {
+      return items.filter((conv) => {
+        if (archivedFilter === 'all') return true;
+        if (archivedFilter === 'archived') return Boolean(conv.archived);
+        return !conv.archived;
+      });
+    },
+    [archivedFilter],
+  );
 
   const fetchPage = useCallback(
     async (mode: 'replace' | 'append' = 'replace') => {
@@ -252,6 +275,44 @@ export function useConversations(params?: { agentName?: string }): State {
     [dedupeAndSort],
   );
 
+  const applySidebarUpsert = useCallback(
+    (conversation: ConversationSummary) => {
+      if (!matchesAgentName(conversation.agentName)) {
+        return;
+      }
+      setConversations((prev) => {
+        const normalized: ConversationSummary = {
+          ...conversation,
+          source: conversation.source ?? 'REST',
+        };
+
+        const next = prev.some(
+          (item) => item.conversationId === normalized.conversationId,
+        )
+          ? prev.map((item) =>
+              item.conversationId === normalized.conversationId
+                ? { ...item, ...normalized }
+                : item,
+            )
+          : [normalized, ...prev];
+
+        return dedupeAndSort(filterForArchivedMode(next));
+      });
+    },
+    [dedupeAndSort, filterForArchivedMode, matchesAgentName],
+  );
+
+  const applySidebarDelete = useCallback(
+    (conversationId: string) => {
+      setConversations((prev) =>
+        dedupeAndSort(
+          prev.filter((conv) => conv.conversationId !== conversationId),
+        ),
+      );
+    },
+    [dedupeAndSort],
+  );
+
   return useMemo(
     () => ({
       conversations,
@@ -267,6 +328,8 @@ export function useConversations(params?: { agentName?: string }): State {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      applySidebarUpsert,
+      applySidebarDelete,
       setArchivedFilter,
     }),
     [
@@ -283,6 +346,8 @@ export function useConversations(params?: { agentName?: string }): State {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      applySidebarUpsert,
+      applySidebarDelete,
       setArchivedFilter,
     ],
   );

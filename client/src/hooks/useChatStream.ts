@@ -102,7 +102,7 @@ const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
-type ReasoningState = {
+export type ReasoningState = {
   pending: string;
   mode: 'final' | 'analysis';
   analysis: string;
@@ -165,7 +165,7 @@ const maxMarkerLength = controlTokens.reduce(
 
 const maxLookback = Math.max(maxMarkerLength - 1, 0);
 
-const initialReasoningState = (): ReasoningState => ({
+export const initialReasoningState = (): ReasoningState => ({
   pending: '',
   mode: 'final',
   analysis: '',
@@ -173,7 +173,7 @@ const initialReasoningState = (): ReasoningState => ({
   analysisStreaming: false,
 });
 
-const parseReasoning = (
+export const parseReasoning = (
   current: ReasoningState,
   chunk: string,
   {
@@ -311,6 +311,8 @@ export function useChatStream(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string>(() => makeId());
   const conversationIdRef = useRef<string>(conversationId);
+  const [inflightId, setInflightId] = useState<string | null>(null);
+  const inflightIdRef = useRef<string | null>(null);
   const suppressNextProviderResetRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -323,6 +325,10 @@ export function useChatStream(
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+
+  useEffect(() => {
+    inflightIdRef.current = inflightId;
+  }, [inflightId]);
 
   useEffect(() => {
     if (suppressNextProviderResetRef.current) {
@@ -396,6 +402,8 @@ export function useChatStream(
     lastVisibleTextAtRef.current = null;
     setThreadId(null);
     threadIdRef.current = null;
+    setInflightId(null);
+    inflightIdRef.current = null;
     const nextConversationId = makeId();
     setConversationId(nextConversationId);
     conversationIdRef.current = nextConversationId;
@@ -403,7 +411,10 @@ export function useChatStream(
   }, [finishStreaming, updateMessages]);
 
   const setConversation = useCallback(
-    (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+    (
+      nextConversationId: string,
+      options?: { clearMessages?: boolean; threadId?: string | null },
+    ) => {
       console.info('[chat-stream] setConversation', {
         nextConversationId,
         clearMessages: Boolean(options?.clearMessages),
@@ -413,8 +424,16 @@ export function useChatStream(
       if (options?.clearMessages) {
         updateMessages(() => []);
       }
-      setThreadId(null);
-      threadIdRef.current = null;
+      const nextThreadId = Object.prototype.hasOwnProperty.call(
+        options ?? {},
+        'threadId',
+      )
+        ? (options?.threadId ?? null)
+        : null;
+      setThreadId(nextThreadId);
+      threadIdRef.current = nextThreadId;
+      setInflightId(null);
+      inflightIdRef.current = null;
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
       console.info('[chat-stream] conversation set', {
@@ -518,6 +537,10 @@ export function useChatStream(
       const currentConversationId = conversationIdRef.current || makeId();
       conversationIdRef.current = currentConversationId;
       setConversationId(currentConversationId);
+
+      const currentInflightId = makeId();
+      setInflightId(currentInflightId);
+      inflightIdRef.current = currentInflightId;
 
       const assistantId = makeId();
       let reasoning = initialReasoningState();
@@ -869,6 +892,8 @@ export function useChatStream(
             provider,
             model,
             conversationId: currentConversationId,
+            inflightId: currentInflightId,
+            cancelOnDisconnect: false,
             message: trimmed,
             ...codexPayload,
           }),
@@ -1064,6 +1089,8 @@ export function useChatStream(
                   event.message ?? 'Chat failed. Please retry in a moment.';
                 handleErrorBubble(message);
                 finishStreaming();
+                setInflightId(null);
+                inflightIdRef.current = null;
                 setAssistantStatus('failed');
                 setAssistantThinking(false);
               } else if (event.type === 'complete') {
@@ -1082,6 +1109,8 @@ export function useChatStream(
                 setTimeout(() => {
                   maybeMarkComplete();
                   finishStreaming();
+                  setInflightId(null);
+                  inflightIdRef.current = null;
                 }, 0);
               }
             } catch {
@@ -1097,6 +1126,8 @@ export function useChatStream(
           (err as Error)?.message ?? 'Chat failed. Please try again.',
         );
         finishStreaming();
+        setInflightId(null);
+        inflightIdRef.current = null;
       } finally {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
@@ -1135,6 +1166,7 @@ export function useChatStream(
     messages,
     status,
     isStreaming,
+    inflightId,
     send,
     stop,
     reset,

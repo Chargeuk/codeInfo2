@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { installMockWebSocket } from './utils/mockWebSocket';
 
 const mockFetch = jest.fn();
 
@@ -49,6 +50,7 @@ const providerPayload = {
 
 describe('Chat page stop control', () => {
   it('cancels an in-flight stream and shows a stopped status bubble', async () => {
+    const ws = installMockWebSocket();
     const abortFns: jest.Mock[] = [];
     const OriginalAbortController = global.AbortController;
     class MockAbortController {
@@ -88,6 +90,13 @@ describe('Chat page stop control', () => {
 
       mockFetch.mockImplementation((url: RequestInfo | URL) => {
         const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
         if (href.includes('/chat/providers')) {
           return Promise.resolve({
             ok: true,
@@ -129,6 +138,9 @@ describe('Chat page stop control', () => {
       const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
       render(<RouterProvider router={router} />);
 
+      await waitFor(() => expect(ws.instances.length).toBe(1));
+      ws.instances[0].__emitOpen();
+
       const modelSelect = await screen.findByRole('combobox', {
         name: /model/i,
       });
@@ -159,11 +171,18 @@ describe('Chat page stop control', () => {
       });
 
       expect(abortFns.at(-1)).toHaveBeenCalled();
+      await waitFor(() => {
+        const payloads = ws.instances[0].send.mock.calls.map(([arg]) =>
+          String(arg),
+        );
+        expect(payloads.join('\n')).toContain('cancel_inflight');
+      });
       await waitFor(() => expect(sendButton).toBeEnabled());
       expect(
         await screen.findByText(/generation stopped/i),
       ).toBeInTheDocument();
     } finally {
+      ws.restore();
       global.AbortController = OriginalAbortController;
     }
   });

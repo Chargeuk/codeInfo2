@@ -242,6 +242,40 @@ sequenceDiagram
   Hub-->>TabB: turn_final(status=stopped)
 ```
 
+```mermaid
+sequenceDiagram
+  participant Tab as Browser Tab
+  participant WSS as GET /ws
+  participant REST as REST API
+
+  Note over Tab: WebSocket drops (sleep / network hiccup)
+  Tab--xWSS: connection lost
+  Note over Tab: useChatWs reconnect (backoff + jitter)
+  Tab->>WSS: reconnect
+  Note over Tab: Treat state as potentially stale
+  Tab->>REST: GET /conversations (refresh sidebar snapshot)
+  Tab->>WSS: subscribe_sidebar
+  Tab->>REST: GET /conversations/:id/turns (refresh transcript snapshot)
+  Tab->>WSS: subscribe_conversation(conversationId)
+  Note over Tab: seq guards drop late events
+```
+
+```mermaid
+sequenceDiagram
+  participant Tab as Browser Tab
+  participant SSE as POST /chat (SSE)
+  participant WSS as GET /ws
+  participant Hub as WsHub
+
+  Note over Tab: Detach (navigate/switch)
+  Tab--xSSE: AbortController.abort()
+  Note over Hub: run continues (cancelOnDisconnect=false)
+
+  Note over Tab: Stop (explicit user action)
+  Tab->>WSS: cancel_inflight
+  Hub-->>Tab: turn_final(status=stopped)
+```
+
 ### Chat citations UI
 
 - `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.

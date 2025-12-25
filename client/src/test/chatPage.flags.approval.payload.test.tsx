@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { installMockWebSocket } from './utils/mockWebSocket';
 
 const mockFetch = jest.fn();
 
@@ -105,7 +106,14 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
         }),
       }) as unknown as Response;
     }
-    if (href.includes('/chat')) {
+    if (href.includes('/chat/cancel')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    }
+    if (href.endsWith('/chat')) {
       if (opts?.body) {
         try {
           chatBodies.push(JSON.parse(opts.body as string));
@@ -129,81 +137,91 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
 
 describe('Codex approval policy flag payloads', () => {
   it('omits approvalPolicy for LM Studio, forwards selected value for Codex, and resets to default', async () => {
+    const ws = installMockWebSocket();
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(ws.instances.length).toBe(1));
+      await act(async () => {
+        ws.instances[0].__emitOpen();
+      });
 
-    await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello LM');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const lmBody = chatBodies[0];
-    expect(lmBody.provider).toBe('lmstudio');
-    expect(lmBody).not.toHaveProperty('approvalPolicy');
+      await waitFor(() => expect(input).toBeEnabled());
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello LM');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const lmBody = chatBodies[0];
+      expect(lmBody.provider).toBe('lmstudio');
+      expect(lmBody).not.toHaveProperty('approvalPolicy');
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const newConversationButton = screen.getByRole('button', {
+        name: /new conversation/i,
+      });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    const approvalSelect = await screen.findByRole('combobox', {
-      name: /approval policy/i,
-    });
-    await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on failure \(default\)/i),
-    );
-    await userEvent.click(approvalSelect);
-    const neverOption = await screen.findByRole('option', {
-      name: /never/i,
-    });
-    await userEvent.click(neverOption);
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+      );
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      const approvalSelect = await screen.findByRole('combobox', {
+        name: /approval policy/i,
+      });
+      await waitFor(() =>
+        expect(approvalSelect).toHaveTextContent(/on failure \(default\)/i),
+      );
+      await userEvent.click(approvalSelect);
+      const neverOption = await screen.findByRole('option', {
+        name: /never/i,
+      });
+      await userEvent.click(neverOption);
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const codexBody = chatBodies[1];
-    expect(codexBody.provider).toBe('codex');
-    expect(codexBody.approvalPolicy).toBe('never');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello Codex');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
-    const resetSelect = await screen.findByTestId('approval-policy-select');
-    await waitFor(() =>
-      expect(resetSelect).toHaveTextContent(/on failure \(default\)/i),
-    );
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+      const codexBody = chatBodies[1];
+      expect(codexBody.provider).toBe('codex');
+      expect(codexBody.approvalPolicy).toBe('never');
+
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
+      const resetSelect = await screen.findByTestId('approval-policy-select');
+      await waitFor(() =>
+        expect(resetSelect).toHaveTextContent(/on failure \(default\)/i),
+      );
+    } finally {
+      ws.restore();
+    }
   });
 });

@@ -1359,7 +1359,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 
 ### 4. Live sidebar + transcript streaming subscriptions (client)
 
-- Task Status: __to_do__
+- Task Status: __completed__
 - Git Commits: __to_do__
 
 #### Overview
@@ -1381,14 +1381,14 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 
 #### Subtasks
 
-1. [ ] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
+1. [x] Files to read: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useConversationTurns.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
    - Reuse/reference patterns from: `client/src/logging/transport.ts` (backoff/retry pacing) and `client/src/hooks/useLogs.ts` (SSE reconnect + subscription lifecycle patterns, even though WS is different)
    - Docs (read before coding):
      - MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - React effects: https://react.dev/learn/synchronizing-with-effects
      - React Router (repo uses `react-router-dom@7.9.6`): Context7 `/remix-run/react-router/react-router_7.9.4`
      - This story’s WS protocol section (in this file)
-2. [ ] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/disconnect, requestId generation, and safe JSON send
+2. [x] Create a WebSocket hook/service (e.g., `client/src/hooks/useChatWs.ts`) with connect/disconnect, requestId generation, and safe JSON send
    - Files to create: `client/src/hooks/useChatWs.ts`
    - Files to read: `client/src/hooks/useChatStream.ts` (serverBase URL pattern)
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -1401,12 +1401,12 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      ```
 
    - Critical constraints (do not skip): always guard JSON parse and keep the socket closed on unmount to prevent leaks
-3. [ ] Add reconnect strategy (backoff + jitter) and ensure event handlers are resilient to reconnect storms (reuse `client/src/logging/transport.ts` pacing patterns)
+3. [x] Add reconnect strategy (backoff + jitter) and ensure event handlers are resilient to reconnect storms (reuse `client/src/logging/transport.ts` pacing patterns)
    - Files to edit: `client/src/hooks/useChatWs.ts`
    - Files to read: `client/src/logging/transport.ts`
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Done when: temporary disconnects reconnect automatically without freezing the UI
-4. [ ] Implement subscribe/unsubscribe helpers for `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`
+4. [x] Implement subscribe/unsubscribe helpers for `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`
    - Files to edit: `client/src/hooks/useChatWs.ts`
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder (client messages):
@@ -1418,25 +1418,25 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      ws.send(JSON.stringify({ type: 'subscribe_sidebar', requestId }));
      ws.send(JSON.stringify({ type: 'subscribe_conversation', requestId, conversationId }));
      ```
-5. [ ] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
+5. [x] Gate realtime features on persistence: when `mongoConnected === false`, do not subscribe to sidebar/transcript updates; surface a clear message that realtime updates/catch-up require persistence (keep cancellation working for the active run)
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/usePersistenceStatus.ts`
    - Docs (read before coding): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Critical constraints (do not skip): gating applies to both sidebar + transcript WS subscriptions
-6. [ ] Implement sidebar subscription lifecycle tied to Chat route mount/unmount:
+6. [x] Implement sidebar subscription lifecycle tied to Chat route mount/unmount:
    - subscribe on mount
    - unsubscribe on unmount
    - on reconnect: refresh the list snapshot before resubscribing
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversations.ts`, `client/src/hooks/useChatWs.ts`
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects
    - Critical constraints (do not skip): on reconnect, always refresh REST list first, then apply WS deltas
-7. [ ] Implement transcript subscription lifecycle for the active conversation:
+7. [x] Implement transcript subscription lifecycle for the active conversation:
    - unsubscribe previous conversationId when switching
    - subscribe newly visible conversationId
    - on reconnect: re-fetch visible conversation turns snapshot before resubscribing
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useConversationTurns.ts`, `client/src/hooks/useChatWs.ts`
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects
    - Critical constraints (do not skip): transcript subscription must be scoped to the currently visible conversation only
-8. [ ] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including current tool state)
+8. [x] Implement inflight snapshot merge logic so the transcript merges persisted turns + one in-flight turn (including current tool state)
    - Files to edit: `client/src/pages/ChatPage.tsx` (render pipeline), `client/src/hooks/useChatStream.ts` (message/tool shaping helpers)
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder (what you will receive while subscribed):
@@ -1445,33 +1445,33 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Implementation sketch (high level):
      - persisted turns come from `useConversationTurns`
      - WS inflight state becomes one synthetic “assistant” message at the end of the transcript
-9. [ ] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
+9. [x] Handle `assistant_delta` and `tool_event` updates while subscribed so the transcript matches the originating tab
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder: updates must be applied in-place to the current inflight UI for the active `{ conversationId, inflightId }`.
    - Critical constraints (do not skip): update the same in-flight message/tool rows in-place (don’t append a new message per event)
-10. [ ] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
+10. [x] Handle `analysis_delta` updates so Codex reasoning state renders identically when a user switches tabs mid-run
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useChatStream.ts` (reuse reasoning parser)
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder: `analysis_delta` should update the same analysis panel state used by SSE reasoning rendering.
    - Critical constraints (do not skip): analysis text must remain hidden/collapsible exactly like the current SSE reasoning renderer
-11. [ ] Apply client-side sequence guards:
+11. [x] Apply client-side sequence guards:
    - sidebar events: ignore out-of-order `seq` updates
    - transcript events: ignore out-of-order `seq` per conversationId
    - Files to edit: `client/src/hooks/useChatWs.ts`
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder: every inbound server event includes a `seq` and the client must ignore events with `seq <= lastSeen` for that stream.
    - Done when: rapid switching does not cause “old events” to overwrite newer UI state
-12. [ ] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and pass `cancelOnDisconnect=false`; store `inflightId` for cancellation
+12. [x] Update `useChatStream.send()` to generate a client-side `inflightId` per turn, include it in `POST /chat` payloads, and pass `cancelOnDisconnect=false`; store `inflightId` for cancellation
    - Files to edit: `client/src/hooks/useChatStream.ts`
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Critical constraints (do not skip): `cancelOnDisconnect=false` must only be used for Chat UI streaming requests (so navigating away detaches without canceling)
-13. [ ] Cache `inflightId` for the visible conversation from inbound WS events (`inflight_snapshot` / deltas / tool events) so Stop can cancel runs started outside the current tab
+13. [x] Cache `inflightId` for the visible conversation from inbound WS events (`inflight_snapshot` / deltas / tool events) so Stop can cancel runs started outside the current tab
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder: every transcript event includes `conversationId` and `inflightId`; cache the latest inflightId per conversation so Stop can target it.
    - Done when: Stop works even if this tab did not start the run
-14. [ ] Update Stop behavior to cancel via `conversationId` + `inflightId` without relying on SSE abort side-effects:
+14. [x] Update Stop behavior to cancel via `conversationId` + `inflightId` without relying on SSE abort side-effects:
    - Primary: send `cancel_inflight` over WS
    - Fallback (de-risk): if WS is disconnected, call `POST /chat/cancel`
    - Files to edit: `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/ChatPage.tsx`, `client/src/api/*`
@@ -1480,104 +1480,104 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      - WS: `{ type: 'cancel_inflight', requestId, conversationId, inflightId }`
      - HTTP fallback: `POST /chat/cancel` body `{ conversationId, inflightId }`
    - Critical constraints (do not skip): Stop is the only user action that should cancel generation; switching/navigating must not cancel
-15. [ ] Refactor non-Stop flows so they do not cancel generation:
+15. [x] Refactor non-Stop flows so they do not cancel generation:
    - switching conversations unsubscribes from the prior transcript stream and subscribes to the new one
    - leaving the Chat route unsubscribes from sidebar/transcript streams
    - any SSE abort used to detach should not send `cancel_inflight` (only explicit Stop should cancel)
    - Files to edit: `client/src/pages/ChatPage.tsx` (the unmount effect currently calls `stop()`), `client/src/hooks/useChatStream.ts` (`setConversation` currently calls `stop()`)
    - Docs (read before coding): story “Current streaming behavior (today)” section in this doc
    - Critical constraints (do not skip): detaching should abort the SSE fetch (to stop reading) but must not trigger cancellation unless the user pressed Stop
-16. [ ] Update “New conversation” behavior: if a run is in-flight, cancel it (WS `cancel_inflight`, with REST `POST /chat/cancel` fallback) then clear transcript state while keeping the existing model/provider rules
+16. [x] Update “New conversation” behavior: if a run is in-flight, cancel it (WS `cancel_inflight`, with REST `POST /chat/cancel` fallback) then clear transcript state while keeping the existing model/provider rules
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder (cancel payloads):
      - WS: `{ type: 'cancel_inflight', requestId, conversationId, inflightId }`
      - HTTP fallback: `POST /chat/cancel` body `{ conversationId, inflightId }`
-17. [ ] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
+17. [x] Restore Codex `threadId` from persisted conversation flags when selecting/hydrating an existing conversation so continuation works across reloads/tabs (the list API already returns `flags`)
    - Files to edit: `client/src/hooks/useChatStream.ts` (add a way to set threadId when selecting a conversation), `client/src/pages/ChatPage.tsx` (read `selectedConversation.flags.threadId`)
    - Files to read: `client/src/hooks/useConversations.ts` (flags already exist on list items)
    - Docs (read before coding): this story’s “Current streaming behavior (today)” section (in this file)
    - Critical constraints (do not skip): do not reset threadId to null when switching to an existing Codex conversation; the whole point is to resume the same Codex thread
-18. [ ] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
+18. [x] Ensure Chat sidebar realtime updates remain scoped correctly (e.g., ignore `agentName` conversations if Chat view is `agentName=__none__`)
    - Files to edit: `client/src/hooks/useChatWs.ts`, `client/src/hooks/useConversations.ts`
    - Files to read: `server/src/mongo/repo.ts` (`agentName` query semantics)
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Protocol reminder (sidebar events): `conversation_upsert` may include `agentName`; Chat page must ignore upserts/deletes that do not match its `agentName=__none__` filter.
-19. [ ] Client RTL test (Jest + Testing Library): sidebar ignores WS `conversation_upsert` for agent conversations when Chat uses `agentName=__none__`
+19. [x] Client RTL test (Jest + Testing Library): sidebar ignores WS `conversation_upsert` for agent conversations when Chat uses `agentName=__none__`
    - Files to edit/create: `client/src/test/chatWs.sidebarAgentFilter.test.tsx` (new)
    - Purpose: ensure agent conversations do not appear in the Chat sidebar via realtime upserts (matches REST list filter)
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-20. [ ] Client RTL test (Jest + Testing Library): ChatPage subscribes to sidebar updates on mount when `mongoConnected === true`
+20. [x] Client RTL test (Jest + Testing Library): ChatPage subscribes to sidebar updates on mount when `mongoConnected === true`
    - Files to edit/create: `client/src/test/chatWs.sidebarSubscribe.test.tsx` (new) or extend existing `client/src/test/chatPage.*.test.tsx`
    - Purpose: ensure the sidebar live updates start when the Chat route mounts and persistence is available
    - Docs (read before coding): MDN WebSocket API https://developer.mozilla.org/en-US/docs/Web/API/WebSocket, Testing Library https://testing-library.com/docs/react-testing-library/intro/, Jest (Context7) `/websites/jestjs_io_30_0`
-21. [ ] Client RTL test (Jest + Testing Library): ChatPage unsubscribes from sidebar updates on unmount without sending `cancel_inflight`
+21. [x] Client RTL test (Jest + Testing Library): ChatPage unsubscribes from sidebar updates on unmount without sending `cancel_inflight`
    - Files to edit/create: `client/src/test/chatWs.sidebarUnsubscribe.test.tsx` (new) or extend existing `client/src/test/chatPage.stop.test.tsx`
    - Purpose: ensure leaving Chat detaches from WS updates but does not cancel the run server-side
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-22. [ ] Client RTL test (Jest + Testing Library): selecting a conversation subscribes to transcript updates for that `conversationId`
+22. [x] Client RTL test (Jest + Testing Library): selecting a conversation subscribes to transcript updates for that `conversationId`
    - Files to edit/create: `client/src/test/chatWs.transcriptSubscribe.test.tsx` (new) or extend existing `client/src/test/chatPage.provider.conversationSelection.test.tsx`
    - Purpose: ensure the active transcript view receives live updates for the selected conversation
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-23. [ ] Client RTL test (Jest + Testing Library): switching conversations unsubscribes the old transcript and subscribes the new transcript
+23. [x] Client RTL test (Jest + Testing Library): switching conversations unsubscribes the old transcript and subscribes the new transcript
    - Files to edit/create: `client/src/test/chatWs.transcriptSwitching.test.tsx` (new) or extend existing `client/src/test/chatPage.provider.conversationSelection.test.tsx`
    - Purpose: ensure rapid switching does not leak subscriptions or merge deltas into the wrong transcript
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-24. [ ] Client RTL test (Jest + Testing Library): `inflight_snapshot` renders assistant text + analysis + tool state as a single in-flight UI section
+24. [x] Client RTL test (Jest + Testing Library): `inflight_snapshot` renders assistant text + analysis + tool state as a single in-flight UI section
    - Files to edit/create: `client/src/test/chatWs.inflightSnapshotRendering.test.tsx` (new) or extend existing `client/src/test/chatPage.stream.test.tsx`
    - Purpose: ensure late subscribers see a correct “current in-flight” view that matches the originating tab
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-25. [ ] Client RTL test (Jest + Testing Library): `assistant_delta` updates in-place (no duplicate assistant message)
+25. [x] Client RTL test (Jest + Testing Library): `assistant_delta` updates in-place (no duplicate assistant message)
    - Files to edit/create: `client/src/test/chatWs.assistantDelta.test.tsx` (new)
    - Purpose: ensure streaming deltas append to the existing in-flight assistant message rather than creating new turns
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-26. [ ] Client RTL test (Jest + Testing Library): `analysis_delta` updates the analysis panel in-place
+26. [x] Client RTL test (Jest + Testing Library): `analysis_delta` updates the analysis panel in-place
    - Files to edit/create: `client/src/test/chatWs.analysisDelta.test.tsx` (new) or extend existing `client/src/test/useChatStream.reasoning.test.tsx`
    - Purpose: ensure late subscribers can see reasoning/analysis streaming consistently with SSE behavior
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-27. [ ] Client RTL test (Jest + Testing Library): out-of-order `seq` events are ignored (sidebar + transcript)
+27. [x] Client RTL test (Jest + Testing Library): out-of-order `seq` events are ignored (sidebar + transcript)
    - Files to edit/create: `client/src/test/chatWs.seqGuards.test.tsx` (new)
    - Purpose: prevent UI glitches from late-arriving messages during reconnects and rapid switching
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-28. [ ] Client RTL test (Jest + Testing Library): Stop sends `cancel_inflight` over WS when `inflightId` is known (no reliance on HTTP abort)
+28. [x] Client RTL test (Jest + Testing Library): Stop sends `cancel_inflight` over WS when `inflightId` is known (no reliance on HTTP abort)
    - Files to edit/create: `client/src/test/chatPage.stop.wsCancel.test.tsx` (new) or update `client/src/test/chatPage.stop.test.tsx`
    - Purpose: ensure Stop semantics match Story 19 (explicit cancel only) and do not depend on fetch abort side-effects
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-29. [ ] Client RTL test (Jest + Testing Library): Stop falls back to `POST /chat/cancel` when WS is disconnected
+29. [x] Client RTL test (Jest + Testing Library): Stop falls back to `POST /chat/cancel` when WS is disconnected
    - Files to edit/create: `client/src/test/chatPage.stop.httpCancelFallback.test.tsx` (new)
    - Purpose: ensure Stop still cancels even when the WS transport is temporarily unavailable
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-30. [ ] Client RTL test (Jest + Testing Library): Stop works even if this tab did not start the run (inflightId learned from `inflight_snapshot`)
+30. [x] Client RTL test (Jest + Testing Library): Stop works even if this tab did not start the run (inflightId learned from `inflight_snapshot`)
    - Files to edit/create: `client/src/test/chatWs.stopFromViewerTab.test.tsx` (new)
    - Purpose: ensure any viewer can stop a run (dashboard workflow) once it learns the inflightId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-31. [ ] Client RTL test (Jest + Testing Library): leaving Chat/unmount and switching conversations does not cancel generation (detach semantics)
+31. [x] Client RTL test (Jest + Testing Library): leaving Chat/unmount and switching conversations does not cancel generation (detach semantics)
    - Files to edit/create: `client/src/test/chatWs.detachSemantics.test.tsx` (new) or update `client/src/test/chatPage.stream.test.tsx`
    - Purpose: ensure only explicit Stop triggers cancellation, while navigation/switching only unsubscribes
    - Docs (read before coding): React effects https://react.dev/learn/synchronizing-with-effects, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-32. [ ] Client RTL test (Jest + Testing Library): persistence gating disables WS subscriptions and shows a clear message when `mongoConnected === false`
+32. [x] Client RTL test (Jest + Testing Library): persistence gating disables WS subscriptions and shows a clear message when `mongoConnected === false`
    - Files to edit/create: `client/src/test/chatPersistenceBanner.wsGating.test.tsx` (new) or update `client/src/test/chatPersistenceBanner.test.tsx`
    - Purpose: ensure realtime subscriptions/catch-up are disabled when persistence is off, without breaking chat send/stop
    - Docs (read before coding): MUI Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
-33. [ ] Client RTL test (Jest + Testing Library): “New conversation” cancels the in-flight run via `cancel_inflight` and clears transcript state
+33. [x] Client RTL test (Jest + Testing Library): “New conversation” cancels the in-flight run via `cancel_inflight` and clears transcript state
    - Files to edit/create: `client/src/test/chatPage.newConversation.wsCancel.test.tsx` (new) or update `client/src/test/chatPage.newConversation.test.tsx`
    - Purpose: ensure “New conversation” performs an explicit cancel (not just abort) before resetting local transcript state
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-34. [ ] Client RTL test (Jest + Testing Library): “New conversation” falls back to `POST /chat/cancel` when WS is disconnected
+34. [x] Client RTL test (Jest + Testing Library): “New conversation” falls back to `POST /chat/cancel` when WS is disconnected
    - Files to edit/create: `client/src/test/chatPage.newConversation.httpCancelFallback.test.tsx` (new)
    - Purpose: ensure “New conversation” can still cancel the in-flight run when WS transport is unavailable
    - Docs (read before coding): Fetch API https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-35. [ ] Client RTL test (Jest + Testing Library): selecting an existing conversation restores Codex `threadId` from `flags.threadId` and next send includes it
+35. [x] Client RTL test (Jest + Testing Library): selecting an existing conversation restores Codex `threadId` from `flags.threadId` and next send includes it
    - Files to edit/create: `client/src/test/chatPage.codexThreadIdRestore.test.tsx` (new) or update `client/src/test/chatSendPayload.test.tsx`
    - Purpose: ensure Codex continuation works across reloads/tabs by restoring the persisted threadId
    - Docs (read before coding): Testing Library https://testing-library.com/docs/react-testing-library/intro/
-36. [ ] Update docs: `design.md` (client WS subscribe/catch-up + Stop/detach flows as Mermaid diagrams)
+36. [x] Update docs: `design.md` (client WS subscribe/catch-up + Stop/detach flows as Mermaid diagrams)
    - Files to edit: `design.md`
    - Location: `design.md`
    - Description: add/update Mermaid diagrams describing connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering, and Stop vs detach behavior
    - Purpose: document the client lifecycle (connect/reconnect, subscribe/unsubscribe, snapshot refresh ordering) and Stop vs detach semantics as Mermaid diagrams
    - Docs (read before doing): Mermaid (Context7) `/mermaid-js/mermaid`, Markdown basics https://www.markdownguide.org/basic-syntax/
-37. [ ] Update docs: `projectStructure.md` (new client WS hook/tests)
+37. [x] Update docs: `projectStructure.md` (new client WS hook/tests)
    - Files to edit: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: add every new/moved/removed client file created in Task 4 (Chat WS hook + realtime subscriptions + Stop/detach changes + tests)
@@ -1604,41 +1604,41 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client realtime/WS additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-38. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+38. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
    - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
    - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
    - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Files to read: `server/package.json`, `server/src/test/`
    - Command: `npm run test --workspace server`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
    - Command: `npm run test --workspace client`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (Task 4 focus: WS reconnect + transcript subscription + Stop vs detach)
+8. [x] Manual Playwright-MCP check (Task 4 focus: WS reconnect + transcript subscription + Stop vs detach)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
      - Start the stack and open http://host.docker.internal:5001.
@@ -1647,14 +1647,62 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
      - Verify reconnect safety: reload during/after a run and confirm REST refresh happens before WS deltas apply (no duplicate/out-of-order transcript).
      - Verify Stop cancels, but navigating away just unsubscribes (does not cancel).
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 
 #### Implementation notes
 
-- 
+- 2025-12-25: Marked Task 4 as __in_progress__ and started implementing client WebSocket connection/reconnect, sidebar + transcript subscriptions, and updated Stop/detach semantics per Story 19.
+- 2025-12-25: Reviewed existing client chat state + persistence hooks (`useChatStream`, `useConversations`, `useConversationTurns`, `ChatPage`) and server WS protocol (`server/src/ws/types.ts`) to align event handling and cancel semantics.
+- 2025-12-25: Added initial `client/src/hooks/useChatWs.ts` to manage a single Chat WS connection with safe JSON send, requestId generation, and basic subscribe/unsubscribe/cancel message helpers.
+- 2025-12-25: Implemented WS auto-reconnect with backoff + jitter in `useChatWs`, plus a `connectionSeq` counter to drive resubscribe flows after reconnect.
+- 2025-12-25: Added explicit subscribe/unsubscribe helpers in `useChatWs` for sidebar + per-conversation transcript streams.
+- 2025-12-25: Wired ChatPage to `useChatWs` and gated WS subscriptions on `mongoConnected !== false`; updated the persistence banner copy to mention live updates are disabled when Mongo is down.
+- 2025-12-25: Implemented sidebar subscription lifecycle: subscribe on Chat mount/WS reconnect and refresh the REST list snapshot before resubscribing.
+- 2025-12-25: Implemented transcript subscription lifecycle scoped to the active conversation: unsubscribe on switch/unmount and refresh REST turns snapshot before resubscribing on WS reconnect.
+- 2025-12-25: Added WS `inflight_snapshot` rendering: late subscribers now see a synthetic in-flight assistant message merged after persisted turns (assistant text + analysis text + tool state).
+- 2025-12-25: Implemented WS `assistant_delta` and `tool_event` in-place updates so the existing synthetic in-flight message/tool rows update (no duplicate assistant messages per event).
+- 2025-12-25: Implemented WS `analysis_delta` and render-time parsing via `parseReasoning` so reasoning/thought-process content stays hidden/collapsible consistently with the existing SSE renderer.
+- 2025-12-25: Added client-side WS `seq` guards in `useChatWs` to ignore out-of-order sidebar updates and per-conversation transcript updates.
+- 2025-12-25: Updated `useChatStream.send()` to generate a client `inflightId` per request, pass it to `POST /chat`, and always set `cancelOnDisconnect=false` so route changes detach without cancelling generation.
+- 2025-12-25: Added a per-conversation inflightId cache in ChatPage, populated from WS transcript events (and local sends), to support cancellation from viewer tabs.
+- 2025-12-25: Updated Stop to explicitly cancel runs via WS `cancel_inflight`, with a `POST /chat/cancel` fallback (`client/src/api/chat.ts`) when the WS transport is disconnected.
+- 2025-12-25: Updated detach semantics: route unmount + conversation switching now only detaches (SSE abort + WS unsubscribe), relying on `cancelOnDisconnect=false` so these flows never cancel generation.
+- 2025-12-25: Updated “New conversation” to explicitly cancel any active inflight run via WS (with HTTP cancel fallback) before resetting local chat/transcript state.
+- 2025-12-25: Updated conversation selection to restore Codex `threadId` from `flags.threadId` so Codex continuations work across reloads/tabs.
+- 2025-12-25: Ensured sidebar WS upserts honor the Chat page `agentName=__none__` filter by ignoring realtime upserts that include a non-empty `agentName`.
+- 2025-12-25: Added client RTL coverage for sidebar WS agentName filtering (`client/src/test/chatWs.sidebarAgentFilter.test.tsx`).
+- 2025-12-25: Added client RTL coverage for sidebar WS subscription on mount when persistence is available (`client/src/test/chatWs.sidebarSubscribe.test.tsx`).
+- 2025-12-25: Added client RTL coverage for sidebar WS unsubscribe on unmount and ensured unmount does not send `cancel_inflight` (`client/src/test/chatWs.sidebarUnsubscribe.test.tsx`).
+- 2025-12-25: Added client RTL coverage for transcript subscription when selecting a conversation (`client/src/test/chatWs.transcriptSubscribe.test.tsx`).
+- 2025-12-25: Added client RTL coverage for transcript unsubscribe/subscribe behavior when switching conversations (`client/src/test/chatWs.transcriptSwitching.test.tsx`).
+- 2025-12-25: Added client RTL coverage for `inflight_snapshot` rendering (assistant + analysis + tool state) as a single synthetic in-flight message (`client/src/test/chatWs.inflightSnapshotRendering.test.tsx`).
+- 2025-12-25: Added client RTL coverage for `assistant_delta` in-place updates (`client/src/test/chatWs.assistantDelta.test.tsx`).
+- 2025-12-25: Added client RTL coverage for `analysis_delta` in-place updates (`client/src/test/chatWs.analysisDelta.test.tsx`).
+- 2025-12-25: Added client RTL coverage for WS `seq` guards (sidebar + transcript) (`client/src/test/chatWs.seqGuards.test.tsx`).
+- 2025-12-25: Added client RTL coverage verifying Stop prefers WS `cancel_inflight` when inflightId is known (`client/src/test/chatPage.stop.wsCancel.test.tsx`).
+- 2025-12-25: Added client RTL coverage verifying Stop falls back to `POST /chat/cancel` when WS is disconnected (`client/src/test/chatPage.stop.httpCancelFallback.test.tsx`).
+- 2025-12-25: Updated Stop visibility to include viewer-tab inflight runs (WS `inflight_snapshot`) and added RTL coverage ensuring viewer tabs can cancel via WS (`client/src/test/chatWs.stopFromViewerTab.test.tsx`).
+- 2025-12-25: Added client RTL coverage confirming detach semantics (switching conversations does not cancel generation) (`client/src/test/chatWs.detachSemantics.test.tsx`).
+- 2025-12-25: Added client RTL coverage verifying persistence gating disables WS subscriptions while keeping chat usable (`client/src/test/chatPersistenceBanner.wsGating.test.tsx`).
+- 2025-12-25: Added client RTL coverage verifying “New conversation” cancels via WS `cancel_inflight` and resets local transcript (`client/src/test/chatPage.newConversation.wsCancel.test.tsx`).
+- 2025-12-25: Added client RTL coverage verifying “New conversation” falls back to `POST /chat/cancel` when WS is disconnected (`client/src/test/chatPage.newConversation.httpCancelFallback.test.tsx`).
+- 2025-12-25: Added client RTL coverage ensuring Codex `threadId` is restored from `flags.threadId` and included in subsequent sends (`client/src/test/chatPage.codexThreadIdRestore.test.tsx`).
+- 2025-12-25: Updated `design.md` with additional Mermaid diagrams covering WS reconnect resync ordering and explicit Stop vs detach semantics.
+- 2025-12-25: Updated `projectStructure.md` to include new client WS hook + cancel API wrapper + test additions.
+- 2025-12-25: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; applied `npm run format --workspace client` to resolve client Prettier drift.
+- 2025-12-25: Testing: `npm run build --workspace server` passed.
+- 2025-12-25: Testing: `npm run build --workspace client` passed.
+- 2025-12-25: Testing: `npm run test --workspace server` passed.
+- 2025-12-25: Testing: `npm run test --workspace client` passed.
+- 2025-12-25: Testing: `npm run e2e` passed.
+- 2025-12-25: Testing: `npm run compose:build` passed.
+- 2025-12-25: Testing: `npm run compose:up` passed.
+- 2025-12-25: Manual check (Playwright via `http://host.docker.internal:5001`): verified sidebar live updates, transcript catch-up + streaming in a second tab, reload mid-stream resync, Stop from viewer tab cancels the run, and navigating away unsubscribes without cancel.
+- 2025-12-25: Testing: `npm run compose:down` passed.
+- 2025-12-25: Fixed a teardown ordering gotcha where the WS hook could close the socket before ChatPage effect cleanups could send `unsubscribe_sidebar`; `useChatWs` now sends unsubscribes for tracked subscriptions before closing.
 
 ---
 

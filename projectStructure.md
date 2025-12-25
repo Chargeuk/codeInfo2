@@ -65,6 +65,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
+|     |  |- useChatWs.ts ? chat WebSocket hook (connect/reconnect + seq guards + subscribe/unsubscribe/cancel helpers)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + 3-state filter and single/bulk archive/restore/delete helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
@@ -75,6 +76,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
+|     |  - chat.ts ? client wrapper for REST cancel fallback (POST /chat/cancel)
 |     |  - conversations.ts ? client wrapper for conversation archive/restore + bulk endpoints
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
@@ -429,9 +431,28 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - codex_agents/planning_agent/commands/improve_plan.json — long-form planning macro used to refine story plans
 - codex_agents/planning_agent/commands/smoke.json — smoke-test planning macro for validating `run_command` wiring
 - client/src/api/conversations.ts — client wrapper for conversation archive/restore + bulk endpoints
+- client/src/api/chat.ts — client wrapper for cancellation fallback `POST /chat/cancel`
 - client/src/test/useConversations.source.test.ts — hook defaults missing source to REST and preserves MCP
 - client/src/test/chatPage.source.test.tsx — conversation list renders source labels for REST and MCP conversations
 - client/src/test/chatSidebar.test.tsx — chat sidebar filter, multi-select, and bulk action UI behavior
+- client/src/test/utils/mockWebSocket.ts — test helper to mock the browser WebSocket API
+- client/src/test/chatWs.sidebarAgentFilter.test.tsx — sidebar ignores WS upserts for agentName conversations when Chat uses `agentName=__none__`
+- client/src/test/chatWs.sidebarSubscribe.test.tsx — sidebar subscribes on mount when persistence is available
+- client/src/test/chatWs.sidebarUnsubscribe.test.tsx — sidebar unsubscribes on unmount and does not cancel inflight runs
+- client/src/test/chatWs.transcriptSubscribe.test.tsx — transcript subscribes when selecting a conversation
+- client/src/test/chatWs.transcriptSwitching.test.tsx — transcript unsubscribes/resubscribes when switching conversations
+- client/src/test/chatWs.inflightSnapshotRendering.test.tsx — inflight snapshot renders assistant+analysis+tools as one synthetic message
+- client/src/test/chatWs.assistantDelta.test.tsx — assistant deltas append in-place to the synthetic inflight message
+- client/src/test/chatWs.analysisDelta.test.tsx — analysis deltas append in-place to the thought-process panel
+- client/src/test/chatWs.seqGuards.test.tsx — out-of-order WS events are ignored via seq guards
+- client/src/test/chatPage.stop.wsCancel.test.tsx — Stop prefers WS cancel_inflight when connected
+- client/src/test/chatPage.stop.httpCancelFallback.test.tsx — Stop falls back to `POST /chat/cancel` when WS is disconnected
+- client/src/test/chatWs.stopFromViewerTab.test.tsx — viewer tab can Stop a run using inflightId learned from WS snapshot
+- client/src/test/chatWs.detachSemantics.test.tsx — switching conversations detaches without cancelling
+- client/src/test/chatPersistenceBanner.wsGating.test.tsx — persistence banner disables WS subscriptions but keeps chat usable
+- client/src/test/chatPage.newConversation.wsCancel.test.tsx — new conversation cancels via WS and resets transcript
+- client/src/test/chatPage.newConversation.httpCancelFallback.test.tsx — new conversation falls back to `POST /chat/cancel` when WS is disconnected
+- client/src/test/chatPage.codexThreadIdRestore.test.tsx — selecting a codex conversation restores threadId and next send includes it
 - client/src/test/agentsApi.workingFolder.payload.test.ts — Agents API wrapper includes `working_folder` only when non-empty
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent

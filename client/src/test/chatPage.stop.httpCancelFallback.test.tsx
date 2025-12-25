@@ -36,46 +36,27 @@ const routes = [
   },
 ];
 
-const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
-const providerPayload = {
-  providers: [
-    {
-      id: 'lmstudio',
-      label: 'LM Studio',
-      available: true,
-      toolsAvailable: true,
-    },
-  ],
-};
-
-describe('Chat page new conversation control', () => {
-  it('aborts the current stream, clears transcript, and refocuses input', async () => {
+describe('Chat page stop (HTTP cancel fallback)', () => {
+  it('falls back to POST /chat/cancel when WS is disconnected', async () => {
     const ws = installMockWebSocket();
-    const abortFns: jest.Mock[] = [];
-    const OriginalAbortController = global.AbortController;
-
-    class MockAbortController {
-      signal: AbortSignal;
-      abort: jest.Mock;
-
-      constructor() {
-        this.signal = { aborted: false } as AbortSignal;
-        this.abort = jest.fn(() => {
-          this.signal = { ...this.signal, aborted: true } as AbortSignal;
-        });
-        abortFns.push(this.abort);
-      }
-    }
-
-    // @ts-expect-error partial mock is sufficient for tests
-    global.AbortController = MockAbortController;
-
     try {
-      const stream = new ReadableStream<Uint8Array>({
-        start() {
-          // keep stream open until aborted
-        },
-      });
+      let reads = 0;
+      const reader = {
+        read: jest.fn<() => Promise<ReadableStreamReadResult<Uint8Array>>>(
+          () => {
+            reads += 1;
+            if (reads === 1) {
+              return Promise.resolve({
+                value: new TextEncoder().encode(
+                  'data: {"type":"token","content":"hi"}\n\n',
+                ),
+                done: false,
+              });
+            }
+            return new Promise(() => {});
+          },
+        ),
+      };
 
       mockFetch.mockImplementation((url: RequestInfo | URL) => {
         const href = typeof url === 'string' ? url : url.toString();
@@ -90,7 +71,16 @@ describe('Chat page new conversation control', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: async () => providerPayload,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
           }) as unknown as Response;
         }
         if (href.includes('/chat/models')) {
@@ -101,15 +91,33 @@ describe('Chat page new conversation control', () => {
               provider: 'lmstudio',
               available: true,
               toolsAvailable: true,
-              models: modelList,
+              models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
             }),
           }) as unknown as Response;
         }
-        if (href.includes('/chat')) {
+        if (href.includes('/conversations')) {
           return Promise.resolve({
             ok: true,
             status: 200,
-            body: stream,
+            json: async () => ({ items: [], nextCursor: undefined }),
+          }) as unknown as Response;
+        }
+        if (href.endsWith('/chat')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: {
+              getReader: () => ({
+                read: reader.read,
+              }),
+            } as unknown as ReadableStream<Uint8Array>,
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/cancel')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({}),
           }) as unknown as Response;
         }
         return Promise.resolve({
@@ -124,12 +132,7 @@ describe('Chat page new conversation control', () => {
       render(<RouterProvider router={router} />);
 
       await waitFor(() => expect(ws.instances.length).toBe(1));
-      ws.instances[0].__emitOpen();
-
-      const modelSelect = await screen.findByRole('combobox', {
-        name: /model/i,
-      });
-      await waitFor(() => expect(modelSelect).toHaveTextContent('Model 1'));
+      // Intentionally do NOT open the socket; Stop should use HTTP cancel fallback.
 
       const input = await screen.findByTestId('chat-input');
       fireEvent.change(input, { target: { value: 'Hello' } });
@@ -140,30 +143,25 @@ describe('Chat page new conversation control', () => {
         await user.click(sendButton);
       });
 
-      await waitFor(() => expect(sendButton).toBeDisabled());
-      const newConversationButton = screen.getByRole('button', {
-        name: /new conversation/i,
-      });
-
+      const stopButton = await screen.findByTestId('chat-stop');
       await act(async () => {
-        await user.click(newConversationButton);
+        await user.click(stopButton);
       });
 
-      expect(abortFns.at(-1)).toHaveBeenCalled();
       await waitFor(() => {
-        const payloads = ws.instances[0].send.mock.calls.map(([arg]) =>
-          String(arg),
+        const cancelCalls = mockFetch.mock.calls.filter(([target]) =>
+          target.toString().includes('/chat/cancel'),
         );
-        expect(payloads.join('\n')).toContain('cancel_inflight');
+        expect(cancelCalls.length).toBe(1);
+        const [, init] = cancelCalls[0];
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+        expect(body).toEqual({
+          conversationId: expect.any(String),
+          inflightId: expect.any(String),
+        });
       });
-      expect(
-        screen.getByText(/Transcript will appear here/i),
-      ).toBeInTheDocument();
-      expect(modelSelect).toHaveTextContent('Model 1');
-      await waitFor(() => expect(input).toHaveFocus());
     } finally {
       ws.restore();
-      global.AbortController = OriginalAbortController;
     }
   });
 });

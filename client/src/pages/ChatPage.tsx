@@ -36,11 +36,14 @@ import {
 import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
+import { cancelChatInflight } from '../api/chat';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
   ApprovalPolicy,
+  initialReasoningState,
   ModelReasoningEffort,
+  parseReasoning,
   SandboxMode,
   ToolCitation,
   ToolCall,
@@ -49,6 +52,7 @@ import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
+import useChatWs, { ChatWsServerEvent } from '../hooks/useChatWs';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 
 export default function ChatPage() {
@@ -92,6 +96,7 @@ export default function ChatPage() {
     messages,
     status,
     isStreaming,
+    inflightId: localInflightId,
     send,
     stop,
     reset,
@@ -121,6 +126,8 @@ export default function ChatPage() {
     bulkArchive,
     bulkRestore,
     bulkDelete,
+    applySidebarUpsert,
+    applySidebarDelete,
   } = useConversations({ agentName: '__none__' });
 
   const {
@@ -132,6 +139,7 @@ export default function ChatPage() {
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
   >(conversationId);
+  const activeConversationIdRef = useRef<string | undefined>(conversationId);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
@@ -147,6 +155,29 @@ export default function ChatPage() {
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+
+  type WsToolState = {
+    id: string;
+    name?: string;
+    status: 'requesting' | 'done' | 'error';
+    stage?: string;
+    params?: unknown;
+    result?: unknown;
+    error?: unknown;
+  };
+
+  type WsInflightState = {
+    conversationId: string;
+    inflightId: string;
+    assistantText: string;
+    analysisText: string;
+    tools: WsToolState[];
+    startedAt: string;
+  };
+
+  const [wsInflight, setWsInflight] = useState<WsInflightState | null>(null);
+  const inflightIdCacheRef = useRef<Map<string, string>>(new Map());
+  const [activeInflightId, setActiveInflightId] = useState<string | null>(null);
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -167,8 +198,232 @@ export default function ChatPage() {
     error: turnsErrorMessage,
     hasMore: turnsHasMore,
     loadOlder,
+    refresh: refreshTurns,
     reset: resetTurns,
   } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
+
+  const mapWsToolsToToolCalls = useCallback(
+    (tools: WsToolState[]) =>
+      tools.map(
+        (tool) =>
+          ({
+            id: tool.id,
+            name: tool.name,
+            status: tool.status,
+            stage: tool.stage,
+            parameters: tool.params,
+            payload: tool.result,
+            errorFull: tool.error,
+            errorTrimmed:
+              tool.error && typeof tool.error === 'object'
+                ? (tool.error as { code?: string; message?: string })
+                : null,
+          }) satisfies ToolCall,
+      ),
+    [],
+  );
+
+  const handleWsEvent = useCallback(
+    (event: ChatWsServerEvent) => {
+      if (event.type === 'conversation_upsert') {
+        applySidebarUpsert({
+          conversationId: event.conversation.conversationId,
+          title: event.conversation.title,
+          provider: event.conversation.provider,
+          model: event.conversation.model,
+          source:
+            event.conversation.source === 'MCP' ? 'MCP' : ('REST' as const),
+          lastMessageAt: event.conversation.lastMessageAt,
+          archived: event.conversation.archived,
+          agentName: event.conversation.agentName,
+        });
+        return;
+      }
+      if (event.type === 'conversation_delete') {
+        applySidebarDelete(event.conversationId);
+        return;
+      }
+
+      if (event.type === 'inflight_snapshot') {
+        if (event.conversationId !== activeConversationIdRef.current) return;
+
+        inflightIdCacheRef.current.set(
+          event.conversationId,
+          event.inflight.inflightId,
+        );
+
+        const tools: WsToolState[] = Array.isArray(event.inflight.tools)
+          ? event.inflight.tools
+              .filter((tool): tool is Record<string, unknown> =>
+                Boolean(tool && typeof tool === 'object'),
+              )
+              .map((tool) => {
+                const status =
+                  tool.status === 'requesting' ||
+                  tool.status === 'done' ||
+                  tool.status === 'error'
+                    ? (tool.status as WsToolState['status'])
+                    : 'requesting';
+                return {
+                  id: typeof tool.id === 'string' ? tool.id : String(tool.id),
+                  name: typeof tool.name === 'string' ? tool.name : undefined,
+                  status,
+                  stage:
+                    typeof tool.stage === 'string' ? tool.stage : undefined,
+                  params:
+                    'params' in tool
+                      ? (tool as { params?: unknown }).params
+                      : undefined,
+                  result:
+                    'result' in tool
+                      ? (tool as { result?: unknown }).result
+                      : undefined,
+                  error:
+                    'error' in tool
+                      ? (tool as { error?: unknown }).error
+                      : undefined,
+                };
+              })
+          : [];
+
+        setWsInflight({
+          conversationId: event.conversationId,
+          inflightId: event.inflight.inflightId,
+          assistantText: event.inflight.assistantText,
+          analysisText: event.inflight.analysisText,
+          tools,
+          startedAt: event.inflight.startedAt,
+        });
+        return;
+      }
+
+      if (event.type === 'assistant_delta') {
+        if (event.conversationId !== activeConversationIdRef.current) return;
+        inflightIdCacheRef.current.set(event.conversationId, event.inflightId);
+        setWsInflight((prev) => {
+          if (!prev) return prev;
+          if (prev.conversationId !== event.conversationId) return prev;
+          if (prev.inflightId !== event.inflightId) return prev;
+          return { ...prev, assistantText: prev.assistantText + event.delta };
+        });
+        return;
+      }
+
+      if (event.type === 'analysis_delta') {
+        if (event.conversationId !== activeConversationIdRef.current) return;
+        inflightIdCacheRef.current.set(event.conversationId, event.inflightId);
+        setWsInflight((prev) => {
+          if (!prev) return prev;
+          if (prev.conversationId !== event.conversationId) return prev;
+          if (prev.inflightId !== event.inflightId) return prev;
+          return { ...prev, analysisText: prev.analysisText + event.delta };
+        });
+        return;
+      }
+
+      if (event.type === 'tool_event') {
+        if (event.conversationId !== activeConversationIdRef.current) return;
+        inflightIdCacheRef.current.set(event.conversationId, event.inflightId);
+        const toolEvent =
+          event.event && typeof event.event === 'object'
+            ? (event.event as Record<string, unknown>)
+            : null;
+        const kind =
+          toolEvent && typeof toolEvent.type === 'string'
+            ? toolEvent.type
+            : null;
+        if (kind !== 'tool-request' && kind !== 'tool-result') return;
+        const callId = toolEvent.callId;
+        const toolId =
+          typeof callId === 'string'
+            ? callId
+            : typeof callId === 'number'
+              ? callId.toString()
+              : null;
+        if (!toolId) return;
+        const name =
+          typeof toolEvent.name === 'string' ? toolEvent.name : undefined;
+        const stage =
+          typeof toolEvent.stage === 'string' ? toolEvent.stage : undefined;
+        const params =
+          'parameters' in (toolEvent ?? {})
+            ? (toolEvent as { parameters?: unknown }).parameters
+            : undefined;
+        const result =
+          'result' in (toolEvent ?? {})
+            ? (toolEvent as { result?: unknown }).result
+            : undefined;
+        const error =
+          'errorTrimmed' in (toolEvent ?? {})
+            ? (toolEvent as { errorTrimmed?: unknown }).errorTrimmed
+            : undefined;
+
+        setWsInflight((prev) => {
+          if (!prev) return prev;
+          if (prev.conversationId !== event.conversationId) return prev;
+          if (prev.inflightId !== event.inflightId) return prev;
+
+          const status: WsToolState['status'] =
+            kind === 'tool-request' ? 'requesting' : error ? 'error' : 'done';
+
+          const nextTool: WsToolState = {
+            id: toolId,
+            name,
+            status,
+            stage,
+            params,
+            result,
+            error,
+          };
+
+          const existingIdx = prev.tools.findIndex((t) => t.id === toolId);
+          const nextTools =
+            existingIdx >= 0
+              ? prev.tools.map((t) =>
+                  t.id === toolId ? { ...t, ...nextTool } : t,
+                )
+              : [...prev.tools, nextTool];
+
+          return { ...prev, tools: nextTools };
+        });
+        return;
+      }
+
+      if (event.type === 'turn_final') {
+        inflightIdCacheRef.current.delete(event.conversationId);
+        setWsInflight((prev) => {
+          if (!prev) return prev;
+          if (prev.conversationId !== event.conversationId) return prev;
+          if (prev.inflightId !== event.inflightId) return prev;
+          return null;
+        });
+        void refreshConversations();
+        if (
+          event.conversationId === activeConversationIdRef.current &&
+          !persistenceUnavailable
+        ) {
+          void refreshTurns();
+        }
+      }
+    },
+    [
+      applySidebarDelete,
+      applySidebarUpsert,
+      persistenceUnavailable,
+      refreshConversations,
+      refreshTurns,
+    ],
+  );
+
+  const {
+    status: wsStatus,
+    connectionSeq: wsConnectionSeq,
+    subscribeSidebar,
+    unsubscribeSidebar,
+    subscribeConversation,
+    unsubscribeConversation,
+    cancelInflight,
+  } = useChatWs({ onEvent: handleWsEvent });
 
   useEffect(() => {
     const debugState = {
@@ -216,7 +471,9 @@ export default function ChatPage() {
     !providerAvailable ||
     (providerIsCodex && !toolsAvailable);
   const isSending = isStreaming || status === 'sending';
-  const showStop = isSending;
+  const showStop =
+    isSending ||
+    Boolean(wsInflight && wsInflight.conversationId === activeConversationId);
   const combinedError =
     providerErrorMessage ?? errorMessage ?? 'Failed to load chat options.';
   const retryFetch = useCallback(() => {
@@ -226,9 +483,48 @@ export default function ChatPage() {
     }
   }, [provider, refreshModels, refreshProviders]);
 
+  const wsInflightMessage = useMemo<ChatMessage | null>(() => {
+    if (!wsInflight) return null;
+    const analysisPass = parseReasoning(
+      { ...initialReasoningState(), mode: 'analysis', analysisStreaming: true },
+      wsInflight.analysisText,
+      { flushAll: true },
+    );
+    const combined = parseReasoning(
+      { ...analysisPass, mode: 'final' },
+      wsInflight.assistantText,
+      { flushAll: true, dedupeAnalysis: true },
+    );
+    return {
+      id: `ws-inflight-${wsInflight.conversationId}-${wsInflight.inflightId}`,
+      role: 'assistant',
+      content: combined.final || wsInflight.assistantText,
+      think: combined.analysis,
+      thinkStreaming: Boolean(wsInflight.analysisText),
+      tools: mapWsToolsToToolCalls(wsInflight.tools),
+      streamStatus: 'processing',
+      createdAt: wsInflight.startedAt,
+    };
+  }, [mapWsToolsToToolCalls, wsInflight]);
+
+  const mergedMessages = useMemo(() => {
+    const hasLocalInflight =
+      isSending && conversationId === activeConversationId;
+    if (wsInflightMessage && !hasLocalInflight) {
+      return [...messages, wsInflightMessage];
+    }
+    return messages;
+  }, [
+    activeConversationId,
+    conversationId,
+    isSending,
+    messages,
+    wsInflightMessage,
+  ]);
+
   const orderedMessages = useMemo<ChatMessage[]>(
-    () => [...messages].reverse(),
-    [messages],
+    () => [...mergedMessages].reverse(),
+    [mergedMessages],
   );
 
   useEffect(() => {
@@ -239,6 +535,36 @@ export default function ChatPage() {
     setActiveConversationId(conversationId);
     console.info('[chat-history] conversationId changed', { conversationId });
   }, [conversationId]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    setWsInflight(null);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      setActiveInflightId(null);
+      return;
+    }
+
+    const cached = inflightIdCacheRef.current.get(activeConversationId) ?? null;
+    const fromWs =
+      wsInflight?.conversationId === activeConversationId
+        ? wsInflight.inflightId
+        : null;
+    const fromLocal =
+      conversationId === activeConversationId
+        ? (localInflightId ?? null)
+        : null;
+    const next = fromWs ?? fromLocal ?? cached;
+    setActiveInflightId(next);
+    if (next) {
+      inflightIdCacheRef.current.set(activeConversationId, next);
+    }
+  }, [activeConversationId, conversationId, localInflightId, wsInflight]);
 
   useEffect(() => {
     if (!selectedConversation?.provider) return;
@@ -262,6 +588,59 @@ export default function ChatPage() {
   );
 
   useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (wsStatus !== 'connected') return;
+
+    let cancelled = false;
+    void (async () => {
+      await refreshConversations();
+      if (cancelled) return;
+      subscribeSidebar();
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribeSidebar();
+    };
+  }, [
+    persistenceUnavailable,
+    refreshConversations,
+    subscribeSidebar,
+    unsubscribeSidebar,
+    wsConnectionSeq,
+    wsStatus,
+  ]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (wsStatus !== 'connected') return;
+    if (!activeConversationId) return;
+
+    let cancelled = false;
+    void (async () => {
+      if (shouldLoadTurns) {
+        await refreshTurns();
+      }
+      if (cancelled) return;
+      subscribeConversation(activeConversationId);
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribeConversation(activeConversationId);
+    };
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    refreshTurns,
+    shouldLoadTurns,
+    subscribeConversation,
+    unsubscribeConversation,
+    wsConnectionSeq,
+    wsStatus,
+  ]);
+
+  useEffect(() => {
     if (lastMode !== 'prepend') {
       prevScrollHeightRef.current = transcriptRef.current?.scrollHeight ?? 0;
       return;
@@ -283,12 +662,40 @@ export default function ChatPage() {
   };
 
   const handleStop = () => {
+    if (activeConversationId && activeInflightId) {
+      const sent = cancelInflight({
+        conversationId: activeConversationId,
+        inflightId: activeInflightId,
+      });
+      if (!sent) {
+        void cancelChatInflight({
+          conversationId: activeConversationId,
+          inflightId: activeInflightId,
+        }).catch(() => {
+          // ignore: the transcript will still detach locally; reconnect/refresh will restore state
+        });
+      }
+    }
     stop({ showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
   };
 
   const handleNewConversation = () => {
+    if (activeConversationId && activeInflightId) {
+      const sent = cancelInflight({
+        conversationId: activeConversationId,
+        inflightId: activeInflightId,
+      });
+      if (!sent) {
+        void cancelChatInflight({
+          conversationId: activeConversationId,
+          inflightId: activeInflightId,
+        }).catch(() => {
+          // ignore: we still reset local state; server run will be visible again on refresh
+        });
+      }
+    }
     stop();
     resetTurns();
     const nextId = reset();
@@ -351,9 +758,19 @@ export default function ChatPage() {
     ) {
       setSelected(nextConversation.model);
     }
+
+    const restoredThreadId =
+      nextConversation?.provider === 'codex' &&
+      nextConversation.flags &&
+      typeof nextConversation.flags.threadId === 'string'
+        ? nextConversation.flags.threadId
+        : null;
     stop();
     resetTurns();
-    setConversation(conversation, { clearMessages: true });
+    setConversation(conversation, {
+      clearMessages: true,
+      threadId: restoredThreadId,
+    });
     setActiveConversationId(conversation);
     setTimeout(() => {
       console.info('[chat-history] post-select scheduled', {
@@ -773,8 +1190,8 @@ export default function ChatPage() {
               </Button>
             }
           >
-            Conversation history unavailable — messages won’t be stored until
-            Mongo reconnects.
+            Conversation history and live updates are unavailable — the app will
+            fall back to stateless chat until Mongo reconnects.
           </Alert>
         )}
         <Stack

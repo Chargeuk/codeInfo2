@@ -1143,7 +1143,7 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 ### 3. Conversation sidebar filter + multi-select + bulk actions (client)
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: bbba8e5, 2088657, 62cc9ff
 
 
 #### Overview

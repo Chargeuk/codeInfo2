@@ -807,7 +807,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 ### 2. Bulk conversation APIs + hard delete (server)
 
 - Task Status: __done__
-- Git Commits: __to_do__
+- Git Commits: 7a5a465
 
 #### Overview
 

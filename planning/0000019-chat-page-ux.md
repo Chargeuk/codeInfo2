@@ -1360,7 +1360,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 ### 4. Live sidebar + transcript streaming subscriptions (client)
 
 - Task Status: __completed__
-- Git Commits: __to_do__
+- Git Commits: 0953396
 
 #### Overview
 

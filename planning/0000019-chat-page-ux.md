@@ -270,7 +270,7 @@ These findings are based on the current repository implementation and are includ
 
 ### 1. WebSocket foundation + in-flight registry (server)
 
-- Task Status: __in_progress__
+- Task Status: __completed__
 - Git Commits: __to_do__
 
 #### Overview
@@ -742,19 +742,19 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Files to read: `client/package.json`, `client/src/test/`
    - Command: `npm run test --workspace client`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (Task 1 focus: WS connect + inflight events + cancellation semantics)
+8. [x] Manual Playwright-MCP check (Task 1 focus: WS connect + inflight events + cancellation semantics)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
      - Start the stack and open http://localhost:5001.
@@ -763,7 +763,7 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
      - Navigate away in Tab B (detach) and confirm it does not cancel the in-flight run.
      - Confirm the sidebar updates live (new conversation / lastMessageAt updates) without requiring a page refresh.
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
@@ -796,6 +796,11 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
 - 2025-12-25: Task 1 testing step 2 complete: `npm run build --workspace client` (Vite build succeeded).
 - 2025-12-25: Task 1 testing step 3 complete: `npm run test --workspace server` (node:test + cucumber passed).
 - 2025-12-25: Task 1 testing step 4 complete: `npm run test --workspace client` (Jest passed).
+- 2025-12-25: Task 1 testing step 5 complete: `npm run e2e` (Playwright: 27 passed).
+- 2025-12-25: Task 1 testing step 6 complete: `npm run compose:build` (Docker images built).
+- 2025-12-25: Task 1 testing step 7 complete: `npm run compose:up` (stack started; server+client healthy).
+- 2025-12-25: Task 1 testing step 8 complete: verified WS multi-tab semantics against the Compose stack using `ws://host.docker.internal:5010/ws` (Tab B catch-up snapshot; unsubscribe/resubscribe does not cancel; Stop propagates via `cancel_inflight` and both tabs receive `turn_final: stopped`).
+- 2025-12-25: Task 1 testing step 9 complete: `npm run compose:down` (stack stopped).
 
 ---
 

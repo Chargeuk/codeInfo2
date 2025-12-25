@@ -726,21 +726,47 @@ Introduce a WebSocket endpoint and server-side in-flight registry so the chat UI
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
+   - Files to read: `client/package.json`, `client/src/test/`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] `npm run e2e`
+   - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
+   - Command: `npm run e2e`
+   - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
+6. [ ] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:build`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+7. [ ] `npm run compose:up`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
+   - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+8. [ ] Manual Playwright-MCP check (Task 1 focus: WS connect + inflight events + cancellation semantics)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
+   - Manual checks (minimum):
+     - Start the stack and open http://localhost:5001.
+     - In Tab A, start a chat run; in Tab B, open the same conversation and confirm Tab B receives an initial catch-up snapshot then continues receiving deltas.
+     - Click Stop in Tab A and confirm cancellation propagates to other tabs/viewers of that conversation.
+     - Navigate away in Tab B (detach) and confirm it does not cancel the in-flight run.
+     - Confirm the sidebar updates live (new conversation / lastMessageAt updates) without requiring a page refresh.
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run server tests covering WS hub + inflight registry (`npm run test --workspace server`)
-   - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
-   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
 
@@ -1015,21 +1041,47 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
+   - Files to read: `client/package.json`, `client/src/test/`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] `npm run e2e`
+   - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
+   - Command: `npm run e2e`
+   - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
+6. [ ] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:build`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+7. [ ] `npm run compose:up`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
+   - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
+8. [ ] Manual Playwright-MCP check (Task 2 focus: bulk archive/restore/delete semantics + WS list updates)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
+   - Manual checks (minimum):
+     - Start the stack and open http://localhost:5001.
+     - In `Active` mode, create at least 2 conversations, then bulk-archive them and confirm they disappear from `Active` and appear in `Archived` views.
+     - Bulk-restore from the `Archived` view and confirm they return to `Active`.
+     - Attempt permanent delete on a non-archived conversation and confirm the server rejects it (no partial deletes).
+     - Confirm the sidebar updates live (upsert/delete events) after bulk actions without a refresh.
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run server tests for bulk conversation APIs (`npm run test --workspace server`)
-   - Files to read: `server/package.json`, `server/src/test/unit/`, `server/src/test/integration/`
-   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html
 
 #### Implementation notes
 
@@ -1200,21 +1252,47 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
-   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run client tests (`npm run test --workspace client`)
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
-   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] `npm run e2e`
+   - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
+   - Command: `npm run e2e`
+   - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
+6. [ ] `npm run compose:build`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:build`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+7. [ ] `npm run compose:up`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
+   - Command: `npm run compose:up`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (Task 3 focus: sidebar filter + multi-select + bulk UI behavior)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
+   - Manual checks (minimum):
+     - Start the stack and open http://localhost:5001.
+     - Verify the 3-state filter changes the list correctly and clears selection when switching filter.
+     - Verify multi-select: select-all/indeterminate behavior, and that bulk action buttons enable/disable correctly.
+     - Verify permanent delete shows a confirmation dialog and never deletes without explicit confirmation.
+     - Verify when persistence is unavailable (`mongoConnected=false` banner), bulk controls are disabled.
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:down`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -1475,21 +1553,47 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Ensure docker compose starts (`npm run compose:up`)
-   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-5. [ ] Run client tests (`npm run test --workspace client`)
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
-   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] `npm run e2e`
+   - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
+   - Command: `npm run e2e`
+   - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
+6. [ ] `npm run compose:build`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:build`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+7. [ ] `npm run compose:up`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
+   - Command: `npm run compose:up`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (Task 4 focus: WS reconnect + transcript subscription + Stop vs detach)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
+   - Manual checks (minimum):
+     - Start the stack and open http://localhost:5001.
+     - Verify sidebar live updates: create/archive/restore and confirm the list updates without refresh.
+     - Verify transcript live updates: in Tab A run a chat, in Tab B view the same conversation and confirm it catches up and streams deltas.
+     - Verify reconnect safety: reload during/after a run and confirm REST refresh happens before WS deltas apply (no duplicate/out-of-order transcript).
+     - Verify Stop cancels, but navigating away just unsubscribes (does not cancel).
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:down`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -1652,7 +1756,11 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate for onboarding and for planning future work
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
+   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
+   - Command to run (for summary input): `git log --oneline --decorate -20`
+   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
    - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
@@ -1660,36 +1768,48 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
+1. [ ] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client (`npm run build --workspace client`)
+2. [ ] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-   - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
+   - Files to read: `client/package.json`, `client/src/test/`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] `npm run e2e`
+   - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
+   - Command: `npm run e2e`
+   - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
+6. [ ] `npm run compose:build`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:build`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+7. [ ] `npm run compose:up`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
+   - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-4. [ ] Run the client jest tests
-   - Files to read: `client/package.json`
-   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`
-5. [ ] Run the server cucumber tests
-   - Files to read: `server/package.json`, `server/src/test/features/`
-   - Docs (read before doing): Cucumber https://cucumber.io/docs/guides/
-6. [ ] Restart the docker environment
-   - Files to read: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.e2e.yml`
-   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-7. [ ] Run the e2e tests
-   - Files to read: `playwright.config.ts`, `e2e/`
+8. [ ] Manual Playwright-MCP check (final verification: Story 19 acceptance + broad regression pass)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports), `design.md` (flows), `e2e/` (Story 19 specs)
+   - Manual checks (minimum):
+     - Start the stack and open http://localhost:5001.
+     - Verify archived-only filter mode works and selection clears on filter change.
+     - Verify bulk archive/restore/delete flows end-to-end, including delete confirmation and no partial failures.
+     - Verify 2-tab behavior: Tab B can subscribe mid-run, sees snapshot then continues receiving deltas.
+     - Verify Stop cancels, detach (navigating away) does not cancel.
+     - Verify reconnect safety: reload and confirm transcript/list remain consistent (no duplicates/out-of-order deltas).
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-8. [ ] Manually smoke-check the application in a headed browser (Playwright) and save screenshots to `./test-results/screenshots/`
-   - Files to read: `playwright.config.ts`, `e2e/` (the Story 19 e2e specs), `test-results/` (existing output folder)
-   - Naming: each screenshot should be named with the plan index including the preceding zeroes, then a dash, then the task number, then a dash and a short name
-   - Suggested approach: run `npx playwright test e2e --headed` and use `page.screenshot(...)` in a temporary debug run or via `--debug` to capture before/after states
-   - Docs (read before doing): Playwright screenshots https://playwright.dev/docs/screenshots
-9. [ ] Create a pull request comment summarizing all changes made in this story (server + client + tests)
-   - Files to read: `planning/0000019-chat-page-ux.md`, `README.md`, `design.md`, `projectStructure.md`
-   - Command to run (for summary input): `git log --oneline --decorate -20`
-   - Docs (read before doing): GitHub pull requests https://docs.github.com/en/pull-requests
+9. [ ] `npm run compose:down`
+   - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
+   - Command: `npm run compose:down`
+   - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
 
 #### Implementation notes
 

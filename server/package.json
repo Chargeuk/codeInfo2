@@ -34,6 +34,7 @@
     "pino": "10.1.0",
     "pino-http": "11.0.0",
     "pino-roll": "4.0.0",
+    "ws": "8.18.3",
     "zod": "3.25.76"
   },
   "devDependencies": {
@@ -43,6 +44,7 @@
     "@types/node": "^22.9.4",
     "@types/node-fetch": "^2.6.11",
     "@types/supertest": "6.0.3",
+    "@types/ws": "8.5.13",
     "cross-env": "7.0.3",
     "node-fetch": "^2.7.0",
     "supertest": "7.1.4",

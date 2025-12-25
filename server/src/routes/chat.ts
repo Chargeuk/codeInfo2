@@ -1,5 +1,10 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
+
+import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../agents/runLock.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
@@ -25,6 +30,8 @@ import {
 } from '../mongo/repo.js';
 import { TurnModel, type Turn, type TurnStatus } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import { getWsHub } from '../ws/hub.js';
+import { getInflightRegistry } from '../ws/inflightRegistry.js';
 import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
@@ -112,6 +119,8 @@ export function createChatRouter({
       provider,
       conversationId,
       threadId,
+      inflightId,
+      cancelOnDisconnect,
       codexFlags,
       warnings,
     } = validatedBody;
@@ -262,17 +271,101 @@ export function createChatRouter({
     let ended = false;
     let completed = false;
     let cancelled = false;
+    let transportClosed = false;
+
+    const inflightRegistry = getInflightRegistry();
+    const wsHub = getWsHub();
+    let activeInflightId: string | undefined;
+    let lockHeld = false;
 
     const endIfOpen = () => {
       if (ended || isStreamClosed(res)) return;
+      transportClosed = true;
       ended = true;
       endStream(res);
     };
 
+    const handleDisconnect = () => {
+      if (transportClosed) return;
+      transportClosed = true;
+      if (!completed && cancelOnDisconnect && !controller.signal.aborted) {
+        controller.abort();
+        cancelled = true;
+      }
+      endIfOpen();
+    };
+
+    req.on('aborted', handleDisconnect);
+    res.on('close', handleDisconnect);
+
     const existingConversation = await ensureConversation();
     if (!existingConversation) return;
 
+    wsHub.emitConversationUpsert({
+      conversationId,
+      title: existingConversation.title,
+      provider,
+      model,
+      source: (existingConversation.source ?? 'REST') as string,
+      lastMessageAt: existingConversation.lastMessageAt ?? now,
+      archived: existingConversation.archivedAt != null,
+      ...(existingConversation.agentName
+        ? { agentName: existingConversation.agentName }
+        : {}),
+    });
+
     const chronologicalTurns = await loadTurnsChronological();
+
+    const startInflightOrConflict = () => {
+      if (!lockHeld) {
+        if (!tryAcquireConversationLock(conversationId)) {
+          res.status(409).json({
+            error: 'conflict',
+            code: 'RUN_IN_PROGRESS',
+            message: 'A run is already in progress for this conversation.',
+          });
+          return null;
+        }
+        lockHeld = true;
+      }
+      const started = inflightRegistry.createOrGetActive({
+        conversationId,
+        inflightId,
+        cancelFn: () => controller.abort(),
+      });
+      if (started.conflict) {
+        releaseConversationLock(conversationId);
+        lockHeld = false;
+        res.status(409).json({
+          error: 'conflict',
+          code: 'RUN_IN_PROGRESS',
+          message: 'A run is already in progress for this conversation.',
+        });
+        return null;
+      }
+      activeInflightId = started.inflightId;
+      const inflightSnapshot = inflightRegistry.getActive(conversationId);
+      if (
+        inflightSnapshot &&
+        inflightSnapshot.inflightId === activeInflightId
+      ) {
+        wsHub.beginInflight({
+          conversationId,
+          inflightId: activeInflightId,
+          startedAt: inflightSnapshot.startedAt,
+          assistantText: inflightSnapshot.assistantText,
+          analysisText: inflightSnapshot.analysisText,
+          tools: inflightSnapshot.tools,
+        });
+      }
+      return activeInflightId;
+    };
+
+    const releaseLockIfHeld = () => {
+      if (!lockHeld) return;
+      releaseConversationLock(conversationId);
+      lockHeld = false;
+    };
 
     if (provider === 'codex') {
       const detection = getCodexDetection();
@@ -298,35 +391,14 @@ export function createChatRouter({
           .json({ error: 'codex unavailable', reason: detection.reason });
       }
 
+      if (!startInflightOrConflict()) return;
+
       const endIfOpen = () => {
         if (ended || isStreamClosed(res)) return;
         ended = true;
         endStream(res);
       };
 
-      const handleDisconnect = (reason: 'close' | 'aborted') => {
-        if (completed) return;
-        if (reason === 'close' && !controller.signal.aborted) return;
-        controller.abort();
-        cancelled = true;
-        append({
-          level: 'info',
-          message: 'chat stream cancelled',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: { provider, model, reason: 'client_disconnect' },
-        });
-        baseLogger.info(
-          { requestId, provider, model, reason: 'client_disconnect' },
-          'chat stream cancelled',
-        );
-        endIfOpen();
-      };
-
-      req.on('close', () => handleDisconnect('close'));
-      req.on('aborted', () => handleDisconnect('aborted'));
-      res.on('close', handleDisconnect);
       controller.signal.addEventListener('abort', () => {
         cancelled = true;
       });
@@ -358,6 +430,7 @@ export function createChatRouter({
 
       let assistantContent = '';
       let assistantStatus: TurnStatus = 'ok';
+      let wsFinalStatus: 'ok' | 'stopped' | 'failed' = 'ok';
       let activeThreadId =
         threadId ??
         (existingConversation.flags?.threadId as string | undefined) ??
@@ -365,29 +438,70 @@ export function createChatRouter({
       const toolCallsForTurn: Array<Record<string, unknown>> = [];
 
       chat.on('token', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, { type: 'token', content: ev.content });
-        assistantContent += ev.content;
+        if (activeInflightId) {
+          inflightRegistry.appendAssistantDelta(
+            conversationId,
+            activeInflightId,
+            ev.content,
+          );
+          wsHub.assistantDelta({
+            conversationId,
+            inflightId: activeInflightId,
+            delta: ev.content,
+          });
+        }
+        if (!transportClosed) {
+          writeEvent(res, { type: 'token', content: ev.content });
+          assistantContent += ev.content;
+        }
       });
 
       chat.on('analysis', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, { type: 'analysis', content: ev.content });
+        if (activeInflightId) {
+          inflightRegistry.appendAnalysisDelta(
+            conversationId,
+            activeInflightId,
+            ev.content,
+          );
+          wsHub.analysisDelta({
+            conversationId,
+            inflightId: activeInflightId,
+            delta: ev.content,
+          });
+        }
+        if (!transportClosed) {
+          writeEvent(res, { type: 'analysis', content: ev.content });
+        }
       });
 
       chat.on('tool-request', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, {
+        const sseEvent = {
           type: 'tool-request',
           callId: ev.callId,
           name: ev.name,
           stage: ev.stage ?? 'started',
           parameters: ev.params,
-        });
+        };
+        if (activeInflightId) {
+          inflightRegistry.updateToolState(conversationId, activeInflightId, {
+            id: String(ev.callId),
+            name: ev.name,
+            status: 'requesting',
+            stage: ev.stage ?? 'started',
+            params: ev.params,
+          });
+          wsHub.toolEvent({
+            conversationId,
+            inflightId: activeInflightId,
+            event: sseEvent,
+          });
+        }
+        if (!transportClosed) {
+          writeEvent(res, sseEvent);
+        }
       });
 
       chat.on('tool-result', (ev) => {
-        if (cancelled) return;
         toolCallsForTurn.push({
           callId: ev.callId,
           name: ev.name,
@@ -396,7 +510,7 @@ export function createChatRouter({
           stage: ev.stage,
           error: ev.error ?? undefined,
         });
-        writeEvent(res, {
+        const sseEvent = {
           type: 'tool-result',
           callId: ev.callId,
           name: ev.name,
@@ -404,33 +518,61 @@ export function createChatRouter({
           parameters: ev.params,
           result: ev.result,
           errorTrimmed: ev.error ?? undefined,
-        });
+        };
+        if (activeInflightId) {
+          const status = ev.error ? 'error' : 'done';
+          inflightRegistry.updateToolState(conversationId, activeInflightId, {
+            id: String(ev.callId),
+            name: ev.name,
+            status,
+            stage: ev.stage,
+            params: ev.params,
+            result: ev.result,
+            error: ev.error ?? undefined,
+          });
+          wsHub.toolEvent({
+            conversationId,
+            inflightId: activeInflightId,
+            event: sseEvent,
+          });
+        }
+        if (!transportClosed) {
+          writeEvent(res, sseEvent);
+        }
       });
 
       chat.on('final', (ev) => {
-        if (cancelled) return;
         assistantContent = ev.content;
-        writeEvent(res, {
-          type: 'final',
-          message: { role: 'assistant', content: ev.content },
-        });
+        if (!transportClosed) {
+          writeEvent(res, {
+            type: 'final',
+            message: { role: 'assistant', content: ev.content },
+          });
+        }
       });
 
       chat.on('thread', (ev) => {
         activeThreadId = ev.threadId;
-        writeEvent(res, { type: 'thread', threadId: ev.threadId });
+        if (!transportClosed) {
+          writeEvent(res, { type: 'thread', threadId: ev.threadId });
+        }
       });
 
       chat.on('complete', (ev) => {
         completed = true;
         const tid = ev.threadId ?? activeThreadId;
-        writeEvent(res, { type: 'complete', threadId: tid });
+        if (!transportClosed) {
+          writeEvent(res, { type: 'complete', threadId: tid });
+        }
         activeThreadId = tid ?? activeThreadId;
       });
 
       chat.on('error', (ev) => {
         assistantStatus = cancelled ? 'stopped' : 'failed';
-        writeEvent(res, { type: 'error', message: ev.message });
+        wsFinalStatus = cancelled ? 'stopped' : 'failed';
+        if (!transportClosed) {
+          writeEvent(res, { type: 'error', message: ev.message });
+        }
       });
 
       try {
@@ -447,7 +589,8 @@ export function createChatRouter({
           conversationId,
           model,
         );
-        if (!completed && !isStreamClosed(res)) {
+        wsFinalStatus = cancelled ? 'stopped' : 'ok';
+        if (!completed && !isStreamClosed(res) && !transportClosed) {
           completed = true;
           writeEvent(res, { type: 'complete', threadId: activeThreadId });
         }
@@ -478,7 +621,10 @@ export function createChatRouter({
         const messageText =
           (err as Error | undefined)?.message ?? 'codex unavailable';
         assistantStatus = cancelled ? 'stopped' : 'failed';
-        writeEvent(res, { type: 'error', message: messageText });
+        wsFinalStatus = cancelled ? 'stopped' : 'failed';
+        if (!transportClosed) {
+          writeEvent(res, { type: 'error', message: messageText });
+        }
         append({
           level: 'error',
           message: 'chat stream failed',
@@ -492,17 +638,32 @@ export function createChatRouter({
           'chat stream failed',
         );
       } finally {
+        if (activeInflightId) {
+          const finalized = inflightRegistry.finalize({
+            conversationId,
+            inflightId: activeInflightId,
+            status: wsFinalStatus,
+          });
+          if (finalized) {
+            wsHub.turnFinal({
+              conversationId,
+              inflightId: activeInflightId,
+              status: wsFinalStatus,
+            });
+          }
+        }
         if (cancelled && assistantContent === '') {
           assistantStatus = 'stopped';
         }
         // Codex class already persisted assistant turn; we still emit status bubble when stopped.
-        if (assistantStatus === 'stopped') {
+        if (assistantStatus === 'stopped' && !transportClosed) {
           writeEvent(res, {
             type: 'error',
             message: 'generation stopped',
           });
         }
         endIfOpen();
+        releaseLockIfHeld();
       }
 
       return;
@@ -527,6 +688,8 @@ export function createChatRouter({
       return res.status(503).json({ error: 'lmstudio unavailable' });
     }
 
+    if (!startInflightOrConflict()) return;
+
     append({
       level: 'info',
       message: 'chat stream start',
@@ -540,40 +703,6 @@ export function createChatRouter({
       'chat stream start',
     );
 
-    const handleDisconnect = (reason: 'close' | 'aborted') => {
-      if (completed) return;
-      if (reason === 'close' && !controller.signal.aborted) return;
-      controller.abort();
-      cancelled = true;
-      append({
-        level: 'info',
-        message: 'chat stream cancelled',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          baseUrl: safeBase,
-          model,
-          provider,
-          reason: 'client_disconnect',
-        },
-      });
-      baseLogger.info(
-        {
-          requestId,
-          baseUrl: safeBase,
-          model,
-          provider,
-          reason: 'client_disconnect',
-        },
-        'chat stream cancelled',
-      );
-      endIfOpen();
-    };
-
-    req.on('close', () => handleDisconnect('close'));
-    req.on('aborted', () => handleDisconnect('aborted'));
-    res.on('close', handleDisconnect);
     controller.signal.addEventListener('abort', () => {
       cancelled = true;
     });
@@ -606,22 +735,47 @@ export function createChatRouter({
       return Number.isFinite(num) && `${num}` === String(callId) ? num : callId;
     };
 
+    let wsFinalStatus: 'ok' | 'stopped' | 'failed' = 'ok';
+
     lmChat.on('token', (ev) => {
-      if (cancelled) return;
-      writeEvent(res, { type: 'token', content: ev.content });
-      assistantContent += ev.content;
+      if (activeInflightId) {
+        inflightRegistry.appendAssistantDelta(
+          conversationId,
+          activeInflightId,
+          ev.content,
+        );
+        wsHub.assistantDelta({
+          conversationId,
+          inflightId: activeInflightId,
+          delta: ev.content,
+        });
+      }
+      if (!transportClosed) {
+        writeEvent(res, { type: 'token', content: ev.content });
+        assistantContent += ev.content;
+      }
     });
 
     lmChat.on('analysis', (ev) => {
-      if (cancelled) return;
-      writeEvent(res, {
-        type: 'analysis',
-        content: (ev as { content?: string }).content ?? '',
-      });
+      const content = (ev as { content?: string }).content ?? '';
+      if (activeInflightId) {
+        inflightRegistry.appendAnalysisDelta(
+          conversationId,
+          activeInflightId,
+          content,
+        );
+        wsHub.analysisDelta({
+          conversationId,
+          inflightId: activeInflightId,
+          delta: content,
+        });
+      }
+      if (!transportClosed) {
+        writeEvent(res, { type: 'analysis', content });
+      }
     });
 
     lmChat.on('tool-request', (ev) => {
-      if (cancelled) return;
       const callIdOut = toCallIdOut(ev.callId);
       const nameOut = ev.name && ev.name.length > 0 ? ev.name : 'VectorSearch';
       append({
@@ -639,17 +793,33 @@ export function createChatRouter({
           type: 'tool-request',
         },
       });
-      writeEvent(res, {
+      const sseEvent = {
         type: 'tool-request',
         callId: callIdOut,
         name: nameOut,
         parameters: ev.params,
         stage: ev.stage ?? 'started',
-      });
+      };
+      if (activeInflightId) {
+        inflightRegistry.updateToolState(conversationId, activeInflightId, {
+          id: String(callIdOut),
+          name: nameOut,
+          status: 'requesting',
+          stage: ev.stage ?? 'started',
+          params: ev.params,
+        });
+        wsHub.toolEvent({
+          conversationId,
+          inflightId: activeInflightId,
+          event: sseEvent,
+        });
+      }
+      if (!transportClosed) {
+        writeEvent(res, sseEvent);
+      }
     });
 
     lmChat.on('tool-result', (ev) => {
-      if (cancelled) return;
       const callIdOut = toCallIdOut(ev.callId);
       const nameOut = 'VectorSearch';
       toolCallsForTurn.push({
@@ -676,7 +846,7 @@ export function createChatRouter({
           error: ev.error ?? undefined,
         },
       });
-      writeEvent(res, {
+      const sseEvent = {
         type: 'tool-result',
         callId: callIdOut,
         name: nameOut,
@@ -685,26 +855,51 @@ export function createChatRouter({
         result: ev.result,
         errorTrimmed: ev.error ?? undefined,
         errorFull: ev.error ?? undefined,
-      });
+      };
+      if (activeInflightId) {
+        inflightRegistry.updateToolState(conversationId, activeInflightId, {
+          id: String(callIdOut),
+          name: nameOut,
+          status: ev.error ? 'error' : 'done',
+          stage: ev.stage,
+          params: ev.params,
+          result: ev.result,
+          error: ev.error ?? undefined,
+        });
+        wsHub.toolEvent({
+          conversationId,
+          inflightId: activeInflightId,
+          event: sseEvent,
+        });
+      }
+      if (!transportClosed) {
+        writeEvent(res, sseEvent);
+      }
     });
 
     lmChat.on('final', (ev) => {
-      if (cancelled) return;
       assistantContent = ev.content;
-      writeEvent(res, {
-        type: 'final',
-        message: { role: 'assistant', content: ev.content },
-      });
+      if (!transportClosed) {
+        writeEvent(res, {
+          type: 'final',
+          message: { role: 'assistant', content: ev.content },
+        });
+      }
     });
 
     lmChat.on('complete', () => {
       completed = true;
-      writeEvent(res, { type: 'complete' });
+      if (!transportClosed) {
+        writeEvent(res, { type: 'complete' });
+      }
     });
 
     lmChat.on('error', (ev) => {
       assistantStatus = cancelled ? 'stopped' : 'failed';
-      writeEvent(res, { type: 'error', message: ev.message });
+      wsFinalStatus = cancelled ? 'stopped' : 'failed';
+      if (!transportClosed) {
+        writeEvent(res, { type: 'error', message: ev.message });
+      }
     });
 
     try {
@@ -724,7 +919,8 @@ export function createChatRouter({
         conversationId,
         model,
       );
-      if (!completed && !isStreamClosed(res)) {
+      wsFinalStatus = cancelled ? 'stopped' : 'ok';
+      if (!completed && !isStreamClosed(res) && !transportClosed) {
         completed = true;
         writeEvent(res, { type: 'complete' });
       }
@@ -745,7 +941,10 @@ export function createChatRouter({
       const messageText =
         (err as Error | undefined)?.message ?? 'lmstudio unavailable';
       assistantStatus = cancelled ? 'stopped' : 'failed';
-      writeEvent(res, { type: 'error', message: messageText });
+      wsFinalStatus = cancelled ? 'stopped' : 'failed';
+      if (!transportClosed) {
+        writeEvent(res, { type: 'error', message: messageText });
+      }
       append({
         level: 'error',
         message: 'chat stream failed',
@@ -772,10 +971,27 @@ export function createChatRouter({
         'chat stream failed',
       );
     } finally {
+      if (activeInflightId) {
+        const finalized = inflightRegistry.finalize({
+          conversationId,
+          inflightId: activeInflightId,
+          status: wsFinalStatus,
+        });
+        if (finalized) {
+          wsHub.turnFinal({
+            conversationId,
+            inflightId: activeInflightId,
+            status: wsFinalStatus,
+          });
+        }
+      }
       if (cancelled && assistantContent === '') {
-        writeEvent(res, { type: 'error', message: 'generation stopped' });
+        if (!transportClosed) {
+          writeEvent(res, { type: 'error', message: 'generation stopped' });
+        }
       }
       endIfOpen();
+      releaseLockIfHeld();
     }
     await recordAssistantTurn();
     endIfOpen();

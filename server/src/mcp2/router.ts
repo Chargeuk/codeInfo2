@@ -3,6 +3,7 @@ import serverPackage from '../../package.json' with { type: 'json' };
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
 import { isCodexAvailable } from './codexAvailability.js';
+import { RunInProgressError } from './errors.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
@@ -31,7 +32,21 @@ const SERVER_INFO = {
 export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
   const send = (payload: unknown) => {
-    res.writeHead(200, { 'content-type': 'application/json' });
+    const maybeError =
+      payload &&
+      typeof payload === 'object' &&
+      'error' in payload &&
+      (payload as { error?: unknown }).error &&
+      typeof (payload as { error?: { code?: unknown } }).error?.code ===
+        'number'
+        ? ((payload as { error: { code: number } }).error.code as number)
+        : null;
+    const status =
+      typeof maybeError === 'number' && maybeError >= 400 && maybeError <= 599
+        ? maybeError
+        : 200;
+
+    res.writeHead(status, { 'content-type': 'application/json' });
     res.end(JSON.stringify(payload));
   };
 
@@ -111,6 +126,10 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
 
           if (err instanceof ArchivedConversationError) {
             return jsonRpcError(requestId, err.code, err.message);
+          }
+
+          if (err instanceof RunInProgressError) {
+            return jsonRpcError(requestId, err.code, err.message, err.data);
           }
 
           if (err instanceof ToolNotFoundError) {

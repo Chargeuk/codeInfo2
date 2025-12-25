@@ -20,6 +20,8 @@ import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
+import { getWsHub } from '../ws/hub.js';
+import { getInflightRegistry } from '../ws/inflightRegistry.js';
 
 import { loadAgentCommandSummary } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
@@ -244,6 +246,16 @@ export async function runAgentInstructionUnlocked(params: {
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
 }): Promise<RunAgentInstructionResult> {
+  const inflightRegistry = getInflightRegistry();
+  const wsHub = getWsHub();
+  const controller = new AbortController();
+  let wsFinalStatus: 'ok' | 'stopped' | 'failed' = 'ok';
+
+  if (params.signal) {
+    if (params.signal.aborted) controller.abort();
+    else params.signal.addEventListener('abort', () => controller.abort());
+  }
+
   const fallbackModelId = 'gpt-5.1-codex-max';
 
   const discovered = await discoverAgents();
@@ -293,6 +305,17 @@ export async function runAgentInstructionUnlocked(params: {
     existingConversation ?? (await getConversation(conversationId));
   if (!conversation) throw toRunAgentError('AGENT_NOT_FOUND');
 
+  wsHub.emitConversationUpsert({
+    conversationId,
+    title: conversation.title,
+    provider: 'codex',
+    model: modelId,
+    source: params.source,
+    lastMessageAt: new Date(),
+    archived: false,
+    agentName: params.agentName,
+  });
+
   const threadId =
     conversation?.flags &&
     typeof (conversation.flags as Record<string, unknown>).threadId === 'string'
@@ -324,30 +347,132 @@ export async function runAgentInstructionUnlocked(params: {
   );
 
   const responder = new McpResponder();
+  let inflightId = '';
   chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
   chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
   chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
-  chat.on('error', (ev) => responder.handle(ev));
+  chat.on('token', (ev) => {
+    inflightRegistry.appendAssistantDelta(
+      conversationId,
+      inflightId,
+      ev.content,
+    );
+    wsHub.assistantDelta({ conversationId, inflightId, delta: ev.content });
+  });
+  chat.on('analysis', (ev: ChatAnalysisEvent) => {
+    inflightRegistry.appendAnalysisDelta(
+      conversationId,
+      inflightId,
+      ev.content,
+    );
+    wsHub.analysisDelta({ conversationId, inflightId, delta: ev.content });
+  });
+  chat.on('tool-request', (ev) => {
+    inflightRegistry.updateToolState(conversationId, inflightId, {
+      id: String(ev.callId),
+      name: ev.name,
+      status: 'requesting',
+      stage: ev.stage ?? 'started',
+      params: ev.params,
+    });
+    wsHub.toolEvent({
+      conversationId,
+      inflightId,
+      event: {
+        type: 'tool-request',
+        callId: ev.callId,
+        name: ev.name,
+        stage: ev.stage ?? 'started',
+        parameters: ev.params,
+      },
+    });
+  });
+  chat.on('tool-result', (ev: ChatToolResultEvent) => {
+    inflightRegistry.updateToolState(conversationId, inflightId, {
+      id: String(ev.callId),
+      name: ev.name,
+      status: ev.error ? 'error' : 'done',
+      stage: ev.stage ?? (ev.error ? 'error' : 'success'),
+      params: ev.params,
+      result: ev.result,
+      error: ev.error ?? undefined,
+    });
+    wsHub.toolEvent({
+      conversationId,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: ev.callId,
+        name: ev.name,
+        stage: ev.stage,
+        parameters: ev.params,
+        result: ev.result,
+        errorTrimmed: ev.error ?? undefined,
+      },
+    });
+  });
+  chat.on('error', (ev) => {
+    wsFinalStatus = controller.signal.aborted ? 'stopped' : 'failed';
+    responder.handle(ev);
+  });
 
-  await chat.run(
-    params.instruction,
-    {
-      provider: 'codex',
-      threadId,
-      useConfigDefaults: true,
-      codexHome: agent.home,
-      ...(workingDirectoryOverride !== undefined
-        ? { workingDirectoryOverride }
-        : {}),
-      disableSystemContext: true,
-      systemPrompt,
-      signal: params.signal,
-      source: params.source,
-      ...(params.command ? { command: params.command } : {}),
-    },
+  const started = inflightRegistry.createOrGetActive({
     conversationId,
-    modelId,
-  );
+    cancelFn: () => controller.abort(),
+  });
+  if (started.conflict) {
+    throw toRunAgentError(
+      'RUN_IN_PROGRESS',
+      'A run is already in progress for this conversation.',
+    );
+  }
+  inflightId = started.inflightId;
+  const snapshot = inflightRegistry.getActive(conversationId);
+  if (snapshot && snapshot.inflightId === inflightId) {
+    wsHub.beginInflight({
+      conversationId,
+      inflightId,
+      startedAt: snapshot.startedAt,
+      assistantText: snapshot.assistantText,
+      analysisText: snapshot.analysisText,
+      tools: snapshot.tools,
+    });
+  }
+
+  try {
+    await chat.run(
+      params.instruction,
+      {
+        provider: 'codex',
+        threadId,
+        useConfigDefaults: true,
+        codexHome: agent.home,
+        ...(workingDirectoryOverride !== undefined
+          ? { workingDirectoryOverride }
+          : {}),
+        disableSystemContext: true,
+        systemPrompt,
+        signal: controller.signal,
+        source: params.source,
+        ...(params.command ? { command: params.command } : {}),
+      },
+      conversationId,
+      modelId,
+    );
+    wsFinalStatus = controller.signal.aborted ? 'stopped' : 'ok';
+  } catch (err) {
+    wsFinalStatus = controller.signal.aborted ? 'stopped' : 'failed';
+    throw err;
+  } finally {
+    const finalized = inflightRegistry.finalize({
+      conversationId,
+      inflightId,
+      status: wsFinalStatus,
+    });
+    if (finalized) {
+      wsHub.turnFinal({ conversationId, inflightId, status: wsFinalStatus });
+    }
+  }
 
   const transientReconnectCount = responder.getTransientReconnectCount();
   if (transientReconnectCount > 0) {

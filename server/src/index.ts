@@ -23,6 +23,7 @@ import { createAgentsRouter } from './routes/agents.js';
 import { createAgentsCommandsRouter } from './routes/agentsCommands.js';
 import { createAgentsRunRouter } from './routes/agentsRun.js';
 import { createChatRouter } from './routes/chat.js';
+import { createChatCancelRouter } from './routes/chatCancel.js';
 import { createChatModelsRouter } from './routes/chatModels.js';
 import { createChatProvidersRouter } from './routes/chatProviders.js';
 import { createConversationsRouter } from './routes/conversations.js';
@@ -37,6 +38,7 @@ import { createLogsRouter } from './routes/logs.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
+import { startChatWsServer, type ChatWsServerHandle } from './ws/server.js';
 
 config();
 ensureCodexConfigSeeded();
@@ -84,6 +86,7 @@ app.get('/info', (_req, res) => {
 
 app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
+app.use('/chat', createChatCancelRouter());
 app.use('/chat', createChatProvidersRouter());
 app.use('/chat', createChatModelsRouter({ clientFactory }));
 app.use('/', createAgentsRouter());
@@ -102,6 +105,7 @@ app.use('/', createToolsVectorSearchRouter());
 app.use('/', createMcpRouter());
 
 let server: ReturnType<typeof app.listen> | undefined;
+let wsHandle: ChatWsServerHandle | undefined;
 
 const start = async () => {
   const mongoUri = process.env.MONGO_URI;
@@ -117,6 +121,10 @@ const start = async () => {
   }
 
   server = app.listen(Number(PORT), () => baseLogger.info(`Server on ${PORT}`));
+  wsHandle = startChatWsServer({
+    server,
+    path: process.env.WS_PATH ?? '/ws',
+  });
   startMcp2Server();
   startAgentsMcpServer();
 };
@@ -144,6 +152,11 @@ const shutdown = async (signal: NodeJS.Signals) => {
     await disconnectMongo();
   } catch (err) {
     baseLogger.error({ err }, 'Failed to disconnect Mongo');
+  }
+  try {
+    await wsHandle?.close();
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to close WebSocket server');
   } finally {
     server?.close(() => process.exit(0));
   }

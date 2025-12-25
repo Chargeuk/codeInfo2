@@ -4,6 +4,10 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../../agents/runLock.js';
+import {
   UnsupportedProviderError,
   getChatInterface,
 } from '../../chat/factory.js';
@@ -23,7 +27,13 @@ import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
-import { ArchivedConversationError, InvalidParamsError } from '../errors.js';
+import { getWsHub } from '../../ws/hub.js';
+import { getInflightRegistry } from '../../ws/inflightRegistry.js';
+import {
+  RunInProgressError,
+  ArchivedConversationError,
+  InvalidParamsError,
+} from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 
@@ -212,61 +222,209 @@ export async function runCodebaseQuestion(
   }
   const responder = new McpResponder();
 
+  const inflightRegistry = getInflightRegistry();
+  const wsHub = getWsHub();
+  const controller = new AbortController();
+  let wsFinalStatus: 'ok' | 'stopped' | 'failed' = 'ok';
+  let inflightId = '';
+
   chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
+  chat.on('token', (ev) => {
+    inflightRegistry.appendAssistantDelta(
+      resolvedConversationId,
+      inflightId,
+      ev.content,
+    );
+    wsHub.assistantDelta({
+      conversationId: resolvedConversationId,
+      inflightId,
+      delta: ev.content,
+    });
+  });
+  chat.on('analysis', (ev: ChatAnalysisEvent) => {
+    inflightRegistry.appendAnalysisDelta(
+      resolvedConversationId,
+      inflightId,
+      ev.content,
+    );
+    wsHub.analysisDelta({
+      conversationId: resolvedConversationId,
+      inflightId,
+      delta: ev.content,
+    });
+  });
+  chat.on('tool-request', (ev) => {
+    inflightRegistry.updateToolState(resolvedConversationId, inflightId, {
+      id: String(ev.callId),
+      name: ev.name,
+      status: 'requesting',
+      stage: ev.stage ?? 'started',
+      params: ev.params,
+    });
+    wsHub.toolEvent({
+      conversationId: resolvedConversationId,
+      inflightId,
+      event: {
+        type: 'tool-request',
+        callId: ev.callId,
+        name: ev.name,
+        stage: ev.stage ?? 'started',
+        parameters: ev.params,
+      },
+    });
+  });
   chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
+  chat.on('tool-result', (ev: ChatToolResultEvent) => {
+    inflightRegistry.updateToolState(resolvedConversationId, inflightId, {
+      id: String(ev.callId),
+      name: ev.name,
+      status: ev.error ? 'error' : 'done',
+      stage: ev.stage ?? (ev.error ? 'error' : 'success'),
+      params: ev.params,
+      result: ev.result,
+      error: ev.error ?? undefined,
+    });
+    wsHub.toolEvent({
+      conversationId: resolvedConversationId,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: ev.callId,
+        name: ev.name,
+        stage: ev.stage,
+        parameters: ev.params,
+        result: ev.result,
+        errorTrimmed: ev.error ?? undefined,
+      },
+    });
+  });
   chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
   chat.on('complete', (ev: ChatCompleteEvent) => responder.handle(ev));
   chat.on('thread', (ev: ChatThreadEvent) => responder.handle(ev));
-  chat.on('error', (ev) => responder.handle(ev));
+  chat.on('error', (ev) => {
+    wsFinalStatus = controller.signal.aborted ? 'stopped' : 'failed';
+    responder.handle(ev);
+  });
 
   const resolvedConversationId =
     conversationId ??
     `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
-  await ensureConversation(
-    resolvedConversationId,
-    provider,
-    provider === 'codex'
-      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
-      : (requestedModel ??
+  if (!tryAcquireConversationLock(resolvedConversationId)) {
+    throw new RunInProgressError(
+      'RUN_IN_PROGRESS',
+      'A run is already in progress for this conversation.',
+    );
+  }
+
+  try {
+    const started = inflightRegistry.createOrGetActive({
+      conversationId: resolvedConversationId,
+      cancelFn: () => controller.abort(),
+    });
+    if (started.conflict) {
+      throw new RunInProgressError(
+        'RUN_IN_PROGRESS',
+        'A run is already in progress for this conversation.',
+      );
+    }
+    inflightId = started.inflightId;
+    const snapshot = inflightRegistry.getActive(resolvedConversationId);
+    if (snapshot && snapshot.inflightId === inflightId) {
+      wsHub.beginInflight({
+        conversationId: resolvedConversationId,
+        inflightId,
+        startedAt: snapshot.startedAt,
+        assistantText: snapshot.assistantText,
+        analysisText: snapshot.analysisText,
+        tools: snapshot.tools,
+      });
+    }
+
+    await ensureConversation(
+      resolvedConversationId,
+      provider,
+      provider === 'codex'
+        ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+        : (requestedModel ??
+            process.env.MCP_LMSTUDIO_MODEL ??
+            process.env.LMSTUDIO_DEFAULT_MODEL ??
+            'gpt-3.1'),
+      question.trim().slice(0, 80) || 'Untitled conversation',
+      provider === 'codex' ? { ...threadOpts } : undefined,
+    );
+
+    const ensuredConversation = await getConversation(resolvedConversationId);
+    if (ensuredConversation) {
+      wsHub.emitConversationUpsert({
+        conversationId: resolvedConversationId,
+        title: ensuredConversation.title,
+        provider: ensuredConversation.provider,
+        model: ensuredConversation.model,
+        source: ensuredConversation.source ?? 'MCP',
+        lastMessageAt: ensuredConversation.lastMessageAt,
+        archived: ensuredConversation.archivedAt != null,
+        ...(ensuredConversation.agentName
+          ? { agentName: ensuredConversation.agentName }
+          : {}),
+      });
+    }
+
+    try {
+      if (provider === 'codex') {
+        await chat.run(
+          question,
+          {
+            provider,
+            threadId: conversationId,
+            codexFlags: threadOpts,
+            signal: controller.signal,
+            source: 'MCP',
+          },
+          resolvedConversationId,
+          threadOpts.model ?? 'gpt-5.1-codex-max',
+        );
+      } else {
+        const lmstudioModel =
+          requestedModel ??
           process.env.MCP_LMSTUDIO_MODEL ??
           process.env.LMSTUDIO_DEFAULT_MODEL ??
-          'gpt-3.1'),
-    question.trim().slice(0, 80) || 'Untitled conversation',
-    provider === 'codex' ? { ...threadOpts } : undefined,
-  );
+          'gpt-3.1';
+        const baseUrl =
+          process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
 
-  if (provider === 'codex') {
-    await chat.run(
-      question,
-      {
-        provider,
-        threadId: conversationId,
-        codexFlags: threadOpts,
-        source: 'MCP',
-      },
-      resolvedConversationId,
-      threadOpts.model ?? 'gpt-5.1-codex-max',
-    );
-  } else {
-    const lmstudioModel =
-      requestedModel ??
-      process.env.MCP_LMSTUDIO_MODEL ??
-      process.env.LMSTUDIO_DEFAULT_MODEL ??
-      'gpt-3.1';
-    const baseUrl =
-      process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
-
-    await chat.run(
-      question,
-      {
-        provider,
-        baseUrl,
-        source: 'MCP',
-      },
-      resolvedConversationId,
-      lmstudioModel,
-    );
+        await chat.run(
+          question,
+          {
+            provider,
+            baseUrl,
+            signal: controller.signal,
+            source: 'MCP',
+          },
+          resolvedConversationId,
+          lmstudioModel,
+        );
+      }
+      wsFinalStatus = controller.signal.aborted ? 'stopped' : 'ok';
+    } catch (err) {
+      wsFinalStatus = controller.signal.aborted ? 'stopped' : 'failed';
+      throw err;
+    } finally {
+      const finalized = inflightRegistry.finalize({
+        conversationId: resolvedConversationId,
+        inflightId,
+        status: wsFinalStatus,
+      });
+      if (finalized) {
+        wsHub.turnFinal({
+          conversationId: resolvedConversationId,
+          inflightId,
+          status: wsFinalStatus,
+        });
+      }
+    }
+  } finally {
+    releaseConversationLock(resolvedConversationId);
   }
 
   const payload: CodebaseQuestionResult = responder.toResult(

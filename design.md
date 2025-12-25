@@ -107,6 +107,51 @@ flowchart LR
 - **Tool-call visibility:** `tool-request` events render an inline spinner + tool name inside the active assistant bubble; when `tool-result` arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
 - Tool completion synthesis: when LM Studio delivers tool payloads only via a `role: "tool"` final message (no `onToolCallResult`), the server synthesizes a `tool-result` SSE right after that message (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` on `complete`, and now clears any pending tool spinner as soon as assistant output resumes (token or final) after a tool call so ordering is preserved and the UI never waits for stream completion to stop spinners.
 
+### Chat realtime fan-out (WebSockets)
+
+- The server exposes a WebSocket endpoint at `GET /ws`. Each browser tab opens one socket and uses it for:
+  - a global sidebar stream (`subscribe_sidebar`), and
+  - a single visible-conversation transcript stream (`subscribe_conversation`).
+- The WS implementation is split into:
+  - `server/src/ws/server.ts`: `ws` bootstrap + per-socket message validation and routing.
+  - `server/src/ws/hub.ts`: pub/sub fan-out + `seq` assignment (sidebar `seq` per socket; transcript `seq` per conversation).
+  - `server/src/ws/inflightRegistry.ts`: bounded in-flight state keyed by `{ conversationId, inflightId }` including partial assistant text, analysis text, and current tool state.
+- Catch-up semantics: when a tab subscribes to a conversation already streaming, the hub immediately sends an `inflight_snapshot` (assistant/analysis/tool state so far) before any further deltas.
+- Cancellation is explicit:
+  - primary: `cancel_inflight` WS message,
+  - fallback: `POST /chat/cancel` (same `{ conversationId, inflightId }`) so Stop works even if the socket is disconnected.
+- Detach semantics: `POST /chat` supports `cancelOnDisconnect=false` so closing/aborting the SSE stream only stops writing to that response and does not cancel the underlying run (the run continues and WS observers keep receiving deltas).
+
+```mermaid
+sequenceDiagram
+  participant TabA as Browser Tab A
+  participant TabB as Browser Tab B
+  participant REST as POST /chat (SSE)
+  participant WSS as GET /ws
+  participant Hub as WsHub
+  participant Reg as InflightRegistry
+
+  TabA->>WSS: connect
+  TabA->>WSS: subscribe_sidebar
+  TabA->>WSS: subscribe_conversation(conversationId)
+  TabA->>REST: POST /chat { conversationId, inflightId, cancelOnDisconnect=false }
+  REST->>Reg: create inflight + attach cancel handle
+  REST->>Hub: broadcast inflight_snapshot
+  Hub-->>TabA: inflight_snapshot
+  REST->>Hub: assistant_delta / analysis_delta / tool_event
+  Hub-->>TabA: deltas/events
+
+  TabB->>WSS: connect
+  TabB->>WSS: subscribe_conversation(conversationId)
+  Hub-->>TabB: inflight_snapshot (catch-up)
+  Hub-->>TabB: deltas/events (live)
+
+  TabA->>WSS: cancel_inflight
+  Hub->>Reg: cancel (abort) + finalize
+  Hub-->>TabA: turn_final(status=stopped)
+  Hub-->>TabB: turn_final(status=stopped)
+```
+
 ### Chat citations UI
 
 - `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.

@@ -22,6 +22,8 @@ export type ChatRequestBody = {
   messages?: unknown;
   provider?: unknown;
   threadId?: unknown;
+  inflightId?: unknown;
+  cancelOnDisconnect?: unknown;
   sandboxMode?: unknown;
   networkAccessEnabled?: unknown;
   webSearchEnabled?: unknown;
@@ -35,6 +37,8 @@ export type ValidatedChatRequest = {
   conversationId: string;
   provider: Provider;
   threadId?: string;
+  inflightId?: string;
+  cancelOnDisconnect: boolean;
   codexFlags: {
     sandboxMode?: SandboxMode;
     networkAccessEnabled?: boolean;
@@ -75,6 +79,8 @@ const modelReasoningEfforts: AppModelReasoningEffort[] = [
   'xhigh',
 ] as AppModelReasoningEffort[];
 
+const INFLIGHT_ID_REGEX = /^[A-Za-z0-9._:-]{1,128}$/;
+
 export function validateChatRequest(
   body: ChatRequestBody | unknown,
 ): ValidatedChatRequest {
@@ -104,6 +110,26 @@ export function validateChatRequest(
     conversationId.trim().length === 0
   ) {
     throw new ChatValidationError('conversationId is required');
+  }
+
+  const inflightIdRaw = body.inflightId;
+  let inflightId: string | undefined;
+  if (inflightIdRaw !== undefined) {
+    if (typeof inflightIdRaw !== 'string') {
+      throw new ChatValidationError('inflightId must be a string');
+    }
+    const trimmed = inflightIdRaw.trim();
+    if (!INFLIGHT_ID_REGEX.test(trimmed)) {
+      throw new ChatValidationError('inflightId is invalid');
+    }
+    inflightId = trimmed;
+  }
+
+  const cancelOnDisconnectRaw = body.cancelOnDisconnect;
+  const cancelOnDisconnect =
+    cancelOnDisconnectRaw === undefined ? true : cancelOnDisconnectRaw;
+  if (typeof cancelOnDisconnect !== 'boolean') {
+    throw new ChatValidationError('cancelOnDisconnect must be a boolean');
   }
 
   const rawProvider = body.provider;
@@ -232,6 +258,8 @@ export function validateChatRequest(
     conversationId,
     provider,
     threadId,
+    inflightId,
+    cancelOnDisconnect,
     codexFlags,
     warnings,
   };

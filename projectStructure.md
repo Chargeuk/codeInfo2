@@ -420,3 +420,42 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop aborts an in-flight command execution request
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` re-fetching the newest page in `replace` mode
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
+
+- server/src/ws/types.ts — WebSocket protocol types + Zod validation for client messages
+- server/src/ws/server.ts — WebSocketServer bootstrap (path `/ws`) and message routing
+- server/src/ws/hub.ts — WS pub/sub hub: subscriptions + seq assignment + broadcast helpers
+- server/src/ws/inflightRegistry.ts — in-flight turn registry (assistant/analysis/tool state + cancel handles)
+- server/src/routes/chatCancel.ts — REST cancellation fallback `POST /chat/cancel`
+- server/src/test/integration/wsTestUtils.ts — WS test harness (start server + helpers)
+- server/src/test/integration/ws.lifecycle.connectDisconnect.test.ts — WS lifecycle + subscription cleanup coverage
+- server/src/test/integration/ws.validation.invalidJson.test.ts — invalid JSON handling
+- server/src/test/integration/ws.validation.unknownType.test.ts — unknown message type handling
+- server/src/test/integration/ws.validation.subscribeConversation.missingConversationId.test.ts — missing required fields validation
+- server/src/test/integration/ws.validation.cancelInflight.missingInflightId.test.ts — missing cancel fields validation
+- server/src/test/integration/ws.sidebar.subscribeUnsubscribe.test.ts — sidebar subscribe/unsubscribe lifecycle
+- server/src/test/integration/ws.conversation.subscribeIdle.test.ts — idle transcript subscribe does not emit snapshot
+- server/src/test/integration/ws.conversation.catchupSnapshot.test.ts — mid-run transcript catch-up snapshot
+- server/src/test/integration/ws.mcp2.codebaseQuestion.inflightBroadcast.test.ts — MCP2 run broadcasts inflight events
+- server/src/test/integration/ws.agents.runInstruction.inflightBroadcast.test.ts — Agents route broadcasts inflight events
+- server/src/test/integration/ws.seq.sidebarMonotonic.test.ts — sidebar `seq` monotonicity
+- server/src/test/integration/ws.seq.transcriptMonotonic.test.ts — transcript `seq` monotonicity
+- server/src/test/integration/ws.cancel.happyPath.test.ts — `cancel_inflight` emits `turn_final` stopped
+- server/src/test/integration/ws.cancel.idempotent.test.ts — `cancel_inflight` idempotency
+- server/src/test/integration/ws.cancel.invalid.test.ts — `cancel_inflight` invalid ids
+- server/src/test/integration/ws.restChat.inflightBroadcast.test.ts — REST chat run broadcasts inflight events
+- server/src/test/integration/ws.sidebar.upsert.onChatCreateUpdate.test.ts — sidebar `conversation_upsert` on chat create/update
+- server/src/test/integration/ws.sidebar.upsert.onArchive.test.ts — sidebar `conversation_upsert` on archive
+- server/src/test/integration/ws.sidebar.upsert.onRestore.test.ts — sidebar `conversation_upsert` on restore
+- server/src/test/integration/chat.cancelEndpoint.happyPath.test.ts — REST cancel fallback cancels inflight
+- server/src/test/integration/chat.cancelEndpoint.notFound.test.ts — REST cancel fallback 404 behavior
+- server/src/test/integration/chat.cancelEndpoint.idempotent.test.ts — REST cancel fallback idempotency
+- server/src/test/integration/chat.cancelEndpoint.validationError.test.ts — REST cancel fallback body validation
+- server/src/test/integration/chat.validators.cancelOnDisconnect.invalidType.test.ts — chat request validation for cancelOnDisconnect
+- server/src/test/integration/chat.validators.inflightId.invalid.test.ts — chat request validation for inflightId
+- server/src/test/integration/chat.detach.cancelOnDisconnectFalse.test.ts — detach semantics when cancelOnDisconnect=false
+- server/src/test/integration/chat.detach.defaultCancels.test.ts — backward-compatible abort-on-disconnect default
+- server/src/test/integration/chat.runLock.conflict.test.ts — run lock conflict returns 409
+- server/src/test/unit/inflightRegistry.cleanup.test.ts — inflight cleanup on cancel/finalize
+- server/src/test/unit/inflightRegistry.tools.currentState.test.ts — tool state updates in-place
+- server/src/test/unit/inflightRegistry.tools.maxCount.test.ts — tool count bounds
+- server/src/test/mcp2/tools/codebaseQuestion.runLock.conflict.test.ts — MCP2 run lock conflict mapping

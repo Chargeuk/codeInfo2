@@ -11,6 +11,7 @@ import {
   restoreConversation as defaultRestoreConversation,
   type AppendTurnInput,
 } from '../mongo/repo.js';
+import { getWsHub } from '../ws/hub.js';
 
 const listConversationsQuerySchema = z
   .object({
@@ -92,6 +93,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
   } = deps;
 
   const router = Router();
+  const wsHub = getWsHub();
 
   router.get('/conversations', async (req, res) => {
     const parsed = listConversationsQuerySchema.safeParse(req.query);
@@ -146,6 +148,15 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         flags,
         lastMessageAt: new Date(),
       });
+      wsHub.emitConversationUpsert({
+        conversationId,
+        title: title ?? 'Untitled conversation',
+        provider,
+        model,
+        source: source ?? 'REST',
+        lastMessageAt: new Date(),
+        archived: false,
+      });
       res.status(201).json({ conversationId });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
@@ -164,6 +175,16 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       const updated = await archiveConversation(parsedParams.data.id);
       if (!updated) return res.status(404).json({ error: 'not_found' });
+      wsHub.emitConversationUpsert({
+        conversationId: updated._id,
+        title: updated.title,
+        provider: updated.provider,
+        model: updated.model,
+        source: (updated as { source?: string }).source ?? 'REST',
+        lastMessageAt: updated.lastMessageAt,
+        archived: updated.archivedAt != null,
+        ...(updated.agentName ? { agentName: updated.agentName } : {}),
+      });
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
@@ -182,6 +203,16 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     try {
       const updated = await restoreConversation(parsedParams.data.id);
       if (!updated) return res.status(404).json({ error: 'not_found' });
+      wsHub.emitConversationUpsert({
+        conversationId: updated._id,
+        title: updated.title,
+        provider: updated.provider,
+        model: updated.model,
+        source: (updated as { source?: string }).source ?? 'REST',
+        lastMessageAt: updated.lastMessageAt,
+        archived: updated.archivedAt != null,
+        ...(updated.agentName ? { agentName: updated.agentName } : {}),
+      });
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });

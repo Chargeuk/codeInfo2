@@ -1323,11 +1323,11 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [x] `npm run compose:build`
+6. [ ] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [x] `npm run compose:up`
+7. [ ] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/

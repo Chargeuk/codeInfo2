@@ -93,13 +93,10 @@ export function ConversationList({
   onRetry,
 }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [snackbar, setSnackbar] = useState<
-    | {
-        severity: 'success' | 'error';
-        message: string;
-      }
-    | null
-  >(null);
+  const [snackbar, setSnackbar] = useState<{
+    severity: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const sorted = useMemo(
@@ -132,8 +129,10 @@ export function ConversationList({
   const clearSelection = () => setSelectedIds(new Set());
 
   const selectionCount = selectedIds.size;
-  const allSelected = visibleIds.length > 0 && selectionCount === visibleIds.length;
-  const indeterminate = selectionCount > 0 && selectionCount < visibleIds.length;
+  const allSelected =
+    visibleIds.length > 0 && selectionCount === visibleIds.length;
+  const indeterminate =
+    selectionCount > 0 && selectionCount < visibleIds.length;
 
   const toggleOne = (conversationId: string) => {
     setSelectedIds((prev) => {
@@ -159,9 +158,15 @@ export function ConversationList({
     try {
       await onBulkArchive(ids);
       clearSelection();
-      setSnackbar({ severity: 'success', message: `Archived ${ids.length} conversation(s).` });
+      setSnackbar({
+        severity: 'success',
+        message: `Archived ${ids.length} conversation(s).`,
+      });
     } catch (err) {
-      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk archive failed.' });
+      setSnackbar({
+        severity: 'error',
+        message: (err as Error).message || 'Bulk archive failed.',
+      });
     }
   };
 
@@ -171,9 +176,15 @@ export function ConversationList({
     try {
       await onBulkRestore(ids);
       clearSelection();
-      setSnackbar({ severity: 'success', message: `Restored ${ids.length} conversation(s).` });
+      setSnackbar({
+        severity: 'success',
+        message: `Restored ${ids.length} conversation(s).`,
+      });
     } catch (err) {
-      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk restore failed.' });
+      setSnackbar({
+        severity: 'error',
+        message: (err as Error).message || 'Bulk restore failed.',
+      });
     }
   };
 
@@ -189,9 +200,15 @@ export function ConversationList({
       await onBulkDelete(ids);
       clearSelection();
       setDeleteOpen(false);
-      setSnackbar({ severity: 'success', message: `Deleted ${ids.length} conversation(s).` });
+      setSnackbar({
+        severity: 'success',
+        message: `Deleted ${ids.length} conversation(s).`,
+      });
     } catch (err) {
-      setSnackbar({ severity: 'error', message: (err as Error).message || 'Bulk delete failed.' });
+      setSnackbar({
+        severity: 'error',
+        message: (err as Error).message || 'Bulk delete failed.',
+      });
     }
   };
 
@@ -509,8 +526,8 @@ export function ConversationList({
         <DialogTitle>Delete conversations permanently?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will permanently delete {selectionCount} archived conversation(s).
-            This cannot be undone.
+            This will permanently delete {selectionCount} archived
+            conversation(s). This cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

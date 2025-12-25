@@ -17,7 +17,9 @@ function Wrapper(params?: {
   bulkArchiveReject?: boolean;
   bulkDeleteSpy?: (ids: string[]) => void;
 }) {
-  const [allConversations, setAllConversations] = useState<ConversationListItem[]>([
+  const [allConversations, setAllConversations] = useState<
+    ConversationListItem[]
+  >([
     {
       conversationId: 'c1',
       title: 'First conversation',
@@ -43,7 +45,8 @@ function Wrapper(params?: {
       archived: true,
     },
   ]);
-  const [archivedFilter, setArchivedFilter] = useState<ConversationArchivedFilter>('active');
+  const [archivedFilter, setArchivedFilter] =
+    useState<ConversationArchivedFilter>('active');
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
@@ -81,7 +84,9 @@ function Wrapper(params?: {
 
   const restore = async (id: string) => {
     setAllConversations((prev) =>
-      prev.map((c) => (c.conversationId === id ? { ...c, archived: false } : c)),
+      prev.map((c) =>
+        c.conversationId === id ? { ...c, archived: false } : c,
+      ),
     );
   };
 
@@ -90,19 +95,25 @@ function Wrapper(params?: {
       throw new Error('Server rejected bulk archive');
     }
     setAllConversations((prev) =>
-      prev.map((c) => (ids.includes(c.conversationId) ? { ...c, archived: true } : c)),
+      prev.map((c) =>
+        ids.includes(c.conversationId) ? { ...c, archived: true } : c,
+      ),
     );
   };
 
   const bulkRestore = async (ids: string[]) => {
     setAllConversations((prev) =>
-      prev.map((c) => (ids.includes(c.conversationId) ? { ...c, archived: false } : c)),
+      prev.map((c) =>
+        ids.includes(c.conversationId) ? { ...c, archived: false } : c,
+      ),
     );
   };
 
   const bulkDelete = async (ids: string[]) => {
     params?.bulkDeleteSpy?.(ids);
-    setAllConversations((prev) => prev.filter((c) => !ids.includes(c.conversationId)));
+    setAllConversations((prev) =>
+      prev.filter((c) => !ids.includes(c.conversationId)),
+    );
   };
 
   return (
@@ -160,7 +171,8 @@ test('select-all checkbox supports checked and indeterminate', async () => {
   render(<Wrapper />);
 
   expect(await screen.findByText('First conversation')).toBeInTheDocument();
-  const selectAll = screen.getByTestId('conversation-select-all')
+  const selectAll = screen
+    .getByTestId('conversation-select-all')
     .querySelector('input');
   if (!selectAll) throw new Error('Select-all input not found');
 
@@ -175,9 +187,9 @@ test('select-all checkbox supports checked and indeterminate', async () => {
   fireEvent.click(firstCheckboxInput);
   expect(screen.getByText('1 selected')).toBeInTheDocument();
   expect((selectAll as HTMLInputElement).checked).toBe(false);
-  expect((selectAll as HTMLInputElement).getAttribute('data-indeterminate')).toBe(
-    'true',
-  );
+  expect(
+    (selectAll as HTMLInputElement).getAttribute('data-indeterminate'),
+  ).toBe('true');
 });
 
 test('bulk archive success updates list and shows snackbar', async () => {
@@ -194,7 +206,9 @@ test('bulk archive success updates list and shows snackbar', async () => {
   fireEvent.click(firstCheckboxInput);
   fireEvent.click(screen.getByTestId('conversation-bulk-archive'));
 
-  expect(await screen.findByText(/Archived 1 conversation/)).toBeInTheDocument();
+  expect(
+    await screen.findByText(/Archived 1 conversation/),
+  ).toBeInTheDocument();
   await waitFor(() =>
     expect(screen.queryByText('First conversation')).not.toBeInTheDocument(),
   );
@@ -214,7 +228,9 @@ test('bulk action rejection leaves UI unchanged and retains selection', async ()
   fireEvent.click(firstCheckboxInput);
   fireEvent.click(screen.getByTestId('conversation-bulk-archive'));
 
-  expect(await screen.findByText('Server rejected bulk archive')).toBeInTheDocument();
+  expect(
+    await screen.findByText('Server rejected bulk archive'),
+  ).toBeInTheDocument();
   expect(screen.getByText('1 selected')).toBeInTheDocument();
   expect(screen.getByText('First conversation')).toBeInTheDocument();
 });

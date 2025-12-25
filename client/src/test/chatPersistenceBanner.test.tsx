@@ -78,7 +78,9 @@ test('shows persistence banner and disables archive controls when mongo is down'
 
   expect(await screen.findByTestId('persistence-banner')).toBeInTheDocument();
   expect(
-    await screen.findByText('Bulk actions disabled while history is unavailable.'),
+    await screen.findByText(
+      'Bulk actions disabled while history is unavailable.',
+    ),
   ).toBeInTheDocument();
   const selectAllInput = screen
     .getByTestId('conversation-select-all')

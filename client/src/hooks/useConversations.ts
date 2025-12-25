@@ -199,7 +199,9 @@ export function useConversations(params?: { agentName?: string }): State {
       setConversations((prev) => {
         const selected = new Set(conversationIds);
         const updated = prev.map((conv) =>
-          selected.has(conv.conversationId) ? { ...conv, archived: true } : conv,
+          selected.has(conv.conversationId)
+            ? { ...conv, archived: true }
+            : conv,
         );
         return dedupeAndSort(
           updated.filter((conv) => {

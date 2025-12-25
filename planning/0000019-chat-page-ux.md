@@ -1142,8 +1142,9 @@ Add bulk archive/restore/delete APIs with archived-only delete guardrails and al
 
 ### 3. Conversation sidebar filter + multi-select + bulk actions (client)
 
-- Task Status: __in_progress__
+- Task Status: __done__
 - Git Commits: __to_do__
+
 
 #### Overview
 
@@ -1297,7 +1298,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
      - Removed files: none expected (if you delete/move anything, list it explicitly)
    - Purpose: keep the repo structure map accurate and make client bulk-sidebar additions discoverable for onboarding
    - Docs (read before doing): Markdown basics https://www.markdownguide.org/basic-syntax/
-23. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
+23. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix --workspaces`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Files to read: `package.json`, `client/package.json`, `server/package.json`, `eslint.config.js`, `.prettierrc`
    - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script, ESLint CLI https://eslint.org/docs/latest/use/command-line-interface, Prettier CLI https://prettier.io/docs/en/cli.html
@@ -1323,15 +1324,15 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
    - Files to read: `package.json`, `playwright.config.ts`, `e2e/`, `.env.e2e`, `docker-compose.e2e.yml`
    - Command: `npm run e2e`
    - Docs (read before doing): Playwright (Context7) `/microsoft/playwright.dev`, Docker Compose https://docs.docker.com/compose/
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:build`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/, npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`, `README.md` (ports: client 5001, server 5010)
    - Command: `npm run compose:up`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (Task 3 focus: sidebar filter + multi-select + bulk UI behavior)
+8. [x] Manual Playwright-MCP check (Task 3 focus: sidebar filter + multi-select + bulk UI behavior)
    - Files to read: `planning/0000019-chat-page-ux.md` (Acceptance Criteria), `README.md` (URLs/ports)
    - Manual checks (minimum):
      - Start the stack and open http://host.docker.internal:5001.
@@ -1340,7 +1341,7 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
      - Verify permanent delete shows a confirmation dialog and never deletes without explicit confirmation.
      - Verify when persistence is unavailable (`mongoConnected=false` banner), bulk controls are disabled.
    - Docs (read before doing): Playwright https://playwright.dev/docs/intro
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Files to read: `package.json`, `docker-compose.yml`, `server/.env`, `server/.env.local`
    - Command: `npm run compose:down`
    - Docs (read before doing): Docker Compose https://docs.docker.com/compose/
@@ -1348,6 +1349,11 @@ Add a 3-state filter, checkbox multi-select, and bulk archive/restore/delete UI 
 #### Implementation notes
 
 - 2025-12-25: Marked Task 3 as __in_progress__ and reviewed existing client chat sidebar, conversations hook, and persistence status patterns.
+- 2025-12-25: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; fixed client formatting drift via `npm run format --workspace client`.
+- 2025-12-25: Testing: `npm run compose:build` passed.
+- 2025-12-25: Testing: `npm run compose:up` passed.
+- 2025-12-25: Testing: manual sidebar UX check passed against `http://host.docker.internal:5001` with API requests routed to `http://host.docker.internal:5010` (filter switch clears selection; multi-select; bulk archive/restore; delete confirmation dialog; persistence gating verified by temporarily stopping `mongo_db_CodeInfo`).
+- 2025-12-25: Testing: `npm run compose:down` passed.
 
 ---
 

@@ -1708,7 +1708,7 @@ Add WebSocket connection management on the Chat page, including sidebar live upd
 
 ### 5. Final Task – Full verification + documentation + PR summary
 
-- Task Status: __to_do__
+- Task Status: __in_progress__
 - Git Commits: __to_do__
 
 #### Overview

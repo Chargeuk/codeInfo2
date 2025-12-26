@@ -18,10 +18,11 @@ Right now, the Chat page conversation sidebar is optimized for single-conversati
 
 Separately, live streaming in the GUI is scoped to the active request that started the chat. If a conversation is streaming in one browser window and the user views the same conversation in another window (or switches between conversations while multiple runs are in progress), the other view does not receive the live token/tool/final updates in real time. This prevents a “multi-conversation dashboard” workflow and makes agent/MCP-initiated runs feel second-class when viewed in the UI.
 
-This story improves the Chat page UX in two ways:
+This story improves the Chat page UX in three ways:
 
 1. **Bulk conversation management**: allow multi-select and bulk actions (archive / restore / permanent delete) with a clearer 3-state conversation filter (`Active`, `Active & Archived`, `Archived`).
 2. **Live updates (transcript + sidebar)**: live updates are available across browser windows for both the active transcript and the conversation sidebar. The transcript streams only for the currently visible conversation, while the sidebar receives updates so new conversations appear (and removals/archives/restores reflect) without manual refresh.
+3. **Chat transport unification**: remove chat SSE entirely and stream chat updates over WebSockets only, so every viewer receives updates through the same mechanism. `POST /chat` becomes a non-streaming “start run” request and the transcript is driven by WebSocket events.
 
 The intended approach for “catch-up” is:
 - The client continues to load the persisted snapshot (existing “load turns for a conversation” mechanism).
@@ -38,7 +39,7 @@ The intended approach for “catch-up” is:
 
 ### Realtime transport choice (v1)
 
-We will use **WebSockets** (one connection per browser tab) rather than SSE for fan-out of realtime events, because we need:
+We will use **WebSockets** (one connection per browser tab) as the **only** chat streaming transport. Chat SSE will be removed by the end of this story. WebSockets are required because we need:
 - Dynamic subscriptions: only the **visible** conversation transcript should stream (subscribe on view, unsubscribe on switch).
 - Always-on sidebar updates: the conversation list should update in real time when conversations are created/updated/archived/restored/deleted from another browser window.
 - Near-term reuse: a follow-up story is expected to apply the same realtime + management model to the **Agents** tab, so the transport should support multiple “channels” (chat list, agents list, active conversation) over a single connection.
@@ -93,6 +94,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events.
 - Transcript streaming is scoped to the currently visible conversation only: when the user switches conversations, the client unsubscribes from the prior conversation stream and subscribes to the newly visible one.
 - Starting a run in the Chat page and then navigating away does not cancel generation; the run continues to completion unless the user explicitly stops it using the existing Stop button.
+- Chat streaming uses WebSockets only: `POST /chat` no longer streams SSE and returns a JSON acknowledgement that a run has started; all tokens/tool events/final updates arrive via the WebSocket transcript stream.
 - Conversation sidebar updates stream in real time:
   - new conversations appear automatically when created elsewhere,
   - conversations move between views when archived/restored elsewhere,
@@ -111,6 +113,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - If the user loads a conversation that is not streaming, the UI does not show a streaming placeholder (snapshot-only).
 - Streaming events include sequence identifiers (at least per-conversation) so clients can ignore stale/out-of-order events during rapid conversation switching and safely reconcile subscriptions.
 - The sidebar uses a single always-on subscription that streams updates for all conversations; the client applies the current view filter locally (`Active` / `Active & Archived` / `Archived`). On disconnect/reconnect, the client refreshes the list snapshot before resuming stream updates.
+- By the end of this story, the chat SSE transport is fully removed; there are no EventSource/SSE dependencies for chat in client or server code.
 
 ---
 
@@ -128,6 +131,25 @@ Status: **accepted for v1** (no further protocol decisions required before taski
   - transcript stream subscription for the currently visible conversation while on Chat page.
 - On leaving the Chat route, the client unsubscribes from both sidebar + transcript streams. On returning, it re-snapshots then re-subscribes.
 
+### Run initiation (no SSE)
+
+- `POST /chat` becomes a non-streaming “start run” request. It returns JSON and does **not** use `text/event-stream`.
+- Response shape (success, HTTP 202):
+  - `{ "status": "started", "conversationId": "<id>", "inflightId": "<id>", "provider": "<provider>", "model": "<model>" }`
+  - `conversationId` echoes the request when provided, or a new id when the conversation is created.
+  - `inflightId` is generated if the client did not supply one; it is stable for the lifetime of the run and used for `cancel_inflight`.
+- Response shape (error, HTTP 409):
+  - `{ "status": "error", "code": "RUN_IN_PROGRESS", "message": "Conversation already has an active run." }`
+- Response shape (error, HTTP 400):
+  - `{ "status": "error", "code": "VALIDATION_FAILED", "message": "<reason>" }`
+  - `{ "status": "error", "code": "UNSUPPORTED_PROVIDER", "message": "<reason>" }`
+- Response shape (error, HTTP 503):
+  - `{ "status": "error", "code": "PROVIDER_UNAVAILABLE", "message": "<reason>" }` (e.g., LM Studio down)
+- Response shape (error, HTTP 500):
+  - `{ "status": "error", "code": "INTERNAL_ERROR", "message": "Unexpected error." }`
+- The server begins the run and publishes `inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final` events over the WebSocket to any subscribed viewers.
+- If a client subscribes after the run has started, the server sends an `inflight_snapshot` with the current partial state before streaming further deltas.
+
 ### Client → Server messages
 
 All messages are JSON objects with `type` and a client-generated `requestId` for debugging.
@@ -141,7 +163,7 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
 - `type: "unsubscribe_conversation"`
   - `{ type, requestId, conversationId: string }`
 - `type: "cancel_inflight"`
-  - Used by the existing Stop button to cancel the currently running turn without relying on HTTP request abort.
+  - Used by the existing Stop button to cancel the currently running turn without relying on HTTP request abort or SSE.
   - `{ type, requestId, conversationId: string, inflightId: string }`
   - `inflightId` is stable for the lifetime of a single in-progress turn. For turns started in the Chat UI, the client generates it and includes it in `POST /chat`. For turns started elsewhere (e.g. MCP), the client learns it from `inflight_snapshot`/`assistant_delta` and caches it for Stop.
 
@@ -187,6 +209,7 @@ These findings are based on the current repository implementation and are includ
 - The Chat page currently streams via **SSE** from `POST /chat` in `server/src/routes/chat.ts`. The server passes an `AbortSignal` into the provider execution and **aborts provider generation on client disconnect** (`req.on('close'|'aborted')` / `res.on('close')` → `AbortController.abort()`).
 - The client’s `useChatStream.stop()` aborts the in-flight fetch via `AbortController.abort()` (`client/src/hooks/useChatStream.ts`), and `ChatPage` calls `stop()` both when switching conversations and on unmount (`client/src/pages/ChatPage.tsx` cleanup effect).
 - Net effect: **navigating away from Chat currently cancels the run**, which conflicts with this story’s requirement that leaving Chat only unsubscribes from WS updates while the run continues server-side.
+- By the end of Story 19, this SSE transport will be removed and replaced by WebSocket-only streaming for chat.
 
 ### In-flight state availability (today)
 
@@ -197,7 +220,7 @@ These findings are based on the current repository implementation and are includ
 - There is no existing reusable WebSocket server/publisher in the repo. Long-lived communication currently consists of:
   - `POST /chat` SSE streaming, and
   - MCP HTTP JSON-RPC servers (not streaming, no HTTP upgrade).
-- Implementing this story’s WebSocket design requires adding a new WebSocket endpoint and a server-side publish/subscribe layer.
+- Implementing this story’s WebSocket design requires adding a new WebSocket endpoint and a server-side publish/subscribe layer. After Story 19, chat will no longer use SSE, while `/logs/stream` remains SSE for logs.
 
 ### Ingest page updates (today)
 
@@ -221,6 +244,7 @@ These findings are based on the current repository implementation and are includ
 ### Existing tests that will be impacted
 
 - Server Cucumber cancellation tests currently assert that aborting the HTTP request cancels provider execution (`server/src/test/steps/chat_cancellation.steps.ts`).
+- Server Cucumber chat streaming tests currently assume SSE (`server/src/test/features/chat_stream.feature` and related step defs); they will need to be replaced or reworked for WebSocket-driven streaming.
 - Client tests for the Stop button and “New conversation” behavior assume aborting the in-flight fetch cancels the run (`client/src/test/chatPage.stop.test.tsx`, `client/src/test/chatPage.newConversation.test.tsx`).
 - Because Story 19 decouples “view subscription” from “run lifetime”, these tests will need to be updated (Stop will use `cancel_inflight`; navigation/unsubscribe must not cancel the run).
 
@@ -235,6 +259,7 @@ These findings are based on the current repository implementation and are includ
 - Changing the MCP tool request/response formats or the persisted MCP turn schema. This story only improves how those existing turns/streams are displayed in the browser.
 - Introducing a public “cancel run” API beyond the existing Stop button semantics (Stop will cancel the in-flight run via `cancel_inflight`; leaving the page/unsubscribing must not cancel).
 - Sidebar “extra” live indicators (typing/streaming badges, token previews, tool-progress badges) beyond minimal create/update/delete + resorting.
+- Replacing `/logs/stream` SSE with WebSockets (logs SSE remains in place for now).
 
 ---
 

@@ -145,6 +145,8 @@ Status: **accepted for v1** (no further protocol decisions required before taski
   - sidebar stream subscription while on Chat page,
   - transcript stream subscription for the currently visible conversation while on Chat page.
 - On leaving the Chat route, the client unsubscribes from both sidebar + transcript streams. On returning, it re-snapshots then re-subscribes.
+- WebSocket endpoint runs on the existing Express server/port (no separate WS port).
+- No WS auth/CSRF/origin checks are added in this story (explicitly deferred).
 
 ### Run initiation (no SSE)
 
@@ -169,6 +171,7 @@ Status: **accepted for v1** (no further protocol decisions required before taski
 ### Client → Server messages
 
 All messages are JSON objects with `type` and a client-generated `requestId` for debugging.
+All WS messages include `protocolVersion: "v1"` for forwards compatibility.
 
 - `type: "subscribe_sidebar"`
   - `{ type, requestId }`
@@ -186,6 +189,7 @@ All messages are JSON objects with `type` and a client-generated `requestId` for
 ### Server → Client events
 
 All events are JSON objects with `type`. Events include sequence identifiers to support dedupe/out-of-order guarding.
+All server events include `protocolVersion: "v1"`.
 
 - Sidebar events (single global stream)
   - `type: "sidebar_snapshot"` – optional, but may be useful for debugging; primary snapshot remains the existing REST list fetch.
@@ -207,6 +211,7 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
     - Marks completion of the in-flight turn and carries any final metadata needed by the UI.
     - `{ type, conversationId, seq: number, inflightId: string, status: "ok" | "stopped" | "failed" }`
     - On failure, `turn_final` includes an `error` object: `{ code: string, message: string }`.
+    - If `cancel_inflight` targets a non-existent or mismatched inflight, the server returns `turn_final` with `status:"failed"` and `error.code = "INFLIGHT_NOT_FOUND"`.
 
 ### Sequence IDs (minimum)
 
@@ -219,6 +224,10 @@ Note: the persisted transcript remains the source of truth; sequence IDs are pri
 
 - No separate per-turn `error` event; failures are communicated via `turn_final` with `status:"failed"` plus `error { code, message }`.
 - WebSocket errors are reserved for connection-level failures only (handled by reconnect + resubscribe).
+
+### Logging volume (confirmed)
+
+- Delta log throttling uses “first delta + every 25 deltas” (no hard cap per run beyond existing log buffer limits).
 
 ---
 

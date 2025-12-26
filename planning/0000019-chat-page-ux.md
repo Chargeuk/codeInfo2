@@ -166,6 +166,9 @@ Status: **accepted for v1** (no further protocol decisions required before taski
 - Response shape (error, HTTP 500):
   - `{ "status": "error", "code": "INTERNAL_ERROR", "message": "Unexpected error." }`
 - The server begins the run and publishes `inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final` events over the WebSocket to any subscribed viewers.
+- The server also publishes `conversation_upsert` sidebar updates when:
+  - a conversation is created/updated at run start (title/model/flags/lastMessageAt), and
+  - a user/assistant turn is persisted (so `lastMessageAt` resorting works live).
 - If a client subscribes after the run has started, the server sends an `inflight_snapshot` with the current partial state before streaming further deltas.
 
 ### Client → Server messages
@@ -194,22 +197,27 @@ All server events include `protocolVersion: "v1"`.
 - Sidebar events (single global stream)
   - `type: "sidebar_snapshot"` – optional, but may be useful for debugging; primary snapshot remains the existing REST list fetch.
   - `type: "conversation_upsert"`
-    - `{ type, seq: number, conversation: { conversationId, title, provider, model, source, lastMessageAt, archived, agentName? } }`
+    - `{ type, seq: number, conversation: { conversationId, title, provider, model, source, lastMessageAt, archived, agentName?, flags? } }`
+    - Notes:
+      - `flags` should include at least `threadId` when available (Codex), because the current client uses it for continuity in degraded/memory persistence modes.
   - `type: "conversation_delete"`
     - `{ type, seq: number, conversationId: string }`
 
 - Transcript events (scoped to a `conversationId`)
   - `type: "inflight_snapshot"`
     - Sent immediately after `subscribe_conversation` when a run is currently in progress, and broadcast to existing subscribers when a new in-flight turn starts (snapshot may be empty until the first delta/tool event arrives).
-    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, toolEvents: unknown[], startedAt: string } }`
+    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, toolEvents: ToolEvent[], startedAt: string } }`
   - `type: "assistant_delta"`
     - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
   - `type: "tool_event"`
     - Interim tool progress/events (so viewers match the originating tab).
-    - `{ type, conversationId, seq: number, inflightId: string, event: unknown }`
+    - `{ type, conversationId, seq: number, inflightId: string, event: ToolEvent }`
+    - `ToolEvent` is a normalized shape that should align with what the client already renders and what the server persists in `Turn.toolCalls.calls[]`:
+      - Tool request: `{ type: "tool-request", callId: string|number, name: string, stage?: string, parameters?: unknown }`
+      - Tool result: `{ type: "tool-result", callId: string|number, name: string, stage?: string, parameters?: unknown, result?: unknown, errorTrimmed?: { code?: string, message?: string } | null, errorFull?: unknown }`
   - `type: "turn_final"`
     - Marks completion of the in-flight turn and carries any final metadata needed by the UI.
-    - `{ type, conversationId, seq: number, inflightId: string, status: "ok" | "stopped" | "failed" }`
+    - `{ type, conversationId, seq: number, inflightId: string, status: "ok" | "stopped" | "failed", threadId?: string | null }`
     - On failure, `turn_final` includes an `error` object: `{ code: string, message: string }`.
     - If `cancel_inflight` targets a non-existent or mismatched inflight, the server returns `turn_final` with `status:"failed"` and `error.code = "INFLIGHT_NOT_FOUND"`.
 
@@ -252,6 +260,16 @@ These findings are based on the current repository implementation and are includ
   - `POST /chat` SSE streaming, and
   - MCP HTTP JSON-RPC servers (not streaming, no HTTP upgrade).
 - Implementing this story’s WebSocket design requires adding a new WebSocket endpoint and a server-side publish/subscribe layer. After Story 19, chat will no longer use SSE, while `/logs/stream` remains SSE for logs.
+
+### Existing run-lock infrastructure (today)
+
+- There is already a per-conversation in-memory lock used by Agents runs: `server/src/agents/runLock.ts`.
+- Story 19 should reuse this lock for Chat runs so that Agents + Chat share the same `RUN_IN_PROGRESS` semantics.
+
+### Existing e2e mocking approach (today)
+
+- Many `e2e/chat*.spec.ts` tests currently mock chat by intercepting `POST /chat` and returning SSE (`text/event-stream`).
+- Playwright in this repo supports WebSocket routing (`page.routeWebSocket` / `browserContext.routeWebSocket`), so these mocks must be migrated to route `POST /chat` (JSON 202) plus route the `/ws` stream.
 
 ### Ingest page updates (today)
 
@@ -425,6 +443,10 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
      - Body shape: `{ conversationIds: string[] }` (non-empty).
      - Errors:
        - `BATCH_CONFLICT` when any id is invalid or violates archived-only delete.
+     - On success, emit sidebar events so other tabs update without refresh:
+       - archive/restore → `conversation_upsert`
+       - delete → `conversation_delete`
+     - Ensure existing single-item `POST /conversations/:id/archive|restore` also emit `conversation_upsert` so old/new UI actions stay realtime-consistent.
 3. [ ] Implement bulk operations in the repo layer with transactions:
    - Docs to read:
      - Context7 `/websites/mongoosejs`
@@ -434,6 +456,7 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
    - Requirements:
      - Use a Mongoose session transaction to ensure all-or-nothing behavior.
      - Enforce archived-only delete guardrail.
+     - After a successful commit, publish `conversation_upsert` / `conversation_delete` events for each affected conversationId.
 4. [ ] Update default Mongo connection string for replica-set transactions:
    - Docs to read:
      - https://www.mongodb.com/docs/manual/core/transactions/
@@ -491,7 +514,15 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - https://nodejs.org/api/http.html#event-upgrade
    - Files to read:
      - `server/src/index.ts`
-2. [ ] Add WebSocket server scaffolding with heartbeat:
+2. [ ] Add WebSocket library dependency to the server workspace:
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to edit:
+     - `server/package.json`
+     - `package-lock.json`
+   - Requirements:
+     - Add `ws` as a runtime dependency for the server.
+3. [ ] Add WebSocket server scaffolding with heartbeat:
    - Docs to read:
      - https://github.com/websockets/ws/blob/master/doc/ws.md
    - Files to edit:
@@ -501,7 +532,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `/ws` endpoint on existing server/port.
      - Ping every 30s; drop after 2 missed pongs.
      - No auth/CSRF/origin checks in this story.
-3. [ ] Add subscription registry + protocol version enforcement:
+4. [ ] Add subscription registry + protocol version enforcement:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
    - Files to edit:
@@ -510,13 +541,25 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Track `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`.
      - Require `protocolVersion: "v1"` in all messages/events.
-4. [ ] Add lightweight unit tests for WS connection + subscribe/unsubscribe parsing:
+5. [ ] Add sidebar stream publishing primitives (event typing + sequencing):
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to edit:
+     - `server/src/ws/server.ts`
+     - `server/src/ws/registry.ts`
+     - `server/src/ws/types.ts`
+     - Create `server/src/ws/sidebar.ts` (or equivalent module)
+   - Requirements:
+     - Maintain a monotonically increasing `seq` for sidebar events.
+     - Broadcast `conversation_upsert` / `conversation_delete` to `subscribe_sidebar` sockets.
+     - Keep `sidebar_snapshot` optional (REST list fetch remains primary).
+6. [ ] Add lightweight unit tests for WS connection + subscribe/unsubscribe parsing:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add/edit:
      - `server/src/test/unit/ws-server.test.ts`
-5. [ ] Update `projectStructure.md` for new WS files.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+7. [ ] Update `projectStructure.md` for new WS files.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -556,13 +599,15 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/chat/interfaces/ChatInterface.ts`
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-2. [ ] Add a per-conversation run lock for chat:
+2. [ ] Add a per-conversation run lock for chat (reuse existing lock):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-   - Files to edit:
-     - Create `server/src/chat/runLock.ts`
+   - Files to read/edit:
+     - `server/src/agents/runLock.ts`
+     - `server/src/routes/chat.ts`
    - Requirements:
-     - `RUN_IN_PROGRESS` when a conversation already has an in-flight run.
+     - Reuse `tryAcquireConversationLock` / `releaseConversationLock` so Chat + Agents share the same lock semantics.
+     - Return `RUN_IN_PROGRESS` when a conversation already has an in-flight run.
 3. [ ] Implement in-flight registry + WS publishing:
    - Docs to read:
      - https://github.com/websockets/ws/blob/master/doc/ws.md
@@ -572,14 +617,20 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - Maintain `inflightId`, assistant text so far, tool event history, and seq counters.
      - Publish `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final` with `protocolVersion:"v1"`.
+     - WS tool events must preserve the existing client rendering schema (`callId`, `name`, `parameters`, `result`, `stage`, `errorTrimmed`, `errorFull`).
+     - Ensure `turn_final.threadId` is sent when available (Codex), and ensure `conversation_upsert.flags.threadId` is updated for continuity in degraded/memory persistence modes.
+     - Ensure the sidebar updates in real time for other tabs/windows by emitting `conversation_upsert` when a run starts and when turns are persisted (so ordering by `lastMessageAt` refreshes without polling).
+     - Prefer emitting sidebar updates from shared persistence points (for example `createConversation` / `appendTurn`) so agent/MCP-initiated runs also generate `conversation_upsert` events.
 4. [ ] Refactor `POST /chat` to be non-streaming:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
      - `server/src/routes/chat.ts`
+     - `server/src/routes/chatValidators.ts`
    - Requirements:
      - Return `{ status:"started", conversationId, inflightId, provider, model }`.
      - Start provider execution in the background and publish WS events.
+     - Accept optional `inflightId` in the request body; generate one when omitted and echo it in the 202 response.
      - Remove SSE response handling entirely.
 5. [ ] Add `cancel_inflight` handling:
    - Docs to read:
@@ -632,7 +683,16 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/steps/chat_stream.steps.ts`
    - Requirements:
      - Replace SSE assumptions with `POST /chat` start + WS event assertions.
-2. [ ] Add unit/integration coverage for `/chat` start responses and `RUN_IN_PROGRESS`:
+2. [ ] Update Cucumber cancellation semantics (unsubscribe does not cancel; Stop does):
+   - Docs to read:
+     - https://cucumber.io/docs/guides/
+   - Files to edit:
+     - `server/src/test/features/chat_cancellation.feature`
+     - `server/src/test/steps/chat_cancellation.steps.ts`
+   - Requirements:
+     - Remove SSE/disconnect-aborts-run assumptions.
+     - Assert that `cancel_inflight` is required to stop a run (and that leaving/unsubscribing alone does not stop it).
+3. [ ] Add unit/integration coverage for `/chat` start responses and `RUN_IN_PROGRESS`:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -640,13 +700,13 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/unit/chat-unsupported-provider.test.ts`
      - `server/src/test/integration/chat-codex.test.ts`
      - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
-3. [ ] Add WS event ordering tests:
+4. [ ] Add WS event ordering tests:
    - Docs to read:
      - https://github.com/websockets/ws/blob/master/doc/ws.md
    - Files to add/edit:
      - `server/src/test/unit/ws-chat-stream.test.ts`
-4. [ ] Update `projectStructure.md` for any new test files.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+5. [ ] Update `projectStructure.md` for any new test files.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -697,6 +757,11 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Requirements:
      - Bulk archive/restore/delete buttons and confirmation dialog for delete.
      - Disable bulk actions when `mongoConnected === false`.
+     - Show a toast (or equivalent lightweight feedback) confirming success/failure for bulk actions.
+     - Implement toast feedback using MUI Snackbar (no existing toast utility in the client today).
+     - Ensure `variant="agents"` rendering remains unchanged (bulk controls are Chat-only).
+     - Keep checkbox selection stable while sidebar items reorder due to `lastMessageAt` changes.
+     - If the currently open conversation is bulk archived/restored/deleted, do not force-refresh the transcript mid-view (already-rendered content stays visible until the user navigates away or selects another conversation).
 4. [ ] Wire bulk API calls and error handling:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -749,7 +814,19 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Protocol version `v1` on all messages.
      - Subscribe/unsubscribe on conversation change and route unmount.
      - Reconnect with backoff and re-snapshot on reconnect.
-3. [ ] Replace SSE start-run flow with `POST /chat` start + WS stream:
+3. [ ] Add sidebar WS subscription and live list updates:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Files to edit:
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatWs.ts` (if the WS connection is shared)
+   - Requirements:
+     - `subscribe_sidebar` while Chat page is mounted; apply `conversation_upsert` / `conversation_delete` to the list state.
+     - Preserve multi-select checkbox state while applying live updates (selection is keyed by conversationId and must not be cleared by background updates).
+     - Ensure live sidebar updates do not require manual refresh to see newly created/archived/restored/deleted conversations from other tabs.
+     - Ignore sidebar events that do not match the current list filter (Chat list uses `agentName=__none__`, so it must ignore `conversation_upsert` with a non-empty `agentName`).
+4. [ ] Replace SSE start-run flow with `POST /chat` start + WS stream:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to edit:
@@ -758,10 +835,11 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Requirements:
      - Handle `RUN_IN_PROGRESS` conflicts.
      - Use `cancel_inflight` for Stop.
-4. [ ] Ensure MCP/agent-initiated runs render via WS the same as REST.
-5. [ ] Update `design.md` for client-side WS flow.
-6. [ ] Update `projectStructure.md` for new hooks.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+     - Do not cancel runs on route unmount or conversation switch; unmount/switch only unsubscribes from WS updates (run continues until Stop/cancel).
+5. [ ] Ensure MCP/agent-initiated runs render via WS the same as REST.
+6. [ ] Update `design.md` for client-side WS flow.
+7. [ ] Update `projectStructure.md` for new hooks.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -841,7 +919,9 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Files to edit:
      - `client/src/test/chatPage.stop.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/useChatStream.reasoning.test.tsx`
+     - `client/src/test/chatPage.newConversation.test.tsx`
+     - `client/src/test/chatPage.reasoning.test.tsx` (if WS changes affect reasoning UI)
+     - Add new `client/src/test/useChatWs.test.ts` (or similar) if needed for WS hook coverage
 2. [ ] Add/adjust tests for sidebar bulk actions:
    - Docs to read:
      - Context7 `/jestjs/jest`
@@ -853,7 +933,17 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Context7 `/microsoft/playwright`
    - Files to edit:
      - `e2e/chat.spec.ts`
+     - `e2e/chat-tools.spec.ts`
+     - `e2e/chat-tools-visibility.spec.ts`
+     - `e2e/chat-reasoning.spec.ts`
+     - `e2e/chat-provider-history.spec.ts`
      - Add new `e2e/chat-ws-logs.spec.ts` if clearer.
+   - Requirements:
+     - Remove any remaining SSE-only test assumptions; chat streaming assertions must observe WS-driven transcript updates.
+     - When `E2E_USE_MOCK_CHAT=true`, replace SSE route mocks with a WS mock:
+       - Route `POST /chat` to return `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`.
+       - Use Playwright WebSocket routing (`page.routeWebSocket` / `context.routeWebSocket`) to handle `/ws` subscriptions and send `inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`.
+     - Audit remaining `e2e/chat-*.spec.ts` files (including `e2e/chat-codex-*.spec.ts`) and update any that depend on SSE streaming behavior.
 4. [ ] Update `projectStructure.md` for any new test files.
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 

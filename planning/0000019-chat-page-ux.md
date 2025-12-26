@@ -47,6 +47,11 @@ We will use **WebSockets** (one connection per browser tab) as the **only** chat
 
 WebSockets keep this as a single long-lived connection with explicit `subscribe`/`unsubscribe` messages, and allow us to add new event types later without creating additional long-lived HTTP streams.
 
+Implementation choice (confirmed):
+- WebSocket library: `ws`
+- Server heartbeat: ping every 30s, disconnect after 2 missed pongs
+- Client reconnect: exponential backoff (500ms → 1s → 2s → 4s, cap at 8s)
+
 ### Future direction (planned reuse for Agents tab)
 
 The Conversations sidebar should be reusable in a later story for the Agents tab by introducing an optional “agent filter” input:
@@ -91,7 +96,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - If that conversation is currently streaming, the UI shows live updates (tokens/tool events/final) for the in-progress turn.
 - A user can switch between conversations and see the correct live stream for whichever conversation is actively streaming.
 - If the same conversation is viewed in multiple browser windows, both windows receive the same live updates while the run is in progress.
-- In-progress MCP conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
+- In-progress MCP and agent-initiated conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
 - When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events.
 - Transcript streaming is scoped to the currently visible conversation only: when the user switches conversations, the client unsubscribes from the prior conversation stream and subscribes to the newly visible one.
 - Starting a run in the Chat page and then navigating away does not cancel generation; the run continues to completion unless the user explicitly stops it using the existing Stop button.
@@ -119,6 +124,11 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
   - The server writes log entries for WebSocket lifecycle + chat stream events (connect/disconnect, subscribe/unsubscribe, inflight start, deltas/tool events/final, cancel).
   - The client writes log entries for WebSocket lifecycle + received events and **forwards them to the server logs** (so `/logs` includes client-side receipt).
   - Log payloads must include `conversationId`, `inflightId` (when available), and sequence numbers to make Playwright validation deterministic.
+  - Log naming + sampling (confirmed):
+    - Server logs: `chat.ws.connect`, `chat.ws.disconnect`, `chat.ws.subscribe_sidebar`, `chat.ws.unsubscribe_sidebar`, `chat.ws.subscribe_conversation`, `chat.ws.unsubscribe_conversation`, `chat.run.started`, `chat.stream.snapshot`, `chat.stream.delta`, `chat.stream.tool_event`, `chat.stream.final`, `chat.stream.cancel`.
+    - Client logs (forwarded): `chat.ws.client_connect`, `chat.ws.client_disconnect`, `chat.ws.client_subscribe_conversation`, `chat.ws.client_snapshot_received`, `chat.ws.client_delta_received`, `chat.ws.client_tool_event_received`, `chat.ws.client_final_received`.
+    - Delta log throttling: log the first delta and then every 25 deltas; include `deltaCount` in the payload so tests can validate counts deterministically.
+    - Tool events are logged per event; include `toolEventCount` as a running total for deterministic assertions.
 
 ---
 
@@ -143,6 +153,7 @@ Status: **accepted for v1** (no further protocol decisions required before taski
   - `{ "status": "started", "conversationId": "<id>", "inflightId": "<id>", "provider": "<provider>", "model": "<model>" }`
   - `conversationId` echoes the request when provided, or a new id when the conversation is created.
   - `inflightId` is generated if the client did not supply one; it is stable for the lifetime of the run and used for `cancel_inflight`.
+- `POST /chat` does **not** require an active WebSocket connection; runs may start even if there are no subscribers.
 - Response shape (error, HTTP 409):
   - `{ "status": "error", "code": "RUN_IN_PROGRESS", "message": "Conversation already has an active run." }`
 - Response shape (error, HTTP 400):
@@ -195,6 +206,7 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
   - `type: "turn_final"`
     - Marks completion of the in-flight turn and carries any final metadata needed by the UI.
     - `{ type, conversationId, seq: number, inflightId: string, status: "ok" | "stopped" | "failed" }`
+    - On failure, `turn_final` includes an `error` object: `{ code: string, message: string }`.
 
 ### Sequence IDs (minimum)
 
@@ -202,6 +214,11 @@ All events are JSON objects with `type`. Events include sequence identifiers to 
 - Transcript events use a monotonically increasing `seq` per `conversationId` so the client can ignore stale/out-of-order deltas/events during rapid switching.
 
 Note: the persisted transcript remains the source of truth; sequence IDs are primarily to prevent UI glitches from late-arriving events rather than to enable full replay.
+
+### Event semantics (confirmed)
+
+- No separate per-turn `error` event; failures are communicated via `turn_final` with `status:"failed"` plus `error { code, message }`.
+- WebSocket errors are reserved for connection-level failures only (handled by reconnect + resubscribe).
 
 ---
 

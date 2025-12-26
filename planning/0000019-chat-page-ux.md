@@ -1962,7 +1962,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 
 ### 6. Bugfix – First message streaming missing (hydrate/replace race)
 
-- Task Status: __in_progress__
+- Task Status: __done__
 - Git Commits: 008d150
 
 #### Overview

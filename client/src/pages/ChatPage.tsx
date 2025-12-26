@@ -37,6 +37,7 @@ import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
 import { cancelChatInflight } from '../api/chat';
+import { createLogger } from '../logging';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
@@ -155,6 +156,12 @@ export default function ChatPage() {
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+  const log = useRef(createLogger('client')).current;
+  const logInfo = useCallback(
+    (message: string, context: Record<string, unknown> = {}) =>
+      log('info', message, { channel: 'client-chat', ...context }),
+    [log],
+  );
 
   type WsToolState = {
     id: string;
@@ -439,7 +446,7 @@ export default function ChatPage() {
     if (typeof window !== 'undefined') {
       (window as unknown as { __chatDebug?: unknown }).__chatDebug = debugState;
     }
-    console.info('[chat-history] load-turns-state', debugState);
+    logInfo('[chat-history] load-turns-state', debugState);
   }, [
     activeConversationId,
     knownConversationIds,
@@ -533,7 +540,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     setActiveConversationId(conversationId);
-    console.info('[chat-history] conversationId changed', { conversationId });
+    logInfo('[chat-history] conversationId changed', { conversationId });
   }, [conversationId]);
 
   useEffect(() => {
@@ -593,9 +600,18 @@ export default function ChatPage() {
 
     let cancelled = false;
     void (async () => {
+      logInfo('[chat-ws] sidebar subscribe cycle start', {
+        persistenceUnavailable,
+        wsStatus,
+        wsConnectionSeq,
+      });
       await refreshConversations();
       if (cancelled) return;
       subscribeSidebar();
+      logInfo('[chat-ws] sidebar subscribed', {
+        wsStatus,
+        wsConnectionSeq,
+      });
     })();
 
     return () => {
@@ -618,11 +634,24 @@ export default function ChatPage() {
 
     let cancelled = false;
     void (async () => {
+      logInfo('[chat-ws] transcript subscribe cycle start', {
+        activeConversationId,
+        shouldLoadTurns,
+        isStreaming,
+        status,
+        wsStatus,
+        wsConnectionSeq,
+      });
       if (shouldLoadTurns) {
         await refreshTurns();
       }
       if (cancelled) return;
       subscribeConversation(activeConversationId);
+      logInfo('[chat-ws] transcript subscribed', {
+        activeConversationId,
+        wsStatus,
+        wsConnectionSeq,
+      });
     })();
 
     return () => {
@@ -656,8 +685,26 @@ export default function ChatPage() {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || controlsDisabled) return;
+    logInfo('[chat-submit] send start', {
+      trimmedLength: trimmed.length,
+      activeConversationId,
+      conversationId,
+      wsStatus,
+      persistenceUnavailable,
+    });
     lastSentRef.current = trimmed;
-    void send(trimmed).then(() => refreshConversations());
+    void send(trimmed).then(() => {
+      logInfo('[chat-submit] send resolved', {
+        activeConversationId,
+        conversationId,
+      });
+      return refreshConversations().then(() => {
+        logInfo('[chat-submit] refresh conversations done', {
+          activeConversationId,
+          conversationId,
+        });
+      });
+    });
     setInput('');
   };
 
@@ -737,14 +784,14 @@ export default function ChatPage() {
 
   const handleSelectConversation = (conversation: string) => {
     if (conversation === activeConversationId) return;
-    console.info('[chat-history] handleSelect', {
+    logInfo('[chat-history] handleSelect', {
       clickedId: conversation,
       activeConversationId,
     });
     const nextConversation = conversations.find(
       (c) => c.conversationId === conversation,
     );
-    console.info('[chat-history] selecting conversation', {
+    logInfo('[chat-history] selecting conversation', {
       conversation,
       provider: nextConversation?.provider,
       model: nextConversation?.model,
@@ -773,7 +820,7 @@ export default function ChatPage() {
     });
     setActiveConversationId(conversation);
     setTimeout(() => {
-      console.info('[chat-history] post-select scheduled', {
+      logInfo('[chat-history] post-select scheduled', {
         clickedId: conversation,
         activeConversationId: conversationId,
       });
@@ -859,11 +906,14 @@ export default function ChatPage() {
     const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
-    console.info('[chat-history] hydrating turns', {
+    logInfo('[chat-history] hydrating turns', {
       activeConversationId,
       mode: lastMode,
       count: lastPage.length,
       first: lastPage[0]?.createdAt,
+      isStreaming,
+      status,
+      localInflightId,
     });
     if (lastMode === 'replace') {
       hydrateHistory(

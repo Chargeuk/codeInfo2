@@ -449,6 +449,14 @@ export function useChatStream(
       history: ChatMessage[],
       mode: 'replace' | 'prepend' = 'replace',
     ) => {
+      logWithChannel('info', 'chat history hydrate', {
+        historyConversationId,
+        mode,
+        historyCount: history.length,
+        status: statusRef.current,
+        inflightId: inflightIdRef.current,
+        messagesCount: messagesRef.current.length,
+      });
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
       updateMessages((prev) => {
@@ -518,6 +526,13 @@ export function useChatStream(
         return;
       }
 
+      logWithChannel('info', 'chat send start', {
+        trimmedLength: trimmed.length,
+        provider,
+        model,
+        status: statusRef.current,
+        conversationId: conversationIdRef.current,
+      });
       stop();
       const controller = new AbortController();
       controllerRef.current = controller;
@@ -569,6 +584,8 @@ export function useChatStream(
           segmentsCount: segments.length,
         });
       };
+      let missingAssistantLogged = false;
+      let firstTokenLogged = false;
 
       const setAssistantThinking = (thinking: boolean) => {
         updateMessages((prev) =>
@@ -659,8 +676,19 @@ export function useChatStream(
           )
           .map((segment) => segment.tool);
 
-        updateMessages((prev) =>
-          prev.map((msg) =>
+        updateMessages((prev) => {
+          const found = prev.some((msg) => msg.id === assistantId);
+          if (!found && !missingAssistantLogged) {
+            missingAssistantLogged = true;
+            logWithChannel('warn', 'assistant message missing during sync', {
+              assistantId,
+              conversationId: conversationIdRef.current,
+              inflightId: inflightIdRef.current,
+              status: statusRef.current,
+              prevCount: prev.length,
+            });
+          }
+          return prev.map((msg) =>
             msg.id === assistantId
               ? {
                   ...msg,
@@ -671,8 +699,8 @@ export function useChatStream(
                   tools: toolList,
                 }
               : msg,
-          ),
-        );
+          );
+        });
         logSync('syncAssistantMessage');
       };
 
@@ -931,6 +959,13 @@ export function useChatStream(
                   });
                 }
                 continue;
+              }
+              if (event.type === 'token' && !firstTokenLogged) {
+                firstTokenLogged = true;
+                logWithChannel('info', 'chat first token', {
+                  conversationId: currentConversationId,
+                  inflightId: currentInflightId,
+                });
               }
               if (isToolEvent(event)) {
                 const status: ToolCall['status'] =

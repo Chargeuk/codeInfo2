@@ -1957,3 +1957,50 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
   - Added client RTL/Jest coverage for bulk selection/actions, WS subscriptions, inflight rendering, stop/detach behavior, and persistence gating.
   - Added Playwright e2e specs: chat-live-updates (Story 19 realtime flows) and chat-bulk-actions (bulk archive/restore/delete + confirmation).
   ```
+
+---
+
+### 6. Bugfix – First message streaming missing (hydrate/replace race)
+
+- Task Status: __to_do__
+- Git Commits: __to_do__
+
+#### Overview
+
+Fix the regression where the first chat response does not render until navigating away/back. The current behavior is caused by a `useConversationTurns` hydrate (mode `replace`) running while a new SSE stream is active, which replaces the local in-flight assistant message with a history snapshot that only contains the user turn. This task adds a regression test and updates the client to preserve the in-flight assistant message during hydrate while streaming.
+
+#### Documentation Locations
+
+- React effects / state timing: https://react.dev/learn/synchronizing-with-effects
+- React state batching: https://react.dev/reference/react/useState
+- Testing Library (RTL): https://testing-library.com/docs/react-testing-library/intro/
+- Jest (Jest 30 docs): Context7 `/websites/jestjs_io_30_0`
+
+#### Subtasks
+
+1. [ ] Reproduce + encode the regression in a client RTL test
+   - Files to edit/create: `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/chatPage.hydrateRace.test.tsx`)
+   - Scenario to cover: send a message, then trigger a `hydrateHistory(..., 'replace')` while `status === 'sending'`, assert the in-flight assistant message remains in the transcript and continues to receive token updates.
+   - Purpose: prevent the first-response “blank until navigate” regression.
+2. [ ] Fix the hydrate/replace behavior during streaming
+   - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts` (or `useConversationTurns.ts` if that’s the best location)
+   - Expected behavior: when `status === 'sending'`, `hydrateHistory` should **not** drop the in-flight assistant message; it should either merge it into the replaced list or defer the replace until the stream completes.
+   - Critical constraint: preserve existing WS inflight snapshot behavior for viewer tabs (no duplicate assistant messages).
+3. [ ] Keep the added logging (client log forwarding + chat stream sync warnings) so we can debug future regressions
+   - Files to keep: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/.env.local`
+   - Purpose: ensure future investigations can correlate hydrate events with streaming sync.
+4. [ ] Update implementation notes with a brief root-cause + fix summary
+   - File to edit: `planning/0000019-chat-page-ux.md`
+5. [ ] Run workspace lint/format
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace client`
+4. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- 

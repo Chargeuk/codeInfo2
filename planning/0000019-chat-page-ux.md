@@ -310,3 +310,600 @@ These findings are based on the current repository implementation and are includ
 (none – ready for tasking once the WebSocket protocol above is reviewed and accepted as final for v1.)
 
 ---
+# Tasks
+
+### 1. Conversation list filtering (state query)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `all`) while preserving backward compatibility for the existing `archived=true` query. This powers the new sidebar filter and keeps existing callers stable.
+
+#### Documentation Locations
+
+- Express 5 query parsing + routing: Context7 `/expressjs/express`
+- Mongoose query filters: Context7 `/websites/mongoosejs`
+- HTTP 400 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+- URLSearchParams / query strings: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- SuperTest: Context7 `/ladjs/supertest`
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Read the current conversations list flow and filter handling:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - Context7 `/websites/mongoosejs`
+   - Files to read:
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/mongo/conversation.ts`
+2. [ ] Add `state` query handling (`active|archived|all`) with backward compatibility for `archived=true`:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Default is `state=active`.
+     - `archived=true` maps to `state=all`.
+     - Invalid `state` values return 400 with `{ status:"error", code:"VALIDATION_FAILED" }`.
+3. [ ] Update server unit/integration tests for list filtering:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Add cases for `state=active`, `state=archived`, `state=all`, and `archived=true` compatibility.
+4. [ ] Update `design.md` with the new list filter contract:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Required updates:
+     - Add a short bullet describing the new `state` query and default behavior.
+5. [ ] Update `projectStructure.md` if any new files are added (likely none for this task).
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix any issues.
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - https://prettier.io/docs/en/cli.html
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 2. Conversation bulk endpoints
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Add bulk archive/restore/delete endpoints with all-or-nothing semantics, including archived-only delete guardrails and transaction-backed updates.
+
+#### Documentation Locations
+
+- Express 5 routing/request lifecycle: Context7 `/expressjs/express`
+- Mongoose sessions/transactions: Context7 `/websites/mongoosejs`
+- MongoDB transactions overview: https://www.mongodb.com/docs/manual/core/transactions/
+- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- SuperTest: Context7 `/ladjs/supertest`
+- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Read the existing conversation archive/restore/delete plumbing:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+     - Context7 `/websites/mongoosejs`
+   - Files to read:
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/turn.ts`
+2. [ ] Add bulk endpoints and validation:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - Implement:
+       - `POST /conversations/bulk/archive`
+       - `POST /conversations/bulk/restore`
+       - `POST /conversations/bulk/delete`
+     - Body shape: `{ conversationIds: string[] }` (non-empty).
+     - Errors:
+       - `BATCH_CONFLICT` when any id is invalid or violates archived-only delete.
+3. [ ] Implement bulk operations in the repo layer with transactions:
+   - Docs to read:
+     - Context7 `/websites/mongoosejs`
+     - https://www.mongodb.com/docs/manual/core/transactions/
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Use a Mongoose session transaction to ensure all-or-nothing behavior.
+     - Enforce archived-only delete guardrail.
+4. [ ] Update default Mongo connection string for replica-set transactions:
+   - Docs to read:
+     - https://www.mongodb.com/docs/manual/core/transactions/
+   - Files to edit:
+     - `server/.env`
+     - `README.md`
+     - `docker-compose.yml` (if needed to keep defaults aligned)
+   - Requirements:
+     - Use `replicaSet=rs0` and remove `directConnection=true`.
+5. [ ] Add server tests for bulk endpoints:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.archive.test.ts`
+     - `server/src/test/integration/conversations.create.test.ts`
+     - Add new test file if cleaner (document in `projectStructure.md`).
+   - Requirements:
+     - Success: archive/restore/delete returns `{ status:"ok", updatedCount }`.
+     - Failure: invalid/mixed states return `409 BATCH_CONFLICT` with `details`.
+6. [ ] Update `design.md` with bulk endpoint behavior and guardrail notes.
+7. [ ] Update `projectStructure.md` for any new files.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 3. WebSocket server foundation
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Introduce the `/ws` WebSocket server on the existing Express port with protocol versioning, ping/pong heartbeats, and subscription tracking for sidebar and conversation streams.
+
+#### Documentation Locations
+
+- `ws` server docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- Node.js HTTP server upgrade: https://nodejs.org/api/http.html#event-upgrade
+- WebSocket protocol basics: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Review server startup and existing route wiring:
+   - Docs to read:
+     - https://nodejs.org/api/http.html#event-upgrade
+   - Files to read:
+     - `server/src/index.ts`
+2. [ ] Add WebSocket server scaffolding with heartbeat:
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to edit:
+     - Create `server/src/ws/server.ts`
+     - Update `server/src/index.ts`
+   - Requirements:
+     - `/ws` endpoint on existing server/port.
+     - Ping every 30s; drop after 2 missed pongs.
+     - No auth/CSRF/origin checks in this story.
+3. [ ] Add subscription registry + protocol version enforcement:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+   - Files to edit:
+     - Create `server/src/ws/registry.ts`
+     - Create `server/src/ws/types.ts`
+   - Requirements:
+     - Track `subscribe_sidebar`, `unsubscribe_sidebar`, `subscribe_conversation`, `unsubscribe_conversation`.
+     - Require `protocolVersion: "v1"` in all messages/events.
+4. [ ] Add lightweight unit tests for WS connection + subscribe/unsubscribe parsing:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to add/edit:
+     - `server/src/test/unit/ws-server.test.ts`
+5. [ ] Update `projectStructure.md` for new WS files.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 4. Chat WebSocket streaming publisher
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Refactor chat execution so `POST /chat` is a non-streaming start request, then publish all chat deltas/tool events/finals over WebSockets using an in-flight registry and per-conversation run lock. Remove chat SSE from the server.
+
+#### Documentation Locations
+
+- `ws` server docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- Node.js `AbortController`: https://nodejs.org/api/globals.html#class-abortcontroller
+- Express 5 request lifecycle: Context7 `/expressjs/express`
+- HTTP 202 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
+- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Mongoose: Context7 `/websites/mongoosejs`
+
+#### Subtasks
+
+1. [ ] Review current chat SSE flow and interfaces:
+   - Docs to read:
+     - Context7 `/expressjs/express`
+   - Files to read:
+     - `server/src/routes/chat.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+2. [ ] Add a per-conversation run lock for chat:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - Create `server/src/chat/runLock.ts`
+   - Requirements:
+     - `RUN_IN_PROGRESS` when a conversation already has an in-flight run.
+3. [ ] Implement in-flight registry + WS publishing:
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to edit:
+     - Create `server/src/chat/inflightRegistry.ts`
+     - Update `server/src/ws/server.ts` (publish helpers)
+   - Requirements:
+     - Maintain `inflightId`, assistant text so far, tool event history, and seq counters.
+     - Publish `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final` with `protocolVersion:"v1"`.
+4. [ ] Refactor `POST /chat` to be non-streaming:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
+   - Files to edit:
+     - `server/src/routes/chat.ts`
+   - Requirements:
+     - Return `{ status:"started", conversationId, inflightId, provider, model }`.
+     - Start provider execution in the background and publish WS events.
+     - Remove SSE response handling entirely.
+5. [ ] Add `cancel_inflight` handling:
+   - Docs to read:
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+   - Files to edit:
+     - `server/src/ws/server.ts`
+     - `server/src/chat/inflightRegistry.ts`
+   - Requirements:
+     - Abort provider execution for the matching `conversationId` + `inflightId`.
+     - Return `turn_final` with `status:"failed"` and `error.code="INFLIGHT_NOT_FOUND"` when invalid.
+6. [ ] Add server log events for WS streaming (per the plan logging contract).
+7. [ ] Update `design.md` to reflect WS-only chat streaming and start-run flow.
+8. [ ] Update `projectStructure.md` for new files.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 5. Server test updates for chat WebSockets
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /chat` start responses, run-lock conflicts, and WS event sequencing.
+
+#### Documentation Locations
+
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- SuperTest: Context7 `/ladjs/supertest`
+- `ws` client docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Playwright (for later e2e references only): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Update/replace Cucumber chat streaming scenarios:
+   - Docs to read:
+     - https://cucumber.io/docs/guides/
+   - Files to edit:
+     - `server/src/test/features/chat_stream.feature`
+     - `server/src/test/steps/chat_stream.steps.ts`
+   - Requirements:
+     - Replace SSE assumptions with `POST /chat` start + WS event assertions.
+2. [ ] Add unit/integration coverage for `/chat` start responses and `RUN_IN_PROGRESS`:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/chat-unsupported-provider.test.ts`
+     - `server/src/test/integration/chat-codex.test.ts`
+     - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
+3. [ ] Add WS event ordering tests:
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to add/edit:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+4. [ ] Update `projectStructure.md` for any new test files.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 6. Chat sidebar bulk actions UI
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/restore/delete controls in the Chat sidebar, wired to the new bulk endpoints and persistence guards.
+
+#### Documentation Locations
+
+- MUI MCP: `@mui/material@6.4.12` (List, Checkbox, Button, Dialog, Select)
+- React 19 docs: https://react.dev/learn
+- HTTP status codes: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+
+#### Subtasks
+
+1. [ ] Review current Chat sidebar implementation and conversation hooks:
+   - Docs to read:
+     - https://react.dev/learn
+   - Files to read:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/hooks/usePersistenceStatus.ts`
+2. [ ] Add filter UI (`Active`, `Active & Archived`, `Archived`) and clear selection on filter change:
+   - Docs to read:
+     - MUI MCP: `@mui/material@6.4.12`
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/hooks/useConversations.ts`
+3. [ ] Add multi-select checkboxes and bulk actions:
+   - Docs to read:
+     - MUI MCP: `@mui/material@6.4.12`
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/hooks/useConversations.ts`
+   - Requirements:
+     - Bulk archive/restore/delete buttons and confirmation dialog for delete.
+     - Disable bulk actions when `mongoConnected === false`.
+4. [ ] Wire bulk API calls and error handling:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+   - Files to edit:
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/api/agents.ts` (if shared helpers are added)
+5. [ ] Update `design.md` with the sidebar bulk action UX.
+6. [ ] Update `projectStructure.md` if any new UI modules are added.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] Defer client tests to Task 9 (front-end test updates).
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 7. Chat WebSocket client streaming
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Replace the chat SSE client with a WebSocket-based streaming client that subscribes per conversation, merges in-flight snapshots, and drives the transcript for the visible conversation only.
+
+#### Documentation Locations
+
+- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React 19 docs: https://react.dev/learn
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+
+#### Subtasks
+
+1. [ ] Review current chat streaming hook and page wiring:
+   - Docs to read:
+     - https://react.dev/learn
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+2. [ ] Add WS client hook and connection lifecycle:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Files to edit:
+     - Create `client/src/hooks/useChatWs.ts`
+     - Update `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Protocol version `v1` on all messages.
+     - Subscribe/unsubscribe on conversation change and route unmount.
+     - Reconnect with backoff and re-snapshot on reconnect.
+3. [ ] Replace SSE start-run flow with `POST /chat` start + WS stream:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Handle `RUN_IN_PROGRESS` conflicts.
+     - Use `cancel_inflight` for Stop.
+4. [ ] Ensure MCP/agent-initiated runs render via WS the same as REST.
+5. [ ] Update `design.md` for client-side WS flow.
+6. [ ] Update `projectStructure.md` for new hooks.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] Defer client tests to Task 9 (front-end test updates).
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 8. Client streaming logs
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Emit client-side log entries for WebSocket connect/subscribe/receive events and forward them to server logs for Playwright verification.
+
+#### Documentation Locations
+
+- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Console API (for local debugging only): https://developer.mozilla.org/en-US/docs/Web/API/console
+
+#### Subtasks
+
+1. [ ] Review existing client logging utilities:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/console
+   - Files to read:
+     - `client/src/logging/logger.ts`
+     - `client/src/logging/transport.ts`
+2. [ ] Add WS streaming log events with throttling:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/logging/logger.ts`
+   - Requirements:
+     - Log names per plan (client_* events).
+     - Delta throttling: first + every 25 deltas with `deltaCount`.
+3. [ ] Ensure logs are forwarded to `/logs` and include `conversationId`, `inflightId`, and `seq` when applicable.
+4. [ ] Update `projectStructure.md` if any logging files change.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] Defer client tests to Task 9 (front-end test updates).
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 9. Front-end test updates
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk actions UI, and streaming log assertions.
+
+#### Documentation Locations
+
+- Jest: Context7 `/jestjs/jest`
+- Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Playwright: Context7 `/microsoft/playwright`
+- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+
+#### Subtasks
+
+1. [ ] Update client unit tests for chat streaming and Stop behavior:
+   - Docs to read:
+     - Context7 `/jestjs/jest`
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/chatPage.stop.test.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/useChatStream.reasoning.test.tsx`
+2. [ ] Add/adjust tests for sidebar bulk actions:
+   - Docs to read:
+     - Context7 `/jestjs/jest`
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+     - `client/src/test/chatPersistenceBanner.test.tsx`
+3. [ ] Update Playwright e2e coverage to assert `/logs` contains WS stream markers:
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Files to edit:
+     - `e2e/chat.spec.ts`
+     - Add new `e2e/chat-ws-logs.spec.ts` if clearer.
+4. [ ] Update `projectStructure.md` for any new test files.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run e2e`
+
+#### Implementation notes
+
+- (fill in during implementation)
+
+---
+
+### 10. Final verification
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+#### Overview
+
+Final cross-check against acceptance criteria, full builds/tests, docker validation, and documentation updates. Produce a pull request summary comment covering all story changes.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] Perform a clean docker build
+4. [ ] Ensure `README.md` is updated with any new commands or behavioral changes
+5. [ ] Ensure `design.md` is updated with any new diagrams or architecture changes
+6. [ ] Ensure `projectStructure.md` is updated with any updated/added/removed files
+7. [ ] Create a summary of all changes and produce a pull request comment
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to manually verify the application and save screenshots to `./test-results/screenshots/`
+
+#### Implementation notes
+
+- (fill in during implementation)

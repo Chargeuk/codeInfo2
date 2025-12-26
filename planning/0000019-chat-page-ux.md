@@ -1963,7 +1963,7 @@ Verify the story end-to-end against the acceptance criteria, perform full clean 
 ### 6. Bugfix – First message streaming missing (hydrate/replace race)
 
 - Task Status: __in_progress__
-- Git Commits: __to_do__
+- Git Commits: 008d150
 
 #### Overview
 
@@ -1978,41 +1978,41 @@ Fix the regression where the first chat response does not render until navigatin
 
 #### Subtasks
 
-1. [ ] Reproduce + encode the regression in a client RTL test
+1. [x] Reproduce + encode the regression in a client RTL test
    - Files to edit/create: `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/chatPage.hydrateRace.test.tsx`)
    - Scenario to cover: send a message, then trigger a `hydrateHistory(..., 'replace')` while `status === 'sending'`, assert the in-flight assistant message remains in the transcript and continues to receive token updates.
    - Purpose: prevent the first-response “blank until navigate” regression.
-2. [ ] Fix the hydrate/replace behavior during streaming
+2. [x] Fix the hydrate/replace behavior during streaming
    - Files to edit: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts` (or `useConversationTurns.ts` if that’s the best location)
    - Expected behavior: when `status === 'sending'`, `hydrateHistory` should **not** drop the in-flight assistant message; it should either merge it into the replaced list or defer the replace until the stream completes.
    - Critical constraint: preserve existing WS inflight snapshot behavior for viewer tabs (no duplicate assistant messages).
-3. [ ] Keep the added logging (client log forwarding + chat stream sync warnings) so we can debug future regressions
+3. [x] Keep the added logging (client log forwarding + chat stream sync warnings) so we can debug future regressions
    - Files to keep: `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/.env.local`
    - Purpose: ensure future investigations can correlate hydrate events with streaming sync.
-4. [ ] Update implementation notes with a brief root-cause + fix summary
+4. [x] Update implementation notes with a brief root-cause + fix summary
    - File to edit: `planning/0000019-chat-page-ux.md`
-5. [ ] Run workspace lint/format
+5. [x] Run workspace lint/format
    - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Files to read: `package.json`, `server/package.json`
    - Command: `npm run build --workspace server`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Files to read: `package.json`, `client/package.json`
    - Command: `npm run build --workspace client`
    - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Files to read: `server/package.json`, `server/src/test/`
    - Command: `npm run test --workspace server`
    - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Files to read: `client/package.json`, `client/src/test/`
    - Command: `npm run test --workspace client`
    - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
-5. [ ] Manual Playwright-MCP check (first-response streaming regression)
+5. [x] Manual Playwright-MCP check (first-response streaming regression)
    - Files to read: `planning/0000019-chat-page-ux.md` (Task 6), `README.md` (ports), `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
    - Manual checks (minimum):
      - Start the stack and open http://host.docker.internal:5001.
@@ -2023,4 +2023,8 @@ Fix the regression where the first chat response does not render until navigatin
 
 #### Implementation notes
 
-- 
+- 2025-12-26: Preserved the local assistant message during `hydrateHistory('replace')` when a stream is active or the history snapshot lacks assistant turns, preventing the first-response drop while keeping WS inflight behavior intact; setConversation logging now uses the forwarded client logger.
+- 2025-12-26: Added the hydrate/replace race regression test in `chatPage.stream.test.tsx`, set `process.env.MODE = 'test'` in `setupTests.ts`, and updated Codex flag payload tests to ignore `/chat/cancel` bodies; the logger test now sets MODE to `development` for queue assertions.
+- 2025-12-26: Server tests initially failed because git user identity was missing in `discovery.test.ts`; reran `npm run test --workspace server` with `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env vars to pass.
+- 2025-12-26: `npm run lint --workspaces` still reports existing `react-hooks/exhaustive-deps` warnings in `client/src/pages/ChatPage.tsx` (pre-existing).
+- 2025-12-26: Manual Playwright-MCP check confirmed the first response streamed immediately, `/logs` showed no `assistant message missing during sync`, and the response remained after navigating away/back without duplicate assistant bubbles.

@@ -549,10 +549,12 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `server/src/ws/registry.ts`
      - `server/src/ws/types.ts`
      - Create `server/src/ws/sidebar.ts` (or equivalent module)
+     - Create `server/src/mongo/events.ts` (conversation upsert/delete event bus)
    - Requirements:
      - Maintain a monotonically increasing `seq` for sidebar events.
      - Broadcast `conversation_upsert` / `conversation_delete` to `subscribe_sidebar` sockets.
      - Keep `sidebar_snapshot` optional (REST list fetch remains primary).
+     - Avoid circular dependencies by routing persistence-triggered updates through `server/src/mongo/events.ts` (repo emits → WS sidebar subscribes).
 6. [ ] Add lightweight unit tests for WS connection + subscribe/unsubscribe parsing:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -621,6 +623,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Ensure `turn_final.threadId` is sent when available (Codex), and ensure `conversation_upsert.flags.threadId` is updated for continuity in degraded/memory persistence modes.
      - Ensure the sidebar updates in real time for other tabs/windows by emitting `conversation_upsert` when a run starts and when turns are persisted (so ordering by `lastMessageAt` refreshes without polling).
      - Prefer emitting sidebar updates from shared persistence points (for example `createConversation` / `appendTurn`) so agent/MCP-initiated runs also generate `conversation_upsert` events.
+     - Implement this by emitting from the repo layer into `server/src/mongo/events.ts` (and have the WS sidebar layer translate those into `conversation_upsert` / `conversation_delete` payloads).
 4. [ ] Refactor `POST /chat` to be non-streaming:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202

@@ -34,7 +34,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have tings that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Commit after making any changes."]
+      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have tings that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Commit after making any changes."]
     },
     {
       "type": "message",
@@ -130,7 +130,12 @@
         "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested.",
         "9. [ ] `npm run compose:down`"
       ]
-    }
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["Ensure each task has specific log lines to add that will be tested for during the Manual Playwright-MCP check step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Commit after making any changes."]
+    },
   ]
 }
 

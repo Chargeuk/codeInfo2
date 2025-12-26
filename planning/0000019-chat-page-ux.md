@@ -297,7 +297,7 @@ These findings are based on the current repository implementation and are includ
 - Docker Compose runs Mongo as a single-node replica set (`--replSet rs0` and `mongo/init-mongo.js` calls `rs.initiate(...)`), which is capable of transactions.
 - However, the documented/default `MONGO_URI` uses `directConnection=true` and does not specify `replicaSet=rs0` (`README.md`, `docker-compose.yml`, `server/.env`). With that URI, drivers typically treat the connection as standalone, and multi-document transactions may not be available.
 - There are no existing Mongoose session/transaction patterns in the codebase today. To satisfy “all-or-nothing” bulk operations and “delete conversations + turns” atomically, this story should plan to:
-  - enable replica-set-aware connections for dev (update default `MONGO_URI` to include `replicaSet=rs0` and drop `directConnection=true`), and
+  - enable replica-set-aware connections for dev (update default `MONGO_URI` to include `replicaSet=rs0` (keep `directConnection=true` for local Docker host connections)), and
   - implement bulk operations using a Mongoose session transaction.
 
 ### Existing tests that will be impacted
@@ -325,7 +325,6 @@ These findings are based on the current repository implementation and are includ
 
 ## Questions
 
-(none – ready for tasking once the WebSocket protocol above is reviewed and accepted as final for v1.)
 
 ---
 # Tasks
@@ -340,8 +339,8 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 #### Documentation Locations
 
-- Express 5 query parsing + routing: Context7 `/expressjs/express`
-- Mongoose query filters: Context7 `/websites/mongoosejs`
+- Express 5 query parsing + routing: Context7 `/expressjs/express/v5.1.0`
+- Mongoose query filters: Context7 `/automattic/mongoose/9.0.1`
 - HTTP 400 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
 - URLSearchParams / query strings: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
@@ -352,8 +351,8 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 1. [ ] Read the current conversations list flow and filter handling:
    - Docs to read:
-     - Context7 `/expressjs/express`
-     - Context7 `/websites/mongoosejs`
+     - Context7 `/expressjs/express/v5.1.0`
+     - Context7 `/automattic/mongoose/9.0.1`
    - Files to read:
      - `server/src/routes/conversations.ts`
      - `server/src/mongo/repo.ts`
@@ -411,8 +410,8 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
 
 #### Documentation Locations
 
-- Express 5 routing/request lifecycle: Context7 `/expressjs/express`
-- Mongoose sessions/transactions: Context7 `/websites/mongoosejs`
+- Express 5 routing/request lifecycle: Context7 `/expressjs/express/v5.1.0`
+- Mongoose sessions/transactions: Context7 `/automattic/mongoose/9.0.1`
 - MongoDB transactions overview: https://www.mongodb.com/docs/manual/core/transactions/
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
@@ -423,8 +422,8 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
 
 1. [ ] Read the existing conversation archive/restore/delete plumbing:
    - Docs to read:
-     - Context7 `/expressjs/express`
-     - Context7 `/websites/mongoosejs`
+     - Context7 `/expressjs/express/v5.1.0`
+     - Context7 `/automattic/mongoose/9.0.1`
    - Files to read:
      - `server/src/routes/conversations.ts`
      - `server/src/mongo/repo.ts`
@@ -449,13 +448,14 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
      - Ensure existing single-item `POST /conversations/:id/archive|restore` also emit `conversation_upsert` so old/new UI actions stay realtime-consistent.
 3. [ ] Implement bulk operations in the repo layer with transactions:
    - Docs to read:
-     - Context7 `/websites/mongoosejs`
+     - Context7 `/automattic/mongoose/9.0.1`
      - https://www.mongodb.com/docs/manual/core/transactions/
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Requirements:
      - Use a Mongoose session transaction to ensure all-or-nothing behavior.
      - Enforce archived-only delete guardrail.
+     - If a transaction cannot be started (e.g. Mongo topology does not support transactions), return HTTP 503 `{ status:"error", code:"TRANSACTIONS_UNAVAILABLE" }` and perform no writes.
      - After a successful commit, publish `conversation_upsert` / `conversation_delete` events for each affected conversationId.
 4. [ ] Update default Mongo connection string for replica-set transactions:
    - Docs to read:
@@ -465,7 +465,8 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
      - `README.md`
      - `docker-compose.yml` (if needed to keep defaults aligned)
    - Requirements:
-     - Use `replicaSet=rs0` and remove `directConnection=true`.
+     - Use `replicaSet=rs0` and keep `directConnection=true` for local Docker host connections.
+     - Example: `mongodb://host.docker.internal:27517/db?replicaSet=rs0&directConnection=true`.
 5. [ ] Add server tests for bulk endpoints:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -502,8 +503,9 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 #### Documentation Locations
 
-- `ws` server docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- `ws` server docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
 - Node.js HTTP server upgrade: https://nodejs.org/api/http.html#event-upgrade
+- `ws` (server): Context7 `/websockets/ws/8_18_3`
 - WebSocket protocol basics: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
@@ -516,7 +518,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `server/src/index.ts`
 2. [ ] Add WebSocket library dependency to the server workspace:
    - Docs to read:
-     - https://github.com/websockets/ws/blob/master/doc/ws.md
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
      - `server/package.json`
      - `package-lock.json`
@@ -524,7 +526,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Add `ws` as a runtime dependency for the server.
 3. [ ] Add WebSocket server scaffolding with heartbeat:
    - Docs to read:
-     - https://github.com/websockets/ws/blob/master/doc/ws.md
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
      - Create `server/src/ws/server.ts`
      - Update `server/src/index.ts`
@@ -543,7 +545,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Require `protocolVersion: "v1"` in all messages/events.
 5. [ ] Add sidebar stream publishing primitives (event typing + sequencing):
    - Docs to read:
-     - https://github.com/websockets/ws/blob/master/doc/ws.md
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to read:
      - `server/src/logStore.ts` (existing EventEmitter + subscribe/unsubscribe pattern to mirror)
    - Files to edit:
@@ -587,18 +589,18 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Documentation Locations
 
-- `ws` server docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- `ws` server docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
 - Node.js `AbortController`: https://nodejs.org/api/globals.html#class-abortcontroller
-- Express 5 request lifecycle: Context7 `/expressjs/express`
+- Express 5 request lifecycle: Context7 `/expressjs/express/v5.1.0`
 - HTTP 202 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-- Mongoose: Context7 `/websites/mongoosejs`
+- Mongoose: Context7 `/automattic/mongoose/9.0.1`
 
 #### Subtasks
 
 1. [ ] Review current chat SSE flow and interfaces:
    - Docs to read:
-     - Context7 `/expressjs/express`
+     - Context7 `/expressjs/express/v5.1.0`
    - Files to read:
      - `server/src/routes/chat.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
@@ -615,7 +617,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Return `RUN_IN_PROGRESS` when a conversation already has an in-flight run.
 3. [ ] Implement in-flight registry + WS publishing:
    - Docs to read:
-     - https://github.com/websockets/ws/blob/master/doc/ws.md
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
      - Create `server/src/chat/inflightRegistry.ts`
      - Update `server/src/ws/server.ts` (publish helpers)
@@ -675,9 +677,9 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - SuperTest: Context7 `/ladjs/supertest`
-- `ws` client docs: https://github.com/websockets/ws/blob/master/doc/ws.md
+- `ws` client docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
 - Cucumber guides: https://cucumber.io/docs/guides/
-- Playwright (for later e2e references only): Context7 `/microsoft/playwright`
+- Playwright (for later e2e references only): Context7 `/microsoft/playwright.dev`
 
 #### Subtasks
 
@@ -708,7 +710,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
 4. [ ] Add WS event ordering tests:
    - Docs to read:
-     - https://github.com/websockets/ws/blob/master/doc/ws.md
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to add/edit:
      - `server/src/test/unit/ws-chat-stream.test.ts`
 5. [ ] Update `projectStructure.md` for any new test files.
@@ -736,6 +738,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 #### Documentation Locations
 
 - MUI MCP: `@mui/material@6.4.12` (List, Checkbox, Button, Dialog, Select)
+- MUI v6.5.0 release notes: https://github.com/mui/material-ui/releases/tag/v6.5.0
 - React 19 docs: https://react.dev/learn
 - HTTP status codes: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 
@@ -916,7 +919,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 - Jest: Context7 `/jestjs/jest`
 - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Playwright: Context7 `/microsoft/playwright`
+- Playwright: Context7 `/microsoft/playwright.dev`
 - WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 #### Subtasks
@@ -926,11 +929,34 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Context7 `/jestjs/jest`
      - https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
+     - `client/src/test/useChatStream.reasoning.test.tsx`
+     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+     - `client/src/test/chatPage.citations.test.tsx`
+     - `client/src/test/chatPage.flags.approval.default.test.tsx`
+     - `client/src/test/chatPage.flags.approval.payload.test.tsx`
+     - `client/src/test/chatPage.flags.network.default.test.tsx`
+     - `client/src/test/chatPage.flags.network.payload.test.tsx`
+     - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
+     - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+     - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
+     - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+     - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
+     - `client/src/test/chatPage.flags.websearch.default.test.tsx`
+     - `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+     - `client/src/test/chatPage.markdown.test.tsx`
+     - `client/src/test/chatPage.mermaid.test.tsx`
+     - `client/src/test/chatPage.models.test.tsx`
+     - `client/src/test/chatPage.newConversation.test.tsx`
+     - `client/src/test/chatPage.noPaths.test.tsx`
+     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+     - `client/src/test/chatPage.provider.test.tsx`
+     - `client/src/test/chatPage.reasoning.test.tsx`
+     - `client/src/test/chatPage.source.test.tsx`
      - `client/src/test/chatPage.stop.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/chatPage.newConversation.test.tsx`
-     - `client/src/test/chatPage.reasoning.test.tsx` (if WS changes affect reasoning UI)
+     - `client/src/test/chatPage.toolDetails.test.tsx`
      - Add new `client/src/test/useChatWs.test.ts` (or similar) if needed for WS hook coverage
+     - `common/src/fixtures/chatStream.ts` (replace SSE fixtures with WS fixtures or add a new fixture module and update exports)
 2. [ ] Add/adjust tests for sidebar bulk actions:
    - Docs to read:
      - Context7 `/jestjs/jest`
@@ -939,13 +965,17 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - `client/src/test/chatPersistenceBanner.test.tsx`
 3. [ ] Update Playwright e2e coverage to assert `/logs` contains WS stream markers:
    - Docs to read:
-     - Context7 `/microsoft/playwright`
+     - Context7 `/microsoft/playwright.dev`
    - Files to edit:
      - `e2e/chat.spec.ts`
      - `e2e/chat-tools.spec.ts`
      - `e2e/chat-tools-visibility.spec.ts`
      - `e2e/chat-reasoning.spec.ts`
      - `e2e/chat-provider-history.spec.ts`
+     - `e2e/chat-mermaid.spec.ts`
+     - `e2e/chat-codex-trust.spec.ts`
+     - `e2e/chat-codex-reasoning.spec.ts`
+     - `e2e/chat-codex-mcp.spec.ts`
      - Add new `e2e/chat-ws-logs.spec.ts` if clearer.
    - Requirements:
      - Remove any remaining SSE-only test assumptions; chat streaming assertions must observe WS-driven transcript updates.
@@ -979,7 +1009,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 #### Documentation Locations
 
 - Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
+- Playwright: Context7 `/microsoft/playwright.dev`
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`

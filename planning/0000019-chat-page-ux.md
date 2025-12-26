@@ -263,6 +263,16 @@ These findings are based on the current repository implementation and are includ
 
 - The REST API currently supports single-item archive/restore (`POST /conversations/:id/archive|restore`) and list/turn endpoints (`GET /conversations`, `GET /conversations/:id/turns`). There are **no** bulk endpoints and **no** permanent delete endpoints. Story 19 will need to add these.
 - `GET /conversations` only supports a boolean archived mode (active-only vs active+archived). There is no archived-only list mode today, so the 3-state filter requires extending the list API.
+- Confirmed API plan:
+  - List filter: `GET /conversations?state=active|archived|all` (default `active`).
+  - Backward compat: existing `archived=true` is treated as `state=all`.
+  - Bulk endpoints:
+    - `POST /conversations/bulk/archive`
+    - `POST /conversations/bulk/restore`
+    - `POST /conversations/bulk/delete` (archived-only delete guardrail)
+  - Bulk body: `{ "conversationIds": ["..."] }`
+  - Bulk success response (200): `{ "status": "ok", "updatedCount": <number> }`
+  - Bulk failure (409): `{ "status": "error", "code": "BATCH_CONFLICT", "message": "Bulk operation rejected.", "details": { "invalidIds": [], "invalidStateIds": [] } }`
 
 ### Mongo transactions / atomicity risk (today)
 

@@ -5,10 +5,12 @@ import { _getQueue } from '../../logging/transport';
 describe('createLogger', () => {
   afterEach(() => {
     _getQueue().length = 0;
+    delete process.env.MODE;
     jest.clearAllMocks();
   });
 
   it('forwards enriched log entries with route and source', () => {
+    process.env.MODE = 'development';
     Object.defineProperty(navigator, 'onLine', {
       configurable: true,
       value: false,

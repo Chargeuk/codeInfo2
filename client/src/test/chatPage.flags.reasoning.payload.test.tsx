@@ -105,7 +105,7 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
         }),
       }) as unknown as Response;
     }
-    if (href.includes('/chat')) {
+    if (href.includes('/chat') && !href.includes('/chat/cancel')) {
       if (opts?.body) {
         try {
           chatBodies.push(JSON.parse(opts.body as string));

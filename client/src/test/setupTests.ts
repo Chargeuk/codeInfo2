@@ -2,6 +2,10 @@ import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
 
+beforeEach(() => {
+  process.env.MODE = 'test';
+});
+
 // Provide TextEncoder/Decoder for libraries that expect them in the JSDOM environment.
 if (!global.TextEncoder) {
   // @ts-expect-error align node util types with browser globals

@@ -415,7 +415,7 @@ export function useChatStream(
       nextConversationId: string,
       options?: { clearMessages?: boolean; threadId?: string | null },
     ) => {
-      console.info('[chat-stream] setConversation', {
+      logWithChannel('info', 'chat setConversation requested', {
         nextConversationId,
         clearMessages: Boolean(options?.clearMessages),
       });
@@ -436,11 +436,11 @@ export function useChatStream(
       inflightIdRef.current = null;
       setConversationId(nextConversationId);
       conversationIdRef.current = nextConversationId;
-      console.info('[chat-stream] conversation set', {
+      logWithChannel('info', 'chat conversation set', {
         conversationId: nextConversationId,
       });
     },
-    [stop, updateMessages],
+    [logWithChannel, stop, updateMessages],
   );
 
   const hydrateHistory = useCallback(
@@ -460,7 +460,24 @@ export function useChatStream(
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
       updateMessages((prev) => {
-        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
+        const historyHasAssistant = history.some(
+          (msg) => msg.role === 'assistant',
+        );
+        const shouldKeepInflight =
+          mode === 'replace' &&
+          (statusRef.current === 'sending' || !historyHasAssistant);
+        const keepInflight = shouldKeepInflight
+          ? prev.filter(
+              (msg) =>
+                msg.role === 'assistant' &&
+                (msg.streamStatus === 'processing' ||
+                  msg.streamStatus === 'complete'),
+            )
+          : [];
+        const next =
+          mode === 'prepend'
+            ? [...history, ...prev]
+            : [...history, ...keepInflight];
         const seen = new Set<string>();
         return next.filter((msg) => {
           const key = msg.id;
@@ -470,7 +487,7 @@ export function useChatStream(
         });
       });
     },
-    [updateMessages],
+    [logWithChannel, updateMessages],
   );
 
   const handleErrorBubble = useCallback(

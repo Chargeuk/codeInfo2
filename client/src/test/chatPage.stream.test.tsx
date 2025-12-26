@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { installMockWebSocket } from './utils/mockWebSocket';
 
 const mockFetch = jest.fn();
 const loggedEntries: unknown[] = [];
@@ -758,5 +759,158 @@ describe('Chat page streaming', () => {
 
     expect(assistantRadius).toBe('14px');
     expect(userRadius).toBe('14px');
+  });
+
+  it('keeps the in-flight assistant message when a replace hydrate occurs mid-stream', async () => {
+    const { instances, restore } = installMockWebSocket();
+    try {
+      let conversationId = '';
+      let lastMessage = '';
+      const messageCreatedAt = new Date().toISOString();
+
+      const stream = timedStream([
+        {
+          frame: 'data: {"type":"token","content":"Hello from stream"}\n\n',
+          delay: 50,
+        },
+        {
+          frame:
+            'data: {"type":"final","message":{"content":"Hello from stream","role":"assistant"}}\n\n',
+          delay: 80,
+        },
+        { frame: 'data: {"type":"complete"}\n\n', delay: 90 },
+      ]);
+
+      mockFetch.mockImplementation((url: RequestInfo | URL, init) => {
+        const href = typeof url === 'string' ? url.toString() : url.toString();
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => providerPayload,
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => modelPayload,
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat') && init?.method === 'POST') {
+          const body =
+            init?.body && typeof init.body === 'string'
+              ? (JSON.parse(init.body) as {
+                  conversationId?: string;
+                  message?: string;
+                })
+              : {};
+          conversationId = body.conversationId ?? '';
+          lastMessage = body.message ?? '';
+          const ws = instances[0];
+          if (ws) {
+            setTimeout(() => {
+              ws.__emitMessage(
+                JSON.stringify({
+                  type: 'conversation_upsert',
+                  seq: 1,
+                  conversation: {
+                    conversationId,
+                    title: lastMessage || 'Hello',
+                    provider: 'lmstudio',
+                    model: 'm1',
+                    source: 'REST',
+                    lastMessageAt: messageCreatedAt,
+                  },
+                }),
+              );
+            }, 10);
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: stream,
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations?')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: conversationId
+                ? [
+                    {
+                      conversationId,
+                      title: lastMessage || 'Hello',
+                      provider: 'lmstudio',
+                      model: 'm1',
+                      source: 'REST',
+                      lastMessageAt: messageCreatedAt,
+                    },
+                  ]
+                : [],
+            }),
+          }) as unknown as Response;
+        }
+        if (
+          conversationId &&
+          href.includes(`/conversations/${conversationId}/turns`)
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              items: [
+                {
+                  conversationId,
+                  role: 'user',
+                  content: lastMessage || 'Hello',
+                  model: 'm1',
+                  provider: 'lmstudio',
+                  status: 'ok',
+                  createdAt: messageCreatedAt,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      });
+
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => expect(instances.length).toBeGreaterThan(0));
+      act(() => instances[0].__emitOpen());
+
+      const { input, sendButton } = await getReadyControls();
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      await waitFor(() => expect(sendButton).toBeEnabled());
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      expect(
+        await screen.findByText(/Hello from stream/, {}, { timeout: 2000 }),
+      ).toBeInTheDocument();
+
+      const missingAssistant = loggedEntries.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          'message' in entry &&
+          (entry as { message?: string }).message ===
+            'assistant message missing during sync',
+      );
+      expect(missingAssistant).toBe(false);
+    } finally {
+      restore();
+    }
   });
 });

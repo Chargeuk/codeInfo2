@@ -1997,9 +1997,29 @@ Fix the regression where the first chat response does not render until navigatin
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Files to read: `package.json`, `server/package.json`
+   - Command: `npm run build --workspace server`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace client`
-4. [ ] `npm run test --workspace server`
+   - Files to read: `package.json`, `client/package.json`
+   - Command: `npm run build --workspace client`
+   - Docs (read before doing): npm run-script https://docs.npmjs.com/cli/v10/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Files to read: `server/package.json`, `server/src/test/`
+   - Command: `npm run test --workspace server`
+   - Docs (read before doing): Node test runner https://nodejs.org/api/test.html, Cucumber guides https://cucumber.io/docs/guides/
+4. [ ] `npm run test --workspace client`
+   - Files to read: `client/package.json`, `client/src/test/`
+   - Command: `npm run test --workspace client`
+   - Docs (read before doing): Jest (Context7) `/websites/jestjs_io_30_0`, Testing Library https://testing-library.com/docs/react-testing-library/intro/
+5. [ ] Manual Playwright-MCP check (first-response streaming regression)
+   - Files to read: `planning/0000019-chat-page-ux.md` (Task 6), `README.md` (ports), `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`
+   - Manual checks (minimum):
+     - Start the stack and open http://host.docker.internal:5001.
+     - Open `/chat`, send a first message, and confirm the assistant text streams in immediately without navigating away.
+     - Confirm no `assistant message missing during sync` warning appears in `/logs` during the run.
+     - Navigate away and back; ensure the same response remains visible and no duplicate assistant bubbles appear.
+   - Docs (read before doing): Playwright https://playwright.dev/docs/intro
 
 #### Implementation notes
 

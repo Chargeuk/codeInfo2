@@ -544,6 +544,8 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 5. [ ] Add sidebar stream publishing primitives (event typing + sequencing):
    - Docs to read:
      - https://github.com/websockets/ws/blob/master/doc/ws.md
+   - Files to read:
+     - `server/src/logStore.ts` (existing EventEmitter + subscribe/unsubscribe pattern to mirror)
    - Files to edit:
      - `server/src/ws/server.ts`
      - `server/src/ws/registry.ts`
@@ -555,6 +557,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Broadcast `conversation_upsert` / `conversation_delete` to `subscribe_sidebar` sockets.
      - Keep `sidebar_snapshot` optional (REST list fetch remains primary).
      - Avoid circular dependencies by routing persistence-triggered updates through `server/src/mongo/events.ts` (repo emits → WS sidebar subscribes).
+     - Mirror the `logStore` API shape (`subscribe(handler)` returning an unsubscribe function) to keep the pub-sub approach consistent across the server.
 6. [ ] Add lightweight unit tests for WS connection + subscribe/unsubscribe parsing:
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -745,6 +748,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/hooks/useConversations.ts`
      - `client/src/hooks/usePersistenceStatus.ts`
+     - `client/src/components/ingest/RootsTable.tsx` (reuse multi-select + bulk action selection pattern)
 2. [ ] Add filter UI (`Active`, `Active & Archived`, `Archived`) and clear selection on filter change:
    - Docs to read:
      - MUI MCP: `@mui/material@6.4.12`
@@ -759,6 +763,8 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - `client/src/hooks/useConversations.ts`
    - Requirements:
      - Bulk archive/restore/delete buttons and confirmation dialog for delete.
+     - Reuse the `RootsTable` Set-based selection pattern (selected ids as `Set<string>`, indeterminate select-all logic, busy/disabled handling) rather than inventing a new approach.
+     - There is no existing confirm dialog utility in the client today; implement the delete confirmation as a small local MUI `Dialog` next to the bulk controls.
      - Disable bulk actions when `mongoConnected === false`.
      - Show a toast (or equivalent lightweight feedback) confirming success/failure for bulk actions.
      - Implement toast feedback using MUI Snackbar (no existing toast utility in the client today).

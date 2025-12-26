@@ -135,7 +135,7 @@
       "type": "message",
       "role": "user",
       "content": ["Ensure each task has specific log lines to add that will be tested for during the Manual Playwright-MCP check step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Commit after making any changes."]
-    },
+    }
   ]
 }
 

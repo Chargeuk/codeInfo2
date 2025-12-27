@@ -656,7 +656,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
-   - Files to add/edit:
+   - Files to add:
      - `server/src/test/unit/ws-server.test.ts`
    - Test sketch:
      ```ts
@@ -727,8 +727,9 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 2. [ ] Enforce one in-flight run per conversation by reusing the existing shared run lock:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-   - Files to read/edit:
+   - Files to read:
      - `server/src/agents/runLock.ts`
+   - Files to edit:
      - `server/src/routes/chat.ts`
    - Required error response (example):
      ```json
@@ -925,8 +926,8 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Docs to read:
      - Context7 `/websockets/ws/8_18_3`
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
-   - Files to add/edit:
-     - Add `server/src/test/support/wsClient.ts` (or similar)
+   - Files to add:
+     - `server/src/test/support/wsClient.ts` (or similar)
    - Implementation sketch (copy/paste then adapt):
      ```ts
      // wsClient.ts (sketch)
@@ -986,7 +987,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 8. [ ] Add focused node:test coverage for transcript `seq` ordering and stale-event ignoring:
    - Docs to read:
      - https://nodejs.org/api/test.html
-   - Files to add/edit:
+   - Files to add:
      - `server/src/test/unit/ws-chat-stream.test.ts`
    - Requirements:
      - Use the WS test client helper to subscribe to a conversation and verify `seq` increases monotonically for a single stream.
@@ -1044,7 +1045,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Documentation Locations
 
-- MUI MCP: `@mui/material@6.4.12` (List, Checkbox, Button, Dialog, Select)
+- MUI MCP docs (use tool + fetch relevant pages): https://llms.mui.com/material-ui/6.4.12/llms.txt
 - MUI v6.5.0 release notes: https://github.com/mui/material-ui/releases/tag/v6.5.0
 - React 19 docs: https://react.dev/learn
 - HTTP status codes: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
@@ -1416,9 +1417,9 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Docs to read:
      - Context7 `/microsoft/playwright.dev` (routeWebSocket)
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-   - Files to add/edit:
-     - Add `e2e/support/mockChatWs.ts` (or similar)
-     - Add `client/src/test/support/mockWebSocket.ts` (or similar)
+   - Files to add:
+     - `e2e/support/mockChatWs.ts` (or similar)
+     - `client/src/test/support/mockWebSocket.ts` (or similar)
    - Requirements:
      - The helper must be able to send deterministic sequences of events (`seq` increments) to the client.
 
@@ -1435,9 +1436,10 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Docs to read:
      - Context7 `/jestjs/jest`
      - https://testing-library.com/docs/react-testing-library/intro/
-   - Files to add/edit:
-     - Add `client/src/test/useChatWs.test.ts` (or similar)
-     - `client/src/hooks/useChatWs.ts` (as needed)
+   - Files to add:
+     - `client/src/test/useChatWs.test.ts` (or similar)
+   - Files to edit (as needed):
+     - `client/src/hooks/useChatWs.ts`
 
 4. [ ] Update the chat page tests that assert streaming/stop/new-conversation semantics:
    - Docs to read:

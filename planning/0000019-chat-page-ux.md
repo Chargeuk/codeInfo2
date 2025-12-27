@@ -1525,7 +1525,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 ### 5. Server test updates for chat WebSockets
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: d200678, a83bc37
 #### Overview
 
 Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /chat` start responses, run-lock conflicts, and WS event sequencing.

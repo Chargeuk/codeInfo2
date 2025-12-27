@@ -340,8 +340,8 @@ These findings are based on the current repository implementation and are includ
 
 ### 1. Conversation list filtering (state query)
 
-- Task Status: **__to_do__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: **1c89fa7**
 #### Overview
 
 Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `all`) while preserving backward compatibility for the existing `archived=true` query. This powers the new sidebar filter and keeps existing callers stable.
@@ -362,7 +362,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 #### Subtasks
 
-1. [ ] Read the current conversations list route and repo query implementation (do not assume filter behavior):
+1. [x] Read the current conversations list route and repo query implementation (do not assume filter behavior):
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0`
      - Context7 `/automattic/mongoose/9.0.1`
@@ -372,7 +372,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - `server/src/mongo/repo.ts`
      - `server/src/mongo/conversation.ts`
 
-2. [ ] Add the new 3-state list filter query (`state=active|archived|all`) with backward compatibility:
+   ✅ Notes (2025-12-27): Existing `GET /conversations` uses `archived=true` to set `includeArchived=true` (meaning it returns both active + archived). Repo-level `listConversations` only supports a boolean includeArchived gate today.
+
+2. [x] Add the new 3-state list filter query (`state=active|archived|all`) with backward compatibility:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
      - https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
@@ -387,7 +389,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Required validation:
      - Invalid `state` returns `400` JSON `{ status:"error", code:"VALIDATION_FAILED" }`.
 
-3. [ ] Server integration test: GET /conversations default behaves like state=active (happy path)
+   ✅ Notes (2025-12-27): Added `state` query handling in `GET /conversations` and implemented repo-side filtering for `active` (`archivedAt:null`), `archived` (`archivedAt != null`), and `all` (no archived filter). Kept legacy `archived=true` behavior by mapping it to `state=all` when `state` is not provided.
+
+3. [x] Server integration test: GET /conversations default behaves like state=active (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -398,7 +402,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: prove default behavior remains stable for existing callers.
      - Assert default list excludes archived conversations.
 
-4. [ ] Server integration test: GET /conversations?state=active returns only active conversations (happy path)
+   ✅ Notes (2025-12-27): Added `default list behaves like state=active` coverage in `server/src/test/integration/conversations.list.test.ts`.
+
+4. [x] Server integration test: GET /conversations?state=active returns only active conversations (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -409,7 +415,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: validate new 3-state filter Active mode.
      - Assert only non-archived conversations are returned.
 
-5. [ ] Server integration test: GET /conversations?state=archived returns only archived conversations (happy path)
+   ✅ Notes (2025-12-27): Added `state=active returns only active conversations` coverage in `server/src/test/integration/conversations.list.test.ts`.
+
+5. [x] Server integration test: GET /conversations?state=archived returns only archived conversations (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -420,7 +428,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: validate new Archived-only list mode.
      - Assert only archived conversations are returned.
 
-6. [ ] Server integration test: GET /conversations?state=all returns active + archived (happy path)
+   ✅ Notes (2025-12-27): Added `state=archived returns only archived conversations` coverage in `server/src/test/integration/conversations.list.test.ts`.
+
+6. [x] Server integration test: GET /conversations?state=all returns active + archived (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -431,7 +441,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: validate All mode used by “Active & Archived”.
      - Assert the response includes both archived and non-archived.
 
-7. [ ] Server integration test: GET /conversations?archived=true remains backward compatible (corner case)
+   ✅ Notes (2025-12-27): Added `state=all returns active + archived conversations` coverage in `server/src/test/integration/conversations.list.test.ts`.
+
+7. [x] Server integration test: GET /conversations?archived=true remains backward compatible (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -442,7 +454,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: ensure legacy clients keep working (archived=true maps to state=all).
      - Assert it returns both archived and non-archived.
 
-8. [ ] Server integration test: invalid state query returns 400 VALIDATION_FAILED (error case)
+   ✅ Notes (2025-12-27): Extended existing archived=true test to assert it maps to `state=all` and returns both.
+
+8. [x] Server integration test: invalid state query returns 400 VALIDATION_FAILED (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -454,7 +468,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Purpose: prevent silent behavior changes when query is invalid.
      - Assert JSON body includes `{ status:"error", code:"VALIDATION_FAILED" }`.
 
-9. [ ] Update docs so the contract is discoverable (a junior dev should not need to infer it from code):
+   ✅ Notes (2025-12-27): Added invalid `state` validation test asserting `{ status:"error", code:"VALIDATION_FAILED" }`.
+
+9. [x] Update docs so the contract is discoverable (a junior dev should not need to infer it from code):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
    - Files to edit:
@@ -466,7 +482,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add a short bullet describing the new `state` query and default behavior.
 
-10. [ ] Update project documentation if new files were introduced by this task:
+   ✅ Notes (2025-12-27): Updated `design.md` with the `state=active|archived|all` contract and legacy `archived=true` mapping.
+
+10. [x] Update project documentation if new files were introduced by this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -480,7 +498,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
-11. [ ] Add server log lines for conversation list filtering so manual checks can prove the new query paths are being exercised:
+   ✅ Notes (2025-12-27): No new files introduced for Task 1; `projectStructure.md` unchanged.
+
+11. [x] Add server log lines for conversation list filtering so manual checks can prove the new query paths are being exercised:
    - Files to edit:
      - `server/src/routes/conversations.ts`
      - `server/src/logStore.ts` (use existing append helper; do not change schema)
@@ -498,7 +518,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Notes:
      - Use the server log store (`/logs`) so the log lines are visible in the UI and in Playwright-MCP checks.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   ✅ Notes (2025-12-27): Added `/logs` entries for list request/validation_failed/response in `server/src/routes/conversations.ts` using `logStore.append()` with required `context` fields.
+
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -512,34 +534,49 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - `npm run lint:fix --workspaces`
      - `npm run format --workspaces`
 
+   ✅ Notes (2025-12-27): `npm run lint --workspaces` passed. `npm run format:check --workspaces` initially failed for server files; ran `npm run format --workspaces` then `npm run format:check --workspaces` passed.
+
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (smoke + regression):
+8. [x] Manual Playwright-MCP check (smoke + regression):
    - Open `/chat` and confirm the page loads without a blank screen.
    - Open `/logs` and confirm logs load (no server 500 spam).
    - Confirm server log lines exist for this task:
      - Search for `conversations.list.request` and `conversations.list.response`.
    - Regression: existing conversation list still loads and is clickable (Task 6 adds the new UI; at this stage you are only checking regressions).
 
-9. [ ] `npm run compose:down`
+   ✅ Notes (2025-12-27): Smoke-checked via `http://host.docker.internal:5001/chat` and `http://host.docker.internal:5001/logs`, then triggered `GET http://host.docker.internal:5010/conversations?limit=1` and confirmed `/logs` contains `conversations.list.request` + `conversations.list.response`.
+
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Started Task 1.
+- Docs to reference for this task:
+  - Express 5 routing/query parsing docs: confirms how `req.query` is shaped and how to handle string/array values safely.
+  - Zod docs: request/query validation patterns and `safeParse` usage.
+  - Mongoose docs: query filters for `archivedAt` (`null` vs `$ne:null`) and pagination semantics.
+  - SuperTest + node:test: integration test patterns used by this repo.
+- Gotchas:
+  - Preserve backward compatibility: `archived=true` previously meant “include archived” (active + archived), so map it to `state=all` only when `state` is not explicitly provided.
+  - Keep existing validation responses for unrelated query issues (e.g. bad `cursor`) to avoid breaking existing tests/callers, while adding the required `VALIDATION_FAILED` response specifically for invalid `state`.
+  - Ensure `state=archived` excludes docs with missing `archivedAt` (treat missing as active), while `state=active` includes `archivedAt:null` and missing fields.
+- 2025-12-27: Implemented `state` filtering end-to-end (route + repo), added server integration tests, updated design docs, and added `/logs` entries for request/validation_failed/response.
+- 2025-12-27: Fixed Cucumber Chroma test harness reliability (wait strategy service name + healthcheck endpoint) so `npm run test --workspace server` passes.
 
 ---
 

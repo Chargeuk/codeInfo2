@@ -651,11 +651,14 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
 
-13. [ ] Update design documentation describing the new endpoints and guardrails:
+13. [ ] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
    - Docs to read:
-     - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
+   - Requirements:
+     - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
+     - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
 
 14. [ ] Update project documentation for any added/changed files:
    - Docs to read:
@@ -711,6 +714,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 - `ws` 8.18.3 (server) docs (WebSocketServer, upgrade handling, handleUpgrade, connection/message events): Context7 `/websockets/ws/8_18_3` and https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
 - Node.js HTTP server upgrade event (attach WS upgrade handling on the existing Express port): https://nodejs.org/api/http.html#event-upgrade
 - WebSocket protocol basics (context for ping/pong + JSON message framing): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Express 5 server startup patterns (refactoring app.listen to http.createServer(app).listen): https://expressjs.com/en/5x/api.html
 - Pino logging (server uses structured logs; use child loggers/bindings for WS lifecycle logs): Context7 `/pinojs/pino/v10.1.0` and Context7 `/pinojs/pino-http`
 - Node.js test runner (writing WS unit tests with proper teardown): https://nodejs.org/api/test.html
@@ -847,6 +851,16 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: strict inbound validation.
 
+12. [ ] Update `design.md` with the new WebSocket transport and subscription flows (include Mermaid diagrams):
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add/extend a Mermaid sequence diagram for: client connects to `GET /ws` → subscribe_sidebar / subscribe_conversation → server broadcasts `conversation_upsert` and transcript events to subscribers.
+     - Note that protocol gating uses `protocolVersion: "v1"` and malformed JSON closes the socket.
+
 12. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
    - Docs to read:
      - `projectStructure.md`
@@ -906,6 +920,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 - Mongoose v9 persistence docs (updating conversation flags + turn persistence while streaming): Context7 `/automattic/mongoose/9.0.1`
 - Pino logging (adding required chat.* log names with structured fields): Context7 `/pinojs/pino/v10.1.0`
 - HTTP status semantics for the contract (202 accepted + 409 conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
@@ -1045,13 +1060,15 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Log the first delta and then every 25 deltas; include `deltaCount`.
      - Log tool events per event; include `toolEventCount`.
 
-12. [ ] Update `design.md` to document the new chat transport + WS transcript contract:
+12. [ ] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
    - Docs to read:
-     - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
+     - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
+     - Include the Stop flow (`cancel_inflight`) and the late-subscriber catch-up rule (first event is `inflight_snapshot`).
 
 13. [ ] Update `projectStructure.md` with any added/removed server chat/WS modules:
    - Docs to read:
@@ -1469,6 +1486,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 - React 19 docs (hook structure, effect cleanup, and reconnection/backoff patterns): https://react.dev/learn
 - Fetch API (used for POST /chat start-run and list snapshots on reconnect): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - HTTP status semantics (202 start-run, 409 run-lock conflicts): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Jest 30.x docs (repo uses Jest 30; referenced by this task’s Testing section): Context7 `/websites/jestjs_io_30_0`
 - Testing Library (RTL) docs (how to assert hook-driven UI changes): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright docs (e2e verification for WS-driven streaming later): Context7 `/microsoft/playwright.dev`
@@ -1581,14 +1599,16 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - When persistence is unavailable, disable live streaming (do not connect/subscribe) and show a clear banner/message explaining why.
      - The user must still be able to Stop an in-flight run (if they have `conversationId` + `inflightId`).
 
-10. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules:
+10. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
    - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://react.dev/learn
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
+     - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
 
 11. [ ] Update `projectStructure.md` with any added/removed client streaming modules:
    - Docs to read:
@@ -1643,6 +1663,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 - Browser WebSocket API (client connection + event receipt logging): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 - Fetch API (client log forwarding to server /logs ingestion): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Console API (debug-only; do not rely on console for acceptance criteria): https://developer.mozilla.org/en-US/docs/Web/API/console
+- Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Playwright docs (later e2e will assert forwarded client logs exist in /logs): Context7 `/microsoft/playwright.dev`
 - Tooling references (npm run workspace builds): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1681,11 +1702,28 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
    - Requirements:
      - After this work, `/logs` should contain both server-side `chat.*` logs and forwarded `chat.ws.client_*` logs.
 
-4. [ ] Update docs and run verification commands:
+4. [ ] Update `design.md` with the client logging/forwarding flow (include Mermaid diagrams):
    - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid sequence diagram showing: ChatPage/useChatWs emits `chat.ws.client_*` logs → client transport forwards to server → server /logs stores → UI/e2e asserts via logs snapshot.
+     - List the required log names and their key fields (conversationId/inflightId/seq) near the diagram.
+
+5. [ ] Update `projectStructure.md` with any added/removed client logging modules:
+   - Docs to read:
+     - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Requirements:
+     - If new logging helpers were added/removed, reflect them here (otherwise mark as no-op).
+
+6. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

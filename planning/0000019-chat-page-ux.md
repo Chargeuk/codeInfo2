@@ -1023,6 +1023,37 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `startedAt` (ISO string)
      - `abortController`
      - `seq` counter (monotonic, per conversation)
+   - Implementation sketch (copy/paste then adapt):
+     ```ts
+     // server/src/chat/inflightRegistry.ts (sketch)
+     export type InflightState = {
+       inflightId: string;
+       assistantText: string;
+       assistantThink: string;
+       toolEvents: unknown[];
+       startedAt: string;
+       abortController: AbortController;
+       seq: number;
+     };
+
+     // key: conversationId
+     const inflight = new Map<string, InflightState>();
+
+     export function createInflight(conversationId: string, inflightId: string) {
+       inflight.set(conversationId, {
+         inflightId,
+         assistantText: '',
+         assistantThink: '',
+         toolEvents: [],
+         startedAt: new Date().toISOString(),
+         abortController: new AbortController(),
+         seq: 0,
+       });
+     }
+     ```
+   - Requirements:
+     - Keep the API tiny and deterministic (get/set/append + bumpSeq + cleanup).
+     - The registry must only hold state for active runs and must delete entries on completion.
 
 4. [ ] Define exact transcript event payloads for WS publishing and implement publisher helpers:
    - Docs to read:
@@ -1050,7 +1081,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to add:
-     - `server/src/chat/chatStreamBridge.ts` (or similar)
+     - `server/src/chat/chatStreamBridge.ts`
    - Files to read:
      - `server/src/chat/interfaces/ChatInterface.ts` (event names and payload shapes)
    - Requirements:
@@ -1060,6 +1091,24 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
        - Publish WS transcript events (`assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`) via the WS publisher helpers.
        - Publish an `inflight_snapshot` immediately when a run starts (so late subscribers can catch up deterministically).
        - Ensure `turn_final` is published exactly once and the in-flight entry is cleaned up promptly.
+     - Minimal event mapping (must match existing SSE semantics):
+       - `token` → `assistant_delta`
+       - `analysis` → `analysis_delta` and append to `assistantThink`
+       - `tool-request`/`tool-result` → `tool_event` and append to `toolEvents`
+       - `final`/`complete`/`error` → `turn_final` once + cleanup
+     - Implementation sketch (copy/paste then adapt):
+       ```ts
+       // server/src/chat/chatStreamBridge.ts (sketch)
+       export function attachChatStreamBridge(params: {
+         conversationId: string;
+         inflightId: string;
+         chat: { on: (name: string, fn: (ev: any) => void) => void };
+       }) {
+         // set up listeners and update registry
+         // publish snapshot/deltas
+         // return cleanup() that removes listeners
+       }
+       ```
      - The bridge must be reusable by:
        - REST chat runs (`POST /chat`),
        - Agents runs (`POST /agents/:agentName/run`), and
@@ -1072,7 +1121,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/routes/chat.ts`
      - `server/src/routes/chatValidators.ts`
      - `server/src/chat/inflightRegistry.ts`
-     - `server/src/chat/chatStreamBridge.ts` (or similar)
+     - `server/src/chat/chatStreamBridge.ts`
    - Required success response (example):
      ```json
      { "status":"started", "conversationId":"...", "inflightId":"...", "provider":"codex", "model":"gpt-5.1-codex-max" }
@@ -1090,7 +1139,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Files to edit:
      - `server/src/agents/service.ts`
      - `server/src/chat/inflightRegistry.ts`
-     - `server/src/chat/chatStreamBridge.ts` (or similar)
+     - `server/src/chat/chatStreamBridge.ts`
    - Requirements:
      - When an agent run starts, generate an `inflightId` (use `crypto.randomUUID()` when the caller did not supply one).
      - Refactor `server/src/agents/service.ts` so its ChatInterface factory is injectable for tests (default to existing `getChatInterface`):
@@ -1106,7 +1155,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
      - `server/src/chat/inflightRegistry.ts`
-     - `server/src/chat/chatStreamBridge.ts` (or similar)
+     - `server/src/chat/chatStreamBridge.ts`
    - Requirements:
      - Generate a stable `inflightId` per MCP run (use `crypto.randomUUID()`).
      - Create the in-flight registry entry before calling `chat.run(...)`.
@@ -1260,7 +1309,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 #### Subtasks
 
-1. [ ] Identify exactly which server tests currently assume chat SSE streaming:
+1. [ ] Confirm which server tests currently assume chat SSE streaming (so you can update every broken feature in this task):
    - Docs to read:
      - https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to read:
@@ -1268,8 +1317,19 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/steps/chat_stream.steps.ts`
      - `server/src/test/features/chat_cancellation.feature`
      - `server/src/test/steps/chat_cancellation.steps.ts`
+     - `server/src/test/features/chat-tools-visibility.feature`
+     - `server/src/test/steps/chat-tools-visibility.steps.ts`
    - Requirements:
-     - Write down which steps parse SSE frames vs which steps just assert final persisted turns.
+     - These are the SSE-specific patterns you must remove:
+       - `server/src/test/steps/chat_stream.steps.ts`:
+         - Step `When I POST to the chat endpoint with the chat request fixture` parses `text/event-stream` frames by reading `res.body.getReader()`.
+         - Step `When I POST to the chat endpoint with a two-message chat history` relies on `POST /chat` keeping the stream open and finishing cleanly.
+         - The `Then ... streamed events ...` assertions depend on `token/final/complete/error/tool-request/tool-result` SSE event types.
+       - `server/src/test/steps/chat_cancellation.steps.ts`:
+         - Step `When I start a chat stream and abort after first token` uses `AbortController` to abort the HTTP request and expects server-side cancellation.
+       - `server/src/test/steps/chat-tools-visibility.steps.ts`:
+         - Step `When I stream the chat endpoint with the chat request fixture` parses SSE frames and asserts tool event shapes.
+     - After this story, `POST /chat` is `202` JSON (no SSE body) and live updates must be observed via `/ws`.
 
 2. [ ] Update the chat streaming feature description to match the new transport contract:
    - Docs to read:
@@ -1285,7 +1345,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Context7 `/websockets/ws/8_18_3`
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to add:
-     - `server/src/test/support/wsClient.ts` (or similar)
+     - `server/src/test/support/wsClient.ts`
    - Implementation sketch (copy/paste then adapt):
      ```ts
      // wsClient.ts (sketch)
@@ -1330,7 +1390,28 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
      ```
 
-7. [ ] Server unit/integration tests: update chat-unsupported-provider.test.ts for 400 UNSUPPORTED_PROVIDER + no SSE (error case)
+7. [ ] Update the tool visibility feature to match “POST /chat starts; tools stream over WS”:
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
+   - Files to edit:
+     - `server/src/test/features/chat-tools-visibility.feature`
+   - Requirements:
+     - HTTP: `POST /chat` returns `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`.
+     - Streaming: tool request/result visibility must be asserted via `tool_event` WS transcript events.
+
+8. [ ] Rewrite tool visibility step defs to subscribe via WS and assert `tool_event` contents:
+   - Docs to read:
+     - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
+   - Files to edit:
+     - `server/src/test/steps/chat-tools-visibility.steps.ts`
+   - Requirements:
+     - Use the shared `wsClient.ts` helper for connecting + waiting for events.
+     - Assert at least one `tool_event` arrives and it contains:
+       - `event.type` of `tool-request` and `tool-result`.
+       - `event.callId` and `event.name` values preserved from existing fixtures.
+     - Keep the existing assertions that tool events were logged to the log store.
+
+9. [ ] Server unit/integration tests: update chat-unsupported-provider.test.ts for 400 UNSUPPORTED_PROVIDER + no SSE (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1339,7 +1420,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: transport-accurate unsupported provider behavior.
 
-8. [ ] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
+10. [ ] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1348,7 +1429,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: ensure main chat path is 202 JSON and WS streaming supplies transcript.
 
-9. [ ] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
+11. [ ] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1357,7 +1438,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: ensure locked model / provider failures return stable status+code payloads.
 
-10. [ ] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
+12. [ ] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1371,7 +1452,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Subscribe to a conversation and assert that `seq` for transcript events (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`) never decreases.
 
-11. [ ] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
+13. [ ] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1385,7 +1466,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
      - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
 
-12. [ ] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
+14. [ ] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1398,7 +1479,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe mid-run and assert the initial `inflight_snapshot.inflight.assistantThink` is non-empty.
      - Assert at least one `analysis_delta` event arrives with increasing `seq`.
 
-13. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
+15. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1410,7 +1491,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
      - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
 
-14. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
+16. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
@@ -1423,7 +1504,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe then immediately unsubscribe from a conversation while it is streaming.
      - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
-15. [ ] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
+17. [ ] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1437,7 +1518,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Wait for completion (using deterministic mocked provider or polling stored turns).
      - Assert the user + assistant turns were persisted.
 
-16. [ ] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
+18. [ ] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1451,7 +1532,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Immediately attempt to start a second run for the same conversationId.
      - Assert the second request returns `409` with `{ status:"error", code:"RUN_IN_PROGRESS" }`.
 
-17. [ ] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
+19. [ ] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
@@ -1463,7 +1544,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Start a run, await `turn_final`, then assert the registry no longer returns an entry for the conversationId.
 
-18. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
+20. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1480,7 +1561,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
      - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
 
-19. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
+21. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1496,7 +1577,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
      - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
 
-20. [ ] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
+22. [ ] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1511,7 +1592,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Query `GET /logs?source=server&text=chat.ws.connect` and assert at least one matching log entry exists.
 
 
-21. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
+23. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -1519,7 +1600,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-22. [ ] Update `projectStructure.md` with any added/removed server test support files:
+24. [ ] Update `projectStructure.md` with any added/removed server test support files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1540,7 +1621,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - `server/src/test/integration/ws-logs.test.ts`
      - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
-23. [ ] Run repo-wide lint/format checks:
+25. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1764,6 +1845,18 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Requirements:
      - Use a single WS connection while the Chat page is mounted.
      - Parse inbound messages as JSON and ignore unknown event types safely (do not crash the UI on unexpected payloads).
+     - Implementation sketch (copy/paste then adapt):
+       ```ts
+       // client/src/hooks/useChatWs.ts (sketch)
+       const ws = new WebSocket(`${apiBaseUrl.replace(/^http/, 'ws')}/ws`);
+       ws.onmessage = (ev) => {
+         const msg = JSON.parse(String(ev.data));
+         // switch(msg.type) ...
+       };
+       function send(msg: object) {
+         ws.send(JSON.stringify({ protocolVersion: 'v1', requestId: crypto.randomUUID(), ...msg }));
+       }
+       ```
 
 3. [ ] Add explicit connection lifecycle + reconnect/backoff logic:
    - Docs to read:
@@ -2067,8 +2160,8 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Context7 `/microsoft/playwright.dev` (routeWebSocket)
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to add:
-     - `e2e/support/mockChatWs.ts` (or similar)
-     - `client/src/test/support/mockWebSocket.ts` (or similar)
+     - `e2e/support/mockChatWs.ts`
+     - `client/src/test/support/mockWebSocket.ts`
    - Requirements:
      - The helper must be able to send deterministic sequences of events (`seq` increments) to the client.
 
@@ -2291,143 +2384,171 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 25. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts` (WS fixtures: inflight_snapshot/assistant_delta/analysis_delta/tool_event/turn_final)
    - Files to edit:
      - `client/src/test/chatPage.flags.approval.default.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - If this test currently relies on SSE (EventSource or text/event-stream parsing), remove that and instead:
+       - mock `POST /chat` to return `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`, and
+       - mock the WebSocket transcript so the UI exits “streaming” state deterministically.
+     - WS mock minimum event sequence (example):
+       ```json
+       { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "assistantThink":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
+       { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 2, "inflightId":"...", "status":"ok", "threadId": null }
+       ```
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 26. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.approval.payload.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 27. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.network.default.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 28. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.network.payload.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 29. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts` (include `analysis_delta` fixtures for reasoning)
    - Files to edit:
      - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 30. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 31. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 32. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 33. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.reset.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 34. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.websearch.default.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 35. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-   - Files to read (reference pattern after it is updated):
-     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to read:
+     - `common/src/fixtures/chatStream.ts`
    - Files to edit:
      - `client/src/test/chatPage.flags.websearch.payload.test.tsx`
    - Purpose:
      - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
    - Requirements:
+     - Ensure the test does not depend on SSE.
+     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 

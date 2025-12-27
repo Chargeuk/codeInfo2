@@ -448,6 +448,10 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Add a short bullet describing the new `state` query and default behavior.
 
@@ -456,6 +460,10 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
@@ -656,6 +664,10 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
      - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
@@ -665,6 +677,10 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 15. [ ] Run repo-wide lint/format checks after the task (do not skip):
    - Docs to read:
@@ -857,19 +873,27 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Add/extend a Mermaid sequence diagram for: client connects to `GET /ws` → subscribe_sidebar / subscribe_conversation → server broadcasts `conversation_upsert` and transcript events to subscribers.
      - Note that protocol gating uses `protocolVersion: "v1"` and malformed JSON closes the socket.
 
-12. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
+13. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
    - Docs to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add entries for the new `/ws` server modules introduced by this task (including WS registry + sidebar publisher + mongo events bus).
 
-13. [ ] Run repo-wide lint/format checks:
+14. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1065,6 +1089,10 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
      - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
@@ -1075,6 +1103,10 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add entries for new files like `server/src/chat/inflightRegistry.ts` and any new WS/chat modules introduced by this task.
 
@@ -1298,6 +1330,10 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add entries for new test utilities and test files introduced by this task (for example `server/src/test/support/wsClient.ts` and new WS unit tests).
 
@@ -1433,12 +1469,20 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
       - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
     - Files to edit:
       - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
 
 11. [ ] Update `projectStructure.md` if any new UI modules are added:
     - Docs to read:
       - `projectStructure.md`
     - Files to edit:
       - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 12. [ ] Run repo-wide lint/format checks:
     - Docs to read:
@@ -1606,6 +1650,10 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - https://react.dev/learn
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
      - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
@@ -1615,6 +1663,10 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add entries for new files like `client/src/hooks/useChatWs.ts` and any new WS support utilities.
 
@@ -1707,6 +1759,10 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Add a Mermaid sequence diagram showing: ChatPage/useChatWs emits `chat.ws.client_*` logs → client transport forwards to server → server /logs stores → UI/e2e asserts via logs snapshot.
      - List the required log names and their key fields (conversationId/inflightId/seq) near the diagram.
@@ -1716,6 +1772,10 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - If new logging helpers were added/removed, reflect them here (otherwise mark as no-op).
 
@@ -2231,6 +2291,10 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
      - Add entries for new helper modules added by this task (for example `e2e/support/mockChatWs.ts` and `client/src/test/support/mockWebSocket.ts`).
 
@@ -2329,24 +2393,43 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
      - `README.md`
    - Files to edit:
      - `README.md`
+   - Purpose:
+     - Keep developer/user-facing instructions current for running and verifying the updated behavior.
+   - Description:
+     - Update README.md to reflect any new commands, environment variables, or behavioral changes introduced by this story.
 
 5. [ ] Update `design.md` with any new diagrams or architecture changes:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
 
 6. [ ] Update `projectStructure.md` with any updated/added/removed files:
    - Docs to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 7. [ ] Create a PR summary comment (what changed, why, and how to verify):
    - Docs to read:
      - `planning/0000019-chat-page-ux.md`
    - Files to edit:
      - `planning/0000019-chat-page-ux.md` (Implementation notes section)
+   - Purpose:
+     - Ensure the story record is complete and verifiable (notes, commands, and outcomes captured in the plan).
+   - Description:
+     - In `planning/0000019-chat-page-ux.md` (Implementation notes section), write a PR-ready summary covering: user-visible changes, API contract changes (POST /chat 202 + WS-only streaming), new WS event types, and how to verify (exact npm commands).
+   - Requirements:
+     - Include a short “How to verify” checklist (server tests, client tests, e2e).
+     - Mention any notable edge cases covered by tests (late-subscriber snapshot, cancel_inflight not found, bulk all-or-nothing conflicts).
 
 #### Testing
 

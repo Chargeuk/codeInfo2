@@ -1367,6 +1367,11 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Files to edit:
      - `server/src/test/steps/chat_stream.steps.ts`
    - Requirements:
+     - Update the Cucumber test server bootstrapping in `Before(...)`:
+       - Today the step file uses `app.listen(0, ...)` and only mounts `/chat`.
+       - For WS-based assertions, replace this with a Node HTTP server and attach `/ws`:
+         - Import the WS attach helper from `server/src/ws/server.ts` (created in Task 3).
+         - Use `createServer(app)` and call `attachWs({ httpServer })` before `listen(...)`.
      - Start the run via HTTP and assert the `202` JSON body shape.
      - Subscribe via WS and assert at least one transcript event arrives and a `turn_final` arrives.
      - Do not attempt detailed `seq` ordering checks in Cucumber (those are validated in node:test).
@@ -1389,6 +1394,10 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      ```json
      { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
      ```
+   - Requirements:
+     - Update the Cucumber test server `Before(...)` hook to attach the `/ws` server (same approach as Subtask 4):
+       - Use `createServer(app)` and `attachWs({ httpServer })`.
+       - Cancellation is asserted via WS `turn_final` status, not via aborting the HTTP request.
 
 7. [ ] Update the tool visibility feature to match “POST /chat starts; tools stream over WS”:
    - Docs to read:
@@ -1405,6 +1414,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Files to edit:
      - `server/src/test/steps/chat-tools-visibility.steps.ts`
    - Requirements:
+     - Update the Cucumber test server `Before(...)` hook to attach the `/ws` server (same approach as Subtask 4).
      - Use the shared `wsClient.ts` helper for connecting + waiting for events.
      - Assert at least one `tool_event` arrives and it contains:
        - `event.type` of `tool-request` and `tool-result`.

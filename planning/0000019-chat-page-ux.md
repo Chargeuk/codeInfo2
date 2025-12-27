@@ -847,11 +847,19 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: strict inbound validation.
 
-12. [ ] Update docs and run verification commands:
+12. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
    - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Requirements:
+     - Add entries for the new `/ws` server modules introduced by this task (including WS registry + sidebar publisher + mongo events bus).
+
+13. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1037,12 +1045,27 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Log the first delta and then every 25 deltas; include `deltaCount`.
      - Log tool events per event; include `toolEventCount`.
 
-12. [ ] Update docs and run verification commands:
+12. [ ] Update `design.md` to document the new chat transport + WS transcript contract:
    - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
    - Files to edit:
      - `design.md`
+   - Requirements:
+     - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
+
+13. [ ] Update `projectStructure.md` with any added/removed server chat/WS modules:
+   - Docs to read:
      - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add entries for new files like `server/src/chat/inflightRegistry.ts` and any new WS/chat modules introduced by this task.
+
+14. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1253,14 +1276,22 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-15. [ ] Update docs and run verification commands:
-    - Docs to read:
-      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-    - Files to edit:
-      - `projectStructure.md`
-    - Commands to run:
-      - `npm run lint --workspaces`
-      - `npm run format:check --workspaces`
+15. [ ] Update `projectStructure.md` with any added/removed server test support files:
+   - Docs to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add entries for new test utilities and test files introduced by this task (for example `server/src/test/support/wsClient.ts` and new WS unit tests).
+
+16. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Testing
 
@@ -1550,12 +1581,28 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - When persistence is unavailable, disable live streaming (do not connect/subscribe) and show a clear banner/message explaining why.
      - The user must still be able to Stop an in-flight run (if they have `conversationId` + `inflightId`).
 
-10. [ ] Update docs and run verification commands:
+10. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules:
    - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn
    - Files to edit:
      - `design.md`
+   - Requirements:
+     - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
+
+11. [ ] Update `projectStructure.md` with any added/removed client streaming modules:
+   - Docs to read:
      - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add entries for new files like `client/src/hooks/useChatWs.ts` and any new WS support utilities.
+
+12. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -2141,11 +2188,19 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-47. [ ] Update docs and run verification commands:
+47. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
    - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Requirements:
+     - Add entries for new helper modules added by this task (for example `e2e/support/mockChatWs.ts` and `client/src/test/support/mockWebSocket.ts`).
+
+48. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`

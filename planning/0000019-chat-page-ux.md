@@ -338,13 +338,16 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 #### Documentation Locations
 
-- Express 5 query parsing + routing: Context7 `/expressjs/express/v5.1.0`
-- Mongoose query filters: Context7 `/automattic/mongoose/9.0.1`
-- HTTP 400 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
-- URLSearchParams / query strings: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
-- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-- SuperTest: Context7 `/ladjs/supertest`
-- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid`
+- Express 5 docs (routing + query parsing; use for req.query, Router patterns, and v5 behavior): https://expressjs.com/en/guide/routing.html and https://expressjs.com/en/5x/api.html and https://expressjs.com/en/guide/migrating-5.html
+- Express 5 source/API references (use when you need v5.1.0 repo-level details): Context7 `/expressjs/express/v5.1.0`
+- Zod v3 validation (used in this repo for request/query/body schemas; prefer safeParse for non-throwing validation): Context7 `/websites/v3_zod_dev`
+- Mongoose v9 query filters (archivedAt filters + sorting/pagination patterns): Context7 `/automattic/mongoose/9.0.1`
+- SuperTest (integration testing Express endpoints; assertions on status/body): Context7 `/ladjs/supertest`
+- Node.js test runner (node:test is used by server tests in this repo): https://nodejs.org/api/test.html
+- HTTP status + query string helpers (contract semantics for 400 + URLSearchParams): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status and https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+- Mermaid syntax (only if adding diagrams): Context7 `/mermaid-js/mermaid`
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -404,7 +407,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
+     - Context7 `/prettier/prettier/3.6.2`
    - Files to verify:
      - `package.json` (root scripts)
    - Commands to run:
@@ -445,12 +448,15 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 #### Documentation Locations
 
-- Express 5 routing/request lifecycle: Context7 `/expressjs/express/v5.1.0`
-- Mongoose bulk updates/deletes: Context7 `/automattic/mongoose/9.0.1`
-- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-- SuperTest: Context7 `/ladjs/supertest`
-- Mermaid syntax (for design diagrams): Context7 `/mermaid-js/mermaid`
+- Express 5 docs (adding new bulk routes + consistent error responses): https://expressjs.com/en/guide/routing.html and https://expressjs.com/en/5x/api.html
+- Zod v3 validation (bulk request body validation; enforce conversationIds: string[] and reject invalid shapes): Context7 `/websites/v3_zod_dev`
+- Mongoose v9 bulk operations (updateMany/deleteMany result fields like matchedCount/modifiedCount/deletedCount): Context7 `/automattic/mongoose/9.0.1`
+- SuperTest (integration tests for bulk endpoints): Context7 `/ladjs/supertest`
+- Node.js test runner (node:test patterns used by the server test suite): https://nodejs.org/api/test.html
+- HTTP status semantics (409 conflict is the required all-or-nothing rejection path): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Mermaid syntax (only if adding diagrams about new endpoints): Context7 `/mermaid-js/mermaid`
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -520,7 +526,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
-     - https://prettier.io/docs/en/cli.html
+     - Context7 `/prettier/prettier/3.6.2`
    - Files to verify:
      - `package.json` (root scripts)
    - Commands to run:
@@ -561,11 +567,14 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 #### Documentation Locations
 
-- `ws` server docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
-- Node.js HTTP server upgrade: https://nodejs.org/api/http.html#event-upgrade
-- `ws` (server): Context7 `/websockets/ws/8_18_3`
-- WebSocket protocol basics: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- `ws` 8.18.3 (server) docs (WebSocketServer, upgrade handling, handleUpgrade, connection/message events): Context7 `/websockets/ws/8_18_3` and https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
+- Node.js HTTP server upgrade event (attach WS upgrade handling on the existing Express port): https://nodejs.org/api/http.html#event-upgrade
+- WebSocket protocol basics (context for ping/pong + JSON message framing): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Express 5 server startup patterns (refactoring app.listen to http.createServer(app).listen): https://expressjs.com/en/5x/api.html
+- Pino logging (server uses structured logs; use child loggers/bindings for WS lifecycle logs): Context7 `/pinojs/pino/v10.1.0` and Context7 `/pinojs/pino-http`
+- Node.js test runner (writing WS unit tests with proper teardown): https://nodejs.org/api/test.html
+- Tooling references (installing deps + verification): https://docs.npmjs.com/cli/v10/commands/npm-install, https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -706,12 +715,16 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Documentation Locations
 
-- `ws` server docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
-- Node.js `AbortController`: https://nodejs.org/api/globals.html#class-abortcontroller
-- Express 5 request lifecycle: Context7 `/expressjs/express/v5.1.0`
-- HTTP 202 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
-- HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-- Mongoose: Context7 `/automattic/mongoose/9.0.1`
+- Express 5 docs (POST /chat start-run contract + background execution patterns): https://expressjs.com/en/5x/api.html
+- Zod v3 validation (route validators for POST /chat request + stable error payloads): Context7 `/websites/v3_zod_dev`
+- `ws` 8.18.3 (server) docs (broadcasting transcript events, inbound message handling): Context7 `/websockets/ws/8_18_3` and https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
+- Node.js AbortController (provider cancellation + cancel_inflight mapping): https://nodejs.org/api/globals.html#class-abortcontroller
+- Node.js UUID generation (recommended for inflightId / requestId if you use crypto.randomUUID()): https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
+- Mongoose v9 persistence docs (updating conversation flags + turn persistence while streaming): Context7 `/automattic/mongoose/9.0.1`
+- Pino logging (adding required chat.* log names with structured fields): Context7 `/pinojs/pino/v10.1.0`
+- HTTP status semantics for the contract (202 accepted + 409 conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -894,17 +907,19 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 #### Documentation Locations
 
-- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-- SuperTest: Context7 `/ladjs/supertest`
-- `ws` client docs: https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
-- Cucumber guides: https://cucumber.io/docs/guides/
-- Playwright (for later e2e references only): Context7 `/microsoft/playwright.dev`
+- Node.js test runner (node:test is used for unit/integration assertions in this repo): https://nodejs.org/api/test.html
+- SuperTest (transport-accurate assertions for POST /chat 202 JSON + REST endpoints): Context7 `/ladjs/supertest`
+- `ws` 8.18.3 (client + server) docs (WS test helper WebSocket usage, events, teardown): Context7 `/websockets/ws/8_18_3` and https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
+- Cucumber (use guides for runnable examples + step definition patterns): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
+- HTTP status semantics (202 start-run, 409 run-lock conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
 1. [ ] Identify exactly which server tests currently assume chat SSE streaming:
    - Docs to read:
-     - https://cucumber.io/docs/guides/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to read:
      - `server/src/test/features/chat_stream.feature`
      - `server/src/test/steps/chat_stream.steps.ts`
@@ -944,7 +959,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 4. [ ] Rewrite chat streaming step defs to use `POST /chat` and WS events:
    - Docs to read:
-     - https://cucumber.io/docs/guides/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
      - `server/src/test/steps/chat_stream.steps.ts`
@@ -1022,7 +1037,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 2. [ ] Run all server tests (Cucumber + node:test):
    - Docs to read:
      - https://nodejs.org/api/test.html
-     - https://cucumber.io/docs/guides/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to verify:
      - `server/src/test/features/*`
      - `server/src/test/integration/*`
@@ -1045,10 +1060,16 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Documentation Locations
 
-- MUI MCP docs (use tool + fetch relevant pages): https://llms.mui.com/material-ui/6.4.12/llms.txt
-- MUI v6.5.0 release notes: https://github.com/mui/material-ui/releases/tag/v6.5.0
-- React 19 docs: https://react.dev/learn
-- HTTP status codes: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- MUI component docs (closest MCP snapshot to repo’s @mui/material 6.5.0; use this index then fetch Checkbox/Dialog/Snackbar/Select pages as needed): https://llms.mui.com/material-ui/6.4.12/llms.txt
+- MUI 6.5.0 release notes (sanity-check any prop/API changes vs 6.4.x MCP snapshot): https://github.com/mui/material-ui/releases/tag/v6.5.0
+- React 19 docs (state + effects for selection/filter UX): https://react.dev/learn
+- Fetch API + HTTP status codes (calling bulk endpoints and rendering errors): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+- Jest 30.x docs (repo uses Jest 30; referenced by this task’s Testing section): Context7 `/websites/jestjs_io_30_0`
+- Testing Library (RTL) docs (repo’s client tests use RTL patterns): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright docs (e2e mocks will later need WS routing via routeWebSocket): Context7 `/microsoft/playwright.dev`
+- Mermaid syntax (for documentation diagrams): Context7 `/mermaid-js/mermaid`
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -1153,7 +1174,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 2. [ ] Defer Jest + e2e test updates to Task 9 (do not attempt to update all mocks in this UI task):
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `planning/0000019-chat-page-ux.md` (Task 9 scope)
@@ -1174,9 +1195,15 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 #### Documentation Locations
 
-- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React 19 docs: https://react.dev/learn
-- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Browser WebSocket API (connection lifecycle, message handling, close codes; used in useChatWs): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React 19 docs (hook structure, effect cleanup, and reconnection/backoff patterns): https://react.dev/learn
+- Fetch API (used for POST /chat start-run and list snapshots on reconnect): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- HTTP status semantics (202 start-run, 409 run-lock conflicts): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Jest 30.x docs (repo uses Jest 30; referenced by this task’s Testing section): Context7 `/websites/jestjs_io_30_0`
+- Testing Library (RTL) docs (how to assert hook-driven UI changes): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright docs (e2e verification for WS-driven streaming later): Context7 `/microsoft/playwright.dev`
+- Tooling references (npm run workspace commands): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
 
 #### Subtasks
 
@@ -1306,7 +1333,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 2. [ ] Defer Jest + Playwright test rewrites to Task 9 (WS mocking touches many files):
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `planning/0000019-chat-page-ux.md` (Task 9 scope)
@@ -1327,8 +1354,12 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 #### Documentation Locations
 
-- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- Console API (for local debugging only): https://developer.mozilla.org/en-US/docs/Web/API/console
+- Browser WebSocket API (client connection + event receipt logging): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Fetch API (client log forwarding to server /logs ingestion): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Console API (debug-only; do not rely on console for acceptance criteria): https://developer.mozilla.org/en-US/docs/Web/API/console
+- Playwright docs (later e2e will assert forwarded client logs exist in /logs): Context7 `/microsoft/playwright.dev`
+- Tooling references (npm run workspace builds): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
 
 #### Subtasks
 
@@ -1406,10 +1437,14 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 #### Documentation Locations
 
-- Jest: Context7 `/jestjs/jest`
-- Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Playwright: Context7 `/microsoft/playwright.dev`
-- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Jest 30.x docs (repo uses Jest 30; use for matchers, timers, mocks, and config): Context7 `/websites/jestjs_io_30_0`
+- React Testing Library (RTL) docs (preferred testing style: user-visible queries + events): https://testing-library.com/docs/react-testing-library/intro/
+- jest-dom matchers (repo uses @testing-library/jest-dom; use for toBeInTheDocument etc): Context7 `/testing-library/jest-dom`
+- Playwright docs (WS routing/mocking via routeWebSocket + WebSocketRoute): Context7 `/microsoft/playwright.dev`
+- Playwright WS routing discussion/examples (DeepWiki reference for routeWebSocket / connectToServer caveats): Deepwiki repo `microsoft/playwright`
+- Browser WebSocket API (understanding event ordering and reconnect behavior in tests): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
 
 #### Subtasks
 
@@ -1434,7 +1469,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 3. [ ] Add unit tests for the WS hook itself (it is new behavior and easy to break):
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
      - https://testing-library.com/docs/react-testing-library/intro/
    - Files to add:
      - `client/src/test/useChatWs.test.ts` (or similar)
@@ -1443,7 +1478,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 4. [ ] Update the chat page tests that assert streaming/stop/new-conversation semantics:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/chatPage.stop.test.tsx`
@@ -1454,7 +1489,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 5. [ ] Update all remaining chat page tests that depend on streaming state:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/useChatStream.reasoning.test.tsx`
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
@@ -1467,7 +1502,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 6. [ ] Update provider/flags tests to reflect the new `POST /chat` 202 start-run contract:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx`
      - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
@@ -1477,7 +1512,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 7. [ ] Update bulk sidebar tests to account for selection + filter + new disabled states:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatSidebar.test.tsx`
      - `client/src/test/chatPersistenceBanner.test.tsx`
@@ -1527,7 +1562,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 2. [ ] Run client unit tests:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to verify:
      - `client/src/test/*`
    - Command to run:
@@ -1558,12 +1593,14 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright.dev`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker & Docker Compose docs (clean builds, compose up/down, troubleshooting): Context7 `/docker/docs` and https://docs.docker.com/compose/
+- Playwright docs (running @playwright/test and manual verification expectations): Context7 `/microsoft/playwright.dev`
+- Husky docs (pre-commit hooks can fail builds; use for debugging hook behavior): Context7 `/typicode/husky`
+- Mermaid syntax (for documentation diagrams): Context7 `/mermaid-js/mermaid`
+- Jest 30.x docs (repo uses Jest 30; used by final verification test runs): Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides (use guides for runnable examples and CI setup): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
+- Tooling references (npm run workspaces): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+
 
 #### Subtasks
 
@@ -1621,7 +1658,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 1. [ ] Run the client Jest tests:
    - Docs to read:
-     - Context7 `/jestjs/jest`
+     - Context7 `/websites/jestjs_io_30_0`
    - Files to verify:
      - `client/src/test/*`
    - Command to run:
@@ -1630,7 +1667,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 2. [ ] Run the server tests (node:test + Cucumber):
    - Docs to read:
      - https://nodejs.org/api/test.html
-     - https://cucumber.io/docs/guides/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to verify:
      - `server/src/test/*`
    - Command to run:

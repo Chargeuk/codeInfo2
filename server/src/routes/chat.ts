@@ -1,29 +1,31 @@
+import crypto from 'node:crypto';
+
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router, json } from 'express';
+
+import {
+  releaseConversationLock,
+  tryAcquireConversationLock,
+} from '../agents/runLock.js';
+import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
+import {
+  cleanupInflight,
+  createInflight,
+  getInflight,
+} from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
 import {
   getMemoryTurns,
   memoryConversations,
-  recordMemoryTurn,
   shouldUseMemoryPersistence,
 } from '../chat/memoryPersistence.js';
-import {
-  endStream,
-  isStreamClosed,
-  startStream,
-  writeEvent,
-} from '../chatStream.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { ConversationModel, type Conversation } from '../mongo/conversation.js';
-import {
-  appendTurn,
-  createConversation,
-  updateConversationMeta,
-} from '../mongo/repo.js';
-import { TurnModel, type Turn, type TurnStatus } from '../mongo/turn.js';
+import { createConversation, updateConversationMeta } from '../mongo/repo.js';
+import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
 import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
@@ -85,13 +87,15 @@ export function createChatRouter({
   router.use(json({ limit: `${maxClientBytes}b`, strict: false }));
 
   router.post('/', async (req, res) => {
-    // Request example: { "conversationId": "abc123", "model": "llama-3", "provider": "lmstudio", "message": "Hi there", "sandboxMode": "workspace-write" }
-    // History guard example error: 400 { "error": "invalid request", "message": "conversationId required; history is loaded server-side" }
     const requestId = res.locals.requestId as string | undefined;
     const rawBody = req.body ?? {};
     const rawSize = JSON.stringify(rawBody).length;
     if (rawSize > maxClientBytes) {
-      return res.status(400).json({ error: 'payload too large' });
+      return res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_FAILED',
+        message: 'payload too large',
+      });
     }
 
     let validatedBody;
@@ -99,9 +103,11 @@ export function createChatRouter({
       validatedBody = validateChatRequest(rawBody);
     } catch (err) {
       if (err instanceof ChatValidationError) {
-        return res
-          .status(400)
-          .json({ error: 'invalid request', message: err.message });
+        return res.status(400).json({
+          status: 'error',
+          code: 'VALIDATION_FAILED',
+          message: err.message,
+        });
       }
       throw err;
     }
@@ -112,23 +118,17 @@ export function createChatRouter({
       provider,
       conversationId,
       threadId,
+      inflightId: requestedInflightId,
       codexFlags,
       warnings,
     } = validatedBody;
 
     const now = new Date();
-    const toolCallsForTurn: Array<Record<string, unknown>> = [];
-    let assistantContent = '';
-    let assistantStatus: TurnStatus = 'ok';
-    let assistantTurnRecorded = false;
 
     const ensureConversation = async (): Promise<Conversation | null> => {
       if (shouldUseMemoryPersistence()) {
         const existing = memoryConversations.get(conversationId) ?? null;
-        if (existing?.archivedAt) {
-          res.status(410).json({ error: 'archived' });
-          return null;
-        }
+        if (existing?.archivedAt) return null;
 
         if (!existing) {
           const created: Conversation = {
@@ -165,10 +165,7 @@ export function createChatRouter({
       const existing = (await ConversationModel.findById(conversationId)
         .lean()
         .exec()) as Conversation | null;
-      if (existing?.archivedAt) {
-        res.status(410).json({ error: 'archived' });
-        return null;
-      }
+      if (existing?.archivedAt) return null;
 
       if (!existing) {
         await createConversation({
@@ -209,44 +206,6 @@ export function createChatRouter({
             .lean()
             .exec()) as Turn[]);
 
-    const recordAssistantTurn = async () => {
-      if (assistantTurnRecorded) return;
-      assistantTurnRecorded = true;
-      try {
-        if (shouldUseMemoryPersistence()) {
-          recordMemoryTurn({
-            conversationId,
-            role: 'assistant',
-            content: assistantContent,
-            model,
-            provider,
-            source: 'REST',
-            toolCalls:
-              toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
-            status: assistantStatus,
-            createdAt: new Date(),
-          } as Turn);
-          return;
-        }
-        await appendTurn({
-          conversationId,
-          role: 'assistant',
-          content: assistantContent,
-          model,
-          provider,
-          source: 'REST',
-          toolCalls:
-            toolCallsForTurn.length > 0 ? { calls: toolCallsForTurn } : null,
-          status: assistantStatus,
-        });
-      } catch (err) {
-        baseLogger.error(
-          { requestId, provider, model, conversationId, err },
-          'failed to record assistant turn',
-        );
-      }
-    };
-
     warnings.forEach((warning) => {
       append({
         level: 'warn',
@@ -258,527 +217,191 @@ export function createChatRouter({
       });
       baseLogger.warn({ requestId, provider, warning }, 'chat flag ignored');
     });
-    const controller = new AbortController();
-    let ended = false;
-    let completed = false;
-    let cancelled = false;
 
-    const endIfOpen = () => {
-      if (ended || isStreamClosed(res)) return;
-      ended = true;
-      endStream(res);
-    };
-
-    const existingConversation = await ensureConversation();
-    if (!existingConversation) return;
-
-    const chronologicalTurns = await loadTurnsChronological();
-
+    // Provider availability checks before starting background execution.
     if (provider === 'codex') {
       const detection = getCodexDetection();
       if (!detection.available) {
-        append({
-          level: 'error',
-          message: 'chat stream unavailable (codex)',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: {
-            provider,
-            model,
-            reason: detection.reason,
-          },
+        return res.status(503).json({
+          status: 'error',
+          code: 'PROVIDER_UNAVAILABLE',
+          message: detection.reason ?? 'codex unavailable',
         });
-        baseLogger.error(
-          { requestId, provider, model, reason: detection.reason },
-          'chat stream unavailable (codex)',
-        );
-        return res
-          .status(503)
-          .json({ error: 'codex unavailable', reason: detection.reason });
       }
-
-      const endIfOpen = () => {
-        if (ended || isStreamClosed(res)) return;
-        ended = true;
-        endStream(res);
-      };
-
-      const handleDisconnect = (reason: 'close' | 'aborted') => {
-        if (completed) return;
-        if (reason === 'close' && !controller.signal.aborted) return;
-        controller.abort();
-        cancelled = true;
-        append({
-          level: 'info',
-          message: 'chat stream cancelled',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: { provider, model, reason: 'client_disconnect' },
-        });
-        baseLogger.info(
-          { requestId, provider, model, reason: 'client_disconnect' },
-          'chat stream cancelled',
-        );
-        endIfOpen();
-      };
-
-      req.on('close', () => handleDisconnect('close'));
-      req.on('aborted', () => handleDisconnect('aborted'));
-      res.on('close', handleDisconnect);
-      controller.signal.addEventListener('abort', () => {
-        cancelled = true;
-      });
-
-      append({
-        level: 'info',
-        message: 'chat stream start',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: { provider, model },
-      });
-      baseLogger.info({ requestId, provider, model }, 'chat stream start');
-
-      let chat: ChatInterface;
-      try {
-        chat = chatFactory('codex', { codexFactory });
-      } catch (err) {
-        if (err instanceof UnsupportedProviderError) {
-          return res.status(400).json({
-            error: 'unsupported provider',
-            message: err.message,
-          });
-        }
-        throw err;
-      }
-
-      startStream(res);
-
-      let assistantContent = '';
-      let assistantStatus: TurnStatus = 'ok';
-      let activeThreadId =
-        threadId ??
-        (existingConversation.flags?.threadId as string | undefined) ??
-        null;
-      const toolCallsForTurn: Array<Record<string, unknown>> = [];
-
-      chat.on('token', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, { type: 'token', content: ev.content });
-        assistantContent += ev.content;
-      });
-
-      chat.on('analysis', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, { type: 'analysis', content: ev.content });
-      });
-
-      chat.on('tool-request', (ev) => {
-        if (cancelled) return;
-        writeEvent(res, {
-          type: 'tool-request',
-          callId: ev.callId,
-          name: ev.name,
-          stage: ev.stage ?? 'started',
-          parameters: ev.params,
-        });
-      });
-
-      chat.on('tool-result', (ev) => {
-        if (cancelled) return;
-        toolCallsForTurn.push({
-          callId: ev.callId,
-          name: ev.name,
-          parameters: ev.params,
-          result: ev.result,
-          stage: ev.stage,
-          error: ev.error ?? undefined,
-        });
-        writeEvent(res, {
-          type: 'tool-result',
-          callId: ev.callId,
-          name: ev.name,
-          stage: ev.stage,
-          parameters: ev.params,
-          result: ev.result,
-          errorTrimmed: ev.error ?? undefined,
-        });
-      });
-
-      chat.on('final', (ev) => {
-        if (cancelled) return;
-        assistantContent = ev.content;
-        writeEvent(res, {
-          type: 'final',
-          message: { role: 'assistant', content: ev.content },
-        });
-      });
-
-      chat.on('thread', (ev) => {
-        activeThreadId = ev.threadId;
-        writeEvent(res, { type: 'thread', threadId: ev.threadId });
-      });
-
-      chat.on('complete', (ev) => {
-        completed = true;
-        const tid = ev.threadId ?? activeThreadId;
-        writeEvent(res, { type: 'complete', threadId: tid });
-        activeThreadId = tid ?? activeThreadId;
-      });
-
-      chat.on('error', (ev) => {
-        assistantStatus = cancelled ? 'stopped' : 'failed';
-        writeEvent(res, { type: 'error', message: ev.message });
-      });
-
-      try {
-        await chat.run(
-          message,
-          {
-            provider: 'codex',
-            threadId: activeThreadId,
-            codexFlags,
-            requestId,
-            signal: controller.signal,
-            source: 'REST',
-          },
-          conversationId,
-          model,
-        );
-        if (!completed && !isStreamClosed(res)) {
-          completed = true;
-          writeEvent(res, { type: 'complete', threadId: activeThreadId });
-        }
-        append({
-          level: 'info',
-          message: 'chat stream complete',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: {
-            provider,
-            model,
-            threadId: activeThreadId,
-            conversationId,
-          },
-        });
-        baseLogger.info(
-          {
-            requestId,
-            provider,
-            model,
-            threadId: activeThreadId,
-            conversationId,
-          },
-          'chat stream complete',
-        );
-      } catch (err) {
-        const messageText =
-          (err as Error | undefined)?.message ?? 'codex unavailable';
-        assistantStatus = cancelled ? 'stopped' : 'failed';
-        writeEvent(res, { type: 'error', message: messageText });
-        append({
-          level: 'error',
-          message: 'chat stream failed',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: { provider, model, conversationId, error: messageText },
-        });
-        baseLogger.error(
-          { requestId, provider, model, conversationId, error: messageText },
-          'chat stream failed',
-        );
-      } finally {
-        if (cancelled && assistantContent === '') {
-          assistantStatus = 'stopped';
-        }
-        // Codex class already persisted assistant turn; we still emit status bubble when stopped.
-        if (assistantStatus === 'stopped') {
-          writeEvent(res, {
-            type: 'error',
-            message: 'generation stopped',
-          });
-        }
-        endIfOpen();
-      }
-
-      return;
     }
 
     const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
     const safeBase = scrubBaseUrl(baseUrl);
 
-    if (!BASE_URL_REGEX.test(baseUrl)) {
-      append({
-        level: 'error',
-        message: 'chat stream invalid baseUrl',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: { baseUrl: safeBase, model, provider },
-      });
-      baseLogger.error(
-        { requestId, baseUrl: safeBase, model, provider },
-        'chat stream invalid baseUrl',
-      );
-      return res.status(503).json({ error: 'lmstudio unavailable' });
-    }
-
-    append({
-      level: 'info',
-      message: 'chat stream start',
-      timestamp: new Date().toISOString(),
-      source: 'server',
-      requestId,
-      context: { baseUrl: safeBase, model, provider },
-    });
-    baseLogger.info(
-      { requestId, baseUrl: safeBase, model, provider },
-      'chat stream start',
-    );
-
-    const handleDisconnect = (reason: 'close' | 'aborted') => {
-      if (completed) return;
-      if (reason === 'close' && !controller.signal.aborted) return;
-      controller.abort();
-      cancelled = true;
-      append({
-        level: 'info',
-        message: 'chat stream cancelled',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          baseUrl: safeBase,
-          model,
-          provider,
-          reason: 'client_disconnect',
-        },
-      });
-      baseLogger.info(
-        {
-          requestId,
-          baseUrl: safeBase,
-          model,
-          provider,
-          reason: 'client_disconnect',
-        },
-        'chat stream cancelled',
-      );
-      endIfOpen();
-    };
-
-    req.on('close', () => handleDisconnect('close'));
-    req.on('aborted', () => handleDisconnect('aborted'));
-    res.on('close', handleDisconnect);
-    controller.signal.addEventListener('abort', () => {
-      cancelled = true;
-    });
-
-    let lmChat: ChatInterface;
-    try {
-      lmChat = chatFactory('lmstudio', { clientFactory, toolFactory });
-    } catch (err) {
-      if (err instanceof UnsupportedProviderError) {
+    if (provider === 'lmstudio') {
+      if (!BASE_URL_REGEX.test(baseUrl)) {
         append({
           level: 'error',
-          message: 'unsupported provider',
+          message: 'chat run invalid baseUrl',
           timestamp: new Date().toISOString(),
           source: 'server',
           requestId,
-          context: { provider },
+          context: { baseUrl: safeBase, model, provider },
         });
-        baseLogger.error({ requestId, provider }, 'unsupported provider');
+        baseLogger.error(
+          { requestId, baseUrl: safeBase, model, provider },
+          'chat run invalid baseUrl',
+        );
+        return res.status(503).json({
+          status: 'error',
+          code: 'PROVIDER_UNAVAILABLE',
+          message: 'lmstudio unavailable',
+        });
+      }
+    }
+
+    const existingConversation = await ensureConversation();
+    if (!existingConversation) {
+      return res.status(410).json({
+        status: 'error',
+        code: 'CONVERSATION_ARCHIVED',
+        message: 'Conversation is archived and must be restored before use.',
+      });
+    }
+
+    if (!tryAcquireConversationLock(conversationId)) {
+      return res.status(409).json({
+        status: 'error',
+        code: 'RUN_IN_PROGRESS',
+        message: 'Conversation already has an active run.',
+      });
+    }
+
+    const inflightId =
+      typeof requestedInflightId === 'string' && requestedInflightId.length > 0
+        ? requestedInflightId
+        : crypto.randomUUID();
+
+    createInflight({ conversationId, inflightId });
+
+    let chat: ChatInterface;
+    try {
+      chat = chatFactory(provider, {
+        clientFactory,
+        codexFactory,
+        toolFactory,
+      });
+    } catch (err) {
+      releaseConversationLock(conversationId);
+      cleanupInflight({ conversationId, inflightId });
+
+      if (err instanceof UnsupportedProviderError) {
         return res.status(400).json({
-          error: 'unsupported provider',
-          message: (err as Error).message,
+          status: 'error',
+          code: 'UNSUPPORTED_PROVIDER',
+          message: err.message,
         });
       }
       throw err;
     }
 
-    startStream(res);
-    const toCallIdOut = (callId: string | number) => {
-      const num = Number(callId);
-      return Number.isFinite(num) && `${num}` === String(callId) ? num : callId;
-    };
-
-    lmChat.on('token', (ev) => {
-      if (cancelled) return;
-      writeEvent(res, { type: 'token', content: ev.content });
-      assistantContent += ev.content;
+    const bridge = attachChatStreamBridge({
+      conversationId,
+      inflightId,
+      provider,
+      model,
+      requestId,
+      chat,
     });
 
-    lmChat.on('analysis', (ev) => {
-      if (cancelled) return;
-      writeEvent(res, {
-        type: 'analysis',
-        content: (ev as { content?: string }).content ?? '',
-      });
-    });
-
-    lmChat.on('tool-request', (ev) => {
-      if (cancelled) return;
-      const callIdOut = toCallIdOut(ev.callId);
-      const nameOut = ev.name && ev.name.length > 0 ? ev.name : 'VectorSearch';
-      append({
-        level: 'info',
-        message: 'chat tool event',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          provider,
-          model,
-          callId: callIdOut,
-          name: nameOut,
-          stage: ev.stage ?? 'started',
-          type: 'tool-request',
-        },
-      });
-      writeEvent(res, {
-        type: 'tool-request',
-        callId: callIdOut,
-        name: nameOut,
-        parameters: ev.params,
-        stage: ev.stage ?? 'started',
-      });
-    });
-
-    lmChat.on('tool-result', (ev) => {
-      if (cancelled) return;
-      const callIdOut = toCallIdOut(ev.callId);
-      const nameOut = 'VectorSearch';
-      toolCallsForTurn.push({
-        callId: callIdOut,
-        name: nameOut,
-        parameters: ev.params,
-        result: ev.result,
-        stage: ev.stage,
-        error: ev.error ?? undefined,
-      });
-      append({
-        level: 'info',
-        message: 'chat tool event',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          provider,
-          model,
-          callId: callIdOut,
-          name: nameOut,
-          stage: ev.stage ?? 'success',
-          type: 'tool-result',
-          error: ev.error ?? undefined,
-        },
-      });
-      writeEvent(res, {
-        type: 'tool-result',
-        callId: callIdOut,
-        name: nameOut,
-        stage: ev.stage,
-        parameters: ev.params,
-        result: ev.result,
-        errorTrimmed: ev.error ?? undefined,
-        errorFull: ev.error ?? undefined,
-      });
-    });
-
-    lmChat.on('final', (ev) => {
-      if (cancelled) return;
-      assistantContent = ev.content;
-      writeEvent(res, {
-        type: 'final',
-        message: { role: 'assistant', content: ev.content },
-      });
-    });
-
-    lmChat.on('complete', () => {
-      completed = true;
-      writeEvent(res, { type: 'complete' });
-    });
-
-    lmChat.on('error', (ev) => {
-      assistantStatus = cancelled ? 'stopped' : 'failed';
-      writeEvent(res, { type: 'error', message: ev.message });
-    });
-
-    try {
-      const historyForRun = shouldUseMemoryPersistence()
-        ? chronologicalTurns
-        : undefined;
-      await lmChat.run(
-        message,
-        {
-          provider,
-          requestId,
-          baseUrl,
-          signal: controller.signal,
-          history: historyForRun,
-          source: 'REST',
-        },
-        conversationId,
+    append({
+      level: 'info',
+      message: 'chat.run.started',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      requestId,
+      context: {
+        provider,
         model,
-      );
-      if (!completed && !isStreamClosed(res)) {
-        completed = true;
-        writeEvent(res, { type: 'complete' });
-      }
-      append({
-        level: 'info',
-        message: 'chat stream complete',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: { baseUrl: safeBase, model, provider, conversationId },
-      });
-      baseLogger.info(
-        { requestId, baseUrl: safeBase, model, provider, conversationId },
-        'chat stream complete',
-      );
-      assistantTurnRecorded = !shouldUseMemoryPersistence(); // ChatInterfaceLMStudio persists only when Mongo is connected
-    } catch (err) {
-      const messageText =
-        (err as Error | undefined)?.message ?? 'lmstudio unavailable';
-      assistantStatus = cancelled ? 'stopped' : 'failed';
-      writeEvent(res, { type: 'error', message: messageText });
-      append({
-        level: 'error',
-        message: 'chat stream failed',
-        timestamp: new Date().toISOString(),
-        source: 'server',
-        requestId,
-        context: {
-          baseUrl: safeBase,
-          model,
-          provider,
+        conversationId,
+        inflightId,
+      },
+    });
+    baseLogger.info(
+      { requestId, provider, model, conversationId, inflightId },
+      'chat.run.started',
+    );
+
+    // Respond immediately; execution continues in the background.
+    res.status(202).json({
+      status: 'started',
+      conversationId,
+      inflightId,
+      provider,
+      model,
+    });
+
+    void (async () => {
+      try {
+        if (provider === 'codex') {
+          const activeThreadId =
+            threadId ??
+            (existingConversation.flags?.threadId as string | undefined) ??
+            null;
+
+          await chat.run(
+            message,
+            {
+              provider: 'codex',
+              threadId: activeThreadId,
+              codexFlags,
+              requestId,
+              signal: getInflight(conversationId)?.abortController.signal,
+              source: 'REST',
+            },
+            conversationId,
+            model,
+          );
+          return;
+        }
+
+        const historyForRun = shouldUseMemoryPersistence()
+          ? await loadTurnsChronological()
+          : undefined;
+
+        await chat.run(
+          message,
+          {
+            provider,
+            requestId,
+            baseUrl,
+            signal: getInflight(conversationId)?.abortController.signal,
+            history: historyForRun,
+            source: 'REST',
+          },
           conversationId,
-          error: messageText,
-        },
-      });
-      baseLogger.error(
-        {
-          requestId,
-          baseUrl: safeBase,
           model,
-          provider,
-          conversationId,
-          error: messageText,
-        },
-        'chat stream failed',
-      );
-    } finally {
-      if (cancelled && assistantContent === '') {
-        writeEvent(res, { type: 'error', message: 'generation stopped' });
+        );
+      } catch (err) {
+        baseLogger.error(
+          {
+            requestId,
+            provider,
+            model,
+            conversationId,
+            inflightId,
+            err,
+          },
+          'chat run failed',
+        );
+      } finally {
+        bridge.cleanup();
+
+        // Defensive cleanup: if the provider failed to emit a terminal event,
+        // avoid leaving in-flight state behind.
+        const leftover = getInflight(conversationId);
+        if (leftover && leftover.inflightId === inflightId) {
+          cleanupInflight({ conversationId, inflightId });
+        }
+
+        releaseConversationLock(conversationId);
       }
-      endIfOpen();
-    }
-    await recordAssistantTurn();
-    endIfOpen();
+    })();
   });
 
   return router;

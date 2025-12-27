@@ -1,3 +1,5 @@
+import type { ToolEvent } from '../chat/inflightRegistry.js';
+
 export const WS_PROTOCOL_VERSION = 'v1' as const;
 
 export type WsProtocolVersion = typeof WS_PROTOCOL_VERSION;
@@ -227,6 +229,63 @@ export type WsSidebarConversationDeleteEvent = {
   conversationId: string;
 };
 
+export type WsInflightSnapshotEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'inflight_snapshot';
+  conversationId: string;
+  seq: number;
+  inflight: {
+    inflightId: string;
+    assistantText: string;
+    assistantThink: string;
+    toolEvents: ToolEvent[];
+    startedAt: string;
+  };
+};
+
+export type WsAssistantDeltaEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'assistant_delta';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  delta: string;
+};
+
+export type WsAnalysisDeltaEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'analysis_delta';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  delta: string;
+};
+
+export type WsToolEventEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'tool_event';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  event: ToolEvent;
+};
+
+export type WsTurnFinalEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'turn_final';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  status: 'ok' | 'stopped' | 'failed';
+  threadId?: string | null;
+  error?: { code?: string; message?: string } | null;
+};
+
 export type WsServerEvent =
   | WsSidebarConversationUpsertEvent
-  | WsSidebarConversationDeleteEvent;
+  | WsSidebarConversationDeleteEvent
+  | WsInflightSnapshotEvent
+  | WsAssistantDeltaEvent
+  | WsAnalysisDeltaEvent
+  | WsToolEventEvent
+  | WsTurnFinalEvent;

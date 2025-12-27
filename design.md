@@ -69,11 +69,18 @@ end
 ## WebSocket transport (v1 foundation)
 
 - The server now exposes a WebSocket endpoint at `GET /ws` on the same HTTP port as Express.
-- This story will eventually unify chat streaming over WebSockets, but at this stage the existing `/chat` SSE transport remains in place; `/ws` is introduced as the shared foundation for sidebar + transcript fan-out.
+- Chat streaming is now WebSocket-only: `POST /chat` starts a run (HTTP 202) and all transcript updates are published to subscribed viewers via `/ws` (chat SSE removed).
 - All client → server WS messages must include `protocolVersion: "v1"`, `requestId`, and `type`. Malformed JSON or missing/invalid `protocolVersion` closes the socket.
 - Subscription state is tracked per socket:
   - `subscribe_sidebar` / `unsubscribe_sidebar`
   - `subscribe_conversation` / `unsubscribe_conversation` (requires `conversationId`)
+
+- Transcript events are broadcast only to sockets subscribed to the relevant `conversationId`:
+  - `inflight_snapshot` (sent immediately after `subscribe_conversation` when a run is in progress)
+  - `assistant_delta`, `analysis_delta`
+  - `tool_event`
+  - `turn_final` (terminal status for the in-flight turn)
+- Stop/cancel is driven by `cancel_inflight` (mapped to an in-flight AbortController).
 
 ```mermaid
 sequenceDiagram
@@ -96,6 +103,28 @@ sequenceDiagram
   alt Malformed JSON or protocolVersion != "v1"
     Server-->>Client: WS close (policy violation)
   end
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as UI (tab A)
+  participant Viewer as UI (tab B)
+  participant Server
+
+  UI->>Server: POST /chat (202 started)
+  Note over Server: Create inflight entry + start provider run
+  Server-->>Viewer: conversation_upsert (sidebar)
+
+  Viewer->>Server: WS subscribe_conversation(conversationId)
+  alt Run already in progress
+    Server-->>Viewer: inflight_snapshot (catch-up)
+  end
+
+  Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+
+  Viewer->>Server: WS cancel_inflight(conversationId, inflightId)
+  Note over Server: AbortController aborts provider run
 ```
 
 ```mermaid
@@ -146,7 +175,7 @@ flowchart LR
 
 ### Chat page (streaming UI)
 
-- Message input and Send button feed into `useChatStream(model, provider)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`, `thread`, `complete`) into a single assistant bubble per turn. Codex frames include a `thread`/`complete` payload with `threadId` so the hook can resume Codex threads without resending prior turns; LM Studio continues to use chat history replay.
+- Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).

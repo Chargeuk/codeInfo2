@@ -1134,7 +1134,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 ### 4. Chat WebSocket streaming publisher
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -1157,7 +1157,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Subtasks
 
-1. [ ] Locate the current chat SSE implementation and identify which parts must change to “start-run + WS stream”:
+1. [x] Locate the current chat SSE implementation and identify which parts must change to “start-run + WS stream”:
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -1166,7 +1166,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - In `server/src/routes/chat.ts`, chat streaming is implemented via `startStream(res)` and `writeEvent(res, ...)` (from `server/src/chatStream.ts`), and provider events are wired via `chat.on("token"|"analysis"|"tool-request"|"tool-result"|"final"|"thread"|"complete"|"error")`.
 
-2. [ ] Enforce one in-flight run per conversation by reusing the existing shared run lock:
+2. [x] Enforce one in-flight run per conversation by reusing the existing shared run lock:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to read:
@@ -1178,7 +1178,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      { "status":"error", "code":"RUN_IN_PROGRESS", "message":"Conversation already has an active run." }
      ```
 
-3. [ ] Implement an in-flight registry (single authoritative in-memory store for streaming state):
+3. [x] Implement an in-flight registry (single authoritative in-memory store for streaming state):
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
    - Files to edit:
@@ -1223,7 +1223,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Keep the API tiny and deterministic (get/set/append + bumpSeq + cleanup).
      - The registry must only hold state for active runs and must delete entries on completion.
 
-4. [ ] Define exact transcript event payloads for WS publishing and implement publisher helpers:
+4. [x] Define exact transcript event payloads for WS publishing and implement publisher helpers:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
@@ -1245,7 +1245,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 5, "inflightId":"...", "status":"ok", "threadId": null }
      ```
 
-5. [ ] Create a shared bridge that converts `ChatInterface` events into in-flight registry updates + WS transcript events:
+5. [x] Create a shared bridge that converts `ChatInterface` events into in-flight registry updates + WS transcript events:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to add:
@@ -1282,7 +1282,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
        - Agents runs (`POST /agents/:agentName/run`), and
        - MCP `codebase_question` runs.
 
-6. [ ] Refactor `POST /chat` to be non-streaming (start only), start the run in the background, and return a `202` JSON acknowledgement:
+6. [x] Refactor `POST /chat` to be non-streaming (start only), start the run in the background, and return a `202` JSON acknowledgement:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
@@ -1300,7 +1300,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - The run must create an in-flight entry and attach the shared bridge so WS subscribers receive transcript updates.
      - Remove `startStream(res)` / `writeEvent(res, ...)` usage for chat.
 
-7. [ ] Ensure Agents runs populate the in-flight registry and publish WS transcript updates:
+7. [x] Ensure Agents runs populate the in-flight registry and publish WS transcript updates:
    - Docs to read:
      - https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -1316,7 +1316,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Attach the shared bridge so WS subscribers see the same live transcript/tool events as `/chat`.
      - Ensure `turn_final` is published on success, cancellation, and failure.
 
-8. [ ] Ensure MCP `codebase_question` runs populate the in-flight registry and publish WS transcript updates (without changing MCP JSON-RPC response formats):
+8. [x] Ensure MCP `codebase_question` runs populate the in-flight registry and publish WS transcript updates (without changing MCP JSON-RPC response formats):
    - Docs to read:
      - https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
      - https://nodejs.org/api/globals.html#class-abortcontroller
@@ -1330,7 +1330,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Attach the shared bridge so WS subscribers can view the in-progress transcript when they open the MCP-created conversation in the UI.
      - Do not change the JSON-RPC tool payload structure returned by `McpResponder`.
 
-9. [ ] Implement WS inbound `cancel_inflight` handling and map it to provider abortion:
+9. [x] Implement WS inbound `cancel_inflight` handling and map it to provider abortion:
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
    - Files to edit:
@@ -1343,7 +1343,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - If inflight is missing/mismatched, publish `turn_final` with `status:"failed"` and `error.code="INFLIGHT_NOT_FOUND"`.
 
-10. [ ] Ensure threadId continuity (Codex) is reflected in WS final events and sidebar upserts:
+10. [x] Ensure threadId continuity (Codex) is reflected in WS final events and sidebar upserts:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
@@ -1353,7 +1353,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `turn_final.threadId` must be sent when available.
      - `conversation_upsert.conversation.flags.threadId` must be updated so new tabs can continue a thread.
 
-11. [ ] Ensure sidebar updates are emitted from persistence (repo) so they apply to Chat + Agents + MCP runs:
+11. [x] Ensure sidebar updates are emitted from persistence (repo) so they apply to Chat + Agents + MCP runs:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1`
    - Files to edit:
@@ -1361,7 +1361,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/mongo/repo.ts`
      - `server/src/ws/sidebar.ts`
 
-12. [ ] Remove chat SSE response handling (but keep `/logs/stream` SSE untouched):
+12. [x] Remove chat SSE response handling (but keep `/logs/stream` SSE untouched):
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -1370,7 +1370,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - After this story, chat must not depend on SSE anywhere in client or server code.
 
-13. [ ] Add server-side WS + streaming logs (explicit names and throttling):
+13. [x] Add server-side WS + streaming logs (explicit names and throttling):
    - Docs to read:
      - https://nodejs.org/api/console.html
    - Files to edit:
@@ -1386,7 +1386,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Log the first delta and then every 25 deltas; include `deltaCount`.
      - Log tool events per event; include `toolEventCount`.
 
-14. [ ] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
+14. [x] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1401,7 +1401,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
      - Include the Stop flow (`cancel_inflight`) and the late-subscriber catch-up rule (first event is `inflight_snapshot`).
 
-15. [ ] Update `projectStructure.md` with any added/removed server chat/WS modules:
+15. [x] Update `projectStructure.md` with any added/removed server chat/WS modules:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1421,7 +1421,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
        - `server/src/chatStream.ts` (SSE helper; remove only if it becomes unused and you choose to delete it)
      - If you add any additional chat/WS modules (for example additional WS publishers/helpers), include those exact paths too.
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1437,38 +1437,88 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Note:
      - If chat Cucumber steps fail due to transport changes, proceed to Task 5 to update them.
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Note:
      - If the client still expects SSE at this point, failures are expected until Tasks 7 and 9 update the client transport and tests.
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
    - Note:
      - If e2e mocks still use SSE at this point, failures are expected until Task 9 migrates e2e to `routeWebSocket`.
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat`.
    - If Task 7 is not complete yet, the UI may still be expecting SSE; record any expected broken state as “known interim state”.
    - Once Task 7 is complete, verify chat starts via `POST /chat` (202) and transcript updates arrive via WS for the visible conversation.
    - Confirm server log lines exist for this task:
      - Search for `chat.run.started` and `chat.stream.final`.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - (fill in during implementation)
+
+- Testing 9: `npm run compose:down` passed.
+
+- Testing 8: Manual smoke via `ws://host.docker.internal:5010/ws` + `POST http://host.docker.internal:5010/chat` confirmed `202 started`, `inflight_snapshot` catch-up, and `turn_final` delivery; `/logs` contains `chat.run.started` and `chat.stream.final`.
+
+- Testing 7: `npm run compose:up` passed (services healthy).
+
+- Testing 6: `npm run compose:build` passed.
+
+- Testing 5: `npm run e2e` passed after fixing the e2e Mongo service init race (`docker-compose.e2e.yml` no longer mounts `init-mongo.js`, relying on healthcheck rs.initiate).
+
+- Testing 4: `npm run test --workspace client` passed.
+
+- Testing 3: Ran `npm run test --workspace server`. Expected failures due to Task 4 transport change (`POST /chat` now returns 202 and WS publishes transcript); failing assertions still expect SSE/200 and will be updated in Task 5.
+
+- Testing 2: `npm run build --workspace client` passed.
+
+- Testing 1: `npm run build --workspace server` passed.
+
+- Testing/Lint: `npm run lint --workspaces` passed. `npm run format:check --workspaces` passed after running `npm run format --workspace server` to fix Prettier issues in the new server files.
+
+- Subtask 15: Updated `projectStructure.md` to list the new chat WS streaming modules (`server/src/chat/inflightRegistry.ts`, `server/src/chat/chatStreamBridge.ts`).
+
+- Subtask 14: Updated `design.md` to reflect WS-only chat streaming (`POST /chat` 202 start-run + `/ws` transcript events), including a Mermaid sequence diagram for start-run + late-subscriber catch-up and stop (`cancel_inflight`).
+
+- Subtask 13: Added required server log names across WS lifecycle + streaming (`chat.ws.*`, `chat.run.started`, `chat.stream.*`) with delta throttling (first + every 25) and per-tool-event logging including counts.
+
+- Subtask 12: Removed chat SSE streaming from `server/src/routes/chat.ts` (no more `startStream`/`writeEvent`); `/logs/stream` SSE remains unchanged.
+
+- Subtask 11: Verified sidebar events already originate from `server/src/mongo/repo.ts` via `emitConversationUpsert/delete` and are broadcast by `server/src/ws/sidebar.ts`, so chat/agents/MCP persistence changes trigger live sidebar updates.
+
+- Subtask 10: WS `turn_final` events now carry `threadId` when available via the shared stream bridge, and sidebar upserts already include `flags.threadId` via `updateConversationThreadId()` emitting repo events.
+
+- Subtask 9: Implemented `cancel_inflight` WS handling in `server/src/ws/server.ts`, wired to `inflightRegistry.abortInflight()`, and emits a `turn_final` failure event when the inflight run is missing/mismatched.
+
+- Subtask 8: Updated `server/src/mcp2/tools/codebaseQuestion.ts` to generate an inflightId per run, create inflight state, attach the shared WS stream bridge, and run providers using the inflight AbortController signal (MCP response shape unchanged).
+
+- Subtask 7: Updated `server/src/agents/service.ts` to create inflight state + attach the shared WS stream bridge for agent runs, and made the ChatInterface factory injectable via `params.chatFactory` for tests.
+
+- Subtask 2: `POST /chat` now uses the shared `tryAcquireConversationLock`/`releaseConversationLock` to enforce one active run per conversation and returns `409 RUN_IN_PROGRESS` on conflicts.
+
+- Subtask 6: Refactored `server/src/routes/chat.ts` + `server/src/routes/chatValidators.ts` so `POST /chat` returns `202` start-run JSON, creates an inflight entry, attaches the shared WS bridge, and runs providers in the background (no chat SSE).
+
+- Subtask 5: Added `server/src/chat/chatStreamBridge.ts` to translate ChatInterface events into inflight registry updates + WS transcript events (`inflight_snapshot`, deltas, tool_event, turn_final) with required log names/throttling.
+
+- Subtask 4: Extended `server/src/ws/types.ts` with transcript WS event types and updated `server/src/ws/server.ts` with publisher helpers + per-subscribe `inflight_snapshot` catch-up + `cancel_inflight` handling.
+
+- Subtask 3: Added `server/src/chat/inflightRegistry.ts` as the single in-memory source of truth for active runs (assistantText/assistantThink/toolEvents/seq + AbortController + cleanup).
+
+- Subtask 1: Reviewed existing `server/src/routes/chat.ts` SSE streaming + event wiring; confirmed current providers emit token/analysis/tool/final/thread/complete/error and rely on `server/src/chatStream.ts`.
 
 ---
 

@@ -583,7 +583,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 ### 2. Conversation bulk endpoints
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 57a91cf, c95e5dd
 #### Overview
 
 Add bulk archive/restore/delete endpoints with strong validation and archived-only delete guardrails (validate-first + idempotent writes; no transaction requirement in v1).

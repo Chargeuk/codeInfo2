@@ -2206,7 +2206,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
  ### 7. Chat WebSocket client streaming
 
 - Task Status: **__completed__**
-- Git Commits: **to_do**
+- Git Commits: f4d044b
 #### Overview
 
 Replace the chat SSE client with a WebSocket-based streaming client that subscribes per conversation, merges in-flight snapshots, and drives the transcript for the visible conversation only.

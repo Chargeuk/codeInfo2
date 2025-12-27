@@ -2203,9 +2203,9 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 ---
 
- ### 7. Chat WebSocket client streaming
+### 7. Chat WebSocket client streaming
 
-- Task Status: **__completed__**
+- Task Status: **__done__**
 - Git Commits: f4d044b
 #### Overview
 

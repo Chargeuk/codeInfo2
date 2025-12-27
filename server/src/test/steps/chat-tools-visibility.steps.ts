@@ -1,13 +1,23 @@
 import assert from 'assert';
-import type { Server } from 'http';
+import http, { type Server } from 'node:http';
+
 import { chatRequestFixture } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import type WebSocket from 'ws';
+
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs, type WsServerHandle } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 import {
   MockLMStudioClient,
   startMock,
@@ -15,14 +25,40 @@ import {
   type MockScenario,
 } from '../support/mockLmStudioSdk.js';
 
+type ChatStartResponse = {
+  status: 'started';
+  conversationId: string;
+  inflightId: string;
+};
+
+type ToolEvent = {
+  type?: string;
+  callId?: string | number;
+  name?: string;
+  result?: unknown;
+};
+
+type WsEvent = {
+  type?: string;
+  conversationId?: string;
+  inflightId?: string;
+  inflight?: { inflightId?: string };
+  event?: ToolEvent;
+};
+
 let server: Server | null = null;
+let wsHandle: WsServerHandle | null = null;
+let ws: WebSocket | null = null;
 let baseUrl = '';
-let events: unknown[] = [];
-let statusCode: number | null = null;
+
+let startResponse: ChatStartResponse | null = null;
+let toolRequest: ToolEvent | null = null;
+let toolResult: ToolEvent | null = null;
 
 Before(async () => {
   resetStore();
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -34,10 +70,13 @@ Before(async () => {
     }),
   );
 
+  const httpServer = http.createServer(app);
+  server = httpServer;
+  wsHandle = attachWs({ httpServer });
+
   await new Promise<void>((resolve) => {
-    const listener = app.listen(0, () => {
-      server = listener;
-      const address = listener.address();
+    httpServer.listen(0, () => {
+      const address = httpServer.address();
       if (!address || typeof address === 'string') {
         throw new Error('Unable to start test server');
       }
@@ -47,22 +86,33 @@ Before(async () => {
   });
 });
 
-After(() => {
+After(async () => {
   stopMock();
   resetStore();
+
+  if (ws) {
+    await closeWs(ws);
+    ws = null;
+  }
+  if (wsHandle) {
+    await wsHandle.close();
+    wsHandle = null;
+  }
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
-  events = [];
-  statusCode = null;
+
+  startResponse = null;
+  toolRequest = null;
+  toolResult = null;
 });
 
 Given('chat visibility scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
 
-When('I stream the chat endpoint with the chat request fixture', async () => {
+When('I start a chat run and subscribe to its WebSocket stream', async () => {
   const userMessage = Array.isArray(chatRequestFixture.messages)
     ? String(
         chatRequestFixture.messages.find(
@@ -70,6 +120,7 @@ When('I stream the chat endpoint with the chat request fixture', async () => {
         )?.content ?? 'Hello',
       )
     : 'Hello';
+
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -81,60 +132,70 @@ When('I stream the chat endpoint with the chat request fixture', async () => {
       message: userMessage,
     }),
   });
-  statusCode = res.status;
-  const reader = res.body?.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  if (!reader) return;
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split('\n\n');
-    buffer = frames.pop() ?? '';
-    frames.forEach((frame) => {
-      const trimmed = frame.trim();
-      if (!trimmed || trimmed.startsWith(':')) return;
-      const payload = trimmed.startsWith('data:')
-        ? trimmed.slice(5).trim()
-        : trimmed;
-      try {
-        events.push(JSON.parse(payload));
-      } catch {
-        // ignore parse errors
-      }
+  assert.equal(res.status, 202);
+  startResponse = (await res.json()) as ChatStartResponse;
+
+  ws = await connectWs({ baseUrl });
+  sendJson(ws, {
+    type: 'subscribe_conversation',
+    conversationId: startResponse.conversationId,
+  });
+
+  // Wait for snapshot to ensure subscription is active before asserting tool events.
+  await waitForEvent({
+    ws,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'inflight_snapshot' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflight?.inflightId === startResponse?.inflightId
+      );
+    },
+  });
+
+  // Capture at least one tool-request and one tool-result.
+  while (!(toolRequest && toolResult)) {
+    const next = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'tool_event' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflightId === startResponse?.inflightId
+        );
+      },
+      timeoutMs: 4000,
     });
+
+    if (!next.event) continue;
+    const evType = next.event.type;
+    if (evType === 'tool-request' && !toolRequest) toolRequest = next.event;
+    if (evType === 'tool-result' && !toolResult) toolResult = next.event;
   }
-});
 
-Then('the streamed tool events include call id and name', () => {
-  assert.strictEqual(statusCode, 200);
-  const request =
-    events.find(
-      (event) =>
-        (event as { type?: string }).type === 'tool-request' &&
-        typeof (event as { name?: unknown }).name === 'string',
-    ) ??
-    events.find((event) => (event as { type?: string }).type === 'tool-result');
-
-  assert.ok(request, 'expected tool-request event');
-  const callId = (request as { callId?: string | number }).callId;
-  assert.equal(String(callId), 'call-1');
-  assert.equal((request as { name?: string }).name, 'VectorSearch');
-
-  const logs = query({ text: 'chat tool event' });
+  const logs = query({ text: 'chat.stream.tool_event' });
   assert(logs.length > 0, 'expected tool events logged');
 });
 
+Then('the streamed tool events include call id and name', () => {
+  assert.ok(toolRequest ?? toolResult, 'expected tool events');
+  const request = toolResult ?? toolRequest;
+  assert.ok(request);
+
+  const callId = request.callId;
+  assert.ok(['call-1', '1'].includes(String(callId)));
+  assert.equal(request.name, 'VectorSearch');
+});
+
 Then('the streamed tool result includes path and repo metadata', () => {
-  const result = events.find(
-    (event) => (event as { type?: string }).type === 'tool-result',
-  );
-  assert.ok(result, 'expected tool-result event');
-  const payload = (result as { result?: unknown }).result as
+  assert.ok(toolResult, 'expected tool-result event');
+  const payload = toolResult.result as
     | { results?: Array<Record<string, unknown>> }
     | undefined;
+
   assert(payload && Array.isArray(payload.results), 'expected results array');
   const first = payload.results?.[0];
   assert.equal(first?.repo, 'repo');

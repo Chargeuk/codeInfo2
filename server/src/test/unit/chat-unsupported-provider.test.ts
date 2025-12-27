@@ -39,6 +39,7 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
   }
 
   assert.equal(res.status, 400);
-  assert.equal(res.body.error, 'unsupported provider');
+  assert.equal(res.body.status, 'error');
+  assert.equal(res.body.code, 'UNSUPPORTED_PROVIDER');
   assert.match(res.body.message, /Unsupported chat provider: bogus/);
 });

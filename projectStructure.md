@@ -400,6 +400,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) for WS transcript catch-up/cancellation
 - server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing
 - server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
+- server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
+- server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, unsubscribe behavior, and inflight cleanup
+- server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
+- server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates
+- server/src/test/integration/ws-logs.test.ts — integration coverage proving WS lifecycle logs are queryable via `GET /logs`
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list

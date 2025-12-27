@@ -133,6 +133,10 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       this.emitEvent(event);
     };
 
+    const emitTerminal = (event: ChatEvent) => {
+      this.emitEvent(event);
+    };
+
     const toolNames = new Map<string, string>();
     const toolCtx = new Map<
       string,
@@ -703,7 +707,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       await prediction;
 
       const completeEvent: ChatCompleteEvent = { type: 'complete' };
-      emitIfNotCancelled(completeEvent);
+      // Always emit a terminal event so WS clients receive `turn_final` even
+      // when the run is cancelled via `cancel_inflight`.
+      emitTerminal(completeEvent);
       toolCtx.clear();
       toolArgs.clear();
       toolRequestIdToCallId.clear();
@@ -714,7 +720,7 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         type: 'error',
         message: messageText,
       };
-      emitIfNotCancelled(errorEvent);
+      emitTerminal(errorEvent);
     } finally {
       toolCtx.clear();
       toolArgs.clear();

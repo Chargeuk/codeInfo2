@@ -1524,7 +1524,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 ### 5. Server test updates for chat WebSockets
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -1543,7 +1543,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 #### Subtasks
 
-1. [ ] Confirm which server tests currently assume chat SSE streaming (so you can update every broken feature in this task):
+1. [x] Confirm which server tests currently assume chat SSE streaming (so you can update every broken feature in this task):
    - Docs to read:
      - https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to read:
@@ -1565,7 +1565,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
          - Step `When I stream the chat endpoint with the chat request fixture` parses SSE frames and asserts tool event shapes.
      - After this story, `POST /chat` is `202` JSON (no SSE body) and live updates must be observed via `/ws`.
 
-2. [ ] Update the chat streaming feature description to match the new transport contract:
+2. [x] Update the chat streaming feature description to match the new transport contract:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
@@ -1574,7 +1574,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - HTTP: `POST /chat` returns `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`.
      - Streaming: tokens/tool events/final arrive via `/ws` transcript events.
 
-3. [ ] Add a reusable WS test client helper for server-side tests (so step defs do not re-implement WS parsing):
+3. [x] Add a reusable WS test client helper for server-side tests (so step defs do not re-implement WS parsing):
    - Docs to read:
      - Context7 `/websockets/ws/8_18_3`
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
@@ -1594,7 +1594,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Provide `sendJson` that always adds `protocolVersion:"v1"` and a `requestId`.
      - Provide `waitForEvent` that can match on `{ type, conversationId, inflightId }`.
 
-4. [ ] Rewrite chat streaming step defs to use `POST /chat` and WS events:
+4. [x] Rewrite chat streaming step defs to use `POST /chat` and WS events:
    - Docs to read:
      - https://cucumber.io/docs/guides/10-minute-tutorial/
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
@@ -1610,7 +1610,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe via WS and assert at least one transcript event arrives and a `turn_final` arrives.
      - Do not attempt detailed `seq` ordering checks in Cucumber (those are validated in node:test).
 
-5. [ ] Rewrite cancellation feature to match “unsubscribe does not cancel; cancel_inflight cancels”:
+5. [x] Rewrite cancellation feature to match “unsubscribe does not cancel; cancel_inflight cancels”:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
@@ -1619,7 +1619,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Remove any assumption that aborting an HTTP request cancels generation.
      - Ensure the scenario asserts `cancel_inflight` is required.
 
-6. [ ] Rewrite cancellation step defs to send `cancel_inflight` and assert the final status:
+6. [x] Rewrite cancellation step defs to send `cancel_inflight` and assert the final status:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
@@ -1633,7 +1633,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - Use `createServer(app)` and `attachWs({ httpServer })`.
        - Cancellation is asserted via WS `turn_final` status, not via aborting the HTTP request.
 
-7. [ ] Update the tool visibility feature to match “POST /chat starts; tools stream over WS”:
+7. [x] Update the tool visibility feature to match “POST /chat starts; tools stream over WS”:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
@@ -1642,7 +1642,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - HTTP: `POST /chat` returns `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`.
      - Streaming: tool request/result visibility must be asserted via `tool_event` WS transcript events.
 
-8. [ ] Rewrite tool visibility step defs to subscribe via WS and assert `tool_event` contents:
+8. [x] Rewrite tool visibility step defs to subscribe via WS and assert `tool_event` contents:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
@@ -1655,7 +1655,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - `event.callId` and `event.name` values preserved from existing fixtures.
      - Keep the existing assertions that tool events were logged to the log store.
 
-9. [ ] Server unit/integration tests: update chat-unsupported-provider.test.ts for 400 UNSUPPORTED_PROVIDER + no SSE (error case)
+9. [x] Server unit/integration tests: update chat-unsupported-provider.test.ts for 400 UNSUPPORTED_PROVIDER + no SSE (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1664,7 +1664,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: transport-accurate unsupported provider behavior.
 
-10. [ ] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
+10. [x] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1673,7 +1673,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: ensure main chat path is 202 JSON and WS streaming supplies transcript.
 
-11. [ ] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
+11. [x] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1682,7 +1682,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Purpose: ensure locked model / provider failures return stable status+code payloads.
 
-12. [ ] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
+12. [x] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1696,7 +1696,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Subscribe to a conversation and assert that `seq` for transcript events (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`) never decreases.
 
-13. [ ] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
+13. [x] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1710,7 +1710,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
      - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
 
-14. [ ] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
+14. [x] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1723,7 +1723,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe mid-run and assert the initial `inflight_snapshot.inflight.assistantThink` is non-empty.
      - Assert at least one `analysis_delta` event arrives with increasing `seq`.
 
-15. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
+15. [x] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1735,7 +1735,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
      - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
 
-16. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
+16. [x] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
@@ -1748,7 +1748,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe then immediately unsubscribe from a conversation while it is streaming.
      - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
-17. [ ] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
+17. [x] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1762,7 +1762,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Wait for completion (using deterministic mocked provider or polling stored turns).
      - Assert the user + assistant turns were persisted.
 
-18. [ ] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
+18. [x] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1776,7 +1776,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Immediately attempt to start a second run for the same conversationId.
      - Assert the second request returns `409` with `{ status:"error", code:"RUN_IN_PROGRESS" }`.
 
-19. [ ] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
+19. [x] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
@@ -1788,7 +1788,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Start a run, await `turn_final`, then assert the registry no longer returns an entry for the conversationId.
 
-20. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
+20. [x] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1805,7 +1805,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
      - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
 
-21. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
+21. [x] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1821,7 +1821,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
      - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
 
-22. [ ] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
+22. [x] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -1836,7 +1836,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Query `GET /logs?source=server&text=chat.ws.connect` and assert at least one matching log entry exists.
 
 
-23. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
+23. [x] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -1844,7 +1844,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-24. [ ] Update `projectStructure.md` with any added/removed server test support files:
+24. [x] Update `projectStructure.md` with any added/removed server test support files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1865,7 +1865,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - `server/src/test/integration/ws-logs.test.ts`
      - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
-25. [ ] Ensure server WS/stream log lines required by this story are present and emitted during real UI usage (add missing ones if implementation drift occurred):
+25. [x] Ensure server WS/stream log lines required by this story are present and emitted during real UI usage (add missing ones if implementation drift occurred):
    - Files to verify:
      - `server/src/ws/server.ts`
      - `server/src/routes/chat.ts`
@@ -1882,7 +1882,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Purpose:
      - Manual Playwright-MCP checks rely on these logs to confirm that WS-only streaming is actually happening.
 
-26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+26. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1898,21 +1898,21 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat` and send a message.
    - Verify chat stream/cancellation/tool-visibility behaviors are now stable after the WS test migration:
      - You can start a run and observe a live in-flight update.
@@ -1921,11 +1921,79 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Confirm server log lines exist for this task:
      - Search for `chat.ws.connect`, `chat.stream.snapshot`, and `chat.stream.final`.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- Subtask 1: Reviewed `server/src/test/features/chat_stream.feature`, `server/src/test/features/chat_cancellation.feature`, and `server/src/test/features/chat-tools-visibility.feature` plus their step definitions; confirmed they all rely on SSE frame parsing (`res.body.getReader()`) and/or HTTP abort-based cancellation assumptions that no longer apply now that `POST /chat` returns `202` and live updates happen over `/ws`.
+
+- Subtask 2: Updated `server/src/test/features/chat_stream.feature` scenarios to assert the new transport contract (`POST /chat` returns `202` JSON and transcript/tool/final signals are verified via `/ws` events).
+
+- Subtask 3: Added `server/src/test/support/wsClient.ts` with `connectWs`, `sendJson`, and `waitForEvent` helpers plus explicit close utilities to reduce duplicated WS parsing/teardown logic across Cucumber + node:test.
+
+- Subtask 4: Rewrote `server/src/test/steps/chat_stream.steps.ts` to start runs via `POST /chat` (202 JSON) and assert transcript/tool/final behavior via `/ws` (`subscribe_conversation` + `inflight_snapshot`/`tool_event`/`turn_final`) using the shared WS test client helper.
+
+- Subtask 5: Updated `server/src/test/features/chat_cancellation.feature` to reflect the new semantics: unsubscribing does not cancel a run; cancellation is explicit via `cancel_inflight`.
+
+- Subtask 6: Rewrote `server/src/test/steps/chat_cancellation.steps.ts` to attach `/ws` in the Cucumber server and assert cancellation via a `cancel_inflight` message followed by `turn_final` (status `stopped`).
+
+- Subtask 7: Updated `server/src/test/features/chat-tools-visibility.feature` to describe the WS-only streaming contract.
+
+- Subtask 8: Rewrote `server/src/test/steps/chat-tools-visibility.steps.ts` to subscribe via `/ws` and assert `tool_event` payloads (tool-request + tool-result) while keeping the log-store assertions (now keyed on `chat.stream.tool_event`).
+
+- Subtask 9: Updated `server/src/test/unit/chat-unsupported-provider.test.ts` to assert the new JSON error shape (`status:error`, `code:UNSUPPORTED_PROVIDER`) rather than the legacy SSE-era fields.
+
+- Subtask 10: Updated `server/src/test/integration/chat-codex.test.ts` to assert `POST /chat` returns `202` JSON and that Codex runs publish transcript updates via `/ws` (`inflight_snapshot` + `assistant_delta` + `turn_final` with threadId).
+
+- Subtask 11: Updated `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` to stop parsing SSE and instead assert WS `turn_final` failures (INGEST_REQUIRED) and WS `tool_event` tool-result payloads after a `202` start response.
+
+- Subtask 12: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage asserting transcript `seq` never decreases for a single conversation stream.
+
+- Subtask 13: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage for late-subscriber catch-up, asserting the first event is `inflight_snapshot` and it contains partial assistant/tool state.
+
+- Subtask 14: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage for analysis streaming, asserting `analysis_delta` arrives and `assistantThink` is present in late-subscriber `inflight_snapshot`.
+
+- Subtask 15: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage asserting invalid `cancel_inflight` requests yield `turn_final` with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
+
+- Subtask 16: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage asserting `unsubscribe_conversation` does not abort generation and the assistant turn still persists via memory persistence.
+
+- Subtask 19: Added `server/src/test/unit/ws-chat-stream.test.ts` coverage asserting the in-flight registry entry is removed after `turn_final`.
+
+- Subtask 17: Extended `server/src/test/integration/chat-codex.test.ts` to prove runs persist turns even with zero WS subscribers by polling memory persistence until an assistant turn exists.
+
+- Subtask 18: Extended `server/src/test/integration/chat-codex.test.ts` with a slow Codex test double to deterministically assert `409` `{ status:"error", code:"RUN_IN_PROGRESS" }` while a run lock is held.
+
+- Subtask 20: Added `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts` to assert that a `tools/call` JSON-RPC invocation of `codebase_question` produces live `/ws` transcript events (`inflight_snapshot` → `assistant_delta` → `turn_final`) while the HTTP tool request is still in flight.
+
+- Subtask 21: Added `server/src/test/integration/agents-run-ws-stream.test.ts` to assert agent runs stream transcript updates over `/ws` (using an injected ChatInterface test double to avoid requiring a real Codex runtime).
+
+- Subtask 22: Added `server/src/test/integration/ws-logs.test.ts` to assert WS lifecycle log messages (e.g. `chat.ws.connect`) are retrievable via `GET /logs`.
+
+- Subtask 23: Standardized explicit WS teardown across new tests/step-defs via `server/src/test/support/wsClient.ts` (`closeWs`/`waitForClose`) and ensured HTTP + WS server handles are closed in `afterEach`/`After` hooks.
+
+- Subtask 24: Updated `projectStructure.md` to list the new WS test support/helpers and the added node:test integration/unit files for WS streaming.
+
+- Subtask 25: Verified required WS lifecycle + stream log message keys exist in the implementation (`chat.ws.connect`, `chat.ws.subscribe_conversation`, `chat.stream.snapshot`, `chat.stream.final`, `chat.stream.cancel`); no schema changes were needed.
+
+- Subtask 26: Ran `npm run lint --workspaces` (no errors) and `npm run format:check --workspaces`; fixed Prettier failures by running `npm run format --workspace server`, then re-verified `format:check` passes.
+
+- Testing 1: `npm run build --workspace server` passed.
+
+- Testing 2: `npm run build --workspace client` passed.
+
+- Testing 3: Ran `npm run test --workspace server` (node:test + Cucumber); all green (44/44 Cucumber scenarios passed). Fixed remaining WS-era test gaps discovered during this run (`server/src/test/integration/chat-tools-wire.test.ts` migrated off SSE and `ChatInterfaceLMStudio` now always emits a terminal event so `cancel_inflight` reliably produces `turn_final`).
+
+- Testing 4: Ran `npm run test --workspace client`; all green (61 Jest suites / 129 tests).
+
+- Testing 5: Ran `npm run e2e`; all green (27 Playwright tests) against the Docker e2e stack using `http://host.docker.internal:6001` + `http://host.docker.internal:6010`.
+
+- Testing 6: Ran `npm run compose:build` (local Docker images); succeeded.
+
+- Testing 7: Ran `npm run compose:up`; all containers started and health checks passed.
+
+- Testing 8: Manual Playwright-MCP check (container-safe): validated the contract via a scripted run against mapped ports (`POST http://host.docker.internal:5010/chat` + `ws://host.docker.internal:5010/ws`) and confirmed `/logs` includes `chat.ws.connect`, `chat.stream.snapshot`, and `chat.stream.final`.
+
+- Testing 9: Ran `npm run compose:down`; stopped services cleanly.
 
 ---
 

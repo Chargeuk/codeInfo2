@@ -29,7 +29,7 @@ The intended approach for “catch-up” is:
 - The client continues to load the persisted snapshot (existing “load turns for a conversation” mechanism).
 - While a conversation is actively streaming, the server provides incremental updates for the current in-flight turn from in-memory state.
 - The UI merges persisted turns with the in-memory streaming turn so the transcript reflects “so far” content without requiring the server to retain full histories in memory.
-- Catch-up must include **both** partial assistant text **and** interim tool-call progress/events so the viewed transcript looks identical to watching the stream in the originating tab.
+- Catch-up must include **both** partial assistant text **and** interim tool-call progress/events **and** any streamed reasoning/analysis content, so the viewed transcript looks identical to watching the stream in the originating tab.
 - When a client subscribes to a conversation mid-stream (for example by switching to it, or opening it in another tab), the server sends a **full in-flight turn snapshot** (assistant text so far + tool progress history so far) before streaming further incremental updates.
 - If a WebSocket reconnect occurs (network hiccup / laptop sleep), the client treats itself as potentially out of sync and reuses the existing snapshot mechanisms:
   - it refreshes the conversation list snapshot,
@@ -97,7 +97,7 @@ This story does not need to implement the Agents UI reuse, but the Chat sidebar/
 - A user can switch between conversations and see the correct live stream for whichever conversation is actively streaming.
 - If the same conversation is viewed in multiple browser windows, both windows receive the same live updates while the run is in progress.
 - In-progress MCP and agent-initiated conversations stream in the UI the same way as REST/Web conversations (without changing MCP message formats or MCP tooling behaviour).
-- When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events.
+- When switching to a conversation that is already mid-stream, catch-up renders the in-flight state so the transcript matches the originating tab, including interim tool-call progress/events **and** streamed reasoning/analysis (when applicable).
 - Transcript streaming is scoped to the currently visible conversation only: when the user switches conversations, the client unsubscribes from the prior conversation stream and subscribes to the newly visible one.
 - Starting a run in the Chat page and then navigating away does not cancel generation; the run continues to completion unless the user explicitly stops it using the existing Stop button.
 - Chat streaming uses WebSockets only: `POST /chat` no longer streams SSE and returns a JSON acknowledgement that a run has started; all tokens/tool events/final updates arrive via the WebSocket transcript stream.
@@ -153,7 +153,7 @@ Status: **accepted for v1** (no further protocol decisions required before taski
 - `POST /chat` becomes a non-streaming “start run” request. It returns JSON and does **not** use `text/event-stream`.
 - Response shape (success, HTTP 202):
   - `{ "status": "started", "conversationId": "<id>", "inflightId": "<id>", "provider": "<provider>", "model": "<model>" }`
-  - `conversationId` echoes the request when provided, or a new id when the conversation is created.
+  - `conversationId` is required in the request (client-generated, as today) and echoed in the response.
   - `inflightId` is generated if the client did not supply one; it is stable for the lifetime of the run and used for `cancel_inflight`.
 - `POST /chat` does **not** require an active WebSocket connection; runs may start even if there are no subscribers.
 - Response shape (error, HTTP 409):
@@ -165,7 +165,7 @@ Status: **accepted for v1** (no further protocol decisions required before taski
   - `{ "status": "error", "code": "PROVIDER_UNAVAILABLE", "message": "<reason>" }` (e.g., LM Studio down)
 - Response shape (error, HTTP 500):
   - `{ "status": "error", "code": "INTERNAL_ERROR", "message": "Unexpected error." }`
-- The server begins the run and publishes `inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final` events over the WebSocket to any subscribed viewers.
+- The server begins the run and publishes `inflight_snapshot`/`assistant_delta`/`analysis_delta`/`tool_event`/`turn_final` events over the WebSocket to any subscribed viewers.
 - The server also publishes `conversation_upsert` sidebar updates when:
   - a conversation is created/updated at run start (title/model/flags/lastMessageAt), and
   - a user/assistant turn is persisted (so `lastMessageAt` resorting works live).
@@ -206,8 +206,11 @@ All server events include `protocolVersion: "v1"`.
 - Transcript events (scoped to a `conversationId`)
   - `type: "inflight_snapshot"`
     - Sent immediately after `subscribe_conversation` when a run is currently in progress, and broadcast to existing subscribers when a new in-flight turn starts (snapshot may be empty until the first delta/tool event arrives).
-    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, toolEvents: ToolEvent[], startedAt: string } }`
+    - `{ type, conversationId, seq: number, inflight: { inflightId: string, assistantText: string, assistantThink: string, toolEvents: ToolEvent[], startedAt: string } }`
   - `type: "assistant_delta"`
+    - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
+  - `type: "analysis_delta"`
+    - Streamed reasoning/analysis text (Codex provider emits this separately from tokens).
     - `{ type, conversationId, seq: number, inflightId: string, delta: string }`
   - `type: "tool_event"`
     - Interim tool progress/events (so viewers match the originating tab).
@@ -265,6 +268,13 @@ These findings are based on the current repository implementation and are includ
 
 - There is already a per-conversation in-memory lock used by Agents runs: `server/src/agents/runLock.ts`.
 - Story 19 should reuse this lock for Chat runs so that Agents + Chat share the same `RUN_IN_PROGRESS` semantics.
+
+### Agents + MCP transcript streaming gaps (today)
+
+- Agents runs (`server/src/agents/service.ts`) and MCP v2 `codebase_question` (`server/src/mcp2/tools/codebaseQuestion.ts`) both call `chat.run(...)`, but they currently only attach a local `McpResponder` that buffers segments for the HTTP/JSON-RPC response.
+- They do **not** publish transcript deltas/tool events/finals to any shared streaming channel.
+- To satisfy this story’s acceptance criteria (“agent/MCP-initiated conversations stream in the UI the same way”), Story 19 must ensure those runs also populate the in-flight registry and publish WS transcript events (not just sidebar upserts).
+- Implementation should avoid duplication by using a single shared “ChatInterface events → in-flight registry → WS publish” bridge that is reused by `/chat`, Agents runs, and MCP `codebase_question`.
 
 ### Existing e2e mocking approach (today)
 
@@ -457,6 +467,8 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 10. [ ] Update project documentation if new files were introduced by this task:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -674,6 +686,8 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 14. [ ] Update project documentation for any added/changed files:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -746,7 +760,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Files to read:
      - `server/src/index.ts`
    - Requirements:
-     - Identify the exact place where `app.listen(...)` is called so it can be replaced with an explicit Node `http` server (needed to listen for the `upgrade` event).
+     - In `server/src/index.ts`, `app.listen(Number(PORT), ...)` is called inside the `start()` function near the bottom of the file; this is what must be replaced with `http.createServer(app).listen(...)` so we can handle `upgrade` for `/ws`.
 
 2. [ ] Add `ws` as a server runtime dependency (do not rely on transitive lockfile deps):
    - Docs to read:
@@ -883,6 +897,8 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 13. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -958,7 +974,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/routes/chat.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
-     - Identify where `/chat` currently sets `Content-Type: text/event-stream` and writes SSE frames.
+     - In `server/src/routes/chat.ts`, chat streaming is implemented via `startStream(res)` and `writeEvent(res, ...)` (from `server/src/chatStream.ts`), and provider events are wired via `chat.on("token"|"analysis"|"tool-request"|"tool-result"|"final"|"thread"|"complete"|"error")`.
 
 2. [ ] Enforce one in-flight run per conversation by reusing the existing shared run lock:
    - Docs to read:
@@ -980,6 +996,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Required state to track per `conversationId`:
      - `inflightId`
      - `assistantText` (so late subscribers can catch up)
+     - `assistantThink` (streamed reasoning/analysis so far; used by Codex `analysis` frames)
      - `toolEvents` (so late subscribers see interim tool progress)
      - `startedAt` (ISO string)
      - `abortController`
@@ -992,34 +1009,48 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/ws/server.ts`
    - Required outbound transcript events (examples):
      ```json
-     { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
+     { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "assistantThink":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
      ```
      ```json
      { "protocolVersion":"v1", "type":"assistant_delta", "conversationId":"...", "seq": 2, "inflightId":"...", "delta":"hello" }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"tool_event", "conversationId":"...", "seq": 3, "inflightId":"...", "event": { "type":"tool-request", "callId":"1", "name":"vector_search", "parameters": {} } }
+     { "protocolVersion":"v1", "type":"analysis_delta", "conversationId":"...", "seq": 3, "inflightId":"...", "delta":"Thinking..." }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 4, "inflightId":"...", "status":"ok", "threadId": null }
+     { "protocolVersion":"v1", "type":"tool_event", "conversationId":"...", "seq": 4, "inflightId":"...", "event": { "type":"tool-request", "callId":"1", "name":"vector_search", "parameters": {} } }
+     ```
+     ```json
+     { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 5, "inflightId":"...", "status":"ok", "threadId": null }
      ```
 
-5. [ ] Bridge provider-emitted events (`ChatInterface` events) into the in-flight registry and publisher:
+5. [ ] Create a shared bridge that converts `ChatInterface` events into in-flight registry updates + WS transcript events:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
-   - Files to edit:
-     - `server/src/routes/chat.ts`
-     - `server/src/chat/inflightRegistry.ts`
+   - Files to add:
+     - `server/src/chat/chatStreamBridge.ts` (or similar)
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterface.ts` (event names and payload shapes)
    - Requirements:
-     - On first token/tool event, begin publishing to any subscribed clients.
-     - Always publish `turn_final` exactly once at completion (ok/stopped/failed).
+     - The bridge must:
+       - Subscribe to `chat.on('token'|'analysis'|'tool-request'|'tool-result'|'final'|'thread'|'complete'|'error')`.
+       - Update `inflightRegistry` (`assistantText`, `assistantThink`, `toolEvents`) as events arrive.
+       - Publish WS transcript events (`assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`) via the WS publisher helpers.
+       - Publish an `inflight_snapshot` immediately when a run starts (so late subscribers can catch up deterministically).
+       - Ensure `turn_final` is published exactly once and the in-flight entry is cleaned up promptly.
+     - The bridge must be reusable by:
+       - REST chat runs (`POST /chat`),
+       - Agents runs (`POST /agents/:agentName/run`), and
+       - MCP `codebase_question` runs.
 
-6. [ ] Refactor `POST /chat` to be non-streaming (start only) and return a `202` JSON acknowledgement:
+6. [ ] Refactor `POST /chat` to be non-streaming (start only), start the run in the background, and return a `202` JSON acknowledgement:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
      - `server/src/routes/chat.ts`
      - `server/src/routes/chatValidators.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/chat/chatStreamBridge.ts` (or similar)
    - Required success response (example):
      ```json
      { "status":"started", "conversationId":"...", "inflightId":"...", "provider":"codex", "model":"gpt-5.1-codex-max" }
@@ -1027,8 +1058,40 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - The run must execute in the background (do not block the HTTP response).
      - The run must continue even if the browser navigates away or unsubscribes.
+     - The run must create an in-flight entry and attach the shared bridge so WS subscribers receive transcript updates.
+     - Remove `startStream(res)` / `writeEvent(res, ...)` usage for chat.
 
-7. [ ] Implement WS inbound `cancel_inflight` handling and map it to provider abortion:
+7. [ ] Ensure Agents runs populate the in-flight registry and publish WS transcript updates:
+   - Docs to read:
+     - https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+   - Files to edit:
+     - `server/src/agents/service.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/chat/chatStreamBridge.ts` (or similar)
+   - Requirements:
+     - When an agent run starts, generate an `inflightId` (use `crypto.randomUUID()` when the caller did not supply one).
+     - Refactor `server/src/agents/service.ts` so its ChatInterface factory is injectable for tests (default to existing `getChatInterface`):
+       - This avoids requiring real Codex availability in server test runs.
+     - Create the in-flight registry entry before calling `chat.run(...)`.
+     - Attach the shared bridge so WS subscribers see the same live transcript/tool events as `/chat`.
+     - Ensure `turn_final` is published on success, cancellation, and failure.
+
+8. [ ] Ensure MCP `codebase_question` runs populate the in-flight registry and publish WS transcript updates (without changing MCP JSON-RPC response formats):
+   - Docs to read:
+     - https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
+     - https://nodejs.org/api/globals.html#class-abortcontroller
+   - Files to edit:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/chat/chatStreamBridge.ts` (or similar)
+   - Requirements:
+     - Generate a stable `inflightId` per MCP run (use `crypto.randomUUID()`).
+     - Create the in-flight registry entry before calling `chat.run(...)`.
+     - Attach the shared bridge so WS subscribers can view the in-progress transcript when they open the MCP-created conversation in the UI.
+     - Do not change the JSON-RPC tool payload structure returned by `McpResponder`.
+
+9. [ ] Implement WS inbound `cancel_inflight` handling and map it to provider abortion:
    - Docs to read:
      - https://nodejs.org/api/globals.html#class-abortcontroller
    - Files to edit:
@@ -1041,7 +1104,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - If inflight is missing/mismatched, publish `turn_final` with `status:"failed"` and `error.code="INFLIGHT_NOT_FOUND"`.
 
-8. [ ] Ensure threadId continuity (Codex) is reflected in WS final events and sidebar upserts:
+10. [ ] Ensure threadId continuity (Codex) is reflected in WS final events and sidebar upserts:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
    - Files to edit:
@@ -1051,7 +1114,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `turn_final.threadId` must be sent when available.
      - `conversation_upsert.conversation.flags.threadId` must be updated so new tabs can continue a thread.
 
-9. [ ] Ensure sidebar updates are emitted from persistence (repo) so they apply to Chat + Agents + MCP runs:
+11. [ ] Ensure sidebar updates are emitted from persistence (repo) so they apply to Chat + Agents + MCP runs:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1`
    - Files to edit:
@@ -1059,7 +1122,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/mongo/repo.ts`
      - `server/src/ws/sidebar.ts`
 
-10. [ ] Remove chat SSE response handling (but keep `/logs/stream` SSE untouched):
+12. [ ] Remove chat SSE response handling (but keep `/logs/stream` SSE untouched):
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -1068,7 +1131,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - After this story, chat must not depend on SSE anywhere in client or server code.
 
-11. [ ] Add server-side WS + streaming logs (explicit names and throttling):
+13. [ ] Add server-side WS + streaming logs (explicit names and throttling):
    - Docs to read:
      - https://nodejs.org/api/console.html
    - Files to edit:
@@ -1084,7 +1147,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Log the first delta and then every 25 deltas; include `deltaCount`.
      - Log tool events per event; include `toolEventCount`.
 
-12. [ ] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
+14. [ ] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -1095,11 +1158,14 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
    - Requirements:
      - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
+     - Document that Agents runs and MCP `codebase_question` runs also publish WS transcript events via the shared bridge (so they can be viewed live in the UI).
      - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
      - Include the Stop flow (`cancel_inflight`) and the late-subscriber catch-up rule (first event is `inflight_snapshot`).
 
-13. [ ] Update `projectStructure.md` with any added/removed server chat/WS modules:
+15. [ ] Update `projectStructure.md` with any added/removed server chat/WS modules:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -1110,7 +1176,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Requirements:
      - Add entries for new files like `server/src/chat/inflightRegistry.ts` and any new WS/chat modules introduced by this task.
 
-14. [ ] Run repo-wide lint/format checks:
+16. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1289,7 +1355,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Ensure switching tabs/windows mid-stream shows the same transcript as the originating view.
    - Requirements:
      - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
-     - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and any `toolEvents` emitted so far (when applicable).
+     - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
 
 12. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
    - Docs to read:
@@ -1316,8 +1382,41 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe then immediately unsubscribe from a conversation while it is streaming.
      - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
+14. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
+   - Files to read:
+     - `server/src/mcp2/tools/codebaseQuestion.ts` (how conversationId is chosen)
+     - `server/src/mcp2/server.ts` (MCP v2 runs on a separate HTTP server/port)
+     - `server/src/mcp2/router.ts` (JSON-RPC request handling)
+   - Purpose:
+     - Prove MCP-sourced conversations can be viewed live in the Chat UI via the same WS transcript contract.
+   - Requirements:
+     - Start a WS client and subscribe to a known `conversationId`.
+     - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
+     - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
 
-14. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
+15. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Files to read:
+     - `server/src/routes/agentsRun.ts` (request shape)
+     - `server/src/agents/service.ts` (stream bridge attachment)
+   - Purpose:
+     - Prove agent-initiated conversations can be viewed live across windows (server side).
+   - Requirements:
+     - Use a deterministic `conversationId` in the agent run request.
+     - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
+     - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
+
+
+16. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -1325,8 +1424,10 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-15. [ ] Update `projectStructure.md` with any added/removed server test support files:
+17. [ ] Update `projectStructure.md` with any added/removed server test support files:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -1337,7 +1438,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Add entries for new test utilities and test files introduced by this task (for example `server/src/test/support/wsClient.ts` and new WS unit tests).
 
-16. [ ] Run repo-wide lint/format checks:
+18. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1476,6 +1577,8 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 11. [ ] Update `projectStructure.md` if any new UI modules are added:
     - Docs to read:
+      - https://www.markdownguide.org/basic-syntax/
+    - Files to read:
       - `projectStructure.md`
     - Files to edit:
       - `projectStructure.md`
@@ -1592,6 +1695,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      ```
    - Requirements:
      - Track the last seen `seq` per conversation and ignore stale/out-of-order events.
+     - Handle `analysis_delta` by updating the assistant think/reasoning state (equivalent of existing SSE `analysis` frames for Codex).
      - Cache the latest `inflightId` for Stop.
      - Render tool events using the existing UI expectations (tool-request/tool-result shapes).
 
@@ -1643,7 +1747,22 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - When persistence is unavailable, disable live streaming (do not connect/subscribe) and show a clear banner/message explaining why.
      - The user must still be able to Stop an in-flight run (if they have `conversationId` + `inflightId`).
 
-10. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
+10. [ ] Enable live transcript streaming for agent-initiated conversations in the Agents UI (same WS transcript contract):
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/hooks/useChatWs.ts`
+   - Purpose:
+     - Ensure the acceptance criteria “agent-initiated conversations stream in the UI the same way” is true in practice, not just server-side.
+   - Requirements:
+     - When an agent conversation is selected (`activeConversationId` is set) and persistence is available, subscribe to that conversation over WS.
+     - Render the in-flight assistant state (assistant text + streamed reasoning + tool events) in the transcript so a second window watching the same agent conversation sees live updates.
+     - Unsubscribe on conversation switch and on unmount.
+     - Do not change the Agents REST response format (it still returns `segments`); this subtask only improves live viewing while a run is in progress.
+
+11. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -1658,8 +1777,10 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
      - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
 
-11. [ ] Update `projectStructure.md` with any added/removed client streaming modules:
+12. [ ] Update `projectStructure.md` with any added/removed client streaming modules:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -1670,7 +1791,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Requirements:
      - Add entries for new files like `client/src/hooks/useChatWs.ts` and any new WS support utilities.
 
-12. [ ] Run repo-wide lint/format checks:
+13. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1769,6 +1890,8 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 5. [ ] Update `projectStructure.md` with any added/removed client logging modules:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -1848,7 +1971,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Files to edit:
      - `common/src/fixtures/chatStream.ts`
    - Requirements:
-     - Export WS-shaped fixtures for: `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`.
+     - Export WS-shaped fixtures for: `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`.
      - Keep existing exports that other tests rely on, or update import sites in the same subtask.
 
 3. [ ] Client unit test harness (Jest): add `useChatWs` test file and WebSocket mock wiring
@@ -2286,8 +2409,36 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-47. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
+47. [ ] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
    - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://testing-library.com/docs/react-testing-library/intro/
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Files to add:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Files to add/edit (as needed):
+     - `client/src/test/support/mockWebSocket.ts`
+   - Purpose:
+     - Prove agent-initiated conversations can be viewed live (acceptance criteria) using the same WS transcript contract as Chat.
+   - Requirements:
+     - Render `AgentsPage` with persistence enabled.
+     - Select a conversationId (set `activeConversationId` via UI interaction or controlled state).
+     - Emit WS events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`) and assert the transcript UI reflects the in-flight assistant state.
+
+48. [ ] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Purpose:
+     - Prevent WS subscription leaks when switching agent conversations.
+   - Requirements:
+     - Switch `activeConversationId` and assert the mock WebSocket recorded an `unsubscribe_conversation` for the old id.
+
+49. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
@@ -2298,7 +2449,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Add entries for new helper modules added by this task (for example `e2e/support/mockChatWs.ts` and `client/src/test/support/mockWebSocket.ts`).
 
-48. [ ] Run repo-wide lint/format checks:
+50. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -2410,6 +2561,8 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 6. [ ] Update `projectStructure.md` with any updated/added/removed files:
    - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`

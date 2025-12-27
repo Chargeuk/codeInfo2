@@ -263,6 +263,102 @@ export async function listTurns(
   return { items };
 }
 
+type ConversationLite = { _id: string; archivedAt?: Date | null };
+
+export type BulkConversationConflict = {
+  status: 'conflict';
+  invalidIds: string[];
+  invalidStateIds: string[];
+};
+
+export type BulkConversationUpdateResult =
+  | { status: 'ok'; updatedCount: number }
+  | BulkConversationConflict;
+
+export type BulkConversationDeleteResult =
+  | { status: 'ok'; deletedCount: number }
+  | BulkConversationConflict;
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
+}
+
+async function validateConversationIds(conversationIds: string[]): Promise<{
+  uniqueIds: string[];
+  docs: ConversationLite[];
+  invalidIds: string[];
+}> {
+  const uniqueIds = uniqueStrings(conversationIds);
+  const docs = (await ConversationModel.find({
+    _id: { $in: uniqueIds },
+  })
+    .select({ _id: 1, archivedAt: 1 })
+    .lean()
+    .exec()) as ConversationLite[];
+  const foundIds = new Set(docs.map((d) => d._id));
+  const invalidIds = uniqueIds.filter((id) => !foundIds.has(id));
+
+  return { uniqueIds, docs, invalidIds };
+}
+
+export async function bulkArchiveConversations(
+  conversationIds: string[],
+): Promise<BulkConversationUpdateResult> {
+  const { uniqueIds, invalidIds } =
+    await validateConversationIds(conversationIds);
+
+  if (invalidIds.length > 0) {
+    return { status: 'conflict', invalidIds, invalidStateIds: [] };
+  }
+
+  const result = await ConversationModel.updateMany(
+    { _id: { $in: uniqueIds } },
+    { $set: { archivedAt: new Date() } },
+  ).exec();
+
+  return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
+}
+
+export async function bulkRestoreConversations(
+  conversationIds: string[],
+): Promise<BulkConversationUpdateResult> {
+  const { uniqueIds, invalidIds } =
+    await validateConversationIds(conversationIds);
+
+  if (invalidIds.length > 0) {
+    return { status: 'conflict', invalidIds, invalidStateIds: [] };
+  }
+
+  const result = await ConversationModel.updateMany(
+    { _id: { $in: uniqueIds } },
+    { $set: { archivedAt: null } },
+  ).exec();
+
+  return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
+}
+
+export async function bulkDeleteConversations(
+  conversationIds: string[],
+): Promise<BulkConversationDeleteResult> {
+  const { uniqueIds, docs, invalidIds } =
+    await validateConversationIds(conversationIds);
+
+  const invalidStateIds = docs
+    .filter((d) => d.archivedAt == null)
+    .map((d) => d._id);
+
+  if (invalidIds.length > 0 || invalidStateIds.length > 0) {
+    return { status: 'conflict', invalidIds, invalidStateIds };
+  }
+
+  await TurnModel.deleteMany({ conversationId: { $in: uniqueIds } }).exec();
+  const deleted = await ConversationModel.deleteMany({
+    _id: { $in: uniqueIds },
+  }).exec();
+
+  return { status: 'ok', deletedCount: deleted.deletedCount ?? 0 };
+}
+
 function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
 }

@@ -582,7 +582,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 ### 2. Conversation bulk endpoints
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -603,7 +603,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 #### Subtasks
 
-1. [ ] Read the existing conversation archive/restore/delete plumbing:
+1. [x] Read the existing conversation archive/restore/delete plumbing:
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0`
      - Context7 `/automattic/mongoose/9.0.1`
@@ -613,7 +613,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/turn.ts`
 
-2. [ ] Add bulk endpoints and request validation:
+2. [x] Add bulk endpoints and request validation:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
@@ -634,7 +634,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - If the request body is missing `conversationIds`, `conversationIds` is not an array, or any id is not a string, return:
        `400` JSON `{ status:"error", code:"VALIDATION_FAILED", message:"<reason>" }`.
 
-3. [ ] Implement repo-layer bulk operations without transactions (validate-first + idempotent writes):
+3. [x] Implement repo-layer bulk operations without transactions (validate-first + idempotent writes):
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1`
    - Files to edit:
@@ -647,7 +647,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Delete ordering requirement:
      - Delete turns first, then delete conversations, so we do not leave orphaned turn docs.
 
-4. [ ] Server integration test: POST /conversations/bulk/archive returns 200 and updatedCount matches (happy path)
+4. [x] Server integration test: POST /conversations/bulk/archive returns 200 and updatedCount matches (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -657,7 +657,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Test type: server integration (node:test + SuperTest).
      - Purpose: prove bulk archive success contract and response shape.
 
-5. [ ] Server integration test: POST /conversations/bulk/restore returns 200 and updatedCount matches (happy path)
+5. [x] Server integration test: POST /conversations/bulk/restore returns 200 and updatedCount matches (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -667,7 +667,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Test type: server integration (node:test + SuperTest).
      - Purpose: prove bulk restore success contract and response shape.
 
-6. [ ] Server integration test: POST /conversations/bulk/delete deletes archived conversations and their turns (happy path)
+6. [x] Server integration test: POST /conversations/bulk/delete deletes archived conversations and their turns (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -678,7 +678,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Test type: server integration (node:test + SuperTest).
      - Purpose: prove hard delete removes both Conversation and Turn records.
 
-7. [ ] Server integration test: bulk endpoints reject missing conversationIds with 400 VALIDATION_FAILED (error case)
+7. [x] Server integration test: bulk endpoints reject missing conversationIds with 400 VALIDATION_FAILED (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -688,7 +688,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: avoid accepting malformed input (contract guard).
 
-8. [ ] Server integration test: bulk endpoints reject non-array conversationIds with 400 VALIDATION_FAILED (error case)
+8. [x] Server integration test: bulk endpoints reject non-array conversationIds with 400 VALIDATION_FAILED (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -698,7 +698,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: ensure strict input validation.
 
-9. [ ] Server integration test: bulk endpoints reject non-string ids with 400 VALIDATION_FAILED (error case)
+9. [x] Server integration test: bulk endpoints reject non-string ids with 400 VALIDATION_FAILED (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -708,7 +708,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: prevent server from attempting to coerce ids.
 
-10. [ ] Server integration test: bulk endpoints reject empty conversationIds array with 400 VALIDATION_FAILED (corner case)
+10. [x] Server integration test: bulk endpoints reject empty conversationIds array with 400 VALIDATION_FAILED (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -718,7 +718,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: prevent accidental no-op bulk calls being treated as success.
 
-11. [ ] Server integration test: bulk endpoints accept duplicate conversationIds and treat them as unique (corner case)
+11. [x] Server integration test: bulk endpoints accept duplicate conversationIds and treat them as unique (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -730,7 +730,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Create an archived or active conversation, then call bulk archive/restore with `[id, id]`.
      - Assert the endpoint returns `200` and `updatedCount` equals `1` (not 2), and that the resulting state is correct.
 
-12. [ ] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
+12. [x] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -740,7 +740,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: prove all-or-nothing behavior. Assert details.invalidIds includes the missing id and nothing changes.
 
-13. [ ] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
+13. [x] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -750,7 +750,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
 
-14. [ ] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
+14. [x] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -763,7 +763,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
      - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
 
-15. [ ] Update project documentation for any added/changed files:
+15. [x] Update project documentation for any added/changed files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -775,7 +775,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-16. [ ] Add server log lines for bulk conversation actions so manual checks can prove archive/restore/delete are firing:
+16. [x] Add server log lines for bulk conversation actions so manual checks can prove archive/restore/delete are firing:
    - Files to edit:
      - `server/src/routes/conversations.ts` (bulk route handlers)
      - `server/src/logStore.ts` (use existing append helper; do not change schema)
@@ -793,7 +793,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Notes:
      - Log `conversations.bulk.conflict` only when returning `409 BATCH_CONFLICT`.
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -809,32 +809,56 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (smoke + regression):
+8. [x] Manual Playwright-MCP check (smoke + regression):
    - Open `/chat` and confirm the page loads.
    - Regression: existing archive/restore (single-item) still works for at least one conversation (bulk UI is Task 6; at this stage you are checking that older flows were not broken by new endpoints).
    - Open `/logs` and confirm no repeated server errors when clicking around.
    - Confirm server log lines exist for this task:
      - Perform at least one bulk request (if UI is not ready, you can use curl) and search for `conversations.bulk.request` and `conversations.bulk.success`.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Reviewed existing single-item archive/restore routes and the repo persistence layer to mirror their behavior (status codes, idempotency expectations) in the new bulk endpoints.
+- 2025-12-27: Added repo-layer bulk helpers (`bulkArchiveConversations`, `bulkRestoreConversations`, `bulkDeleteConversations`) implementing validate-first / all-or-nothing semantics and archived-only hard delete (turns deleted before conversations).
+- 2025-12-27: Added `POST /conversations/bulk/archive|restore|delete` with strict body validation, consistent 409 conflict responses, and required `/logs` messages (`conversations.bulk.request|conflict|success`).
+- 2025-12-27: Added server integration coverage for bulk archive happy path in `server/src/test/integration/conversations.bulk.test.ts`.
+- 2025-12-27: Added server integration coverage for bulk restore happy path in `server/src/test/integration/conversations.bulk.test.ts`.
+- 2025-12-27: Added server integration coverage for bulk delete happy path (verifies both conversation + turns removal) in `server/src/test/integration/conversations.bulk.test.ts`.
+- 2025-12-27: Added server integration coverage for required 400 VALIDATION_FAILED on missing `conversationIds`.
+- 2025-12-27: Added server integration coverage for required 400 VALIDATION_FAILED when `conversationIds` is not an array.
+- 2025-12-27: Added server integration coverage for required 400 VALIDATION_FAILED when `conversationIds` contains non-string entries.
+- 2025-12-27: Added server integration coverage for required 400 VALIDATION_FAILED when `conversationIds` is an empty array.
+- 2025-12-27: Added server integration coverage ensuring duplicate ids are treated as unique (response updatedCount reflects unique selection).
+- 2025-12-27: Added server integration coverage proving all-or-nothing 409 conflict behavior (invalidIds populated, no state changes).
+- 2025-12-27: Added server integration coverage enforcing archived-only hard delete (invalidStateIds populated, no deletes performed).
+- 2025-12-27: Updated `design.md` with bulk conversation endpoint contract and Mermaid sequence diagram covering validate-first + all-or-nothing conflict semantics.
+- 2025-12-27: Updated `projectStructure.md` to include the new bulk conversations integration test file.
+- 2025-12-27: Ran `npm run lint --workspaces` (fixed explicit-any lint issue), then ran `npm run format:check --workspaces` (fixed server formatting via `npm run format --workspaces`).
+- 2025-12-27: Testing: `npm run build --workspace server` passed.
+- 2025-12-27: Testing: `npm run build --workspace client` passed.
+- 2025-12-27: Testing: `npm run test --workspace server` passed.
+- 2025-12-27: Testing: `npm run test --workspace client` passed.
+- 2025-12-27: Testing: `npm run e2e` passed.
+- 2025-12-27: Testing: `npm run compose:build` passed.
+- 2025-12-27: Testing: `npm run compose:up` passed.
+- 2025-12-27: Testing: Smoke-checked `http://host.docker.internal:5001/chat` + `http://host.docker.internal:5001/logs`, verified single-item archive/restore still works, then issued a bulk archive via curl and confirmed `/logs` contains `conversations.bulk.request` + `conversations.bulk.success`.
+- 2025-12-27: Testing: `npm run compose:down` passed.
 
 ---
 

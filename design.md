@@ -35,6 +35,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
+- Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 
@@ -62,6 +63,24 @@ sequenceDiagram
   Server-->>Client: SSE tokens + final + complete
   alt Mongo down
     Server-->>Client: banner via /health mongoConnected=false (chat still streams)
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Repo as Repo (Mongo)
+
+  Client->>Server: POST /conversations/bulk/<action> { conversationIds: [...] }
+  Server->>Repo: Validate ids exist + validate state (delete requires archived)
+  alt Invalid ids or invalid state
+    Repo-->>Server: { invalidIds, invalidStateIds }
+    Server-->>Client: 409 { code: BATCH_CONFLICT } (no writes)
+  else All valid
+    Repo-->>Server: OK
+    Server->>Repo: Apply bulk update/delete (idempotent)
+    Server-->>Client: 200 { status: ok, updatedCount/deletedCount }
   end
 ```
 

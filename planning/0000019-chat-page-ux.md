@@ -376,18 +376,74 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Required validation:
      - Invalid `state` returns `400` JSON `{ status:"error", code:"VALIDATION_FAILED" }`.
 
-3. [ ] Update server integration tests for list filtering (prove the API contract is stable):
+3. [ ] Server integration test: GET /conversations default behaves like state=active (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
    - Files to edit:
      - `server/src/test/integration/conversations.list.test.ts`
-   - Required test cases:
-     - `state=active`, `state=archived`, `state=all`
-     - `archived=true` backward compatibility
-     - Invalid `state` returns 400
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: prove default behavior remains stable for existing callers.
+     - Assert default list excludes archived conversations.
 
-4. [ ] Update docs so the contract is discoverable (a junior dev should not need to infer it from code):
+4. [ ] Server integration test: GET /conversations?state=active returns only active conversations (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: validate new 3-state filter Active mode.
+     - Assert only non-archived conversations are returned.
+
+5. [ ] Server integration test: GET /conversations?state=archived returns only archived conversations (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: validate new Archived-only list mode.
+     - Assert only archived conversations are returned.
+
+6. [ ] Server integration test: GET /conversations?state=all returns active + archived (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: validate All mode used by “Active & Archived”.
+     - Assert the response includes both archived and non-archived.
+
+7. [ ] Server integration test: GET /conversations?archived=true remains backward compatible (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: ensure legacy clients keep working (archived=true maps to state=all).
+     - Assert it returns both archived and non-archived.
+
+8. [ ] Server integration test: invalid state query returns 400 VALIDATION_FAILED (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: prevent silent behavior changes when query is invalid.
+     - Assert JSON body includes `{ status:"error", code:"VALIDATION_FAILED" }`.
+
+9. [ ] Update docs so the contract is discoverable (a junior dev should not need to infer it from code):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
    - Files to edit:
@@ -395,7 +451,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add a short bullet describing the new `state` query and default behavior.
 
-5. [ ] Update project documentation if new files were introduced by this task:
+10. [ ] Update project documentation if new files were introduced by this task:
    - Docs to read:
      - `projectStructure.md`
    - Files to edit:
@@ -403,7 +459,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
-6. [ ] Run repo-wide lint/format checks after the task (do not skip):
+11. [ ] Run repo-wide lint/format checks after the task (do not skip):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -504,36 +560,110 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Delete ordering requirement:
      - Delete turns first, then delete conversations, so we do not leave orphaned turn docs.
 
-4. [ ] Add server tests for bulk endpoints:
+4. [ ] Server integration test: POST /conversations/bulk/archive returns 200 and updatedCount matches (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
    - Files to edit:
-     - `server/src/test/integration/conversations.archive.test.ts`
-     - `server/src/test/integration/conversations.create.test.ts`
-     - Add new test file if cleaner (document in `projectStructure.md`).
-   - Required test cases (cover happy path + errors; all-or-nothing must be proven):
-     - Happy path: bulk archive returns 200 and `updatedCount` equals the number of selected ids.
-     - Happy path: bulk restore returns 200 and `updatedCount` equals the number of selected ids.
-     - Happy path: bulk delete (archived-only) returns 200 and removes BOTH the conversation and all its turns.
-     - Validation (400): missing `conversationIds`, non-array `conversationIds`, and non-string ids return `VALIDATION_FAILED`.
-     - Conflict (409 BATCH_CONFLICT): if any id does not exist, the response includes that id in `details.invalidIds` AND no conversations are changed.
-     - Conflict (409 BATCH_CONFLICT): delete request including any non-archived conversation yields `details.invalidStateIds` AND nothing is deleted.
-     - Corner: an empty `conversationIds` array should be rejected as validation error (400) to avoid accidental no-op calls.
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: prove bulk archive success contract and response shape.
 
-5. [ ] Update design documentation describing the new endpoints and guardrails:
+5. [ ] Server integration test: POST /conversations/bulk/restore returns 200 and updatedCount matches (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: prove bulk restore success contract and response shape.
+
+6. [ ] Server integration test: POST /conversations/bulk/delete deletes archived conversations and their turns (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - Context7 `/automattic/mongoose/9.0.1`
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Test type: server integration (node:test + SuperTest).
+     - Purpose: prove hard delete removes both Conversation and Turn records.
+
+7. [ ] Server integration test: bulk endpoints reject missing conversationIds with 400 VALIDATION_FAILED (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: avoid accepting malformed input (contract guard).
+
+8. [ ] Server integration test: bulk endpoints reject non-array conversationIds with 400 VALIDATION_FAILED (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: ensure strict input validation.
+
+9. [ ] Server integration test: bulk endpoints reject non-string ids with 400 VALIDATION_FAILED (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: prevent server from attempting to coerce ids.
+
+10. [ ] Server integration test: bulk endpoints reject empty conversationIds array with 400 VALIDATION_FAILED (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: prevent accidental no-op bulk calls being treated as success.
+
+11. [ ] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: prove all-or-nothing behavior. Assert details.invalidIds includes the missing id and nothing changes.
+
+12. [ ] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Requirements:
+     - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
+
+13. [ ] Update design documentation describing the new endpoints and guardrails:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
    - Files to edit:
      - `design.md`
 
-6. [ ] Update project documentation for any added/changed files:
+14. [ ] Update project documentation for any added/changed files:
    - Docs to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
 
-7. [ ] Run repo-wide lint/format checks after the task (do not skip):
+15. [ ] Run repo-wide lint/format checks after the task (do not skip):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -602,7 +732,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Docs to read:
      - Context7 `/websockets/ws/8_18_3`
    - Commands to run:
-     - `npm install --workspace server ws`
+     - `npm install --workspace server ws@8.18.3`
    - Files to verify:
      - `server/package.json` (should list `ws` under `dependencies`)
      - `package-lock.json` (should include `node_modules/ws`)
@@ -672,24 +802,52 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `seq` must be monotonically increasing for sidebar events.
      - Sidebar snapshot remains REST-first; `sidebar_snapshot` is optional and not required for v1.
 
-7. [ ] Add unit tests proving the WS server accepts connections and enforces protocolVersion:
+7. [ ] Server unit test: WS accepts connection on /ws and processes JSON message (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
+   - Files to edit:
      - `server/src/test/unit/ws-server.test.ts`
-   - Test sketch:
-     ```ts
-     // connect with ws client, send invalid protocolVersion, assert server closes or ignores
-     ```
-   - Required test cases (protocol + robustness):
-     - Accepts a connection on `/ws` and can receive a JSON message.
-     - Invalid `protocolVersion` (missing or not `"v1"`) results in the server closing the socket (policy violation).
-     - Malformed JSON (non-JSON payload) results in the server closing the socket (unsupported data).
-     - Unknown `type` is ignored (connection stays open) but is logged for debugging.
-     - `subscribe_conversation` missing `conversationId` is rejected (close with policy violation).
+   - Requirements:
+     - Purpose: prove basic wiring and message handling works.
 
-8. [ ] Update docs and run verification commands:
+8. [ ] Server unit test: invalid/missing protocolVersion closes socket (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Purpose: enforce protocolVersion gating.
+
+9. [ ] Server unit test: malformed JSON closes socket (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Purpose: ensure bad payloads do not crash the server.
+
+10. [ ] Server unit test: unknown message type is ignored (connection stays open) (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Purpose: forward compatibility.
+
+11. [ ] Server unit test: subscribe_conversation missing conversationId is rejected (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Purpose: strict inbound validation.
+
+12. [ ] Update docs and run verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to edit:
@@ -1004,34 +1162,88 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
      ```
 
-7. [ ] Update node:test coverage for `/chat` responses so it is transport-accurate:
+7. [ ] Server unit/integration tests: update chat-unsupported-provider.test.ts for 400 UNSUPPORTED_PROVIDER + no SSE (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
    - Files to edit:
      - `server/src/test/unit/chat-unsupported-provider.test.ts`
+   - Requirements:
+     - Purpose: transport-accurate unsupported provider behavior.
+
+8. [ ] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
      - `server/src/test/integration/chat-codex.test.ts`
+   - Requirements:
+     - Purpose: ensure main chat path is 202 JSON and WS streaming supplies transcript.
+
+9. [ ] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
      - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
    - Requirements:
-     - Assert `POST /chat` returns `202` JSON, not `text/event-stream`.
-     - Assert conflict errors are `409` with `code:"RUN_IN_PROGRESS"`.
-     - Assert validation errors are `400` with `code:"VALIDATION_FAILED"` (bad body, missing fields).
-     - Assert unsupported provider errors are `400` with `code:"UNSUPPORTED_PROVIDER"`.
-     - Assert provider-unavailable errors are `503` with `code:"PROVIDER_UNAVAILABLE"` (e.g., LM Studio down).
-     - Assert archived conversation protection still behaves correctly (attempting to run on an archived conversation should fail deterministically).
+     - Purpose: ensure locked model / provider failures return stable status+code payloads.
 
-8. [ ] Add focused node:test coverage for transcript `seq` ordering and stale-event ignoring:
+10. [ ] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Files to read (for patterns to reuse):
+     - `server/src/test/unit/ws-server.test.ts`
+     - `server/src/test/support/wsClient.ts`
+   - Purpose:
+     - Prevent UI glitches when late/stale transcript events arrive.
+   - Requirements:
+     - Subscribe to a conversation and assert that `seq` for transcript events (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`) never decreases.
+
+11. [ ] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Files to read (for fixtures / expectations):
+     - `common/src/fixtures/chatStream.ts`
+   - Purpose:
+     - Ensure switching tabs/windows mid-stream shows the same transcript as the originating view.
+   - Requirements:
+     - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
+     - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and any `toolEvents` emitted so far (when applicable).
+
+12. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Purpose:
+     - Make Stop-button failures deterministic and user-visible (no silent hangs).
+   - Requirements:
+     - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
+     - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
+
+13. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
      - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Files to read:
+     - `server/src/mongo/repo.ts` (turn persistence)
+   - Purpose:
+     - Ensure navigation away from Chat page stops viewing updates without stopping the underlying run.
    - Requirements:
-     - Use the WS test client helper to subscribe to a conversation and verify `seq` increases monotonically for a single stream.
-     - Verify late-subscriber catch-up: when subscribing mid-stream, the first event is `inflight_snapshot` containing the current `assistantText` and `toolEvents` so far.
-     - Verify cancel edge case: sending `cancel_inflight` with a wrong/missing inflight id yields a `turn_final` with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
-     - Verify unsubscribe does NOT cancel: unsubscribing from a conversation stream does not abort the provider; completion still persists turns.
+     - Subscribe then immediately unsubscribe from a conversation while it is streaming.
+     - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
-9. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
+
+14. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -1039,7 +1251,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-10. [ ] Update docs and run verification commands:
+15. [ ] Update docs and run verification commands:
     - Docs to read:
       - https://docs.npmjs.com/cli/v10/commands/npm-run-script
     - Files to edit:
@@ -1100,7 +1312,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 1. [ ] Review current Chat sidebar implementation and conversation hooks:
    - Docs to read:
      - https://react.dev/learn
-     - MUI MCP: `@mui/material@6.4.12`
+     - https://llms.mui.com/material-ui/6.4.12/llms.txt
    - Files to read:
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/hooks/useConversations.ts`
@@ -1109,7 +1321,8 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 2. [ ] Implement the 3-state filter UI only (no bulk controls yet):
    - Docs to read:
-     - MUI MCP: `@mui/material@6.4.12`
+     - https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md (ToggleButtonGroup exclusive selection)
+     - https://llms.mui.com/material-ui/6.4.12/api/toggle-button-group.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/hooks/useConversations.ts`
@@ -1119,7 +1332,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 3. [ ] Add Set-based selection and per-row checkbox rendering:
    - Docs to read:
-     - MUI MCP: `@mui/material@6.4.12` (Checkbox)
+     - https://llms.mui.com/material-ui/6.4.12/api/checkbox.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
@@ -1128,19 +1341,19 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 4. [ ] Add select-all checkbox + bulk toolbar UI (buttons can be disabled until wiring is complete):
    - Docs to read:
-     - MUI MCP: `@mui/material@6.4.12`
+     - https://llms.mui.com/material-ui/6.4.12/llms.txt
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
 5. [ ] Implement delete confirmation dialog:
    - Docs to read:
-     - MUI MCP: `@mui/material@6.4.12` (Dialog)
+     - https://llms.mui.com/material-ui/6.4.12/api/dialog.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
 6. [ ] Implement Snackbar success/failure toasts:
    - Docs to read:
-     - MUI MCP: `@mui/material@6.4.12` (Snackbar)
+     - https://llms.mui.com/material-ui/6.4.12/api/snackbar.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
@@ -1491,91 +1704,442 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Export WS-shaped fixtures for: `inflight_snapshot`, `assistant_delta`, `tool_event`, `turn_final`.
      - Keep existing exports that other tests rely on, or update import sites in the same subtask.
 
-3. [ ] Add unit tests for the WS hook itself (it is new behavior and easy to break):
+3. [ ] Client unit test harness (Jest): add `useChatWs` test file and WebSocket mock wiring
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
-     - https://testing-library.com/docs/react-testing-library/intro/
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to add:
-     - `client/src/test/useChatWs.test.ts` (or similar)
-   - Files to edit (as needed):
+     - `client/src/test/useChatWs.test.ts`
+   - Files to add/edit (as needed):
+     - `client/src/test/support/mockWebSocket.ts`
      - `client/src/hooks/useChatWs.ts`
-   - Required test cases (happy path + robustness):
-     - Connects once when Chat mounts; disconnects on unmount (no reconnect storm).
-     - Ignores unknown inbound event types safely (does not throw).
-     - Ignores malformed JSON safely (logs + continues or reconnects, but does not crash).
-     - Enforces per-conversation `seq` monotonicity by ignoring stale/out-of-order transcript events.
-     - On reconnect: refreshes snapshots (list + current conversation) and re-subscribes (sidebar + current conversation).
-     - When `mongoConnected === false`, the hook does not subscribe/stream (realtime disabled state).
+   - Purpose:
+     - Provide deterministic setup/teardown so each WS behavior can be tested independently.
+   - Requirements:
+     - Ensure the mock can emit messages, close, and track sent client messages.
 
-4. [ ] Update the chat page tests that assert streaming/stop/new-conversation semantics:
+4. [ ] Client unit test (Jest): `useChatWs` connects once on mount and closes on unmount (happy path)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+   - Purpose:
+     - Prevent reconnect storms and WS handle leaks.
+   - Requirements:
+     - Assert a single WebSocket instance is created per mount and is closed during cleanup.
+
+5. [ ] Client unit test (Jest): `useChatWs` ignores unknown inbound event types without throwing (corner case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+   - Purpose:
+     - Ensure forwards-compatible protocol handling.
+   - Requirements:
+     - Emit an event with an unknown `type` and assert no crash and no state corruption.
+
+6. [ ] Client unit test (Jest): `useChatWs` handles malformed JSON safely (error case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+   - Purpose:
+     - Prevent a single bad frame from crashing the Chat page.
+   - Requirements:
+     - Emit a non-JSON string message and assert the hook does not throw.
+     - Assert behavior matches the contract (either logs and continues, or closes and relies on reconnect), but does not hard-crash the UI.
+
+7. [ ] Client unit test (Jest): `useChatWs` ignores stale/out-of-order transcript events based on per-conversation `seq` (corner case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/hooks/useChatWs.ts`
+   - Purpose:
+     - Prevent UI glitches when switching conversations quickly.
+   - Requirements:
+     - Emit transcript events for a conversation with `seq` going backwards and assert stale events are ignored.
+
+8. [ ] Client unit test (Jest): on WS reconnect, `useChatWs` refreshes snapshots and re-subscribes (happy path)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/hooks/useChatWs.ts`
+   - Files to read (existing snapshot hooks):
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/hooks/useConversationTurns.ts`
+   - Purpose:
+     - Ensure laptop sleep/network hiccups recover the UI reliably.
+   - Requirements:
+     - Simulate close + reconnect and assert list/turn snapshots are refreshed and subscribe messages are re-sent.
+
+9. [ ] Client unit test (Jest): when `mongoConnected === false`, `useChatWs` does not subscribe/stream (disabled state)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/useChatWs.test.ts`
+     - `client/src/hooks/useChatWs.ts`
+   - Purpose:
+     - Ensure realtime/bulk features are gated when persistence is unavailable.
+   - Requirements:
+     - Provide `mongoConnected=false` and assert no subscriptions are sent and no reconnection behavior runs.
+
+
+10. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.stream.test.tsx for WS-driven streaming semantics
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
+   - Requirements:
+     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+
+11. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.stop.test.tsx for WS-driven streaming semantics
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
      - `client/src/test/chatPage.stop.test.tsx`
+   - Requirements:
+     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+
+12. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.newConversation.test.tsx for WS-driven streaming semantics
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
      - `client/src/test/chatPage.newConversation.test.tsx`
    - Requirements:
-     - Replace fetch-abort expectations with WS `cancel_inflight` expectations.
-     - Ensure tests assert “navigate away does not cancel run”.
+     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
 
-5. [ ] Update all remaining chat page tests that depend on streaming state:
+13. [ ] Client unit test (Jest/RTL): update client/src/test/useChatStream.reasoning.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/useChatStream.reasoning.test.tsx`
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
-     - `client/src/test/chatPage.citations.test.tsx`
-     - `client/src/test/chatPage.toolDetails.test.tsx`
-     - `client/src/test/chatPage.reasoning.test.tsx`
-     - `client/src/test/chatPage.markdown.test.tsx`
-     - `client/src/test/chatPage.mermaid.test.tsx`
-     - `client/src/test/chatPage.noPaths.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-6. [ ] Update provider/flags tests to reflect the new `POST /chat` 202 start-run contract:
+14. [ ] Client unit test (Jest/RTL): update client/src/test/useChatStream.toolPayloads.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+15. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.citations.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.citations.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+16. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.toolDetails.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.toolDetails.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+17. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.reasoning.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.reasoning.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+18. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.markdown.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.markdown.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+19. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.mermaid.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.mermaid.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+20. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.noPaths.test.tsx to consume WS fixtures instead of SSE
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.noPaths.test.tsx`
+   - Requirements:
+     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+21. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.test.tsx for POST /chat 202 + WS transcript contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx`
-     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-     - `client/src/test/chatPage.source.test.tsx`
-     - `client/src/test/chatPage.models.test.tsx`
-     - `client/src/test/chatPage.flags.*.test.tsx` (all of them)
+   - Requirements:
+     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
-7. [ ] Update bulk sidebar tests to account for selection + filter + new disabled states:
+22. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.conversationSelection.test.tsx for POST /chat 202 + WS transcript contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+   - Requirements:
+     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+23. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.source.test.tsx for POST /chat 202 + WS transcript contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.source.test.tsx`
+   - Requirements:
+     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+24. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.models.test.tsx for POST /chat 202 + WS transcript contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPage.models.test.tsx`
+   - Requirements:
+     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+25. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.default.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.approval.default.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+26. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.payload.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.approval.payload.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+27. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.default.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.network.default.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+28. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.payload.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.network.payload.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+29. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.default.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+30. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.payload.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+31. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.default.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+32. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.payload.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+33. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.reset.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+34. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.default.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.websearch.default.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+35. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.payload.test.tsx for 202 start-run + WS-only contract
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to read (reference pattern after it is updated):
+     - `client/src/test/chatPage.provider.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+   - Purpose:
+     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+   - Requirements:
+     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+36. [ ] Client unit test (Jest/RTL): update client/src/test/chatSidebar.test.tsx for sidebar bulk selection/filter disabled states
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatSidebar.test.tsx`
-     - `client/src/test/chatPersistenceBanner.test.tsx`
+   - Requirements:
+     - Purpose: ensure selection UX and mongoConnected=false gating stays correct.
 
-8. [ ] Update Playwright e2e mocks: replace SSE route fulfill with WS routing (keep `POST /chat` mocked as `202` JSON):
+37. [ ] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for sidebar bulk selection/filter disabled states
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatPersistenceBanner.test.tsx`
+   - Requirements:
+     - Purpose: ensure selection UX and mongoConnected=false gating stays correct.
+
+38. [ ] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
      - `e2e/chat.spec.ts`
-     - `e2e/chat-tools.spec.ts`
-     - `e2e/chat-tools-visibility.spec.ts`
-     - `e2e/chat-reasoning.spec.ts`
-     - `e2e/chat-provider-history.spec.ts`
-     - `e2e/chat-mermaid.spec.ts`
-     - `e2e/chat-codex-trust.spec.ts`
-     - `e2e/chat-codex-reasoning.spec.ts`
-     - `e2e/chat-codex-mcp.spec.ts`
-   - Example Playwright WS routing sketch:
-     ```ts
-     await page.routeWebSocket("**/ws", ws => {
-       ws.onMessage(msg => { /* parse subscribe_* and respond */ });
-       // ws.send(JSON.stringify({ protocolVersion:"v1", type:"inflight_snapshot", ... }))
-     });
-     ```
    - Requirements:
-     - Remove any remaining `contentType: text/event-stream` mocks for `/chat`.
-     - Ensure e2e asserts streamed UI updates that originate from WS events.
-     - E2E happy path: WS emits inflight_snapshot + assistant_delta + turn_final and the transcript updates live.
-     - E2E tool visibility: WS emits tool_event (tool-request + tool-result) and the tool UI renders as expected.
-     - E2E multi-view corner: open the same conversation in two pages and ensure both pages receive the same WS-driven transcript updates.
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-9. [ ] Update docs and run verification commands:
+39. [ ] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-tools.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+40. [ ] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-tools-visibility.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+41. [ ] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-reasoning.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+42. [ ] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-provider-history.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+43. [ ] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-mermaid.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+44. [ ] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-codex-trust.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+45. [ ] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-codex-reasoning.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+46. [ ] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/chat-codex-mcp.spec.ts`
+   - Requirements:
+     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+47. [ ] Update docs and run verification commands:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to edit:

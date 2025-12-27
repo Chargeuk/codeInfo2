@@ -1135,7 +1135,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 ### 4. Chat WebSocket streaming publisher
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 2a890cc
 #### Overview
 
 Refactor chat execution so `POST /chat` is a non-streaming start request, then publish all chat deltas/tool events/finals over WebSockets using an in-flight registry and per-conversation run lock. Remove chat SSE from the server.

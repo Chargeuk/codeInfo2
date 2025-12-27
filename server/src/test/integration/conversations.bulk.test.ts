@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import { createConversationsRouter } from '../../routes/conversations.js';
 import type {
   BulkConversationDeleteResult,
   BulkConversationUpdateResult,
 } from '../../mongo/repo.js';
+import { createConversationsRouter } from '../../routes/conversations.js';
 
 type ConversationState = { archived: boolean };
 

@@ -63,6 +63,38 @@ sequenceDiagram
   Server-->>Client: SSE tokens + final + complete
   alt Mongo down
     Server-->>Client: banner via /health mongoConnected=false (chat still streams)
+end
+```
+
+## WebSocket transport (v1 foundation)
+
+- The server now exposes a WebSocket endpoint at `GET /ws` on the same HTTP port as Express.
+- This story will eventually unify chat streaming over WebSockets, but at this stage the existing `/chat` SSE transport remains in place; `/ws` is introduced as the shared foundation for sidebar + transcript fan-out.
+- All client → server WS messages must include `protocolVersion: "v1"`, `requestId`, and `type`. Malformed JSON or missing/invalid `protocolVersion` closes the socket.
+- Subscription state is tracked per socket:
+  - `subscribe_sidebar` / `unsubscribe_sidebar`
+  - `subscribe_conversation` / `unsubscribe_conversation` (requires `conversationId`)
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Repo as Repo (Mongo)
+
+  Client->>Server: WS upgrade GET /ws
+  Server-->>Client: WebSocket connected
+
+  Client->>Server: { protocolVersion:"v1", requestId:"...", type:"subscribe_sidebar" }
+  Note over Server: Track socket as sidebar-subscribed
+
+  Client->>Server: { protocolVersion:"v1", requestId:"...", type:"subscribe_conversation", conversationId:"c1" }
+  Note over Server: Track socket subscribed to conversation c1
+
+  Repo-->>Server: conversation_upsert/delete events (in-process bus)
+  Server-->>Client: { type:"conversation_upsert", seq:1, conversation:{...} }
+
+  alt Malformed JSON or protocolVersion != "v1"
+    Server-->>Client: WS close (policy violation)
   end
 ```
 

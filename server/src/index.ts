@@ -1,3 +1,4 @@
+import http from 'node:http';
 import path from 'path';
 import { getAppInfo } from '@codeinfo2/common';
 import cors from 'cors';
@@ -37,6 +38,7 @@ import { createLogsRouter } from './routes/logs.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
+import { attachWs, type WsServerHandle } from './ws/server.js';
 
 config();
 ensureCodexConfigSeeded();
@@ -101,7 +103,8 @@ app.use('/', createToolsIngestedReposRouter());
 app.use('/', createToolsVectorSearchRouter());
 app.use('/', createMcpRouter());
 
-let server: ReturnType<typeof app.listen> | undefined;
+let server: http.Server | undefined;
+let wsServer: WsServerHandle | undefined;
 
 const start = async () => {
   const mongoUri = process.env.MONGO_URI;
@@ -116,7 +119,11 @@ const start = async () => {
     process.exit(1);
   }
 
-  server = app.listen(Number(PORT), () => baseLogger.info(`Server on ${PORT}`));
+  const httpServer = http.createServer(app);
+  wsServer = attachWs({ httpServer });
+  server = httpServer.listen(Number(PORT), () =>
+    baseLogger.info(`Server on ${PORT}`),
+  );
   startMcp2Server();
   startAgentsMcpServer();
 };
@@ -134,6 +141,11 @@ const shutdown = async (signal: NodeJS.Signals) => {
     await stopAgentsMcpServer();
   } catch (err) {
     baseLogger.error({ err }, 'Failed to close Agents MCP server');
+  }
+  try {
+    await wsServer?.close();
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to close WS server');
   }
   try {
     await closeAll();

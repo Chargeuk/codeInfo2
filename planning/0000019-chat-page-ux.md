@@ -864,7 +864,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 ### 3. WebSocket server foundation
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -885,7 +885,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 #### Subtasks
 
-1. [ ] Confirm where the HTTP server is created and how to attach WebSocket upgrade handling:
+1. [x] Confirm where the HTTP server is created and how to attach WebSocket upgrade handling:
    - Docs to read:
      - https://nodejs.org/api/http.html#event-upgrade
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
@@ -894,7 +894,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - In `server/src/index.ts`, `app.listen(Number(PORT), ...)` is called inside the `start()` function near the bottom of the file; this is what must be replaced with `http.createServer(app).listen(...)` so we can handle `upgrade` for `/ws`.
 
-2. [ ] Add `ws` as a server runtime dependency (do not rely on transitive lockfile deps):
+2. [x] Add `ws` as a server runtime dependency (do not rely on transitive lockfile deps):
    - Docs to read:
      - Context7 `/websockets/ws/8_18_3`
    - Commands to run:
@@ -903,7 +903,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `server/package.json` (should list `ws` under `dependencies`)
      - `package-lock.json` (should include `node_modules/ws`)
 
-3. [ ] Create a minimal `/ws` server module and wire it into the Node HTTP server upgrade flow:
+3. [x] Create a minimal `/ws` server module and wire it into the Node HTTP server upgrade flow:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
      - https://nodejs.org/api/http.html#event-upgrade
@@ -924,7 +924,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Keep ping/pong **optional** (v1 de-risking): if you implement it, do not force-disconnect clients aggressively; rely on standard `close`/`error` handling.
      - No auth/CSRF/origin checks in this story.
 
-4. [ ] Define WS protocol types and JSON shapes in one place so client/tests can mirror them:
+4. [x] Define WS protocol types and JSON shapes in one place so client/tests can mirror them:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
    - Files to edit:
@@ -938,7 +938,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `subscribe_conversation`, `unsubscribe_conversation`
      - `cancel_inflight`
 
-5. [ ] Implement subscription tracking (registry) with explicit data structures:
+5. [x] Implement subscription tracking (registry) with explicit data structures:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to edit:
@@ -948,7 +948,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Track which sockets are subscribed to which `conversationId`.
      - Provide helpers like `subscribeSidebar(ws)`, `unsubscribeSidebar(ws)`, `subscribeConversation(ws, id)` etc.
 
-6. [ ] Implement sidebar publisher wiring (repo events bus → WS broadcast) with explicit event payloads:
+6. [x] Implement sidebar publisher wiring (repo events bus → WS broadcast) with explicit event payloads:
    - Docs to read:
      - https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
    - Files to read:
@@ -968,7 +968,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `seq` must be monotonically increasing for sidebar events.
      - Sidebar snapshot remains REST-first; `sidebar_snapshot` is optional and not required for v1.
 
-7. [ ] Server unit test: WS accepts connection on /ws and processes JSON message (happy path)
+7. [x] Server unit test: WS accepts connection on /ws and processes JSON message (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -977,7 +977,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: prove basic wiring and message handling works.
 
-8. [ ] Server unit test: invalid/missing protocolVersion closes socket (error case)
+8. [x] Server unit test: invalid/missing protocolVersion closes socket (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -986,7 +986,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: enforce protocolVersion gating.
 
-9. [ ] Server unit test: malformed JSON closes socket (error case)
+9. [x] Server unit test: malformed JSON closes socket (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -995,7 +995,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: ensure bad payloads do not crash the server.
 
-10. [ ] Server unit test: unknown message type is ignored (connection stays open) (corner case)
+10. [x] Server unit test: unknown message type is ignored (connection stays open) (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1004,7 +1004,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: forward compatibility.
 
-11. [ ] Server unit test: subscribe_conversation missing conversationId is rejected (error case)
+11. [x] Server unit test: subscribe_conversation missing conversationId is rejected (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1013,7 +1013,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Requirements:
      - Purpose: strict inbound validation.
 
-12. [ ] Update `design.md` with the new WebSocket transport and subscription flows (include Mermaid diagrams):
+12. [x] Update `design.md` with the new WebSocket transport and subscription flows (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
@@ -1027,7 +1027,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Add/extend a Mermaid sequence diagram for: client connects to `GET /ws` → subscribe_sidebar / subscribe_conversation → server broadcasts `conversation_upsert` and transcript events to subscribers.
      - Note that protocol gating uses `protocolVersion: "v1"` and malformed JSON closes the socket.
 
-13. [ ] Update `projectStructure.md` with newly added server WebSocket modules:
+13. [x] Update `projectStructure.md` with newly added server WebSocket modules:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1048,7 +1048,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
        - `server/src/mongo/events.ts`
      - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
 
-14. [ ] Add server log lines for WS connect/subscription lifecycle so manual checks can prove the WS plumbing is active:
+14. [x] Add server log lines for WS connect/subscription lifecycle so manual checks can prove the WS plumbing is active:
    - Files to edit:
      - `server/src/ws/server.ts`
      - `server/src/logStore.ts` (use existing append helper; do not change schema)
@@ -1067,7 +1067,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Notes:
      - These log lines must be written into the server `/logs` store (not console-only), so the UI can query them.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1083,32 +1083,52 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (smoke + regression):
+8. [x] Manual Playwright-MCP check (smoke + regression):
    - Open `/chat` and confirm the page loads.
    - Regression: existing chat send still works (streaming transport changes are introduced later; this task should not break basic server startup).
    - If you have time: open `/logs` and confirm no new persistent errors related to WS startup.
    - Confirm server log lines exist for this task:
      - Search for `chat.ws.connect` and `chat.ws.subscribe_conversation` after opening `/chat`.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Started Task 3.
+- 2025-12-27: Refactored `server/src/index.ts` to use `http.createServer(app).listen(...)` so the process can later attach WebSocket `upgrade` handling on the same port.
+- 2025-12-27: Added `ws@8.18.3` to `server/package.json` dependencies and updated `package-lock.json`.
+- 2025-12-27: Added `server/src/ws/server.ts` and wired it into `server/src/index.ts` via the Node `upgrade` event so `GET /ws` is handled on the existing HTTP port.
+- 2025-12-27: Added `server/src/ws/types.ts` defining the v1 message envelope + inbound message parsing (protocol gating, validation, and forward-compatible unknown type handling).
+- 2025-12-27: Added `server/src/ws/registry.ts` for tracking sidebar + per-conversation WS subscriptions.
+- 2025-12-27: Added conversation event bus (`server/src/mongo/events.ts`) and WS sidebar broadcaster (`server/src/ws/sidebar.ts`), then wired it into `server/src/ws/server.ts`.
+- 2025-12-27: Added WS unit coverage in `server/src/test/unit/ws-server.test.ts` for protocol gating, malformed JSON handling, forward-compatible message ignoring, and basic subscribe→broadcast wiring.
+- 2025-12-27: Updated `design.md` to document `GET /ws` v1 protocol gating + subscribe_sidebar/subscribe_conversation flows and the sidebar broadcast contract.
+- 2025-12-27: Updated `projectStructure.md` to list the newly added WS modules and the new WS unit test.
+- 2025-12-27: Added required `/logs` entries for WS connect/disconnect and subscription lifecycle (`chat.ws.*`) in `server/src/ws/server.ts`.
+- 2025-12-27: Ran `npm run lint --workspaces` (fixed import ordering warnings) and `npm run format:check --workspaces` (fixed via `npm run format --workspaces`).
+- 2025-12-27: Testing: `npm run build --workspace server` passed.
+- 2025-12-27: Testing: `npm run build --workspace client` passed.
+- 2025-12-27: Testing: `npm run test --workspace server` passed.
+- 2025-12-27: Testing: `npm run test --workspace client` passed.
+- 2025-12-27: Testing: `npm run e2e` passed.
+- 2025-12-27: Testing: `npm run compose:build` passed.
+- 2025-12-27: Testing: `npm run compose:up` passed.
+- 2025-12-27: Testing: Smoke-checked `http://host.docker.internal:5001/chat` and `http://host.docker.internal:5001/logs` load, confirmed `GET http://host.docker.internal:5010/health` and `GET http://host.docker.internal:5010/chat/providers` return 200, then opened a WS client to `ws://host.docker.internal:5010/ws` and verified `/logs` contains `chat.ws.connect` and `chat.ws.subscribe_conversation`.
+- 2025-12-27: Testing: `npm run compose:down` passed.
 
 ---
 

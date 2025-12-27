@@ -6,6 +6,11 @@ import {
   ConversationSource,
 } from './conversation.js';
 import {
+  emitConversationDelete,
+  emitConversationUpsert,
+  type ConversationEventSummary,
+} from './events.js';
+import {
   TurnModel,
   Turn,
   TurnCommandMetadata,
@@ -13,6 +18,20 @@ import {
   TurnStatus,
   TurnSource,
 } from './turn.js';
+
+function toConversationEvent(doc: Conversation): ConversationEventSummary {
+  return {
+    conversationId: doc._id,
+    provider: doc.provider,
+    model: doc.model,
+    title: doc.title,
+    agentName: doc.agentName,
+    source: (doc as Conversation).source ?? 'REST',
+    lastMessageAt: doc.lastMessageAt,
+    archived: doc.archivedAt != null,
+    flags: doc.flags ?? {},
+  };
+}
 
 export interface CreateConversationInput {
   conversationId: string;
@@ -74,7 +93,9 @@ export async function createConversation(
     lastMessageAt: input.lastMessageAt ?? new Date(),
   });
 
-  return doc.save();
+  const saved = await doc.save();
+  emitConversationUpsert(toConversationEvent(saved));
+  return saved;
 }
 
 export async function updateConversationMeta(
@@ -88,9 +109,15 @@ export async function updateConversationMeta(
   if (input.lastMessageAt !== undefined)
     update.lastMessageAt = input.lastMessageAt;
 
-  return ConversationModel.findByIdAndUpdate(input.conversationId, update, {
-    new: true,
-  }).exec();
+  const updated = await ConversationModel.findByIdAndUpdate(
+    input.conversationId,
+    update,
+    {
+      new: true,
+    },
+  ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
 }
 
 export async function updateConversationThreadId({
@@ -103,31 +130,37 @@ export async function updateConversationThreadId({
   // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
   if (mongoose.connection.readyState !== 1) return null;
 
-  return ConversationModel.findByIdAndUpdate(
+  const updated = await ConversationModel.findByIdAndUpdate(
     conversationId,
     { $set: { 'flags.threadId': threadId } },
     { new: true },
   ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
 }
 
 export async function archiveConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
-  return ConversationModel.findByIdAndUpdate(
+  const updated = await ConversationModel.findByIdAndUpdate(
     conversationId,
     { archivedAt: new Date() },
     { new: true },
   ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
 }
 
 export async function restoreConversation(
   conversationId: string,
 ): Promise<Conversation | null> {
-  return ConversationModel.findByIdAndUpdate(
+  const updated = await ConversationModel.findByIdAndUpdate(
     conversationId,
     { archivedAt: null },
     { new: true },
   ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
 }
 
 export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
@@ -145,9 +178,14 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     createdAt,
   });
 
-  await ConversationModel.findByIdAndUpdate(input.conversationId, {
-    lastMessageAt: createdAt,
-  }).exec();
+  const updated = await ConversationModel.findByIdAndUpdate(
+    input.conversationId,
+    {
+      lastMessageAt: createdAt,
+    },
+    { new: true },
+  ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
 
   return turn;
 }
@@ -316,6 +354,13 @@ export async function bulkArchiveConversations(
     { $set: { archivedAt: new Date() } },
   ).exec();
 
+  const docs = (await ConversationModel.find({
+    _id: { $in: uniqueIds },
+  })
+    .lean()
+    .exec()) as Conversation[];
+  docs.forEach((doc) => emitConversationUpsert(toConversationEvent(doc)));
+
   return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
 }
 
@@ -333,6 +378,13 @@ export async function bulkRestoreConversations(
     { _id: { $in: uniqueIds } },
     { $set: { archivedAt: null } },
   ).exec();
+
+  const docs = (await ConversationModel.find({
+    _id: { $in: uniqueIds },
+  })
+    .lean()
+    .exec()) as Conversation[];
+  docs.forEach((doc) => emitConversationUpsert(toConversationEvent(doc)));
 
   return { status: 'ok', updatedCount: result.matchedCount ?? 0 };
 }
@@ -355,6 +407,8 @@ export async function bulkDeleteConversations(
   const deleted = await ConversationModel.deleteMany({
     _id: { $in: uniqueIds },
   }).exec();
+
+  uniqueIds.forEach((conversationId) => emitConversationDelete(conversationId));
 
   return { status: 'ok', deletedCount: deleted.deletedCount ?? 0 };
 }

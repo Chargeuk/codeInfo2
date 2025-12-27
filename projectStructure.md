@@ -392,6 +392,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)
+- server/src/mongo/events.ts — in-process conversation upsert/delete event bus (used for WS sidebar fan-out)
+- server/src/ws/types.ts — WebSocket v1 protocol envelope/types + inbound message parser
+- server/src/ws/registry.ts — in-memory subscription registry (sidebar + per-conversation)
+- server/src/ws/sidebar.ts — sidebar broadcaster (repo events → WS `conversation_upsert`/`conversation_delete`)
+- server/src/ws/server.ts — `/ws` upgrade handler + ping/pong heartbeat + message dispatch
+- server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
 - server/src/test/unit/turn-command-metadata.test.ts — unit coverage that turn repo helpers persist and rehydrate optional `command` metadata
 - server/src/mcpAgents/server.ts — start/stop Agents MCP JSON-RPC server on `AGENTS_MCP_PORT` (default 5012)
 - server/src/mcpAgents/router.ts — Agents MCP JSON-RPC handlers (initialize/tools/resources) with ungated tools/list

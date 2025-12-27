@@ -1524,7 +1524,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 ### 5. Server test updates for chat WebSockets
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 #### Overview
 

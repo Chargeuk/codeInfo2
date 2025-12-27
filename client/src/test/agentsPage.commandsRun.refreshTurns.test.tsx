@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -11,6 +11,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -38,6 +39,7 @@ function okJson(payload: unknown) {
 
 describe('Agents page - command execute refresh + turns hydration', () => {
   it('clicking Execute calls the command run endpoint with the selected commandName', async () => {
+    const user = userEvent.setup();
     const runBodies: Record<string, unknown>[] = [];
 
     mockFetch.mockImplementation(
@@ -87,27 +89,22 @@ describe('Agents page - command execute refresh + turns hydration', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan',
     );
-    await act(async () => {
-      await userEvent.click(option);
-    });
+    await user.click(option);
 
     const execute = await screen.findByTestId('agent-command-execute');
     await waitFor(() => expect(execute).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(execute);
-    });
+    await user.click(execute);
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toMatchObject({ commandName: 'improve_plan' });
   });
 
   it('successful execute refreshes conversations and hydrates turns for the new conversation', async () => {
+    const user = userEvent.setup();
     let agentConversationsFetchCount = 0;
 
     mockFetch.mockImplementation(
@@ -200,21 +197,15 @@ describe('Agents page - command execute refresh + turns hydration', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan',
     );
-    await act(async () => {
-      await userEvent.click(option);
-    });
+    await user.click(option);
 
     const execute = await screen.findByTestId('agent-command-execute');
     await waitFor(() => expect(execute).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(execute);
-    });
+    await user.click(execute);
 
     await waitFor(() =>
       expect(

@@ -64,11 +64,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  â””â”€ systemContext.ts — holds optional system prompt prepended to chat payloads when non-empty
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
-|     |  |- useChatStream.ts ? streaming chat hook (POST /chat, SSE parsing, logging tool events with client source + chat channel tag)
+|     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, JSON codec, client log forwarding)
+|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
-|     |  |- usePersistenceStatus.ts ? polls /health for mongoConnected banner flag
+|     |  |- usePersistenceStatus.ts ? fetches /health for mongoConnected banner flag
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection

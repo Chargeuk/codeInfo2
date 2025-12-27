@@ -45,6 +45,7 @@ import useChatStream, {
   ToolCitation,
   ToolCall,
 } from '../hooks/useChatStream';
+import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
@@ -98,6 +99,9 @@ export default function ChatPage() {
     conversationId,
     setConversation,
     hydrateHistory,
+    inflightId,
+    getInflightId,
+    handleWsEvent,
   } = useChatStream(selected, provider, {
     sandboxMode,
     approvalPolicy,
@@ -121,6 +125,8 @@ export default function ChatPage() {
     bulkArchive,
     bulkRestore,
     bulkDelete,
+    applyWsUpsert,
+    applyWsDelete,
   } = useConversations({ agentName: '__none__' });
 
   const {
@@ -133,6 +139,7 @@ export default function ChatPage() {
     string | undefined
   >(conversationId);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
@@ -142,17 +149,60 @@ export default function ChatPage() {
   );
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
-  const knownConversationIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    for (const conversation of conversations) {
-      knownConversationIdsRef.current.add(conversation.conversationId);
-    }
-  }, [conversations]);
   const knownConversationIds = useMemo(
-    () => new Set(Array.from(knownConversationIdsRef.current)),
+    () => new Set(conversations.map((c) => c.conversationId)),
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+
+  const {
+    connectionState: wsConnectionState,
+    subscribeSidebar,
+    unsubscribeSidebar,
+    subscribeConversation,
+    unsubscribeConversation,
+    cancelInflight,
+  } = useChatWs({
+    onReconnectBeforeResubscribe: async () => {
+      if (mongoConnected === false) return;
+      await refreshConversations();
+    },
+    onEvent: (event: ChatWsServerEvent) => {
+      if (mongoConnected === false) return;
+      switch (event.type) {
+        case 'conversation_upsert': {
+          const agentName = event.conversation.agentName;
+          if (typeof agentName === 'string' && agentName.trim().length > 0) {
+            return;
+          }
+          applyWsUpsert({
+            conversationId: event.conversation.conversationId,
+            title: event.conversation.title,
+            provider: event.conversation.provider,
+            model: event.conversation.model,
+            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
+            lastMessageAt: event.conversation.lastMessageAt,
+            archived: event.conversation.archived,
+            flags: event.conversation.flags,
+            agentName: event.conversation.agentName,
+          });
+          return;
+        }
+        case 'conversation_delete':
+          applyWsDelete(event.conversationId);
+          return;
+        case 'inflight_snapshot':
+        case 'assistant_delta':
+        case 'analysis_delta':
+        case 'tool_event':
+        case 'turn_final':
+          handleWsEvent(event);
+          return;
+        default:
+          return;
+      }
+    },
+  });
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -163,7 +213,7 @@ export default function ChatPage() {
   const shouldLoadTurns = Boolean(
     activeConversationId &&
       !persistenceUnavailable &&
-      knownConversationIdsRef.current.has(activeConversationId),
+      knownConversationIds.has(activeConversationId),
   );
   const {
     lastPage,
@@ -179,6 +229,7 @@ export default function ChatPage() {
   useEffect(() => {
     const debugState = {
       activeConversationId,
+      wsConnectionState,
       persistenceUnavailable,
       knownIds: Array.from(knownConversationIds),
       shouldLoadTurns,
@@ -193,6 +244,7 @@ export default function ChatPage() {
     console.info('[chat-history] load-turns-state', debugState);
   }, [
     activeConversationId,
+    wsConnectionState,
     knownConversationIds,
     persistenceUnavailable,
     shouldLoadTurns,
@@ -200,6 +252,17 @@ export default function ChatPage() {
     lastPage,
     messages.length,
   ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const enabled = Boolean(
+      (window as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__,
+    );
+    if (!enabled) return;
+    (window as unknown as { __chatTest?: unknown }).__chatTest = {
+      handleWsEvent,
+    };
+  }, [handleWsEvent]);
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexProvider = useMemo(
@@ -247,6 +310,24 @@ export default function ChatPage() {
   }, [conversationId]);
 
   useEffect(() => {
+    if (persistenceUnavailable) return;
+    subscribeSidebar();
+    return () => unsubscribeSidebar();
+  }, [persistenceUnavailable, subscribeSidebar, unsubscribeSidebar]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (!activeConversationId) return;
+    subscribeConversation(activeConversationId);
+    return () => unsubscribeConversation(activeConversationId);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    subscribeConversation,
+    unsubscribeConversation,
+  ]);
+
+  useEffect(() => {
     if (!selectedConversation?.provider) return;
     if (selectedConversation.provider !== provider) {
       setProvider(selectedConversation.provider);
@@ -261,11 +342,17 @@ export default function ChatPage() {
   }, [models, selectedConversation, setSelected]);
 
   useEffect(
-    () => () => {
-      stop();
+    () => {
+      stopRef.current = stop;
     },
     [stop],
   );
+
+  useEffect(() => {
+    return () => {
+      stopRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     if (lastMode !== 'prepend') {
@@ -289,6 +376,10 @@ export default function ChatPage() {
   };
 
   const handleStop = () => {
+    const currentInflightId = getInflightId();
+    if (activeConversationId && currentInflightId) {
+      cancelInflight(activeConversationId, currentInflightId);
+    }
     stop({ showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
@@ -315,11 +406,7 @@ export default function ChatPage() {
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
-    setSandboxMode(defaultSandboxMode);
-    setApprovalPolicy(defaultApprovalPolicy);
-    setModelReasoningEffort(defaultModelReasoningEffort);
-    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
-    setWebSearchEnabled(defaultWebSearchEnabled);
+    handleNewConversation();
   };
 
   const toggleThink = (id: string) => {

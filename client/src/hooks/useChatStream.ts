@@ -1,6 +1,7 @@
-import { LogLevel } from '@codeinfo2/common';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LogLevel } from '@codeinfo2/common';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createLogger } from '../logging/logger';
+import type { ChatWsToolEvent, ChatWsTranscriptEvent } from './useChatWs';
 
 export type SandboxMode =
   | 'read-only'
@@ -21,22 +22,6 @@ export type CodexFlagState = {
   networkAccessEnabled?: boolean;
   webSearchEnabled?: boolean;
   modelReasoningEffort?: ModelReasoningEffort;
-};
-
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  command?: { name: string; stepIndex: number; totalSteps: number };
-  kind?: 'error' | 'status';
-  think?: string;
-  thinkStreaming?: boolean;
-  citations?: ToolCitation[];
-  tools?: ToolCall[];
-  segments?: ChatSegment[];
-  streamStatus?: 'processing' | 'complete' | 'failed';
-  thinking?: boolean;
-  createdAt?: string;
 };
 
 export type ToolCitation = {
@@ -65,30 +50,25 @@ export type ChatSegment =
   | { id: string; kind: 'text'; content: string }
   | { id: string; kind: 'tool'; tool: ToolCall };
 
+export type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  command?: { name: string; stepIndex: number; totalSteps: number };
+  kind?: 'error' | 'status';
+  think?: string;
+  thinkStreaming?: boolean;
+  citations?: ToolCitation[];
+  tools?: ToolCall[];
+  segments?: ChatSegment[];
+  streamStatus?: 'processing' | 'complete' | 'failed';
+  thinking?: boolean;
+  createdAt?: string;
+};
+
 type Status = 'idle' | 'sending';
 
-type StreamEvent =
-  | { type: 'token'; content?: string; roundIndex?: number }
-  | {
-      type: 'final';
-      message?: { role?: string; content?: string };
-      roundIndex?: number;
-    }
-  | { type: 'complete'; threadId?: string | null }
-  | { type: 'thread'; threadId?: string | null }
-  | { type: 'error'; message?: string }
-  | {
-      type: 'tool-request' | 'tool-result';
-      callId?: string | number;
-      name?: string;
-      stage?: string;
-      result?: unknown;
-      parameters?: unknown;
-      errorTrimmed?: unknown;
-      errorFull?: unknown;
-    };
-
-const serverBase =
+const API_BASE =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta).env?.VITE_API_URL) ??
   'http://localhost:5010';
@@ -101,161 +81,6 @@ const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
-
-type ReasoningState = {
-  pending: string;
-  mode: 'final' | 'analysis';
-  analysis: string;
-  final: string;
-  analysisStreaming: boolean;
-};
-
-const controlTokens = [
-  {
-    token: '<|start|>assistant<|channel|>final<|message|>',
-    onHit: (state: ReasoningState) => {
-      state.mode = 'final';
-      state.analysisStreaming = false;
-    },
-  },
-  {
-    token: '<|channel|>analysis<|message|>',
-    onHit: (state: ReasoningState) => {
-      state.mode = 'analysis';
-      state.analysisStreaming = true;
-    },
-  },
-  {
-    token: '<|channel|>final<|message|>',
-    onHit: (state: ReasoningState) => {
-      state.mode = 'final';
-      state.analysisStreaming = false;
-    },
-  },
-  {
-    token: '<think>',
-    onHit: (state: ReasoningState) => {
-      state.mode = 'analysis';
-      state.analysisStreaming = true;
-    },
-  },
-  {
-    token: '</think>',
-    onHit: (state: ReasoningState) => {
-      state.mode = 'final';
-      state.analysisStreaming = false;
-    },
-  },
-  {
-    token: '<|start|>assistant',
-    onHit: (state: ReasoningState) => {
-      state.analysisStreaming = false;
-    },
-  },
-  {
-    token: '<|end|>',
-    onHit: () => {},
-  },
-];
-
-const maxMarkerLength = controlTokens.reduce(
-  (max, token) => Math.max(max, token.token.length),
-  0,
-);
-
-const maxLookback = Math.max(maxMarkerLength - 1, 0);
-
-const initialReasoningState = (): ReasoningState => ({
-  pending: '',
-  mode: 'final',
-  analysis: '',
-  final: '',
-  analysisStreaming: false,
-});
-
-const parseReasoning = (
-  current: ReasoningState,
-  chunk: string,
-  {
-    flushAll = false,
-    dedupeAnalysis = false,
-  }: { flushAll?: boolean; dedupeAnalysis?: boolean } = {},
-): ReasoningState => {
-  let pending = current.pending + chunk;
-  let analysis = current.analysis;
-  let final = current.final;
-  let mode = current.mode;
-  let analysisStreaming = current.analysisStreaming;
-
-  const appendText = (text: string) => {
-    if (!text) return;
-    if (mode === 'analysis') {
-      if (dedupeAnalysis && text && analysis.endsWith(text)) {
-        return;
-      }
-      analysis += text;
-    } else {
-      final += text;
-    }
-  };
-
-  while (pending.length) {
-    let nearest: { idx: number; token: (typeof controlTokens)[number] } | null =
-      null;
-
-    for (const token of controlTokens) {
-      const idx = pending.indexOf(token.token);
-      if (idx === -1) continue;
-      if (
-        nearest === null ||
-        idx < nearest.idx ||
-        (idx === nearest.idx &&
-          token.token.length > (nearest.token?.token.length ?? 0))
-      ) {
-        nearest = { idx, token };
-      }
-    }
-
-    if (!nearest) {
-      if (flushAll) {
-        appendText(pending);
-        pending = '';
-      } else if (pending.length > maxLookback) {
-        const emitLen = pending.length - maxLookback;
-        appendText(pending.slice(0, emitLen));
-        pending = pending.slice(emitLen);
-      }
-      break;
-    }
-
-    const prefix = pending.slice(0, nearest.idx);
-    appendText(prefix);
-    pending = pending.slice(nearest.idx + nearest.token.token.length);
-
-    const tokenState = {
-      pending: '',
-      mode,
-      analysis,
-      final,
-      analysisStreaming,
-    };
-    nearest.token.onHit(tokenState);
-    ({ mode, analysis, final, analysisStreaming } = tokenState);
-  }
-
-  return {
-    pending,
-    mode,
-    analysis,
-    final,
-    analysisStreaming,
-  };
-};
-
-const isToolEvent = (
-  event: StreamEvent,
-): event is Extract<StreamEvent, { type: 'tool-request' | 'tool-result' }> =>
-  event.type === 'tool-request' || event.type === 'tool-result';
 
 const isVectorPayloadString = (content: string) => {
   try {
@@ -284,74 +109,58 @@ const isVectorPayloadString = (content: string) => {
   }
 };
 
+function normalizeToolCallId(raw: unknown): string {
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+  return makeId();
+}
+
 export function useChatStream(
   model?: string,
   provider?: string,
   codexFlags?: CodexFlagState,
 ) {
   const log = useRef(createLogger('client')).current;
-  const threadIdRef = useRef<string | null>(null);
-  const [threadId, setThreadId] = useState<string | null>(null);
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
       log(level, message, {
         channel: 'client-chat',
         provider,
         model,
-        ...(threadIdRef.current ? { threadId: threadIdRef.current } : {}),
         ...context,
       }),
     [log, model, provider],
   );
 
-  const controllerRef = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<Status>('idle');
-  const statusRef = useRef<Status>('idle');
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string>(() => makeId());
-  const conversationIdRef = useRef<string>(conversationId);
-  const suppressNextProviderResetRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
-  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastVisibleTextAtRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    threadIdRef.current = threadId;
-  }, [threadId]);
+  const [conversationId, setConversationId] = useState<string>(() => makeId());
+  const conversationIdRef = useRef(conversationId);
+
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
+
+  const inflightIdRef = useRef<string | null>(null);
+  const [inflightId, setInflightId] = useState<string | null>(null);
+  const activeAssistantMessageIdRef = useRef<string | null>(null);
+  const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
+  const segmentsRef = useRef<ChatSegment[]>([]);
+  const assistantTextRef = useRef('');
+  const assistantThinkRef = useRef('');
+  const assistantCitationsRef = useRef<ToolCitation[]>([]);
+
+  const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
 
   useEffect(() => {
-    if (suppressNextProviderResetRef.current) {
-      suppressNextProviderResetRef.current = false;
-      return;
-    }
-    setThreadId(null);
-    threadIdRef.current = null;
-    const nextConversationId = makeId();
-    setConversationId(nextConversationId);
-    conversationIdRef.current = nextConversationId;
-  }, [provider]);
-
-  const clearThinkingTimer = useCallback(() => {
-    if (thinkingTimerRef.current) {
-      clearTimeout(thinkingTimerRef.current);
-      thinkingTimerRef.current = null;
-    }
-  }, []);
-
-  const finishStreaming = useCallback(() => {
-    setIsStreaming(false);
-    setStatus('idle');
-    clearThinkingTimer();
-  }, [clearThinkingTimer]);
-
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
+    threadIdRef.current = threadId;
+  }, [threadId]);
 
   const updateMessages = useCallback(
     (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
@@ -364,86 +173,100 @@ export function useChatStream(
     [],
   );
 
-  const stop = useCallback(
-    (options?: { showStatusBubble?: boolean }) => {
-      const wasSending = statusRef.current === 'sending';
-      controllerRef.current?.abort();
-      controllerRef.current = null;
+  const clearThinkingTimer = useCallback(() => {
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+  }, []);
+
+  const markAssistantThinking = useCallback(
+    (thinking: boolean) => {
+      const assistantId = activeAssistantMessageIdRef.current;
+      if (!assistantId) return;
       updateMessages((prev) =>
         prev.map((msg) =>
-          msg.role === 'assistant' ? { ...msg, thinking: false } : msg,
+          msg.id === assistantId ? { ...msg, thinking } : msg,
         ),
       );
-      if (options?.showStatusBubble && wasSending) {
-        updateMessages((prev) => [
-          ...prev,
-          {
-            id: makeId(),
-            role: 'assistant',
-            content: 'Generation stopped',
-            kind: 'status',
-          },
-        ]);
-      }
-      finishStreaming();
-    },
-    [finishStreaming, updateMessages],
-  );
-
-  const reset = useCallback(() => {
-    updateMessages(() => []);
-    finishStreaming();
-    lastVisibleTextAtRef.current = null;
-    setThreadId(null);
-    threadIdRef.current = null;
-    const nextConversationId = makeId();
-    setConversationId(nextConversationId);
-    conversationIdRef.current = nextConversationId;
-    return nextConversationId;
-  }, [finishStreaming, updateMessages]);
-
-  const setConversation = useCallback(
-    (nextConversationId: string, options?: { clearMessages?: boolean }) => {
-      console.info('[chat-stream] setConversation', {
-        nextConversationId,
-        clearMessages: Boolean(options?.clearMessages),
-      });
-      suppressNextProviderResetRef.current = true;
-      stop();
-      if (options?.clearMessages) {
-        updateMessages(() => []);
-      }
-      setThreadId(null);
-      threadIdRef.current = null;
-      setConversationId(nextConversationId);
-      conversationIdRef.current = nextConversationId;
-      console.info('[chat-stream] conversation set', {
-        conversationId: nextConversationId,
-      });
-    },
-    [stop, updateMessages],
-  );
-
-  const hydrateHistory = useCallback(
-    (
-      historyConversationId: string,
-      history: ChatMessage[],
-      mode: 'replace' | 'prepend' = 'replace',
-    ) => {
-      conversationIdRef.current = historyConversationId;
-      setConversationId(historyConversationId);
-      updateMessages((prev) => {
-        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
-        const seen = new Set<string>();
-        return next.filter((msg) => {
-          const key = msg.id;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-      });
     },
     [updateMessages],
+  );
+
+  const scheduleThinkingTimer = useCallback(() => {
+    clearThinkingTimer();
+    thinkingTimerRef.current = setTimeout(() => {
+      const hasVisibleText = assistantTextRef.current.trim().length > 0;
+      markAssistantThinking(!hasVisibleText);
+      if (isStreaming) {
+        scheduleThinkingTimer();
+      }
+    }, 1000);
+  }, [clearThinkingTimer, isStreaming, markAssistantThinking]);
+
+  const ensureAssistantMessage = useCallback(() => {
+    let assistantId = activeAssistantMessageIdRef.current;
+
+    if (!assistantId) {
+      const last = messagesRef.current[messagesRef.current.length - 1];
+      if (last?.role === 'assistant' && last.streamStatus === 'processing') {
+        assistantId = last.id;
+      }
+    }
+
+    if (!assistantId) {
+      assistantId = makeId();
+      activeAssistantMessageIdRef.current = assistantId;
+      segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
+      toolCallsRef.current = new Map();
+      assistantTextRef.current = '';
+      assistantThinkRef.current = '';
+      assistantCitationsRef.current = [];
+      updateMessages((prev) => [
+        ...prev,
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          segments: segmentsRef.current,
+          streamStatus: 'processing',
+          thinking: false,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    } else {
+      activeAssistantMessageIdRef.current = assistantId;
+    }
+
+    return assistantId;
+  }, [updateMessages]);
+
+  const syncAssistantMessage = useCallback(
+    (updates?: Partial<ChatMessage>) => {
+      const assistantId = activeAssistantMessageIdRef.current;
+      if (!assistantId) return;
+
+      const tools = Array.from(toolCallsRef.current.values());
+      updateMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== assistantId) return msg;
+          return {
+            ...msg,
+            content: assistantTextRef.current,
+            think: assistantThinkRef.current || undefined,
+            thinkStreaming: isStreaming && assistantThinkRef.current.length > 0,
+            segments: segmentsRef.current,
+            tools,
+            citations:
+              assistantCitationsRef.current.length > 0
+                ? assistantCitationsRef.current
+                : undefined,
+            ...(updates ?? {}),
+          };
+        }),
+      );
+    },
+    [isStreaming, updateMessages],
   );
 
   const handleErrorBubble = useCallback(
@@ -492,6 +315,180 @@ export function useChatStream(
       .filter(Boolean) as ToolCitation[];
   }, []);
 
+  const applyToolEvent = useCallback(
+    (event: ChatWsToolEvent) => {
+      const callId = normalizeToolCallId(event.callId);
+      const existing = toolCallsRef.current.get(callId);
+
+      if (event.type === 'tool-request') {
+        const tool: ToolCall = {
+          id: callId,
+          name: event.name,
+          status: 'requesting',
+          parameters: event.parameters,
+          stage: event.stage,
+        };
+
+        toolCallsRef.current.set(callId, {
+          ...(existing ?? tool),
+          ...tool,
+        });
+
+        if (
+          !segmentsRef.current.some(
+            (segment) => segment.kind === 'tool' && segment.tool.id === callId,
+          )
+        ) {
+          segmentsRef.current = [
+            ...segmentsRef.current,
+            { id: makeId(), kind: 'tool', tool },
+            { id: makeId(), kind: 'text', content: '' },
+          ];
+        }
+        return;
+      }
+
+      const status: ToolCall['status'] =
+        event.stage === 'error' || event.errorTrimmed || event.errorFull
+          ? 'error'
+          : 'done';
+
+      let payload = event.result;
+      if (typeof payload === 'string' && isVectorPayloadString(payload)) {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          // ignore parse failure
+        }
+      }
+
+      const errorTrimmed =
+        event.errorTrimmed && typeof event.errorTrimmed === 'object'
+          ? (event.errorTrimmed as { code?: string; message?: string })
+          : undefined;
+
+      const tool: ToolCall = {
+        id: callId,
+        name: event.name ?? existing?.name,
+        status,
+        payload,
+        parameters: event.parameters,
+        stage: event.stage,
+        errorTrimmed: errorTrimmed ?? null,
+        errorFull: event.errorFull,
+      };
+
+      toolCallsRef.current.set(callId, { ...(existing ?? tool), ...tool });
+
+      let replaced = false;
+      segmentsRef.current = segmentsRef.current.map((segment) => {
+        if (segment.kind !== 'tool') return segment;
+        if (segment.tool.id !== callId) return segment;
+        replaced = true;
+        return { ...segment, tool };
+      });
+
+      if (!replaced) {
+        segmentsRef.current = [
+          ...segmentsRef.current,
+          { id: makeId(), kind: 'tool', tool },
+          { id: makeId(), kind: 'text', content: '' },
+        ];
+      }
+
+      const citations = payload ? extractCitations(payload) : [];
+      if (citations.length > 0) {
+        assistantCitationsRef.current = citations;
+      }
+    },
+    [extractCitations],
+  );
+
+  const resetInflightState = useCallback(() => {
+    inflightIdRef.current = null;
+    setInflightId(null);
+    activeAssistantMessageIdRef.current = null;
+    toolCallsRef.current = new Map();
+    segmentsRef.current = [];
+    assistantTextRef.current = '';
+    assistantThinkRef.current = '';
+    assistantCitationsRef.current = [];
+    clearThinkingTimer();
+    setIsStreaming(false);
+    setStatus('idle');
+  }, [clearThinkingTimer]);
+
+  const stop = useCallback(
+    (options?: { showStatusBubble?: boolean }) => {
+      clearThinkingTimer();
+      setIsStreaming(false);
+      setStatus('idle');
+      markAssistantThinking(false);
+      syncAssistantMessage({ thinkStreaming: false, thinking: false });
+
+      if (options?.showStatusBubble) {
+        updateMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: 'assistant',
+            content: 'Generation stopped',
+            kind: 'status',
+          },
+        ]);
+      }
+    },
+    [clearThinkingTimer, markAssistantThinking, syncAssistantMessage, updateMessages],
+  );
+
+  const reset = useCallback(() => {
+    updateMessages(() => []);
+    resetInflightState();
+    setThreadId(null);
+    threadIdRef.current = null;
+    const nextConversationId = makeId();
+    setConversationId(nextConversationId);
+    conversationIdRef.current = nextConversationId;
+    return nextConversationId;
+  }, [resetInflightState, updateMessages]);
+
+  const setConversation = useCallback(
+    (nextConversationId: string, options?: { clearMessages?: boolean }) => {
+      stop();
+      resetInflightState();
+      if (options?.clearMessages) {
+        updateMessages(() => []);
+      }
+      setThreadId(null);
+      threadIdRef.current = null;
+      setConversationId(nextConversationId);
+      conversationIdRef.current = nextConversationId;
+    },
+    [resetInflightState, stop, updateMessages],
+  );
+
+  const hydrateHistory = useCallback(
+    (
+      historyConversationId: string,
+      history: ChatMessage[],
+      mode: 'replace' | 'prepend' = 'replace',
+    ) => {
+      conversationIdRef.current = historyConversationId;
+      setConversationId(historyConversationId);
+      updateMessages((prev) => {
+        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
+        const seen = new Set<string>();
+        return next.filter((msg) => {
+          const key = msg.id;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      });
+    },
+    [updateMessages],
+  );
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -500,11 +497,14 @@ export function useChatStream(
       }
 
       stop();
-      const controller = new AbortController();
-      controllerRef.current = controller;
-      setIsStreaming(true);
+      resetInflightState();
+
+      const nextInflightId = makeId();
+      inflightIdRef.current = nextInflightId;
+      setInflightId(nextInflightId);
+
       setStatus('sending');
-      statusRef.current = 'sending';
+      setIsStreaming(true);
 
       const userMessage: ChatMessage = {
         id: makeId(),
@@ -519,310 +519,12 @@ export function useChatStream(
       conversationIdRef.current = currentConversationId;
       setConversationId(currentConversationId);
 
-      const assistantId = makeId();
-      let reasoning = initialReasoningState();
-      let finalText = '';
-      let assistantCitations: ToolCitation[] = [];
-      let segments: ChatSegment[] = [
-        { id: makeId(), kind: 'text', content: '' },
-      ];
-      const toolsAwaitingAssistantOutput = new Set<string>();
-      const pendingToolResults = new Set<string>();
-      let toolRequestsSeen = 0;
-      let toolResultsSeen = 0;
-      const toolEchoGuards = new Set<string>();
-      let completeFrameSeen = false;
-      let completeTimeout: ReturnType<typeof setTimeout> | null = null;
-      const COMPLETE_STATUS_DELAY_MS = 0;
-      const minProcessingUntil = Date.now();
-      const logContentDecision = (reason: string, content: string) => {
-        console.log('[chat-stream] content decision', { reason, content });
-      };
-      const logSync = (reason: string) => {
-        console.log('[chat-stream] sync message', {
-          reason,
-          finalText,
-          analysis: reasoning.analysis,
-          segmentsCount: segments.length,
-        });
-      };
-
-      const setAssistantThinking = (thinking: boolean) => {
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId ? { ...msg, thinking } : msg,
-          ),
-        );
-      };
-
-      const computeWaitingForVisibleText = () => {
-        const hasVisibleText = segments.some(
-          (segment) => segment.kind === 'text' && segment.content.length > 0,
-        );
-        return (
-          statusRef.current === 'sending' &&
-          !hasVisibleText &&
-          pendingToolResults.size === 0
-        );
-      };
-
-      const scheduleThinkingTimer = () => {
-        clearThinkingTimer();
-        thinkingTimerRef.current = setTimeout(() => {
-          const waitingForVisibleText = computeWaitingForVisibleText();
-          setAssistantThinking(waitingForVisibleText);
-          if (statusRef.current === 'sending') {
-            scheduleThinkingTimer();
-          }
-        }, 1000);
-      };
-
-      const setAssistantStatus = (
-        streamStatus: ChatMessage['streamStatus'],
-      ) => {
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId ? { ...msg, streamStatus } : msg,
-          ),
-        );
-      };
-
-      updateMessages((prev) => [
-        ...prev,
-        {
-          id: assistantId,
-          role: 'assistant',
-          content: '',
-          segments,
-          streamStatus: 'processing',
-          thinking: false,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-      lastVisibleTextAtRef.current = null;
+      ensureAssistantMessage();
+      assistantTextRef.current = '';
+      assistantThinkRef.current = '';
+      segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
+      syncAssistantMessage({ streamStatus: 'processing' });
       scheduleThinkingTimer();
-
-      // Yield so the initial "Processing" state can render before stream frames arrive.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      const maybeMarkComplete = () => {
-        if (!completeFrameSeen) return;
-        if (pendingToolResults.size > 0 || toolResultsSeen < toolRequestsSeen) {
-          return;
-        }
-        if (completeTimeout) return;
-        const delay = Math.max(
-          COMPLETE_STATUS_DELAY_MS,
-          minProcessingUntil - Date.now(),
-        );
-        if (delay <= 0) {
-          setAssistantStatus('complete');
-          setAssistantThinking(false);
-          completeTimeout = null;
-          return;
-        }
-        completeTimeout = setTimeout(() => {
-          setAssistantStatus('complete');
-          setAssistantThinking(false);
-          completeTimeout = null;
-        }, delay);
-      };
-
-      const syncAssistantMessage = () => {
-        const toolList = segments
-          .filter(
-            (segment): segment is Extract<ChatSegment, { kind: 'tool' }> =>
-              segment.kind === 'tool',
-          )
-          .map((segment) => segment.tool);
-
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId
-              ? {
-                  ...msg,
-                  content: finalText,
-                  think: reasoning.analysis || undefined,
-                  thinkStreaming: reasoning.analysisStreaming,
-                  segments,
-                  tools: toolList,
-                }
-              : msg,
-          ),
-        );
-        logSync('syncAssistantMessage');
-      };
-
-      const appendTextSegment = (text: string) => {
-        if (!text) return;
-        lastVisibleTextAtRef.current = Date.now();
-        clearThinkingTimer();
-        const last = segments[segments.length - 1];
-        let nextSegments = [...segments];
-        if (last && last.kind === 'text') {
-          nextSegments[nextSegments.length - 1] = {
-            ...last,
-            content: last.content + text,
-          };
-        } else {
-          nextSegments = [
-            ...nextSegments,
-            { id: makeId(), kind: 'text', content: text },
-          ];
-        }
-        segments = nextSegments;
-        setAssistantThinking(false);
-        scheduleThinkingTimer();
-      };
-
-      const applyReasoning = (next: ReasoningState) => {
-        const newFinal = next.final;
-        if (newFinal.length >= finalText.length) {
-          const delta = newFinal.slice(finalText.length);
-          appendTextSegment(delta);
-          finalText = newFinal;
-          logContentDecision('append-final-delta', delta);
-        } else {
-          finalText = newFinal;
-          segments = segments.filter((segment) => segment.kind !== 'text');
-          segments = [
-            ...segments,
-            { id: makeId(), kind: 'text', content: newFinal },
-          ];
-          logContentDecision('reset-final-text', newFinal);
-        }
-        reasoning = next;
-        syncAssistantMessage();
-      };
-
-      const appendCitations = (incoming: ToolCitation[]) => {
-        if (!incoming.length) return;
-        assistantCitations = [...assistantCitations, ...incoming];
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId
-              ? {
-                  ...msg,
-                  citations: [...(msg.citations ?? []), ...incoming],
-                }
-              : msg,
-          ),
-        );
-      };
-
-      const upsertTool = (incoming: ToolCall) => {
-        const stripTrailingEmptyText = (list: ChatSegment[]) => {
-          const last = list[list.length - 1];
-          if (last && last.kind === 'text' && last.content === '') {
-            return list.slice(0, -1);
-          }
-          return list;
-        };
-
-        const ensureTrailingText = (list: ChatSegment[]) => {
-          const last = list[list.length - 1];
-          if (!last || last.kind !== 'text' || last.content.length > 0) {
-            return [
-              ...list,
-              { id: makeId(), kind: 'text', content: '' } as ChatSegment,
-            ];
-          }
-          return list;
-        };
-
-        let nextSegments = [...segments];
-        const existingIndex = nextSegments.findIndex(
-          (segment) =>
-            segment.kind === 'tool' && segment.tool.id === incoming.id,
-        );
-
-        if (existingIndex >= 0) {
-          const existing = nextSegments[existingIndex] as Extract<
-            ChatSegment,
-            { kind: 'tool' }
-          >;
-          nextSegments[existingIndex] = {
-            ...existing,
-            tool: { ...existing.tool, ...incoming },
-          };
-        } else {
-          nextSegments = stripTrailingEmptyText(nextSegments);
-          nextSegments = [
-            ...nextSegments,
-            { id: incoming.id, kind: 'tool', tool: incoming },
-          ];
-          nextSegments = ensureTrailingText(nextSegments);
-        }
-
-        segments = nextSegments;
-        syncAssistantMessage();
-      };
-
-      const completeAwaitingToolsOnAssistantOutput = () => {
-        if (!toolsAwaitingAssistantOutput.size) return;
-        let changed = false;
-        segments = segments.map((segment) => {
-          if (segment.kind !== 'tool') return segment;
-          if (!toolsAwaitingAssistantOutput.has(segment.tool.id))
-            return segment;
-          toolsAwaitingAssistantOutput.delete(segment.tool.id);
-          if (segment.tool.status === 'requesting') {
-            changed = true;
-            return {
-              ...segment,
-              tool: { ...segment.tool, status: 'done' },
-            };
-          }
-          return segment;
-        });
-
-        if (changed) {
-          syncAssistantMessage();
-        }
-      };
-
-      const completePendingTools = () => {
-        const nextSegments = segments.map((segment) =>
-          segment.kind === 'tool' && segment.tool.status === 'requesting'
-            ? {
-                ...segment,
-                tool: { ...segment.tool, status: 'done' },
-              }
-            : segment,
-        );
-        segments = nextSegments;
-        syncAssistantMessage();
-        updateMessages((prev) =>
-          prev.map((msg, idx, list) => {
-            if (idx !== list.length - 1 || msg.role !== 'assistant') {
-              return msg;
-            }
-            const updatedTools = msg.tools?.map((tool) =>
-              tool.status === 'requesting' ? { ...tool, status: 'done' } : tool,
-            );
-            const updatedSegments = msg.segments?.map((segment) =>
-              segment.kind === 'tool' && segment.tool.status === 'requesting'
-                ? {
-                    ...segment,
-                    tool: { ...segment.tool, status: 'done' },
-                  }
-                : segment,
-            );
-
-            const toolsChanged =
-              JSON.stringify(updatedTools) !== JSON.stringify(msg.tools);
-            const segmentsChanged =
-              JSON.stringify(updatedSegments) !== JSON.stringify(msg.segments);
-
-            if (!toolsChanged && !segmentsChanged) return msg;
-            return {
-              ...msg,
-              ...(updatedTools ? { tools: updatedTools } : {}),
-              ...(updatedSegments ? { segments: updatedSegments } : {}),
-            } as ChatMessage;
-          }),
-        );
-      };
 
       try {
         const sandboxMode =
@@ -862,286 +564,241 @@ export function useChatStream(
               }
             : {};
 
-        const res = await fetch(new URL('/chat', serverBase).toString(), {
+        const res = await fetch(new URL('/chat', API_BASE).toString(), {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             provider,
             model,
             conversationId: currentConversationId,
+            inflightId: nextInflightId,
             message: trimmed,
             ...codexPayload,
           }),
-          signal: controller.signal,
         });
 
-        if (!res.ok || !res.body) {
-          throw new Error(`Chat request failed (${res.status})`);
-        }
+        const payload = (await res.json().catch(() => null)) as {
+          status?: string;
+          code?: string;
+          message?: string;
+          conversationId?: string;
+          inflightId?: string;
+          provider?: string;
+          model?: string;
+        } | null;
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split('\n\n');
-          buffer = parts.pop() ?? '';
-          for (const part of parts) {
-            const trimmedLine = part.trim();
-            if (!trimmedLine.startsWith('data:')) {
-              continue;
-            }
-            const payload = trimmedLine.replace(/^data:\s*/, '');
-            try {
-              const event = JSON.parse(payload) as StreamEvent;
-              if (event.type === 'thread') {
-                if (event.threadId) {
-                  setThreadId(event.threadId);
-                  threadIdRef.current = event.threadId;
-                  logWithChannel('info', 'chat thread assigned', {
-                    threadId: event.threadId,
-                  });
-                }
-                continue;
-              }
-              if (isToolEvent(event)) {
-                const status: ToolCall['status'] =
-                  event.type === 'tool-request'
-                    ? 'requesting'
-                    : event.stage === 'error'
-                      ? 'error'
-                      : 'done';
-                const id = event.callId ?? makeId();
-                const idStr = id.toString();
-                logWithChannel('info', 'chat tool event', {
-                  type: event.type,
-                  callId: id,
-                  name: event.name,
-                  stage: event.stage,
-                });
-                const applyResult = () => {
-                  if (event.type === 'tool-request') {
-                    toolRequestsSeen += 1;
-                  } else {
-                    toolResultsSeen += 1;
-                  }
-                  const toolParameters =
-                    event.parameters ??
-                    (event.result &&
-                    typeof event.result === 'object' &&
-                    'parameters' in (event.result as Record<string, unknown>)
-                      ? (event.result as { parameters?: unknown }).parameters
-                      : undefined);
-                  upsertTool({
-                    id,
-                    name: event.name,
-                    status,
-                    payload: event.result,
-                    parameters: toolParameters,
-                    stage: event.stage,
-                    errorTrimmed: (event as { errorTrimmed?: unknown })
-                      .errorTrimmed as ToolCall['errorTrimmed'],
-                    errorFull: (event as { errorFull?: unknown }).errorFull,
-                  });
-                  if (event.type === 'tool-request') {
-                    pendingToolResults.add(idStr);
-                    toolsAwaitingAssistantOutput.add(id);
-                    setAssistantThinking(false);
-                    scheduleThinkingTimer();
-                  }
-                  if (event.type === 'tool-result') {
-                    const citations = extractCitations(event.result);
-                    appendCitations(citations);
-                    pendingToolResults.delete(idStr);
-                    toolsAwaitingAssistantOutput.delete(id);
-                    toolEchoGuards.add(id.toString());
-                    setAssistantThinking(computeWaitingForVisibleText());
-                    scheduleThinkingTimer();
-                  }
-                };
-
-                applyResult();
-                maybeMarkComplete();
-                continue;
-              }
-              if (event.type === 'final' && event.message?.role === 'tool') {
-                segments
-                  .filter(
-                    (
-                      segment,
-                    ): segment is Extract<ChatSegment, { kind: 'tool' }> =>
-                      segment.kind === 'tool' &&
-                      segment.tool.status === 'requesting',
-                  )
-                  .forEach((segment) => {
-                    toolsAwaitingAssistantOutput.add(segment.tool.id);
-                  });
-                continue;
-              }
-
-              if (
-                event.type === 'analysis' &&
-                typeof event.content === 'string'
-              ) {
-                const next = parseReasoning(
-                  { ...reasoning, mode: 'analysis', analysisStreaming: true },
-                  event.content,
-                  { flushAll: true },
-                );
-                const normalized = { ...next, mode: 'final' as const };
-                reasoning = normalized;
-                applyReasoning(normalized);
-                continue;
-              }
-
-              if (event.type === 'token' && typeof event.content === 'string') {
-                completeAwaitingToolsOnAssistantOutput();
-                applyReasoning(
-                  parseReasoning(reasoning, event.content, {
-                    flushAll: false,
-                  }),
-                );
-              } else if (
-                event.type === 'final' &&
-                (typeof event.message?.content === 'string' ||
-                  Array.isArray(
-                    (event.message as { data?: unknown })?.data?.['content'],
-                  ))
-              ) {
-                const dataContent = Array.isArray(
-                  (event.message as { data?: { content?: unknown } })?.data
-                    ?.content,
-                )
-                  ? ((event.message as { data?: { content?: unknown } })?.data
-                      ?.content as Array<{ type?: string; text?: string }>)
-                  : [];
-                const contentFromData = dataContent
-                  .filter((item) => item?.type === 'text')
-                  .map((item) => item.text ?? '')
-                  .join('');
-                const finalContent =
-                  typeof event.message?.content === 'string'
-                    ? event.message.content
-                    : contentFromData;
-
-                const hasToolContext =
-                  pendingToolResults.size > 0 ||
-                  toolsAwaitingAssistantOutput.size > 0 ||
-                  toolEchoGuards.size > 0;
-                const suppressToolEcho =
-                  hasToolContext && isVectorPayloadString(finalContent);
-                if (suppressToolEcho) {
-                  completeAwaitingToolsOnAssistantOutput();
-                  toolEchoGuards.clear();
-                  continue;
-                }
-                completeAwaitingToolsOnAssistantOutput();
-                const parsedFinal = parseReasoning(
-                  reasoning,
-                  finalText.length > 0 ? '' : finalContent,
-                  {
-                    flushAll: true,
-                    dedupeAnalysis: true,
-                  },
-                );
-                applyReasoning(parsedFinal);
-                setAssistantThinking(false);
-                toolEchoGuards.clear();
-                maybeMarkComplete();
-              } else if (event.type === 'final') {
-                completeAwaitingToolsOnAssistantOutput();
-                applyReasoning(
-                  parseReasoning(reasoning, '', { flushAll: true }),
-                );
-                setAssistantThinking(false);
-                toolEchoGuards.clear();
-                maybeMarkComplete();
-              } else if (event.type === 'error') {
-                const message =
-                  event.message ?? 'Chat failed. Please retry in a moment.';
-                handleErrorBubble(message);
-                finishStreaming();
-                setAssistantStatus('failed');
-                setAssistantThinking(false);
-              } else if (event.type === 'complete') {
-                if ('threadId' in event && event.threadId) {
-                  setThreadId(event.threadId);
-                  threadIdRef.current = event.threadId;
-                }
-                completeFrameSeen = true;
-                const completed = parseReasoning(reasoning, '', {
-                  flushAll: true,
-                });
-                applyReasoning({ ...completed, analysisStreaming: false });
-                completePendingTools();
-                maybeMarkComplete();
-                setAssistantThinking(false);
-                setTimeout(() => {
-                  maybeMarkComplete();
-                  finishStreaming();
-                }, 0);
-              }
-            } catch {
-              continue;
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') {
+        if (res.status === 409 && payload?.code === 'RUN_IN_PROGRESS') {
+          handleErrorBubble(
+            payload?.message ?? 'A run is already in progress for this thread.',
+          );
+          inflightIdRef.current = null;
+          setInflightId(null);
+          setIsStreaming(false);
+          setStatus('idle');
+          syncAssistantMessage({
+            streamStatus: 'failed',
+            thinking: false,
+            thinkStreaming: false,
+          });
           return;
         }
-        handleErrorBubble(
-          (err as Error)?.message ?? 'Chat failed. Please try again.',
-        );
-        finishStreaming();
-      } finally {
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
+
+        if (res.status !== 202 || !payload || payload.status !== 'started') {
+          throw new Error(
+            payload?.message || `Chat request failed (${res.status})`,
+          );
         }
+
+        if (payload.inflightId) {
+          inflightIdRef.current = payload.inflightId;
+          setInflightId(payload.inflightId);
+        }
+
+        if (
+          payload.conversationId &&
+          payload.conversationId !== conversationId
+        ) {
+          setConversationId(payload.conversationId);
+          conversationIdRef.current = payload.conversationId;
+        }
+
+        logWithChannel('info', 'chat run started', {
+          conversationId: payload.conversationId ?? currentConversationId,
+          inflightId: payload.inflightId,
+        });
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        handleErrorBubble((err as Error).message);
+        setIsStreaming(false);
+        setStatus('idle');
+        setInflightId(null);
+        syncAssistantMessage({
+          streamStatus: 'failed',
+          thinking: false,
+          thinkStreaming: false,
+        });
       }
     },
     [
-      extractCitations,
-      finishStreaming,
+      codexFlags,
+      ensureAssistantMessage,
       handleErrorBubble,
       logWithChannel,
       model,
       provider,
-      codexFlags?.sandboxMode,
-      codexFlags?.approvalPolicy,
-      codexFlags?.modelReasoningEffort,
-      codexFlags?.networkAccessEnabled,
-      codexFlags?.webSearchEnabled,
+      resetInflightState,
+      scheduleThinkingTimer,
       status,
       stop,
+      syncAssistantMessage,
       updateMessages,
-      clearThinkingTimer,
-      setThreadId,
+      conversationId,
     ],
   );
 
-  useEffect(
-    () => () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
+  const handleWsEvent = useCallback(
+    (event: ChatWsTranscriptEvent) => {
+      const activeConversation = conversationIdRef.current;
+      if (event.conversationId !== activeConversation) {
+        return;
+      }
+
+      ensureAssistantMessage();
+
+      if (event.type === 'inflight_snapshot') {
+        inflightIdRef.current = event.inflight.inflightId;
+        setInflightId(event.inflight.inflightId);
+        assistantTextRef.current = event.inflight.assistantText;
+        assistantThinkRef.current = event.inflight.assistantThink;
+        toolCallsRef.current = new Map();
+        segmentsRef.current = [
+          { id: makeId(), kind: 'text', content: assistantTextRef.current },
+        ];
+        assistantCitationsRef.current = [];
+        event.inflight.toolEvents.forEach((toolEvent) =>
+          applyToolEvent(toolEvent),
+        );
+        if (segmentsRef.current.length === 0) {
+          segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
+        }
+        setIsStreaming(true);
+        syncAssistantMessage({ streamStatus: 'processing' });
+        return;
+      }
+
+      if (event.type === 'assistant_delta') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        assistantTextRef.current += event.delta;
+        const last = segmentsRef.current[segmentsRef.current.length - 1];
+        if (last?.kind === 'text') {
+          segmentsRef.current = [
+            ...segmentsRef.current.slice(0, -1),
+            { ...last, content: last.content + event.delta },
+          ];
+        } else {
+          segmentsRef.current = [
+            ...segmentsRef.current,
+            { id: makeId(), kind: 'text', content: event.delta },
+          ];
+        }
+        setIsStreaming(true);
+        syncAssistantMessage({ streamStatus: 'processing' });
+        return;
+      }
+
+      if (event.type === 'analysis_delta') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        assistantThinkRef.current += event.delta;
+        setIsStreaming(true);
+        syncAssistantMessage({ streamStatus: 'processing' });
+        return;
+      }
+
+      if (event.type === 'tool_event') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        applyToolEvent(event.event);
+        setIsStreaming(true);
+        syncAssistantMessage({ streamStatus: 'processing' });
+        return;
+      }
+
+      if (event.type === 'turn_final') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        if (event.threadId !== undefined) {
+          setThreadId(event.threadId ?? null);
+          threadIdRef.current = event.threadId ?? null;
+        }
+
+        clearThinkingTimer();
+        setIsStreaming(false);
+        setStatus('idle');
+
+        if (
+          event.status === 'failed' &&
+          event.error?.message &&
+          assistantTextRef.current.trim().length === 0
+        ) {
+          assistantTextRef.current = event.error.message;
+          segmentsRef.current = [
+            { id: makeId(), kind: 'text', content: assistantTextRef.current },
+          ];
+        }
+
+        const streamStatus: ChatMessage['streamStatus'] =
+          event.status === 'failed' ? 'failed' : 'complete';
+
+        syncAssistantMessage({
+          streamStatus,
+          thinking: false,
+          thinkStreaming: false,
+          ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
+        });
+      }
     },
-    [],
+    [
+      applyToolEvent,
+      clearThinkingTimer,
+      ensureAssistantMessage,
+      syncAssistantMessage,
+    ],
   );
 
-  return {
-    messages,
-    status,
-    isStreaming,
-    send,
-    stop,
-    reset,
-    conversationId,
-    setConversation,
-    hydrateHistory,
-  };
+  const getInflightId = useCallback(() => inflightIdRef.current, []);
+
+  return useMemo(
+    () => ({
+      messages,
+      status,
+      isStreaming,
+      send,
+      stop,
+      reset,
+      conversationId,
+      setConversation,
+      hydrateHistory,
+      inflightId,
+      getInflightId,
+      handleWsEvent,
+    }),
+    [
+      messages,
+      status,
+      isStreaming,
+      send,
+      stop,
+      reset,
+      conversationId,
+      setConversation,
+      hydrateHistory,
+      inflightId,
+      getInflightId,
+      handleWsEvent,
+    ],
+  );
 }
 
 export default useChatStream;

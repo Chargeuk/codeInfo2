@@ -1468,7 +1468,6 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Implementation notes
 
-- (fill in during implementation)
 
 - Testing 9: `npm run compose:down` passed.
 
@@ -2204,9 +2203,9 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 ---
 
-### 7. Chat WebSocket client streaming
+ ### 7. Chat WebSocket client streaming
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -2227,7 +2226,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 #### Subtasks
 
-1. [ ] Read the current SSE-based client streaming code so you understand what must be replaced:
+1. [x] Read the current SSE-based client streaming code so you understand what must be replaced:
    - Docs to read:
      - https://react.dev/learn
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2235,7 +2234,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
 
-2. [ ] Create a WS hook that owns the connection and JSON codec (no shared WS abstraction exists yet):
+2. [x] Create a WS hook that owns the connection and JSON codec (no shared WS abstraction exists yet):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -2260,7 +2259,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        }
        ```
 
-3. [ ] Add explicit connection lifecycle + reconnect/backoff logic:
+3. [x] Add explicit connection lifecycle + reconnect/backoff logic:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -2269,7 +2268,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Use a simple backoff (e.g., 250ms → 500ms → 1000ms → 2000ms max) and reconnect automatically.
      - On reconnect, re-send active subscriptions (sidebar + current conversation) after refreshing the sidebar list snapshot via REST.
 
-4. [ ] Implement transcript subscribe/unsubscribe tied to “currently visible conversation only”:
+4. [x] Implement transcript subscribe/unsubscribe tied to “currently visible conversation only”:
    - Docs to read:
      - https://react.dev/learn
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2280,7 +2279,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - When the user switches conversations, unsubscribe from the old conversation stream and subscribe to the new one.
      - Unsubscribing must NOT cancel the run (it only stops local viewing).
 
-5. [ ] Apply WS transcript events to the UI state (snapshot → deltas/tool events → final):
+5. [x] Apply WS transcript events to the UI state (snapshot → deltas/tool events → final):
    - Docs to read:
      - https://react.dev/learn
    - Files to edit:
@@ -2296,7 +2295,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Cache the latest `inflightId` for Stop.
      - Render tool events using the existing UI expectations (tool-request/tool-result shapes).
 
-6. [ ] Add sidebar WS subscription (Chat page only) and merge `conversation_upsert` / `conversation_delete` into list state:
+6. [x] Add sidebar WS subscription (Chat page only) and merge `conversation_upsert` / `conversation_delete` into list state:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -2307,7 +2306,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Keep checkbox selection stable during list resorting (selection keyed by `conversationId`).
      - Filter out sidebar events with a non-empty `agentName` (Chat list is `agentName=__none__`).
 
-7. [ ] Replace the SSE run-start logic with a `POST /chat` start request (no streaming) + WS transcript updates:
+7. [x] Replace the SSE run-start logic with a `POST /chat` start request (no streaming) + WS transcript updates:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
@@ -2322,7 +2321,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Handle `409 RUN_IN_PROGRESS` by showing a stable UI error bubble.
      - Do not abort/cancel runs on route unmount or conversation switch.
 
-8. [ ] Implement Stop using WS `cancel_inflight` (no fetch abort):
+8. [x] Implement Stop using WS `cancel_inflight` (no fetch abort):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -2333,7 +2332,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
      ```
 
-9. [ ] Enforce the “mongoConnected === false” behaviour explicitly (this is easy to miss):
+9. [x] Enforce the “mongoConnected === false” behaviour explicitly (this is easy to miss):
    - Docs to read:
      - https://react.dev/learn
    - Files to edit:
@@ -2346,7 +2345,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        - `cancel_inflight` does not depend on Mongo.
        - It is acceptable to keep a minimal WS connection open (or open one on-demand) solely to send `cancel_inflight`, but the UI must not render live transcript/sidebar updates in this mode.
 
-10. [ ] Enable live transcript streaming for agent-initiated conversations in the Agents UI (same WS transcript contract):
+10. [x] Enable live transcript streaming for agent-initiated conversations in the Agents UI (same WS transcript contract):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://react.dev/learn
@@ -2361,7 +2360,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Unsubscribe on conversation switch and on unmount.
      - Do not change the Agents REST response format (it still returns `segments`); this subtask only improves live viewing while a run is in progress.
 
-11. [ ] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
+11. [x] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2376,7 +2375,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
      - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
 
-12. [ ] Update `projectStructure.md` with any added/removed client streaming modules:
+12. [x] Update `projectStructure.md` with any added/removed client streaming modules:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -2393,7 +2392,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        - `client/src/hooks/useChatWs.ts`
      - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
 
-13. [ ] Add client log lines (forwarded to `/logs`) for WS subscription + reconnect behaviors so manual checks can confirm the new client streaming logic is executing:
+13. [x] Add client log lines (forwarded to `/logs`) for WS subscription + reconnect behaviors so manual checks can confirm the new client streaming logic is executing:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/logging/logger.ts` (use existing logger; do not change schema)
@@ -2412,7 +2411,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Notes:
      - `chat.ws.client_*` logs must be forwarded to server `/logs` so they show up in the Logs UI.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2428,21 +2427,21 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat`.
    - Send a message and verify you see live transcript updates for the visible conversation.
    - Switch conversations mid-stream and confirm:
@@ -2452,11 +2451,28 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Confirm client log lines exist for this task:
      - Open `/logs` and search for `chat.ws.client_snapshot_received` and `chat.ws.client_final_received` after streaming completes.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Replaced `useChatStream` SSE transport with `POST /chat` (202 start-run) and applied transcript updates via WebSocket events (`inflight_snapshot`, deltas, tool_event, turn_final).
+- 2025-12-27: Wired `ChatPage` to mount a single `useChatWs` connection, subscribe to `subscribe_sidebar` + the visible conversation only, and merge `conversation_upsert`/`conversation_delete` into `useConversations` state.
+- 2025-12-27: Implemented Stop via WS `cancel_inflight` (no fetch abort); kept route unmount/conversation switch as unsubscribe-only (run continues server-side).
+- 2025-12-27: Enforced persistence-down behaviour: when `mongoConnected === false`, the UI disables WS subscriptions and warns that live streaming is disabled, while Stop still sends `cancel_inflight`.
+- 2025-12-27: Added required client-forwarded WS logs in `useChatWs` (`chat.ws.client_connect`, `chat.ws.client_subscribe_conversation`, `chat.ws.client_snapshot_received`, `chat.ws.client_final_received`, `chat.ws.client_reconnect_attempt`, `chat.ws.client_stale_event_ignored`).
+- 2025-12-27: Enabled WS live viewing in Agents UI by subscribing to the selected agent conversation and rendering an in-flight assistant message (text/think/tool events) while a run is active.
+- 2025-12-27: Updated `design.md` + `projectStructure.md` to reflect the WS client lifecycle and to list newly added client WS modules.
+- 2025-12-27: Fixed ChatPage stop cleanup to only fire on unmount (using a ref), preventing premature stream resets when `stop` callback identity changes.
+- 2025-12-27: Ran `npm run lint --workspaces` (client clean; server lint warnings only) and `npm run format:check --workspaces` (fixed via `npm run format --workspaces`).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started and health checks passed.
+- Testing 8: Manual Playwright check against mapped ports (`http://host.docker.internal:5001` + `http://host.docker.internal:5010`): verified WS-driven transcript updates for visible conversation, switching conversations triggers catch-up snapshot, Stop emits `cancel_inflight`, and `/logs` contains `chat.ws.client_snapshot_received` + `chat.ws.client_final_received`.
+- Testing 9: `npm run compose:down` passed.
 
 ---
 

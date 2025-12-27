@@ -44,6 +44,10 @@ import useConversationTurns, {
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import useChatWs, {
+  type ChatWsServerEvent,
+  type ChatWsToolEvent,
+} from '../hooks/useChatWs';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<
@@ -70,9 +74,110 @@ export default function AgentsPage() {
   const [selectedCommandName, setSelectedCommandName] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  type LiveInflight = {
+    conversationId: string;
+    inflightId: string;
+    assistantText: string;
+    assistantThink: string;
+    toolEvents: ChatWsToolEvent[];
+    status: 'processing' | 'complete' | 'failed';
+    startedAt?: string;
+  };
+
+  const [liveInflight, setLiveInflight] = useState<LiveInflight | null>(null);
   const orderedMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
     [messages],
+  );
+
+  const inflightMessage = useMemo<ChatMessage | null>(() => {
+    if (!liveInflight) return null;
+
+    const normalizeCallId = (raw: unknown) => {
+      if (typeof raw === 'string' && raw.trim()) return raw;
+      if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+      return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+    };
+
+    const toolsById = new Map<string, ToolCall>();
+    const segments: NonNullable<ChatMessage['segments']> = [
+      {
+        id: 'inflight-' + liveInflight.inflightId + '-text',
+        kind: 'text',
+        content: liveInflight.assistantText,
+      },
+    ];
+
+    for (const ev of liveInflight.toolEvents) {
+      const id = normalizeCallId(ev.callId);
+      const existing = toolsById.get(id);
+
+      if (ev.type === 'tool-request') {
+        const tool: ToolCall = {
+          id,
+          name: ev.name,
+          status: 'requesting',
+          parameters: ev.parameters,
+          stage: ev.stage,
+        };
+        toolsById.set(id, { ...(existing ?? tool), ...tool });
+      } else {
+        const status: ToolCall['status'] =
+          ev.stage === 'error' || ev.errorTrimmed || ev.errorFull
+            ? 'error'
+            : 'done';
+        const tool: ToolCall = {
+          id,
+          name: ev.name ?? existing?.name,
+          status,
+          parameters: ev.parameters,
+          payload: ev.result,
+          stage: ev.stage,
+          errorTrimmed:
+            ev.errorTrimmed && typeof ev.errorTrimmed === 'object'
+              ? (ev.errorTrimmed as { code?: string; message?: string })
+              : null,
+          errorFull: ev.errorFull,
+        };
+        toolsById.set(id, { ...(existing ?? tool), ...tool });
+      }
+
+      const tool = toolsById.get(id);
+      if (tool) {
+        segments.push({
+          id: 'inflight-' + liveInflight.inflightId + '-' + id,
+          kind: 'tool',
+          tool,
+        });
+        segments.push({
+          id: 'inflight-' + liveInflight.inflightId + '-' + id + '-after',
+          kind: 'text',
+          content: '',
+        });
+      }
+    }
+
+    return {
+      id: 'inflight-' + liveInflight.inflightId,
+      role: 'assistant',
+      content: liveInflight.assistantText,
+      think: liveInflight.assistantThink || undefined,
+      thinkStreaming:
+        liveInflight.status === 'processing' &&
+        liveInflight.assistantThink.length > 0,
+      tools: Array.from(toolsById.values()),
+      segments,
+      streamStatus: liveInflight.status,
+      ...(liveInflight.status === 'failed' ? { kind: 'error' as const } : {}),
+      createdAt: liveInflight.startedAt ?? new Date().toISOString(),
+    };
+  }, [liveInflight]);
+
+  const displayMessages = useMemo(
+    () =>
+      inflightMessage ? [...orderedMessages, inflightMessage] : orderedMessages,
+    [inflightMessage, orderedMessages],
   );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -94,6 +199,119 @@ export default function AgentsPage() {
   const { mongoConnected, isLoading: persistenceLoading } =
     usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
+
+  const { subscribeConversation, unsubscribeConversation } = useChatWs({
+    onEvent: (event: ChatWsServerEvent) => {
+      if (mongoConnected === false) return;
+      if (!activeConversationId) return;
+      switch (event.type) {
+        case 'inflight_snapshot':
+          if (event.conversationId !== activeConversationId) return;
+          setLiveInflight({
+            conversationId: event.conversationId,
+            inflightId: event.inflight.inflightId,
+            assistantText: event.inflight.assistantText,
+            assistantThink: event.inflight.assistantThink,
+            toolEvents: event.inflight.toolEvents ?? [],
+            status: 'processing',
+            startedAt: event.inflight.startedAt,
+          });
+          return;
+        case 'assistant_delta':
+          if (event.conversationId !== activeConversationId) return;
+          setLiveInflight((prev) =>
+            prev && prev.conversationId === event.conversationId
+              ? {
+                  ...prev,
+                  inflightId: event.inflightId,
+                  assistantText: prev.assistantText + event.delta,
+                  status: 'processing',
+                }
+              : prev,
+          );
+          return;
+        case 'analysis_delta':
+          if (event.conversationId !== activeConversationId) return;
+          setLiveInflight((prev) =>
+            prev && prev.conversationId === event.conversationId
+              ? {
+                  ...prev,
+                  inflightId: event.inflightId,
+                  assistantThink: prev.assistantThink + event.delta,
+                  status: 'processing',
+                }
+              : prev,
+          );
+          return;
+        case 'tool_event':
+          if (event.conversationId !== activeConversationId) return;
+          setLiveInflight((prev) =>
+            prev && prev.conversationId === event.conversationId
+              ? {
+                  ...prev,
+                  inflightId: event.inflightId,
+                  toolEvents: [...prev.toolEvents, event.event],
+                  status: 'processing',
+                }
+              : prev,
+          );
+          return;
+        case 'turn_final':
+          if (event.conversationId !== activeConversationId) return;
+          setLiveInflight((prev) => {
+            if (!prev || prev.conversationId !== event.conversationId)
+              return prev;
+            const nextStatus =
+              event.status === 'failed' ? 'failed' : 'complete';
+            const nextText =
+              event.status === 'failed' &&
+              event.error?.message &&
+              !prev.assistantText.trim()
+                ? event.error.message
+                : prev.assistantText;
+            return {
+              ...prev,
+              inflightId: event.inflightId,
+              assistantText: nextText,
+              status: nextStatus,
+            };
+          });
+          return;
+        default:
+          return;
+      }
+    },
+  });
+
+  useEffect(() => {
+    setLiveInflight(null);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (!activeConversationId) return;
+    subscribeConversation(activeConversationId);
+    return () => unsubscribeConversation(activeConversationId);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    subscribeConversation,
+    unsubscribeConversation,
+  ]);
+
+  useEffect(() => {
+    if (!liveInflight) return;
+    if (liveInflight.status === 'processing') return;
+    const matching = messages.some(
+      (msg) =>
+        msg.role === 'assistant' &&
+        msg.streamStatus === 'complete' &&
+        msg.content.trim() === liveInflight.assistantText.trim(),
+    );
+    if (matching) {
+      setLiveInflight(null);
+    }
+  }, [liveInflight, messages]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -967,13 +1185,13 @@ export default function AgentsPage() {
                         'Failed to load conversation history.'}
                     </Alert>
                   )}
-                  {orderedMessages.length === 0 && (
+                  {displayMessages.length === 0 && (
                     <Typography color="text.secondary">
                       Transcript will appear here once you send an instruction.
                     </Typography>
                   )}
 
-                  {orderedMessages.map((message) => {
+                  {displayMessages.map((message) => {
                     const alignSelf =
                       message.role === 'user' ? 'flex-end' : 'flex-start';
                     const isErrorBubble = message.kind === 'error';

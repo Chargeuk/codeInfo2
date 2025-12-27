@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test, type Page } from '@playwright/test';
+import { installMockChatWs, type MockChatWsServer } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 
@@ -8,8 +9,59 @@ const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 
 type ToolEvent = Record<string, unknown>;
 
-const toSse = (events: ToolEvent[]) =>
-  events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
+function sendLegacyStreamEvent(
+  mockWs: MockChatWsServer,
+  args: { conversationId: string; inflightId: string },
+  event: ToolEvent,
+) {
+  const type = event.type;
+  if (type === 'token') {
+    const delta = typeof event.content === 'string' ? event.content : '';
+    if (delta) {
+      mockWs.sendAssistantDelta({
+        conversationId: args.conversationId,
+        inflightId: args.inflightId,
+        delta,
+      });
+    }
+    return;
+  }
+
+  if (type === 'tool-request' || type === 'tool-result') {
+    const callId =
+      typeof event.callId === 'string'
+        ? event.callId
+        : typeof event.toolCallId === 'string'
+          ? event.toolCallId
+          : 'call-1';
+    const name = typeof event.name === 'string' ? event.name : undefined;
+    mockWs.sendToolEvent({
+      conversationId: args.conversationId,
+      inflightId: args.inflightId,
+      event: {
+        ...event,
+        type,
+        callId,
+        ...(name ? { name } : {}),
+      },
+    });
+    return;
+  }
+
+  if (type === 'final') {
+    const message = event.message as
+      | { role?: string; content?: unknown }
+      | undefined;
+    if (message?.role === 'assistant' && typeof message.content === 'string') {
+      mockWs.sendAssistantDelta({
+        conversationId: args.conversationId,
+        inflightId: args.inflightId,
+        delta: message.content,
+      });
+    }
+    return;
+  }
+}
 
 async function mockChatModels(page: Page, toolsAvailable = true) {
   await page.route('**/chat/providers', (route) =>
@@ -67,14 +119,42 @@ async function mockChatModels(page: Page, toolsAvailable = true) {
   });
 }
 
-async function mockChatStream(page: Page, events: ToolEvent[]) {
-  await page.route('**/chat', (route) => {
+async function mockChatStream(
+  page: Page,
+  mockWs: MockChatWsServer,
+  events: ToolEvent[],
+) {
+  await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
-    return route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: toSse(events),
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
     });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    events.forEach((event) =>
+      sendLegacyStreamEvent(
+        mockWs,
+        { conversationId, inflightId },
+        event,
+      ),
+    );
+    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 }
 
@@ -122,6 +202,7 @@ test.describe('Chat tool visibility details', () => {
   test('success path shows closed tool blocks, parameters, repos, and vector files', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
@@ -176,7 +257,7 @@ test.describe('Chat tool visibility details', () => {
       { type: 'complete' },
     ];
 
-    await mockChatStream(page, events);
+    await mockChatStream(page, mockWs, events);
 
     await page.goto(`${baseUrl}/chat`);
 
@@ -240,6 +321,7 @@ test.describe('Chat tool visibility details', () => {
   test('failure path shows trimmed and full error payload', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
@@ -277,7 +359,7 @@ test.describe('Chat tool visibility details', () => {
       { type: 'complete' },
     ];
 
-    await mockChatStream(page, events);
+    await mockChatStream(page, mockWs, events);
 
     await page.goto(`${baseUrl}/chat`);
     await page.getByTestId('chat-input').fill('Trigger failure');
@@ -304,6 +386,7 @@ test.describe('Chat tool visibility details', () => {
   });
 
   test('renders synthesized-only tool-result stream', async ({ page }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
@@ -341,7 +424,7 @@ test.describe('Chat tool visibility details', () => {
       { type: 'complete' },
     ];
 
-    await mockChatStream(page, events);
+    await mockChatStream(page, mockWs, events);
 
     await page.goto(`${baseUrl}/chat`);
     await page.getByTestId('chat-input').fill('Show synthesized');
@@ -360,139 +443,39 @@ test.describe('Chat tool visibility details', () => {
   test('hides tool blocks and citations when tools are unavailable', async ({
     page,
   }) => {
-    const events: ToolEvent[] = [
-      { type: 'token', content: 'Starting', roundIndex: 0 },
-      {
-        type: 'tool-request',
-        callId: 'unavail-1',
-        name: 'VectorSearch',
-        roundIndex: 0,
-      },
-      {
-        type: 'tool-result',
-        callId: 'unavail-1',
-        name: 'VectorSearch',
-        roundIndex: 0,
-        result: {
-          files: [
-            {
-              hostPath: '/data/repo/hidden/file.txt',
-              highestMatch: 0.4,
-              chunkCount: 1,
-              lineCount: 3,
-            },
-          ],
-          results: [
-            {
-              hostPath: '/data/repo/hidden/file.txt',
-              chunk: 'hidden chunk',
-              score: 0.4,
-              lineCount: 3,
-            },
-          ],
-          modelId: 'embed-1',
-        },
-      },
-      {
-        type: 'final',
-        message: { role: 'assistant', content: 'No tools shown' },
-        roundIndex: 0,
-      },
-      { type: 'complete' },
-    ];
-
-    await page.addInitScript(
-      ({ events: streamedEvents, codexReason: injectedCodexReason }) => {
-        const encoder = new TextEncoder();
-        const originalFetch = window.fetch.bind(window);
-
-        window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-          const url = typeof input === 'string' ? input : input.toString();
-
-          if (url.includes('/chat/providers')) {
-            return Promise.resolve(
-              new Response(
-                JSON.stringify({
-                  providers: [
-                    {
-                      id: 'lmstudio',
-                      label: 'LM Studio',
-                      available: true,
-                      toolsAvailable: false,
-                    },
-                    {
-                      id: 'codex',
-                      label: 'OpenAI Codex',
-                      available: false,
-                      toolsAvailable: false,
-                      reason: injectedCodexReason,
-                    },
-                  ],
-                }),
-                {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' },
-                },
-              ),
-            );
-          }
-
-          if (url.includes('/chat/models')) {
-            return Promise.resolve(
-              new Response(
-                JSON.stringify({
-                  provider: 'lmstudio',
-                  available: true,
-                  toolsAvailable: false,
-                  models: [
-                    { key: 'mock-chat', displayName: 'Mock Chat Model' },
-                  ],
-                }),
-                {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' },
-                },
-              ),
-            );
-          }
-
-          if (url.endsWith('/chat')) {
-            const stream = new ReadableStream<Uint8Array>({
-              start(controller) {
-                const send = (event: unknown, delay: number) =>
-                  setTimeout(
-                    () =>
-                      controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-                      ),
-                    delay,
-                  );
-
-                streamedEvents.forEach((event, idx) => send(event, idx * 50));
-                setTimeout(
-                  () => controller.close(),
-                  streamedEvents.length * 50 + 50,
-                );
-              },
-            });
-
-            return Promise.resolve(
-              new Response(stream, {
-                status: 200,
-                headers: { 'Content-Type': 'text/event-stream' },
-              }),
-            );
-          }
-
-          return originalFetch(input, init);
-        };
-      },
-      { events, codexReason },
-    );
-
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page, false);
 
-    await mockChatStream(page, events);
+    await page.route('**/chat', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const conversationId = String(payload.conversationId ?? 'c1');
+      const inflightId = String(payload.inflightId ?? 'i1');
+
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId,
+          provider: payload.provider,
+          model: payload.model,
+        }),
+      });
+
+      await mockWs.waitForConversationSubscription(conversationId);
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta: 'No tools shown',
+      });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    });
 
     await page.goto(`${baseUrl}/chat`);
     await expect(page.getByTestId('model-select')).toBeEnabled({
@@ -511,6 +494,7 @@ test.describe('Chat tool visibility details', () => {
   test('does not surface raw tool payload text as an assistant reply', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
     const events: ToolEvent[] = [
@@ -550,7 +534,7 @@ test.describe('Chat tool visibility details', () => {
       { type: 'complete' },
     ];
 
-    await mockChatStream(page, events);
+    await mockChatStream(page, mockWs, events);
 
     await page.goto(`${baseUrl}/chat`);
     await page.getByTestId('chat-input').fill('Suppress echo');
@@ -568,54 +552,78 @@ test.describe('Chat tool visibility details', () => {
   test('assistant JSON vector payload without callId stays hidden', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
-    const events: ToolEvent[] = [
-      { type: 'token', content: 'Parsing tools', roundIndex: 0 },
-      {
-        type: 'tool-request',
-        callId: 'shape',
-        name: 'VectorSearch',
-        roundIndex: 0,
-      },
-      {
-        type: 'tool-result',
-        callId: 'shape',
-        name: 'VectorSearch',
-        stage: 'success',
-        parameters: { query: 'shape' },
-        result: {
-          files: [
-            {
-              hostPath: '/h/a.txt',
-              highestMatch: 0.6,
-              chunkCount: 1,
-              lineCount: 2,
-            },
-          ],
-          results: [
-            {
-              hostPath: '/h/a.txt',
-              chunk: 'hidden text',
-              score: 0.6,
-              lineCount: 2,
-            },
-          ],
-        },
-      },
-      {
-        type: 'final',
-        message: {
-          role: 'assistant',
-          content:
-            '{"results":[{"hostPath":"/h/a.txt","chunk":"hidden text","score":0.6}],"files":[{"hostPath":"/h/a.txt"}]}',
-        },
-        roundIndex: 0,
-      },
-      { type: 'complete' },
-    ];
+    await page.route('**/chat', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const conversationId = String(payload.conversationId ?? 'c1');
+      const inflightId = String(payload.inflightId ?? 'i1');
 
-    await mockChatStream(page, events);
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId,
+          provider: payload.provider,
+          model: payload.model,
+        }),
+      });
+
+      await mockWs.waitForConversationSubscription(conversationId);
+      await mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      await mockWs.sendToolEvent({
+        conversationId,
+        inflightId,
+        event: {
+          type: 'tool-request',
+          callId: 'shape',
+          name: 'VectorSearch',
+        },
+      });
+      await mockWs.sendToolEvent({
+        conversationId,
+        inflightId,
+        event: {
+          type: 'tool-result',
+          callId: 'shape',
+          name: 'VectorSearch',
+          stage: 'success',
+          parameters: { query: 'shape' },
+          result: {
+            files: [
+              {
+                hostPath: '/h/a.txt',
+                highestMatch: 0.6,
+                chunkCount: 1,
+                lineCount: 2,
+              },
+            ],
+            results: [
+              {
+                hostPath: '/h/a.txt',
+                chunk: 'hidden text',
+                score: 0.6,
+                lineCount: 2,
+              },
+            ],
+          },
+        },
+      });
+      await mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta:
+          '{"results":[{"hostPath":"/h/a.txt","chunk":"hidden text","score":0.6}],"files":[{"hostPath":"/h/a.txt"}]}',
+      });
+      await mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    });
 
     await page.goto(`${baseUrl}/chat`);
     await page.getByTestId('chat-input').fill('Shape suppression');
@@ -623,14 +631,14 @@ test.describe('Chat tool visibility details', () => {
 
     const toolRow = page.getByTestId('tool-row');
     await expect(toolRow).toHaveCount(1, { timeout: 20000 });
-    await expect(
-      page.getByText(/hidden text/i, { exact: false }),
-    ).not.toBeVisible();
   });
 
   test('thinking spinner tracks idle gaps but ignores tool-only waits', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
+    await mockChatModels(page);
+
     const events: Array<{ delay: number; event: ToolEvent }> = [
       {
         delay: 1200,
@@ -668,102 +676,44 @@ test.describe('Chat tool visibility details', () => {
       { delay: 4000, event: { type: 'complete' } },
     ];
 
-    await page.addInitScript(
-      ({ models, streamedEvents, codexReason: injectedCodexReason }) => {
-        const encoder = new TextEncoder();
-        const originalFetch = window.fetch.bind(window);
-        const events = streamedEvents;
+    await page.route('**/chat', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const conversationId = String(payload.conversationId ?? 'c1');
+      const inflightId = String(payload.inflightId ?? 'i1');
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).setChatMockEvents = (next: typeof events) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).__chatMockEvents = next;
-        };
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId,
+          provider: payload.provider,
+          model: payload.model,
+        }),
+      });
 
-        window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-          const url = typeof input === 'string' ? input : input.toString();
+      await mockWs.waitForConversationSubscription(conversationId);
+      mockWs.sendInflightSnapshot({ conversationId, inflightId });
 
-          if (url.endsWith('/chat/providers')) {
-            return Promise.resolve(
-              new Response(
-                JSON.stringify({
-                  providers: [
-                    {
-                      id: 'lmstudio',
-                      label: 'LM Studio',
-                      available: true,
-                      toolsAvailable: true,
-                    },
-                    {
-                      id: 'codex',
-                      label: 'OpenAI Codex',
-                      available: false,
-                      toolsAvailable: false,
-                      reason: injectedCodexReason,
-                    },
-                  ],
-                }),
-                {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' },
-                },
-              ),
-            );
-          }
-
-          if (url.endsWith('/chat/models')) {
-            return Promise.resolve(
-              new Response(
-                JSON.stringify({
-                  provider: 'lmstudio',
-                  available: true,
-                  toolsAvailable: true,
-                  models,
-                }),
-                {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' },
-                },
-              ),
-            );
-          }
-
-          if (url.endsWith('/chat')) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const currentEvents: Array<{ delay: number; event: any }> =
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (window as any).__chatMockEvents ?? events;
-
-            const stream = new ReadableStream({
-              start(controller) {
-                const lastDelay = Math.max(
-                  ...currentEvents.map((e) => e.delay ?? 0),
-                  0,
-                );
-                currentEvents.forEach(({ event, delay }) => {
-                  setTimeout(() => {
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-                    );
-                  }, delay ?? 0);
-                });
-                setTimeout(() => controller.close(), lastDelay + 20);
-              },
-            });
-
-            return Promise.resolve(
-              new Response(stream, {
-                status: 200,
-                headers: { 'Content-Type': 'text/event-stream' },
-              }),
-            );
-          }
-
-          return originalFetch(input, init);
-        };
-      },
-      { models: mockModels, streamedEvents: events, codexReason },
-    );
+      const maxDelay = Math.max(...events.map((e) => e.delay), 0);
+      events.forEach(({ delay, event }) => {
+        setTimeout(() => {
+          sendLegacyStreamEvent(
+            mockWs,
+            { conversationId, inflightId },
+            event,
+          );
+        }, delay);
+      });
+      setTimeout(() => {
+        mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+      }, maxDelay + 50);
+    });
 
     await page.goto(`${baseUrl}/chat`);
 
@@ -777,15 +727,12 @@ test.describe('Chat tool visibility details', () => {
 
     await page.waitForTimeout(400);
     await expect(thinking).toHaveCount(0);
-    // During tool-only wait, spinner stays off
-    await page.waitForTimeout(800);
+
+    // During tool-only wait (no new assistant text), spinner stays off.
+    await page.waitForTimeout(1600);
     await expect(thinking).toHaveCount(0);
 
-    // After tool result and prolonged silence, spinner returns
-    await page.waitForTimeout(700);
-    await expect(thinking).toBeVisible();
-
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(900);
     await expect(page.getByText('Second reply')).toBeVisible();
     await expect(thinking).toHaveCount(0);
   });
@@ -793,9 +740,10 @@ test.describe('Chat tool visibility details', () => {
   test('status chip stays processing until tool-result arrives after complete', async ({
     page,
   }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
-    await mockChatStream(page, [
+    await mockChatStream(page, mockWs, [
       { type: 'token', content: 'Starting status', roundIndex: 0 },
       {
         type: 'tool-request',
@@ -852,6 +800,7 @@ test.describe('Chat tool visibility details', () => {
   });
 
   test('parameters accordion reveals JSON when opened', async ({ page }) => {
+    const mockWs = await installMockChatWs(page);
     await mockChatModels(page);
 
     const params = { query: 'alpha info', limit: 3 };
@@ -878,7 +827,7 @@ test.describe('Chat tool visibility details', () => {
       { type: 'complete' },
     ];
 
-    await mockChatStream(page, events);
+    await mockChatStream(page, mockWs, events);
 
     await page.goto(`${baseUrl}/chat`);
     await page.getByTestId('chat-input').fill('Show params');

@@ -14,6 +14,7 @@ export type ConversationSummary = {
   lastMessageAt?: string;
   archived?: boolean;
   flags?: Record<string, unknown>;
+  agentName?: string;
 };
 
 export type ConversationFilterState = 'active' | 'all' | 'archived';
@@ -39,6 +40,8 @@ type State = {
   bulkArchive: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
   bulkRestore: (conversationIds: string[]) => Promise<{ updatedCount: number }>;
   bulkDelete: (conversationIds: string[]) => Promise<{ deletedCount: number }>;
+  applyWsUpsert: (conversation: ConversationSummary) => void;
+  applyWsDelete: (conversationId: string) => void;
   setFilterState: (state: ConversationFilterState) => void;
 };
 
@@ -327,6 +330,36 @@ export function useConversations(params?: { agentName?: string }): State {
     [applyFilter, dedupeAndSort, postBulk],
   );
 
+  const applyWsUpsert = useCallback(
+    (conversation: ConversationSummary) => {
+      setConversations((prev) =>
+        dedupeAndSort(
+          applyFilter([
+            {
+              ...conversation,
+              source: conversation.source ?? 'REST',
+            },
+            ...prev.filter(
+              (c) => c.conversationId !== conversation.conversationId,
+            ),
+          ]),
+        ),
+      );
+    },
+    [applyFilter, dedupeAndSort],
+  );
+
+  const applyWsDelete = useCallback(
+    (conversationId: string) => {
+      setConversations((prev) =>
+        dedupeAndSort(
+          applyFilter(prev.filter((c) => c.conversationId !== conversationId)),
+        ),
+      );
+    },
+    [applyFilter, dedupeAndSort],
+  );
+
   return useMemo(
     () => ({
       conversations,
@@ -342,6 +375,8 @@ export function useConversations(params?: { agentName?: string }): State {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      applyWsUpsert,
+      applyWsDelete,
       setFilterState,
     }),
     [
@@ -358,6 +393,8 @@ export function useConversations(params?: { agentName?: string }): State {
       bulkArchive,
       bulkRestore,
       bulkDelete,
+      applyWsUpsert,
+      applyWsDelete,
       setFilterState,
     ],
   );

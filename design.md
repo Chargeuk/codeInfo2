@@ -1143,3 +1143,46 @@ flowchart LR
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
 ```
+
+### Client WebSocket lifecycle (Chat + Agents)
+
+- Each browser tab mounts a single WebSocket connection while the page is active.
+- When persistence is available (`mongoConnected !== false`):
+  - Chat page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the visible transcript only.
+  - Agents page subscribes only to `subscribe_conversation(activeConversationId)` for the selected agent conversation.
+- Switching conversations sends `unsubscribe_conversation(old)` then `subscribe_conversation(new)`; **unsubscribing never cancels a run**.
+- Unmounting the page closes the socket after unsubscribing; **navigation never cancels a run**.
+- Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes sidebar state via REST before resubscribing. The server sends an `inflight_snapshot` after `subscribe_conversation` when a run is in progress so the client can catch up deterministically.
+
+```mermaid
+sequenceDiagram
+  participant UI as UI (single tab)
+  participant WS as WS (/ws)
+  participant REST as REST API
+
+  UI->>WS: connect GET /ws
+  WS-->>UI: open
+
+  UI->>WS: subscribe_sidebar
+  UI->>WS: subscribe_conversation(c1)
+  WS-->>UI: inflight_snapshot? (if run in flight)
+
+  alt Switch conversation
+    UI->>WS: unsubscribe_conversation(c1)
+    UI->>WS: subscribe_conversation(c2)
+    WS-->>UI: inflight_snapshot? (if run in flight)
+  end
+
+  alt Reconnect
+    WS-->>UI: close (network hiccup)
+    loop backoff (250ms → 2000ms max)
+      UI->>WS: reconnect GET /ws
+      WS-->>UI: open
+    end
+    UI->>REST: GET /conversations (snapshot refresh)
+    UI->>WS: resubscribe_sidebar + resubscribe_conversation
+    WS-->>UI: inflight_snapshot?
+  end
+
+  UI->>WS: close (unmount)
+```

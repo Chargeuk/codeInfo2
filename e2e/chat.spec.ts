@@ -1,6 +1,7 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 type ChatModel = { key: string; displayName: string; type?: string };
 
@@ -35,6 +36,8 @@ test('chat streams end-to-end', async ({ page }) => {
   ];
 
   if (useMockChat) {
+    const mockWs = await installMockChatWs(page);
+
     await page.route('**/chat/providers*', (route) =>
       route.fulfill({
         status: 200,
@@ -87,19 +90,44 @@ test('chat streams end-to-end', async ({ page }) => {
         }),
       });
     });
-    await page.route('**/chat', (route) => {
+
+    await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') {
         return route.continue();
       }
-      return route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body: [
-          'data: {"type":"token","content":"Hi"}\n\n',
-          'data: {"type":"final","message":{"content":"Hi there <think>mock trace</think>","role":"assistant"}}\n\n',
-          'data: {"type":"complete"}\n\n',
-        ].join(''),
+
+      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const conversationId = String(payload.conversationId ?? 'c1');
+      const inflightId = String(payload.inflightId ?? 'i1');
+
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId,
+          provider: payload.provider,
+          model: payload.model,
+        }),
       });
+
+      await mockWs.waitForConversationSubscription(conversationId);
+      mockWs.sendInflightSnapshot({ conversationId, inflightId });
+      mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta: 'Hi there ',
+      });
+      mockWs.sendAnalysisDelta({
+        conversationId,
+        inflightId,
+        delta: 'mock trace',
+      });
+      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
     });
     models = mockModels;
   } else {

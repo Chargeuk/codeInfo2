@@ -898,6 +898,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 - Mongoose v9 persistence docs (updating conversation flags + turn persistence while streaming): Context7 `/automattic/mongoose/9.0.1`
 - Pino logging (adding required chat.* log names with structured fields): Context7 `/pinojs/pino/v10.1.0`
 - HTTP status semantics for the contract (202 accepted + 409 conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 
@@ -1085,6 +1086,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 - Node.js test runner (node:test is used for unit/integration assertions in this repo): https://nodejs.org/api/test.html
 - SuperTest (transport-accurate assertions for POST /chat 202 JSON + REST endpoints): Context7 `/ladjs/supertest`
 - `ws` 8.18.3 (client + server) docs (WS test helper WebSocket usage, events, teardown): Context7 `/websockets/ws/8_18_3` and https://github.com/websockets/ws/blob/8.18.3/doc/ws.md
+- Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Cucumber (use guides for runnable examples + step definition patterns): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
 - HTTP status semantics (202 start-run, 409 run-lock conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
@@ -2196,6 +2198,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 - Husky docs (pre-commit hooks can fail builds; use for debugging hook behavior): Context7 `/typicode/husky`
 - Mermaid syntax (for documentation diagrams): Context7 `/mermaid-js/mermaid`
 - Jest 30.x docs (repo uses Jest 30; used by final verification test runs): Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Cucumber guides (use guides for runnable examples and CI setup): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
 - Tooling references (npm run workspaces): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

@@ -582,7 +582,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 ### 2. Conversation bulk endpoints
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 #### Overview
 

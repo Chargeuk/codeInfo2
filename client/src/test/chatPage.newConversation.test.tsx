@@ -124,11 +124,18 @@ describe('Chat page new conversation control', () => {
       const sendButton = await screen.findByTestId('chat-send');
       await waitFor(() => expect(sendButton).toBeEnabled());
 
+      const abortCountBeforeSend = abortFns.length;
+
       await act(async () => {
         await user.click(sendButton);
       });
 
       await waitFor(() => expect(sendButton).toBeDisabled());
+
+      await waitFor(() =>
+        expect(abortFns.length).toBeGreaterThan(abortCountBeforeSend),
+      );
+      const sendAbort = abortFns[abortCountBeforeSend];
       const newConversationButton = screen.getByRole('button', {
         name: /new conversation/i,
       });
@@ -137,7 +144,7 @@ describe('Chat page new conversation control', () => {
         await user.click(newConversationButton);
       });
 
-      expect(abortFns.at(-1)).toHaveBeenCalled();
+      expect(sendAbort).toHaveBeenCalled();
       expect(
         screen.getByText(/Transcript will appear here/i),
       ).toBeInTheDocument();

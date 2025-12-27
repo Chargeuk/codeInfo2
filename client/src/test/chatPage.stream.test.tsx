@@ -669,10 +669,16 @@ describe('Chat page streaming', () => {
       { timeout: 3000 },
     );
 
-    const payload = loggedEntries[0] as {
+    const payload = loggedEntries.find((entry) => {
+      if (!entry || typeof entry !== 'object') return false;
+      const context = (entry as { context?: { channel?: string } }).context;
+      return context?.channel === 'client-chat';
+    }) as {
       source?: string;
       context?: { channel?: string };
     };
+
+    expect(payload).toBeTruthy();
     expect(payload.source).toBe('client');
     expect(payload.context?.channel).toBe('client-chat');
   });

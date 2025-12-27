@@ -183,8 +183,8 @@ export default function AgentsPage() {
 
   const {
     conversations,
-    includeArchived,
-    setIncludeArchived,
+    filterState,
+    setFilterState,
     isLoading: conversationsLoading,
     isError: conversationsError,
     error: conversationsErrorMessage,
@@ -721,11 +721,12 @@ export default function AgentsPage() {
             isError={conversationsError}
             error={conversationsErrorMessage}
             hasMore={conversationsHasMore}
-            includeArchived={includeArchived}
+            filterState={filterState}
+            mongoConnected={mongoConnected}
             disabled={controlsDisabled}
             variant="agents"
             onSelect={handleSelectConversation}
-            onToggleArchived={setIncludeArchived}
+            onFilterChange={setFilterState}
             onArchive={() => {}}
             onRestore={() => {}}
             onLoadMore={loadMoreConversations}

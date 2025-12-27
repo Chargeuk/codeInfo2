@@ -2020,7 +2020,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Subtasks
 
-1. [ ] Review current Chat sidebar implementation and conversation hooks:
+1. [x] Review current Chat sidebar implementation and conversation hooks:
    - Docs to read:
      - https://react.dev/learn
      - https://llms.mui.com/material-ui/6.4.12/llms.txt
@@ -2030,7 +2030,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - `client/src/hooks/usePersistenceStatus.ts`
      - `client/src/components/ingest/RootsTable.tsx` (selection pattern to reuse)
 
-2. [ ] Implement the 3-state filter UI only (no bulk controls yet):
+2. [x] Implement the 3-state filter UI only (no bulk controls yet):
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md (ToggleButtonGroup exclusive selection)
      - https://llms.mui.com/material-ui/6.4.12/api/toggle-button-group.md
@@ -2041,7 +2041,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - Filter options map to `state=active|all|archived`.
      - Clear selection on filter change.
 
-3. [ ] Add Set-based selection and per-row checkbox rendering:
+3. [x] Add Set-based selection and per-row checkbox rendering:
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/api/checkbox.md
    - Files to edit:
@@ -2050,38 +2050,38 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - Use `Set<string>` selection like `RootsTable`.
      - Selection must not be reset by list reordering.
 
-4. [ ] Add select-all checkbox + bulk toolbar UI (buttons can be disabled until wiring is complete):
+4. [x] Add select-all checkbox + bulk toolbar UI (buttons can be disabled until wiring is complete):
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/llms.txt
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
-5. [ ] Implement delete confirmation dialog:
+5. [x] Implement delete confirmation dialog:
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/api/dialog.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
-6. [ ] Implement Snackbar success/failure toasts:
+6. [x] Implement Snackbar success/failure toasts:
    - Docs to read:
      - https://llms.mui.com/material-ui/6.4.12/api/snackbar.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
 
-7. [ ] Disable bulk actions when `mongoConnected === false` and show a clear message:
+7. [x] Disable bulk actions when `mongoConnected === false` and show a clear message:
    - Docs to read:
      - https://react.dev/learn
    - Files to edit:
      - `client/src/hooks/usePersistenceStatus.ts`
      - `client/src/components/chat/ConversationList.tsx`
 
-8. [ ] Wire bulk API calls into `useConversations`:
+8. [x] Wire bulk API calls into `useConversations`:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
    - Files to edit:
      - `client/src/hooks/useConversations.ts`
 
-9. [ ] Validate edge cases:
+9. [x] Validate edge cases:
    - Docs to read:
      - https://react.dev/learn
    - Files to verify:
@@ -2089,7 +2089,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Requirements:
      - Do not force-refresh transcript mid-view if selected conversation changes state.
 
-10. [ ] Update `design.md` with the sidebar bulk action UX:
+10. [x] Update `design.md` with the sidebar bulk action UX:
     - Docs to read:
       - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
     - Files to edit:
@@ -2099,7 +2099,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Description:
      - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
 
-11. [ ] Update `projectStructure.md` if any new UI modules are added:
+11. [x] Update `projectStructure.md` if any new UI modules are added:
     - Docs to read:
       - https://www.markdownguide.org/basic-syntax/
     - Files to read:
@@ -2111,7 +2111,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-12. [ ] Add client log lines (forwarded to `/logs`) for sidebar filter + selection + bulk actions so manual checks can confirm the UI events fired:
+12. [x] Add client log lines (forwarded to `/logs`) for sidebar filter + selection + bulk actions so manual checks can confirm the UI events fired:
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/hooks/useConversations.ts`
@@ -2130,7 +2130,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Notes:
      - These must be forwarded into the server `/logs` store so Playwright-MCP can query them in the Logs UI.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2146,21 +2146,21 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
 5. [ ] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat`.
    - Verify the sidebar bulk UX:
      - Filter toggle cycles through `Active`, `Active & Archived`, and `Archived`.
@@ -2170,11 +2170,33 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Confirm client log lines exist for this task:
      - Open `/logs` and search for `chat.sidebar.filter_changed` and `chat.sidebar.bulk_action_result` after interacting with the sidebar.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - 2025-12-27: Marked task as in progress and began implementation.
+- 2025-12-27: Reviewed `ConversationList`, `useConversations`, `usePersistenceStatus`, and `RootsTable` (Set-based selection pattern).
+- 2025-12-27: Replaced the archived switch with a 3-state ToggleButtonGroup (`active|all|archived`) and wired list fetches to `state=` in `useConversations`.
+- 2025-12-27: Added `Set<string>` selection state to `ConversationList` and rendered per-row selection checkboxes (selection survives sorting/reordering).
+- 2025-12-27: Added select-all checkbox + bulk toolbar UI skeleton in the Chat sidebar (bulk buttons present but still disabled pending API wiring).
+- 2025-12-27: Implemented a bulk delete confirmation dialog (opens from the Delete button and confirms count before proceeding).
+- 2025-12-27: Added Snackbar toasts for archive/restore successes and failures (bulk actions will reuse the same toast surface).
+- 2025-12-27: Bulk selection + bulk delete are now disabled when `mongoConnected === false`, with an inline warning in the sidebar.
+- 2025-12-27: Added `bulkArchive`, `bulkRestore`, and `bulkDelete` helpers to `useConversations`, calling `/conversations/bulk/*` and updating local list state.
+- 2025-12-27: Updated `ChatPage` so turn loading is not gated by the current sidebar filter (prevents transcript from disappearing when the active conversation is archived/restored).
+- 2025-12-27: Updated `design.md` with the chat sidebar filter/selection/bulk action UX contract.
+- 2025-12-27: No new UI modules were added; `projectStructure.md` did not require updates.
+- 2025-12-27: Added required client log events for sidebar filter changes, selection changes, and bulk action request/result.
+- 2025-12-27: Ran `npm run lint --workspaces` and `npm run format:check --workspaces` (fixed Prettier issues and a server test lint error).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: Ran `npm run test --workspace server`; all green (unit tests + 44/44 Cucumber scenarios passed).
+- Testing 4: Ran `npm run test --workspace client`; all green (61 Jest suites / 129 tests).
+- Testing 5: Ran `npm run e2e`; all green (24 passed / 3 skipped) against the Docker e2e stack using `http://host.docker.internal:6001` + `http://host.docker.internal:6010`.
+- Testing 6: Ran `npm run compose:build` (local Docker images); succeeded.
+- Testing 7: Ran `npm run compose:up`; all containers started and health checks passed.
+- Testing 8: Manual Playwright-MCP check (container-safe): verified filter cycling, selection count, bulk archive/restore/delete enablement + confirmation dialog, and confirmed `/logs` contains `chat.sidebar.filter_changed` + `chat.sidebar.bulk_action_result` when browsing `http://host.docker.internal:5001`.
+- Testing 9: Ran `npm run compose:down`; stopped services cleanly.
 
 ---
 

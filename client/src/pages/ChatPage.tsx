@@ -108,8 +108,8 @@ export default function ChatPage() {
 
   const {
     conversations,
-    includeArchived,
-    setIncludeArchived,
+    filterState,
+    setFilterState,
     isLoading: conversationsLoading,
     isError: conversationsError,
     error: conversationsErrorMessage,
@@ -118,6 +118,9 @@ export default function ChatPage() {
     refresh: refreshConversations,
     archive: archiveConversation,
     restore: restoreConversation,
+    bulkArchive,
+    bulkRestore,
+    bulkDelete,
   } = useConversations({ agentName: '__none__' });
 
   const {
@@ -139,8 +142,14 @@ export default function ChatPage() {
   );
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
+  const knownConversationIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const conversation of conversations) {
+      knownConversationIdsRef.current.add(conversation.conversationId);
+    }
+  }, [conversations]);
   const knownConversationIds = useMemo(
-    () => new Set(conversations.map((c) => c.conversationId)),
+    () => new Set(Array.from(knownConversationIdsRef.current)),
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
@@ -154,7 +163,7 @@ export default function ChatPage() {
   const shouldLoadTurns = Boolean(
     activeConversationId &&
       !persistenceUnavailable &&
-      knownConversationIds.has(activeConversationId),
+      knownConversationIdsRef.current.has(activeConversationId),
   );
   const {
     lastPage,
@@ -789,12 +798,16 @@ export default function ChatPage() {
               isError={conversationsError}
               error={conversationsErrorMessage}
               hasMore={conversationsHasMore}
-              includeArchived={includeArchived}
+              filterState={filterState}
+              mongoConnected={mongoConnected}
               disabled={persistenceUnavailable || persistenceLoading}
               onSelect={handleSelectConversation}
-              onToggleArchived={setIncludeArchived}
+              onFilterChange={setFilterState}
               onArchive={handleArchive}
               onRestore={handleRestore}
+              onBulkArchive={bulkArchive}
+              onBulkRestore={bulkRestore}
+              onBulkDelete={bulkDelete}
               onLoadMore={loadMoreConversations}
               onRefresh={refreshConversations}
               onRetry={refreshConversations}

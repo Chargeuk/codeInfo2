@@ -116,7 +116,7 @@ export async function waitForEvent<T>(params: {
       resolve(candidate);
     }, 10);
 
-    const onMessage = (_raw: RawData) => {
+    const onMessage = () => {
       const candidate = consumeBuffered();
       if (!candidate) return;
       cleanup();

@@ -3,9 +3,12 @@ import { useState } from 'react';
 import ConversationList, {
   type ConversationListItem,
 } from '../components/chat/ConversationList';
+import type { ConversationFilterState } from '../hooks/useConversations';
 
 function Wrapper() {
-  const [conversations, setConversations] = useState<ConversationListItem[]>([
+  const [allConversations, setAllConversations] = useState<
+    ConversationListItem[]
+  >([
     {
       conversationId: 'c1',
       title: 'First conversation',
@@ -15,14 +18,21 @@ function Wrapper() {
       archived: false,
     },
   ]);
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [filterState, setFilterState] =
+    useState<ConversationFilterState>('active');
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(undefined);
 
+  const conversations = allConversations.filter((c) => {
+    if (filterState === 'all') return true;
+    if (filterState === 'archived') return Boolean(c.archived);
+    return !c.archived;
+  });
+
   const loadMore = async () => {
     setLoading(true);
-    setConversations((prev) => [
+    setAllConversations((prev) => [
       ...prev,
       {
         conversationId: 'c2',
@@ -38,13 +48,13 @@ function Wrapper() {
   };
 
   const archive = (id: string) => {
-    setConversations((prev) =>
+    setAllConversations((prev) =>
       prev.map((c) => (c.conversationId === id ? { ...c, archived: true } : c)),
     );
   };
 
   const restore = (id: string) => {
-    setConversations((prev) =>
+    setAllConversations((prev) =>
       prev.map((c) =>
         c.conversationId === id ? { ...c, archived: false } : c,
       ),
@@ -59,10 +69,10 @@ function Wrapper() {
       isError={false}
       error={undefined}
       hasMore={hasMore}
-      includeArchived={includeArchived}
+      filterState={filterState}
       disabled={false}
       onSelect={setSelected}
-      onToggleArchived={setIncludeArchived}
+      onFilterChange={setFilterState}
       onArchive={archive}
       onRestore={restore}
       onLoadMore={loadMore}
@@ -81,14 +91,17 @@ test('conversation list renders, loads more, and archives/restores', async () =>
   expect(await screen.findByText('Second conversation')).toBeInTheDocument();
 
   fireEvent.click(screen.getAllByTestId('conversation-archive')[0]);
+
+  fireEvent.click(screen.getByTestId('conversation-filter-all'));
   expect(
     await screen.findByTestId('conversation-archived-chip'),
   ).toBeInTheDocument();
 
-  const toggle = screen.getByTestId('conversation-archived-toggle');
-  fireEvent.click(toggle);
+  fireEvent.click(screen.getByTestId('conversation-filter-active'));
+  expect(screen.queryByText('First conversation')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByTestId('conversation-filter-archived'));
   fireEvent.click(screen.getByTestId('conversation-restore'));
-  expect(
-    screen.queryByTestId('conversation-archived-chip'),
-  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByTestId('conversation-filter-active'));
+  expect(await screen.findByText('First conversation')).toBeInTheDocument();
 });

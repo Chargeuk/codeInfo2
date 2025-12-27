@@ -173,6 +173,20 @@ flowchart LR
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
 - Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 
+### Chat sidebar (conversations)
+
+- The Chat page sidebar lists conversations and supports a 3-state filter:
+  - `active`: show only active (non-archived) conversations
+  - `all`: show active + archived conversations
+  - `archived`: show only archived conversations
+- Each row includes a selection checkbox, and the header includes a select-all checkbox plus a selected-count indicator.
+- Bulk actions are available when one or more conversations are selected:
+  - **Archive** is enabled only when all selected conversations are active.
+  - **Restore** is enabled only when all selected conversations are archived.
+  - **Delete** is enabled for any selection and requires a confirmation dialog.
+- When MongoDB persistence is unavailable (`mongoConnected === false`), selection and bulk actions are disabled and the sidebar shows a warning that bulk actions are unavailable.
+- Bulk actions call `POST /conversations/bulk/archive|restore|delete` and surface success/failure via snackbars; selection is cleared after a successful bulk operation.
+
 ### Chat page (streaming UI)
 
 - Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.

@@ -1999,8 +1999,8 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 ### 6. Chat sidebar bulk actions UI
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 6f4543c, 8da77c4
 #### Overview
 
 Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/restore/delete controls in the Chat sidebar, wired to the new bulk endpoints and persistence guards.
@@ -2197,6 +2197,10 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 - Testing 7: Ran `npm run compose:up`; all containers started and health checks passed.
 - Testing 8: Manual Playwright-MCP check (container-safe): verified filter cycling, selection count, bulk archive/restore/delete enablement + confirmation dialog, and confirmed `/logs` contains `chat.sidebar.filter_changed` + `chat.sidebar.bulk_action_result` when browsing `http://host.docker.internal:5001`.
 - Testing 9: Ran `npm run compose:down`; stopped services cleanly.
+
+- Notes:
+  - Manual Playwright-MCP runs inside this container cannot use a client build that points to `http://localhost:5010` (it resolves to the container, not the host). For the manual check we rebuilt the client image with `VITE_API_URL=http://host.docker.internal:5010` so `/chat` could reach the host-mapped API.
+  - The initial filter+refresh header layout caused sidebar overflow that intermittently blocked clicks in Playwright (provider select intercepted pointer events). The header was refactored into two rows (title+refresh, then filter group) to keep controls within the sidebar width.
 
 ---
 

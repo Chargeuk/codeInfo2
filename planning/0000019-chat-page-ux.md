@@ -496,21 +496,26 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 #### Testing
 
-1. [ ] Build the server to ensure types and imports still compile:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/package.json` (build script)
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run server tests to ensure filtering is covered:
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to verify:
-     - `server/src/test/integration/conversations.list.test.ts`
-   - Command to run:
-     - `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (smoke + regression):
+   - Open `/chat` and confirm the page loads without a blank screen.
+   - Open `/logs` and confirm logs load (no server 500 spam).
+   - Regression: existing conversation list still loads and is clickable (Task 6 adds the new UI; at this stage you are only checking regressions).
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -729,21 +734,26 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 #### Testing
 
-1. [ ] Build the server:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/package.json` (build script)
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run server tests (including the new bulk endpoint tests):
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to verify:
-     - `server/src/test/integration/*`
-   - Command to run:
-     - `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (smoke + regression):
+   - Open `/chat` and confirm the page loads.
+   - Regression: existing archive/restore (single-item) still works for at least one conversation (bulk UI is Task 6; at this stage you are checking that older flows were not broken by new endpoints).
+   - Open `/logs` and confirm no repeated server errors when clicking around.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -953,21 +963,26 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 #### Testing
 
-1. [ ] Build the server (WS wiring often breaks type imports):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/src/index.ts`
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run server tests (ensure the new WS unit test passes):
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to verify:
-     - `server/src/test/unit/ws-server.test.ts`
-   - Command to run:
-     - `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (smoke + regression):
+   - Open `/chat` and confirm the page loads.
+   - Regression: existing chat send still works (streaming transport changes are introduced later; this task should not break basic server startup).
+   - If you have time: open `/logs` and confirm no new persistent errors related to WS startup.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1280,23 +1295,32 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 #### Testing
 
-1. [ ] Build the server (chat route refactors are high-risk):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/src/routes/chat.ts`
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run server tests (expect chat tests to fail until Task 5 is completed):
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to verify:
-     - `server/src/test/features/*`
-   - Command to run:
-     - `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
    - Note:
      - If chat Cucumber steps fail due to transport changes, proceed to Task 5 to update them.
+
+4. [ ] `npm run test --workspace client`
+   - Note:
+     - If the client still expects SSE at this point, failures are expected until Tasks 7 and 9 update the client transport and tests.
+
+5. [ ] `npm run e2e`
+   - Note:
+     - If e2e mocks still use SSE at this point, failures are expected until Task 9 migrates e2e to `routeWebSocket`.
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat`.
+   - If Task 7 is not complete yet, the UI may still be expecting SSE; record any expected broken state as “known interim state”.
+   - Once Task 7 is complete, verify chat starts via `POST /chat` (202) and transcript updates arrive via WS for the visible conversation.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1663,23 +1687,28 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 #### Testing
 
-1. [ ] Build the server:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/package.json`
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run all server tests (Cucumber + node:test):
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - https://cucumber.io/docs/guides/10-minute-tutorial/
-   - Files to verify:
-     - `server/src/test/features/*`
-     - `server/src/test/integration/*`
-   - Command to run:
-     - `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat` and send a message.
+   - Verify chat stream/cancellation/tool-visibility behaviors are now stable after the WS test migration:
+     - You can start a run and observe a live in-flight update.
+     - Stop/cancel works (no hangs).
+     - Tool events are visible when a tool is invoked.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1817,20 +1846,29 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Testing
 
-1. [ ] Build the client so TypeScript + bundling errors are caught immediately:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `client/package.json`
-   - Command to run:
-     - `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Defer Jest + e2e test updates to Task 9 (do not attempt to update all mocks in this UI task):
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat`.
+   - Verify the sidebar bulk UX:
+     - Filter toggle cycles through `Active`, `Active & Archived`, and `Archived`.
+     - Multi-select checkboxes appear and selection count is correct.
+     - Bulk Archive/Restore/Delete buttons enable/disable correctly based on selection and filter.
+     - Permanent delete shows a confirmation dialog.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2043,20 +2081,29 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 #### Testing
 
-1. [ ] Build the client:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `client/src/hooks/useChatWs.ts`
-   - Command to run:
-     - `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Defer Jest + Playwright test rewrites to Task 9 (WS mocking touches many files):
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat`.
+   - Send a message and verify you see live transcript updates for the visible conversation.
+   - Switch conversations mid-stream and confirm:
+     - The previous conversation stops streaming (unsubscribe),
+     - The newly selected conversation shows the correct catch-up snapshot if it is in flight.
+   - Use Stop and confirm `cancel_inflight` cancels without hanging.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2159,20 +2206,28 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 #### Testing
 
-1. [ ] Build the client:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `client/src/logging/logger.ts`
-     - `client/src/hooks/useChatWs.ts`
-   - Command to run:
-     - `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Defer log assertions and WS-mocked e2e changes to Task 9:
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat`, send a message, and confirm streaming occurs.
+   - Open `/logs` and confirm you can find the expected WS client log entries:
+     - `chat.ws.client_connect`
+     - `chat.ws.client_delta_received` (or similar delta logs per throttling rules)
+   - Regression: logs page remains usable while chat is streaming.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2818,30 +2873,26 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 #### Testing
 
-1. [ ] Build the client:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `client/package.json`
-   - Command to run:
-     - `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Run client unit tests:
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to verify:
-     - `client/src/test/*`
-   - Command to run:
-     - `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Run Playwright e2e tests:
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `playwright.config.ts`
-     - `e2e/*`
-   - Command to run:
-     - `npm run e2e`
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task-specific):
+   - Open `/chat` and confirm chat streaming works end-to-end (WS-only).
+   - Open `/logs` and confirm chat WS client logs and server logs are present.
+   - Regression: ingest pages and LM Studio pages still load and basic actions work.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2932,68 +2983,33 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 #### Testing
 
-1. [ ] Build the server:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `server/package.json`
-   - Command to run:
-     - `npm run build --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Build the client:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `client/package.json`
-   - Command to run:
-     - `npm run build --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker build (ensures Compose flows still work):
-   - Docs to read:
-     - Context7 `/docker/docs`
-   - Files to verify:
-     - `docker-compose.yml`
-     - `server/Dockerfile`
-     - `client/Dockerfile`
-   - Commands to run:
-     - `docker compose build --no-cache`
+3. [ ] `npm run test --workspace server`
 
-4. [ ] Run the client Jest tests:
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to verify:
-     - `client/src/test/*`
-   - Command to run:
-     - `npm run test --workspace client`
+4. [ ] `npm run test --workspace client`
 
-5. [ ] Run the server tests (node:test + Cucumber):
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - https://cucumber.io/docs/guides/10-minute-tutorial/
-   - Files to verify:
-     - `server/src/test/*`
-   - Command to run:
-     - `npm run test --workspace server`
+5. [ ] `npm run e2e`
 
-6. [ ] Restart Docker environment and run e2e tests:
-   - Docs to read:
-     - Context7 `/docker/docs`
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `docker-compose.yml`
-     - `playwright.config.ts`
-   - Commands to run:
-     - `docker compose down -v`
-     - `docker compose up --build -d`
-     - `npm run e2e`
+6. [ ] `npm run compose:build`
+   - Optional (if you suspect Docker caching issues): `npm run compose:build:clean`
 
-7. [ ] Manual verification with Playwright MCP and screenshots:
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to verify:
-     - `test-results/` (output folder exists and is writable)
-   - Output location:
-     - `./test-results/screenshots/`
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (story-focused + regressions):
+   - Chat page:
+     - Bulk filter + multi-select + bulk archive/restore/delete.
+     - WS-only streaming across conversation switches; late-subscriber snapshot behavior.
+     - Stop/cancel works.
+   - Agents page:
+     - Agent runs stream into transcript view via WS (in-flight updates visible).
+   - Logs page:
+     - WS client logs and server WS logs appear as expected.
+   - Save screenshots to `./test-results/screenshots/` using the story naming convention.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

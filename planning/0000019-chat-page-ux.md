@@ -480,17 +480,6 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
-11. [ ] Run repo-wide lint/format checks after the task (do not skip):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server to ensure types and imports still compile:
@@ -508,6 +497,17 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
      - `server/src/test/integration/conversations.list.test.ts`
    - Command to run:
      - `npm run test --workspace server`
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - Context7 `/prettier/prettier/3.6.2`
+   - Files to verify:
+     - `package.json` (root scripts)
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -710,17 +710,6 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-16. [ ] Run repo-wide lint/format checks after the task (do not skip):
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server:
@@ -738,6 +727,17 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - `server/src/test/integration/*`
    - Command to run:
      - `npm run test --workspace server`
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+     - Context7 `/prettier/prettier/3.6.2`
+   - Files to verify:
+     - `package.json` (root scripts)
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -931,15 +931,6 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
        - `server/src/mongo/events.ts`
      - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
 
-14. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (WS wiring often breaks type imports):
@@ -957,6 +948,15 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - `server/src/test/unit/ws-server.test.ts`
    - Command to run:
      - `npm run test --workspace server`
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1253,15 +1253,6 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
        - `server/src/chatStream.ts` (SSE helper; remove only if it becomes unused and you choose to delete it)
      - If you add any additional chat/WS modules (for example additional WS publishers/helpers), include those exact paths too.
 
-16. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (chat route refactors are high-risk):
@@ -1281,6 +1272,15 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `npm run test --workspace server`
    - Note:
      - If chat Cucumber steps fail due to transport changes, proceed to Task 5 to update them.
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1631,15 +1631,6 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - `server/src/test/integration/ws-logs.test.ts`
      - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
-25. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server:
@@ -1659,6 +1650,15 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/integration/*`
    - Command to run:
      - `npm run test --workspace server`
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1780,15 +1780,6 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-12. [ ] Run repo-wide lint/format checks:
-    - Docs to read:
-      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-    - Files to verify:
-      - `package.json`
-    - Commands to run:
-      - `npm run lint --workspaces`
-      - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the client so TypeScript + bundling errors are caught immediately:
@@ -1805,6 +1796,15 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -2001,15 +2001,6 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        - `client/src/hooks/useChatWs.ts`
      - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
 
-13. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the client:
@@ -2026,6 +2017,15 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -2112,15 +2112,6 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
    - Requirements:
      - If new logging helpers were added/removed, reflect them here (otherwise mark as no-op).
 
-6. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the client:
@@ -2137,6 +2128,15 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `planning/0000019-chat-page-ux.md` (Task 9 scope)
+
+3. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -2766,15 +2766,6 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
        - `client/src/test/agentsPage.streaming.test.tsx`
      - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
 
-56. [ ] Run repo-wide lint/format checks:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Files to verify:
-     - `package.json`
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the client:
@@ -2801,6 +2792,15 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - `e2e/*`
    - Command to run:
      - `npm run e2e`
+
+4. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -2830,6 +2830,53 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 #### Subtasks
 
+1. [ ] Update `README.md` with any new commands or behavioral changes:
+   - Docs to read:
+     - `README.md`
+   - Files to edit:
+     - `README.md`
+   - Purpose:
+     - Keep developer/user-facing instructions current for running and verifying the updated behavior.
+   - Description:
+     - Update README.md to reflect any new commands, environment variables, or behavioral changes introduced by this story.
+
+2. [ ] Update `design.md` with any new diagrams or architecture changes:
+   - Docs to read:
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Purpose:
+     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+   - Description:
+     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+
+3. [ ] Update `projectStructure.md` with any updated/added/removed files:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Purpose:
+     - Keep the repo structure documentation in sync so new/removed files are discoverable.
+   - Description:
+     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+
+4. [ ] Create a PR summary comment (what changed, why, and how to verify):
+   - Docs to read:
+     - `planning/0000019-chat-page-ux.md`
+   - Files to edit:
+     - `planning/0000019-chat-page-ux.md` (Implementation notes section)
+   - Purpose:
+     - Ensure the story record is complete and verifiable (notes, commands, and outcomes captured in the plan).
+   - Description:
+     - In `planning/0000019-chat-page-ux.md` (Implementation notes section), write a PR-ready summary covering: user-visible changes, API contract changes (POST /chat 202 + WS-only streaming), new WS event types, and how to verify (exact npm commands).
+   - Requirements:
+     - Include a short “How to verify” checklist (server tests, client tests, e2e).
+     - Mention any notable edge cases covered by tests (late-subscriber snapshot, cancel_inflight not found, bulk all-or-nothing conflicts).
+
+#### Testing
+
 1. [ ] Build the server:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
@@ -2856,54 +2903,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Commands to run:
      - `docker compose build --no-cache`
 
-4. [ ] Update `README.md` with any new commands or behavioral changes:
-   - Docs to read:
-     - `README.md`
-   - Files to edit:
-     - `README.md`
-   - Purpose:
-     - Keep developer/user-facing instructions current for running and verifying the updated behavior.
-   - Description:
-     - Update README.md to reflect any new commands, environment variables, or behavioral changes introduced by this story.
-
-5. [ ] Update `design.md` with any new diagrams or architecture changes:
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
-
-6. [ ] Update `projectStructure.md` with any updated/added/removed files:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-
-7. [ ] Create a PR summary comment (what changed, why, and how to verify):
-   - Docs to read:
-     - `planning/0000019-chat-page-ux.md`
-   - Files to edit:
-     - `planning/0000019-chat-page-ux.md` (Implementation notes section)
-   - Purpose:
-     - Ensure the story record is complete and verifiable (notes, commands, and outcomes captured in the plan).
-   - Description:
-     - In `planning/0000019-chat-page-ux.md` (Implementation notes section), write a PR-ready summary covering: user-visible changes, API contract changes (POST /chat 202 + WS-only streaming), new WS event types, and how to verify (exact npm commands).
-   - Requirements:
-     - Include a short “How to verify” checklist (server tests, client tests, e2e).
-     - Mention any notable edge cases covered by tests (late-subscriber snapshot, cancel_inflight not found, bulk all-or-nothing conflicts).
-
-#### Testing
-
-1. [ ] Run the client Jest tests:
+4. [ ] Run the client Jest tests:
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to verify:
@@ -2911,7 +2911,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Command to run:
      - `npm run test --workspace client`
 
-2. [ ] Run the server tests (node:test + Cucumber):
+5. [ ] Run the server tests (node:test + Cucumber):
    - Docs to read:
      - https://nodejs.org/api/test.html
      - https://cucumber.io/docs/guides/10-minute-tutorial/
@@ -2920,7 +2920,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Command to run:
      - `npm run test --workspace server`
 
-3. [ ] Restart Docker environment and run e2e tests:
+6. [ ] Restart Docker environment and run e2e tests:
    - Docs to read:
      - Context7 `/docker/docs`
      - Context7 `/microsoft/playwright.dev`
@@ -2932,13 +2932,22 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
      - `docker compose up --build -d`
      - `npm run e2e`
 
-4. [ ] Manual verification with Playwright MCP and screenshots:
+7. [ ] Manual verification with Playwright MCP and screenshots:
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to verify:
      - `test-results/` (output folder exists and is writable)
    - Output location:
      - `./test-results/screenshots/`
+
+8. [ ] Run repo-wide lint/format checks:
+   - Docs to read:
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+   - Files to verify:
+     - `package.json`
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 

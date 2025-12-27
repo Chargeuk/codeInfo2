@@ -487,6 +487,9 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      ```json
      { "status": "error", "code": "BATCH_CONFLICT", "message": "Bulk operation rejected.", "details": { "invalidIds": [], "invalidStateIds": [] } }
      ```
+   - Required validation behavior (HTTP 400):
+     - If the request body is missing `conversationIds`, `conversationIds` is not an array, or any id is not a string, return:
+       `400` JSON `{ status:"error", code:"VALIDATION_FAILED", message:"<reason>" }`.
 
 3. [ ] Implement repo-layer bulk operations without transactions (validate-first + idempotent writes):
    - Docs to read:
@@ -509,6 +512,14 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - `server/src/test/integration/conversations.archive.test.ts`
      - `server/src/test/integration/conversations.create.test.ts`
      - Add new test file if cleaner (document in `projectStructure.md`).
+   - Required test cases (cover happy path + errors; all-or-nothing must be proven):
+     - Happy path: bulk archive returns 200 and `updatedCount` equals the number of selected ids.
+     - Happy path: bulk restore returns 200 and `updatedCount` equals the number of selected ids.
+     - Happy path: bulk delete (archived-only) returns 200 and removes BOTH the conversation and all its turns.
+     - Validation (400): missing `conversationIds`, non-array `conversationIds`, and non-string ids return `VALIDATION_FAILED`.
+     - Conflict (409 BATCH_CONFLICT): if any id does not exist, the response includes that id in `details.invalidIds` AND no conversations are changed.
+     - Conflict (409 BATCH_CONFLICT): delete request including any non-archived conversation yields `details.invalidStateIds` AND nothing is deleted.
+     - Corner: an empty `conversationIds` array should be rejected as validation error (400) to avoid accidental no-op calls.
 
 5. [ ] Update design documentation describing the new endpoints and guardrails:
    - Docs to read:
@@ -671,6 +682,12 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      ```ts
      // connect with ws client, send invalid protocolVersion, assert server closes or ignores
      ```
+   - Required test cases (protocol + robustness):
+     - Accepts a connection on `/ws` and can receive a JSON message.
+     - Invalid `protocolVersion` (missing or not `"v1"`) results in the server closing the socket (policy violation).
+     - Malformed JSON (non-JSON payload) results in the server closing the socket (unsupported data).
+     - Unknown `type` is ignored (connection stays open) but is logged for debugging.
+     - `subscribe_conversation` missing `conversationId` is rejected (close with policy violation).
 
 8. [ ] Update docs and run verification commands:
    - Docs to read:
@@ -998,6 +1015,10 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Assert `POST /chat` returns `202` JSON, not `text/event-stream`.
      - Assert conflict errors are `409` with `code:"RUN_IN_PROGRESS"`.
+     - Assert validation errors are `400` with `code:"VALIDATION_FAILED"` (bad body, missing fields).
+     - Assert unsupported provider errors are `400` with `code:"UNSUPPORTED_PROVIDER"`.
+     - Assert provider-unavailable errors are `503` with `code:"PROVIDER_UNAVAILABLE"` (e.g., LM Studio down).
+     - Assert archived conversation protection still behaves correctly (attempting to run on an archived conversation should fail deterministically).
 
 8. [ ] Add focused node:test coverage for transcript `seq` ordering and stale-event ignoring:
    - Docs to read:
@@ -1006,6 +1027,9 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/unit/ws-chat-stream.test.ts`
    - Requirements:
      - Use the WS test client helper to subscribe to a conversation and verify `seq` increases monotonically for a single stream.
+     - Verify late-subscriber catch-up: when subscribing mid-stream, the first event is `inflight_snapshot` containing the current `assistantText` and `toolEvents` so far.
+     - Verify cancel edge case: sending `cancel_inflight` with a wrong/missing inflight id yields a `turn_final` with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
+     - Verify unsubscribe does NOT cancel: unsubscribing from a conversation stream does not abort the provider; completion still persists turns.
 
 9. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
@@ -1475,6 +1499,13 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - `client/src/test/useChatWs.test.ts` (or similar)
    - Files to edit (as needed):
      - `client/src/hooks/useChatWs.ts`
+   - Required test cases (happy path + robustness):
+     - Connects once when Chat mounts; disconnects on unmount (no reconnect storm).
+     - Ignores unknown inbound event types safely (does not throw).
+     - Ignores malformed JSON safely (logs + continues or reconnects, but does not crash).
+     - Enforces per-conversation `seq` monotonicity by ignoring stale/out-of-order transcript events.
+     - On reconnect: refreshes snapshots (list + current conversation) and re-subscribes (sidebar + current conversation).
+     - When `mongoConnected === false`, the hook does not subscribe/stream (realtime disabled state).
 
 4. [ ] Update the chat page tests that assert streaming/stop/new-conversation semantics:
    - Docs to read:
@@ -1540,6 +1571,9 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Remove any remaining `contentType: text/event-stream` mocks for `/chat`.
      - Ensure e2e asserts streamed UI updates that originate from WS events.
+     - E2E happy path: WS emits inflight_snapshot + assistant_delta + turn_final and the transcript updates live.
+     - E2E tool visibility: WS emits tool_event (tool-request + tool-result) and the tool UI renders as expected.
+     - E2E multi-view corner: open the same conversation in two pages and ensure both pages receive the same WS-driven transcript updates.
 
 9. [ ] Update docs and run verification commands:
    - Docs to read:

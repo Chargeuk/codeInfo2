@@ -294,11 +294,10 @@ These findings are based on the current repository implementation and are includ
 
 ### Mongo transactions / atomicity risk (today)
 
-- Docker Compose runs Mongo as a single-node replica set (`--replSet rs0` and `mongo/init-mongo.js` calls `rs.initiate(...)`), which is capable of transactions.
-- However, the documented/default `MONGO_URI` uses `directConnection=true` and does not specify `replicaSet=rs0` (`README.md`, `docker-compose.yml`, `server/.env`). With that URI, drivers typically treat the connection as standalone, and multi-document transactions may not be available.
-- There are no existing Mongoose session/transaction patterns in the codebase today. To satisfy “all-or-nothing” bulk operations and “delete conversations + turns” atomically, this story should plan to:
-  - enable replica-set-aware connections for dev (update default `MONGO_URI` to include `replicaSet=rs0` (keep `directConnection=true` for local Docker host connections)), and
-  - implement bulk operations using a Mongoose session transaction.
+- Docker Compose runs Mongo as a single-node replica set (`--replSet rs0` and `mongo/init-mongo.js` calls `rs.initiate(...)`). Transactions are possible in that topology, but they are not strictly required for this story’s acceptance criteria.
+- The documented/default `MONGO_URI` uses `directConnection=true` and does not specify `replicaSet=rs0` (`README.md`, `docker-compose.yml`, `server/.env`). Because that can make transaction support ambiguous, **this story will not rely on MongoDB transactions**.
+- Bulk conversation operations will be implemented as **validate-first + idempotent writes** (e.g., reject invalid ids/mixed state up front; then apply bulk updates/deletes). This keeps dev setup unchanged and avoids introducing transaction-only behavior that would be hard to debug across environments.
+- If later we need strict all-or-nothing semantics, we can introduce transactions as a follow-up story once the default connection string and CI environment are explicitly replica-set-aware.
 
 ### Existing tests that will be impacted
 
@@ -406,13 +405,12 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 - Git Commits: **to_do**
 #### Overview
 
-Add bulk archive/restore/delete endpoints with all-or-nothing semantics, including archived-only delete guardrails and transaction-backed updates.
+Add bulk archive/restore/delete endpoints with strong validation and archived-only delete guardrails (validate-first + idempotent writes; no transaction requirement in v1).
 
 #### Documentation Locations
 
 - Express 5 routing/request lifecycle: Context7 `/expressjs/express/v5.1.0`
-- Mongoose sessions/transactions: Context7 `/automattic/mongoose/9.0.1`
-- MongoDB transactions overview: https://www.mongodb.com/docs/manual/core/transactions/
+- Mongoose bulk updates/deletes: Context7 `/automattic/mongoose/9.0.1`
 - HTTP 409 semantics: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - SuperTest: Context7 `/ladjs/supertest`
@@ -429,7 +427,8 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
      - `server/src/mongo/repo.ts`
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/turn.ts`
-2. [ ] Add bulk endpoints and validation:
+
+2. [ ] Add bulk endpoints and request validation:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
    - Files to edit:
@@ -446,28 +445,19 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
        - archive/restore → `conversation_upsert`
        - delete → `conversation_delete`
      - Ensure existing single-item `POST /conversations/:id/archive|restore` also emit `conversation_upsert` so old/new UI actions stay realtime-consistent.
-3. [ ] Implement bulk operations in the repo layer with transactions:
+
+3. [ ] Implement repo-layer bulk operations without transactions (validate-first + idempotent writes):
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1`
-     - https://www.mongodb.com/docs/manual/core/transactions/
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Requirements:
-     - Use a Mongoose session transaction to ensure all-or-nothing behavior.
-     - Enforce archived-only delete guardrail.
-     - If a transaction cannot be started (e.g. Mongo topology does not support transactions), return HTTP 503 `{ status:"error", code:"TRANSACTIONS_UNAVAILABLE" }` and perform no writes.
-     - After a successful commit, publish `conversation_upsert` / `conversation_delete` events for each affected conversationId.
-4. [ ] Update default Mongo connection string for replica-set transactions:
-   - Docs to read:
-     - https://www.mongodb.com/docs/manual/core/transactions/
-   - Files to edit:
-     - `server/.env`
-     - `README.md`
-     - `docker-compose.yml` (if needed to keep defaults aligned)
-   - Requirements:
-     - Use `replicaSet=rs0` and keep `directConnection=true` for local Docker host connections.
-     - Example: `mongodb://host.docker.internal:27517/db?replicaSet=rs0&directConnection=true`.
-5. [ ] Add server tests for bulk endpoints:
+     - Perform a read/validation pass first to compute `invalidIds` and `invalidStateIds`.
+     - Only if validation passes, apply the bulk update/delete.
+     - For delete, delete turns first (`Turn.deleteMany({ conversationId: { $in: [...] } })`) and then delete conversations (archived-only guardrail).
+     - After writes, publish `conversation_upsert` / `conversation_delete` events for each affected conversationId.
+
+4. [ ] Add server tests for bulk endpoints:
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -478,9 +468,10 @@ Add bulk archive/restore/delete endpoints with all-or-nothing semantics, includi
    - Requirements:
      - Success: archive/restore/delete returns `{ status:"ok", updatedCount }`.
      - Failure: invalid/mixed states return `409 BATCH_CONFLICT` with `details`.
-6. [ ] Update `design.md` with bulk endpoint behavior and guardrail notes.
-7. [ ] Update `projectStructure.md` for any new files.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
+
+5. [ ] Update `design.md` with bulk endpoint behavior and guardrail notes.
+6. [ ] Update `projectStructure.md` for any new files.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues.
 
 #### Testing
 
@@ -532,7 +523,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Update `server/src/index.ts`
    - Requirements:
      - `/ws` endpoint on existing server/port.
-     - Ping every 30s; drop after 2 missed pongs.
+     - Optional ping every 30s for liveness; do not implement aggressive forced-disconnect logic in v1 (rely on normal close/error handling).
      - No auth/CSRF/origin checks in this story.
 4. [ ] Add subscription registry + protocol version enforcement:
    - Docs to read:
@@ -769,7 +760,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/steps/chat_stream.steps.ts`
    - Requirements:
      - Start a run via HTTP `POST /chat` and assert the `202` JSON payload.
-     - Subscribe to the conversation over WS and assert expected ordering: `inflight_snapshot` → `assistant_delta`/`tool_event` → `turn_final`.
+     - Subscribe to the conversation over WS and assert the minimal contract: a `turn_final` arrives for the run (ordering/seq assertions live in node:test coverage).
 
 5. [ ] Update the Cucumber cancellation feature text for the new semantics (unsubscribe does not cancel; Stop does):
    - Docs to read:

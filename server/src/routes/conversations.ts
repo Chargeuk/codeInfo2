@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
+import { append } from '../logStore.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import {
   archiveConversation as defaultArchiveConversation,
@@ -16,10 +17,8 @@ const listConversationsQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(100).default(20),
     cursor: z.string().datetime().optional(),
-    archived: z
-      .union([z.literal('true'), z.literal('false')])
-      .optional()
-      .transform((v) => v === 'true'),
+    state: z.string().optional(),
+    archived: z.union([z.literal('true'), z.literal('false')]).optional(),
     agentName: z.string().min(1).optional(),
   })
   .strict();
@@ -94,6 +93,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
   const router = Router();
 
   router.get('/conversations', async (req, res) => {
+    const requestId = res.locals.requestId as string | undefined;
     const parsed = listConversationsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       return res.status(400).json({
@@ -103,13 +103,63 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     }
 
     const { limit, cursor, archived, agentName } = parsed.data;
-    const includeArchived = archived === true;
+    const stateRaw = parsed.data.state?.toLowerCase();
+
+    const archivedQuery = archived;
+    const cursorProvided = cursor !== undefined;
+    const stateCandidate =
+      (stateRaw as 'active' | 'archived' | 'all' | undefined) ??
+      (archivedQuery === 'true' ? 'all' : 'active');
+
+    append({
+      level: 'info',
+      message: 'conversations.list.request',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      requestId,
+      context: {
+        state: stateCandidate,
+        ...(archivedQuery !== undefined ? { archivedQuery } : {}),
+        limit,
+        cursorProvided,
+        ...(agentName !== undefined ? { agentName } : {}),
+      },
+    });
+
+    if (
+      stateRaw !== undefined &&
+      stateRaw !== 'active' &&
+      stateRaw !== 'archived' &&
+      stateRaw !== 'all'
+    ) {
+      append({
+        level: 'warn',
+        message: 'conversations.list.validation_failed',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          state: stateRaw,
+          ...(archivedQuery !== undefined ? { archivedQuery } : {}),
+          limit,
+          cursorProvided,
+          ...(agentName !== undefined ? { agentName } : {}),
+        },
+      });
+      return res
+        .status(400)
+        .json({ status: 'error', code: 'VALIDATION_FAILED' });
+    }
+
+    const state =
+      (stateRaw as 'active' | 'archived' | 'all' | undefined) ??
+      (archived === 'true' ? 'all' : 'active');
 
     try {
       const { items } = await listConversations({
         limit,
         cursor,
-        includeArchived,
+        state,
         agentName,
       });
 
@@ -117,6 +167,22 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         items.length === limit
           ? items[items.length - 1]?.lastMessageAt.toISOString()
           : undefined;
+
+      append({
+        level: 'info',
+        message: 'conversations.list.response',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          state,
+          ...(archivedQuery !== undefined ? { archivedQuery } : {}),
+          limit,
+          cursorProvided,
+          ...(agentName !== undefined ? { agentName } : {}),
+          returnedCount: items.length,
+        },
+      });
 
       res.json({ items, nextCursor });
     } catch (err) {

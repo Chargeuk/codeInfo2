@@ -45,7 +45,7 @@ async function ensureContainer() {
     );
 
     const env = await new DockerComposeEnvironment(composePath, composeFile)
-      .withWaitStrategy('chroma', Wait.forHealthCheck())
+      .withWaitStrategy('chroma-cucumber', Wait.forHealthCheck())
       .withStartupTimeout(120_000)
       .up();
 

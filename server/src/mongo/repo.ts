@@ -49,6 +49,7 @@ export interface AppendTurnInput {
 export interface ListConversationsParams {
   limit: number;
   cursor?: string | Date;
+  state?: 'active' | 'archived' | 'all';
   includeArchived?: boolean;
   agentName?: string;
 }
@@ -168,9 +169,15 @@ export interface ConversationSummary {
 export async function listConversations(
   params: ListConversationsParams,
 ): Promise<{ items: ConversationSummary[] }> {
+  const state =
+    params.state ??
+    (params.includeArchived ? ('all' as const) : ('active' as const));
+
   const query: Record<string, unknown> = {};
-  if (!params.includeArchived) {
+  if (state === 'active') {
     query.archivedAt = null;
+  } else if (state === 'archived') {
+    query.archivedAt = { $ne: null };
   }
 
   if (params.agentName !== undefined) {

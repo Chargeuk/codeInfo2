@@ -19,6 +19,7 @@ const COLLECTION_VECTORS = process.env.INGEST_COLLECTION ?? 'ingest_vectors';
 const COLLECTION_ROOTS = process.env.INGEST_ROOTS_COLLECTION ?? 'ingest_roots';
 
 let client: ChromaClient | null = null;
+let clientUrl: string | null = null;
 let vectorsCollection: Collection | null = null;
 let vectorsCollectionHasEmbedding = false;
 let rootsCollection: Collection | null = null;
@@ -64,8 +65,9 @@ function toChromaClientArgs(connectionString: string): {
 
 async function getClient() {
   const chromaUrl = getChromaUrl();
-  if (!client) {
+  if (!client || clientUrl !== chromaUrl) {
     client = new ChromaClient(toChromaClientArgs(chromaUrl));
+    clientUrl = chromaUrl;
   }
   return client;
 }
@@ -201,6 +203,7 @@ export async function clearLockedModel(options?: {
 
 function resetCachedCollections() {
   client = null;
+  clientUrl = null;
   vectorsCollection = null;
   vectorsCollectionHasEmbedding = false;
   rootsCollection = null;

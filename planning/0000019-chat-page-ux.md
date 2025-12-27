@@ -356,6 +356,7 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 - Node.js test runner (node:test is used by server tests in this repo): https://nodejs.org/api/test.html
 - HTTP status + query string helpers (contract semantics for 400 + URLSearchParams): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status and https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - Mermaid syntax (only if adding diagrams): Context7 `/mermaid-js/mermaid`
+- Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 
@@ -531,6 +532,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 - Node.js test runner (node:test patterns used by the server test suite): https://nodejs.org/api/test.html
 - HTTP status semantics (409 conflict is the required all-or-nothing rejection path): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Mermaid syntax (only if adding diagrams about new endpoints): Context7 `/mermaid-js/mermaid`
+- Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 
@@ -760,6 +762,7 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 - Express 5 server startup patterns (refactoring app.listen to http.createServer(app).listen): https://expressjs.com/en/5x/api.html
 - Pino logging (server uses structured logs; use child loggers/bindings for WS lifecycle logs): Context7 `/pinojs/pino/v10.1.0` and Context7 `/pinojs/pino-http`
 - Node.js test runner (writing WS unit tests with proper teardown): https://nodejs.org/api/test.html
+- Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references (installing deps + verification): https://docs.npmjs.com/cli/v10/commands/npm-install, https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 

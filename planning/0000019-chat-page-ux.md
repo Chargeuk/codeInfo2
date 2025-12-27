@@ -480,7 +480,25 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    - Requirements:
      - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add server log lines for conversation list filtering so manual checks can prove the new query paths are being exercised:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/logStore.ts` (use existing append helper; do not change schema)
+   - Required log messages (must match exactly):
+     - `conversations.list.request`
+     - `conversations.list.validation_failed`
+     - `conversations.list.response`
+   - Required fields in `context` (as applicable):
+     - `state` (active|archived|all)
+     - `archivedQuery` (raw archived query string when present)
+     - `limit`
+     - `cursorProvided` (boolean)
+     - `agentName` (if present)
+     - `returnedCount`
+   - Notes:
+     - Use the server log store (`/logs`) so the log lines are visible in the UI and in Playwright-MCP checks.
+
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -513,6 +531,8 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 8. [ ] Manual Playwright-MCP check (smoke + regression):
    - Open `/chat` and confirm the page loads without a blank screen.
    - Open `/logs` and confirm logs load (no server 500 spam).
+   - Confirm server log lines exist for this task:
+     - Search for `conversations.list.request` and `conversations.list.response`.
    - Regression: existing conversation list still loads and is clickable (Task 6 adds the new UI; at this stage you are only checking regressions).
 
 9. [ ] `npm run compose:down`
@@ -718,7 +738,25 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add server log lines for bulk conversation actions so manual checks can prove archive/restore/delete are firing:
+   - Files to edit:
+     - `server/src/routes/conversations.ts` (bulk route handlers)
+     - `server/src/logStore.ts` (use existing append helper; do not change schema)
+   - Required log messages (must match exactly):
+     - `conversations.bulk.request`
+     - `conversations.bulk.conflict`
+     - `conversations.bulk.success`
+   - Required fields in `context` (as applicable):
+     - `action` (archive|restore|delete)
+     - `requestedCount`
+     - `uniqueCount`
+     - `invalidIdsCount`
+     - `invalidStateIdsCount` (delete only)
+     - `updatedCount` / `deletedCount`
+   - Notes:
+     - Log `conversations.bulk.conflict` only when returning `409 BATCH_CONFLICT`.
+
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -752,6 +790,8 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Open `/chat` and confirm the page loads.
    - Regression: existing archive/restore (single-item) still works for at least one conversation (bulk UI is Task 6; at this stage you are checking that older flows were not broken by new endpoints).
    - Open `/logs` and confirm no repeated server errors when clicking around.
+   - Confirm server log lines exist for this task:
+     - Perform at least one bulk request (if UI is not ready, you can use curl) and search for `conversations.bulk.request` and `conversations.bulk.success`.
 
 9. [ ] `npm run compose:down`
 
@@ -947,7 +987,26 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
        - `server/src/mongo/events.ts`
      - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Add server log lines for WS connect/subscription lifecycle so manual checks can prove the WS plumbing is active:
+   - Files to edit:
+     - `server/src/ws/server.ts`
+     - `server/src/logStore.ts` (use existing append helper; do not change schema)
+   - Required log messages (must match exactly):
+     - `chat.ws.connect`
+     - `chat.ws.disconnect`
+     - `chat.ws.subscribe_sidebar`
+     - `chat.ws.unsubscribe_sidebar`
+     - `chat.ws.subscribe_conversation`
+     - `chat.ws.unsubscribe_conversation`
+   - Required fields in `context` (as applicable):
+     - `connectionId` (a generated id for the socket)
+     - `conversationId` (for conversation subscribe/unsubscribe)
+     - `subscribedSidebar` (boolean)
+     - `subscribedConversationCount`
+   - Notes:
+     - These log lines must be written into the server `/logs` store (not console-only), so the UI can query them.
+
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -981,6 +1040,8 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Open `/chat` and confirm the page loads.
    - Regression: existing chat send still works (streaming transport changes are introduced later; this task should not break basic server startup).
    - If you have time: open `/logs` and confirm no new persistent errors related to WS startup.
+   - Confirm server log lines exist for this task:
+     - Search for `chat.ws.connect` and `chat.ws.subscribe_conversation` after opening `/chat`.
 
 9. [ ] `npm run compose:down`
 
@@ -1319,6 +1380,8 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Open `/chat`.
    - If Task 7 is not complete yet, the UI may still be expecting SSE; record any expected broken state as “known interim state”.
    - Once Task 7 is complete, verify chat starts via `POST /chat` (202) and transcript updates arrive via WS for the visible conversation.
+   - Confirm server log lines exist for this task:
+     - Search for `chat.run.started` and `chat.stream.final`.
 
 9. [ ] `npm run compose:down`
 
@@ -1671,7 +1734,24 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
        - `server/src/test/integration/ws-logs.test.ts`
      - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
-25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+25. [ ] Ensure server WS/stream log lines required by this story are present and emitted during real UI usage (add missing ones if implementation drift occurred):
+   - Files to verify:
+     - `server/src/ws/server.ts`
+     - `server/src/routes/chat.ts`
+   - If missing, files to edit:
+     - `server/src/ws/server.ts`
+     - `server/src/routes/chat.ts`
+     - `server/src/logStore.ts` (use existing append helper; do not change schema)
+   - Required log messages (must match exactly):
+     - `chat.ws.connect`
+     - `chat.ws.subscribe_conversation`
+     - `chat.stream.snapshot`
+     - `chat.stream.final`
+     - `chat.stream.cancel`
+   - Purpose:
+     - Manual Playwright-MCP checks rely on these logs to confirm that WS-only streaming is actually happening.
+
+26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1707,6 +1787,8 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - You can start a run and observe a live in-flight update.
      - Stop/cancel works (no hangs).
      - Tool events are visible when a tool is invoked.
+   - Confirm server log lines exist for this task:
+     - Search for `chat.ws.connect`, `chat.stream.snapshot`, and `chat.stream.final`.
 
 9. [ ] `npm run compose:down`
 
@@ -1726,8 +1808,8 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Documentation Locations
 
-- MUI component docs (closest MCP snapshot to repo’s @mui/material 6.5.0; use this index then fetch Checkbox/Dialog/Snackbar/Select pages as needed): https://llms.mui.com/material-ui/6.4.12/llms.txt
-- MUI 6.5.0 release notes (sanity-check any prop/API changes vs 6.4.x MCP snapshot): https://github.com/mui/material-ui/releases/tag/v6.5.0
+- MUI component docs (MCP snapshot within the same minor series as the repo’s `@mui/material` `^6.4.1`; use this index then fetch Checkbox/Dialog/Snackbar/Select pages as needed): https://llms.mui.com/material-ui/6.4.12/llms.txt
+- MUI v6 docs landing page (use as supplemental context; prefer the MCP snapshot above for prop/API specifics in this repo): https://v6.mui.com/
 - React 19 docs (state + effects for selection/filter UX): https://react.dev/learn
 - Fetch API + HTTP status codes (calling bulk endpoints and rendering errors): https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 - Jest 30.x docs (repo uses Jest 30; referenced by this task’s Testing section): Context7 `/websites/jestjs_io_30_0`
@@ -1830,7 +1912,26 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add client log lines (forwarded to `/logs`) for sidebar filter + selection + bulk actions so manual checks can confirm the UI events fired:
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/logging/logger.ts` (use existing logger; do not change schema)
+   - Required log messages (must match exactly):
+     - `chat.sidebar.filter_changed`
+     - `chat.sidebar.selection_changed`
+     - `chat.sidebar.bulk_action_request`
+     - `chat.sidebar.bulk_action_result`
+   - Required fields in `context` (as applicable):
+     - `filterState` (active|all|archived)
+     - `selectedCount`
+     - `action` (archive|restore|delete)
+     - `status` (ok|failed)
+     - `errorCode` (when failed)
+   - Notes:
+     - These must be forwarded into the server `/logs` store so Playwright-MCP can query them in the Logs UI.
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1867,6 +1968,8 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
      - Multi-select checkboxes appear and selection count is correct.
      - Bulk Archive/Restore/Delete buttons enable/disable correctly based on selection and filter.
      - Permanent delete shows a confirmation dialog.
+   - Confirm client log lines exist for this task:
+     - Open `/logs` and search for `chat.sidebar.filter_changed` and `chat.sidebar.bulk_action_result` after interacting with the sidebar.
 
 9. [ ] `npm run compose:down`
 
@@ -2065,7 +2168,26 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        - `client/src/hooks/useChatWs.ts`
      - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add client log lines (forwarded to `/logs`) for WS subscription + reconnect behaviors so manual checks can confirm the new client streaming logic is executing:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/logging/logger.ts` (use existing logger; do not change schema)
+   - Required log messages (must match exactly):
+     - `chat.ws.client_connect`
+     - `chat.ws.client_subscribe_conversation`
+     - `chat.ws.client_snapshot_received`
+     - `chat.ws.client_final_received`
+     - `chat.ws.client_reconnect_attempt`
+     - `chat.ws.client_stale_event_ignored`
+   - Required fields in `context` (as applicable):
+     - `conversationId`
+     - `inflightId`
+     - `seq`
+     - `attempt`
+   - Notes:
+     - `chat.ws.client_*` logs must be forwarded to server `/logs` so they show up in the Logs UI.
+
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2102,6 +2224,8 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - The previous conversation stops streaming (unsubscribe),
      - The newly selected conversation shows the correct catch-up snapshot if it is in flight.
    - Use Stop and confirm `cancel_inflight` cancels without hanging.
+   - Confirm client log lines exist for this task:
+     - Open `/logs` and search for `chat.ws.client_snapshot_received` and `chat.ws.client_final_received` after streaming completes.
 
 9. [ ] `npm run compose:down`
 
@@ -2857,7 +2981,27 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
        - `client/src/test/agentsPage.streaming.test.tsx`
      - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
 
-56. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+56. [ ] Ensure the UI emits and/or asserts the key log lines that prove WS streaming + bulk actions are working end-to-end (add missing logs if needed so manual checks and e2e can validate behavior):
+   - Files to verify:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/components/chat/ConversationList.tsx`
+     - `server/src/routes/conversations.ts`
+   - If missing, files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/components/chat/ConversationList.tsx`
+     - `server/src/routes/conversations.ts`
+     - `client/src/logging/logger.ts`
+     - `server/src/logStore.ts`
+   - Required log messages (must match exactly):
+     - `chat.ws.client_connect`
+     - `chat.ws.client_snapshot_received`
+     - `chat.ws.client_final_received`
+     - `chat.sidebar.bulk_action_result`
+     - `conversations.bulk.success`
+   - Purpose:
+     - These logs are what a human uses in the Logs UI to prove the app is actually executing the new WS + bulk flows.
+
+57. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2890,6 +3034,8 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 8. [ ] Manual Playwright-MCP check (task-specific):
    - Open `/chat` and confirm chat streaming works end-to-end (WS-only).
    - Open `/logs` and confirm chat WS client logs and server logs are present.
+   - Confirm log lines exist for this task:
+     - Search for `chat.ws.client_snapshot_received`, `chat.ws.client_final_received`, and `chat.sidebar.bulk_action_result`.
    - Regression: ingest pages and LM Studio pages still load and basic actions work.
 
 9. [ ] `npm run compose:down`
@@ -2923,7 +3069,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 #### Subtasks
 
 1. [ ] Update `README.md` with any new commands or behavioral changes:
-   - Docs to read:
+   - Files to read:
      - `README.md`
    - Files to edit:
      - `README.md`
@@ -2955,7 +3101,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 4. [ ] Create a PR summary comment (what changed, why, and how to verify):
-   - Docs to read:
+   - Files to read:
      - `planning/0000019-chat-page-ux.md`
    - Files to edit:
      - `planning/0000019-chat-page-ux.md` (Implementation notes section)
@@ -2967,7 +3113,26 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
      - Include a short “How to verify” checklist (server tests, client tests, e2e).
      - Mention any notable edge cases covered by tests (late-subscriber snapshot, cancel_inflight not found, bulk all-or-nothing conflicts).
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Confirm the story’s WS/bulk “observability log lines” are present end-to-end in `/logs` during the final manual check (add any missing logs if earlier tasks didn’t implement them):
+   - Purpose:
+     - Make manual verification deterministic by searching for exact log messages proving the critical flows executed.
+   - Requirements (these exact `message` strings must appear in `/logs`):
+     - Server-side:
+       - `conversations.list.request` (conversation sidebar loads)
+       - `conversations.bulk.success` (bulk archive/restore/delete completed)
+       - `chat.ws.connect` (WS connection established)
+       - `chat.run.started` (run created via `POST /chat`)
+       - `chat.stream.snapshot` (late-subscriber in-flight snapshot sent)
+       - `chat.stream.final` (final event published)
+     - Client-side:
+       - `chat.ws.client_connect` (client WS connected)
+       - `chat.ws.client_snapshot_received` (snapshot received/merged)
+       - `chat.ws.client_final_received` (final received/merged)
+       - `chat.sidebar.bulk_action_result` (bulk result displayed)
+   - Notes:
+     - If any of these are missing, add the log in the relevant task’s listed file locations (server uses pino via `server/src/logger.ts`; client uses the existing `/logs` forwarder under `client/src/logging/*`).
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -3006,7 +3171,17 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Agents page:
      - Agent runs stream into transcript view via WS (in-flight updates visible).
    - Logs page:
-     - WS client logs and server WS logs appear as expected.
+     - Search `/logs` for each required log message (exact match) and capture screenshots showing the results:
+       - `conversations.list.request`
+       - `conversations.bulk.success`
+       - `chat.ws.connect`
+       - `chat.run.started`
+       - `chat.stream.snapshot`
+       - `chat.stream.final`
+       - `chat.ws.client_connect`
+       - `chat.ws.client_snapshot_received`
+       - `chat.ws.client_final_received`
+       - `chat.sidebar.bulk_action_result`
    - Save screenshots to `./test-results/screenshots/` using the story naming convention.
 
 9. [ ] `npm run compose:down`

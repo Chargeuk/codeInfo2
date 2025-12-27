@@ -1999,7 +1999,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 ### 6. Chat sidebar bulk actions UI
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -2174,7 +2174,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Marked task as in progress and began implementation.
 
 ---
 

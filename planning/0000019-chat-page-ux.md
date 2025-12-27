@@ -2154,7 +2154,7 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
 6. [x] `npm run compose:build`
 

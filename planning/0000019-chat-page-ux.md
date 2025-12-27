@@ -651,7 +651,19 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: prevent accidental no-op bulk calls being treated as success.
 
-11. [ ] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
+11. [ ] Server integration test: bulk endpoints accept duplicate conversationIds and treat them as unique (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/conversations.bulk.test.ts`
+   - Purpose:
+     - Make the API resilient to client-side selection bugs that may send duplicates.
+   - Requirements:
+     - Create an archived or active conversation, then call bulk archive/restore with `[id, id]`.
+     - Assert the endpoint returns `200` and `updatedCount` equals `1` (not 2), and that the resulting state is correct.
+
+12. [ ] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -661,7 +673,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: prove all-or-nothing behavior. Assert details.invalidIds includes the missing id and nothing changes.
 
-12. [ ] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
+13. [ ] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/ladjs/supertest`
@@ -671,7 +683,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Requirements:
      - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
 
-13. [ ] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
+14. [ ] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -684,7 +696,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
      - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
 
-14. [ ] Update project documentation for any added/changed files:
+15. [ ] Update project documentation for any added/changed files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -696,7 +708,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-15. [ ] Run repo-wide lint/format checks after the task (do not skip):
+16. [ ] Run repo-wide lint/format checks after the task (do not skip):
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -1357,7 +1369,20 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
      - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
 
-12. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
+12. [ ] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/websockets/ws/8_18_3`
+   - Files to add:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Purpose:
+     - Prevent regressions where Codex analysis frames are dropped (the client has existing reasoning UI/tests).
+   - Requirements:
+     - Start a run using a deterministic provider/test double that emits at least one `analysis` event.
+     - Subscribe mid-run and assert the initial `inflight_snapshot.inflight.assistantThink` is non-empty.
+     - Assert at least one `analysis_delta` event arrives with increasing `seq`.
+
+13. [ ] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1369,7 +1394,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
      - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
 
-13. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
+14. [ ] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
@@ -1382,7 +1407,47 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Subscribe then immediately unsubscribe from a conversation while it is streaming.
      - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
-14. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
+15. [ ] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/integration/chat-codex.test.ts`
+   - Purpose:
+     - Prove the “POST /chat does not require an active WebSocket connection” contract.
+   - Requirements:
+     - Start a chat run via HTTP.
+     - Do not open a WebSocket client at all.
+     - Wait for completion (using deterministic mocked provider or polling stored turns).
+     - Assert the user + assistant turns were persisted.
+
+16. [ ] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+   - Files to edit:
+     - `server/src/test/integration/chat-codex.test.ts`
+   - Purpose:
+     - Prevent interleaved persistence and out-of-order WS events.
+   - Requirements:
+     - Start a run for a conversationId.
+     - Immediately attempt to start a second run for the same conversationId.
+     - Assert the second request returns `409` with `{ status:"error", code:"RUN_IN_PROGRESS" }`.
+
+17. [ ] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to add:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+   - Files to read:
+     - `server/src/chat/inflightRegistry.ts`
+   - Purpose:
+     - Avoid memory leaks when many conversations stream over time.
+   - Requirements:
+     - Start a run, await `turn_final`, then assert the registry no longer returns an entry for the conversationId.
+
+18. [ ] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1399,7 +1464,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
      - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
 
-15. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
+19. [ ] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/websockets/ws/8_18_3`
@@ -1415,8 +1480,22 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
      - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
 
+20. [ ] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/ladjs/supertest`
+   - Files to add:
+     - `server/src/test/integration/ws-logs.test.ts`
+   - Files to read:
+     - `server/src/routes/logs.ts` (GET /logs query)
+   - Purpose:
+     - Ensure required server log messages (`chat.ws.connect`, `chat.ws.subscribe_conversation`, etc.) are actually queryable via the logs store.
+   - Requirements:
+     - Open a WS connection and subscribe to a conversation.
+     - Query `GET /logs?source=server&text=chat.ws.connect` and assert at least one matching log entry exists.
 
-16. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
+
+21. [ ] Ensure WS connections are closed during teardown so test runs do not leak handles:
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -1424,7 +1503,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Explicitly close sockets in `afterEach`/`after` hooks.
 
-17. [ ] Update `projectStructure.md` with any added/removed server test support files:
+22. [ ] Update `projectStructure.md` with any added/removed server test support files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1438,7 +1517,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Requirements:
      - Add entries for new test utilities and test files introduced by this task (for example `server/src/test/support/wsClient.ts` and new WS unit tests).
 
-18. [ ] Run repo-wide lint/format checks:
+23. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:
@@ -1744,8 +1823,10 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
-     - When persistence is unavailable, disable live streaming (do not connect/subscribe) and show a clear banner/message explaining why.
-     - The user must still be able to Stop an in-flight run (if they have `conversationId` + `inflightId`).
+     - When persistence is unavailable, disable live streaming (do not subscribe to sidebar or transcript updates) and show a clear banner/message explaining why.
+     - Keep Stop working even when persistence is unavailable:
+       - `cancel_inflight` does not depend on Mongo.
+       - It is acceptable to keep a minimal WS connection open (or open one on-demand) solely to send `cancel_inflight`, but the UI must not render live transcript/sidebar updates in this mode.
 
 10. [ ] Enable live transcript streaming for agent-initiated conversations in the Agents UI (same WS transcript contract):
    - Docs to read:
@@ -2073,6 +2154,9 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - `client/src/test/chatPage.stop.test.tsx`
    - Requirements:
      - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+     - Add an explicit case where `mongoConnected === false`:
+       - Purpose: ensure Stop still works when persistence is unavailable (even though streaming subscriptions are disabled).
+       - Assert `cancel_inflight` is still sent over WebSocket (minimal connection is allowed for Stop-only).
 
 12. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.newConversation.test.tsx for WS-driven streaming semantics
    - Docs to read:
@@ -2321,23 +2405,82 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-36. [ ] Client unit test (Jest/RTL): update client/src/test/chatSidebar.test.tsx for sidebar bulk selection/filter disabled states
+36. [ ] Client unit test (Jest/RTL): sidebar selection is cleared when the user changes the filter (corner case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Requirements:
+     - Purpose: match the acceptance criteria “Selection is cleared when the user changes the view filter”.
+     - Render the Chat sidebar with a list of conversations.
+     - Select 1+ rows, switch the filter (`Active` → `Archived`), and assert the selection count resets to 0.
+
+37. [ ] Client unit test (Jest/RTL): selection stays stable when the conversation list reorders due to live updates (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatSidebar.test.tsx`
    - Requirements:
-     - Purpose: ensure selection UX and mongoConnected=false gating stays correct.
+     - Purpose: match the acceptance criteria “Selection is retained while streaming sidebar updates arrive / resorting by lastMessageAt”.
+     - Select a conversationId, then simulate a list update that changes ordering.
+     - Assert the selected conversation remains selected after resort.
 
-37. [ ] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for sidebar bulk selection/filter disabled states
+38. [ ] Client unit test (Jest/RTL): bulk action buttons and select-all checkbox reflect the active filter state (happy path)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Purpose:
+     - Ensure the correct actions are available per filter mode.
+   - Requirements:
+     - In `Active` and `Active & Archived`, assert “Archive” is available and “Delete permanently” is not.
+     - In `Archived`, assert “Restore” and “Delete permanently” are available.
+     - Assert the header select-all checkbox uses `indeterminate` when some but not all items are selected.
+
+39. [ ] Client unit test (Jest/RTL): permanent delete requires confirmation dialog (error-prevention case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Purpose:
+     - Prevent accidental destructive actions.
+   - Requirements:
+     - In `Archived` view, select a conversation and click “Delete permanently”.
+     - Assert a confirmation dialog appears.
+     - Assert cancel does not call the bulk delete API, and confirm does.
+
+40. [ ] Client unit test (Jest/RTL): when `mongoConnected === false`, bulk actions are disabled and the UI explains why (error case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Purpose:
+     - Enforce acceptance criteria gating for safety when persistence is unavailable.
+   - Requirements:
+     - Force persistence status to unavailable.
+     - Assert selection and bulk action controls are disabled and a clear message is shown.
+
+41. [ ] Client unit test (Jest/RTL): Chat sidebar ignores `conversation_upsert` events for agent conversations (corner case)
+   - Docs to read:
+     - Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Purpose:
+     - Ensure the Chat sidebar remains scoped to `agentName=__none__` and does not leak agent conversations into chat history.
+   - Requirements:
+     - Simulate a `conversation_upsert` event whose `conversation.agentName` is a non-empty string.
+     - Assert it is ignored (not rendered in the Chat sidebar list).
+
+42. [ ] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for persistence-unavailable banner states
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPersistenceBanner.test.tsx`
    - Requirements:
-     - Purpose: ensure selection UX and mongoConnected=false gating stays correct.
+     - Purpose: ensure the banner messaging remains clear and stable when `mongoConnected === false`.
 
-38. [ ] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
+43. [ ] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2345,7 +2488,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-39. [ ] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
+44. [ ] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2353,7 +2496,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-40. [ ] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
+45. [ ] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2361,7 +2504,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-41. [ ] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+46. [ ] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2369,7 +2512,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-42. [ ] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
+47. [ ] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2377,7 +2520,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-43. [ ] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
+48. [ ] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2385,7 +2528,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-44. [ ] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
+49. [ ] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2393,7 +2536,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-45. [ ] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+50. [ ] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2401,7 +2544,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-46. [ ] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
+51. [ ] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -2409,7 +2552,18 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-47. [ ] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
+52. [ ] E2E test (Playwright): Logs page shows chat WS client streaming logs after receiving transcript events (happy path)
+   - Docs to read:
+     - Context7 `/microsoft/playwright.dev`
+   - Files to edit:
+     - `e2e/logs.spec.ts` (or create a new `e2e/chat-ws-logs.spec.ts`)
+   - Purpose:
+     - Prove WS streaming activity is observable end-to-end via the `/logs` store.
+   - Requirements:
+     - Use the WS chat mocks to emit at least: `inflight_snapshot`, `assistant_delta`, and `turn_final`.
+     - Assert the Logs page contains client log entries like `chat.ws.client_connect` and `chat.ws.client_delta_received`.
+
+53. [ ] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://testing-library.com/docs/react-testing-library/intro/
@@ -2425,7 +2579,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Select a conversationId (set `activeConversationId` via UI interaction or controlled state).
      - Emit WS events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`) and assert the transcript UI reflects the in-flight assistant state.
 
-48. [ ] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
+54. [ ] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2435,7 +2589,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Switch `activeConversationId` and assert the mock WebSocket recorded an `unsubscribe_conversation` for the old id.
 
-49. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
+55. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -2449,7 +2603,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Add entries for new helper modules added by this task (for example `e2e/support/mockChatWs.ts` and `client/src/test/support/mockWebSocket.ts`).
 
-50. [ ] Run repo-wide lint/format checks:
+56. [ ] Run repo-wide lint/format checks:
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
    - Files to verify:

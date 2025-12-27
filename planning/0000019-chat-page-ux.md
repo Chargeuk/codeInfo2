@@ -922,7 +922,14 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
-     - Add entries for the new `/ws` server modules introduced by this task (including WS registry + sidebar publisher + mongo events bus).
+     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+     - Expected file additions (must be reflected in `projectStructure.md`):
+       - `server/src/ws/server.ts`
+       - `server/src/ws/types.ts`
+       - `server/src/ws/registry.ts`
+       - `server/src/ws/sidebar.ts`
+       - `server/src/mongo/events.ts`
+     - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
 
 14. [ ] Run repo-wide lint/format checks:
    - Docs to read:
@@ -1189,7 +1196,13 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
-     - Add entries for new files like `server/src/chat/inflightRegistry.ts` and any new WS/chat modules introduced by this task.
+     - This task adds/removes files. `projectStructure.md` must explicitly list every added file and remove any deleted file entries.
+     - Expected file additions (must be reflected in `projectStructure.md`):
+       - `server/src/chat/inflightRegistry.ts`
+       - `server/src/chat/chatStreamBridge.ts`
+     - Possible removals (only if you delete them during implementation):
+       - `server/src/chatStream.ts` (SSE helper; remove only if it becomes unused and you choose to delete it)
+     - If you add any additional chat/WS modules (for example additional WS publishers/helpers), include those exact paths too.
 
 16. [ ] Run repo-wide lint/format checks:
    - Docs to read:
@@ -1518,7 +1531,14 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
-     - Add entries for new test utilities and test files introduced by this task (for example `server/src/test/support/wsClient.ts` and new WS unit tests).
+     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+     - Expected file additions (must be reflected in `projectStructure.md`):
+       - `server/src/test/support/wsClient.ts`
+       - `server/src/test/unit/ws-chat-stream.test.ts`
+       - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
+       - `server/src/test/integration/agents-run-ws-stream.test.ts`
+       - `server/src/test/integration/ws-logs.test.ts`
+     - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
 23. [ ] Run repo-wide lint/format checks:
    - Docs to read:
@@ -1873,7 +1893,10 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
-     - Add entries for new files like `client/src/hooks/useChatWs.ts` and any new WS support utilities.
+     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+     - Expected file additions (must be reflected in `projectStructure.md`):
+       - `client/src/hooks/useChatWs.ts`
+     - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
 
 13. [ ] Run repo-wide lint/format checks:
    - Docs to read:
@@ -2604,7 +2627,13 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
    - Requirements:
-     - Add entries for new helper modules added by this task (for example `e2e/support/mockChatWs.ts` and `client/src/test/support/mockWebSocket.ts`).
+     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+     - Expected file additions (must be reflected in `projectStructure.md`):
+       - `e2e/support/mockChatWs.ts`
+       - `client/src/test/support/mockWebSocket.ts`
+       - `client/src/test/useChatWs.test.ts`
+       - `client/src/test/agentsPage.streaming.test.tsx`
+     - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
 
 56. [ ] Run repo-wide lint/format checks:
    - Docs to read:

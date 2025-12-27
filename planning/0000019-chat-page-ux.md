@@ -865,7 +865,7 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 ### 3. WebSocket server foundation
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 3210d97
 #### Overview
 
 Introduce the `/ws` WebSocket server on the existing Express port with protocol versioning, ping/pong heartbeats, and subscription tracking for sidebar and conversation streams.

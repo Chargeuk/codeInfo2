@@ -2479,7 +2479,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 ### 8. Client streaming logs
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: fbb6188
 #### Overview
 
 Emit client-side log entries for WebSocket connect/subscribe/receive events and forward them to server logs for Playwright verification.

@@ -143,7 +143,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â””â”€ src/
 â”‚     â”œâ”€ fixtures/ â€” shared LM Studio model fixtures
 â”‚     â”‚  â””â”€ mockModels.ts â€” shared fixture for LM Studio models list
-â”‚     â”‚  â””â”€ chatStream.ts — canonical chat request/SSE fixtures
+â”‚     â”‚  â””â”€ chatStream.ts — canonical chat request fixtures + legacy SSE + WS event fixtures
 â”‚     â”œâ”€ api.ts â€” fetch helpers (server version, LM Studio)
 â”‚     â”œâ”€ index.ts â€” barrel exports
 â”‚     â”œâ”€ lmstudio.ts â€” LM Studio DTOs/types
@@ -155,9 +155,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
 â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
-â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock chat SSE, assert repo/host path citations
+â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock `POST /chat` (202) + chat WS, assert repo/host path citations
 â”‚  â”œâ”€ chat-tools-visibility.spec.ts — chat tool detail UX e2e (closed state, params, repo expansion, vector aggregation, errors, thinking spinner idle/tool-wait behaviour)
-â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock SSE)
+â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock WS)
 â”‚  â”œâ”€ chat-mermaid.spec.ts — renders mermaid diagram from chat reply and captures screenshot
 â”‚  â”œâ”€ lmstudio.spec.ts â€” LM Studio UI/proxy e2e
 â”‚  â”œâ”€ logs.spec.ts â€” Logs UI end-to-end sample emission
@@ -182,7 +182,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ index.ts â€” Express app entry
 â”‚     â”œâ”€ logger.ts â€” pino/pino-http setup with rotation and env config helper
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
-â”‚     â”œâ”€ chatStream.ts — SSE helper for chat streaming
+â”‚     â”œâ”€ chatStream.ts — SSE helper for streaming endpoints (e.g., `/logs/stream`); chat runs stream over `/ws`
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
 â”‚     â”‚  â”œâ”€ memoryPersistence.ts — shared in-memory conversation/turn store for Mongo-down/test fallback
@@ -191,7 +191,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceLMStudio.ts — LM Studio provider implementation emitting normalized chat events
 â”‚     â”‚  â””â”€ responders/McpResponder.ts — buffers normalized chat events into MCP segments payload
 â”‚     â”œâ”€ routes/
-â”‚     â”‚  â”œâ”€ chat.ts — POST /chat streaming SSE via LM Studio act()
+â”‚     â”‚  â”œâ”€ chat.ts — POST /chat run starter (202) + background execution + WS bridge
 â”‚     â”‚  â”œâ”€ chatValidators.ts — chat request validation + Codex-only flag stripping/defaults
 â”‚     â”‚  â”œâ”€ chatModels.ts â€” LM Studio chat models list endpoint
 â”‚     â”‚  â”œâ”€ chatProviders.ts — lists chat providers with availability flags
@@ -251,7 +251,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
 â”‚        â”œâ”€ features/
-        - chat_stream.feature - streaming /chat SSE Cucumber coverage
+        - chat_stream.feature - chat run + WS streaming Cucumber coverage
         - chat_cancellation.feature - Cucumber coverage for aborting chat streams
         - chat_models.feature - Cucumber coverage for chat model list endpoint
         - chat-tools-visibility.feature - tool request/result metadata in chat stream
@@ -314,10 +314,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
-â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route SSE wiring with mocked LM Studio tools
-â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat SSE error/success flows when vector search lock/enbedding availability changes
-â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat SSE flow, thread reuse, availability gating
-â”‚        |  â”œâ”€ chat-codex-mcp.test.ts — Codex MCP tool-call SSE mapping and SYSTEM_CONTEXT injection
+â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
+â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
+â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating
+â”‚        |  â”œâ”€ chat-codex-mcp.test.ts — Codex MCP tool-call mapping to WS `tool_event` and SYSTEM_CONTEXT injection
 â”‚        |  â”œâ”€ chat-assistant-persistence.test.ts — assistant turn + toolCalls persisted once for Codex and LM Studio (memory mode)
 â”‚        |  â”œâ”€ mcp-lmstudio-wrapper.test.ts — LM Studio MCP segments snapshot/order coverage
 â”‚        |  â””â”€ mcp-codex-wrapper.test.ts — MCP responder segments snapshot/order coverage for Codex

@@ -3338,7 +3338,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 ### 10. Final verification
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -3358,7 +3358,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 #### Subtasks
 
-1. [ ] Update `README.md` with any new commands or behavioral changes:
+1. [x] Update `README.md` with any new commands or behavioral changes:
    - Files to read:
      - `README.md`
    - Files to edit:
@@ -3368,7 +3368,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Description:
      - Update README.md to reflect any new commands, environment variables, or behavioral changes introduced by this story.
 
-2. [ ] Update `design.md` with any new diagrams or architecture changes:
+2. [x] Update `design.md` with any new diagrams or architecture changes:
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -3378,7 +3378,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Description:
      - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
 
-3. [ ] Update `projectStructure.md` with any updated/added/removed files:
+3. [x] Update `projectStructure.md` with any updated/added/removed files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -3390,7 +3390,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Description:
      - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
-4. [ ] Create a PR summary comment (what changed, why, and how to verify):
+4. [x] Create a PR summary comment (what changed, why, and how to verify):
    - Files to read:
      - `planning/0000019-chat-page-ux.md`
    - Files to edit:
@@ -3403,7 +3403,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
      - Include a short “How to verify” checklist (server tests, client tests, e2e).
      - Mention any notable edge cases covered by tests (late-subscriber snapshot, cancel_inflight not found, bulk all-or-nothing conflicts).
 
-5. [ ] Confirm the story’s WS/bulk “observability log lines” are present end-to-end in `/logs` during the final manual check (add any missing logs if earlier tasks didn’t implement them):
+5. [x] Confirm the story’s WS/bulk “observability log lines” are present end-to-end in `/logs` during the final manual check (add any missing logs if earlier tasks didn’t implement them):
    - Purpose:
      - Make manual verification deterministic by searching for exact log messages proving the critical flows executed.
    - Requirements (these exact `message` strings must appear in `/logs`):
@@ -3422,7 +3422,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
    - Notes:
      - If any of these are missing, add the log in the relevant task’s listed file locations (server uses pino via `server/src/logger.ts`; client uses the existing `/logs` forwarder under `client/src/logging/*`).
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -3438,22 +3438,22 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Optional (if you suspect Docker caching issues): `npm run compose:build:clean`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (story-focused + regressions):
+8. [x] Manual Playwright-MCP check (story-focused + regressions):
    - Chat page:
      - Bulk filter + multi-select + bulk archive/restore/delete.
      - WS-only streaming across conversation switches; late-subscriber snapshot behavior.
@@ -3474,8 +3474,50 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
        - `chat.sidebar.bulk_action_result`
    - Save screenshots to `./test-results/screenshots/` using the story naming convention.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-28: Started Task 10.
+- 2025-12-28: Updated `README.md` to remove chat SSE references and document the `POST /chat` (202) + `/ws` streaming contract.
+- 2025-12-28: Updated `design.md` to align the architecture diagrams and UI notes with WS-only streaming (removed remaining chat SSE references; kept `/logs/stream` SSE).
+- 2025-12-28: Updated `projectStructure.md` to remove remaining chat SSE references (chat is `POST /chat` 202 + `/ws`), keeping SSE notes only for `/logs/stream` and legacy fixtures.
+
+- 2025-12-28: PR summary (Story 0000019)
+  - User-visible: Chat/Agents transcripts now stream via WebSocket subscriptions (late subscribers receive an `inflight_snapshot` catch-up), and switching conversations/unmounting unsubscribes without cancelling the run. Stop/cancel uses `cancel_inflight`.
+  - User-visible: Chat sidebar adds a 3-state filter (active/archived/all), multi-select, and bulk archive/restore/delete with confirmation + snackbar feedback; persistence-disabled mode gates bulk actions.
+  - API/contract: `POST /chat` returns HTTP 202 (`{ status:"started", conversationId, inflightId, provider, model }`) and chat SSE is removed; transcript events are delivered over `/ws` (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`). Conversation list now supports `GET /conversations?state=active|archived|all` (legacy `archived=true` maps to `state=all`). Bulk endpoints: `POST /conversations/bulk/archive|restore|delete` (delete is archived-only; conflicts return 409 `BATCH_CONFLICT`).
+  - Observability: server + forwarded client logs are searchable in `/logs` (`conversations.list.request`, `conversations.bulk.success`, `chat.ws.connect`, `chat.run.started`, `chat.stream.snapshot`, `chat.stream.final`, plus `chat.ws.client_*` and `chat.sidebar.bulk_action_result`).
+
+  How to verify:
+  - Static checks: `npm run lint --workspaces` and `npm run format:check --workspaces`
+  - Unit/integration: `npm run test --workspace server` and `npm run test --workspace client`
+  - Builds: `npm run build --workspace server` and `npm run build --workspace client`
+  - E2E: `npm run e2e`
+
+  Notable edge cases covered:
+  - Late-subscriber transcript recovery via `inflight_snapshot`.
+  - Out-of-order transcript event protection via per-conversation `seq` gating.
+  - `cancel_inflight` on missing/finished runs (returns terminal error/final semantics).
+  - Bulk all-or-nothing conflict handling (409 with invalid ids/state).
+
+- 2025-12-28: Ran `npm run lint --workspaces` (ok) and `npm run format:check --workspaces` (ok).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` passed.
+- Testing 8: Manual smoke/regression check executed against `http://host.docker.internal:5001`/`:5010` and screenshots saved under `test-results/screenshots/` (prefix `0000019-10-*`).
+- Testing 9: `npm run compose:down` passed.
+
+- 2025-12-28: Fixup during Task 10 — server Cucumber test Chroma startup needed an HTTP wait strategy (chroma image lacks curl/wget for container healthchecks).
+- Docs to reference for this task:
+  - Docker/Compose: for clean rebuilds, up/down, and debugging port routing.
+  - Playwright: for screenshot automation and stable UI selectors.
+  - Mermaid: for keeping diagrams in README/design.md aligned with the WS-only architecture.
+- Gotchas:
+  - Chat streaming is WS-only now (`POST /chat` returns 202); any remaining SSE references in docs must be removed/updated.
+  - When validating Compose from inside this container, use `http://host.docker.internal:<port>` (not `localhost`) to avoid hitting the in-container dev server.
+  - Manual verification requires saving screenshots under `test-results/screenshots/`.

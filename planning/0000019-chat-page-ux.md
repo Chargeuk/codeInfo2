@@ -3339,7 +3339,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 ### 10. Final verification
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 2652330
 #### Overview
 
 Final cross-check against acceptance criteria, full builds/tests, docker validation, and documentation updates. Produce a pull request summary comment covering all story changes.

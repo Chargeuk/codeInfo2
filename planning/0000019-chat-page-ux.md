@@ -2622,7 +2622,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 ### 9. Front-end test updates
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 #### Overview
 

@@ -438,7 +438,12 @@ export function useChatStream(
         ]);
       }
     },
-    [clearThinkingTimer, markAssistantThinking, syncAssistantMessage, updateMessages],
+    [
+      clearThinkingTimer,
+      markAssistantThinking,
+      syncAssistantMessage,
+      updateMessages,
+    ],
   );
 
   const reset = useCallback(() => {

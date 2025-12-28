@@ -52,74 +52,78 @@ export function setupChatWsHarness(params: {
   const providersPayload = params.providers ?? defaultProviders;
   const modelsPayload = params.models ?? defaultModels;
   const healthPayload = params.health ?? { mongoConnected: true };
-  const conversationsPayload =
-    params.conversations ?? { items: [], nextCursor: null };
+  const conversationsPayload = params.conversations ?? {
+    items: [],
+    nextCursor: null,
+  };
 
-  params.mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-    const href = typeof url === 'string' ? url : url.toString();
+  params.mockFetch.mockImplementation(
+    (url: RequestInfo | URL, opts?: RequestInit) => {
+      const href = typeof url === 'string' ? url : url.toString();
 
-    if (href.includes('/health')) {
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => healthPayload,
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => providersPayload,
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => modelsPayload,
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations') && opts?.method !== 'POST') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => conversationsPayload,
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/chat') && opts?.method === 'POST') {
+        const body =
+          typeof opts?.body === 'string'
+            ? (JSON.parse(opts.body) as Record<string, unknown>)
+            : {};
+        chatBodies.push(body);
+        lastConversationId =
+          typeof body.conversationId === 'string' ? body.conversationId : null;
+        lastInflightId =
+          typeof body.inflightId === 'string' ? body.inflightId : 'i1';
+
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: async () => ({
+            status: 'started',
+            conversationId: lastConversationId,
+            inflightId: lastInflightId,
+            provider: body.provider,
+            model: body.model,
+          }),
+        }) as unknown as Response;
+      }
+
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => healthPayload,
+        json: async () => ({}),
       }) as unknown as Response;
-    }
-
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => providersPayload,
-      }) as unknown as Response;
-    }
-
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => modelsPayload,
-      }) as unknown as Response;
-    }
-
-    if (href.includes('/conversations') && opts?.method !== 'POST') {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => conversationsPayload,
-      }) as unknown as Response;
-    }
-
-    if (href.includes('/chat') && opts?.method === 'POST') {
-      const body =
-        typeof opts?.body === 'string'
-          ? (JSON.parse(opts.body) as Record<string, unknown>)
-          : {};
-      chatBodies.push(body);
-      lastConversationId =
-        typeof body.conversationId === 'string' ? body.conversationId : null;
-      lastInflightId =
-        typeof body.inflightId === 'string' ? body.inflightId : 'i1';
-
-      return Promise.resolve({
-        ok: true,
-        status: 202,
-        json: async () => ({
-          status: 'started',
-          conversationId: lastConversationId,
-          inflightId: lastInflightId,
-          provider: body.provider,
-          model: body.model,
-        }),
-      }) as unknown as Response;
-    }
-
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
+    },
+  );
 
   const sockets = () => {
     const registry = wsRegistry();
@@ -144,9 +148,11 @@ export function setupChatWsHarness(params: {
       const withProtocol = { protocolVersion: 'v1', ...event };
       const handler =
         typeof window !== 'undefined'
-          ? (window as unknown as {
-              __chatTest?: { handleWsEvent?: (ev: unknown) => void };
-            }).__chatTest?.handleWsEvent
+          ? (
+              window as unknown as {
+                __chatTest?: { handleWsEvent?: (ev: unknown) => void };
+              }
+            ).__chatTest?.handleWsEvent
           : undefined;
 
       const isTranscript =

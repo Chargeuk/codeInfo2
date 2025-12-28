@@ -4,16 +4,26 @@ import '@testing-library/jest-dom';
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
-(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
-(globalThis as unknown as { window?: { IS_REACT_ACT_ENVIRONMENT?: boolean } }).window &&
-  (((globalThis as unknown as { window: { IS_REACT_ACT_ENVIRONMENT?: boolean } }).window.IS_REACT_ACT_ENVIRONMENT =
-    true));
+(
+  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+const windowRef = (
+  globalThis as unknown as {
+    window?: {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+      __CODEINFO_TEST__?: boolean;
+    };
+  }
+).window;
+if (windowRef) {
+  windowRef.IS_REACT_ACT_ENVIRONMENT = true;
+}
 
-(globalThis as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__ = true;
-(globalThis as unknown as { window?: { __CODEINFO_TEST__?: boolean } }).window &&
-  (((globalThis as unknown as { window: { __CODEINFO_TEST__?: boolean } }).window.__CODEINFO_TEST__ =
-    true));
+(globalThis as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__ =
+  true;
+if (windowRef) {
+  windowRef.__CODEINFO_TEST__ = true;
+}
 
 // Provide TextEncoder/Decoder for libraries that expect them in the JSDOM environment.
 if (!global.TextEncoder) {

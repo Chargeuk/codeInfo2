@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
@@ -12,7 +18,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 afterEach(() => {
@@ -71,7 +79,11 @@ describe('Chat WS streaming UI', () => {
       inflightId,
       delta: 'Done',
     });
-    harness.emitFinal({ conversationId: conversationId!, inflightId, status: 'ok' });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
 
     await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
     expect(await screen.findByText('Done')).toBeInTheDocument();

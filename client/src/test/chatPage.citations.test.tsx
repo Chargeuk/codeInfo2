@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
@@ -12,7 +18,9 @@ beforeAll(() => {
 
 afterEach(() => {
   mockFetch.mockReset();
-  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -79,7 +87,10 @@ describe('Chat citations rendering', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({ conversationId: conversationId!, inflightId });
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
     harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
@@ -109,9 +120,15 @@ describe('Chat citations rendering', () => {
       inflightId,
       delta: 'Here is what I found',
     });
-    harness.emitFinal({ conversationId: conversationId!, inflightId, status: 'ok' });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
 
-    expect(await screen.findByText(/Here is what I found/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Here is what I found/i),
+    ).toBeInTheDocument();
 
     const toggle = await screen.findByTestId('citations-toggle');
     expect(toggle).toHaveTextContent('Citations (1)');

@@ -11,7 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -34,7 +36,11 @@ describe('Chat provider selection (WS transport)', () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const href = typeof url === 'string' ? url : url.toString();
       if (href.includes('/health')) {
-        return Promise.resolve({ ok: true, status: 200, json: async () => ({ mongoConnected: true }) }) as unknown as Response;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
       }
       if (href.includes('/chat/providers')) {
         return Promise.resolve({
@@ -42,7 +48,12 @@ describe('Chat provider selection (WS transport)', () => {
           status: 200,
           json: async () => ({
             providers: [
-              { id: 'lmstudio', label: 'LM Studio', available: true, toolsAvailable: true },
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
               {
                 id: 'codex',
                 label: 'OpenAI Codex',
@@ -66,17 +77,25 @@ describe('Chat provider selection (WS transport)', () => {
           }),
         }) as unknown as Response;
       }
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) }) as unknown as Response;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', { name: /provider/i });
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
     expect(providerSelect).toBeInTheDocument();
 
     await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', { name: /openai codex/i });
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
     expect(codexOption).toHaveAttribute('aria-disabled', 'true');
     await userEvent.keyboard('{Escape}');
 
@@ -89,77 +108,115 @@ describe('Chat provider selection (WS transport)', () => {
   it('reuses Codex threadId from WS turn_final on subsequent turns', async () => {
     const bodies: Record<string, unknown>[] = [];
 
-    mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/health')) {
-        return Promise.resolve({ ok: true, status: 200, json: async () => ({ mongoConnected: true }) }) as unknown as Response;
-      }
-      if (href.includes('/conversations') && opts?.method !== 'POST') {
-        return Promise.resolve({ ok: true, status: 200, json: async () => ({ items: [], nextCursor: null }) }) as unknown as Response;
-      }
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            providers: [
-              { id: 'lmstudio', label: 'LM Studio', available: true, toolsAvailable: true },
-              { id: 'codex', label: 'OpenAI Codex', available: true, toolsAvailable: true },
-            ],
-          }),
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        const providerParam = new URL(href, 'http://localhost').searchParams.get('provider');
-        if (providerParam === 'codex') {
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations') && opts?.method !== 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
           return Promise.resolve({
             ok: true,
             status: 200,
             json: async () => ({
-              provider: 'codex',
+              providers: [
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          const providerParam = new URL(
+            href,
+            'http://localhost',
+          ).searchParams.get('provider');
+          if (providerParam === 'codex') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                provider: 'codex',
+                available: true,
+                toolsAvailable: true,
+                models: [
+                  {
+                    key: 'gpt-5.1-codex-max',
+                    displayName: 'gpt-5.1-codex-max',
+                    type: 'codex',
+                  },
+                ],
+              }),
+            }) as unknown as Response;
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'lmstudio',
               available: true,
               toolsAvailable: true,
-              models: [
-                { key: 'gpt-5.1-codex-max', displayName: 'gpt-5.1-codex-max', type: 'codex' },
-              ],
+              models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          const body =
+            opts?.body && typeof opts.body === 'string'
+              ? JSON.parse(opts.body)
+              : {};
+          bodies.push(body);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: 'i1',
+              provider: body.provider,
+              model: body.model,
             }),
           }) as unknown as Response;
         }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({
-            provider: 'lmstudio',
-            available: true,
-            toolsAvailable: true,
-            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
-          }),
+          json: async () => ({}),
         }) as unknown as Response;
-      }
-      if (href.includes('/chat') && opts?.method === 'POST') {
-        const body = opts?.body && typeof opts.body === 'string' ? JSON.parse(opts.body) : {};
-        bodies.push(body);
-        return Promise.resolve({
-          ok: true,
-          status: 202,
-          json: async () => ({
-            status: 'started',
-            conversationId: body.conversationId,
-            inflightId: 'i1',
-            provider: body.provider,
-            model: body.model,
-          }),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) }) as unknown as Response;
-    });
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', { name: /provider/i });
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
     await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', { name: /openai codex/i });
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
     await userEvent.click(codexOption);
 
     const input = await screen.findByTestId('chat-input');
@@ -175,9 +232,11 @@ describe('Chat provider selection (WS transport)', () => {
 
     const conversationId = bodies[0].conversationId as string;
 
-    const wsRegistry = (globalThis as unknown as {
-      __wsMock?: { last: () => { _receive: (d: unknown) => void } | null };
-    }).__wsMock;
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { last: () => { _receive: (d: unknown) => void } | null };
+      }
+    ).__wsMock;
     const ws = wsRegistry?.last();
     expect(ws).toBeTruthy();
 

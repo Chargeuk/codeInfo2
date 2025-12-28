@@ -35,4 +35,3 @@ describe('Chat markdown rendering', () => {
     });
   });
 });
-

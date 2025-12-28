@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
@@ -12,7 +18,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -56,16 +64,23 @@ describe('Chat page new conversation control', () => {
       await user.click(newConversationButton);
     });
 
-    expect(screen.getByText(/Transcript will appear here/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Transcript will appear here/i),
+    ).toBeInTheDocument();
     await waitFor(() => expect(input).toHaveFocus());
 
-    const wsRegistry = (globalThis as unknown as {
-      __wsMock?: { last: () => { sent: string[] } | null };
-    }).__wsMock;
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { last: () => { sent: string[] } | null };
+      }
+    ).__wsMock;
     const ws = wsRegistry?.last();
     const cancel = (ws?.sent ?? []).some((entry) => {
       try {
-        return (JSON.parse(entry) as Record<string, unknown>).type === 'cancel_inflight';
+        return (
+          (JSON.parse(entry) as Record<string, unknown>).type ===
+          'cancel_inflight'
+        );
       } catch {
         return false;
       }

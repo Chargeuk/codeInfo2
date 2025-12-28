@@ -158,12 +158,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function inflightKey(conversationId: string, inflightId: string) {
+  return `${conversationId}:${inflightId}`;
+}
+
 export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   const log = useRef(createLogger('client')).current;
   const [connectionState, setConnectionState] =
     useState<ChatWsConnectionState>('connecting');
 
+  const deltaCountsByInflightRef = useRef<Map<string, number>>(new Map());
+  const toolEventCountsByInflightRef = useRef<Map<string, number>>(new Map());
+
   const wsRef = useRef<WebSocket | null>(null);
+  const activeSocketIdRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const intentionalCloseRef = useRef(false);
@@ -233,10 +241,13 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
     intentionalCloseRef.current = false;
     setConnectionState('connecting');
 
+    const socketId = activeSocketIdRef.current + 1;
+    activeSocketIdRef.current = socketId;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = async () => {
+      if (socketId !== activeSocketIdRef.current) return;
       const wasReconnect = reconnectAttemptRef.current > 0;
       reconnectAttemptRef.current = 0;
 
@@ -267,6 +278,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
     };
 
     ws.onmessage = (ev) => {
+      if (socketId !== activeSocketIdRef.current) return;
       const data = safeJsonParse(String(ev.data));
       if (!isRecord(data)) return;
       if (data.protocolVersion !== WS_PROTOCOL_VERSION) return;
@@ -303,10 +315,65 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       }
 
       if (msg.type === 'inflight_snapshot') {
+        const key = inflightKey(msg.conversationId, msg.inflight.inflightId);
+        deltaCountsByInflightRef.current.set(key, 0);
+        toolEventCountsByInflightRef.current.set(
+          key,
+          msg.inflight.toolEvents.length,
+        );
+
+        const snapshotLength =
+          msg.inflight.assistantText.length + msg.inflight.assistantThink.length;
+        if (snapshotLength > 0) {
+          // Treat a non-empty snapshot as the first meaningful content receipt for
+          // logging purposes so catch-up flows still emit a delta marker.
+          deltaCountsByInflightRef.current.set(key, 1);
+          log('info', 'chat.ws.client_delta_received', {
+            conversationId: msg.conversationId,
+            inflightId: msg.inflight.inflightId,
+            seq: msg.seq,
+            deltaCount: 1,
+            deltaType: 'inflight_snapshot',
+            deltaLength: snapshotLength,
+          });
+        }
+
         log('info', 'chat.ws.client_snapshot_received', {
           conversationId: msg.conversationId,
           inflightId: msg.inflight.inflightId,
           seq: msg.seq,
+        });
+      }
+
+      if (msg.type === 'assistant_delta' || msg.type === 'analysis_delta') {
+        const key = inflightKey(msg.conversationId, msg.inflightId);
+        const deltaCount = (deltaCountsByInflightRef.current.get(key) ?? 0) + 1;
+        deltaCountsByInflightRef.current.set(key, deltaCount);
+
+        if (deltaCount === 1 || deltaCount % 25 === 0) {
+          log('info', 'chat.ws.client_delta_received', {
+            conversationId: msg.conversationId,
+            inflightId: msg.inflightId,
+            seq: msg.seq,
+            deltaCount,
+            deltaType: msg.type,
+            deltaLength: msg.delta.length,
+          });
+        }
+      }
+
+      if (msg.type === 'tool_event') {
+        const key = inflightKey(msg.conversationId, msg.inflightId);
+        const toolEventCount =
+          (toolEventCountsByInflightRef.current.get(key) ?? 0) + 1;
+        toolEventCountsByInflightRef.current.set(key, toolEventCount);
+
+        log('info', 'chat.ws.client_tool_event_received', {
+          conversationId: msg.conversationId,
+          inflightId: msg.inflightId,
+          seq: msg.seq,
+          toolEventCount,
+          toolEventType: msg.event.type,
         });
       }
 
@@ -321,10 +388,22 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       params?.onEvent?.(msg);
     };
 
-    ws.onclose = () => {
-      wsRef.current = null;
+    ws.onclose = (ev) => {
+      if (socketId !== activeSocketIdRef.current) return;
+      if (wsRef.current === ws) wsRef.current = null;
       setConnectionState('closed');
+
+      log('info', 'chat.ws.client_disconnect', {
+        code: ev.code,
+        reason: ev.reason,
+        wasClean: ev.wasClean,
+      });
+
       if (intentionalCloseRef.current) return;
+
+      // Ensure only one reconnect timer is active even if multiple sockets
+      // close in quick succession.
+      clearReconnectTimer();
 
       const attempt = reconnectAttemptRef.current + 1;
       reconnectAttemptRef.current = attempt;

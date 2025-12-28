@@ -99,7 +99,6 @@ export default function ChatPage() {
     conversationId,
     setConversation,
     hydrateHistory,
-    inflightId,
     getInflightId,
     handleWsEvent,
   } = useChatStream(selected, provider, {
@@ -341,12 +340,9 @@ export default function ChatPage() {
     }
   }, [models, selectedConversation, setSelected]);
 
-  useEffect(
-    () => {
-      stopRef.current = stop;
-    },
-    [stop],
-  );
+  useEffect(() => {
+    stopRef.current = stop;
+  }, [stop]);
 
   useEffect(() => {
     return () => {

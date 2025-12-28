@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import useChatStream from '../hooks/useChatStream';
 import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';

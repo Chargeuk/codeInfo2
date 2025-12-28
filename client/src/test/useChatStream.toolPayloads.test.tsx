@@ -78,7 +78,9 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
           stage: 'success',
           parameters: { query: 'hi', limit: 5 },
           result: {
-            files: [{ hostPath: '/host/file.txt', chunkCount: 1, highestMatch: 0.9 }],
+            files: [
+              { hostPath: '/host/file.txt', chunkCount: 1, highestMatch: 0.9 },
+            ],
             results: [
               {
                 repo: 'repo',
@@ -117,7 +119,10 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
       );
       expect(assistant?.tools?.length).toBe(1);
       expect(assistant?.tools?.[0].status).toBe('done');
-      expect(assistant?.tools?.[0].parameters).toEqual({ query: 'hi', limit: 5 });
+      expect(assistant?.tools?.[0].parameters).toEqual({
+        query: 'hi',
+        limit: 5,
+      });
       expect(assistant?.tools?.[0].payload).toBeDefined();
     });
   });
@@ -165,8 +170,14 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
           name: 'VectorSearch',
           stage: 'error',
           parameters: { query: 'fail' },
-          errorTrimmed: { code: 'MODEL_UNAVAILABLE', message: 'embedding missing' },
-          errorFull: { code: 'MODEL_UNAVAILABLE', message: 'embedding missing' },
+          errorTrimmed: {
+            code: 'MODEL_UNAVAILABLE',
+            message: 'embedding missing',
+          },
+          errorFull: {
+            code: 'MODEL_UNAVAILABLE',
+            message: 'embedding missing',
+          },
         },
       },
       {

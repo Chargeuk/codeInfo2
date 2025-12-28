@@ -1186,3 +1186,42 @@ sequenceDiagram
 
   UI->>WS: close (unmount)
 ```
+
+### Client streaming logs (WS observability)
+
+- The Chat UI emits explicit `chat.ws.client_*` log entries from the WebSocket hook so end-to-end streaming can be verified via the `/logs` store.
+- These logs follow the existing client log pipeline: `createLogger()` → batched `POST /logs` via the client transport.
+- Tests and manual checks assert behavior by querying `/logs` (or streaming `/logs/stream`) rather than relying on browser console output.
+
+Required log names and key fields:
+
+- `chat.ws.client_connect`
+- `chat.ws.client_disconnect`
+- `chat.ws.client_subscribe_conversation` (`conversationId`)
+- `chat.ws.client_snapshot_received` (`conversationId`, `inflightId`, `seq`)
+- `chat.ws.client_delta_received` (`conversationId`, `inflightId`, `seq`, `deltaCount`; throttled: first + every 25)
+- `chat.ws.client_tool_event_received` (`conversationId`, `inflightId`, `seq`, `toolEventCount`; emitted per tool event)
+- `chat.ws.client_final_received` (`conversationId`, `inflightId`, `seq`)
+
+```mermaid
+sequenceDiagram
+  participant Chat as ChatPage/useChatWs
+  participant Client as Client logger/transport
+  participant Logs as Server /logs
+  participant Store as Server logStore
+  participant UI as Logs UI / e2e
+
+  Chat->>Client: emit chat.ws.client_* logs
+  Client->>Logs: POST /logs (batched LogEntry[])
+  Logs->>Store: append(redact + sequence)
+  Store-->>Logs: sequence
+  Logs-->>Client: 202 accepted
+
+  alt Assert via snapshot
+    UI->>Logs: GET /logs?text=chat.ws.client_
+    Logs-->>UI: { items, lastSequence }
+  else Assert via stream
+    UI->>Logs: GET /logs/stream (SSE)
+    Logs-->>UI: events (id = sequence)
+  end
+```

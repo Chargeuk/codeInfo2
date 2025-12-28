@@ -2478,7 +2478,7 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 ### 8. Client streaming logs
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -2496,14 +2496,14 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 #### Subtasks
 
-1. [ ] Read existing client logging + forwarding so new WS logs follow the same transport:
+1. [x] Read existing client logging + forwarding so new WS logs follow the same transport:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/console
    - Files to read:
      - `client/src/logging/logger.ts`
      - `client/src/logging/transport.ts`
 
-2. [ ] Add WS lifecycle + event receipt logs to the WS hook (explicit names and required fields):
+2. [x] Add WS lifecycle + event receipt logs to the WS hook (explicit names and required fields):
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -2519,7 +2519,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
      - Log the first delta and then every 25 deltas; include `deltaCount`.
      - Tool events are logged per event; include `toolEventCount` as a running total.
 
-3. [ ] Confirm client logs are forwarded into server `/logs` entries so Playwright can assert them:
+3. [x] Confirm client logs are forwarded into server `/logs` entries so Playwright can assert them:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to verify:
@@ -2528,7 +2528,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
    - Requirements:
      - After this work, `/logs` should contain both server-side `chat.*` logs and forwarded `chat.ws.client_*` logs.
 
-4. [ ] Update `design.md` with the client logging/forwarding flow (include Mermaid diagrams):
+4. [x] Update `design.md` with the client logging/forwarding flow (include Mermaid diagrams):
    - Docs to read:
      - Context7 `/mermaid-js/mermaid`
    - Files to edit:
@@ -2541,7 +2541,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
      - Add a Mermaid sequence diagram showing: ChatPage/useChatWs emits `chat.ws.client_*` logs → client transport forwards to server → server /logs stores → UI/e2e asserts via logs snapshot.
      - List the required log names and their key fields (conversationId/inflightId/seq) near the diagram.
 
-5. [ ] Update `projectStructure.md` with any added/removed client logging modules:
+5. [x] Update `projectStructure.md` with any added/removed client logging modules:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -2555,7 +2555,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
    - Requirements:
      - If new logging helpers were added/removed, reflect them here (otherwise mark as no-op).
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -2571,32 +2571,52 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat`, send a message, and confirm streaming occurs.
    - Open `/logs` and confirm you can find the expected WS client log entries:
      - `chat.ws.client_connect`
      - `chat.ws.client_delta_received` (or similar delta logs per throttling rules)
    - Regression: logs page remains usable while chat is streaming.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-27: Started Task 8.
+- 2025-12-27: Reviewed existing client logger (`client/src/logging/logger.ts`) and forwarder (`client/src/logging/transport.ts`) to ensure new WS logs use the same `/logs` batching/backoff path.
+- 2025-12-27: Added WS lifecycle/event receipt logs in `client/src/hooks/useChatWs.ts` for connect/disconnect, snapshot, delta (throttled: first + every 25, includes `deltaCount`), tool events (per event, includes `toolEventCount`), and final.
+- 2025-12-27: Verified client log forwarding still posts to `POST /logs` via `client/src/logging/transport.ts` and server accepts `source:"client"` in `server/src/routes/logs.ts`.
+- 2025-12-27: Updated `design.md` with a Mermaid sequence diagram describing `chat.ws.client_*` log emission and forwarding into `/logs` for UI/e2e assertions.
+- 2025-12-27: No new client logging modules were added/removed for Task 8; `projectStructure.md` already lists `client/src/hooks/useChatWs.ts` as the WS/log forwarding hook.
+- 2025-12-27: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; applied `npm run format --workspaces` to resolve Prettier issues and verified checks pass.
+- 2025-12-28: Hardened `useChatWs` reconnect handling to ignore stale socket close events and to emit a `chat.ws.client_delta_received` marker when a non-empty `inflight_snapshot` catch-up arrives.
+
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` passed.
+
+- Testing 8: Manual Playwright automation against `http://host.docker.internal:5001/chat` confirmed streaming and verified `/logs` contains `chat.ws.client_connect` + `chat.ws.client_delta_received` (client-forwarded WS logs).
+- Testing 9: `npm run compose:down` passed.
+- Testing (extra): Re-ran `npm run test --workspace client` after WS logging tweaks.
+
 
 ---
 

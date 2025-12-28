@@ -40,4 +40,3 @@ describe('Chat mermaid rendering', () => {
     expect(script).toBeNull();
   });
 });
-

@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
@@ -12,7 +18,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  (globalThis as unknown as { __wsMock?: { reset: () => void } }).__wsMock?.reset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -53,7 +61,10 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({ conversationId: conversationId!, inflightId });
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
     harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
@@ -92,7 +103,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
       inflightId,
       delta: 'Answer',
     });
-    harness.emitFinal({ conversationId: conversationId!, inflightId, status: 'ok' });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
 
     const toolToggle = await screen.findByTestId('tool-toggle');
     await user.click(toolToggle);
@@ -124,7 +139,10 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const inflightId = harness.getInflightId() ?? 'i1';
     expect(conversationId).toBeTruthy();
 
-    harness.emitInflightSnapshot({ conversationId: conversationId!, inflightId });
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
     harness.emitToolEvent({
       conversationId: conversationId!,
       inflightId,
@@ -145,7 +163,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
         stage: 'error',
         parameters: { query: 'oops' },
         errorTrimmed: { code: 'MODEL_UNAVAILABLE', message: 'missing model' },
-        errorFull: { code: 'MODEL_UNAVAILABLE', message: 'missing model', stack: 'trace' },
+        errorFull: {
+          code: 'MODEL_UNAVAILABLE',
+          message: 'missing model',
+          stack: 'trace',
+        },
       },
     });
 

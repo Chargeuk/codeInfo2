@@ -192,6 +192,7 @@ export function ConversationList({
     enableBulkUi &&
     !bulkDisabled &&
     selectedIds.size > 0 &&
+    filterState === 'archived' &&
     Boolean(onBulkDelete);
 
   const handleBulk = async (action: 'archive' | 'restore' | 'delete') => {
@@ -415,16 +416,18 @@ export function ConversationList({
               >
                 Restore
               </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                disabled={!canBulkDelete}
-                data-testid="conversation-bulk-delete"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                Delete
-              </Button>
+              {filterState === 'archived' && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  disabled={!canBulkDelete}
+                  data-testid="conversation-bulk-delete"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  Delete
+                </Button>
+              )}
             </Stack>
           </Stack>
         )}

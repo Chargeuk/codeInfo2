@@ -131,6 +131,7 @@ export type ChatWsConnectionState = 'connecting' | 'open' | 'closed';
 type UseChatWsParams = {
   onEvent?: (event: WsServerEvent) => void;
   onReconnectBeforeResubscribe?: () => Promise<void> | void;
+  realtimeEnabled?: boolean;
 };
 
 type UseChatWsState = {
@@ -164,8 +165,22 @@ function inflightKey(conversationId: string, inflightId: string) {
 
 export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   const log = useRef(createLogger('client')).current;
+  const onEventRef = useRef<UseChatWsParams['onEvent']>(params?.onEvent);
+  const onReconnectBeforeResubscribeRef = useRef<
+    UseChatWsParams['onReconnectBeforeResubscribe']
+  >(params?.onReconnectBeforeResubscribe);
+  const realtimeEnabled = params?.realtimeEnabled !== false;
   const [connectionState, setConnectionState] =
     useState<ChatWsConnectionState>('connecting');
+
+  useEffect(() => {
+    onEventRef.current = params?.onEvent;
+  }, [params?.onEvent]);
+
+  useEffect(() => {
+    onReconnectBeforeResubscribeRef.current =
+      params?.onReconnectBeforeResubscribe;
+  }, [params?.onReconnectBeforeResubscribe]);
 
   const deltaCountsByInflightRef = useRef<Map<string, number>>(new Map());
   const toolEventCountsByInflightRef = useRef<Map<string, number>>(new Map());
@@ -255,14 +270,18 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       log('info', 'chat.ws.client_connect');
       flushPendingMessages();
 
-      if (wasReconnect) {
+      if (wasReconnect && realtimeEnabled) {
         try {
-          await params?.onReconnectBeforeResubscribe?.();
+          await onReconnectBeforeResubscribeRef.current?.();
         } catch (err) {
           log('warn', 'chat.ws.client_resubscribe_snapshot_failed', {
             error: String(err),
           });
         }
+      }
+
+      if (!realtimeEnabled) {
+        return;
       }
 
       if (sidebarSubscribedRef.current) {
@@ -279,6 +298,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
 
     ws.onmessage = (ev) => {
       if (socketId !== activeSocketIdRef.current) return;
+      if (!realtimeEnabled) return;
       const data = safeJsonParse(String(ev.data));
       if (!isRecord(data)) return;
       if (data.protocolVersion !== WS_PROTOCOL_VERSION) return;
@@ -323,7 +343,8 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         );
 
         const snapshotLength =
-          msg.inflight.assistantText.length + msg.inflight.assistantThink.length;
+          msg.inflight.assistantText.length +
+          msg.inflight.assistantThink.length;
         if (snapshotLength > 0) {
           // Treat a non-empty snapshot as the first meaningful content receipt for
           // logging purposes so catch-up flows still emit a delta marker.
@@ -385,7 +406,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         });
       }
 
-      params?.onEvent?.(msg);
+      onEventRef.current?.(msg);
     };
 
     ws.onclose = (ev) => {
@@ -400,6 +421,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       });
 
       if (intentionalCloseRef.current) return;
+      if (!realtimeEnabled) return;
 
       // Ensure only one reconnect timer is active even if multiple sockets
       // close in quick succession.
@@ -419,7 +441,14 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
     ws.onerror = () => {
       // connection-level errors are handled by onclose + reconnect.
     };
-  }, [clearReconnectTimer, flushPendingMessages, log, params, sendRaw, wsUrl]);
+  }, [
+    clearReconnectTimer,
+    flushPendingMessages,
+    log,
+    realtimeEnabled,
+    sendRaw,
+    wsUrl,
+  ]);
 
   useEffect(() => {
     connectNowRef.current = connectNow;
@@ -441,32 +470,36 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   }, [clearReconnectTimer, connectNow]);
 
   const subscribeSidebar = useCallback(() => {
+    if (!realtimeEnabled) return;
     sidebarSubscribedRef.current = true;
     sendRaw({ type: 'subscribe_sidebar' });
-  }, [sendRaw]);
+  }, [realtimeEnabled, sendRaw]);
 
   const unsubscribeSidebar = useCallback(() => {
+    if (!realtimeEnabled) return;
     sidebarSubscribedRef.current = false;
     sendRaw({ type: 'unsubscribe_sidebar' });
-  }, [sendRaw]);
+  }, [realtimeEnabled, sendRaw]);
 
   const subscribeConversation = useCallback(
     (conversationId: string) => {
+      if (!realtimeEnabled) return;
       if (!conversationId) return;
       conversationSubscriptionsRef.current.add(conversationId);
       sendRaw({ type: 'subscribe_conversation', conversationId });
       log('info', 'chat.ws.client_subscribe_conversation', { conversationId });
     },
-    [log, sendRaw],
+    [log, realtimeEnabled, sendRaw],
   );
 
   const unsubscribeConversation = useCallback(
     (conversationId: string) => {
+      if (!realtimeEnabled) return;
       if (!conversationId) return;
       conversationSubscriptionsRef.current.delete(conversationId);
       sendRaw({ type: 'unsubscribe_conversation', conversationId });
     },
-    [sendRaw],
+    [realtimeEnabled, sendRaw],
   );
 
   const cancelInflight = useCallback(

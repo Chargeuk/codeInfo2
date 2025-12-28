@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -33,7 +35,7 @@ const codexConversationId = 'conv-codex';
 const lmConversationId = 'conv-lm';
 
 function mockApi() {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
     const href = typeof url === 'string' ? url : url.toString();
 
     if (href.includes('/health')) {
@@ -164,19 +166,21 @@ function mockApi() {
       }) as unknown as Response;
     }
 
-    if (href.includes('/chat')) {
-      // minimal SSE to keep send flow harmless in this test
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          const enc = new TextEncoder();
-          controller.enqueue(enc.encode('data: {"type":"complete"}\n\n'));
-          controller.close();
-        },
-      });
+    if (href.includes('/chat') && opts?.method === 'POST') {
+      const body =
+        opts?.body && typeof opts.body === 'string'
+          ? (JSON.parse(opts.body) as Record<string, unknown>)
+          : {};
       return Promise.resolve({
         ok: true,
-        status: 200,
-        body: stream,
+        status: 202,
+        json: async () => ({
+          status: 'started',
+          conversationId: body.conversationId,
+          inflightId: 'i1',
+          provider: body.provider,
+          model: body.model,
+        }),
       }) as unknown as Response;
     }
 

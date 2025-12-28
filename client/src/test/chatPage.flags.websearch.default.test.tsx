@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -29,24 +31,23 @@ const routes = [
   },
 ];
 
-function makeStream() {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"final","message":{"role":"assistant","content":"ok"}}\n\n',
-        ),
-      );
-      controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-      controller.close();
-    },
-  });
-}
-
 function mockCodexReady() {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
+    if (href.includes('/health')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ mongoConnected: true }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/conversations')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [], nextCursor: null }),
+      }) as unknown as Response;
+    }
     if (href.includes('/chat/providers')) {
       return Promise.resolve({
         ok: true,
@@ -102,13 +103,6 @@ function mockCodexReady() {
           toolsAvailable: true,
           models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
         }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        body: makeStream(),
       }) as unknown as Response;
     }
     return Promise.resolve({

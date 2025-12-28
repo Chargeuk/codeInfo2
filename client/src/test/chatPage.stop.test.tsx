@@ -99,4 +99,63 @@ describe('Chat page stop control', () => {
     await waitFor(() => expect(sendButton).toBeEnabled());
     expect(await screen.findByText(/generation stopped/i)).toBeInTheDocument();
   });
+
+  it('still sends cancel_inflight when mongoConnected is false', async () => {
+    const harness = setupChatWsHarness({
+      mockFetch,
+      health: { mongoConnected: false },
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    const stopButton = await screen.findByTestId('chat-stop');
+    expect(stopButton).toBeVisible();
+
+    await act(async () => {
+      await user.click(stopButton);
+    });
+
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
+      }
+    ).__wsMock;
+
+    await waitFor(() => {
+      const sockets = wsRegistry?.instances ?? [];
+      expect(sockets.length).toBeGreaterThan(0);
+
+      const cancelMessages = sockets
+        .flatMap((socket) => socket.sent)
+        .map((entry) => {
+          try {
+            return JSON.parse(entry) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .filter((msg) => msg?.type === 'cancel_inflight');
+
+      expect(cancelMessages.length).toBeGreaterThan(0);
+      expect(cancelMessages.at(-1)?.conversationId).toBe(conversationId);
+      expect(cancelMessages.at(-1)?.inflightId).toBe(inflightId);
+    });
+  });
 });

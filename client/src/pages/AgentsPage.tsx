@@ -201,6 +201,7 @@ export default function AgentsPage() {
   const persistenceUnavailable = mongoConnected === false;
 
   const { subscribeConversation, unsubscribeConversation } = useChatWs({
+    realtimeEnabled: mongoConnected !== false,
     onEvent: (event: ChatWsServerEvent) => {
       if (mongoConnected === false) return;
       if (!activeConversationId) return;

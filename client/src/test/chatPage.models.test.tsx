@@ -10,6 +10,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -31,6 +34,20 @@ describe('Chat page models list', () => {
   it('shows loading then selects the first model', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
       if (target.includes('/chat/providers')) {
         return Promise.resolve({
           ok: true,
@@ -70,7 +87,7 @@ describe('Chat page models list', () => {
         ok: true,
         status: 200,
         json: async () => ({}),
-      });
+      }) as unknown as Response;
     });
 
     const router = createMemoryRouter(routes, {

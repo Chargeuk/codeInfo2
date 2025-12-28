@@ -39,7 +39,7 @@ const routes = [
 ];
 
 describe('Chat page new conversation control', () => {
-  it('clears transcript and refocuses input without cancelling the run', async () => {
+  it('cancels the current inflight run then clears transcript and refocuses input', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -56,6 +56,10 @@ describe('Chat page new conversation control', () => {
 
     await waitFor(() => expect(harness.chatBodies.length).toBe(1));
 
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
     const newConversationButton = screen.getByRole('button', {
       name: /new conversation/i,
     });
@@ -71,21 +75,24 @@ describe('Chat page new conversation control', () => {
 
     const wsRegistry = (
       globalThis as unknown as {
-        __wsMock?: { last: () => { sent: string[] } | null };
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
       }
     ).__wsMock;
-    const ws = wsRegistry?.last();
-    const cancel = (ws?.sent ?? []).some((entry) => {
-      try {
-        return (
-          (JSON.parse(entry) as Record<string, unknown>).type ===
-          'cancel_inflight'
-        );
-      } catch {
-        return false;
-      }
-    });
 
-    expect(cancel).toBe(false);
+    const cancelMessages = (wsRegistry?.instances ?? [])
+      .flatMap((socket) => socket.sent)
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .filter((msg) => msg?.type === 'cancel_inflight');
+
+    expect(cancelMessages.length).toBeGreaterThan(0);
+    expect(cancelMessages.at(-1)?.conversationId).toBe(conversationId);
+    expect(cancelMessages.at(-1)?.inflightId).toBe(inflightId);
   });
 });

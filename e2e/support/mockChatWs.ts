@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { WebSocketRoute } from 'playwright-core';
 
 type WsSentMessage = {
   type?: string;
@@ -8,7 +9,7 @@ type WsSentMessage = {
 
 export type MockChatWsServer = {
   waitForConversationSubscription: (conversationId: string) => Promise<void>;
-  getLastCancel: () => Promise<{ conversationId: string; inflightId: string } | null>;
+  getLastCancel: () => { conversationId: string; inflightId: string } | null;
 
   sendInflightSnapshot: (args: {
     conversationId: string;
@@ -46,104 +47,57 @@ function withProtocol(payload: Record<string, unknown>) {
 }
 
 export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
-  await page.addInitScript(() => {
-    const globalAny = globalThis as unknown as Record<string, unknown>;
+  const subscribedConversationIds = new Set<string>();
+  const subscriptionWaiters = new Map<string, Array<() => void>>();
+  let lastCancel: { conversationId: string; inflightId: string } | null = null;
 
-    type MockWsInstance = {
-      url: string;
-      readyState: number;
-      sent: string[];
-      onopen: ((ev: unknown) => void) | null;
-      onclose: ((ev: unknown) => void) | null;
-      onerror: ((ev: unknown) => void) | null;
-      onmessage: ((ev: { data: unknown }) => void) | null;
-      send: (data: unknown) => void;
-      close: () => void;
-      _receive: (data: unknown) => void;
-    };
+  let routeRef: WebSocketRoute | null = null;
 
-    const state = {
-      instances: [] as MockWsInstance[],
-      subscribedConversationIds: {} as Record<string, boolean>,
-      lastCancel: null as null | { conversationId: string; inflightId: string },
-    };
-
-    class MockWebSocket {
-      static CONNECTING = 0;
-      static OPEN = 1;
-      static CLOSING = 2;
-      static CLOSED = 3;
-
-      url: string;
-      readyState = MockWebSocket.CONNECTING;
-      sent: string[] = [];
-      onopen: ((ev: unknown) => void) | null = null;
-      onclose: ((ev: unknown) => void) | null = null;
-      onerror: ((ev: unknown) => void) | null = null;
-      onmessage: ((ev: { data: unknown }) => void) | null = null;
-
-      constructor(url: string) {
-        this.url = url;
-        state.instances.push(this as unknown as MockWsInstance);
-        setTimeout(() => {
-          if (this.readyState !== MockWebSocket.CONNECTING) return;
-          this.readyState = MockWebSocket.OPEN;
-          this.onopen?.({});
-        }, 0);
+  const waitForRoute = async () => {
+    const startedAt = Date.now();
+    while (!routeRef) {
+      if (Date.now() - startedAt > 5000) {
+        throw new Error('Timed out waiting for WebSocketRoute to attach');
       }
-
-      send(data: unknown) {
-        const text = typeof data === 'string' ? data : String(data);
-        this.sent.push(text);
-        try {
-          const parsed = JSON.parse(text) as WsSentMessage;
-          if (parsed?.type === 'subscribe_conversation' && parsed.conversationId) {
-            state.subscribedConversationIds[String(parsed.conversationId)] = true;
-          }
-          if (parsed?.type === 'cancel_inflight' && parsed.conversationId && parsed.inflightId) {
-            state.lastCancel = {
-              conversationId: String(parsed.conversationId),
-              inflightId: String(parsed.inflightId),
-            };
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      close() {
-        this.readyState = MockWebSocket.CLOSED;
-        this.onclose?.({});
-      }
-
-      _receive(data: unknown) {
-        const payload = typeof data === 'string' ? data : JSON.stringify(data ?? null);
-        this.onmessage?.({ data: payload });
-      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
-
-    globalAny.__CODEINFO_E2E_WS__ = state;
-    // @ts-expect-error override WebSocket in browser for E2E
-    globalAny.WebSocket = MockWebSocket;
-  });
-
-  const receiveOnLastSocket = async (payload: Record<string, unknown>) => {
-    await page.evaluate((message) => {
-      const globalAny = globalThis as unknown as Record<string, any>;
-      const state = globalAny.__CODEINFO_E2E_WS__ as {
-        instances: Array<{ _receive: (data: unknown) => void }>;
-      };
-      const last = state.instances.at(-1);
-      if (!last) return;
-      last._receive(message);
-    }, payload);
+    return routeRef;
   };
 
-  const sendTranscript = async (
-    conversationId: string,
-    payload: Record<string, unknown>,
-  ) => {
-    await receiveOnLastSocket(withProtocol({ conversationId, ...payload }));
+  const onSubscribe = (conversationId: string) => {
+    subscribedConversationIds.add(conversationId);
+    const waiters = subscriptionWaiters.get(conversationId);
+    if (!waiters) return;
+    subscriptionWaiters.delete(conversationId);
+    waiters.forEach((resolve) => resolve());
+  };
+
+  // Only WebSockets created after this call will be routed. Call this before page.goto().
+  await page.routeWebSocket('**/ws', async (ws) => {
+    routeRef = ws as unknown as WebSocketRoute;
+
+    ws.onMessage((message) => {
+      const text = typeof message === 'string' ? message : message.toString();
+      try {
+        const parsed = JSON.parse(text) as WsSentMessage;
+        if (parsed?.type === 'subscribe_conversation' && parsed.conversationId) {
+          onSubscribe(String(parsed.conversationId));
+        }
+        if (parsed?.type === 'cancel_inflight' && parsed.conversationId && parsed.inflightId) {
+          lastCancel = {
+            conversationId: String(parsed.conversationId),
+            inflightId: String(parsed.inflightId),
+          };
+        }
+      } catch {
+        // ignore
+      }
+    });
+  });
+
+  const sendTranscript = async (conversationId: string, payload: Record<string, unknown>) => {
+    const ws = await waitForRoute();
+    ws.send(JSON.stringify(withProtocol({ conversationId, ...payload })));
   };
 
   const seqByConversation = new Map<string, number>();
@@ -155,24 +109,24 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
 
   return {
     waitForConversationSubscription: async (conversationId: string) => {
-      await page.waitForFunction((id) => {
-        const globalAny = globalThis as unknown as Record<string, any>;
-        const state = globalAny.__CODEINFO_E2E_WS__ as {
-          subscribedConversationIds: Record<string, boolean>;
-        };
-        return Boolean(state?.subscribedConversationIds?.[String(id)]);
-      }, conversationId);
-    },
+      const id = String(conversationId);
+      if (subscribedConversationIds.has(id)) return;
 
-    getLastCancel: async () => {
-      return page.evaluate(() => {
-        const globalAny = globalThis as unknown as Record<string, any>;
-        const state = globalAny.__CODEINFO_E2E_WS__ as {
-          lastCancel: null | { conversationId: string; inflightId: string };
-        };
-        return state?.lastCancel ?? null;
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          reject(new Error(`Timed out waiting for subscription to ${id}`));
+        }, 5000);
+
+        const waiters = subscriptionWaiters.get(id) ?? [];
+        waiters.push(() => {
+          clearTimeout(timer);
+          resolve();
+        });
+        subscriptionWaiters.set(id, waiters);
       });
     },
+
+    getLastCancel: () => lastCancel,
 
     sendInflightSnapshot: async ({
       conversationId,
@@ -221,13 +175,7 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
       });
     },
 
-    sendFinal: async ({
-      conversationId,
-      inflightId,
-      status,
-      threadId,
-      error,
-    }) => {
+    sendFinal: async ({ conversationId, inflightId, status, threadId, error }) => {
       await sendTranscript(conversationId, {
         type: 'turn_final',
         seq: nextSeq(conversationId),
@@ -239,3 +187,4 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
     },
   };
 }
+

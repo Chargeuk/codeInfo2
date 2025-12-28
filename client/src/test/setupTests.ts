@@ -1,6 +1,7 @@
 import { TextDecoder, TextEncoder } from 'util';
 import { jest } from '@jest/globals';
 import '@testing-library/jest-dom';
+import { installMockWebSocket } from './support/mockWebSocket';
 
 // React 19 uses this global to decide whether it should warn about act().
 // In Jest + JSDOM the check is sensitive to where the flag is attached.
@@ -152,76 +153,4 @@ if (!global.fetch) {
   },
 );
 
-// WebSocket mock for client WS-driven chat tests.
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  static instances: MockWebSocket[] = [];
-
-  url: string;
-  readyState: number = MockWebSocket.CONNECTING;
-  sent: string[] = [];
-
-  private pendingInbound: string[] = [];
-  private messageHandler: ((event: { data: unknown }) => void) | null = null;
-
-  onopen: ((event: unknown) => void) | null = null;
-  onclose: ((event: unknown) => void) | null = null;
-  onerror: ((event: unknown) => void) | null = null;
-
-  set onmessage(handler: ((event: { data: unknown }) => void) | null) {
-    this.messageHandler = handler;
-    if (!handler) return;
-    const pending = this.pendingInbound.splice(0);
-    pending.forEach((payload) => handler({ data: payload }));
-  }
-
-  get onmessage() {
-    return this.messageHandler;
-  }
-
-  constructor(url: string) {
-    this.url = url;
-    MockWebSocket.instances.push(this);
-
-    setTimeout(() => {
-      if (this.readyState !== MockWebSocket.CONNECTING) return;
-      this.readyState = MockWebSocket.OPEN;
-      this.onopen?.({});
-    }, 0);
-  }
-
-  send(data: unknown) {
-    this.sent.push(String(data));
-  }
-
-  close() {
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.({});
-  }
-
-  _receive(data: unknown) {
-    const payload =
-      typeof data === 'string' ? data : JSON.stringify(data ?? null);
-    const handler = this.messageHandler;
-    if (!handler) {
-      this.pendingInbound.push(payload);
-      return;
-    }
-    handler({ data: payload });
-  }
-}
-
-// @ts-expect-error override JSDOM WebSocket with deterministic mock
-global.WebSocket = MockWebSocket;
-
-(globalThis as unknown as { __wsMock?: unknown }).__wsMock = {
-  instances: MockWebSocket.instances,
-  reset: () => {
-    MockWebSocket.instances.length = 0;
-  },
-  last: () => MockWebSocket.instances.at(-1) ?? null,
-};
+installMockWebSocket();

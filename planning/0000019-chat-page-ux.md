@@ -2622,7 +2622,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 
 ### 9. Front-end test updates
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 #### Overview
 
@@ -2641,7 +2641,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 #### Subtasks
 
-1. [ ] Create WS mocking helpers so tests do not re-implement subscriptions and event emission:
+1. [x] Create WS mocking helpers so tests do not re-implement subscriptions and event emission:
    - Docs to read:
      - Context7 `/microsoft/playwright.dev` (routeWebSocket)
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2651,7 +2651,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - The helper must be able to send deterministic sequences of events (`seq` increments) to the client.
 
-2. [ ] Update common fixtures so both Jest and Playwright can reuse the same WS event examples:
+2. [x] Update common fixtures so both Jest and Playwright can reuse the same WS event examples:
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
    - Files to edit:
@@ -2660,7 +2660,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Export WS-shaped fixtures for: `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`.
      - Keep existing exports that other tests rely on, or update import sites in the same subtask.
 
-3. [ ] Client unit test harness (Jest): add `useChatWs` test file and WebSocket mock wiring
+3. [x] Client unit test harness (Jest): add `useChatWs` test file and WebSocket mock wiring
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2674,7 +2674,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Ensure the mock can emit messages, close, and track sent client messages.
 
-4. [ ] Client unit test (Jest): `useChatWs` connects once on mount and closes on unmount (happy path)
+4. [x] Client unit test (Jest): `useChatWs` connects once on mount and closes on unmount (happy path)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2684,7 +2684,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Assert a single WebSocket instance is created per mount and is closed during cleanup.
 
-5. [ ] Client unit test (Jest): `useChatWs` ignores unknown inbound event types without throwing (corner case)
+5. [x] Client unit test (Jest): `useChatWs` ignores unknown inbound event types without throwing (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2694,7 +2694,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Emit an event with an unknown `type` and assert no crash and no state corruption.
 
-6. [ ] Client unit test (Jest): `useChatWs` handles malformed JSON safely (error case)
+6. [x] Client unit test (Jest): `useChatWs` handles malformed JSON safely (error case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2706,7 +2706,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Emit a non-JSON string message and assert the hook does not throw.
      - Assert behavior matches the contract (either logs and continues, or closes and relies on reconnect), but does not hard-crash the UI.
 
-7. [ ] Client unit test (Jest): `useChatWs` ignores stale/out-of-order transcript events based on per-conversation `seq` (corner case)
+7. [x] Client unit test (Jest): `useChatWs` ignores stale/out-of-order transcript events based on per-conversation `seq` (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2717,7 +2717,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Emit transcript events for a conversation with `seq` going backwards and assert stale events are ignored.
 
-8. [ ] Client unit test (Jest): on WS reconnect, `useChatWs` refreshes snapshots and re-subscribes (happy path)
+8. [x] Client unit test (Jest): on WS reconnect, `useChatWs` refreshes snapshots and re-subscribes (happy path)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
@@ -2732,7 +2732,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Simulate close + reconnect and assert list/turn snapshots are refreshed and subscribe messages are re-sent.
 
-9. [ ] Client unit test (Jest): when `mongoConnected === false`, `useChatWs` does not subscribe/stream (disabled state)
+9. [x] Client unit test (Jest): when `mongoConnected === false`, `useChatWs` does not subscribe/stream (disabled state)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2744,7 +2744,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Provide `mongoConnected=false` and assert no subscriptions are sent and no reconnection behavior runs.
 
 
-10. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.stream.test.tsx for WS-driven streaming semantics
+10. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.stream.test.tsx for WS-driven streaming semantics
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2752,7 +2752,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
 
-11. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.stop.test.tsx for WS-driven streaming semantics
+11. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.stop.test.tsx for WS-driven streaming semantics
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2763,7 +2763,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
        - Purpose: ensure Stop still works when persistence is unavailable (even though streaming subscriptions are disabled).
        - Assert `cancel_inflight` is still sent over WebSocket (minimal connection is allowed for Stop-only).
 
-12. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.newConversation.test.tsx for WS-driven streaming semantics
+12. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.newConversation.test.tsx for WS-driven streaming semantics
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2771,7 +2771,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
 
-13. [ ] Client unit test (Jest/RTL): update client/src/test/useChatStream.reasoning.test.tsx to consume WS fixtures instead of SSE
+13. [x] Client unit test (Jest/RTL): update client/src/test/useChatStream.reasoning.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2779,7 +2779,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-14. [ ] Client unit test (Jest/RTL): update client/src/test/useChatStream.toolPayloads.test.tsx to consume WS fixtures instead of SSE
+14. [x] Client unit test (Jest/RTL): update client/src/test/useChatStream.toolPayloads.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2787,7 +2787,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-15. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.citations.test.tsx to consume WS fixtures instead of SSE
+15. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.citations.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2795,7 +2795,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-16. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.toolDetails.test.tsx to consume WS fixtures instead of SSE
+16. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.toolDetails.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2803,7 +2803,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-17. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.reasoning.test.tsx to consume WS fixtures instead of SSE
+17. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.reasoning.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2811,7 +2811,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-18. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.markdown.test.tsx to consume WS fixtures instead of SSE
+18. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.markdown.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2819,7 +2819,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-19. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.mermaid.test.tsx to consume WS fixtures instead of SSE
+19. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.mermaid.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2827,7 +2827,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-20. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.noPaths.test.tsx to consume WS fixtures instead of SSE
+20. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.noPaths.test.tsx to consume WS fixtures instead of SSE
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2835,7 +2835,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
-21. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.test.tsx for POST /chat 202 + WS transcript contract
+21. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.test.tsx for POST /chat 202 + WS transcript contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2843,7 +2843,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
-22. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.conversationSelection.test.tsx for POST /chat 202 + WS transcript contract
+22. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.conversationSelection.test.tsx for POST /chat 202 + WS transcript contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2851,7 +2851,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
-23. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.source.test.tsx for POST /chat 202 + WS transcript contract
+23. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.source.test.tsx for POST /chat 202 + WS transcript contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2859,7 +2859,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
-24. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.models.test.tsx for POST /chat 202 + WS transcript contract
+24. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.models.test.tsx for POST /chat 202 + WS transcript contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -2867,7 +2867,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
-25. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.default.test.tsx for 202 start-run + WS-only contract
+25. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2888,7 +2888,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-26. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.payload.test.tsx for 202 start-run + WS-only contract
+26. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2903,7 +2903,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-27. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.default.test.tsx for 202 start-run + WS-only contract
+27. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2918,7 +2918,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-28. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.payload.test.tsx for 202 start-run + WS-only contract
+28. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2933,7 +2933,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-29. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.default.test.tsx for 202 start-run + WS-only contract
+29. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2948,7 +2948,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-30. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.payload.test.tsx for 202 start-run + WS-only contract
+30. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2963,7 +2963,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-31. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.default.test.tsx for 202 start-run + WS-only contract
+31. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2978,7 +2978,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-32. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.payload.test.tsx for 202 start-run + WS-only contract
+32. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -2993,7 +2993,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-33. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.reset.test.tsx for 202 start-run + WS-only contract
+33. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.reset.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -3008,7 +3008,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-34. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.default.test.tsx for 202 start-run + WS-only contract
+34. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.default.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -3023,7 +3023,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-35. [ ] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.payload.test.tsx for 202 start-run + WS-only contract
+35. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.payload.test.tsx for 202 start-run + WS-only contract
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to read:
@@ -3038,7 +3038,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
      - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
-36. [ ] Client unit test (Jest/RTL): sidebar selection is cleared when the user changes the filter (corner case)
+36. [x] Client unit test (Jest/RTL): sidebar selection is cleared when the user changes the filter (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://testing-library.com/docs/react-testing-library/intro/
@@ -3049,7 +3049,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Render the Chat sidebar with a list of conversations.
      - Select 1+ rows, switch the filter (`Active` → `Archived`), and assert the selection count resets to 0.
 
-37. [ ] Client unit test (Jest/RTL): selection stays stable when the conversation list reorders due to live updates (corner case)
+37. [x] Client unit test (Jest/RTL): selection stays stable when the conversation list reorders due to live updates (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3059,7 +3059,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Select a conversationId, then simulate a list update that changes ordering.
      - Assert the selected conversation remains selected after resort.
 
-38. [ ] Client unit test (Jest/RTL): bulk action buttons and select-all checkbox reflect the active filter state (happy path)
+38. [x] Client unit test (Jest/RTL): bulk action buttons and select-all checkbox reflect the active filter state (happy path)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3071,7 +3071,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - In `Archived`, assert “Restore” and “Delete permanently” are available.
      - Assert the header select-all checkbox uses `indeterminate` when some but not all items are selected.
 
-39. [ ] Client unit test (Jest/RTL): permanent delete requires confirmation dialog (error-prevention case)
+39. [x] Client unit test (Jest/RTL): permanent delete requires confirmation dialog (error-prevention case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3083,7 +3083,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Assert a confirmation dialog appears.
      - Assert cancel does not call the bulk delete API, and confirm does.
 
-40. [ ] Client unit test (Jest/RTL): when `mongoConnected === false`, bulk actions are disabled and the UI explains why (error case)
+40. [x] Client unit test (Jest/RTL): when `mongoConnected === false`, bulk actions are disabled and the UI explains why (error case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3094,7 +3094,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Force persistence status to unavailable.
      - Assert selection and bulk action controls are disabled and a clear message is shown.
 
-41. [ ] Client unit test (Jest/RTL): Chat sidebar ignores `conversation_upsert` events for agent conversations (corner case)
+41. [x] Client unit test (Jest/RTL): Chat sidebar ignores `conversation_upsert` events for agent conversations (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3105,7 +3105,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Simulate a `conversation_upsert` event whose `conversation.agentName` is a non-empty string.
      - Assert it is ignored (not rendered in the Chat sidebar list).
 
-42. [ ] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for persistence-unavailable banner states
+42. [x] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for persistence-unavailable banner states
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3113,7 +3113,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: ensure the banner messaging remains clear and stable when `mongoConnected === false`.
 
-43. [ ] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
+43. [x] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3121,7 +3121,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-44. [ ] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
+44. [x] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3129,7 +3129,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-45. [ ] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
+45. [x] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3137,7 +3137,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-46. [ ] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+46. [x] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3145,7 +3145,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-47. [ ] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
+47. [x] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3153,7 +3153,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-48. [ ] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
+48. [x] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3161,7 +3161,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-49. [ ] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
+49. [x] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3169,7 +3169,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-50. [ ] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
+50. [x] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3177,7 +3177,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-51. [ ] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
+51. [x] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3185,7 +3185,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
-52. [ ] E2E test (Playwright): Logs page shows chat WS client streaming logs after receiving transcript events (happy path)
+52. [x] E2E test (Playwright): Logs page shows chat WS client streaming logs after receiving transcript events (happy path)
    - Docs to read:
      - Context7 `/microsoft/playwright.dev`
    - Files to edit:
@@ -3196,7 +3196,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Use the WS chat mocks to emit at least: `inflight_snapshot`, `assistant_delta`, and `turn_final`.
      - Assert the Logs page contains client log entries like `chat.ws.client_connect` and `chat.ws.client_delta_received`.
 
-53. [ ] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
+53. [x] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
      - https://testing-library.com/docs/react-testing-library/intro/
@@ -3212,7 +3212,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
      - Select a conversationId (set `activeConversationId` via UI interaction or controlled state).
      - Emit WS events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`) and assert the transcript UI reflects the in-flight assistant state.
 
-54. [ ] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
+54. [x] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
    - Docs to read:
      - Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
@@ -3222,7 +3222,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Switch `activeConversationId` and assert the mock WebSocket recorded an `unsubscribe_conversation` for the old id.
 
-55. [ ] Update `projectStructure.md` with any added/removed test helpers and fixtures:
+55. [x] Update `projectStructure.md` with any added/removed test helpers and fixtures:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -3242,7 +3242,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
        - `client/src/test/agentsPage.streaming.test.tsx`
      - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
 
-56. [ ] Ensure the UI emits and/or asserts the key log lines that prove WS streaming + bulk actions are working end-to-end (add missing logs if needed so manual checks and e2e can validate behavior):
+56. [x] Ensure the UI emits and/or asserts the key log lines that prove WS streaming + bulk actions are working end-to-end (add missing logs if needed so manual checks and e2e can validate behavior):
    - Files to verify:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/components/chat/ConversationList.tsx`
@@ -3262,7 +3262,7 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Purpose:
      - These logs are what a human uses in the Logs UI to prove the app is actually executing the new WS + bulk flows.
 
-57. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+57. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -3278,32 +3278,61 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task-specific):
+8. [x] Manual Playwright-MCP check (task-specific):
    - Open `/chat` and confirm chat streaming works end-to-end (WS-only).
    - Open `/logs` and confirm chat WS client logs and server logs are present.
    - Confirm log lines exist for this task:
      - Search for `chat.ws.client_snapshot_received`, `chat.ws.client_final_received`, and `chat.sidebar.bulk_action_result`.
    - Regression: ingest pages and LM Studio pages still load and basic actions work.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in during implementation)
+- 2025-12-28: Added `client/src/test/support/mockWebSocket.ts` and refactored `client/src/test/setupTests.ts` to install the shared JSDOM WebSocket mock via `installMockWebSocket()`.
+- 2025-12-28: Updated `common/src/fixtures/chatStream.ts` with WS-shaped fixtures for transcript events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`) while keeping existing SSE fixtures intact.
+- 2025-12-28: Added initial `client/src/test/useChatWs.test.ts` plus shared WebSocket mock wiring to support deterministic hook-level unit tests.
+- 2025-12-28: Added `useChatWs` Jest coverage for mount/unmount lifecycle, unknown event types, malformed JSON frames, stale `seq` ignores, and reconnect resubscribe behavior.
+- 2025-12-28: Added `realtimeEnabled` gating to `useChatWs` and verified disabled-state behavior in tests (no subscribe messages and no auto-reconnect when persistence is unavailable).
+- 2025-12-28: Stabilized `useChatWs` by storing callbacks in refs (avoid reconnect storms when parents pass inline params) so tests and UI do not create extra WS connections on re-render.
+- 2025-12-28: Updated `client/src/test/chatPage.stream.test.tsx` to assert navigation/unmount does not emit `cancel_inflight` (WS-only transport).
+- 2025-12-28: Updated `client/src/test/chatPage.stop.test.tsx` with a persistence-unavailable (`mongoConnected=false`) case to ensure Stop still sends `cancel_inflight`.
+- 2025-12-28: Updated ChatPage “New conversation” to send `cancel_inflight` for any active run and updated `client/src/test/chatPage.newConversation.test.tsx` accordingly.
+- 2025-12-28: Verified existing Jest/RTL chat transcript tests (reasoning/tool payloads/citations/tool details/markdown/mermaid/no-paths) already consume WS transcript fixtures and contain no SSE parsing.
+- 2025-12-28: Updated `client/src/test/chatPage.provider.conversationSelection.test.tsx` to remove SSE mocks and align with 202 start-run + WS contract; also stabilized `client/src/test/chatPage.models.test.tsx` with explicit `/health` + `/conversations` mocks.
+- 2025-12-28: Migrated remaining Codex flag tests off SSE (`ReadableStream` fixtures) so all `chatPage.flags.*` tests align with `POST /chat` returning `202` JSON start-run responses.
+- 2025-12-28: Updated `client/src/components/chat/ConversationList.tsx` bulk delete visibility (delete only in Archived view) and rewrote `client/src/test/chatSidebar.test.tsx` to cover selection reset, reorder stability, indeterminate select-all, delete confirmation, persistence-disabled gating, and ignoring agent `conversation_upsert` events.
+- 2025-12-28: Updated `client/src/test/chatPersistenceBanner.test.tsx` to assert banner messaging and reset WS mocks between runs.
+- 2025-12-28: Added `e2e/chat-ws-logs.spec.ts` to assert the Logs UI shows client-forwarded chat WS log lines after mocked transcript events.
+- 2025-12-28: Reworked `e2e/support/mockChatWs.ts` to use Playwright `page.routeWebSocket('**/ws')` for deterministic WS mocking across all chat e2e specs.
+- 2025-12-28: Added `client/src/test/agentsPage.streaming.test.tsx` to cover AgentsPage live WS transcript rendering and subscription cleanup on conversation switch.
+- 2025-12-28: Updated `projectStructure.md` to list newly added WS test helpers/specs (`client/src/test/support/mockWebSocket.ts`, `client/src/test/useChatWs.test.ts`, `client/src/test/agentsPage.streaming.test.tsx`, `e2e/chat-ws-logs.spec.ts`, `e2e/support/mockChatWs.ts`).
+- 2025-12-28: Verified required observability log messages are present and now asserted in e2e (`chat.ws.client_connect`, `chat.ws.client_snapshot_received`, `chat.ws.client_final_received`, `chat.sidebar.bulk_action_result`, `conversations.bulk.success`).
+- 2025-12-28: Ran `npm run lint --workspaces` (ok) and `npm run format:check --workspaces`; applied `npm run format --workspaces` to fix client formatting and re-verified checks pass.
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` passed.
+- Testing 8: Verified compose UI routes respond (200 for `http://host.docker.internal:5001/chat` + `/logs`), server health ok, WS handshake ok, and `/logs` contains `chat.ws.client_snapshot_received`, `chat.ws.client_final_received`, and `chat.sidebar.bulk_action_result`.
+- Testing 9: `npm run compose:down` passed.
+- Note: When verifying Compose from inside a container, the Vite build arg `VITE_API_URL=http://localhost:5010` points at the container, not the host; use `http://host.docker.internal:5010` for checks.
 
 ---
 

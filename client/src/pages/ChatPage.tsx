@@ -162,6 +162,7 @@ export default function ChatPage() {
     unsubscribeConversation,
     cancelInflight,
   } = useChatWs({
+    realtimeEnabled: mongoConnected !== false,
     onReconnectBeforeResubscribe: async () => {
       if (mongoConnected === false) return;
       await refreshConversations();
@@ -382,6 +383,10 @@ export default function ChatPage() {
   };
 
   const handleNewConversation = () => {
+    const currentInflightId = getInflightId();
+    if (activeConversationId && currentInflightId) {
+      cancelInflight(activeConversationId, currentInflightId);
+    }
     stop();
     resetTurns();
     const nextId = reset();

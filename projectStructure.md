@@ -433,5 +433,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page disables command execution when persistence is unavailable (mongoConnected=false)
 - client/src/test/agentsPage.commandMetadataRender.test.tsx — Agents page renders per-turn command metadata note with step progress (e.g., 2/12)
 - client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop aborts an in-flight command execution request
+- client/src/test/agentsPage.streaming.test.tsx — Agents page renders live WS transcript updates and unsubscribes on conversation switch
+- client/src/test/chatSidebar.test.tsx — Chat sidebar bulk-selection coverage (filter reset, reorder stability, delete confirm, persistence gating) + ChatPage agent upsert ignore
+- client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect/seq gating and disabled realtime mode
+- client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
 - client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` re-fetching the newest page in `replace` mode
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
+- e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
+- e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events

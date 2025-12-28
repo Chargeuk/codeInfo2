@@ -88,4 +88,47 @@ describe('Chat WS streaming UI', () => {
     await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
     expect(await screen.findByText('Done')).toBeInTheDocument();
   });
+
+  it('does not send cancel_inflight when navigating away from the page', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    await act(async () => {
+      await router.navigate('/');
+    });
+
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
+      }
+    ).__wsMock;
+    const sent = (wsRegistry?.instances ?? []).flatMap((socket) => socket.sent);
+
+    const cancel = sent
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .some((msg) => msg?.type === 'cancel_inflight');
+
+    expect(cancel).toBe(false);
+  });
 });

@@ -17,6 +17,9 @@ beforeAll(() => {
 
 afterEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const providerPayload = {
@@ -76,6 +79,8 @@ test('shows persistence banner and disables archive controls when mongo is down'
 
   render(<ChatPage />);
 
-  expect(await screen.findByTestId('persistence-banner')).toBeInTheDocument();
+  const banner = await screen.findByTestId('persistence-banner');
+  expect(banner).toBeInTheDocument();
+  expect(banner).toHaveTextContent(/conversation history unavailable/i);
   expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
 });

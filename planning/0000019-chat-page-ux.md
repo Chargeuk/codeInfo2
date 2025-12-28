@@ -2623,7 +2623,7 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 ### 9. Front-end test updates
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: e3869bd
 #### Overview
 
 Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk actions UI, and streaming log assertions.

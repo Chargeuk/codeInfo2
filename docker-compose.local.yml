@@ -39,7 +39,7 @@ services:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
       - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:/host/codex:ro
-      - ${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}:ro
+      - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
       - /var/run/docker.sock:/var/run/docker.sock

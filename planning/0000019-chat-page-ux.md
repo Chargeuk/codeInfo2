@@ -3857,6 +3857,88 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 ---
 
+### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Codex reasoning streams arrive as `item.type === "reasoning"` events. The current delta logic assumes a single growing reasoning buffer per turn. If Codex emits multiple reasoning items or resets text between items, the prefix is sliced off and subsequent reasoning is truncated or dropped. This task updates the reasoning delta handling so each reasoning item is processed safely, ensuring the UI shows complete thinking text.
+
+#### Documentation Locations
+
+- Node EventEmitter (server stream bridge): https://nodejs.org/api/events.html
+- WebSocket event handling (client): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the truncation in tests:
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Files to edit:
+     - `server/src/test/unit/chat-codex-reasoning-delta.test.ts` (new)
+     - `client/src/test/chatPage.reasoning.test.tsx` (extend if needed)
+   - Test requirements:
+     - Simulate two separate reasoning items where the second resets text or is shorter than the first.
+     - Assert both reasoning blocks are emitted as `analysis_delta` and appear in the client transcript.
+
+2. [ ] Update Codex reasoning delta logic to handle multi-item streams:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Requirements:
+     - Detect non-prefix resets and treat them as a new reasoning block.
+     - If an item id is available, scope the buffer per item id to avoid collisions.
+     - Keep existing behavior for truly cumulative reasoning streams.
+
+3. [ ] Add server logs for reasoning resets (optional but helpful for debugging):
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/logger.ts` (if a new log key is required)
+   - Requirements:
+     - Log when a reasoning reset is detected (message + item id if present).
+     - Ensure logs respect the existing `LogEntry` schema.
+
+4. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
+     - `client/src/test/chatPage.reasoning.test.tsx`
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Assert no missing prefix in the rendered reasoning content.
+
+5. [ ] Documentation update (if reasoning stream behavior changes are user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that reasoning deltas now handle multi-item streams or resets safely.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+6. [ ] Run lint/format for affected workspaces after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace server`
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace server`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+2. [ ] `npm run test --workspace client`
+
+3. [ ] Playwright MCP manual verification:
+   - Trigger a Codex run that emits multiple reasoning items (or a reset).
+   - Confirm the “Thought process” shows full reasoning with no missing prefix.
+   - Capture a screenshot of the expanded reasoning block for the plan archive.
+
+#### Implementation notes
+
+- (fill after implementation)
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
 - Task Status: **__to_do__**
@@ -4122,85 +4204,3 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 ---
 
-### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
-
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
-
-#### Overview
-
-Codex reasoning streams arrive as `item.type === "reasoning"` events. The current delta logic assumes a single growing reasoning buffer per turn. If Codex emits multiple reasoning items or resets text between items, the prefix is sliced off and subsequent reasoning is truncated or dropped. This task updates the reasoning delta handling so each reasoning item is processed safely, ensuring the UI shows complete thinking text.
-
-#### Documentation Locations
-
-- Node EventEmitter (server stream bridge): https://nodejs.org/api/events.html
-- WebSocket event handling (client): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- Jest/RTL patterns: Context7 `/jestjs/jest`
-- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
-
-#### Subtasks
-
-1. [ ] Reproduce the truncation in tests:
-   - Files to read:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-     - `server/src/chat/chatStreamBridge.ts`
-     - `client/src/hooks/useChatStream.ts`
-   - Files to edit:
-     - `server/src/test/unit/chat-codex-reasoning-delta.test.ts` (new)
-     - `client/src/test/chatPage.reasoning.test.tsx` (extend if needed)
-   - Test requirements:
-     - Simulate two separate reasoning items where the second resets text or is shorter than the first.
-     - Assert both reasoning blocks are emitted as `analysis_delta` and appear in the client transcript.
-
-2. [ ] Update Codex reasoning delta logic to handle multi-item streams:
-   - Files to edit:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-   - Requirements:
-     - Detect non-prefix resets and treat them as a new reasoning block.
-     - If an item id is available, scope the buffer per item id to avoid collisions.
-     - Keep existing behavior for truly cumulative reasoning streams.
-
-3. [ ] Add server logs for reasoning resets (optional but helpful for debugging):
-   - Files to edit:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-     - `server/src/logger.ts` (if a new log key is required)
-   - Requirements:
-     - Log when a reasoning reset is detected (message + item id if present).
-     - Ensure logs respect the existing `LogEntry` schema.
-
-4. [ ] Update/extend tests to assert the fix:
-   - Files to edit:
-     - `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
-     - `client/src/test/chatPage.reasoning.test.tsx`
-   - Requirements:
-     - Tests must fail before the fix and pass after.
-     - Assert no missing prefix in the rendered reasoning content.
-
-5. [ ] Documentation update (if reasoning stream behavior changes are user-visible):
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Note that reasoning deltas now handle multi-item streams or resets safely.
-     - If no updates are needed, mark this subtask as “no changes required”.
-
-6. [ ] Run lint/format for affected workspaces after code/test changes:
-   - Commands to run:
-     - `npm run lint --workspace server`
-     - `npm run lint --workspace client`
-     - `npm run format:check --workspace server`
-     - `npm run format:check --workspace client`
-
-#### Testing
-
-1. [ ] `npm run test --workspace server`
-
-2. [ ] `npm run test --workspace client`
-
-3. [ ] Playwright MCP manual verification:
-   - Trigger a Codex run that emits multiple reasoning items (or a reset).
-   - Confirm the “Thought process” shows full reasoning with no missing prefix.
-   - Capture a screenshot of the expanded reasoning block for the plan archive.
-
-#### Implementation notes
-
-- (fill after implementation)

@@ -3747,3 +3747,106 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
 #### Implementation notes
 
 - (fill after implementation)
+
+---
+
+### 14. Treat transient Codex reconnects as warnings (no failed turns)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Codex sometimes emits transient errors like “Reconnecting... 1/5” during a run. Today these errors are treated as terminal failures, causing the UI to show a red failed bubble and stop streaming even though the run ultimately succeeds. This task ensures transient reconnects are surfaced as warnings (if shown at all) and do not flip the stream to a failed state or clear the in-flight transcript.
+
+#### Documentation Locations
+
+- WebSocket event handling (client): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Node EventEmitter (server stream bridge): https://nodejs.org/api/events.html
+- ws library behavior (server): https://github.com/websockets/ws
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the transient reconnect failure in tests:
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/chat/responders/McpResponder.ts`
+     - `server/src/agents/transientReconnect.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `server/src/test/unit/ws-chat-stream.test.ts` (or a new focused unit test)
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Test requirements:
+     - Simulate a Codex stream that emits an error message `Reconnecting... 1/5` followed by additional deltas/final.
+     - Assert the server does **not** publish `turn_final` with `status: failed` for the transient reconnect.
+     - Assert the client does **not** render a failed bubble and continues to accept subsequent deltas/final.
+
+2. [ ] Implement transient reconnect handling on the server stream path:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/ws/types.ts` (if introducing a new warning event)
+   - Requirements:
+     - Detect transient reconnect messages using `isTransientReconnect`.
+     - Do **not** mark the run as failed or publish a failed `turn_final`.
+     - If a warning event is added, send it to clients without terminating the inflight.
+     - Ensure inflight state is preserved so streaming continues.
+
+3. [ ] Update client handling to display a warning (not a failure) and continue streaming:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Surface transient reconnects as a warning UI element (chip/inline note) if received.
+     - Keep `streamStatus` in `processing` and allow subsequent deltas/final to render.
+     - Add client log entries for warnings using the existing `/logs` forwarding style.
+
+4. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Assert the final assistant bubble is `complete` (not `failed`) after a transient reconnect.
+
+5. [ ] Documentation update (if warning events affect protocol/UX):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that transient reconnects emit warnings without failing the turn.
+     - Document any new WS event type (if added).
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+6. [ ] Run lint/format for affected workspaces after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace server`
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace server`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+2. [ ] `npm run test --workspace client`
+
+3. [ ] Playwright MCP manual verification (repeat the exact steps that showed the failure):
+   - Trigger a Codex run that emits “Reconnecting... n/m”.
+     - Docker option (deterministic):
+       - Start a Codex run and wait for streaming to begin in the UI.
+       - Temporarily disconnect the server container from the compose network for ~5–10s, then reconnect:
+         - `docker network disconnect codeinfo2_default codeinfo2-server`
+         - `docker network connect codeinfo2_default codeinfo2-server`
+       - Confirm Codex emits the transient reconnect message while the run continues.
+   - Confirm the UI shows a warning (not a failure) and continues streaming.
+   - Confirm the final response renders without refresh and is marked complete.
+   - Capture screenshots of the warning and the final completed bubble for the plan archive.
+
+#### Implementation notes
+
+- (fill after implementation)

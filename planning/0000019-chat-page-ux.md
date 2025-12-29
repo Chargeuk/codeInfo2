@@ -3604,7 +3604,7 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 ### 12. Prevent empty history hydration from clearing in-flight transcript
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

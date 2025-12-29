@@ -3581,6 +3581,9 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -3788,6 +3791,27 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Simulate a Codex stream that emits an error message `Reconnecting... 1/5` followed by additional deltas/final.
      - Assert the server does **not** publish `turn_final` with `status: failed` for the transient reconnect.
      - Assert the client does **not** render a failed bubble and continues to accept subsequent deltas/final.
+   - Reference snippets (repeat from story so this subtask is standalone):
+     - Existing transcript final event (current WS contract):
+       ```json
+       {
+         "type": "turn_final",
+         "conversationId": "c1",
+         "inflightId": "i1",
+         "status": "failed",
+         "error": { "code": "STREAM_ERROR", "message": "Reconnecting... 1/5" }
+       }
+       ```
+     - Transient reconnect text to simulate: `"Reconnecting... 1/5"` (exact string).
+   - Test scaffolding hints:
+     - Server WS tests use `connectWs`, `sendJson`, `waitForEvent` from `server/src/test/support/wsClient.ts`.
+     - Client WS tests use `installMockWebSocket()` + `MockWebSocket._receive()` from `client/src/test/support/mockWebSocket.ts`.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://nodejs.org/api/events.html
+     - https://github.com/websockets/ws
+     - Context7 `/jestjs/jest`
+     - Context7 `/microsoft/playwright`
 
 2. [ ] Implement transient reconnect handling on the server stream path:
    - Files to edit:
@@ -3799,6 +3823,21 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Do **not** mark the run as failed or publish a failed `turn_final`.
      - If a warning event is added, send it to clients without terminating the inflight.
      - Ensure inflight state is preserved so streaming continues.
+   - Reference snippets (repeat):
+     - Transient reconnect helper: `server/src/agents/transientReconnect.ts` exports `isTransientReconnect(message: string): boolean`.
+     - Existing failure path to avoid: `chat.emit('error', { message })` should **not** convert to `turn_final` failed when `isTransientReconnect(message)` is true.
+     - If adding a warning event, keep it minimal, e.g.:
+       ```json
+       { "type": "stream_warning", "conversationId": "c1", "inflightId": "i1", "message": "Reconnecting... 1/5" }
+       ```
+   - Code anchors (where the junior dev should look first):
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts` (error handling path)
+     - `server/src/chat/chatStreamBridge.ts` (maps errors to `turn_final`)
+     - `server/src/ws/types.ts` (WS event union typing)
+   - Docs (repeat):
+     - https://nodejs.org/api/events.html
+     - https://github.com/websockets/ws
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 3. [ ] Update client handling to display a warning (not a failure) and continue streaming:
    - Files to edit:
@@ -3809,6 +3848,20 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Surface transient reconnects as a warning UI element (chip/inline note) if received.
      - Keep `streamStatus` in `processing` and allow subsequent deltas/final to render.
      - Add client log entries for warnings using the existing `/logs` forwarding style.
+   - Reference snippets (repeat):
+     - Client WS handling entry point: `client/src/hooks/useChatWs.ts` → `ws.onmessage` parses `WsServerEvent`.
+     - If adding a warning event, add it to the `WsServerEvent` union and handle it without setting a failed state.
+     - Suggested warning payload (if introduced):
+       ```json
+       { "type": "stream_warning", "conversationId": "c1", "inflightId": "i1", "message": "Reconnecting... 1/5" }
+       ```
+     - Logging style (existing pattern): `log('info' | 'warn', 'chat.ws.client_*', { ... })` in `useChatWs`.
+   - UI anchor:
+     - `client/src/pages/ChatPage.tsx` (where warning UI can be shown).
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn/synchronizing-with-effects
+     - Context7 `/jestjs/jest`
 
 4. [ ] Update/extend tests to assert the fix:
    - Files to edit:
@@ -3817,6 +3870,12 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Assert the final assistant bubble is `complete` (not `failed`) after a transient reconnect.
+   - Test scaffolding hints (repeat):
+     - Server: use `waitForEvent` in `server/src/test/support/wsClient.ts` to assert no failed `turn_final`.
+     - Client: use `MockWebSocket._receive()` to emit a warning event before `turn_final`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 5. [ ] Documentation update (if warning events affect protocol/UX):
    - Files to edit:
@@ -3825,6 +3884,11 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Note that transient reconnects emit warnings without failing the turn.
      - Document any new WS event type (if added).
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - WS event types live in `client/src/hooks/useChatWs.ts` and `server/src/ws/types.ts`.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn
 
 6. [ ] Run lint/format for affected workspaces after code/test changes:
    - Commands to run:
@@ -3832,6 +3896,9 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - `npm run lint --workspace client`
      - `npm run format:check --workspace server`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -3886,6 +3953,22 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Test requirements:
      - Simulate two separate reasoning items where the second resets text or is shorter than the first.
      - Assert both reasoning blocks are emitted as `analysis_delta` and appear in the client transcript.
+   - Reference snippets (repeat from story so this subtask is standalone):
+     - Codex reasoning items arrive with `item.type === "reasoning"` and `item.text` (see `server/src/chat/interfaces/ChatInterfaceCodex.ts`).
+     - Existing WS event for reasoning is `analysis_delta`:
+       ```json
+       { "type": "analysis_delta", "conversationId": "c1", "inflightId": "i1", "delta": "thinking..." }
+       ```
+     - Example of a reset scenario to simulate:
+       - Item 1 text: `"Reasoning part A..."`
+       - Item 2 text: `"New block"` (shorter / not prefixed)
+   - Test scaffolding hints:
+     - Server unit tests can build a scripted chat interface like in `server/src/test/unit/ws-chat-stream.test.ts`.
+     - Client tests should use `installMockWebSocket()` from `client/src/test/support/mockWebSocket.ts` and feed `analysis_delta` events.
+   - Docs (repeat):
+     - https://nodejs.org/api/events.html
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - Context7 `/jestjs/jest`
 
 2. [ ] Update Codex reasoning delta logic to handle multi-item streams:
    - Files to edit:
@@ -3894,6 +3977,15 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
      - Detect non-prefix resets and treat them as a new reasoning block.
      - If an item id is available, scope the buffer per item id to avoid collisions.
      - Keep existing behavior for truly cumulative reasoning streams.
+   - Reference snippets (repeat):
+     - Current pattern (to replace): `delta = text.slice(reasoningText.length)` assumes a single growing buffer.
+     - Recommended guard:
+       - If `!text.startsWith(previousText)` then treat `text` as a fresh block and emit full `text`.
+     - If item ids exist, use a map `reasoningByItemId[itemId] = lastText`.
+   - Code anchors:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts` (reasoning aggregation and delta emission).
+   - Docs (repeat):
+     - https://nodejs.org/api/events.html
 
 3. [ ] Add server logs for reasoning resets (optional but helpful for debugging):
    - Files to edit:
@@ -3902,6 +3994,11 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Requirements:
      - Log when a reasoning reset is detected (message + item id if present).
      - Ensure logs respect the existing `LogEntry` schema.
+   - Reference snippet (repeat):
+     - Logging pattern in server uses `logger.info({ ... }, 'message')` via `server/src/logger.ts`.
+   - Docs (repeat):
+     - https://nodejs.org/api/events.html
+     - https://github.com/pinojs/pino
 
 4. [ ] Update/extend tests to assert the fix:
    - Files to edit:
@@ -3910,6 +4007,11 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Assert no missing prefix in the rendered reasoning content.
+   - Test scaffolding hints (repeat):
+     - Server: new test can mirror the `analysis_delta updates assistantThink` case in `server/src/test/unit/ws-chat-stream.test.ts`.
+     - Client: `client/src/test/chatPage.reasoning.test.tsx` already renders reasoning; add a case with two reasoning blocks.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 5. [ ] Documentation update (if reasoning stream behavior changes are user-visible):
    - Files to edit:
@@ -3917,6 +4019,10 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Requirements:
      - Note that reasoning deltas now handle multi-item streams or resets safely.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - WS event types live in `server/src/ws/types.ts` and `client/src/hooks/useChatWs.ts`.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 6. [ ] Run lint/format for affected workspaces after code/test changes:
    - Commands to run:
@@ -3924,6 +4030,9 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
      - `npm run lint --workspace client`
      - `npm run format:check --workspace server`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -3970,17 +4079,46 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - Simulate an in-flight assistant bubble in tab A.
      - Simulate tab A going `hidden` + tab B completing the run (via a history refresh in tab A).
      - Assert that a focus/visibility change triggers a refresh and the transcript matches the persisted turns (no missing messages).
+   - Reference snippets (repeat):
+     - Visibility event to simulate:
+       ```ts
+       Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+       document.dispatchEvent(new Event('visibilitychange'));
+       ```
+     - The refresh entry points to exercise:
+       - `useConversationTurns().refresh()` for transcript
+       - `useConversations().refresh()` for sidebar
+   - Test scaffolding hints:
+     - Client tests use `installMockWebSocket()` from `client/src/test/support/mockWebSocket.ts`.
+     - Use `await act(async () => { ... })` when dispatching visibility events in RTL/JSDOM.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
+     - https://react.dev/learn/synchronizing-with-effects
+     - Context7 `/jestjs/jest`
 
 2. [ ] Implement focus/visibility refresh for the active conversation + sidebar:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/hooks/useChatStream.ts`
-     - `client/src/hooks/useConversationList.ts` (if the sidebar refresh lives here)
+     - `client/src/hooks/useConversations.ts` (sidebar refresh)
    - Requirements:
      - On `visibilitychange` to `visible` (and/or `window.focus`), call `refresh()` for the active conversation turns and the conversation list snapshot.
      - Reuse existing merge/dedupe logic so refreshed data never clears in-flight content.
      - Ensure these listeners are cleaned up on unmount.
+   - Reference snippets (repeat):
+     - `useConversations` exposes `refresh()` in `client/src/hooks/useConversations.ts`.
+     - `useConversationTurns` exposes `refresh()` in `client/src/hooks/useConversationTurns.ts`.
+     - Visibility guard:
+       ```ts
+       if (document.visibilityState === 'visible') { /* refresh */ }
+       ```
+   - Code anchors:
+     - `client/src/pages/ChatPage.tsx` (add focus/visibility listeners).
+     - `client/src/hooks/useChatStream.ts` (merge/dedupe remains the source of truth).
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
+     - https://react.dev/learn/synchronizing-with-effects
 
 3. [ ] Refresh on WebSocket reconnect (no cross-tab broadcast):
    - Files to edit:
@@ -3989,6 +4127,18 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
    - Requirements:
      - When the WS reconnects, re-fetch the conversation list snapshot and the active conversation turns.
      - Ensure reconnect refresh does not cause duplicate bubbles (reuse existing dedupe logic).
+   - Reference snippets (repeat):
+     - `useChatWs` supports `onReconnectBeforeResubscribe` (see `client/src/hooks/useChatWs.ts`).
+     - Hook usage pattern:
+       ```ts
+       useChatWs({ onReconnectBeforeResubscribe: async () => { await refresh(); } })
+       ```
+   - Code anchors:
+     - `client/src/hooks/useChatWs.ts` (reconnect callback is invoked before resubscribe).
+     - `client/src/pages/ChatPage.tsx` (pass refresh callbacks into `useChatWs`).
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn/synchronizing-with-effects
 
 4. [ ] Update/extend tests to assert the fix:
    - Files to edit:
@@ -3996,6 +4146,12 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Assert that a focus/visibility change (and WS reconnect) triggers refresh without losing the in-flight transcript.
+   - Test scaffolding hints (repeat):
+     - Use `document.dispatchEvent(new Event('visibilitychange'))` after setting `visibilityState`.
+     - For WS reconnect tests, call `MockWebSocket.close()` then allow a new instance to open.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+     - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
 
 5. [ ] Documentation update (if the refresh behavior is user-visible or architecture-relevant):
    - Files to edit:
@@ -4003,11 +4159,16 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
    - Requirements:
      - Note that the client refreshes the transcript + sidebar snapshot on tab focus/visibility + WS reconnect.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
 
 6. [ ] Run lint/format for the client workspace after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -4053,16 +4214,44 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - Create an inflight run, append assistant/tool deltas in memory.
      - Call the turns endpoint with the new snapshot behavior (e.g., `includeInflight=true`).
      - Assert the response includes an `inflight` block with `assistantText`, `assistantThink`, `toolEvents`, and `inflightId`.
+   - Reference snippets (repeat from story):
+     - Inflight snapshot source: `snapshotInflight(conversationId)` in `server/src/chat/inflightRegistry.ts`.
+     - Suggested response shape:
+       ```json
+       {
+         "items": [/* persisted turns */],
+         "nextCursor": null,
+         "inflight": {
+           "inflightId": "i1",
+           "assistantText": "partial...",
+           "assistantThink": "thinking...",
+           "toolEvents": [],
+           "startedAt": "2025-12-29T18:00:00.000Z",
+           "seq": 3
+         }
+       }
+       ```
+   - Test scaffolding hints:
+     - `server/src/test/integration/conversations.turns.test.ts` already mocks turns; extend to call the route with `includeInflight=true`.
+   - Docs (repeat):
+     - https://expressjs.com/en/api.html#res.json
+     - Context7 `/jestjs/jest`
 
 2. [ ] Extend the turns snapshot response to include inflight state:
    - Files to edit:
      - `server/src/routes/conversations.ts`
      - `server/src/chat/inflightRegistry.ts`
-     - `server/src/routes/conversationsValidators.ts` (if a query param is introduced)
+     - `server/src/routes/conversations.ts` (zod validation for any new query param)
    - Requirements:
      - Decide and implement the response shape (e.g., `GET /conversations/:id/turns?includeInflight=true` adds an `inflight` field).
      - Ensure the inflight data is only added when a run is active for the conversation.
      - Keep existing response shape stable for callers that do not request inflight data.
+   - Reference snippets (repeat):
+     - Existing turns route: `server/src/routes/conversations.ts` → `router.get('/conversations/:id/turns', ...)`.
+     - Inflight snapshot source: `snapshotInflight` in `server/src/chat/inflightRegistry.ts`.
+     - Guard: if `snapshotInflight` returns `null`, do **not** include `inflight` in the response.
+   - Docs (repeat):
+     - https://expressjs.com/en/api.html#res.json
 
 3. [ ] Update the client refresh to request and merge inflight state:
    - Files to edit:
@@ -4072,6 +4261,13 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - Request the inflight-aware snapshot on refresh/focus/reconnect.
      - Merge inflight assistant/tool state with the existing in-flight transcript without duplicating bubbles.
      - Preserve existing dedupe behavior for persisted turns.
+   - Reference snippets (repeat):
+     - Turns request should include query when inflight needed:
+       - `GET /conversations/:id/turns?includeInflight=true&limit=...`
+     - Merge entry point: `client/src/hooks/useChatStream.ts` (hydration merge + inflight reconciliation).
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - Context7 `/jestjs/jest`
 
 4. [ ] Update/extend tests to assert inflight snapshot merge:
    - Files to edit:
@@ -4079,6 +4275,10 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
    - Requirements:
      - Simulate a refresh response that includes inflight partial content.
      - Assert the UI shows the partial assistant text immediately and continues streaming without resets.
+   - Test scaffolding hints (repeat):
+     - Client tests can mock the turns response with an `inflight` block and assert the first render includes it.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 5. [ ] Documentation update (if the snapshot response shape changes):
    - Files to edit:
@@ -4087,6 +4287,10 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
    - Requirements:
      - Document the inflight snapshot response and when it is returned.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - REST response with optional `inflight` block (see subtask 1).
+   - Docs (repeat):
+     - https://www.markdownguide.org/basic-syntax/
 
 6. [ ] Run lint/format for server + client after code/test changes:
    - Commands to run:
@@ -4094,6 +4298,9 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - `npm run lint --workspace client`
      - `npm run format:check --workspace server`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -4142,6 +4349,17 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - Start a run via `POST /chat`.
      - Assert the WS stream emits a `user_turn` (or equivalent) event with the user content before assistant deltas.
      - Ensure the event includes `conversationId` and any relevant `inflightId`.
+   - Reference snippets (repeat from story):
+     - Proposed WS event:
+       ```json
+       { "type": "user_turn", "conversationId": "c1", "inflightId": "i1", "content": "Hello", "createdAt": "2025-12-29T18:00:00.000Z" }
+       ```
+   - Test scaffolding hints:
+     - Server WS tests use `connectWs`, `sendJson`, `waitForEvent` from `server/src/test/support/wsClient.ts`.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://expressjs.com/en/api.html
+     - Context7 `/jestjs/jest`
 
 2. [ ] Add a WS event type for user turns and emit at run start:
    - Files to edit:
@@ -4152,6 +4370,12 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - Define a new transcript event type (e.g., `user_turn`) containing the user message content + timestamp.
      - Emit the event immediately after `POST /chat` is accepted and the inflight run is created.
      - Do not wait for persistence to send the user turn.
+   - Reference snippets (repeat):
+     - WS event union lives in `server/src/ws/types.ts`; add a `WsUserTurnEvent`.
+     - Emit from `server/src/routes/chat.ts` after `createInflight(...)` or in `chatStreamBridge` run-start path.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://expressjs.com/en/api.html
 
 3. [ ] Handle `user_turn` events in the client stream + dedupe:
    - Files to edit:
@@ -4162,6 +4386,12 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - Render the user bubble when the WS `user_turn` arrives.
      - Ensure sender tab dedupes the WS user turn against its optimistic bubble.
      - Do not regress the existing hydration dedupe behavior.
+   - Reference snippets (repeat):
+     - Client WS event union lives in `client/src/hooks/useChatWs.ts` (add `user_turn` to `WsServerEvent`).
+     - Merge/dedupe logic lives in `client/src/hooks/useChatStream.ts` (reuse the same heuristic used for hydration).
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - https://react.dev/learn
 
 4. [ ] Update/extend tests to assert the fix:
    - Files to edit:
@@ -4170,6 +4400,10 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - Simulate a WS `user_turn` event after a local optimistic user bubble.
      - Assert only one user bubble remains after dedupe.
      - Simulate a non-originating tab receiving the `user_turn` and assert the bubble appears.
+   - Test scaffolding hints (repeat):
+     - Use `installMockWebSocket()` and `MockWebSocket._receive()` from `client/src/test/support/mockWebSocket.ts`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 5. [ ] Documentation update (if the WS protocol changes):
    - Files to edit:
@@ -4178,6 +4412,10 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
    - Requirements:
      - Document the new `user_turn` WS event and its fields.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - `user_turn` event shape shown in subtask 1.
+   - Docs (repeat):
+     - https://www.markdownguide.org/basic-syntax/
 
 6. [ ] Run lint/format for server + client after code/test changes:
    - Commands to run:
@@ -4185,6 +4423,9 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - `npm run lint --workspace client`
      - `npm run format:check --workspace server`
      - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
 
 #### Testing
 
@@ -4203,4 +4444,3 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 - (fill after implementation)
 
 ---
-

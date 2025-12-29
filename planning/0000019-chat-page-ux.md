@@ -4031,6 +4031,97 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 ---
 
+### 18. Stream user turns over WS at run start (dedupe on sender tab)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Tabs that did not submit a prompt do not see the user’s message until persistence or a refresh. This task streams the user turn over WebSocket at run start so all tabs render the user bubble immediately, relying on the existing dedupe logic to avoid duplicates in the originating tab.
+
+#### Documentation Locations
+
+- WebSocket messaging (server/client): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Express request lifecycle (server): https://expressjs.com/en/api.html
+- Jest test patterns (server + client): Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add server test coverage for user-turn WS streaming:
+   - Files to read:
+     - `server/src/routes/chat.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/ws/types.ts`
+   - Files to edit:
+     - `server/src/test/unit/ws-chat-stream.test.ts` (or a new focused test)
+   - Test requirements:
+     - Start a run via `POST /chat`.
+     - Assert the WS stream emits a `user_turn` (or equivalent) event with the user content before assistant deltas.
+     - Ensure the event includes `conversationId` and any relevant `inflightId`.
+
+2. [ ] Add a WS event type for user turns and emit at run start:
+   - Files to edit:
+     - `server/src/ws/types.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/routes/chat.ts` (or the stream bridge used at run start)
+   - Requirements:
+     - Define a new transcript event type (e.g., `user_turn`) containing the user message content + timestamp.
+     - Emit the event immediately after `POST /chat` is accepted and the inflight run is created.
+     - Do not wait for persistence to send the user turn.
+
+3. [ ] Handle `user_turn` events in the client stream + dedupe:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Render the user bubble when the WS `user_turn` arrives.
+     - Ensure sender tab dedupes the WS user turn against its optimistic bubble.
+     - Do not regress the existing hydration dedupe behavior.
+
+4. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Requirements:
+     - Simulate a WS `user_turn` event after a local optimistic user bubble.
+     - Assert only one user bubble remains after dedupe.
+     - Simulate a non-originating tab receiving the `user_turn` and assert the bubble appears.
+
+5. [ ] Documentation update (if the WS protocol changes):
+   - Files to edit:
+     - `design.md`
+     - `openapi.json` (if the WS protocol is documented there)
+   - Requirements:
+     - Document the new `user_turn` WS event and its fields.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+6. [ ] Run lint/format for server + client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace server`
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace server`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+2. [ ] `npm run test --workspace client`
+
+3. [ ] Playwright MCP manual verification:
+   - Open two browser tabs on the same conversation.
+   - Send a user prompt in Tab A and confirm the user bubble appears in Tab B immediately (no refresh).
+   - Confirm Tab A shows only one user bubble (no duplicates).
+   - Capture screenshots in `test-results/screenshots/` for the plan archive.
+
+#### Implementation notes
+
+- (fill after implementation)
+
+---
+
 ### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
 
 - Task Status: **__to_do__**

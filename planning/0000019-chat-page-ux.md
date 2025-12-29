@@ -3521,3 +3521,149 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
   - Chat streaming is WS-only now (`POST /chat` returns 202); any remaining SSE references in docs must be removed/updated.
   - When validating Compose from inside this container, use `http://host.docker.internal:<port>` (not `localhost`) to avoid hitting the in-container dev server.
   - Manual verification requires saving screenshots under `test-results/screenshots/`.
+
+---
+
+### 11. Fix WS sequence gating to accept new in-flight runs
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The client currently carries `lastSeq` across multiple in-flight runs for the same conversation. Because the server resets sequence numbers per run, this causes new deltas/finals to be dropped as “stale”, which hides follow-up responses until a refresh. This task ensures the client resets or scopes sequence tracking so new in-flight runs are always accepted.
+
+#### Documentation Locations
+
+- WebSocket protocol semantics (client-side ordering expectations): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React hooks lifecycle reminders (effects + cleanup): https://react.dev/learn
+- Jest/RTL patterns for hook-driven UI tests: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the stale-seq drop in a client test:
+   - Files to read:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or add `client/src/test/useChatWs.seq.test.ts`)
+   - Test requirements:
+     - Simulate a first run that ends with `seq = N`.
+     - Simulate a second run starting at `seq = 1`.
+     - Assert the second run’s `assistant_delta` + `turn_final` are accepted and rendered (not dropped as stale).
+
+2. [ ] Update the client sequence tracking to reset per in-flight run:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - When a new in-flight run is detected (snapshot/new inflightId/final from new run), reset or scope `lastSeq` so lower seq values are accepted.
+     - Preserve stale/out-of-order protections within a single run.
+     - Ensure logging includes enough context to verify the reset path in `/logs`.
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
+   - Requirements:
+     - The new test must fail before the fix and pass after.
+     - Add an assertion that no “stale event ignored” path fires for the new run.
+
+4. [ ] Documentation update (if the seq reset behavior is user-visible or architecture-relevant):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a short note that sequence gating is scoped per in-flight run (not per conversation across runs).
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+5. [ ] Run lint/format for the client workspace after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+
+2. [ ] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
+   - Start a new chat with LM Studio, wait for the response, confirm it appears without refresh.
+   - Send a follow-up in the same conversation and confirm both the previous response and the new response remain visible without refresh.
+   - Repeat once with Codex (when available) to confirm new runs are not dropped.
+   - Visit `/logs` and confirm there are no `chat.ws.client_stale_event_ignored` entries for the new run sequence.
+
+#### Implementation notes
+
+- (fill after implementation)
+
+---
+
+### 12. Prevent empty history hydration from clearing in-flight transcript
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+When a run starts, the client streams tokens via WebSocket and separately hydrates persisted turns. If the history request returns an empty set (or late), the current implementation can replace the streamed messages with the empty snapshot, hiding the visible response until a manual refresh. This task ensures hydration merges safely and never clears the in-flight transcript.
+
+#### Documentation Locations
+
+- React hooks lifecycle reminders (effects + cleanup): https://react.dev/learn
+- Jest/RTL patterns for hook-driven UI tests: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the hydration overwrite in a client test:
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or add `client/src/test/useConversationTurns.hydration.test.tsx`)
+   - Test requirements:
+     - Simulate WebSocket streaming of an assistant response.
+     - Simulate a late/empty history response (`GET /conversations/:id/turns` returns no items).
+     - Assert the streamed response remains visible after hydration.
+
+2. [ ] Update hydration merge logic to preserve in-flight transcript:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Merging persisted turns must not wipe in-flight streamed state.
+     - If the snapshot is empty and a stream is active, retain the streamed transcript.
+     - Keep existing behavior for normal (non-empty) snapshots.
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
+   - Requirements:
+     - The new test must fail before the fix and pass after.
+     - Include an assertion that the transcript remains visible without refresh.
+
+4. [ ] Documentation update (if the hydration merge behavior is user-visible or architecture-relevant):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a short note that hydration merges into in-flight UI without clearing streamed content.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+5. [ ] Run lint/format for the client workspace after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+
+2. [ ] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
+   - Start a new chat and wait for the response without refreshing; the transcript must appear immediately.
+   - Verify the response remains visible after any history refresh/hydration (no blank transcript).
+   - Check `/logs` to confirm the streaming events are received and no “hydrate replaced transcript” regression is observed.
+
+#### Implementation notes
+
+- (fill after implementation)

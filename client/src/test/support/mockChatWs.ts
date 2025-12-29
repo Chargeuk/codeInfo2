@@ -43,6 +43,7 @@ export function setupChatWsHarness(params: {
   models?: unknown;
   health?: unknown;
   conversations?: unknown;
+  turns?: unknown;
 }) {
   const chatBodies: Record<string, unknown>[] = [];
   let lastConversationId: string | null = null;
@@ -53,6 +54,10 @@ export function setupChatWsHarness(params: {
   const modelsPayload = params.models ?? defaultModels;
   const healthPayload = params.health ?? { mongoConnected: true };
   const conversationsPayload = params.conversations ?? {
+    items: [],
+    nextCursor: null,
+  };
+  const turnsPayload = params.turns ?? {
     items: [],
     nextCursor: null,
   };
@@ -82,6 +87,14 @@ export function setupChatWsHarness(params: {
           ok: true,
           status: 200,
           json: async () => modelsPayload,
+        }) as unknown as Response;
+      }
+
+      if (href.includes('/conversations/') && href.includes('/turns')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => turnsPayload,
         }) as unknown as Response;
       }
 

@@ -481,7 +481,15 @@ export function useChatStream(
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
       updateMessages((prev) => {
-        const next = mode === 'prepend' ? [...history, ...prev] : [...history];
+        const hasInFlight =
+          isStreaming ||
+          status === 'sending' ||
+          inflightIdRef.current !== null ||
+          prev.some((message) => message.streamStatus === 'processing');
+        const next =
+          mode === 'prepend' || hasInFlight
+            ? [...history, ...prev]
+            : [...history];
         const seen = new Set<string>();
         return next.filter((msg) => {
           const key = msg.id;
@@ -491,7 +499,7 @@ export function useChatStream(
         });
       });
     },
-    [updateMessages],
+    [isStreaming, status, updateMessages],
   );
 
   const send = useCallback(

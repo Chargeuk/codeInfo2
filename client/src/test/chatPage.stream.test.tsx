@@ -236,4 +236,60 @@ describe('Chat WS streaming UI', () => {
       }
     }
   });
+
+  it('keeps streaming transcript when empty history hydration arrives', async () => {
+    const harness = setupChatWsHarness({
+      mockFetch,
+      turns: { items: [], nextCursor: null },
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Streaming reply',
+    });
+
+    expect(await screen.findByText('Streaming reply')).toBeInTheDocument();
+
+    harness.emitSidebarUpsert({
+      conversationId: conversationId!,
+      title: 'Hello',
+      provider: 'lmstudio',
+      model: 'm1',
+      source: 'REST',
+      lastMessageAt: '2025-01-01T00:00:00.000Z',
+      archived: false,
+    });
+
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some((call) => String(call[0]).includes('/turns')),
+      ).toBe(true),
+    );
+
+    expect(screen.getByText('Streaming reply')).toBeInTheDocument();
+  });
 });

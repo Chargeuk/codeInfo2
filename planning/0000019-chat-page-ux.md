@@ -3680,8 +3680,8 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
 
 ### 13. Prevent duplicate bubbles when hydration arrives during streaming
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **6ae29dd**
 
 #### Overview
 
@@ -3695,7 +3695,7 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
 
 #### Subtasks
 
-1. [ ] Reproduce the duplicate-bubble behavior in a client test:
+1. [x] Reproduce the duplicate-bubble behavior in a client test:
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
@@ -3707,7 +3707,7 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
      - Hydrate with turns that represent the same request (same role/content/createdAt time window).
      - Assert only one user bubble and one assistant bubble remain after hydration.
 
-2. [ ] Implement dedupe logic for hydration vs in-flight bubbles:
+2. [x] Implement dedupe logic for hydration vs in-flight bubbles:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
@@ -3716,37 +3716,41 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
      - Ensure dedupe works for both user and assistant bubbles.
      - Preserve current behavior for unrelated historical turns.
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Requirements:
      - The new test must fail before the fix and pass after.
      - Include an assertion that the transcript does not show duplicates after hydration completes.
 
-4. [ ] Documentation update (if the dedupe approach is user-visible or architecture-relevant):
+4. [x] Documentation update (if the dedupe approach is user-visible or architecture-relevant):
    - Files to edit:
      - `design.md`
    - Requirements:
      - Add a short note describing how in-flight bubbles are reconciled with persisted turns.
      - If no updates are needed, mark this subtask as “no changes required”.
 
-5. [ ] Run lint/format for the client workspace after code/test changes:
+5. [x] Run lint/format for the client workspace after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [x] `npm run test --workspace client`
 
-2. [ ] Playwright MCP manual verification (repeat the exact steps that showed duplicates):
+2. [x] Playwright MCP manual verification (repeat the exact steps that showed duplicates):
    - Send a prompt and observe the streaming assistant bubble.
    - Wait for history hydration to complete.
    - Confirm only one user bubble and one assistant bubble remain (no duplicate content).
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-29: Added a streaming test that hydrates persisted turns matching the in-flight user + assistant bubble and asserts only one bubble remains for each.
+- 2025-12-29: Updated `useChatStream` hydration to reconcile persisted turns against recent in-flight messages (role/content/time) and replace duplicates in-place to avoid double bubbles.
+- 2025-12-29: Documented the dedupe behavior in `design.md` under the chat streaming hydration notes.
+- 2025-12-29: Ran `npm run lint --workspace client`, `npm run format --workspace client`, `npm run format:check --workspace client`, and `npm run test --workspace client`.
+- 2025-12-29: Playwright MCP check on the compose stack: sent a prompt, waited for hydration, and confirmed exactly one user bubble and one assistant bubble for the turn.
 
 ---
 

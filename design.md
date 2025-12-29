@@ -80,6 +80,7 @@ end
   - `assistant_delta`, `analysis_delta`
   - `tool_event`
   - `turn_final` (terminal status for the in-flight turn)
+- Sequence gating is scoped per in-flight run: client-side dedupe/out-of-order checks reset when the `inflightId` changes so a new run starting at `seq=1` is accepted.
 - Stop/cancel is driven by `cancel_inflight` (mapped to an in-flight AbortController).
 
 ```mermaid

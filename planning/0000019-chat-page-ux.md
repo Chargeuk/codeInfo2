@@ -3542,7 +3542,7 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 #### Subtasks
 
-1. [ ] Reproduce the stale-seq drop in a client test:
+1. [x] Reproduce the stale-seq drop in a client test:
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -3554,7 +3554,7 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
      - Simulate a second run starting at `seq = 1`.
      - Assert the second run’s `assistant_delta` + `turn_final` are accepted and rendered (not dropped as stale).
 
-2. [ ] Update the client sequence tracking to reset per in-flight run:
+2. [x] Update the client sequence tracking to reset per in-flight run:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -3563,30 +3563,30 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
      - Preserve stale/out-of-order protections within a single run.
      - Ensure logging includes enough context to verify the reset path in `/logs`.
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
    - Requirements:
      - The new test must fail before the fix and pass after.
      - Add an assertion that no “stale event ignored” path fires for the new run.
 
-4. [ ] Documentation update (if the seq reset behavior is user-visible or architecture-relevant):
+4. [x] Documentation update (if the seq reset behavior is user-visible or architecture-relevant):
    - Files to edit:
      - `design.md`
    - Requirements:
      - Add a short note that sequence gating is scoped per in-flight run (not per conversation across runs).
      - If no updates are needed, mark this subtask as “no changes required”.
 
-5. [ ] Run lint/format for the client workspace after code/test changes:
+5. [x] Run lint/format for the client workspace after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [x] `npm run test --workspace client`
 
-2. [ ] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
+2. [x] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
    - Start a new chat with LM Studio, wait for the response, confirm it appears without refresh.
    - Send a follow-up in the same conversation and confirm both the previous response and the new response remain visible without refresh.
    - Repeat once with Codex (when available) to confirm new runs are not dropped.
@@ -3594,7 +3594,11 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-29: Added a chat stream test that simulates seq reset between runs; the test fails under per-conversation seq gating and passes once inflight-scoped gating is in place.
+- 2025-12-29: Updated the WS client to key sequence tracking by `conversationId + inflightId`, and tightened stale-event logging to include explicit `conversationId`/`inflightId` fields; switched the logger ref to `useMemo` to satisfy the refs-in-render lint rule.
+- 2025-12-29: Documented that sequence gating is scoped per in-flight run in `design.md`.
+- 2025-12-29: Ran `npm run lint --workspace client`, `npm run format --workspace client`, `npm run format:check --workspace client`, and `npm run test --workspace client`.
+- 2025-12-29: Playwright MCP check against Docker Compose: sent two LM Studio prompts in the same conversation; `/logs` shows `chat.ws.client_final_received` for the second inflight and **zero** `chat.ws.client_stale_event_ignored` entries for that new inflight. Stale-event logs observed were for the prior inflight only.
 
 ---
 

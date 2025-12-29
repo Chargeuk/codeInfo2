@@ -164,7 +164,7 @@ function inflightKey(conversationId: string, inflightId: string) {
 }
 
 export function useChatWs(params?: UseChatWsParams): UseChatWsState {
-  const log = useRef(createLogger('client')).current;
+  const log = useMemo(() => createLogger('client'), []);
   const onEventRef = useRef<UseChatWsParams['onEvent']>(params?.onEvent);
   const onReconnectBeforeResubscribeRef = useRef<
     UseChatWsParams['onReconnectBeforeResubscribe']
@@ -318,22 +318,30 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
           ? (msg as { seq: number }).seq
           : null;
 
+      const conversationId =
+        typeof (msg as { conversationId?: unknown }).conversationId === 'string'
+          ? String((msg as { conversationId: string }).conversationId)
+          : null;
+      const inflightId =
+        msg.type === 'inflight_snapshot'
+          ? msg.inflight.inflightId
+          : typeof (msg as { inflightId?: unknown }).inflightId === 'string'
+            ? String((msg as { inflightId: string }).inflightId)
+            : null;
+
       const key =
         msg.type === 'conversation_upsert' || msg.type === 'conversation_delete'
           ? 'sidebar'
-          : typeof (msg as { conversationId?: unknown }).conversationId ===
-              'string'
-            ? String((msg as { conversationId: string }).conversationId)
-            : 'unknown';
+          : conversationId && inflightId
+            ? inflightKey(conversationId, inflightId)
+            : (conversationId ?? 'unknown');
 
       if (seq !== null && key !== 'unknown') {
         const last = lastSeqByKeyRef.current.get(key) ?? 0;
         if (seq <= last) {
           log('info', 'chat.ws.client_stale_event_ignored', {
-            ...(key !== 'sidebar' ? { conversationId: key } : {}),
-            ...(typeof (msg as { inflightId?: unknown }).inflightId === 'string'
-              ? { inflightId: (msg as { inflightId: string }).inflightId }
-              : {}),
+            ...(conversationId ? { conversationId } : {}),
+            ...(inflightId ? { inflightId } : {}),
             seq,
             lastSeq: last,
           });

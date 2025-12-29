@@ -131,4 +131,109 @@ describe('Chat WS streaming UI', () => {
 
     expect(cancel).toBe(false);
   });
+
+  it('accepts new inflight runs when sequence numbers reset', async () => {
+    const previousFlag = (
+      globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+    ).__CODEINFO_TEST__;
+    const windowRef = (
+      globalThis as unknown as { window?: { __CODEINFO_TEST__?: boolean } }
+    ).window;
+
+    (
+      globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+    ).__CODEINFO_TEST__ = false;
+    if (windowRef) {
+      windowRef.__CODEINFO_TEST__ = false;
+      (windowRef as unknown as { __chatTest?: unknown }).__chatTest = undefined;
+    }
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const harness = setupChatWsHarness({ mockFetch });
+      const user = userEvent.setup();
+
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId();
+      const inflightId = harness.getInflightId() ?? 'i1';
+
+      harness.setSeq(40);
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId,
+        delta: 'First',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId,
+        status: 'ok',
+      });
+
+      expect(await screen.findByText('First')).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: 'Again' } });
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+
+      const inflightId2 = harness.getInflightId() ?? 'i2';
+      harness.setSeq(0);
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        delta: 'Second',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        status: 'ok',
+      });
+
+      expect(await screen.findByText('Second')).toBeInTheDocument();
+
+      const staleLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as { message?: string; context?: unknown };
+        if (record.message !== 'chat.ws.client_stale_event_ignored')
+          return false;
+        const context = record.context as { inflightId?: string } | undefined;
+        return context?.inflightId === inflightId2;
+      });
+      expect(staleLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+      (
+        globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+      ).__CODEINFO_TEST__ = previousFlag;
+      if (windowRef) {
+        windowRef.__CODEINFO_TEST__ = previousFlag;
+      }
+    }
+  });
 });

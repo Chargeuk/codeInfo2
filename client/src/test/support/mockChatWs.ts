@@ -177,6 +177,9 @@ export function setupChatWsHarness(params: {
 
   return {
     resetWs: () => wsRegistry().reset(),
+    setSeq: (value: number) => {
+      seq = value;
+    },
     chatBodies,
     getConversationId: () => lastConversationId,
     getInflightId: () => lastInflightId,

@@ -182,6 +182,13 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       params?.onReconnectBeforeResubscribe;
   }, [params?.onReconnectBeforeResubscribe]);
 
+  useEffect(() => {
+    if (realtimeEnabled) return;
+    log('info', 'chat.ws.client_realtime_disabled', {
+      reason: 'realtimeEnabled=false',
+    });
+  }, [log, realtimeEnabled]);
+
   const deltaCountsByInflightRef = useRef<Map<string, number>>(new Map());
   const toolEventCountsByInflightRef = useRef<Map<string, number>>(new Map());
 
@@ -328,6 +335,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
               ? { inflightId: (msg as { inflightId: string }).inflightId }
               : {}),
             seq,
+            lastSeq: last,
           });
           return;
         }

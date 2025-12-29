@@ -99,6 +99,7 @@ export function attachChatStreamBridge(params: {
       threadId: params.threadId ?? null,
       deltaCount,
       toolEventCount,
+      seq: getInflight(conversationId)?.seq ?? null,
       ...(params.error ? { error: params.error } : {}),
     });
 
@@ -107,7 +108,11 @@ export function attachChatStreamBridge(params: {
 
   // Initial snapshot for any already-subscribed viewers.
   publishInflightSnapshot(conversationId);
-  log('info', 'chat.stream.snapshot', { provider, model });
+  log('info', 'chat.stream.snapshot', {
+    provider,
+    model,
+    seq: getInflight(conversationId)?.seq ?? null,
+  });
 
   const onToken = (ev: ChatTokenEvent) => {
     if (finalPublished) return;

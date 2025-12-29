@@ -665,6 +665,12 @@ export function useChatStream(
     (event: ChatWsTranscriptEvent) => {
       const activeConversation = conversationIdRef.current;
       if (event.conversationId !== activeConversation) {
+        logWithChannel('info', 'chat.ws.client_event_ignored', {
+          reason: 'conversation_mismatch',
+          eventConversationId: event.conversationId,
+          activeConversationId: activeConversation,
+          eventType: event.type,
+        });
         return;
       }
 
@@ -768,6 +774,7 @@ export function useChatStream(
       applyToolEvent,
       clearThinkingTimer,
       ensureAssistantMessage,
+      logWithChannel,
       syncAssistantMessage,
     ],
   );

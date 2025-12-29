@@ -3675,3 +3675,75 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
 - 2025-12-29: Documented the hydration merge behavior in `design.md`.
 - 2025-12-29: Ran `npm run lint --workspace client`, `npm run format --workspace client`, `npm run format:check --workspace client`, and `npm run test --workspace client`.
 - 2025-12-29: Playwright MCP check (Compose rebuild): sent a new LM Studio message, observed streamed assistant output remain visible after the turns hydration (`count: 1`) and subsequent live updates; `/logs` confirms `chat.ws.client_delta_received` entries for the same conversation.
+
+---
+
+### 13. Prevent duplicate bubbles when hydration arrives during streaming
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+When a message is sent, the UI creates an in-flight bubble immediately and later hydrates persisted turns from the server. The persisted turn uses a different ID (derived from `createdAt`) than the in-flight bubble, so the hydration merge can show duplicate user/assistant bubbles for a single request. This task ensures hydration dedupes against the active in-flight bubbles so only one bubble is shown.
+
+#### Documentation Locations
+
+- React hooks lifecycle reminders (effects + cleanup): https://react.dev/learn
+- Jest/RTL patterns for hook-driven UI tests: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the duplicate-bubble behavior in a client test:
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Test requirements:
+     - Simulate an in-flight user + assistant bubble.
+     - Hydrate with turns that represent the same request (same role/content/createdAt time window).
+     - Assert only one user bubble and one assistant bubble remain after hydration.
+
+2. [ ] Implement dedupe logic for hydration vs in-flight bubbles:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Use stable matching to treat persisted turns as the same bubble as the in-flight message (e.g., by role + content + createdAt proximity, or by explicitly carrying a client message id through to persistence).
+     - Ensure dedupe works for both user and assistant bubbles.
+     - Preserve current behavior for unrelated historical turns.
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Requirements:
+     - The new test must fail before the fix and pass after.
+     - Include an assertion that the transcript does not show duplicates after hydration completes.
+
+4. [ ] Documentation update (if the dedupe approach is user-visible or architecture-relevant):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a short note describing how in-flight bubbles are reconciled with persisted turns.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+5. [ ] Run lint/format for the client workspace after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+
+2. [ ] Playwright MCP manual verification (repeat the exact steps that showed duplicates):
+   - Send a prompt and observe the streaming assistant bubble.
+   - Wait for history hydration to complete.
+   - Confirm only one user bubble and one assistant bubble remain (no duplicate content).
+
+#### Implementation notes
+
+- (fill after implementation)

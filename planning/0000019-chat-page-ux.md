@@ -3759,7 +3759,7 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
 
 ### 14. Treat transient Codex reconnects as warnings (no failed turns)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

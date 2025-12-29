@@ -3857,6 +3857,180 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 ---
 
+### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+When a tab is backgrounded, it can miss streamed events and local optimistic updates. Without cross-tab broadcasting, the simplest recovery is to refresh snapshots when the tab becomes active again and when the WebSocket reconnects. This task adds those refresh triggers and ensures the existing merge/dedupe logic preserves in-flight content.
+
+#### Documentation Locations
+
+- Browser focus/visibility events (client): https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
+- WebSocket reconnect patterns (client): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React effect cleanup (client): https://react.dev/learn/synchronizing-with-effects
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce the missing-history-on-tab-switch in a client test:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useChatWs.ts`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/chatPage.focusRefresh.test.tsx`)
+   - Test requirements:
+     - Simulate an in-flight assistant bubble in tab A.
+     - Simulate tab A going `hidden` + tab B completing the run (via a history refresh in tab A).
+     - Assert that a focus/visibility change triggers a refresh and the transcript matches the persisted turns (no missing messages).
+
+2. [ ] Implement focus/visibility refresh for the active conversation + sidebar:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useConversationList.ts` (if the sidebar refresh lives here)
+   - Requirements:
+     - On `visibilitychange` to `visible` (and/or `window.focus`), call `refresh()` for the active conversation turns and the conversation list snapshot.
+     - Reuse existing merge/dedupe logic so refreshed data never clears in-flight content.
+     - Ensure these listeners are cleaned up on unmount.
+
+3. [ ] Refresh on WebSocket reconnect (no cross-tab broadcast):
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - When the WS reconnects, re-fetch the conversation list snapshot and the active conversation turns.
+     - Ensure reconnect refresh does not cause duplicate bubbles (reuse existing dedupe logic).
+
+4. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Assert that a focus/visibility change (and WS reconnect) triggers refresh without losing the in-flight transcript.
+
+5. [ ] Documentation update (if the refresh behavior is user-visible or architecture-relevant):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that the client refreshes the transcript + sidebar snapshot on tab focus/visibility + WS reconnect.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+6. [ ] Run lint/format for the client workspace after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace client`
+
+2. [ ] Playwright MCP manual verification (repeat the exact steps that showed the gap):
+   - Start a new chat in Tab A and send a prompt.
+   - Switch to Tab B (same conversation), wait for the assistant response to complete.
+   - Switch back to Tab A and confirm the full transcript appears without manual refresh (no missing user/assistant bubbles).
+   - Visit `/logs` and confirm refresh-related log entries (if added) and that the transcript is complete.
+
+#### Implementation notes
+
+- (fill after implementation)
+
+---
+
+### 17. Include in-memory inflight state in conversation snapshot refresh
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Refreshing the conversation turns currently returns only persisted Mongo data, which means mid-stream assistant text can be missing until the run completes. This task extends the server snapshot mechanism to include in-memory inflight state and updates the client refresh to merge it, so tab switching or reconnects show partial assistant content immediately.
+
+#### Documentation Locations
+
+- Express response shaping (server): https://expressjs.com/en/api.html#res.json
+- WebSocket vs REST snapshot semantics (project): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Jest test patterns (server + client): Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add a server test for inflight-aware turns snapshot:
+   - Files to read:
+     - `server/src/routes/conversations.ts`
+     - `server/src/chat/inflightRegistry.ts`
+   - Files to edit:
+     - `server/src/test/integration/conversations.turns.test.ts` (or new test file)
+   - Test requirements:
+     - Create an inflight run, append assistant/tool deltas in memory.
+     - Call the turns endpoint with the new snapshot behavior (e.g., `includeInflight=true`).
+     - Assert the response includes an `inflight` block with `assistantText`, `assistantThink`, `toolEvents`, and `inflightId`.
+
+2. [ ] Extend the turns snapshot response to include inflight state:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/routes/conversationsValidators.ts` (if a query param is introduced)
+   - Requirements:
+     - Decide and implement the response shape (e.g., `GET /conversations/:id/turns?includeInflight=true` adds an `inflight` field).
+     - Ensure the inflight data is only added when a run is active for the conversation.
+     - Keep existing response shape stable for callers that do not request inflight data.
+
+3. [ ] Update the client refresh to request and merge inflight state:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Request the inflight-aware snapshot on refresh/focus/reconnect.
+     - Merge inflight assistant/tool state with the existing in-flight transcript without duplicating bubbles.
+     - Preserve existing dedupe behavior for persisted turns.
+
+4. [ ] Update/extend tests to assert inflight snapshot merge:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/useConversationTurns.inflightSnapshot.test.tsx`)
+   - Requirements:
+     - Simulate a refresh response that includes inflight partial content.
+     - Assert the UI shows the partial assistant text immediately and continues streaming without resets.
+
+5. [ ] Documentation update (if the snapshot response shape changes):
+   - Files to edit:
+     - `design.md`
+     - `openapi.json` (if the REST response shape changes)
+   - Requirements:
+     - Document the inflight snapshot response and when it is returned.
+     - If no updates are needed, mark this subtask as “no changes required”.
+
+6. [ ] Run lint/format for server + client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace server`
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace server`
+     - `npm run format:check --workspace client`
+
+#### Testing
+
+1. [ ] `npm run test --workspace server`
+
+2. [ ] `npm run test --workspace client`
+
+3. [ ] Playwright MCP manual verification:
+   - Start a Codex or LM Studio run and wait for streaming to begin.
+   - Reload the page or switch tabs mid-stream to trigger a snapshot refresh.
+   - Confirm the partial assistant text/tool progress appears immediately (no empty transcript), and streaming continues.
+   - Capture screenshots for the plan archive showing the mid-stream refresh and final completion.
+
+#### Implementation notes
+
+- (fill after implementation)
+
+---
+
 ### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
 
 - Task Status: **__to_do__**

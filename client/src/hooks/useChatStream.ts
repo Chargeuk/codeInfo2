@@ -78,6 +78,16 @@ const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';
 const DEFAULT_NETWORK_ACCESS_ENABLED = true;
 const DEFAULT_WEB_SEARCH_ENABLED = true;
 const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
+const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+
+const normalizeMessageContent = (value: string) =>
+  value.trim().replace(/\s+/g, ' ');
+
+const parseTimestamp = (value?: string) => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const makeId = () =>
   crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -486,10 +496,55 @@ export function useChatStream(
           status === 'sending' ||
           inflightIdRef.current !== null ||
           prev.some((message) => message.streamStatus === 'processing');
+        let filteredHistory = history;
+        let nextPrev = prev;
+        if (hasInFlight && history.length > 0 && prev.length > 0) {
+          const candidates = prev.slice(-6);
+          const replacements = new Map<string, ChatMessage>();
+          filteredHistory = history.filter((entry) => {
+            const match = candidates.find((existing) => {
+              if (existing.role !== entry.role) return false;
+              const entryContent = normalizeMessageContent(entry.content ?? '');
+              const existingContent = normalizeMessageContent(
+                existing.content ?? '',
+              );
+              if (!entryContent && !existingContent) return false;
+              const entryTime = parseTimestamp(entry.createdAt);
+              const existingTime = parseTimestamp(existing.createdAt);
+              const withinWindow =
+                entryTime !== null &&
+                existingTime !== null &&
+                Math.abs(entryTime - existingTime) <=
+                  HYDRATION_DEDUPE_WINDOW_MS;
+              if (entryContent === existingContent) {
+                return withinWindow || existing.streamStatus === 'processing';
+              }
+              if (
+                existing.streamStatus === 'processing' &&
+                entryContent.startsWith(existingContent)
+              ) {
+                return true;
+              }
+              return false;
+            });
+            if (!match) return true;
+            if (match.streamStatus === 'processing') {
+              return false;
+            }
+            replacements.set(match.id, { ...match, ...entry, id: match.id });
+            return false;
+          });
+          if (replacements.size > 0) {
+            nextPrev = prev.map((message) => {
+              const replacement = replacements.get(message.id);
+              return replacement ?? message;
+            });
+          }
+        }
         const next =
           mode === 'prepend' || hasInFlight
-            ? [...history, ...prev]
-            : [...history];
+            ? [...filteredHistory, ...nextPrev]
+            : [...filteredHistory];
         const seen = new Set<string>();
         return next.filter((msg) => {
           const key = msg.id;

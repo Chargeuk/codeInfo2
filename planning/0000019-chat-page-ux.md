@@ -3604,8 +3604,8 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 ### 12. Prevent empty history hydration from clearing in-flight transcript
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **e58728e**
 
 #### Overview
 
@@ -3619,7 +3619,7 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
 
 #### Subtasks
 
-1. [ ] Reproduce the hydration overwrite in a client test:
+1. [x] Reproduce the hydration overwrite in a client test:
    - Files to read:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -3631,7 +3631,7 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
      - Simulate a late/empty history response (`GET /conversations/:id/turns` returns no items).
      - Assert the streamed response remains visible after hydration.
 
-2. [ ] Update hydration merge logic to preserve in-flight transcript:
+2. [x] Update hydration merge logic to preserve in-flight transcript:
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -3640,34 +3640,38 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
      - If the snapshot is empty and a stream is active, retain the streamed transcript.
      - Keep existing behavior for normal (non-empty) snapshots.
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
    - Requirements:
      - The new test must fail before the fix and pass after.
      - Include an assertion that the transcript remains visible without refresh.
 
-4. [ ] Documentation update (if the hydration merge behavior is user-visible or architecture-relevant):
+4. [x] Documentation update (if the hydration merge behavior is user-visible or architecture-relevant):
    - Files to edit:
      - `design.md`
    - Requirements:
      - Add a short note that hydration merges into in-flight UI without clearing streamed content.
      - If no updates are needed, mark this subtask as “no changes required”.
 
-5. [ ] Run lint/format for the client workspace after code/test changes:
+5. [x] Run lint/format for the client workspace after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [x] `npm run test --workspace client`
 
-2. [ ] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
+2. [x] Playwright MCP manual verification (repeat the exact steps that previously proved the issue):
    - Start a new chat and wait for the response without refreshing; the transcript must appear immediately.
    - Verify the response remains visible after any history refresh/hydration (no blank transcript).
    - Check `/logs` to confirm the streaming events are received and no “hydrate replaced transcript” regression is observed.
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-29: Added a chat streaming test that emits WS text then triggers a turns hydration returning an empty page; the test asserts the assistant text remains visible.
+- 2025-12-29: Hydration now merges persisted turns into the current transcript when an in-flight run exists, preventing replace-mode fetches (empty or partial) from clearing streaming content.
+- 2025-12-29: Documented the hydration merge behavior in `design.md`.
+- 2025-12-29: Ran `npm run lint --workspace client`, `npm run format --workspace client`, `npm run format:check --workspace client`, and `npm run test --workspace client`.
+- 2025-12-29: Playwright MCP check (Compose rebuild): sent a new LM Studio message, observed streamed assistant output remain visible after the turns hydration (`count: 1`) and subsequent live updates; `/logs` confirms `chat.ws.client_delta_received` entries for the same conversation.

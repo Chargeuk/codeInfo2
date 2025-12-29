@@ -3526,8 +3526,8 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 ### 11. Fix WS sequence gating to accept new in-flight runs
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **ca9c8a6**
 
 #### Overview
 

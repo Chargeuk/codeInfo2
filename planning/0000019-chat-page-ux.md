@@ -3902,11 +3902,21 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Playwright MCP manual verification (repeat the exact steps that showed the failure):
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (repeat the exact steps that showed the failure + regressions):
    - Trigger a Codex run that emits “Reconnecting... n/m”.
      - Docker option (deterministic):
        - Start a Codex run and wait for streaming to begin in the UI.
@@ -3916,7 +3926,10 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
        - Confirm Codex emits the transient reconnect message while the run continues.
    - Confirm the UI shows a warning (not a failure) and continues streaming.
    - Confirm the final response renders without refresh and is marked complete.
+   - Regression: sidebar updates still stream (new conversation appears without refresh).
    - Capture screenshots of the warning and the final completed bubble for the plan archive.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -4036,14 +4049,27 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Playwright MCP manual verification:
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
    - Trigger a Codex run that emits multiple reasoning items (or a reset).
    - Confirm the “Thought process” shows full reasoning with no missing prefix.
+   - Regression: normal assistant streaming still renders without refresh.
    - Capture a screenshot of the expanded reasoning block for the plan archive.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -4172,13 +4198,28 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] Playwright MCP manual verification (repeat the exact steps that showed the gap):
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (repeat the exact steps that showed the gap + regressions):
    - Start a new chat in Tab A and send a prompt.
    - Switch to Tab B (same conversation), wait for the assistant response to complete.
    - Switch back to Tab A and confirm the full transcript appears without manual refresh (no missing user/assistant bubbles).
+   - Regression: new conversation appears in sidebar without refresh.
    - Visit `/logs` and confirm refresh-related log entries (if added) and that the transcript is complete.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -4304,15 +4345,28 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Playwright MCP manual verification:
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
    - Start a Codex or LM Studio run and wait for streaming to begin.
    - Reload the page or switch tabs mid-stream to trigger a snapshot refresh.
    - Confirm the partial assistant text/tool progress appears immediately (no empty transcript), and streaming continues.
+   - Regression: no duplicate bubbles after hydration.
    - Capture screenshots for the plan archive showing the mid-stream refresh and final completion.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -4429,15 +4483,28 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 #### Testing
 
-1. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] Playwright MCP manual verification:
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
    - Open two browser tabs on the same conversation.
    - Send a user prompt in Tab A and confirm the user bubble appears in Tab B immediately (no refresh).
    - Confirm Tab A shows only one user bubble (no duplicates).
+   - Regression: assistant streaming still renders without refresh.
    - Capture screenshots in `test-results/screenshots/` for the plan archive.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

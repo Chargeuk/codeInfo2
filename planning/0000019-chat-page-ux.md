@@ -5010,3 +5010,98 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 #### Implementation notes
 
 - (fill after implementation)
+
+---
+
+### 22. Remove Codex MCP info banner from Chat page
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The Chat page currently shows an informational banner: “Codex chats are enabled with MCP tools. Threads reuse returned thread IDs so conversations can continue across turns.” This banner is no longer needed and should be removed.
+
+#### Documentation Locations
+
+- MUI Alert component: https://mui.com/material-ui/react-alert/
+- React component updates (conditional rendering): https://react.dev/learn/conditional-rendering
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add a test covering the removal of the banner:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/chatPage.banners.test.tsx`)
+   - Test requirements:
+     - Assert that `data-testid="codex-ready-banner"` is not rendered.
+     - Ensure other Codex banners (unavailable/tools missing) still render when applicable.
+   - Docs (repeat):
+     - https://react.dev/learn/conditional-rendering
+     - Context7 `/jestjs/jest`
+
+2. [ ] Remove the banner UI from ChatPage:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Remove the Codex “ready” banner block (`data-testid="codex-ready-banner"`).
+     - Keep other Codex warnings intact.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-alert/
+     - https://react.dev/learn/conditional-rendering
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or banner test)
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Confirm absence of the ready banner without impacting other banners.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+4. [ ] Documentation update (if banner changes are user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that the Codex “ready” banner has been removed.
+     - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-alert/
+
+5. [ ] Run lint/format for client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Load the Chat page with Codex selected.
+   - Confirm the “Codex chats are enabled…” banner is no longer visible.
+   - Ensure other banners (unavailable/tools missing) still appear when triggered.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill after implementation)

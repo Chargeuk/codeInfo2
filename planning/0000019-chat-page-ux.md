@@ -4105,7 +4105,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **62efeef36556b360ecf9e47674ce354390f4e5e3**
 
 #### Overview
 

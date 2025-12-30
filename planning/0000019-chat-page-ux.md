@@ -4672,8 +4672,25 @@ The chat transcript can expand horizontally when citations, tool details, or cod
    - Docs (repeat):
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+ 
+4. [ ] Add corner-case wrap tests for tool payloads + markdown code blocks:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/components/Markdown.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (or extend existing layout test)
+   - Test requirements:
+     - Render a tool payload with a very long JSON key/value (no spaces) and assert it does not force horizontal expansion.
+     - Render a markdown code block with a long unbroken token and assert it scrolls/wraps within the bubble.
+   - Reference snippets (repeat):
+     - Tool payload selector: `data-testid="tool-payload"`.
+     - Markdown code block selector: `data-testid="assistant-markdown"` and `pre` element.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+     - https://mui.com/material-ui/react-box/
+     - Context7 `/jestjs/jest`
 
-4. [ ] Documentation update (if layout behavior changes are user-visible):
+5. [ ] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4685,7 +4702,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
      - https://mui.com/material-ui/react-box/
 
-5. [ ] Run lint/format for client after code/test changes:
+6. [ ] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -4768,7 +4785,26 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-2. [ ] Update the chat layout containers to enforce left sidebar + fluid content:
+2. [ ] Add responsive layout tests (xs column + md row):
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Test requirements:
+     - Simulate a small viewport (`xs`) and assert sidebar + transcript stack vertically (no horizontal overflow).
+     - Simulate a medium viewport (`md`) and assert sidebar sits left with fixed width and transcript fills the rest.
+   - Reference snippets (repeat):
+     - Resize helper:
+       ```ts
+       window.innerWidth = 375;
+       window.dispatchEvent(new Event('resize'));
+       ```
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - https://mui.com/material-ui/react-box/
+     - Context7 `/jestjs/jest`
+
+3. [ ] Update the chat layout containers to enforce left sidebar + fluid content:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -4790,7 +4826,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://mui.com/material-ui/react-box/
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-3. [ ] Update/extend tests to assert the fix:
+4. [ ] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -4802,7 +4838,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-4. [ ] Documentation update (if layout behavior changes are user-visible):
+5. [ ] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4814,7 +4850,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - https://mui.com/material-ui/react-box/
 
-5. [ ] Run lint/format for client after code/test changes:
+6. [ ] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`

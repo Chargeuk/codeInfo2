@@ -5784,3 +5784,113 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
 - Manual check: inserted a conversation with same-`createdAt` user/assistant turns and captured `planning/0000019-screenshots/0000019-26-same-timestamp-ordering.png` from `http://host.docker.internal:5001/chat` confirming the assistant bubble stays ordered above the user bubble.
 - Testing: `npm run compose:down`.
 - Adjusted the e2e per-file progress polling timeout in `e2e/ingest.spec.ts` to reduce flakiness when the ingest loop stays on the first file longer than expected.
+
+---
+
+### 27. Reset assistant bubble on cross-tab runs + add diagnostics (and dual-window e2e)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+When a second browser window receives a new `user_turn` event, the client reuses the prior assistant bubble instead of creating a new one. Reset the assistant pointer when the `inflightId` changes on a WS `user_turn`, add client log events to diagnose future cross-tab ordering issues, and add an e2e test that runs two browser windows side by side to reproduce the original bug.
+
+#### Documentation Locations
+
+- MUI (for any UI logging chips if needed): https://mui.com/material-ui/react-chip/
+- WebSocket handling patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright multi-page contexts: https://playwright.dev/docs/pages
+- Playwright test runner: Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Locate assistant pointer reuse and WS `user_turn` flow:
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Find `activeAssistantMessageIdRef` usage and `ensureAssistantMessage()`.
+     - Find the `handleWsEvent` path for `user_turn`.
+   - Code anchors (where to look first):
+     - `handleWsEvent` in `client/src/hooks/useChatStream.ts` (user_turn branch).
+     - `activeAssistantMessageIdRef` reset in `resetInflightState`.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+
+2. [ ] Reset assistant pointer on cross-tab runs:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - On `user_turn`, if `event.inflightId !== inflightIdRef.current`, clear `activeAssistantMessageIdRef` and related assistant buffers before `ensureAssistantMessage()`.
+     - This must only affect WS-driven runs (not local send) and must not clear the current assistant bubble when the inflightId matches.
+   - Reference snippets (repeat):
+     - `if (event.inflightId !== inflightIdRef.current) { resetAssistantPointer(); }`
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+
+3. [ ] Add client logging for cross-tab run transitions:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/logging/logger.ts` (or existing log helper)
+   - Requirements:
+     - Emit a log on every `user_turn` that includes `{ conversationId, inflightId, prevInflightId, assistantMessageIdBefore, assistantMessageIdAfter }`.
+     - Emit a log when a WS `user_turn` triggers a reset of `activeAssistantMessageIdRef`.
+     - Ensure logs are forwarded to the server (consistent with existing `chat.ws.client_*` logging).
+   - Code anchors (where to look first):
+     - `logWithChannel(...)` in `useChatStream.ts`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+4. [ ] Add client tests for pointer reset:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Test requirements:
+     - Simulate two WS runs (two `user_turn` + `turn_final` sequences) without calling `send()`.
+     - Assert the second run renders a new assistant bubble instead of overwriting the first.
+     - Assert the reset log event is emitted when `inflightId` changes.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+5. [ ] Add e2e test with two browser windows:
+   - Files to edit:
+     - `e2e/chat-multiwindow.spec.ts` (new)
+   - Test requirements:
+     - Open two pages in the same Playwright context (side-by-side sizes).
+     - Start a Codex run in page A, switch to page B and observe the response.
+     - Send a follow-up in page A and assert page B shows a new assistant response (not replacing the first).
+     - Ensure both pages render the same transcript order after refresh.
+   - Docs (repeat):
+     - https://playwright.dev/docs/pages
+     - Context7 `/microsoft/playwright`
+
+6. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note the WS `user_turn` inflightId reset and diagnostic log events for cross-tab runs.
+
+7. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Open two browser windows and reproduce the original scenario.
+   - Confirm the second run creates a new assistant bubble in the passive window.
+   - Validate the new client log entries appear in the server logs.
+   - Capture a screenshot showing both windows after the second response.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._

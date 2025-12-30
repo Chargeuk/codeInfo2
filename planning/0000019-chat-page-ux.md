@@ -5357,6 +5357,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - Render the Chat page and assert the root container does **not** apply a centered max-width constraint.
      - Assert that horizontal padding (gutters) remain in effect (e.g., compare container left padding > 0).
      - Ensure the conversation list is aligned to the left edge within the gutters and the chat column can expand to the remaining width.
+     - Assert the App container still uses gutters on a non-chat route (e.g., `/` HomePage) to avoid global layout regressions.
    - Reference snippets (repeat):
      - `maxWidth={false}` keeps container full-width.
      - `disableGutters={false}` (default) keeps gutters.
@@ -5394,6 +5395,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
    - Test requirements:
      - Simulate a narrow viewport and confirm the conversation list still occupies full width on small screens.
      - Confirm gutters are still present (padding not zero).
+     - Confirm the chat column does not overflow horizontally when long content is rendered (word-wrap stays within available width).
    - Docs (repeat):
      - https://mui.com/material-ui/react-container/
      - Context7 `/jestjs/jest`

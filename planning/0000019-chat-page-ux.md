@@ -4967,7 +4967,21 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-4. [ ] Documentation update (if height behavior changes are user-visible):
+4. [ ] Add corner-case height tests (small viewport + tall controls):
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (or height test)
+   - Test requirements:
+     - Simulate a short viewport height and ensure transcript still renders with `minHeight: 0` and `overflowY: auto`.
+     - Simulate a state where the Codex flags panel is expanded (taller controls) and assert transcript still takes remaining space (no negative height).
+   - Reference snippets (repeat):
+     - `sx={{ minHeight: 0, overflowY: 'auto' }}` on the transcript container.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - Context7 `/jestjs/jest`
+
+5. [ ] Documentation update (if height behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4976,7 +4990,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-5. [ ] Run lint/format for client after code/test changes:
+7. [ ] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5176,7 +5190,20 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if behavior change is user-visible):
+5. [ ] Add corner-case tests for provider switching:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.test.tsx`
+   - Test requirements:
+     - Switch from Codex to another provider and back.
+     - Assert the Codex Flags panel reverts to collapsed by default after switching back.
+   - Docs (repeat):
+     - https://react.dev/learn/conditional-rendering
+     - Context7 `/jestjs/jest`
+
+
+6. [ ] Documentation update (if behavior change is user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5185,7 +5212,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Docs (repeat):
      - https://mui.com/material-ui/react-accordion/
 
-6. [ ] Run lint/format for client after code/test changes:
+7. [ ] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`

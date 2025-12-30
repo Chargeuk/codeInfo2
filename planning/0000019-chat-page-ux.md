@@ -4591,7 +4591,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 ### 19. Prevent transcript width expansion (wrap citations/tool/markdown content)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -4608,7 +4608,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 
 #### Subtasks
 
-1. [ ] Reproduce width expansion in a client test:
+1. [x] Reproduce width expansion in a client test:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
@@ -4634,7 +4634,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-2. [ ] Apply wrapping + min-width fixes to transcript layout:
+2. [x] Apply wrapping + min-width fixes to transcript layout:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
@@ -4661,7 +4661,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - https://mui.com/material-ui/react-box/
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or new layout test)
    - Requirements:
@@ -4673,7 +4673,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
  
-4. [ ] Add corner-case wrap tests for tool payloads + markdown code blocks:
+4. [x] Add corner-case wrap tests for tool payloads + markdown code blocks:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
@@ -4690,7 +4690,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if layout behavior changes are user-visible):
+5. [x] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4702,7 +4702,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
      - https://mui.com/material-ui/react-box/
 
-6. [ ] Run lint/format for client after code/test changes:
+6. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -4712,31 +4712,45 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open a conversation with citations; expand citations.
    - Confirm the chat column does not resize horizontally.
    - Regression: tool details + markdown code blocks wrap/scroll within the chat bubble.
    - Capture a screenshot showing wrapped citation content.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- Added failing regression coverage in `client/src/test/chatPage.layoutWrap.test.tsx` that simulates horizontal overflow when citation/tool/markdown elements lack wrapping/containment styles.
+- Confirmed the failure mode in Jest: `chatPage.layoutWrap.test.tsx` currently fails with `scrollWidth` > `clientWidth` (synthetic width mock), proving the issue is reproducible in tests before the CSS/layout fix.
+- Updated `client/src/pages/ChatPage.tsx` to set `minWidth: 0` on the chat column flex item, prevent horizontal overflow on the transcript container, and force citation/tool payload text to break long tokens (`overflowWrap: 'anywhere'`, `wordBreak: 'break-word'`).
+- Updated `client/src/components/Markdown.tsx` to be flex-safe (`minWidth: 0`) and to constrain wide markdown constructs (code blocks already scroll with `overflowX: auto`; tables/images now cap to `maxWidth: 100%`).
+- Updated `design.md` to document the transcript overflow guardrails (minWidth fix + wrap/scroll behavior) as a stable UI guarantee.
+- Verified `npm run lint --workspace client` and `npm run format:check --workspace client` pass (used Prettier write to fix formatting in `client/src/test/chatPage.layoutWrap.test.tsx`).
+- Testing progress: `npm run build --workspace server` passed.
+- Testing progress: `npm run build --workspace client` passed.
+- Testing progress: `npm run test --workspace server` passed.
+- Testing progress: `npm run test --workspace client` passed.
+- Testing progress: `npm run e2e` passed.
+- Testing progress: `npm run compose:build` passed.
+- Testing progress: `npm run compose:up` passed.
+- Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` passed (no horizontal overflow after expanding citations/tool details) and saved screenshot to `test-results/screenshots/0000019-19-wrapped-citation.png`.
+- Testing progress: `npm run compose:down` passed.
 
 ---
 

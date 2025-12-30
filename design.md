@@ -212,6 +212,7 @@ flowchart LR
 - `tool_event` completions from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
 - Citations attach to the in-flight assistant bubble inside a default-closed “Citations” accordion; expanding reveals the `repo/relPath` + host path (when available). The path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path inside the expanded panel to make grounding explicit without waiting for the model to quote it verbatim.
+- Transcript overflow guardrails: the chat column sets `minWidth: 0` (flexbox shrink fix) and citation/tool/markdown content uses token-breaking (`overflowWrap: 'anywhere'`) or internal scrolling (`pre { overflowX: auto }`) so long unbroken strings do not expand the layout horizontally.
 
 ### Chat tool detail UI
 

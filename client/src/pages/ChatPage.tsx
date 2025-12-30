@@ -895,7 +895,15 @@ export default function ChatPage() {
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ wordBreak: 'break-word' }}
+            style={{
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
             data-testid="tool-payload"
           >
             {JSON.stringify(tool.payload)}
@@ -951,7 +959,7 @@ export default function ChatPage() {
             />
           </Box>
 
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }} data-testid="chat-column">
             <Stack spacing={2}>
               {isLoading && (
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1206,7 +1214,13 @@ export default function ChatPage() {
                     ref={transcriptRef}
                     onScroll={handleTranscriptScroll}
                     data-testid="chat-transcript"
-                    sx={{ maxHeight: 640, overflowY: 'auto', pr: 1 }}
+                    sx={{
+                      maxHeight: 640,
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      pr: 1,
+                      minWidth: 0,
+                    }}
                   >
                     <Stack spacing={1} sx={{ minHeight: 280 }}>
                       {turnsLoading && (
@@ -1561,8 +1575,14 @@ export default function ChatPage() {
                                                 <Typography
                                                   variant="body2"
                                                   color="text.primary"
+                                                  style={{
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                  }}
                                                   sx={{
                                                     whiteSpace: 'pre-wrap',
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
                                                   }}
                                                   data-testid="citation-chunk"
                                                 >

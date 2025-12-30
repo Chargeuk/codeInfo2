@@ -9,6 +9,7 @@ import {
   bumpSeq,
   cleanupInflight,
   createInflight,
+  markInflightPersisted,
   markInflightFinal,
 } from '../../chat/inflightRegistry.js';
 import type { TurnSummary } from '../../mongo/repo.js';
@@ -26,6 +27,7 @@ const appWith = (
 test('lists turns newest-first and returns nextCursor when full', async () => {
   const turns: TurnSummary[] = [
     {
+      turnId: 't2',
       conversationId: 'c1',
       role: 'assistant',
       content: 'hi',
@@ -37,6 +39,7 @@ test('lists turns newest-first and returns nextCursor when full', async () => {
       createdAt: new Date('2025-01-01T10:00:00Z'),
     },
     {
+      turnId: 't1',
       conversationId: 'c1',
       role: 'user',
       content: 'hello',
@@ -59,6 +62,7 @@ test('lists turns newest-first and returns nextCursor when full', async () => {
     .expect(200);
 
   assert.equal(res.body.items[0].content, 'hi');
+  assert.equal(typeof res.body.items[0].turnId, 'string');
   assert.equal(res.body.nextCursor, turns[0].createdAt.toISOString());
 });
 
@@ -183,6 +187,7 @@ test('keeps inflight merged after final until persistence completes, then stops 
 
   const persistedUserOnly: TurnSummary[] = [
     {
+      turnId: 't1',
       conversationId: 'c1',
       role: 'user',
       content: 'hello',
@@ -213,6 +218,7 @@ test('keeps inflight merged after final until persistence completes, then stops 
 
     const persistedBoth: TurnSummary[] = [
       {
+        turnId: 't2',
         conversationId: 'c1',
         role: 'assistant',
         content: 'Hi',
@@ -237,6 +243,167 @@ test('keeps inflight merged after final until persistence completes, then stops 
 
     assert.equal(resAfter.body.items.length, 2);
     assert.equal(resAfter.body.inflight, undefined);
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
+test('orders same-timestamp turns deterministically (assistant before user)', async () => {
+  const shared = new Date('2025-01-01T12:00:00.000Z');
+  const turns: TurnSummary[] = [
+    {
+      turnId: 'ta',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'assistant',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: shared,
+    },
+    {
+      turnId: 'tu',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'user',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: shared,
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      listTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c1/turns')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 2);
+  assert.equal(res.body.items[0].role, 'assistant');
+  assert.equal(res.body.items[1].role, 'user');
+});
+
+test('dedupes inflight merge by turnId even when createdAt differs', async () => {
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'inflight version',
+      createdAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
+    },
+  });
+  markInflightPersisted({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    role: 'user',
+    turnId: 't-user',
+  });
+  appendAssistantDelta({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    delta: 'assistant',
+  });
+
+  const persisted: TurnSummary[] = [
+    {
+      turnId: 't-user',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'persisted version',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T02:00:00.000Z'),
+    },
+  ];
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: persisted }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(res.body.items.length, 2);
+    const userTurn = res.body.items.find(
+      (item: { role: string }) => item.role === 'user',
+    );
+    const assistantTurn = res.body.items.find(
+      (item: { role: string }) => item.role === 'assistant',
+    );
+    assert.equal(Boolean(userTurn), true);
+    assert.equal(Boolean(assistantTurn), true);
+    assert.equal((userTurn as { turnId?: string }).turnId, 't-user');
+    assert.equal(
+      (userTurn as { content?: string }).content,
+      'persisted version',
+    );
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
+test('fallback dedupe does not drop distinct turns when turnId is missing', async () => {
+  const createdAt = new Date('2025-01-01T00:00:00.000Z');
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'inflight',
+      createdAt: createdAt.toISOString(),
+    },
+  });
+
+  const persisted: TurnSummary[] = [
+    {
+      turnId: 't-user',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'persisted',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt,
+    },
+  ];
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: persisted }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(res.body.items.length, 2);
+    const contents = res.body.items.map(
+      (item: { content: string }) => item.content,
+    );
+    assert.equal(contents.includes('persisted'), true);
+    assert.equal(contents.includes('inflight'), true);
   } finally {
     cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
   }

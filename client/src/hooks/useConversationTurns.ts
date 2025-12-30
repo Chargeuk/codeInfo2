@@ -6,6 +6,7 @@ const serverBase =
   'http://localhost:5010';
 
 export type StoredTurn = {
+  turnId?: string;
   conversationId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -88,10 +89,41 @@ export function useConversationTurns(
   const dedupeTurns = useCallback((items: StoredTurn[]) => {
     const seen = new Set<string>();
     return items.filter((turn) => {
-      const key = `${turn.createdAt}-${turn.role}-${turn.provider}-${turn.model}`;
+      const key = turn.turnId
+        ? `turnId:${turn.turnId}`
+        : `${turn.createdAt}-${turn.role}-${turn.provider}-${turn.model}-${turn.content}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
+    });
+  }, []);
+
+  const sortChronological = useCallback((items: StoredTurn[]) => {
+    const rolePriority = (role: StoredTurn['role']) => {
+      if (role === 'system') return 0;
+      if (role === 'user') return 1;
+      return 2;
+    };
+
+    return items.slice().sort((a, b) => {
+      const aTime = Date.parse(a.createdAt);
+      const bTime = Date.parse(b.createdAt);
+      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) {
+        return aTime - bTime;
+      }
+
+      const roleDelta = rolePriority(a.role) - rolePriority(b.role);
+      if (roleDelta !== 0) return roleDelta;
+
+      if (a.turnId && b.turnId && a.turnId !== b.turnId) {
+        return a.turnId.localeCompare(b.turnId);
+      }
+      if (a.turnId && !b.turnId) return -1;
+      if (!a.turnId && b.turnId) return 1;
+
+      const aKey = `${a.role}|${a.provider}|${a.model}|${a.content}`;
+      const bKey = `${b.role}|${b.provider}|${b.model}|${b.content}`;
+      return aKey.localeCompare(bKey);
     });
   }, []);
 
@@ -147,7 +179,7 @@ export function useConversationTurns(
         }
         const data = (await res.json()) as ApiResponse;
         const items = Array.isArray(data.items) ? data.items : [];
-        const chronological = items.slice().reverse();
+        const chronological = sortChronological(items.slice().reverse());
         setLastPage(chronological);
         setLastMode(mode);
         if (mode === 'replace') {
@@ -186,7 +218,7 @@ export function useConversationTurns(
         setIsLoading(false);
       }
     },
-    [conversationId, dedupeTurns],
+    [conversationId, dedupeTurns, sortChronological],
   );
 
   useEffect(() => {

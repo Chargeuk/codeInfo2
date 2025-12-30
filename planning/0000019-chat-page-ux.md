@@ -5646,7 +5646,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
 
 ### 26. Snapshot hardening: stable turn IDs + deterministic merge ordering
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -5663,7 +5663,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
 
 #### Subtasks
 
-1. [ ] Add stable turn IDs to snapshot responses:
+1. [x] Add stable turn IDs to snapshot responses:
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
@@ -5678,7 +5678,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - https://mongoosejs.com/docs/documents.html
 
-2. [ ] Update snapshot merge/dedupe to prefer turnId:
+2. [x] Update snapshot merge/dedupe to prefer turnId:
    - Files to edit:
      - `server/src/chat/memoryPersistence.ts`
      - `server/src/routes/conversations.ts`
@@ -5690,7 +5690,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - https://mongoosejs.com/docs/documents.html
 
-3. [ ] Enforce deterministic ordering in snapshot responses:
+3. [x] Enforce deterministic ordering in snapshot responses:
    - Files to edit:
      - `server/src/routes/conversations.ts`
    - Requirements:
@@ -5701,7 +5701,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - https://expressjs.com/en/guide/routing.html
 
-4. [ ] Server tests for ID + ordering guarantees:
+4. [x] Server tests for ID + ordering guarantees:
    - Files to edit:
      - `server/src/test/integration/conversations.turns.test.ts`
    - Test requirements:
@@ -5714,7 +5714,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Client tests for stable ordering (snapshot consumption):
+5. [x] Client tests for stable ordering (snapshot consumption):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
@@ -5725,7 +5725,7 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-6. [ ] Documentation update (if snapshot schema changes):
+6. [x] Documentation update (if snapshot schema changes):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5735,33 +5735,52 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Docs (repeat):
      - https://expressjs.com/en/guide/routing.html
 
-7. [ ] Run lint/format after server/client changes:
+7. [x] Run lint/format after server/client changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Reproduce same‑timestamp turns in a mocked run; confirm stable ordering in UI.
    - Capture a screenshot demonstrating correct ordering.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Added `turnId` (Mongo `_id` string) to the server-side `TurnSummary` DTO returned by `listTurns`, so snapshot items can be deduped and ordered without relying on timestamps alone.
+- Updated server snapshot merge to dedupe by `turnId` when present, while preserving the existing role/content/createdAt window fallback for inflight turns that do not yet have an id.
+- Extended inflight state to remember persisted `turnId`s for the user/assistant turns so `/conversations/:id/turns` can stop returning duplicates once the DB writes have completed but inflight cleanup hasn’t run yet.
+- Updated `/conversations/:id/turns` to apply a deterministic sort for merged snapshot items: `createdAt` (newest-first), then role priority (assistant before user on ties so client-side reversal yields user→assistant), then `turnId` (and a final stable hash fallback).
+- Added server integration coverage proving `turnId` is present on persisted snapshot turns, same-timestamp ordering remains deterministic, and inflight merge dedupe prefers `turnId` when available while preserving the content+window fallback for legacy/unknown ids.
+- Updated client snapshot handling to accept an optional `turnId` field and use it for deterministic turn sorting and dedupe (fallback remains stable for legacy payloads).
+- Added client coverage in `client/src/test/chatPage.stream.test.tsx` for same-`createdAt` ordering with and without `turnId`.
+- Updated `design.md` to document the additive `turnId` field on snapshot turns and the deterministic snapshot ordering guarantees.
+- Lint/format: ran `npm run lint --workspaces` and `npm run format:check --workspaces` (applied `npm run format --workspace server -- src/test/integration/conversations.turns.test.ts` to satisfy Prettier).
+- Fixed TypeScript test doubles that override `ChatInterface.persistTurn` / `persistAssistantTurn` to match the updated return types so `npm run build --workspace server` succeeds.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: inserted a conversation with same-`createdAt` user/assistant turns and captured `planning/0000019-screenshots/0000019-26-same-timestamp-ordering.png` from `http://host.docker.internal:5001/chat` confirming the assistant bubble stays ordered above the user bubble.
+- Testing: `npm run compose:down`.
+- Adjusted the e2e per-file progress polling timeout in `e2e/ingest.spec.ts` to reduce flakiness when the ingest loop stays on the first file longer than expected.

@@ -559,7 +559,10 @@ export default function ChatPage() {
       items.map(
         (turn) =>
           ({
-            id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
+            id:
+              typeof turn.turnId === 'string' && turn.turnId.trim().length > 0
+                ? `turn-${turn.turnId}`
+                : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),

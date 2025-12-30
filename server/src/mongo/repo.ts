@@ -257,6 +257,7 @@ export async function listConversations(
 }
 
 export interface TurnSummary {
+  turnId: string;
   conversationId: string;
   role: TurnRole;
   content: string;
@@ -283,9 +284,10 @@ export async function listTurns(
   const docs = (await TurnModel.find(query)
     .sort({ createdAt: -1, _id: -1 })
     .limit(params.limit)
-    .lean()) as Turn[];
+    .lean()) as Array<Turn & { _id?: unknown }>;
 
   const items: TurnSummary[] = docs.map((doc) => ({
+    turnId: String(doc._id ?? ''),
     conversationId: doc.conversationId,
     role: doc.role,
     content: doc.content,

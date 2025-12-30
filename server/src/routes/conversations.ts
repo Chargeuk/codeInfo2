@@ -539,15 +539,52 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
       const inflightTurns = snapshotInflightTurns(parsedParams.data.id);
       const merged = mergeInflightTurns(persistedItems, inflightTurns);
+
+      const rolePriority = (role: string) => {
+        // Turns are returned newest-first. With same timestamps, keep assistant
+        // before its corresponding user so client-side `.reverse()` produces a
+        // chronological transcript with user → assistant ordering.
+        if (role === 'assistant') return 0;
+        if (role === 'user') return 1;
+        return 2;
+      };
+
+      const stableKey = (turn: unknown) => {
+        const rec = (turn ?? {}) as Record<string, unknown>;
+        const content = typeof rec.content === 'string' ? rec.content : '';
+        const provider = typeof rec.provider === 'string' ? rec.provider : '';
+        const model = typeof rec.model === 'string' ? rec.model : '';
+        return crypto
+          .createHash('sha1')
+          .update(`${rec.role ?? ''}|${provider}|${model}|${content}`)
+          .digest('hex');
+      };
+
       const items = merged.slice().sort((a, b) => {
         const timeDelta = b.createdAt.getTime() - a.createdAt.getTime();
         if (timeDelta !== 0) return timeDelta;
-        const rolePriority = (role: string) => {
-          if (role === 'assistant') return 0;
-          if (role === 'user') return 1;
-          return 2;
-        };
-        return rolePriority(a.role) - rolePriority(b.role);
+
+        const roleDelta = rolePriority(a.role) - rolePriority(b.role);
+        if (roleDelta !== 0) return roleDelta;
+
+        const aTurnId =
+          typeof (a as unknown as { turnId?: unknown }).turnId === 'string'
+            ? ((a as unknown as { turnId: string }).turnId as string)
+            : '';
+        const bTurnId =
+          typeof (b as unknown as { turnId?: unknown }).turnId === 'string'
+            ? ((b as unknown as { turnId: string }).turnId as string)
+            : '';
+
+        if (aTurnId && bTurnId && aTurnId !== bTurnId) {
+          return bTurnId.localeCompare(aTurnId);
+        }
+        if (aTurnId && !bTurnId) return -1;
+        if (!aTurnId && bTurnId) return 1;
+
+        const aStable = stableKey(a);
+        const bStable = stableKey(b);
+        return bStable.localeCompare(aStable);
       });
 
       const response: Record<string, unknown> = { items, nextCursor };

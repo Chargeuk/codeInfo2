@@ -542,6 +542,140 @@ describe('Chat WS streaming UI', () => {
     expect(text.indexOf('Assistant B')).toBeLessThan(text.indexOf('User B'));
   });
 
+  it('renders same-createdAt turns deterministically when turnId is present', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+          turnId: 't-user',
+        },
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+          turnId: 't-assistant',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
+
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+  });
+
+  it('renders same-createdAt turns deterministically when turnId is missing (legacy)', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
+
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+  });
+
   it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {
     const userText = 'Hello from sender';
     const harness = setupChatWsHarness({ mockFetch });

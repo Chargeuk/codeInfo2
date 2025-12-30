@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import type { TurnStatus } from '../../mongo/turn.js';
+import type { ChatToolResultEvent } from '../../chat/interfaces/ChatInterface.js';
+import type { AppendTurnInput } from '../../mongo/repo.js';
+import type { TurnSource, TurnStatus } from '../../mongo/turn.js';
 
 class EventChat extends ChatInterface {
   async execute(
@@ -33,7 +35,7 @@ class PersistingChat extends ChatInterface {
   public assistant: {
     content: string;
     status: TurnStatus;
-    toolCalls: unknown[];
+    toolCalls: ChatToolResultEvent[];
   } | null = null;
   public turns: Array<{ role: string; content: string }> = [];
 
@@ -41,29 +43,29 @@ class PersistingChat extends ChatInterface {
     // no-op, subclasses override in tests
   }
 
-  protected override async persistTurn(input: {
-    conversationId: string;
-    role: string;
-    content: string;
-  }): Promise<void> {
+  protected override async persistTurn(
+    input: AppendTurnInput & { source?: TurnSource },
+  ): Promise<{ turnId?: string }> {
     this.turns.push({ role: input.role, content: input.content });
+    return {};
   }
 
   protected override async persistAssistantTurn(params: {
     conversationId: string;
     content: string;
-    status: TurnStatus;
-    toolCalls: unknown[];
-    skipPersistence: boolean;
     model: string;
     provider: string;
-    source: string;
-  }): Promise<void> {
+    source: TurnSource;
+    status: TurnStatus;
+    toolCalls: ChatToolResultEvent[];
+    skipPersistence: boolean;
+  }): Promise<string | undefined> {
     this.assistant = {
       content: params.content,
       status: params.status,
       toolCalls: params.toolCalls,
     };
+    return undefined;
   }
 }
 

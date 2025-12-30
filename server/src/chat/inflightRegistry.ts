@@ -26,6 +26,7 @@ export type InflightState = {
   assistantCreatedAt?: string;
   finalStatus?: 'ok' | 'stopped' | 'failed';
   persisted?: { user: boolean; assistant: boolean };
+  persistedTurnIds?: { user?: string; assistant?: string };
   assistantText: string;
   assistantThink: string;
   toolEvents: ToolEvent[];
@@ -211,6 +212,7 @@ export function markInflightPersisted(params: {
   conversationId: string;
   inflightId: string;
   role: 'user' | 'assistant';
+  turnId?: string;
 }): { ok: true } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
@@ -218,6 +220,12 @@ export function markInflightPersisted(params: {
     state.persisted = { user: false, assistant: false };
   }
   state.persisted[params.role] = true;
+  if (params.turnId) {
+    if (!state.persistedTurnIds) {
+      state.persistedTurnIds = {};
+    }
+    state.persistedTurnIds[params.role] = params.turnId;
+  }
   return { ok: true };
 }
 
@@ -227,6 +235,7 @@ export function isInflightFinalized(conversationId: string): boolean {
 }
 
 export type InflightMergedTurn = {
+  turnId?: string;
   conversationId: string;
   role: 'user' | 'assistant';
   content: string;
@@ -251,6 +260,7 @@ export function snapshotInflightTurns(
 
   if (state.userTurn?.content?.length) {
     items.push({
+      turnId: state.persistedTurnIds?.user,
       conversationId,
       role: 'user',
       content: state.userTurn.content,
@@ -274,6 +284,7 @@ export function snapshotInflightTurns(
 
   if (assistantHasContent || state.finalStatus) {
     items.push({
+      turnId: state.persistedTurnIds?.assistant,
       conversationId,
       role: 'assistant',
       content: assistantContent,
@@ -290,7 +301,7 @@ export function snapshotInflightTurns(
 }
 
 export function mergeInflightTurns<
-  T extends { role: string; content: string; createdAt: Date },
+  T extends { role: string; content: string; createdAt: Date; turnId?: string },
 >(
   persisted: T[],
   inflight: InflightMergedTurn[],
@@ -299,8 +310,12 @@ export function mergeInflightTurns<
   const windowMs = opts?.dedupeWindowMs ?? 10_000;
   const persistedWithInflight: Array<T | InflightMergedTurn> = [...persisted];
 
-  const isDuplicate = (turn: InflightMergedTurn) =>
-    persisted.some((existing) => {
+  const hasTurnIdMatch = (turnId: string) =>
+    persisted.some((existing) => existing.turnId === turnId);
+
+  const isDuplicate = (turn: InflightMergedTurn) => {
+    if (turn.turnId && hasTurnIdMatch(turn.turnId)) return true;
+    return persisted.some((existing) => {
       if (existing.role !== turn.role) return false;
       if (existing.content !== turn.content) return false;
       const delta = Math.abs(
@@ -308,6 +323,7 @@ export function mergeInflightTurns<
       );
       return delta <= windowMs;
     });
+  };
 
   inflight.forEach((turn) => {
     if (!isDuplicate(turn)) {

@@ -5824,6 +5824,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Requirements:
      - On `user_turn`, if `event.inflightId !== inflightIdRef.current`, clear `activeAssistantMessageIdRef` and related assistant buffers before `ensureAssistantMessage()`.
      - This must only affect WS-driven runs (not local send) and must not clear the current assistant bubble when the inflightId matches.
+     - Ensure no reset occurs when `event.inflightId` is undefined or missing (defensive guard).
    - Reference snippets (repeat):
      - `if (event.inflightId !== inflightIdRef.current) { resetAssistantPointer(); }`
    - Docs (repeat):
@@ -5849,6 +5850,8 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Simulate two WS runs (two `user_turn` + `turn_final` sequences) without calling `send()`.
      - Assert the second run renders a new assistant bubble instead of overwriting the first.
      - Assert the reset log event is emitted when `inflightId` changes.
+     - Assert **no reset** occurs when `user_turn` arrives with the same `inflightId`.
+     - Assert **no reset** occurs for local send path (only WS-driven runs).
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5860,6 +5863,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Start a Codex run in page A, switch to page B and observe the response.
      - Send a follow-up in page A and assert page B shows a new assistant response (not replacing the first).
      - Ensure both pages render the same transcript order after refresh.
+     - Add an explicit assertion that the passive page shows two assistant bubbles after the second run.
    - Docs (repeat):
      - https://playwright.dev/docs/pages
      - Context7 `/microsoft/playwright`

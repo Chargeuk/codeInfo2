@@ -5441,3 +5441,110 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 #### Implementation notes
 
 - _Pending._
+
+---
+
+### 25. Always merge inflight data into snapshots until persistence completes
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Snapshot responses must always reflect the complete conversation. The server should keep inflight turn data in memory until persistence succeeds, and merge/dedupe that inflight data into the `/conversations/:id/turns` response (even after `turn_final`) so snapshot refreshes never drop recent assistant turns.
+
+#### Documentation Locations
+
+- Node.js event loop & async lifecycle: https://nodejs.org/en/docs
+- Express response patterns: https://expressjs.com/en/guide/routing.html
+- Mongoose write acknowledgements: https://mongoosejs.com/docs/api/model.html
+- Jest patterns: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Locate inflight lifecycle and snapshot path:
+   - Files to read:
+     - `server/src/routes/conversations.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+     - `server/src/chat/memoryPersistence.ts`
+   - Requirements:
+     - Identify where inflight state is created, updated, and cleared.
+     - Identify where snapshot inflight data is attached in `/conversations/:id/turns`.
+
+2. [ ] Update inflight lifecycle to persist until DB write completes:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+     - `server/src/chat/memoryPersistence.ts`
+   - Requirements:
+     - Do not clear inflight state at `turn_final`.
+     - Only clear inflight state after both the user + assistant turns are confirmed persisted.
+     - Ensure failures that prevent persistence keep inflight available for snapshot until resolved.
+
+3. [ ] Merge inflight into snapshot responses:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/chat/memoryPersistence.ts`
+   - Requirements:
+     - Always append inflight data to `GET /conversations/:id/turns` responses.
+     - Deduplicate against persisted turns by content + role + createdAt window (or similar existing dedupe rules).
+     - Ensure the response is ordered chronologically after merge.
+
+4. [ ] Add server tests for inflight merge behavior:
+   - Files to edit:
+     - `server/src/test/integration/conversations.turns.test.ts`
+     - `server/src/test/support/mockLmStudioSdk.ts`
+   - Test requirements:
+     - Simulate a run that finishes before persistence completes; assert snapshot still includes the assistant turn.
+     - Simulate persistence completion; assert inflight no longer appears but persisted data remains.
+
+5. [ ] Add client regression tests for multi-window snapshot refresh:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/useChatStream.reasoning.test.tsx` (if needed)
+   - Test requirements:
+     - Simulate a snapshot refresh after a follow-up in another tab; assert prior assistant turn is not dropped.
+     - Ensure assistant ordering remains above its user prompt.
+
+6. [ ] Documentation update (if snapshot semantics change):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document that snapshots always include inflight data until persistence completes.
+
+7. [ ] Run lint/format after server/client changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Reproduce the two-window follow-up scenario and verify snapshots keep both assistant responses.
+   - Switch away and back; confirm both responses remain.
+   - Capture screenshots showing consistent ordering across windows.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._

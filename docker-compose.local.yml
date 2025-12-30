@@ -65,6 +65,7 @@ services:
         # These are baked into the Vite bundle at build time; fall back to the local defaults if not provided.
         VITE_API_URL: http://host.docker.internal:5510
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
+        VITE_LOG_FORWARD_ENABLED: true
     image: codeinfo2-client
     ports:
       - '5501:5001'
@@ -73,6 +74,9 @@ services:
     env_file:
       - client/.env
       - client/.env.local
+    environment:
+      - VITE_API_URL=http://host.docker.internal:5510
+      - VITE_LOG_FORWARD_ENABLED=true
     depends_on:
       server:
         condition: service_healthy

@@ -4938,6 +4938,8 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - Ensure the transcript container grows when viewport height increases.
    - Reference snippets (repeat):
      - `sx={{ minHeight: 0 }}` on flex containers to allow child growth.
+   - Code anchors (where to look first):
+     - Root ChatPage container and transcript panel in `client/src/pages/ChatPage.tsx`.
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - https://mui.com/material-ui/react-box/
@@ -4963,6 +4965,14 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Verify transcript grows to consume remaining height beneath controls.
+   - Reference snippets (repeat):
+     - Height assertion example:
+       ```ts
+       const transcript = screen.getByTestId('chat-transcript');
+       expect(transcript.getBoundingClientRect().height).toBeGreaterThan(0);
+       ```
+   - Code anchors (where to look first):
+     - Transcript wrapper: `client/src/pages/ChatPage.tsx` (`data-testid="chat-transcript"`).
    - Docs (repeat):
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
@@ -4977,6 +4987,8 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - Simulate a state where the Codex flags panel is expanded (taller controls) and assert transcript still takes remaining space (no negative height).
    - Reference snippets (repeat):
      - `sx={{ minHeight: 0, overflowY: 'auto' }}` on the transcript container.
+   - Code anchors (where to look first):
+     - Controls stack + flags panel region in `client/src/pages/ChatPage.tsx` (before the transcript `Paper`).
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - Context7 `/jestjs/jest`
@@ -5053,6 +5065,9 @@ The Chat page currently shows an informational banner: “Codex chats are enable
    - Test requirements:
      - Assert that `data-testid="codex-ready-banner"` is not rendered.
      - Ensure other Codex banners (unavailable/tools missing) still render when applicable.
+   - Reference snippets (repeat):
+     - Banner selector: `data-testid="codex-ready-banner"`.
+     - Other banners: `data-testid="codex-unavailable-banner"` / `data-testid="codex-tools-banner"`.
    - Docs (repeat):
      - https://react.dev/learn/conditional-rendering
      - Context7 `/jestjs/jest`
@@ -5063,6 +5078,8 @@ The Chat page currently shows an informational banner: “Codex chats are enable
    - Requirements:
      - Remove the Codex “ready” banner block (`data-testid="codex-ready-banner"`).
      - Keep other Codex warnings intact.
+   - Code anchors (where to look first):
+     - `client/src/pages/ChatPage.tsx` near the Codex banners block (info/warning alerts above the form).
    - Docs (repeat):
      - https://mui.com/material-ui/react-alert/
      - https://react.dev/learn/conditional-rendering
@@ -5073,6 +5090,8 @@ The Chat page currently shows an informational banner: “Codex chats are enable
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Confirm absence of the ready banner without impacting other banners.
+   - Reference snippets (repeat):
+     - `expect(screen.queryByTestId('codex-ready-banner')).toBeNull();`
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5165,6 +5184,9 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - Assert that expanding the accordion reveals the flags controls.
    - Reference snippets (repeat):
      - MUI Accordion content selector: `aria-expanded` on the summary toggle.
+   - Code anchors (where to look first):
+     - `client/src/components/chat/CodexFlagsPanel.tsx` (Accordion summary toggle).
+     - `client/src/pages/ChatPage.tsx` (where the panel is rendered).
    - Docs (repeat):
      - https://mui.com/material-ui/react-accordion/
      - Context7 `/jestjs/jest`
@@ -5177,6 +5199,12 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - If uncontrolled, set `defaultExpanded={false}`.
      - If controlled, initialize state to `false` and wire `expanded` prop accordingly.
      - Ensure existing flag selections still render once the panel is expanded.
+   - Reference snippets (repeat):
+     - Controlled pattern:
+       ```tsx
+       const [expanded, setExpanded] = useState(false);
+       <Accordion expanded={expanded} onChange={(_, next) => setExpanded(next)} />
+       ```
    - Docs (repeat):
      - https://mui.com/material-ui/react-accordion/
      - https://react.dev/learn
@@ -5187,6 +5215,8 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Confirm the panel is collapsed by default and expands on click.
+   - Reference snippets (repeat):
+     - `expect(screen.getByRole('button', { name: /codex flags/i })).toHaveAttribute('aria-expanded', 'false')`
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5198,6 +5228,8 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Test requirements:
      - Switch from Codex to another provider and back.
      - Assert the Codex Flags panel reverts to collapsed by default after switching back.
+   - Reference snippets (repeat):
+     - Use provider select: `data-testid="provider-select"` and trigger change to non-Codex option.
    - Docs (repeat):
      - https://react.dev/learn/conditional-rendering
      - Context7 `/jestjs/jest`

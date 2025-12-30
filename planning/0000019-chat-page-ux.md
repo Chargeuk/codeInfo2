@@ -5058,8 +5058,8 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 
 ### 22. Remove Codex MCP info banner from Chat page
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__completed__**
+- Git Commits: **d926e7d**
 
 #### Overview
 
@@ -5074,7 +5074,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 
 #### Subtasks
 
-1. [ ] Add a test covering the removal of the banner:
+1. [x] Add a test covering the removal of the banner:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -5089,7 +5089,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
      - https://react.dev/learn/conditional-rendering
      - Context7 `/jestjs/jest`
 
-2. [ ] Remove the banner UI from ChatPage:
+2. [x] Remove the banner UI from ChatPage:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -5101,7 +5101,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
      - https://mui.com/material-ui/react-alert/
      - https://react.dev/learn/conditional-rendering
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or banner test)
    - Requirements:
@@ -5112,7 +5112,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-4. [ ] Documentation update (if banner changes are user-visible):
+4. [x] Documentation update (if banner changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5121,7 +5121,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
    - Docs (repeat):
      - https://mui.com/material-ui/react-alert/
 
-5. [ ] Run lint/format for client after code/test changes:
+5. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5131,30 +5131,44 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Load the Chat page with Codex selected.
    - Confirm the “Codex chats are enabled…” banner is no longer visible.
    - Ensure other banners (unavailable/tools missing) still appear when triggered.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-30: Marked task as in progress; starting with a failing-first Jest/RTL coverage for the Codex banners.
+- 2025-12-30: Added failing-first test coverage in `client/src/test/chatPage.codexBanners.test.tsx` asserting `data-testid="codex-ready-banner"` is absent when Codex is available (confirmed failing before UI removal).
+- 2025-12-30: Removed the Codex "ready" info banner from `client/src/pages/ChatPage.tsx` (also removed now-unused `showCodexReady`), then reran the new focused test (`npm run test --workspace client -- chatPage.codexBanners`) to confirm it now passes.
+- 2025-12-30: Updated `design.md` Chat page section to clarify that only warning banners remain for Codex (unavailable / tools missing), with no separate "ready" info banner.
+- 2025-12-30: Ran `npm run lint --workspace client`; ran `npm run format:check --workspace client` (fixed the one new file via `npm run format --workspace client`).
+- 2025-12-30: Testing step 1 passed: `npm run build --workspace server`.
+- 2025-12-30: Testing step 2 passed: `npm run build --workspace client`.
+- 2025-12-30: Testing step 3 passed: `npm run test --workspace server`.
+- 2025-12-30: Testing step 4 passed: `npm run test --workspace client`.
+- 2025-12-30: Fixed e2e Codex tests that became flaky in smaller viewports by collapsing the Codex flags panel before clicking transcript controls; reran `npm run e2e` and confirmed all 30 specs pass.
+- 2025-12-30: Testing step 5 passed: `npm run e2e`.
+- 2025-12-30: Testing step 6 passed: `npm run compose:build`.
+- 2025-12-30: Testing step 7 passed: `npm run compose:up`.
+- 2025-12-30: Manual check: launched Playwright against `http://host.docker.internal:5001/chat` to confirm `data-testid="codex-ready-banner"` is no longer rendered (even when selecting Codex when available). Saved screenshot `test-results/screenshots/0000019-22-no-codex-ready-banner.png`.
+- 2025-12-30: Testing step 9 passed: `npm run compose:down`.
 
 ---
 

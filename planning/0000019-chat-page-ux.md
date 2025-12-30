@@ -4591,7 +4591,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 ### 19. Prevent transcript width expansion (wrap citations/tool/markdown content)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

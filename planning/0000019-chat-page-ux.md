@@ -5938,3 +5938,226 @@ When a second browser window receives a new `user_turn` event, the client reuses
 - Subtask 2: On WS `user_turn`, when `inflightId` changes and the run was not locally started (`status !== sending`), the client now clears the assistant pointer + in-memory assistant buffers before creating the new processing bubble, preventing cross-tab runs from overwriting the previous assistant message.
 - Subtask 1: Confirmed `activeAssistantMessageIdRef` is set in `ensureAssistantMessage()` and never cleared on `turn_final`; `handleWsEvent` calls `ensureAssistantMessage()` before the `user_turn` branch, which explains cross-tab assistant-bubble reuse when a new `inflightId` arrives.
 
+### 28. Persist client logs to server log file (tagged + client correlation)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Client logs currently POST to `/logs` and are queryable via the in-memory log store, but they are **not written to the server log file**. Wire client log entries into the file logger and add a stable client identifier so we can trace related events from a single browser instance in the log file.
+
+#### Documentation Locations
+
+- Express request logging (pino-http): https://github.com/pinojs/pino-http
+- Pino usage: https://getpino.io/#/
+- MDN localStorage (client id persistence): https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+
+#### Subtasks
+
+1. [ ] Confirm current log flow and log file writing:
+   - Files to read:
+     - `server/src/logStore.ts`
+     - `server/src/logger.ts`
+     - `server/src/routes/logs.ts`
+     - `client/src/logging/logger.ts`
+   - Requirements:
+     - Note that `/logs` appends to `logStore` but does not persist to the file logger.
+     - Identify where to inject file logging without double-writing server-side entries.
+
+2. [ ] Add stable client identifier to client logs:
+   - Files to edit:
+     - `client/src/logging/logger.ts`
+     - `client/src/logging/transport.ts`
+   - Requirements:
+     - Generate a `clientId` (UUID) and persist to `localStorage` (fallback to in-memory if storage is unavailable).
+     - Ensure each log entry includes `clientId` in `context` (not `message`) and retains the existing `source: "client"`.
+     - Keep the log payload size within `VITE_LOG_MAX_BYTES`.
+
+3. [ ] Persist client log entries to the server log file:
+   - Files to edit:
+     - `server/src/logStore.ts`
+     - `server/src/logger.ts`
+   - Requirements:
+     - When `append()` is called for client entries, forward them to the file logger with a clear prefix (e.g. `CLIENT_LOG` or `source=client`).
+     - Preserve the log `sequence` and include `clientId` from `entry.context` in the output.
+     - Ensure server log formatting remains JSON (pino) and does not break existing parsing.
+
+4. [ ] Add tests for client log persistence:
+   - Files to edit:
+     - `server/src/test/integration/ws-logs.test.ts` (or new test file)
+     - `server/src/test/features/logs.feature` (if using Cucumber)
+   - Test requirements:
+     - POST a client log entry and assert it appears in `/logs` with the new `clientId`.
+     - Validate that the server logger was invoked (spy/mocked destination or log store entry includes a `source=client` marker).
+
+5. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document the `clientId` field and how client logs are persisted into the server log file.
+     - Note the required env vars: `VITE_LOG_FORWARD_ENABLED`, `VITE_API_URL`.
+
+6. [ ] Run lint/format after client/server changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Open Chat in a browser with `VITE_LOG_FORWARD_ENABLED=true`.
+   - Trigger a chat run and confirm new client log entries appear in `/logs`.
+   - Tail the server log file and confirm the same entries are persisted with `source=client` and `clientId`.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._
+
+### 29. Add targeted client/server logs for cross-tab overwrite investigation
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add deterministic log lines that prove whether the active assistant pointer and text buffers are being reused during a second send, so we can correlate the overwrite to a specific inflight transition.
+
+#### Documentation Locations
+
+- MDN WebSocket: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Context7 `/jestjs/jest`
+
+#### Subtasks
+
+1. [ ] Add client logs around send/reset + turn final:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Log `chat.client_send_begin` with: `status`, `isStreaming`, `inflightId`, `activeAssistantMessageId`, `lastMessageStreamStatus`, `lastMessageContentLen`.
+     - Log `chat.client_send_after_reset` with: `prevAssistantMessageId`, `nextAssistantMessageId`, `createdNewAssistant`.
+     - Log `chat.client_turn_final_sync` with: `inflightId`, `assistantMessageId`, `assistantTextLen`, `streamStatus`.
+
+2. [ ] Add server logs around WS publish events:
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Requirements:
+     - Log `chat.ws.server_publish_user_turn`, `chat.ws.server_publish_assistant_delta`, `chat.ws.server_publish_turn_final`.
+     - Include `conversationId`, `inflightId`, `seq`, and any size/count context (e.g., delta length).
+
+3. [ ] Add tests or log assertions:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `server/src/test/unit/ws-chat-stream.test.ts` (or integration)
+   - Requirements:
+     - Verify client log events are emitted during simulated send + WS flow.
+     - Verify server publishes include the new log entries.
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document the new log messages and fields so manual Playwright runs can validate them.
+
+5. [ ] Run lint/format after client/server changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Open two windows on the same conversation.
+   - Send a second prompt from window 1.
+   - Confirm the log sequence shows `chat.client_send_begin` → `chat.client_send_after_reset` → WS publish logs → `chat.client_turn_final_sync`.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._
+
+### 30. Fix sending-tab assistant overwrite on second prompt
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The sending tab clears its inflight state before WS events arrive. Because the active assistant pointer is global (not per inflight), subsequent WS `turn_final` updates can overwrite the previous assistant reply and render only the “Complete” chip. Implement a fix so each new run creates a new assistant bubble in the sending tab, and the prior assistant message remains intact.
+
+#### Documentation Locations
+
+- MDN WebSocket: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Context7 `/jestjs/jest`
+- Playwright test runner: Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Pin assistant pointer to inflightId during send:
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Ensure a **new assistant message** is created when `send()` starts (even if a previous assistant message is still `processing`).
+     - Ensure WS updates for a new inflight do not reuse a previous assistant message id.
+     - Preserve existing cross-tab reset behavior from Task 27.
+
+2. [ ] Update client tests:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Test requirements:
+     - Simulate two consecutive sends in a single tab and assert the first assistant reply remains intact.
+     - Assert the second response creates a new assistant bubble.
+
+3. [ ] Update e2e multi-window test:
+   - Files to edit:
+     - `e2e/chat-multiwindow.spec.ts`
+   - Test requirements:
+     - Confirm window 1 does not overwrite the first assistant response when sending the second request.
+     - Confirm window 2 remains consistent after the second response.
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document the fix logic and any new invariants (assistant pointer now per inflight).
+
+5. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Open two windows on the same conversation.
+   - Send two prompts from window 1.
+   - Confirm the first assistant reply remains visible after the second prompt completes.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._

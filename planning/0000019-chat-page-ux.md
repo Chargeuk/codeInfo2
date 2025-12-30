@@ -4426,6 +4426,12 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 - Testing: `npm run e2e` passed.
 - Testing: `npm run compose:build` passed.
 - Testing: `npm run compose:up` started successfully (containers healthy).
+- Testing: `npm run build --workspace client` passed.
+- Testing: `npm run test --workspace server` passed.
+- Testing: `npm run test --workspace client` passed.
+- Testing: `npm run e2e` passed.
+- Testing: `npm run compose:build` passed.
+- Testing: `npm run compose:up` started successfully (containers healthy).
 - Manual check: ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-inflight-refresh.spec.ts` and captured `test-results/screenshots/0000019-17-midstream-refresh.png` and `test-results/screenshots/0000019-17-final.png`.
 - Testing: `npm run compose:down` completed.
 
@@ -4433,8 +4439,8 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 ### 18. Stream user turns over WS at run start (dedupe on sender tab)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **b943664**
 
 #### Overview
 
@@ -4449,7 +4455,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 #### Subtasks
 
-1. [ ] Add server test coverage for user-turn WS streaming:
+1. [x] Add server test coverage for user-turn WS streaming:
    - Files to read:
      - `server/src/routes/chat.ts`
      - `server/src/ws/server.ts`
@@ -4472,7 +4478,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - https://expressjs.com/en/api.html
      - Context7 `/jestjs/jest`
 
-2. [ ] Add a WS event type for user turns and emit at run start:
+2. [x] Add a WS event type for user turns and emit at run start:
    - Files to edit:
      - `server/src/ws/types.ts`
      - `server/src/ws/server.ts`
@@ -4488,7 +4494,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://expressjs.com/en/api.html
 
-3. [ ] Handle `user_turn` events in the client stream + dedupe:
+3. [x] Handle `user_turn` events in the client stream + dedupe:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -4504,7 +4510,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://react.dev/learn
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Requirements:
@@ -4516,7 +4522,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if the WS protocol changes):
+5. [x] Documentation update (if the WS protocol changes):
    - Files to edit:
      - `design.md`
      - `openapi.json` (if the WS protocol is documented there)
@@ -4528,7 +4534,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
    - Docs (repeat):
      - https://www.markdownguide.org/basic-syntax/
 
-6. [ ] Run lint/format for server + client after code/test changes:
+6. [x] Run lint/format for server + client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace server`
      - `npm run lint --workspace client`
@@ -4540,31 +4546,45 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open two browser tabs on the same conversation.
    - Send a user prompt in Tab A and confirm the user bubble appears in Tab B immediately (no refresh).
    - Confirm Tab A shows only one user bubble (no duplicates).
    - Regression: assistant streaming still renders without refresh.
    - Capture screenshots in `test-results/screenshots/` for the plan archive.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- Server: introduced `user_turn` transcript events (`server/src/ws/types.ts`) and now broadcasts them from `POST /chat` immediately after `createInflight(...)` (`server/src/routes/chat.ts`).
+- Server tests: extended `server/src/test/unit/ws-chat-stream.test.ts` to assert the `user_turn` event arrives before the first `assistant_delta`.
+- Client: added `user_turn` to the WS protocol union (`client/src/hooks/useChatWs.ts`), routes it from `ChatPage` to `useChatStream`, and inserts/dedupes the user bubble against the sender tab’s optimistic message (`client/src/hooks/useChatStream.ts`).
+- Client tests: extended `client/src/test/chatPage.stream.test.tsx` + `client/src/test/support/mockChatWs.ts` to cover sender-tab dedupe and non-originating tab bubble insertion.
+- Docs: documented the new `user_turn` event in `design.md` (no `openapi.json` changes required).
+- Lint/format: ran `npm run lint --workspace server`, `npm run lint --workspace client`, `npm run format:check --workspace server`, and `npm run format:check --workspace client`.
+- Testing: `npm run build --workspace server` passed.
+- Testing: `npm run build --workspace client` passed.
+- Testing: `npm run test --workspace server` passed.
+- Testing: `npm run test --workspace client` passed.
+- Testing: `npm run e2e` passed.
+- Testing: `npm run compose:build` passed.
+- Testing: `npm run compose:up` started successfully (containers healthy).
+- Manual check: ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-user-turn-ws.spec.ts` and captured `test-results/screenshots/0000019-18-tab-a.png` and `test-results/screenshots/0000019-18-tab-b.png`.
+- Testing: `npm run compose:down` completed.
 
 ---

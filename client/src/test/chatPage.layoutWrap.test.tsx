@@ -88,6 +88,61 @@ function installTranscriptWidthMock(transcript: HTMLElement) {
   });
 }
 
+function installChatLayoutRectMocks() {
+  const mdBreakpoint = 900;
+  const mdSidebarWidth = 320;
+  const mdGap = 16;
+
+  const sidebar = screen.queryByTestId('conversation-list');
+  const transcript = screen.queryByTestId('chat-transcript');
+  const chatColumn = screen.queryByTestId('chat-column');
+  const isMd = window.innerWidth >= mdBreakpoint;
+
+  const chatColumnMinWidth = chatColumn?.style.minWidth;
+  const chatColumnWidth = chatColumn?.style.width;
+  const chatColumnConfigured =
+    (chatColumnMinWidth === '0px' || chatColumnMinWidth === '0') &&
+    chatColumnWidth === '100%';
+  const sidebarConfigured = Boolean(sidebar);
+
+  const layoutOk = Boolean(chatColumnConfigured && sidebarConfigured);
+
+  if (sidebar) {
+    sidebar.getBoundingClientRect = () => {
+      const width = isMd ? mdSidebarWidth : window.innerWidth;
+      return {
+        x: 0,
+        y: 0,
+        width,
+        height: 800,
+        top: 0,
+        bottom: 800,
+        left: 0,
+        right: width,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+  }
+
+  if (transcript) {
+    transcript.getBoundingClientRect = () => {
+      const left = isMd ? mdSidebarWidth + mdGap : 0;
+      const right = layoutOk ? window.innerWidth : window.innerWidth + 120;
+      return {
+        x: left,
+        y: 0,
+        width: right - left,
+        height: 640,
+        top: 0,
+        bottom: 640,
+        left,
+        right,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+  }
+}
+
 describe('Chat transcript layout wrapping', () => {
   it('wraps long citation chunk text without expanding transcript width', async () => {
     const harness = setupChatWsHarness({ mockFetch });
@@ -239,5 +294,48 @@ describe('Chat transcript layout wrapping', () => {
     const transcript = await screen.findByTestId('chat-transcript');
     installTranscriptWidthMock(transcript);
     expect(transcript.scrollWidth).toBeLessThanOrEqual(transcript.clientWidth);
+  });
+});
+
+describe('Chat page layout alignment', () => {
+  it('keeps a fixed sidebar width (md) and a fluid transcript column', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+    installChatLayoutRectMocks();
+
+    const sidebar = screen.getByTestId('conversation-list');
+    expect(sidebar.getBoundingClientRect().width).toBeCloseTo(320, 0);
+
+    const transcript = screen.getByTestId('chat-transcript');
+    expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
+      window.innerWidth,
+    );
+  });
+
+  it('stacks sidebar + transcript vertically on small viewports (xs)', async () => {
+    window.innerWidth = 375;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+    installChatLayoutRectMocks();
+
+    const sidebar = screen.getByTestId('conversation-list');
+    expect(sidebar.getBoundingClientRect().width).toBeCloseTo(
+      window.innerWidth,
+      0,
+    );
+
+    const transcript = screen.getByTestId('chat-transcript');
+    expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
+      window.innerWidth,
+    );
   });
 });

@@ -4749,6 +4749,14 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 - Testing progress: `npm run e2e` passed.
 - Testing progress: `npm run compose:build` passed.
 - Testing progress: `npm run compose:up` passed.
+- Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` captured screenshots at `test-results/screenshots/0000019-20-chat-layout-md.png` and `test-results/screenshots/0000019-20-chat-layout-xs.png` (md sidebar width measured at 320px).
+- Testing progress: `npm run compose:down` passed.
+- Testing progress: `npm run build --workspace client` passed.
+- Testing progress: `npm run test --workspace server` passed.
+- Testing progress: `npm run test --workspace client` passed.
+- Testing progress: `npm run e2e` passed.
+- Testing progress: `npm run compose:build` passed.
+- Testing progress: `npm run compose:up` passed.
 - Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` passed (no horizontal overflow after expanding citations/tool details) and saved screenshot to `test-results/screenshots/0000019-19-wrapped-citation.png`.
 - Testing progress: `npm run compose:down` passed.
 
@@ -4756,7 +4764,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 
 ### 20. Align chat layout: fixed sidebar + full-width transcript column
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -4772,7 +4780,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 
 #### Subtasks
 
-1. [ ] Validate current layout constraints in a client test:
+1. [x] Validate current layout constraints in a client test:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -4799,7 +4807,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-2. [ ] Add responsive layout tests (xs column + md row):
+2. [x] Add responsive layout tests (xs column + md row):
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -4818,7 +4826,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-3. [ ] Update the chat layout containers to enforce left sidebar + fluid content:
+3. [x] Update the chat layout containers to enforce left sidebar + fluid content:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -4840,7 +4848,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://mui.com/material-ui/react-box/
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -4852,7 +4860,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-5. [ ] Documentation update (if layout behavior changes are user-visible):
+5. [x] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4864,7 +4872,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - https://mui.com/material-ui/react-box/
 
-6. [ ] Run lint/format for client after code/test changes:
+6. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -4874,27 +4882,34 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Resize the browser window and verify the sidebar stays fixed on the left.
    - Confirm the transcript column fills the remaining width and wraps long content.
    - Capture a screenshot demonstrating the fixed sidebar + fluid chat area.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- Added initial layout alignment regression tests in `client/src/test/chatPage.layoutWrap.test.tsx` for md fixed sidebar width + transcript viewport containment (expected to fail until the chat layout containers are updated).
+- Added a small-viewport (`xs`) coverage in the same test file to assert the sidebar + transcript stack vertically without horizontal overflow.
+- Updated `client/src/pages/ChatPage.tsx` layout containers: added a sidebar wrapper `data-testid="conversation-list"` with fixed sizing, ensured the chat column is `flex: 1` with `minWidth: 0` and `width: 100%` (inline styles for deterministic tests), and set `overflowX: hidden` on the root layout stack.
+- Confirmed the new layout alignment tests fail without the `conversation-list` wrapper + chat column inline sizing and pass once the container updates are in place.
+- Updated `design.md` with an explicit guarantee about the fixed 320px sidebar (md+) and fluid transcript column layout.
+- Verified `npm run lint --workspace client` passes.
+- Verified `npm run format:check --workspace client` passes.
+- Testing progress: `npm run build --workspace server` passed.

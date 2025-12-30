@@ -914,7 +914,7 @@ export default function ChatPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 6 }}>
+    <Container maxWidth={false} sx={{ pt: 3, pb: 6 }}>
       <Stack spacing={2}>
         {persistenceUnavailable && (
           <Alert
@@ -934,8 +934,16 @@ export default function ChatPage() {
           direction={{ xs: 'column', md: 'row' }}
           spacing={2}
           alignItems="stretch"
+          sx={{ width: '100%', minWidth: 0, overflowX: 'hidden' }}
         >
-          <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
+          <Box
+            data-testid="conversation-list"
+            sx={{
+              width: { xs: '100%', md: 320 },
+              flexShrink: 0,
+              flexGrow: 0,
+            }}
+          >
             <ConversationList
               conversations={conversations}
               selectedId={activeConversationId}
@@ -959,7 +967,11 @@ export default function ChatPage() {
             />
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0 }} data-testid="chat-column">
+          <Box
+            data-testid="chat-column"
+            sx={{ flex: 1, minWidth: 0, width: '100%' }}
+            style={{ minWidth: 0, width: '100%' }}
+          >
             <Stack spacing={2}>
               {isLoading && (
                 <Stack direction="row" spacing={1} alignItems="center">

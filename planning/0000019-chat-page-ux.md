@@ -4588,3 +4588,201 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 - Testing: `npm run compose:down` completed.
 
 ---
+
+### 19. Prevent transcript width expansion (wrap citations/tool/markdown content)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The chat transcript can expand horizontally when citations, tool details, or code blocks contain long unbroken strings. This task ensures citation content (and other long transcript content) wraps within the available chat column width and does not resize the layout.
+
+#### Documentation Locations
+
+- MUI Box/Stack layout props: https://mui.com/material-ui/react-box/
+- CSS overflow/wrapping guidelines: https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+- React effect cleanup (if needed): https://react.dev/learn/synchronizing-with-effects
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Reproduce width expansion in a client test:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/components/Markdown.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/chatPage.layoutWrap.test.tsx`)
+   - Test requirements:
+     - Render an assistant message with expanded citations containing a very long path/token (no spaces).
+     - Assert the transcript container does not exceed its parent width (use `getBoundingClientRect()` / `scrollWidth`).
+   - Reference snippet (repeat):
+     - `overflowWrap: 'anywhere'` or `wordBreak: 'break-word'` applied on the citation content container.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+     - Context7 `/jestjs/jest`
+
+2. [ ] Apply wrapping + min-width fixes to transcript layout:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/components/Markdown.tsx`
+   - Requirements:
+     - Ensure the chat column flex child has `minWidth: 0`.
+     - Ensure citation chunks + tool payloads + markdown code blocks wrap or scroll within their container.
+     - Avoid changing sidebar width; only constrain the transcript area.
+   - Reference snippet (repeat):
+     - `sx={{ minWidth: 0 }}` on the chat column Box.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-box/
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx` (or new layout test)
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Assert long citation content wraps without expanding the layout.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+4. [ ] Documentation update (if layout behavior changes are user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that transcript content now wraps to avoid horizontal expansion.
+     - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+
+5. [ ] Run lint/format for client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Open a conversation with citations; expand citations.
+   - Confirm the chat column does not resize horizontally.
+   - Regression: tool details + markdown code blocks wrap/scroll within the chat bubble.
+   - Capture a screenshot showing wrapped citation content.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill after implementation)
+
+---
+
+### 20. Align chat layout: fixed sidebar + full-width transcript column
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure the Conversations sidebar remains fixed on the left, and the chat transcript column always fills the remaining browser width with proper wrapping of content within it.
+
+#### Documentation Locations
+
+- MUI layout primitives (Box/Stack/Grid): https://mui.com/material-ui/react-box/
+- CSS flexbox sizing (min-width/overflow): https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Validate current layout constraints in a client test:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (or extend existing layout test)
+   - Test requirements:
+     - Assert the sidebar width remains fixed (md: 320px).
+     - Assert the transcript column uses the remaining width and does not overflow the viewport.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - Context7 `/jestjs/jest`
+
+2. [ ] Update the chat layout containers to enforce left sidebar + fluid content:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Ensure the sidebar box has a fixed width and does not grow.
+     - Ensure the chat column is `flex: 1` with `minWidth: 0` and `width: 100%`.
+     - Avoid unintended horizontal scroll on the root container.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-box/
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Verify sidebar remains on the left with constant width while transcript fills remaining space.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+4. [ ] Documentation update (if layout behavior changes are user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that the chat layout enforces a fixed-width sidebar and fluid transcript column.
+     - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+
+5. [ ] Run lint/format for client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Resize the browser window and verify the sidebar stays fixed on the left.
+   - Confirm the transcript column fills the remaining width and wraps long content.
+   - Capture a screenshot demonstrating the fixed sidebar + fluid chat area.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill after implementation)

@@ -155,6 +155,42 @@ export default function ChatPage() {
   );
   const persistenceUnavailable = mongoConnected === false;
 
+  const selectedConversation = useMemo(
+    () =>
+      conversations.find(
+        (conversation) => conversation.conversationId === activeConversationId,
+      ),
+    [activeConversationId, conversations],
+  );
+  const turnsConversationId = persistenceUnavailable ? undefined : activeConversationId;
+  const turnsAutoFetch = Boolean(
+    turnsConversationId && knownConversationIds.has(turnsConversationId),
+  );
+  const {
+    lastPage,
+    lastMode,
+    isLoading: turnsLoading,
+    isError: turnsError,
+    error: turnsErrorMessage,
+    hasMore: turnsHasMore,
+    loadOlder,
+    refresh: refreshTurns,
+    reset: resetTurns,
+  } = useConversationTurns(turnsConversationId, { autoFetch: turnsAutoFetch });
+
+  const refreshSnapshots = useCallback(async () => {
+    if (persistenceUnavailable) return;
+    await Promise.all([
+      refreshConversations(),
+      turnsConversationId ? refreshTurns() : Promise.resolve(),
+    ]);
+  }, [
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+    turnsConversationId,
+  ]);
+
   const {
     connectionState: wsConnectionState,
     subscribeSidebar,
@@ -166,7 +202,7 @@ export default function ChatPage() {
     realtimeEnabled: mongoConnected !== false,
     onReconnectBeforeResubscribe: async () => {
       if (mongoConnected === false) return;
-      await refreshConversations();
+      await refreshSnapshots();
     },
     onEvent: (event: ChatWsServerEvent) => {
       if (mongoConnected === false) return;
@@ -205,28 +241,6 @@ export default function ChatPage() {
       }
     },
   });
-  const selectedConversation = useMemo(
-    () =>
-      conversations.find(
-        (conversation) => conversation.conversationId === activeConversationId,
-      ),
-    [activeConversationId, conversations],
-  );
-  const shouldLoadTurns = Boolean(
-    activeConversationId &&
-      !persistenceUnavailable &&
-      knownConversationIds.has(activeConversationId),
-  );
-  const {
-    lastPage,
-    lastMode,
-    isLoading: turnsLoading,
-    isError: turnsError,
-    error: turnsErrorMessage,
-    hasMore: turnsHasMore,
-    loadOlder,
-    reset: resetTurns,
-  } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
 
   useEffect(() => {
     const debugState = {
@@ -234,7 +248,8 @@ export default function ChatPage() {
       wsConnectionState,
       persistenceUnavailable,
       knownIds: Array.from(knownConversationIds),
-      shouldLoadTurns,
+      turnsConversationId,
+      turnsAutoFetch,
       lastMode,
       lastPageCount: lastPage.length,
       lastPageFirst: lastPage[0]?.createdAt,
@@ -249,7 +264,8 @@ export default function ChatPage() {
     wsConnectionState,
     knownConversationIds,
     persistenceUnavailable,
-    shouldLoadTurns,
+    turnsAutoFetch,
+    turnsConversationId,
     lastMode,
     lastPage,
     messages.length,
@@ -316,6 +332,23 @@ export default function ChatPage() {
     subscribeSidebar();
     return () => unsubscribeSidebar();
   }, [persistenceUnavailable, subscribeSidebar, unsubscribeSidebar]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshSnapshots();
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [persistenceUnavailable, refreshSnapshots]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;

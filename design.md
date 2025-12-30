@@ -1154,7 +1154,9 @@ flowchart LR
   - Agents page subscribes only to `subscribe_conversation(activeConversationId)` for the selected agent conversation.
 - Switching conversations sends `unsubscribe_conversation(old)` then `subscribe_conversation(new)`; **unsubscribing never cancels a run**.
 - Unmounting the page closes the socket after unsubscribing; **navigation never cancels a run**.
-- Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes sidebar state via REST before resubscribing. The server sends an `inflight_snapshot` after `subscribe_conversation` when a run is in progress so the client can catch up deterministically.
+- Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes **both** the sidebar snapshot and the active conversation turns snapshot via REST before resubscribing.
+- Focus/visibility behavior: when a tab becomes active again (`document.visibilityState === 'visible'` and/or `window.focus`), the client refreshes the same snapshots so missed sidebar/transcript updates are recovered without any cross-tab broadcast.
+- The server sends an `inflight_snapshot` after `subscribe_conversation` when a run is in progress so the client can catch up deterministically.
 
 ```mermaid
 sequenceDiagram

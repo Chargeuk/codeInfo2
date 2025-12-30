@@ -499,6 +499,8 @@ export function useChatStream(
     ) => {
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
+
+      let shouldResetInflight = false;
       updateMessages((prev) => {
         const hasInFlight =
           isStreaming ||
@@ -538,6 +540,10 @@ export function useChatStream(
             });
             if (!match) return true;
             if (match.streamStatus === 'processing') {
+              replacements.set(match.id, { ...match, ...entry, id: match.id });
+              if (entry.streamStatus && entry.streamStatus !== 'processing') {
+                shouldResetInflight = true;
+              }
               return false;
             }
             replacements.set(match.id, { ...match, ...entry, id: match.id });
@@ -562,8 +568,12 @@ export function useChatStream(
           return true;
         });
       });
+
+      if (shouldResetInflight) {
+        resetInflightState();
+      }
     },
-    [isStreaming, status, updateMessages],
+    [isStreaming, resetInflightState, status, updateMessages],
   );
 
   const send = useCallback(

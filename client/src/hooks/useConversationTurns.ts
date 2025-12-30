@@ -39,7 +39,10 @@ type State = {
 
 const PAGE_SIZE = 50;
 
-export function useConversationTurns(conversationId?: string): State {
+export function useConversationTurns(
+  conversationId?: string,
+  options?: { autoFetch?: boolean },
+): State {
   const [turns, setTurns] = useState<StoredTurn[]>([]);
   const [lastPage, setLastPage] = useState<StoredTurn[]>([]);
   const [lastMode, setLastMode] = useState<Mode | null>(null);
@@ -49,6 +52,7 @@ export function useConversationTurns(conversationId?: string): State {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const autoFetch = options?.autoFetch !== false;
 
   const dedupeTurns = useCallback((items: StoredTurn[]) => {
     const seen = new Set<string>();
@@ -146,9 +150,11 @@ export function useConversationTurns(conversationId?: string): State {
     setLastMode(null);
     cursorRef.current = undefined;
     setHasMore(false);
+    if (!conversationId) return;
+    if (!autoFetch) return;
     void fetchPage('replace');
     return () => controllerRef.current?.abort();
-  }, [conversationId, fetchPage]);
+  }, [autoFetch, conversationId, fetchPage]);
 
   const loadOlder = useCallback(async () => {
     if (!hasMore || isLoading) return;

@@ -4104,7 +4104,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 - 2025-12-30: Testing step 9 complete: `npm run compose:down`.
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -4121,7 +4121,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 #### Subtasks
 
-1. [ ] Reproduce the missing-history-on-tab-switch in a client test:
+1. [x] Reproduce the missing-history-on-tab-switch in a client test:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useConversationTurns.ts`
@@ -4150,7 +4150,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - https://react.dev/learn/synchronizing-with-effects
      - Context7 `/jestjs/jest`
 
-2. [ ] Implement focus/visibility refresh for the active conversation + sidebar:
+2. [x] Implement focus/visibility refresh for the active conversation + sidebar:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useConversationTurns.ts`
@@ -4174,7 +4174,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
      - https://react.dev/learn/synchronizing-with-effects
 
-3. [ ] Refresh on WebSocket reconnect (no cross-tab broadcast):
+3. [x] Refresh on WebSocket reconnect (no cross-tab broadcast):
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/pages/ChatPage.tsx`
@@ -4194,7 +4194,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://react.dev/learn/synchronizing-with-effects
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or the new test file from subtask 1)
    - Requirements:
@@ -4207,7 +4207,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
 
-5. [ ] Documentation update (if the refresh behavior is user-visible or architecture-relevant):
+5. [x] Documentation update (if the refresh behavior is user-visible or architecture-relevant):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4216,7 +4216,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API
 
-6. [ ] Run lint/format for the client workspace after code/test changes:
+6. [x] Run lint/format for the client workspace after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -4226,32 +4226,47 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (repeat the exact steps that showed the gap + regressions):
+8. [x] Manual Playwright-MCP check (repeat the exact steps that showed the gap + regressions):
    - Start a new chat in Tab A and send a prompt.
    - Switch to Tab B (same conversation), wait for the assistant response to complete.
    - Switch back to Tab A and confirm the full transcript appears without manual refresh (no missing user/assistant bubbles).
    - Regression: new conversation appears in sidebar without refresh.
    - Visit `/logs` and confirm refresh-related log entries (if added) and that the transcript is complete.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- Added `client/src/test/chatPage.focusRefresh.test.tsx` to reproduce the missed-history scenario and assert that a visibility change / WS reconnect trigger snapshot refreshes.
+- Updated `client/src/pages/ChatPage.tsx` to refresh both the sidebar snapshot (`useConversations().refresh()`) and the active transcript snapshot (`useConversationTurns().refresh()`) when the tab becomes visible or the window regains focus.
+- Extended the existing `useChatWs` reconnect hook usage so a reconnect triggers the same snapshot refreshes before resubscribing.
+- Updated `client/src/hooks/useChatStream.ts` hydration dedupe so a persisted assistant turn can replace a stale `streamStatus:"processing"` bubble (and clears inflight state) when snapshot refreshes show the run already completed.
+- Updated `client/src/hooks/useConversationTurns.ts` to support `autoFetch` so ChatPage can avoid eager 404/placeholder fetches, while still allowing forced refresh on focus/reconnect.
+- Documented the focus/visibility + reconnect snapshot refresh behavior in `design.md` under the Chat/Agents WebSocket lifecycle.
+- `npm run lint --workspace client` passed; `npm run format:check --workspace client` passed after formatting the new test.
+- Test 1: `npm run build --workspace server` passed.
+- Test 2: `npm run build --workspace client` passed.
+- Test 3: `npm run test --workspace server` passed.
+- Test 4: `npm run test --workspace client` passed.
+- Test 5: `npm run e2e` passed.
+- Test 6: `npm run compose:build` passed.
+- Test 7: `npm run compose:up` passed.
+- Test 8: Manual check via headless Playwright against `http://host.docker.internal:5001` confirmed focus/visibility refresh triggers `/conversations` + `/turns` fetches, forced WS reconnect triggers the same refreshes, and `/logs` contains `chat.ws.client_connect` / `chat.ws.client_snapshot_received` lines.
+- Test 9: `npm run compose:down` passed.
 
 ---
 

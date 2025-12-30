@@ -4906,3 +4906,107 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 - Testing progress: `npm run compose:up` passed.
 - Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` captured screenshots at `test-results/screenshots/0000019-20-chat-layout-md.png` and `test-results/screenshots/0000019-20-chat-layout-xs.png` (md sidebar width measured at 320px).
 - Testing progress: `npm run compose:down` passed.
+
+---
+
+### 21. Make transcript fill remaining viewport height beneath controls
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure the chat transcript area expands to fill the remaining vertical space beneath the Chat page controls (provider/model selectors, flags, input box), so the transcript always uses the available viewport height without manual resizing.
+
+#### Documentation Locations
+
+- CSS flexbox sizing (height, min-height): https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+- MUI layout primitives (Box/Stack): https://mui.com/material-ui/react-box/
+- React effect cleanup (if measuring): https://react.dev/learn/synchronizing-with-effects
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add a layout test for transcript height fill:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (or new `client/src/test/chatPage.layoutHeight.test.tsx`)
+   - Test requirements:
+     - Simulate a viewport height and assert the transcript container height fills the remaining space below the controls.
+     - Ensure the transcript container grows when viewport height increases.
+   - Reference snippets (repeat):
+     - `sx={{ minHeight: 0 }}` on flex containers to allow child growth.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - https://mui.com/material-ui/react-box/
+     - Context7 `/jestjs/jest`
+
+2. [ ] Update ChatPage layout to allow vertical fill:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Ensure the page uses a full-height flex column (e.g., `minHeight: '100vh'` on the root container).
+     - Ensure the transcript panel is a flex child with `flex: 1` and `minHeight: 0` so it expands vertically.
+     - Do not shrink the input controls; the transcript should take remaining space.
+   - Reference snippets (repeat):
+     - `sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}`
+     - `sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}`
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - https://mui.com/material-ui/react-box/
+
+3. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (or new height test)
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Verify transcript grows to consume remaining height beneath controls.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+
+4. [ ] Documentation update (if height behavior changes are user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that the transcript fills remaining viewport height below the controls.
+     - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+
+5. [ ] Run lint/format for client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Resize the viewport height and confirm the transcript grows/shrinks accordingly.
+   - Ensure input controls remain visible and fixed while transcript height changes.
+   - Capture a screenshot showing the transcript filling the remaining height.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill after implementation)

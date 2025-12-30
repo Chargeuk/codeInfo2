@@ -5647,7 +5647,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
 ### 26. Snapshot hardening: stable turn IDs + deterministic merge ordering
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **a696838**
 
 #### Overview
 

@@ -5815,6 +5815,9 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Code anchors (where to look first):
      - `handleWsEvent` in `client/src/hooks/useChatStream.ts` (user_turn branch).
      - `activeAssistantMessageIdRef` reset in `resetInflightState`.
+   - Reference snippets (repeat):
+     - `if (event.type === 'user_turn') { ... }`
+     - `activeAssistantMessageIdRef.current = null`
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
@@ -5827,6 +5830,9 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Ensure no reset occurs when `event.inflightId` is undefined or missing (defensive guard).
    - Reference snippets (repeat):
      - `if (event.inflightId !== inflightIdRef.current) { resetAssistantPointer(); }`
+     - `const prevInflightId = inflightIdRef.current;`
+   - Code anchors (where to look first):
+     - `inflightIdRef` usage inside `handleWsEvent` in `client/src/hooks/useChatStream.ts`.
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
@@ -5840,6 +5846,9 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Ensure logs are forwarded to the server (consistent with existing `chat.ws.client_*` logging).
    - Code anchors (where to look first):
      - `logWithChannel(...)` in `useChatStream.ts`.
+   - Reference snippets (repeat):
+     - `logWithChannel('info', 'chat.ws.client_user_turn', {...})`
+     - `logWithChannel('info', 'chat.ws.client_reset_assistant', {...})`
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5852,6 +5861,11 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Assert the reset log event is emitted when `inflightId` changes.
      - Assert **no reset** occurs when `user_turn` arrives with the same `inflightId`.
      - Assert **no reset** occurs for local send path (only WS-driven runs).
+   - Code anchors (where to look first):
+     - `setupChatWsHarness` in `client/src/test/support/mockChatWs.ts`.
+     - Existing WS transcript tests in `client/src/test/chatPage.stream.test.tsx`.
+   - Reference snippets (repeat):
+     - `harness.emitUserTurn(...)` (or equivalent WS emit helper).
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5864,6 +5878,12 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - Send a follow-up in page A and assert page B shows a new assistant response (not replacing the first).
      - Ensure both pages render the same transcript order after refresh.
      - Add an explicit assertion that the passive page shows two assistant bubbles after the second run.
+   - Code anchors (where to look first):
+     - Existing chat e2e patterns: `e2e/chat.spec.ts`.
+     - Existing Codex e2e patterns: `e2e/chat-codex-mcp.spec.ts` (for selectors).
+   - Reference snippets (repeat):
+     - `const pageA = await context.newPage();`
+     - `const pageB = await context.newPage();`
    - Docs (repeat):
      - https://playwright.dev/docs/pages
      - Context7 `/microsoft/playwright`
@@ -5873,6 +5893,10 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - `design.md`
    - Requirements:
      - Note the WS `user_turn` inflightId reset and diagnostic log events for cross-tab runs.
+   - Reference snippets (repeat):
+     - “On WS `user_turn` with new `inflightId`, client resets assistant pointer and logs `chat.ws.client_reset_assistant`.”
+   - Docs (repeat):
+     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 7. [ ] Run lint/format after client/e2e changes:
    - Commands to run:

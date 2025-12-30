@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -175,6 +176,8 @@ describe('Codex web search flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
+    await ensureCodexFlagsPanelExpanded();
+
     const webSearchSwitch = await screen.findByTestId('web-search-switch');
     await waitFor(() => expect(webSearchSwitch).toBeChecked());
     await userEvent.click(webSearchSwitch); // disable web search
@@ -201,6 +204,8 @@ describe('Codex web search flag payloads', () => {
     await act(async () => {
       await userEvent.click(newConversationButton);
     });
+
+    await ensureCodexFlagsPanelExpanded();
     const resetSwitch = await screen.findByTestId('web-search-switch');
     await waitFor(() => expect(resetSwitch).toBeChecked());
   });

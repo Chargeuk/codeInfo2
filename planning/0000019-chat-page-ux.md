@@ -5174,7 +5174,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 
 ### 23. Default Codex Flags panel to collapsed
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -5190,7 +5190,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 #### Subtasks
 
-1. [ ] Locate Codex Flags panel implementation and current default:
+1. [x] Locate Codex Flags panel implementation and current default:
    - Files to read:
      - `client/src/components/chat/CodexFlagsPanel.tsx`
      - `client/src/pages/ChatPage.tsx`
@@ -5202,7 +5202,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - https://mui.com/material-ui/react-accordion/
      - https://react.dev/learn
 
-2. [ ] Add tests that assert the panel is collapsed by default:
+2. [x] Add tests that assert the panel is collapsed by default:
    - Files to read:
      - `client/src/test/chatPage.flags.test.tsx` (existing Codex flags coverage)
      - `client/src/test/chatPage.stream.test.tsx`
@@ -5222,7 +5222,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - https://mui.com/material-ui/react-accordion/
      - Context7 `/jestjs/jest`
 
-3. [ ] Update the panel to default collapsed:
+3. [x] Update the panel to default collapsed:
    - Files to edit:
      - `client/src/components/chat/CodexFlagsPanel.tsx`
      - `client/src/pages/ChatPage.tsx` (if state is lifted)
@@ -5240,7 +5240,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - https://mui.com/material-ui/react-accordion/
      - https://react.dev/learn
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.flags.test.tsx` (or new test file)
    - Requirements:
@@ -5251,7 +5251,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Add corner-case tests for provider switching:
+5. [x] Add corner-case tests for provider switching:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -5266,7 +5266,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - Context7 `/jestjs/jest`
 
 
-6. [ ] Documentation update (if behavior change is user-visible):
+6. [x] Documentation update (if behavior change is user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5275,7 +5275,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Docs (repeat):
      - https://mui.com/material-ui/react-accordion/
 
-7. [ ] Run lint/format for client after code/test changes:
+7. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5285,27 +5285,43 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Load the Chat page with Codex selected.
    - Confirm the Codex Flags panel is collapsed by default.
    - Expand it and verify all controls are still available.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-30: Marked task as in progress; starting by locating the panel implementation and updating Jest/RTL coverage to assert collapsed-by-default behavior.
+- 2025-12-30: Located `client/src/components/chat/CodexFlagsPanel.tsx` and confirmed it uses an uncontrolled MUI `Accordion` with `defaultExpanded` (so it currently renders expanded by default).
+- 2025-12-30: Added Jest/RTL coverage in `client/src/test/chatPage.flags.panelCollapsed.test.tsx` asserting the Codex Flags accordion starts collapsed and expands to reveal controls (this test fails against the prior `defaultExpanded` behavior). Also added `client/src/test/support/ensureCodexFlagsPanelExpanded.ts` and wired existing Codex-flag tests to expand the panel before asserting defaults/payloads.
+- 2025-12-30: Updated `client/src/components/chat/CodexFlagsPanel.tsx` to set `defaultExpanded={false}` so the Codex Flags accordion starts collapsed.
+- 2025-12-30: Added provider-switch coverage in `client/src/test/chatPage.flags.panelCollapsed.test.tsx` to ensure switching away from Codex and back resets the panel to collapsed by default.
+- 2025-12-30: Updated `design.md` Chat page section to explicitly note that the Codex Flags panel is collapsed by default.
+- 2025-12-30: Ran `npm run lint --workspace client` and `npm run format:check --workspace client` after the Task 23 changes; both passed.
+- 2025-12-30: Testing step 1 passed: `npm run build --workspace server`.
+- 2025-12-30: Testing step 2 passed: `npm run build --workspace client`.
+- 2025-12-30: Testing step 3 passed: `npm run test --workspace server` (44 scenarios passed).
+- 2025-12-30: Testing step 4 passed: `npm run test --workspace client` (69 suites, 135 tests).
+- 2025-12-30: Testing step 5 passed: `npm run e2e` (30 Playwright specs passed).
+- 2025-12-30: Testing step 6 passed: `npm run compose:build`.
+- 2025-12-30: Testing step 7 passed: `npm run compose:up`.
+- 2025-12-30: Manual check: ran Playwright against `http://host.docker.internal:5001/chat` to confirm the Codex Flags panel starts collapsed (`aria-expanded="false"`) and expands to reveal controls. Saved screenshots `test-results/screenshots/0000019-23-codex-flags-collapsed.png` and `test-results/screenshots/0000019-23-codex-flags-expanded.png`.
+- 2025-12-30: Testing step 9 passed: `npm run compose:down`.
+- 2025-12-30: Marked task as completed.

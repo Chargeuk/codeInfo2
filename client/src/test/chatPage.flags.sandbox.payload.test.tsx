@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -174,6 +175,8 @@ describe('Codex sandbox flag payloads', () => {
       name: /openai codex/i,
     });
     await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
 
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,

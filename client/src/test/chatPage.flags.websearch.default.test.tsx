@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -128,6 +129,8 @@ describe('Codex web search flag defaults', () => {
       name: /openai codex/i,
     });
     await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
 
     const flagsPanel = await screen.findByTestId('codex-flags-panel');
     expect(flagsPanel).toBeInTheDocument();

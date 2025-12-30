@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -175,6 +176,8 @@ describe('Codex model reasoning effort flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
+    await ensureCodexFlagsPanelExpanded();
+
     const modelSelect = await screen.findByRole('combobox', {
       name: /model/i,
     });
@@ -209,6 +212,8 @@ describe('Codex model reasoning effort flag payloads', () => {
     await act(async () => {
       await userEvent.click(newConversationButton);
     });
+
+    await ensureCodexFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('reasoning-effort-select');
     await waitFor(() =>
       expect(resetSelect).toHaveTextContent(/high \(default\)/i),

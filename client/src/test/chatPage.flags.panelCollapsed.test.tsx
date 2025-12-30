@@ -1,8 +1,7 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -85,11 +84,6 @@ function mockCodexReady() {
               displayName: 'gpt-5.1-codex-max',
               type: 'codex',
             },
-            {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
-              type: 'codex',
-            },
           ],
         }),
       }) as unknown as Response;
@@ -114,73 +108,73 @@ function mockCodexReady() {
   });
 }
 
-describe('Codex sandbox flag reset behaviour', () => {
-  it('resets sandbox mode on new conversation and provider switch', async () => {
+async function selectProvider(optionName: RegExp) {
+  const providerSelect = await screen.findByRole('combobox', {
+    name: /provider/i,
+  });
+  await userEvent.click(providerSelect);
+  const option = await screen.findByRole('option', {
+    name: optionName,
+  });
+  await userEvent.click(option);
+}
+
+describe('Codex flags panel collapsed defaults', () => {
+  it('is collapsed by default and expands on click', async () => {
     mockCodexReady();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+    await selectProvider(/openai codex/i);
 
-    await ensureCodexFlagsPanelExpanded();
+    const summaryButton = await screen.findByRole('button', {
+      name: /codex flags/i,
+    });
+    expect(summaryButton).toHaveAttribute('aria-expanded', 'false');
+
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(summaryButton);
+    await waitFor(() =>
+      expect(summaryButton).toHaveAttribute('aria-expanded', 'true'),
+    );
 
     const sandboxSelect = await screen.findByRole('combobox', {
       name: /sandbox mode/i,
     });
-    await userEvent.click(sandboxSelect);
-    const readOnlyOption = await screen.findByRole('option', {
-      name: /read-only/i,
-    });
-    await userEvent.click(readOnlyOption);
-    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
-
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
-
-    await ensureCodexFlagsPanelExpanded();
-
     await waitFor(() =>
       expect(sandboxSelect).toHaveTextContent(/workspace write/i),
     );
+  });
 
-    await userEvent.click(sandboxSelect);
-    const dangerOption = await screen.findByRole('option', {
-      name: /danger full access/i,
+  it('reverts to collapsed after switching providers away and back', async () => {
+    mockCodexReady();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await selectProvider(/openai codex/i);
+
+    const summaryButton = await screen.findByRole('button', {
+      name: /codex flags/i,
     });
-    await userEvent.click(dangerOption);
+    await userEvent.click(summaryButton);
     await waitFor(() =>
-      expect(sandboxSelect).toHaveTextContent(/danger full access/i),
+      expect(summaryButton).toHaveAttribute('aria-expanded', 'true'),
     );
 
-    await userEvent.click(providerSelect);
-    const lmOption = await screen.findByRole('option', { name: /lm studio/i });
-    await userEvent.click(lmOption);
+    await selectProvider(/lm studio/i);
+    await selectProvider(/openai codex/i);
 
-    await userEvent.click(providerSelect);
-    const codexOptionReturn = await screen.findByRole('option', {
-      name: /openai codex/i,
+    const newSummaryButton = await screen.findByRole('button', {
+      name: /codex flags/i,
     });
-    await userEvent.click(codexOptionReturn);
-
-    await ensureCodexFlagsPanelExpanded();
-
-    const sandboxSelectAfterSwitch = await screen.findByRole('combobox', {
-      name: /sandbox mode/i,
-    });
-    await waitFor(() =>
-      expect(sandboxSelectAfterSwitch).toHaveTextContent(/workspace write/i),
-    );
+    expect(newSummaryButton).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('combobox', { name: /sandbox mode/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -5548,3 +5548,99 @@ Snapshot responses must always reflect the complete conversation. The server sho
 #### Implementation notes
 
 - _Pending._
+
+---
+
+### 26. Snapshot hardening: stable turn IDs + deterministic merge ordering
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and deterministic ordering in server snapshot responses. This eliminates timestamp collisions and prevents duplicated or out-of-order assistant turns during inflight merge.
+
+#### Documentation Locations
+
+- Mongoose IDs / document shape: https://mongoosejs.com/docs/documents.html
+- Express response shaping: https://expressjs.com/en/guide/routing.html
+- Jest patterns: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Add stable turn IDs to snapshot responses:
+   - Files to read:
+     - `server/src/mongo/turn.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - Include a stable `turnId` (Mongo `_id`) in the serialized turn payloads.
+     - Ensure client‑visible DTO remains backwards compatible (new field is additive).
+
+2. [ ] Update snapshot merge/dedupe to prefer turnId:
+   - Files to edit:
+     - `server/src/chat/memoryPersistence.ts`
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - When merging persisted + inflight, dedupe by `turnId` when available.
+     - Fall back to (role + content hash + createdAt window) only when `turnId` is missing.
+
+3. [ ] Enforce deterministic ordering in snapshot responses:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - Sort merged turns by `(createdAt, rolePriority, turnId)` before responding.
+     - Ensure assistant follows its corresponding user when timestamps are equal.
+
+4. [ ] Server tests for ID + ordering guarantees:
+   - Files to edit:
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - Test requirements:
+     - Validate `turnId` is present in snapshot responses.
+     - Validate ordering when two turns share the same `createdAt`.
+     - Validate dedupe prefers `turnId` over timestamp windows.
+
+5. [ ] Client tests for stable ordering (snapshot consumption):
+   - Files to edit:
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Test requirements:
+     - Simulate turns with same `createdAt`; ensure UI renders in correct order.
+
+6. [ ] Documentation update (if snapshot schema changes):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that snapshot turns include `turnId` and ordering guarantees.
+
+7. [ ] Run lint/format after server/client changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Reproduce same‑timestamp turns in a mocked run; confirm stable ordering in UI.
+   - Capture a screenshot demonstrating correct ordering.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._

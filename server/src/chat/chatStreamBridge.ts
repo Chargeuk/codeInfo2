@@ -1,9 +1,14 @@
+import {
+  isTransientReconnect,
+  getErrorMessage,
+} from '../agents/transientReconnect.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import {
   publishAnalysisDelta,
   publishAssistantDelta,
   publishInflightSnapshot,
+  publishStreamWarning,
   publishToolEvent,
   publishTurnFinal,
 } from '../ws/server.js';
@@ -50,7 +55,11 @@ export function attachChatStreamBridge(params: {
   let deltaCount = 0;
   let toolEventCount = 0;
 
-  const log = (level: 'info' | 'error', message: string, context: unknown) => {
+  const log = (
+    level: 'info' | 'warn' | 'error',
+    message: string,
+    context: unknown,
+  ) => {
     const mergedContext = {
       conversationId,
       inflightId,
@@ -72,9 +81,15 @@ export function attachChatStreamBridge(params: {
 
     if (level === 'error') {
       baseLogger.error({ requestId, ...mergedContext }, message);
-    } else {
-      baseLogger.info({ requestId, ...mergedContext }, message);
+      return;
     }
+
+    if (level === 'warn') {
+      baseLogger.warn({ requestId, ...mergedContext }, message);
+      return;
+    }
+
+    baseLogger.info({ requestId, ...mergedContext }, message);
   };
 
   const publishFinalOnce = (params: {
@@ -253,6 +268,20 @@ export function attachChatStreamBridge(params: {
 
   const onError = (ev: ChatErrorEvent) => {
     if (finalPublished) return;
+
+    const transient = isTransientReconnect(getErrorMessage(ev.message));
+    if (transient) {
+      publishStreamWarning({
+        conversationId,
+        inflightId,
+        message: ev.message,
+      });
+      log('warn', 'chat.stream.warning', {
+        message: ev.message,
+        warningType: 'transient_reconnect',
+      });
+      return;
+    }
 
     const inflightState = getInflight(conversationId);
     const cancelled = Boolean(inflightState?.abortController.signal.aborted);

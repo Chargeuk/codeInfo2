@@ -29,6 +29,7 @@ import {
   type WsAnalysisDeltaEvent,
   type WsClientMessage,
   type WsInflightSnapshotEvent,
+  type WsStreamWarningEvent,
   type WsToolEventEvent,
   type WsTurnFinalEvent,
 } from './types.js';
@@ -133,6 +134,22 @@ export function publishToolEvent(params: {
     event: params.event,
   };
   broadcastConversation(params.conversationId, outbound);
+}
+
+export function publishStreamWarning(params: {
+  conversationId: string;
+  inflightId: string;
+  message: string;
+}) {
+  const event: WsStreamWarningEvent = {
+    protocolVersion: WS_PROTOCOL_VERSION,
+    type: 'stream_warning',
+    conversationId: params.conversationId,
+    seq: bumpSeq(params.conversationId),
+    inflightId: params.inflightId,
+    message: params.message,
+  };
+  broadcastConversation(params.conversationId, event);
 }
 
 export function publishTurnFinal(params: {

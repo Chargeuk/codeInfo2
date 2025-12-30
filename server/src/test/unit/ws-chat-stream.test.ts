@@ -7,12 +7,12 @@ import express from 'express';
 import request from 'supertest';
 
 import { getInflight } from '../../chat/inflightRegistry.js';
+import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   getMemoryTurns,
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
-import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
 import {
@@ -28,6 +28,7 @@ type WsTranscriptEvent = {
   seq?: number;
   conversationId?: string;
   inflightId?: string;
+  message?: string;
   inflight?: {
     inflightId?: string;
     assistantText?: string;
@@ -307,6 +308,69 @@ test('late subscriber receives inflight_snapshot with partial assistant/tool sta
     }
   } finally {
     await closeWs(ws1);
+    await stopServer(server);
+  }
+});
+
+test('transient reconnect errors do not fail the stream (published as warnings)', async () => {
+  const server = await startServer({
+    chatFactory: () =>
+      new ScriptedChat(async (chat) => {
+        chat.emit('error', { type: 'error', message: 'Reconnecting... 1/5' });
+        await delay(25);
+        chat.emit('token', { type: 'token', content: 'Still ' });
+        await delay(25);
+        chat.emit('token', { type: 'token', content: 'going' });
+        chat.emit('final', { type: 'final', content: 'Still going' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+      }),
+  });
+  const conversationId = 'ws-transient-reconnect-1';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({ provider: 'lmstudio', model: 'm', conversationId, message: 'hi' })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    const warning = await waitForEvent({
+      ws,
+      predicate: (candidate: unknown): candidate is WsTranscriptEvent => {
+        const e = candidate as WsTranscriptEvent;
+        return (
+          e.protocolVersion === 'v1' &&
+          e.type === 'stream_warning' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(warning.message, 'Reconnecting... 1/5');
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (candidate: unknown): candidate is WsTranscriptEvent => {
+        const e = candidate as WsTranscriptEvent;
+        return (
+          e.protocolVersion === 'v1' &&
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.notEqual(final.status, 'failed');
+  } finally {
+    await closeWs(ws);
     await stopServer(server);
   }
 });

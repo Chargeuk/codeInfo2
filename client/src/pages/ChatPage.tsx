@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Container,
   Alert,
@@ -193,6 +194,7 @@ export default function ChatPage() {
           return;
         case 'inflight_snapshot':
         case 'assistant_delta':
+        case 'stream_warning':
         case 'analysis_delta':
         case 'tool_event':
         case 'turn_final':
@@ -1287,6 +1289,30 @@ export default function ChatPage() {
                                         data-testid="status-chip"
                                         sx={{ alignSelf: 'flex-start' }}
                                       />
+                                    )}
+                                  {message.role === 'assistant' &&
+                                    message.warnings &&
+                                    message.warnings.length > 0 && (
+                                      <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        sx={{ flexWrap: 'wrap' }}
+                                      >
+                                        {message.warnings.map((warning) => (
+                                          <Chip
+                                            key={`${message.id}-warning-${warning}`}
+                                            size="small"
+                                            variant="outlined"
+                                            color="warning"
+                                            icon={
+                                              <WarningAmberIcon fontSize="small" />
+                                            }
+                                            label={warning}
+                                            data-testid="warning-chip"
+                                            sx={{ alignSelf: 'flex-start' }}
+                                          />
+                                        ))}
+                                      </Stack>
                                     )}
                                   {segments.map((segment) => {
                                     if (segment.kind === 'text') {

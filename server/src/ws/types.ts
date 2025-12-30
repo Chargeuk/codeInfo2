@@ -270,6 +270,15 @@ export type WsToolEventEvent = {
   event: ToolEvent;
 };
 
+export type WsStreamWarningEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'stream_warning';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  message: string;
+};
+
 export type WsTurnFinalEvent = {
   protocolVersion: WsProtocolVersion;
   type: 'turn_final';
@@ -288,4 +297,5 @@ export type WsServerEvent =
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
+  | WsStreamWarningEvent
   | WsTurnFinalEvent;

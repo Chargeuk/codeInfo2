@@ -60,7 +60,7 @@ sequenceDiagram
   Server->>Provider: stream chat with loaded history + flags
   Provider-->>Server: tokens/tool calls/final
   Server->>Mongo: append user + assistant turns, update lastMessageAt
-  Server-->>Client: /ws transcript events (deltas + tool events + turn_final)
+  Server-->>Client: /ws transcript events (deltas + warnings + tool events + turn_final)
   alt Mongo down
     Server-->>Client: banner via /health mongoConnected=false (chat still streams)
 end
@@ -79,6 +79,7 @@ end
   - `inflight_snapshot` (sent immediately after `subscribe_conversation` when a run is in progress)
   - `assistant_delta`, `analysis_delta`
   - `tool_event`
+  - `stream_warning` (non-terminal warning event; does not end the in-flight turn)
   - `turn_final` (terminal status for the in-flight turn)
 - Sequence gating is scoped per in-flight run: client-side dedupe/out-of-order checks reset when the `inflightId` changes so a new run starting at `seq=1` is accepted.
 - Stop/cancel is driven by `cancel_inflight` (mapped to an in-flight AbortController).
@@ -915,7 +916,7 @@ sequenceDiagram
   - WebSocket transcript events to any subscribed viewers.
 - Transcript streaming is WebSocket-only at `/ws`:
   - Client sends `subscribe_conversation` (and `subscribe_sidebar`).
-  - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event`, and ends with `turn_final`.
+  - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event` (and optional `stream_warning`), and ends with `turn_final`.
 - Logging: run lifecycle (`chat.run.started`) and WS publish milestones (`chat.stream.*`) are recorded server-side; client forwards `chat.ws.client_*` entries into `/logs` for deterministic manual verification.
 - Fixtures: `common/src/fixtures/chatStream.ts` contains both legacy SSE fixtures (for older harnesses) and WS-shaped fixtures used by Jest/Playwright mocks.
 

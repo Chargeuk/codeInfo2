@@ -170,6 +170,7 @@ export function setupChatWsHarness(params: {
 
       const isTranscript =
         withProtocol.type === 'inflight_snapshot' ||
+        withProtocol.type === 'stream_warning' ||
         withProtocol.type === 'assistant_delta' ||
         withProtocol.type === 'analysis_delta' ||
         withProtocol.type === 'tool_event' ||
@@ -234,6 +235,19 @@ export function setupChatWsHarness(params: {
         seq: nextSeq(),
         inflightId: payload.inflightId,
         delta: payload.delta,
+      });
+    },
+    emitStreamWarning: (payload: {
+      conversationId: string;
+      inflightId: string;
+      message: string;
+    }) => {
+      emit({
+        type: 'stream_warning',
+        conversationId: payload.conversationId,
+        seq: nextSeq(),
+        inflightId: payload.inflightId,
+        message: payload.message,
       });
     },
     emitAnalysisDelta: (payload: {

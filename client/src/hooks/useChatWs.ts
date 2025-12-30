@@ -95,6 +95,14 @@ type WsToolEventEvent = WsServerEventBase & {
   event: WsToolEvent;
 };
 
+type WsStreamWarningEvent = WsServerEventBase & {
+  type: 'stream_warning';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  message: string;
+};
+
 type WsTurnFinalEvent = WsServerEventBase & {
   type: 'turn_final';
   conversationId: string;
@@ -112,6 +120,7 @@ type WsServerEvent =
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
+  | WsStreamWarningEvent
   | WsTurnFinalEvent;
 
 export type ChatWsServerEvent = WsServerEvent;
@@ -123,6 +132,7 @@ export type ChatWsTranscriptEvent =
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
+  | WsStreamWarningEvent
   | WsTurnFinalEvent;
 export type ChatWsToolEvent = WsToolEvent;
 
@@ -411,6 +421,15 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
           seq: msg.seq,
           toolEventCount,
           toolEventType: msg.event.type,
+        });
+      }
+
+      if (msg.type === 'stream_warning') {
+        log('warn', 'chat.ws.client_stream_warning', {
+          conversationId: msg.conversationId,
+          inflightId: msg.inflightId,
+          seq: msg.seq,
+          message: msg.message,
         });
       }
 

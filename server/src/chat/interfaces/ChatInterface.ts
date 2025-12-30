@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { isTransientReconnect } from '../../agents/transientReconnect.js';
 import {
   appendTurn,
   listTurns,
@@ -139,6 +140,7 @@ export abstract class ChatInterface extends EventEmitter {
 
     const deriveStatusFromError = (msg: string | undefined) => {
       if (status !== 'ok') return;
+      if (isTransientReconnect(msg)) return;
       const text = (msg ?? '').toLowerCase();
       if (text.includes('abort') || text.includes('stop')) {
         status = 'stopped';
@@ -160,6 +162,9 @@ export abstract class ChatInterface extends EventEmitter {
     };
 
     const onError: Listener<'error'> = (event) => {
+      if (isTransientReconnect(event.message)) {
+        return;
+      }
       lastErrorMessage = event.message;
       deriveStatusFromError(event.message);
     };

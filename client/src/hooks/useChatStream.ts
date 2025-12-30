@@ -54,6 +54,7 @@ export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  warnings?: string[];
   command?: { name: string; stepIndex: number; totalSteps: number };
   kind?: 'error' | 'status';
   think?: string;
@@ -161,6 +162,7 @@ export function useChatStream(
   const assistantTextRef = useRef('');
   const assistantThinkRef = useRef('');
   const assistantCitationsRef = useRef<ToolCitation[]>([]);
+  const assistantWarningsRef = useRef<string[]>([]);
 
   const thinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -232,12 +234,14 @@ export function useChatStream(
       assistantTextRef.current = '';
       assistantThinkRef.current = '';
       assistantCitationsRef.current = [];
+      assistantWarningsRef.current = [];
       updateMessages((prev) => [
         ...prev,
         {
           id: assistantId,
           role: 'assistant',
           content: '',
+          warnings: undefined,
           segments: segmentsRef.current,
           streamStatus: 'processing',
           thinking: false,
@@ -267,6 +271,10 @@ export function useChatStream(
             thinkStreaming: isStreaming && assistantThinkRef.current.length > 0,
             segments: segmentsRef.current,
             tools,
+            warnings:
+              assistantWarningsRef.current.length > 0
+                ? assistantWarningsRef.current
+                : undefined,
             citations:
               assistantCitationsRef.current.length > 0
                 ? assistantCitationsRef.current
@@ -423,6 +431,7 @@ export function useChatStream(
     assistantTextRef.current = '';
     assistantThinkRef.current = '';
     assistantCitationsRef.current = [];
+    assistantWarningsRef.current = [];
     clearThinkingTimer();
     setIsStreaming(false);
     setStatus('idle');
@@ -749,6 +758,7 @@ export function useChatStream(
           { id: makeId(), kind: 'text', content: assistantTextRef.current },
         ];
         assistantCitationsRef.current = [];
+        assistantWarningsRef.current = [];
         event.inflight.toolEvents.forEach((toolEvent) =>
           applyToolEvent(toolEvent),
         );
@@ -774,6 +784,23 @@ export function useChatStream(
           segmentsRef.current = [
             ...segmentsRef.current,
             { id: makeId(), kind: 'text', content: event.delta },
+          ];
+        }
+        setIsStreaming(true);
+        syncAssistantMessage({ streamStatus: 'processing' });
+        return;
+      }
+
+      if (event.type === 'stream_warning') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        if (
+          event.message &&
+          !assistantWarningsRef.current.includes(event.message)
+        ) {
+          assistantWarningsRef.current = [
+            ...assistantWarningsRef.current,
+            event.message,
           ];
         }
         setIsStreaming(true);

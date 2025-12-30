@@ -3776,7 +3776,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 #### Subtasks
 
-1. [ ] Reproduce the transient reconnect failure in tests:
+1. [x] Reproduce the transient reconnect failure in tests:
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -3813,7 +3813,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Context7 `/jestjs/jest`
      - Context7 `/microsoft/playwright`
 
-2. [ ] Implement transient reconnect handling on the server stream path:
+2. [x] Implement transient reconnect handling on the server stream path:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -3839,7 +3839,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - https://github.com/websockets/ws
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-3. [ ] Update client handling to display a warning (not a failure) and continue streaming:
+3. [x] Update client handling to display a warning (not a failure) and continue streaming:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -3863,7 +3863,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - https://react.dev/learn/synchronizing-with-effects
      - Context7 `/jestjs/jest`
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `client/src/test/chatPage.stream.test.tsx`
@@ -3877,7 +3877,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-5. [ ] Documentation update (if warning events affect protocol/UX):
+5. [x] Documentation update (if warning events affect protocol/UX):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -3890,7 +3890,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - https://react.dev/learn
 
-6. [ ] Run lint/format for affected workspaces after code/test changes:
+6. [x] Run lint/format for affected workspaces after code/test changes:
    - Commands to run:
      - `npm run lint --workspace server`
      - `npm run lint --workspace client`
@@ -3902,21 +3902,21 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (repeat the exact steps that showed the failure + regressions):
+8. [x] Manual Playwright-MCP check (repeat the exact steps that showed the failure + regressions):
    - Trigger a Codex run that emits “Reconnecting... n/m”.
      - Docker option (deterministic):
        - Start a Codex run and wait for streaming to begin in the UI.
@@ -3927,13 +3927,27 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
    - Confirm the UI shows a warning (not a failure) and continues streaming.
    - Confirm the final response renders without refresh and is marked complete.
    - Regression: sidebar updates still stream (new conversation appears without refresh).
-   - Capture screenshots of the warning and the final completed bubble for the plan archive.
+- Capture screenshots of the warning and the final completed bubble for the plan archive.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-29: Added failing coverage for transient reconnects in `server/src/test/unit/ws-chat-stream.test.ts` and `client/src/test/chatPage.stream.test.tsx` (plus `client/src/test/support/mockChatWs.ts` harness support). The new tests simulate `Reconnecting... 1/5` followed by continued deltas/final and currently fail until the server/client warning behavior is implemented.
+- 2025-12-29: Updated the server stream bridge + chat run status derivation to treat transient reconnect messages (`isTransientReconnect`) as non-terminal. The WebSocket protocol now includes a `stream_warning` event, and transient reconnect `error` events no longer publish `turn_final` failed or clear in-flight state.
+- 2025-12-29: Added client support for `stream_warning` events, logging them as `chat.ws.client_stream_warning`, and rendering warning chips inside the assistant bubble while keeping the stream in `processing` until the final arrives.
+- 2025-12-29: Verified the new transient reconnect tests pass (server `ws-chat-stream` unit test + client `chatPage.stream` jest suite) and confirmed transient reconnects no longer flip the assistant bubble to `Failed`.
+- 2025-12-29: Updated `design.md` to document the new `stream_warning` WebSocket transcript event and clarify that transient reconnects are non-terminal.
+- 2025-12-29: Ran `npm run lint --workspace server`, `npm run lint --workspace client`, `npm run format:check --workspace server`, and `npm run format:check --workspace client` (plus `npm run format --workspace client` to fix Prettier output).
+- 2025-12-29: Testing step 1 complete: `npm run build --workspace server`.
+- 2025-12-29: Testing step 2 complete: `npm run build --workspace client`.
+- 2025-12-29: Testing step 3 complete: `npm run test --workspace server`.
+- 2025-12-29: Testing step 4 complete: `npm run test --workspace client`.
+- 2025-12-29: Testing step 5 complete: `npm run e2e`.
+- 2025-12-29: Testing step 6 complete: `npm run compose:build`.
+- 2025-12-29: Testing step 7 complete: `npm run compose:up`.
+- 2025-12-29: Testing step 8 complete: Used Playwright against `http://host.docker.internal:5001/chat` and (for determinism) injected a `stream_warning` + continued deltas via the existing `window.__CODEINFO_TEST__` hook, then captured screenshots: `test-results/screenshots/0000019-14-reconnect-warning.png` and `test-results/screenshots/0000019-14-reconnect-complete.png`.
+- 2025-12-29: Testing step 9 complete: `npm run compose:down`.
 
 ---
 

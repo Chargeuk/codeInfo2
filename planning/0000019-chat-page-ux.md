@@ -5358,6 +5358,16 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - Assert that horizontal padding (gutters) remain in effect (e.g., compare container left padding > 0).
      - Ensure the conversation list is aligned to the left edge within the gutters and the chat column can expand to the remaining width.
      - Assert the App container still uses gutters on a non-chat route (e.g., `/` HomePage) to avoid global layout regressions.
+   - Code anchors (where to look first):
+     - App shell container: `client/src/App.tsx` (`<Container maxWidth="lg" ...>` today).
+     - Chat layout wrapper: `client/src/pages/ChatPage.tsx` (`data-testid="conversation-list"`, `data-testid="chat-column"`).
+   - Reference snippets (repeat):
+     - `maxWidth={false}` keeps the container full-width.
+     - `disableGutters={false}` keeps gutters (default).
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-container/
+     - https://mui.com/material-ui/api/container/
+     - Context7 `/jestjs/jest`
    - Reference snippets (repeat):
      - `maxWidth={false}` keeps container full-width.
      - `disableGutters={false}` (default) keeps gutters.
@@ -5375,6 +5385,10 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - Ensure existing vertical layout rules (`flex`, `minHeight`, `overflow`) remain intact.
    - Code anchors (where to look first):
      - `client/src/App.tsx` Container wrapping `<Outlet />`.
+   - Reference snippets (repeat):
+     - ` <Container maxWidth={false} sx={{ mt: 3, pb: 4, flex: 1, ... }}>`
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/container/
    - Docs (repeat):
      - https://mui.com/material-ui/api/container/
 
@@ -5386,6 +5400,10 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - Confirm the layout is no longer centered and gutters still apply.
    - Reference snippets (repeat):
      - `expect(container).toHaveStyle({ maxWidth: 'none' })` (or similar DOM measurement checks).
+   - Code anchors (where to look first):
+     - `data-testid="conversation-list"` and `data-testid="chat-column"` assertions.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
@@ -5396,6 +5414,11 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - Simulate a narrow viewport and confirm the conversation list still occupies full width on small screens.
      - Confirm gutters are still present (padding not zero).
      - Confirm the chat column does not overflow horizontally when long content is rendered (word-wrap stays within available width).
+   - Code anchors (where to look first):
+     - Chat column wrapper: `data-testid="chat-column"`.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-container/
+     - Context7 `/jestjs/jest`
    - Docs (repeat):
      - https://mui.com/material-ui/react-container/
      - Context7 `/jestjs/jest`
@@ -5406,6 +5429,10 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
    - Requirements:
      - Note that the app shell container is full-width with gutters, so Chat page fills remaining horizontal space.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippets (repeat):
+     - “App shell Container uses `maxWidth={false}` with gutters preserved.”
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-container/
    - Docs (repeat):
      - https://mui.com/material-ui/react-container/
 
@@ -5476,6 +5503,12 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Requirements:
      - Identify where inflight state is created, updated, and cleared.
      - Identify where snapshot inflight data is attached in `/conversations/:id/turns`.
+   - Code anchors (where to look first):
+     - `snapshotInflight(...)` usage in `server/src/routes/conversations.ts`.
+     - inflight store in `server/src/chat/memoryPersistence.ts`.
+   - Docs (repeat):
+     - https://expressjs.com/en/guide/routing.html
+     - https://mongoosejs.com/docs/api/model.html
 
 2. [ ] Update inflight lifecycle to persist until DB write completes:
    - Files to edit:
@@ -5487,6 +5520,13 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - Do not clear inflight state at `turn_final`.
      - Only clear inflight state after both the user + assistant turns are confirmed persisted.
      - Ensure failures that prevent persistence keep inflight available for snapshot until resolved.
+   - Code anchors (where to look first):
+     - Turn persistence calls in `ChatInterface.ts` (append turn flow).
+     - Any inflight cleanup calls in `memoryPersistence.ts`.
+   - Reference snippets (repeat):
+     - “Clear inflight only after `appendTurn` resolves for both turns.”
+   - Docs (repeat):
+     - https://mongoosejs.com/docs/api/model.html
 
 3. [ ] Merge inflight into snapshot responses:
    - Files to edit:
@@ -5496,6 +5536,10 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - Always append inflight data to `GET /conversations/:id/turns` responses.
      - Deduplicate against persisted turns by content + role + createdAt window (or similar existing dedupe rules).
      - Ensure the response is ordered chronologically after merge.
+   - Code anchors (where to look first):
+     - `router.get('/conversations/:id/turns'...)` response builder.
+   - Docs (repeat):
+     - https://expressjs.com/en/guide/routing.html
 
 4. [ ] Add server tests for inflight merge behavior:
    - Files to edit:
@@ -5506,6 +5550,11 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - Simulate persistence completion; assert inflight no longer appears but persisted data remains.
      - Simulate a persistence failure (append/write error); assert inflight remains available in snapshots until a later successful write.
      - Verify snapshots include inflight data even when `includeInflight` is omitted/false (new always-merge behavior).
+   - Code anchors (where to look first):
+     - Existing list-turn tests in `server/src/test/integration/conversations.turns.test.ts`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+     - https://cucumber.io/docs/guides/
 
 5. [ ] Add client regression tests for multi-window snapshot refresh:
    - Files to edit:
@@ -5515,12 +5564,20 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - Simulate a snapshot refresh after a follow-up in another tab; assert prior assistant turn is not dropped.
      - Ensure assistant ordering remains above its user prompt.
      - Simulate a refresh when inflight data is absent (persistence lag) and assert the last assistant turn is still present after hydration.
+   - Code anchors (where to look first):
+     - Chat history hydrate effect in `client/src/pages/ChatPage.tsx` (lastMode/lastPage).
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 6. [ ] Documentation update (if snapshot semantics change):
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document that snapshots always include inflight data until persistence completes.
+   - Reference snippets (repeat):
+     - “Snapshots merge persisted + inflight until writes succeed.”
+   - Docs (repeat):
+     - https://expressjs.com/en/guide/routing.html
 
 7. [ ] Run lint/format after server/client changes:
    - Commands to run:
@@ -5583,6 +5640,12 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Requirements:
      - Include a stable `turnId` (Mongo `_id`) in the serialized turn payloads.
      - Ensure client‑visible DTO remains backwards compatible (new field is additive).
+   - Code anchors (where to look first):
+     - Turn serialization in `server/src/routes/conversations.ts` (list turns response mapping).
+   - Reference snippets (repeat):
+     - `turnId: turn._id.toString()`
+   - Docs (repeat):
+     - https://mongoosejs.com/docs/documents.html
 
 2. [ ] Update snapshot merge/dedupe to prefer turnId:
    - Files to edit:
@@ -5591,6 +5654,10 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Requirements:
      - When merging persisted + inflight, dedupe by `turnId` when available.
      - Fall back to (role + content hash + createdAt window) only when `turnId` is missing.
+   - Code anchors (where to look first):
+     - Merge/dedupe helper in `memoryPersistence.ts`.
+   - Docs (repeat):
+     - https://mongoosejs.com/docs/documents.html
 
 3. [ ] Enforce deterministic ordering in snapshot responses:
    - Files to edit:
@@ -5598,6 +5665,10 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Requirements:
      - Sort merged turns by `(createdAt, rolePriority, turnId)` before responding.
      - Ensure assistant follows its corresponding user when timestamps are equal.
+   - Reference snippets (repeat):
+     - `rolePriority: user=0, assistant=1, system=2` (or documented ordering).
+   - Docs (repeat):
+     - https://expressjs.com/en/guide/routing.html
 
 4. [ ] Server tests for ID + ordering guarantees:
    - Files to edit:
@@ -5607,6 +5678,10 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
      - Validate ordering when two turns share the same `createdAt`.
      - Validate dedupe prefers `turnId` over timestamp windows.
      - Validate fallback dedupe (no `turnId`) still preserves distinct turns when content differs.
+   - Code anchors (where to look first):
+     - Existing turns response assertions in `conversations.turns.test.ts`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 5. [ ] Client tests for stable ordering (snapshot consumption):
    - Files to edit:
@@ -5614,12 +5689,20 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
    - Test requirements:
      - Simulate turns with same `createdAt`; ensure UI renders in correct order.
      - Simulate missing `turnId` (legacy payload) and assert ordering remains deterministic.
+   - Code anchors (where to look first):
+     - `mapTurnsToMessages` in `client/src/pages/ChatPage.tsx`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 6. [ ] Documentation update (if snapshot schema changes):
    - Files to edit:
      - `design.md`
    - Requirements:
      - Note that snapshot turns include `turnId` and ordering guarantees.
+   - Reference snippets (repeat):
+     - “Snapshot payloads include `turnId` and are ordered deterministically.”
+   - Docs (repeat):
+     - https://expressjs.com/en/guide/routing.html
 
 7. [ ] Run lint/format after server/client changes:
    - Commands to run:

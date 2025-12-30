@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 import mongoose from 'mongoose';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import type { AppendTurnInput } from '../../mongo/repo.js';
-import type { TurnSource, TurnStatus } from '../../mongo/turn.js';
+import type { TurnSource } from '../../mongo/turn.js';
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{

@@ -7,6 +7,7 @@ This story follows `planning/plan_format.md`.
 Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
 
 Story convention (important for this repo’s planning style):
+
 - Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
 - Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
 
@@ -26,6 +27,7 @@ This story improves the Chat page UX in four ways:
 4. **Streaming observability**: add explicit client + server log entries for WebSocket chat streaming so tests can prove that messages are being sent/received end-to-end via the `/logs` store.
 
 The intended approach for “catch-up” is:
+
 - The client continues to load the persisted snapshot (existing “load turns for a conversation” mechanism).
 - While a conversation is actively streaming, the server provides incremental updates for the current in-flight turn from in-memory state.
 - The UI merges persisted turns with the in-memory streaming turn so the transcript reflects “so far” content without requiring the server to retain full histories in memory.
@@ -41,6 +43,7 @@ The intended approach for “catch-up” is:
 ### Realtime transport choice (v1)
 
 We will use **WebSockets** (one connection per browser tab) as the **only** chat streaming transport. Chat SSE will be removed by the end of this story. WebSockets are required because we need:
+
 - Dynamic subscriptions: only the **visible** conversation transcript should stream (subscribe on view, unsubscribe on switch).
 - Always-on sidebar updates: the conversation list should update in real time when conversations are created/updated/archived/restored/deleted from another browser window.
 - Near-term reuse: a follow-up story is expected to apply the same realtime + management model to the **Agents** tab, so the transport should support multiple “channels” (chat list, agents list, active conversation) over a single connection.
@@ -48,6 +51,7 @@ We will use **WebSockets** (one connection per browser tab) as the **only** chat
 WebSockets keep this as a single long-lived connection with explicit `subscribe`/`unsubscribe` messages, and allow us to add new event types later without creating additional long-lived HTTP streams.
 
 Implementation choice (confirmed):
+
 - WebSocket library: `ws`
 - Server heartbeat: ping every 30s, disconnect after 2 missed pongs
 - Client reconnect: exponential backoff (500ms → 1s → 2s → 4s, cap at 8s)
@@ -55,6 +59,7 @@ Implementation choice (confirmed):
 ### Future direction (planned reuse for Agents tab)
 
 The Conversations sidebar should be reusable in a later story for the Agents tab by introducing an optional “agent filter” input:
+
 - The shared Conversations component accepts an optional `agentName` (or equivalent) prop.
 - When `agentName` is omitted, it behaves exactly like the current Chat sidebar (shows non-agent chat history).
 - When `agentName` is provided, it filters the conversations list to only those associated with that agent (matching the existing server-side `agentName` concept used by the Agents page).
@@ -334,14 +339,15 @@ These findings are based on the current repository implementation and are includ
 
 ## Questions
 
-
 ---
+
 # Tasks
 
 ### 1. Conversation list filtering (state query)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **1c89fa7**
+
 #### Overview
 
 Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `all`) while preserving backward compatibility for the existing `archived=true` query. This powers the new sidebar filter and keeps existing callers stable.
@@ -358,7 +364,6 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 - Mermaid syntax (only if adding diagrams): Context7 `/mermaid-js/mermaid`
 - Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -485,56 +490,59 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
    ✅ Notes (2025-12-27): Updated `design.md` with the `state=active|archived|all` contract and legacy `archived=true` mapping.
 
 10. [x] Update project documentation if new files were introduced by this task:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
 
-   ✅ Notes (2025-12-27): No new files introduced for Task 1; `projectStructure.md` unchanged.
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - Add any new files introduced by this task (if none, mark this subtask complete with “no changes”).
+
+✅ Notes (2025-12-27): No new files introduced for Task 1; `projectStructure.md` unchanged.
 
 11. [x] Add server log lines for conversation list filtering so manual checks can prove the new query paths are being exercised:
-   - Files to edit:
-     - `server/src/routes/conversations.ts`
-     - `server/src/logStore.ts` (use existing append helper; do not change schema)
-   - Required log messages (must match exactly):
-     - `conversations.list.request`
-     - `conversations.list.validation_failed`
-     - `conversations.list.response`
-   - Required fields in `context` (as applicable):
-     - `state` (active|archived|all)
-     - `archivedQuery` (raw archived query string when present)
-     - `limit`
-     - `cursorProvided` (boolean)
-     - `agentName` (if present)
-     - `returnedCount`
-   - Notes:
-     - Use the server log store (`/logs`) so the log lines are visible in the UI and in Playwright-MCP checks.
 
-   ✅ Notes (2025-12-27): Added `/logs` entries for list request/validation_failed/response in `server/src/routes/conversations.ts` using `logStore.append()` with required `context` fields.
+- Files to edit:
+  - `server/src/routes/conversations.ts`
+  - `server/src/logStore.ts` (use existing append helper; do not change schema)
+- Required log messages (must match exactly):
+  - `conversations.list.request`
+  - `conversations.list.validation_failed`
+  - `conversations.list.response`
+- Required fields in `context` (as applicable):
+  - `state` (active|archived|all)
+  - `archivedQuery` (raw archived query string when present)
+  - `limit`
+  - `cursorProvided` (boolean)
+  - `agentName` (if present)
+  - `returnedCount`
+- Notes:
+  - Use the server log store (`/logs`) so the log lines are visible in the UI and in Playwright-MCP checks.
+
+✅ Notes (2025-12-27): Added `/logs` entries for list request/validation_failed/response in `server/src/routes/conversations.ts` using `logStore.append()` with required `context` fields.
 
 12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
 
-   ✅ Notes (2025-12-27): `npm run lint --workspaces` passed. `npm run format:check --workspaces` initially failed for server files; ran `npm run format --workspaces` then `npm run format:check --workspaces` passed.
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
+
+✅ Notes (2025-12-27): `npm run lint --workspaces` passed. `npm run format:check --workspaces` initially failed for server files; ran `npm run format --workspaces` then `npm run format:check --workspaces` passed.
 
 #### Testing
 
@@ -582,8 +590,9 @@ Extend `GET /conversations` to support a 3-state filter (`active`, `archived`, `
 
 ### 2. Conversation bulk endpoints
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: 57a91cf, c95e5dd
+
 #### Overview
 
 Add bulk archive/restore/delete endpoints with strong validation and archived-only delete guardrails (validate-first + idempotent writes; no transaction requirement in v1).
@@ -599,7 +608,6 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 - Mermaid syntax (only if adding diagrams about new endpoints): Context7 `/mermaid-js/mermaid`
 - Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -628,7 +636,12 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      ```
    - Required error response (example):
      ```json
-     { "status": "error", "code": "BATCH_CONFLICT", "message": "Bulk operation rejected.", "details": { "invalidIds": [], "invalidStateIds": [] } }
+     {
+       "status": "error",
+       "code": "BATCH_CONFLICT",
+       "message": "Bulk operation rejected.",
+       "details": { "invalidIds": [], "invalidStateIds": [] }
+     }
      ```
    - Required validation behavior (HTTP 400):
      - If the request body is missing `conversationIds`, `conversationIds` is not an array, or any id is not a string, return:
@@ -709,103 +722,111 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
      - Purpose: prevent server from attempting to coerce ids.
 
 10. [x] Server integration test: bulk endpoints reject empty conversationIds array with 400 VALIDATION_FAILED (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
-   - Files to edit:
-     - `server/src/test/integration/conversations.bulk.test.ts`
-   - Requirements:
-     - Purpose: prevent accidental no-op bulk calls being treated as success.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+- Files to edit:
+  - `server/src/test/integration/conversations.bulk.test.ts`
+- Requirements:
+  - Purpose: prevent accidental no-op bulk calls being treated as success.
 
 11. [x] Server integration test: bulk endpoints accept duplicate conversationIds and treat them as unique (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-   - Files to edit:
-     - `server/src/test/integration/conversations.bulk.test.ts`
-   - Purpose:
-     - Make the API resilient to client-side selection bugs that may send duplicates.
-   - Requirements:
-     - Create an archived or active conversation, then call bulk archive/restore with `[id, id]`.
-     - Assert the endpoint returns `200` and `updatedCount` equals `1` (not 2), and that the resulting state is correct.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+- Files to edit:
+  - `server/src/test/integration/conversations.bulk.test.ts`
+- Purpose:
+  - Make the API resilient to client-side selection bugs that may send duplicates.
+- Requirements:
+  - Create an archived or active conversation, then call bulk archive/restore with `[id, id]`.
+  - Assert the endpoint returns `200` and `updatedCount` equals `1` (not 2), and that the resulting state is correct.
 
 12. [x] Server integration test: bulk archive all-or-nothing conflict on invalid id (409 BATCH_CONFLICT, no writes) (error case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-   - Files to edit:
-     - `server/src/test/integration/conversations.bulk.test.ts`
-   - Requirements:
-     - Purpose: prove all-or-nothing behavior. Assert details.invalidIds includes the missing id and nothing changes.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Files to edit:
+  - `server/src/test/integration/conversations.bulk.test.ts`
+- Requirements:
+  - Purpose: prove all-or-nothing behavior. Assert details.invalidIds includes the missing id and nothing changes.
 
 13. [x] Server integration test: bulk delete rejects non-archived ids (409 BATCH_CONFLICT invalidStateIds, no deletes) (error case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-   - Files to edit:
-     - `server/src/test/integration/conversations.bulk.test.ts`
-   - Requirements:
-     - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Files to edit:
+  - `server/src/test/integration/conversations.bulk.test.ts`
+- Requirements:
+  - Purpose: enforce archived-only delete guardrail. Assert nothing is deleted.
 
 14. [x] Update `design.md` for bulk conversation actions (include Mermaid diagrams):
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
-   - Requirements:
-     - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
-     - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
+
+- Docs to read:
+  - Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+- Description:
+  - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+- Requirements:
+  - Add/extend a Mermaid sequence diagram covering bulk archive/restore/delete: request → validate (invalidIds/invalidStateIds) → either 200 ok or 409 BATCH_CONFLICT with no writes.
+  - Document the archived-only delete guardrail and the “validate-first then write” approach (no transactions in v1).
 
 15. [x] Update project documentation for any added/changed files:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 16. [x] Add server log lines for bulk conversation actions so manual checks can prove archive/restore/delete are firing:
-   - Files to edit:
-     - `server/src/routes/conversations.ts` (bulk route handlers)
-     - `server/src/logStore.ts` (use existing append helper; do not change schema)
-   - Required log messages (must match exactly):
-     - `conversations.bulk.request`
-     - `conversations.bulk.conflict`
-     - `conversations.bulk.success`
-   - Required fields in `context` (as applicable):
-     - `action` (archive|restore|delete)
-     - `requestedCount`
-     - `uniqueCount`
-     - `invalidIdsCount`
-     - `invalidStateIdsCount` (delete only)
-     - `updatedCount` / `deletedCount`
-   - Notes:
-     - Log `conversations.bulk.conflict` only when returning `409 BATCH_CONFLICT`.
+
+- Files to edit:
+  - `server/src/routes/conversations.ts` (bulk route handlers)
+  - `server/src/logStore.ts` (use existing append helper; do not change schema)
+- Required log messages (must match exactly):
+  - `conversations.bulk.request`
+  - `conversations.bulk.conflict`
+  - `conversations.bulk.success`
+- Required fields in `context` (as applicable):
+  - `action` (archive|restore|delete)
+  - `requestedCount`
+  - `uniqueCount`
+  - `invalidIdsCount`
+  - `invalidStateIdsCount` (delete only)
+  - `updatedCount` / `deletedCount`
+- Notes:
+  - Log `conversations.bulk.conflict` only when returning `409 BATCH_CONFLICT`.
 
 17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -864,8 +885,9 @@ Add bulk archive/restore/delete endpoints with strong validation and archived-on
 
 ### 3. WebSocket server foundation
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: 3210d97
+
 #### Overview
 
 Introduce the `/ws` WebSocket server on the existing Express port with protocol versioning, ping/pong heartbeats, and subscription tracking for sidebar and conversation streams.
@@ -881,7 +903,6 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 - Node.js test runner (writing WS unit tests with proper teardown): https://nodejs.org/api/test.html
 - Cucumber guides index (server test suite includes Cucumber scenarios; use this for step patterns and feature syntax): https://cucumber.io/docs/guides/
 - Tooling references (installing deps + verification): https://docs.npmjs.com/cli/v10/commands/npm-install, https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -917,7 +938,9 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      // ... build express app as today ...
      const httpServer = createServer(app);
      attachWs({ httpServer });
-     httpServer.listen(Number(PORT), () => baseLogger.info(`Server on ${PORT}`));
+     httpServer.listen(Number(PORT), () =>
+       baseLogger.info(`Server on ${PORT}`),
+     );
      ```
    - Requirements:
      - WebSocket endpoint path is `GET /ws` on the same port as the Express server.
@@ -931,7 +954,11 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Create `server/src/ws/types.ts`
    - Required message envelope (must be enforced):
      ```json
-     { "protocolVersion": "v1", "requestId": "<uuid>", "type": "subscribe_sidebar" }
+     {
+       "protocolVersion": "v1",
+       "requestId": "<uuid>",
+       "type": "subscribe_sidebar"
+     }
      ```
    - Required inbound message `type` values (v1):
      - `subscribe_sidebar`, `unsubscribe_sidebar`
@@ -959,10 +986,25 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Update `server/src/ws/server.ts` (hook publisher into incoming messages + connection lifecycle)
    - Required outbound sidebar events (examples):
      ```json
-     { "protocolVersion":"v1", "type":"conversation_upsert", "seq": 1, "conversation": { "conversationId":"...", "title":"...", "archived": false, "lastMessageAt":"..." } }
+     {
+       "protocolVersion": "v1",
+       "type": "conversation_upsert",
+       "seq": 1,
+       "conversation": {
+         "conversationId": "...",
+         "title": "...",
+         "archived": false,
+         "lastMessageAt": "..."
+       }
+     }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"conversation_delete", "seq": 2, "conversationId":"..." }
+     {
+       "protocolVersion": "v1",
+       "type": "conversation_delete",
+       "seq": 2,
+       "conversationId": "..."
+     }
      ```
    - Requirements:
      - `seq` must be monotonically increasing for sidebar events.
@@ -996,90 +1038,96 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
      - Purpose: ensure bad payloads do not crash the server.
 
 10. [x] Server unit test: unknown message type is ignored (connection stays open) (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to edit:
-     - `server/src/test/unit/ws-server.test.ts`
-   - Requirements:
-     - Purpose: forward compatibility.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to edit:
+  - `server/src/test/unit/ws-server.test.ts`
+- Requirements:
+  - Purpose: forward compatibility.
 
 11. [x] Server unit test: subscribe_conversation missing conversationId is rejected (error case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to edit:
-     - `server/src/test/unit/ws-server.test.ts`
-   - Requirements:
-     - Purpose: strict inbound validation.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to edit:
+  - `server/src/test/unit/ws-server.test.ts`
+- Requirements:
+  - Purpose: strict inbound validation.
 
 12. [x] Update `design.md` with the new WebSocket transport and subscription flows (include Mermaid diagrams):
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid`
-     - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
-   - Requirements:
-     - Add/extend a Mermaid sequence diagram for: client connects to `GET /ws` → subscribe_sidebar / subscribe_conversation → server broadcasts `conversation_upsert` and transcript events to subscribers.
-     - Note that protocol gating uses `protocolVersion: "v1"` and malformed JSON closes the socket.
+
+- Docs to read:
+  - Context7 `/mermaid-js/mermaid`
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+- Description:
+  - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+- Requirements:
+  - Add/extend a Mermaid sequence diagram for: client connects to `GET /ws` → subscribe_sidebar / subscribe_conversation → server broadcasts `conversation_upsert` and transcript events to subscribers.
+  - Note that protocol gating uses `protocolVersion: "v1"` and malformed JSON closes the socket.
 
 13. [x] Update `projectStructure.md` with newly added server WebSocket modules:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
-     - Expected file additions (must be reflected in `projectStructure.md`):
-       - `server/src/ws/server.ts`
-       - `server/src/ws/types.ts`
-       - `server/src/ws/registry.ts`
-       - `server/src/ws/sidebar.ts`
-       - `server/src/mongo/events.ts`
-     - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+  - Expected file additions (must be reflected in `projectStructure.md`):
+    - `server/src/ws/server.ts`
+    - `server/src/ws/types.ts`
+    - `server/src/ws/registry.ts`
+    - `server/src/ws/sidebar.ts`
+    - `server/src/mongo/events.ts`
+  - If you add/remove any additional WS modules while implementing this task, include those exact paths too.
 
 14. [x] Add server log lines for WS connect/subscription lifecycle so manual checks can prove the WS plumbing is active:
-   - Files to edit:
-     - `server/src/ws/server.ts`
-     - `server/src/logStore.ts` (use existing append helper; do not change schema)
-   - Required log messages (must match exactly):
-     - `chat.ws.connect`
-     - `chat.ws.disconnect`
-     - `chat.ws.subscribe_sidebar`
-     - `chat.ws.unsubscribe_sidebar`
-     - `chat.ws.subscribe_conversation`
-     - `chat.ws.unsubscribe_conversation`
-   - Required fields in `context` (as applicable):
-     - `connectionId` (a generated id for the socket)
-     - `conversationId` (for conversation subscribe/unsubscribe)
-     - `subscribedSidebar` (boolean)
-     - `subscribedConversationCount`
-   - Notes:
-     - These log lines must be written into the server `/logs` store (not console-only), so the UI can query them.
+
+- Files to edit:
+  - `server/src/ws/server.ts`
+  - `server/src/logStore.ts` (use existing append helper; do not change schema)
+- Required log messages (must match exactly):
+  - `chat.ws.connect`
+  - `chat.ws.disconnect`
+  - `chat.ws.subscribe_sidebar`
+  - `chat.ws.unsubscribe_sidebar`
+  - `chat.ws.subscribe_conversation`
+  - `chat.ws.unsubscribe_conversation`
+- Required fields in `context` (as applicable):
+  - `connectionId` (a generated id for the socket)
+  - `conversationId` (for conversation subscribe/unsubscribe)
+  - `subscribedSidebar` (boolean)
+  - `subscribedConversationCount`
+- Notes:
+  - These log lines must be written into the server `/logs` store (not console-only), so the UI can query them.
 
 15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -1134,8 +1182,9 @@ Introduce the `/ws` WebSocket server on the existing Express port with protocol 
 
 ### 4. Chat WebSocket streaming publisher
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: 2a890cc
+
 #### Overview
 
 Refactor chat execution so `POST /chat` is a non-streaming start request, then publish all chat deltas/tool events/finals over WebSockets using an in-flight registry and per-conversation run lock. Remove chat SSE from the server.
@@ -1148,12 +1197,11 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 - Node.js AbortController (provider cancellation + cancel_inflight mapping): https://nodejs.org/api/globals.html#class-abortcontroller
 - Node.js UUID generation (recommended for inflightId / requestId if you use crypto.randomUUID()): https://nodejs.org/api/crypto.html#cryptorandomuuidoptions
 - Mongoose v9 persistence docs (updating conversation flags + turn persistence while streaming): Context7 `/automattic/mongoose/9.0.1`
-- Pino logging (adding required chat.* log names with structured fields): Context7 `/pinojs/pino/v10.1.0`
+- Pino logging (adding required chat.\* log names with structured fields): Context7 `/pinojs/pino/v10.1.0`
 - HTTP status semantics for the contract (202 accepted + 409 conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -1175,7 +1223,11 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/routes/chat.ts`
    - Required error response (example):
      ```json
-     { "status":"error", "code":"RUN_IN_PROGRESS", "message":"Conversation already has an active run." }
+     {
+       "status": "error",
+       "code": "RUN_IN_PROGRESS",
+       "message": "Conversation already has an active run."
+     }
      ```
 
 3. [x] Implement an in-flight registry (single authoritative in-memory store for streaming state):
@@ -1192,6 +1244,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `abortController`
      - `seq` counter (monotonic, per conversation)
    - Implementation sketch (copy/paste then adapt):
+
      ```ts
      // server/src/chat/inflightRegistry.ts (sketch)
      export type InflightState = {
@@ -1207,7 +1260,10 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      // key: conversationId
      const inflight = new Map<string, InflightState>();
 
-     export function createInflight(conversationId: string, inflightId: string) {
+     export function createInflight(
+       conversationId: string,
+       inflightId: string,
+     ) {
        inflight.set(conversationId, {
          inflightId,
          assistantText: '',
@@ -1219,6 +1275,7 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
        });
      }
      ```
+
    - Requirements:
      - Keep the API tiny and deterministic (get/set/append + bumpSeq + cleanup).
      - The registry must only hold state for active runs and must delete entries on completion.
@@ -1230,19 +1287,65 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/ws/server.ts`
    - Required outbound transcript events (examples):
      ```json
-     { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "assistantThink":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
+     {
+       "protocolVersion": "v1",
+       "type": "inflight_snapshot",
+       "conversationId": "...",
+       "seq": 1,
+       "inflight": {
+         "inflightId": "...",
+         "assistantText": "",
+         "assistantThink": "",
+         "toolEvents": [],
+         "startedAt": "2025-01-01T00:00:00.000Z"
+       }
+     }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"assistant_delta", "conversationId":"...", "seq": 2, "inflightId":"...", "delta":"hello" }
+     {
+       "protocolVersion": "v1",
+       "type": "assistant_delta",
+       "conversationId": "...",
+       "seq": 2,
+       "inflightId": "...",
+       "delta": "hello"
+     }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"analysis_delta", "conversationId":"...", "seq": 3, "inflightId":"...", "delta":"Thinking..." }
+     {
+       "protocolVersion": "v1",
+       "type": "analysis_delta",
+       "conversationId": "...",
+       "seq": 3,
+       "inflightId": "...",
+       "delta": "Thinking..."
+     }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"tool_event", "conversationId":"...", "seq": 4, "inflightId":"...", "event": { "type":"tool-request", "callId":"1", "name":"vector_search", "parameters": {} } }
+     {
+       "protocolVersion": "v1",
+       "type": "tool_event",
+       "conversationId": "...",
+       "seq": 4,
+       "inflightId": "...",
+       "event": {
+         "type": "tool-request",
+         "callId": "1",
+         "name": "vector_search",
+         "parameters": {}
+       }
+     }
      ```
      ```json
-     { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 5, "inflightId":"...", "status":"ok", "threadId": null }
+     {
+       "protocolVersion": "v1",
+       "type": "turn_final",
+       "conversationId": "...",
+       "seq": 5,
+       "inflightId": "...",
+       "status": "ok",
+       "threadId": null
+     }
      ```
 
 5. [x] Create a shared bridge that converts `ChatInterface` events into in-flight registry updates + WS transcript events:
@@ -1292,7 +1395,13 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/chat/chatStreamBridge.ts`
    - Required success response (example):
      ```json
-     { "status":"started", "conversationId":"...", "inflightId":"...", "provider":"codex", "model":"gpt-5.1-codex-max" }
+     {
+       "status": "started",
+       "conversationId": "...",
+       "inflightId": "...",
+       "provider": "codex",
+       "model": "gpt-5.1-codex-max"
+     }
      ```
    - Requirements:
      - The run must execute in the background (do not block the HTTP response).
@@ -1338,102 +1447,115 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
      - `server/src/chat/inflightRegistry.ts` (abort logic)
    - Required inbound cancel message (example):
      ```json
-     { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
+     {
+       "protocolVersion": "v1",
+       "requestId": "<uuid>",
+       "type": "cancel_inflight",
+       "conversationId": "...",
+       "inflightId": "..."
+     }
      ```
    - Requirements:
      - If inflight is missing/mismatched, publish `turn_final` with `status:"failed"` and `error.code="INFLIGHT_NOT_FOUND"`.
 
 10. [x] Ensure threadId continuity (Codex) is reflected in WS final events and sidebar upserts:
-   - Docs to read:
-     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
-   - Files to edit:
-     - `server/src/routes/chat.ts`
-     - `server/src/mongo/repo.ts` (ensure flags updated on persist)
-   - Requirements:
-     - `turn_final.threadId` must be sent when available.
-     - `conversation_upsert.conversation.flags.threadId` must be updated so new tabs can continue a thread.
+
+- Docs to read:
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202
+- Files to edit:
+  - `server/src/routes/chat.ts`
+  - `server/src/mongo/repo.ts` (ensure flags updated on persist)
+- Requirements:
+  - `turn_final.threadId` must be sent when available.
+  - `conversation_upsert.conversation.flags.threadId` must be updated so new tabs can continue a thread.
 
 11. [x] Ensure sidebar updates are emitted from persistence (repo) so they apply to Chat + Agents + MCP runs:
-   - Docs to read:
-     - Context7 `/automattic/mongoose/9.0.1`
-   - Files to edit:
-     - `server/src/mongo/events.ts`
-     - `server/src/mongo/repo.ts`
-     - `server/src/ws/sidebar.ts`
+
+- Docs to read:
+  - Context7 `/automattic/mongoose/9.0.1`
+- Files to edit:
+  - `server/src/mongo/events.ts`
+  - `server/src/mongo/repo.ts`
+  - `server/src/ws/sidebar.ts`
 
 12. [x] Remove chat SSE response handling (but keep `/logs/stream` SSE untouched):
-   - Docs to read:
-     - Context7 `/expressjs/express/v5.1.0`
-   - Files to edit:
-     - `server/src/routes/chat.ts`
-     - `server/src/chatStream.ts` (only if it becomes unused by chat)
-   - Requirements:
-     - After this story, chat must not depend on SSE anywhere in client or server code.
+
+- Docs to read:
+  - Context7 `/expressjs/express/v5.1.0`
+- Files to edit:
+  - `server/src/routes/chat.ts`
+  - `server/src/chatStream.ts` (only if it becomes unused by chat)
+- Requirements:
+  - After this story, chat must not depend on SSE anywhere in client or server code.
 
 13. [x] Add server-side WS + streaming logs (explicit names and throttling):
-   - Docs to read:
-     - https://nodejs.org/api/console.html
-   - Files to edit:
-     - `server/src/logger.ts` (if helpers are needed)
-     - `server/src/ws/server.ts`
-     - `server/src/routes/chat.ts`
-   - Required log names (must match exactly):
-     - `chat.ws.connect`, `chat.ws.disconnect`
-     - `chat.ws.subscribe_sidebar`, `chat.ws.unsubscribe_sidebar`
-     - `chat.ws.subscribe_conversation`, `chat.ws.unsubscribe_conversation`
-     - `chat.run.started`, `chat.stream.snapshot`, `chat.stream.delta`, `chat.stream.tool_event`, `chat.stream.final`, `chat.stream.cancel`
-   - Throttling rules:
-     - Log the first delta and then every 25 deltas; include `deltaCount`.
-     - Log tool events per event; include `toolEventCount`.
+
+- Docs to read:
+  - https://nodejs.org/api/console.html
+- Files to edit:
+  - `server/src/logger.ts` (if helpers are needed)
+  - `server/src/ws/server.ts`
+  - `server/src/routes/chat.ts`
+- Required log names (must match exactly):
+  - `chat.ws.connect`, `chat.ws.disconnect`
+  - `chat.ws.subscribe_sidebar`, `chat.ws.unsubscribe_sidebar`
+  - `chat.ws.subscribe_conversation`, `chat.ws.unsubscribe_conversation`
+  - `chat.run.started`, `chat.stream.snapshot`, `chat.stream.delta`, `chat.stream.tool_event`, `chat.stream.final`, `chat.stream.cancel`
+- Throttling rules:
+  - Log the first delta and then every 25 deltas; include `deltaCount`.
+  - Log tool events per event; include `toolEventCount`.
 
 14. [x] Update `design.md` to document the new chat transport + WS transcript contract (include Mermaid diagrams):
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
-   - Requirements:
-     - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
-     - Document that Agents runs and MCP `codebase_question` runs also publish WS transcript events via the shared bridge (so they can be viewed live in the UI).
-     - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
-     - Include the Stop flow (`cancel_inflight`) and the late-subscriber catch-up rule (first event is `inflight_snapshot`).
+
+- Docs to read:
+  - Context7 `/mermaid-js/mermaid`
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+- Description:
+  - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+- Requirements:
+  - Document that chat is WS-only (no SSE), and `POST /chat` is a 202 start-run request.
+  - Document that Agents runs and MCP `codebase_question` runs also publish WS transcript events via the shared bridge (so they can be viewed live in the UI).
+  - Add/extend a Mermaid sequence diagram showing: UI sends POST /chat → server emits `conversation_upsert` → viewer subscribes → `inflight_snapshot`/`assistant_delta`/`tool_event` → `turn_final`.
+  - Include the Stop flow (`cancel_inflight`) and the late-subscriber catch-up rule (first event is `inflight_snapshot`).
 
 15. [x] Update `projectStructure.md` with any added/removed server chat/WS modules:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - This task adds/removes files. `projectStructure.md` must explicitly list every added file and remove any deleted file entries.
-     - Expected file additions (must be reflected in `projectStructure.md`):
-       - `server/src/chat/inflightRegistry.ts`
-       - `server/src/chat/chatStreamBridge.ts`
-     - Possible removals (only if you delete them during implementation):
-       - `server/src/chatStream.ts` (SSE helper; remove only if it becomes unused and you choose to delete it)
-     - If you add any additional chat/WS modules (for example additional WS publishers/helpers), include those exact paths too.
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - This task adds/removes files. `projectStructure.md` must explicitly list every added file and remove any deleted file entries.
+  - Expected file additions (must be reflected in `projectStructure.md`):
+    - `server/src/chat/inflightRegistry.ts`
+    - `server/src/chat/chatStreamBridge.ts`
+  - Possible removals (only if you delete them during implementation):
+    - `server/src/chatStream.ts` (SSE helper; remove only if it becomes unused and you choose to delete it)
+  - If you add any additional chat/WS modules (for example additional WS publishers/helpers), include those exact paths too.
 
 16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -1467,7 +1589,6 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 9. [x] `npm run compose:down`
 
 #### Implementation notes
-
 
 - Testing 9: `npm run compose:down` passed.
 
@@ -1523,8 +1644,9 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 
 ### 5. Server test updates for chat WebSockets
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: d200678, a83bc37
+
 #### Overview
 
 Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /chat` start responses, run-lock conflicts, and WS event sequencing.
@@ -1538,7 +1660,6 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 - Cucumber (use guides for runnable examples + step definition patterns): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
 - HTTP status semantics (202 start-run, 409 run-lock conflict): https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/202 and https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -1584,7 +1705,7 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      // wsClient.ts (sketch)
      import WebSocket from 'ws';
      export function connectWs(baseUrl: string) {
-       const ws = new WebSocket(baseUrl.replace(/^http/, "ws") + "/ws");
+       const ws = new WebSocket(baseUrl.replace(/^http/, 'ws') + '/ws');
        // add sendJson(msg), nextEvent(predicate, timeoutMs)
        return ws;
      }
@@ -1625,7 +1746,13 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - `server/src/test/steps/chat_cancellation.steps.ts`
    - Required cancel message (example):
      ```json
-     { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
+     {
+       "protocolVersion": "v1",
+       "requestId": "<uuid>",
+       "type": "cancel_inflight",
+       "conversationId": "...",
+       "inflightId": "..."
+     }
      ```
    - Requirements:
      - Update the Cucumber test server `Before(...)` hook to attach the `/ws` server (same approach as Subtask 4):
@@ -1664,236 +1791,252 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
      - Purpose: transport-accurate unsupported provider behavior.
 
 10. [x] Server integration tests: update chat-codex.test.ts for 202 JSON start-run contract (happy path)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-   - Files to edit:
-     - `server/src/test/integration/chat-codex.test.ts`
-   - Requirements:
-     - Purpose: ensure main chat path is 202 JSON and WS streaming supplies transcript.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+- Files to edit:
+  - `server/src/test/integration/chat-codex.test.ts`
+- Requirements:
+  - Purpose: ensure main chat path is 202 JSON and WS streaming supplies transcript.
 
 11. [x] Server integration tests: update chat-vectorsearch-locked-model.test.ts for 202 JSON and error responses (error cases)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-   - Files to edit:
-     - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
-   - Requirements:
-     - Purpose: ensure locked model / provider failures return stable status+code payloads.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+- Files to edit:
+  - `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`
+- Requirements:
+  - Purpose: ensure locked model / provider failures return stable status+code payloads.
 
 12. [x] Server unit test (node:test): transcript `seq` increases monotonically per conversation stream (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Files to read (for patterns to reuse):
-     - `server/src/test/unit/ws-server.test.ts`
-     - `server/src/test/support/wsClient.ts`
-   - Purpose:
-     - Prevent UI glitches when late/stale transcript events arrive.
-   - Requirements:
-     - Subscribe to a conversation and assert that `seq` for transcript events (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`) never decreases.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Files to read (for patterns to reuse):
+  - `server/src/test/unit/ws-server.test.ts`
+  - `server/src/test/support/wsClient.ts`
+- Purpose:
+  - Prevent UI glitches when late/stale transcript events arrive.
+- Requirements:
+  - Subscribe to a conversation and assert that `seq` for transcript events (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`) never decreases.
 
 13. [x] Server unit test (node:test): late-subscriber catch-up begins with `inflight_snapshot` containing current partial state (happy path)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Files to read (for fixtures / expectations):
-     - `common/src/fixtures/chatStream.ts`
-   - Purpose:
-     - Ensure switching tabs/windows mid-stream shows the same transcript as the originating view.
-   - Requirements:
-     - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
-     - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Files to read (for fixtures / expectations):
+  - `common/src/fixtures/chatStream.ts`
+- Purpose:
+  - Ensure switching tabs/windows mid-stream shows the same transcript as the originating view.
+- Requirements:
+  - Start a run, then connect a second WS client and `subscribe_conversation` mid-stream.
+  - Assert the first transcript event received is `inflight_snapshot` with non-empty `assistantText` and `assistantThink` (if analysis was emitted) plus any `toolEvents` emitted so far.
 
 14. [x] Server unit test (node:test): `analysis_delta` events update in-flight `assistantThink` and appear in `inflight_snapshot` (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Purpose:
-     - Prevent regressions where Codex analysis frames are dropped (the client has existing reasoning UI/tests).
-   - Requirements:
-     - Start a run using a deterministic provider/test double that emits at least one `analysis` event.
-     - Subscribe mid-run and assert the initial `inflight_snapshot.inflight.assistantThink` is non-empty.
-     - Assert at least one `analysis_delta` event arrives with increasing `seq`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Purpose:
+  - Prevent regressions where Codex analysis frames are dropped (the client has existing reasoning UI/tests).
+- Requirements:
+  - Start a run using a deterministic provider/test double that emits at least one `analysis` event.
+  - Subscribe mid-run and assert the initial `inflight_snapshot.inflight.assistantThink` is non-empty.
+  - Assert at least one `analysis_delta` event arrives with increasing `seq`.
 
 15. [x] Server unit test (node:test): `cancel_inflight` with wrong/missing inflightId yields `turn_final` failed + `INFLIGHT_NOT_FOUND` (error case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Purpose:
-     - Make Stop-button failures deterministic and user-visible (no silent hangs).
-   - Requirements:
-     - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
-     - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Purpose:
+  - Make Stop-button failures deterministic and user-visible (no silent hangs).
+- Requirements:
+  - Send `cancel_inflight` for a valid conversationId but an invalid inflightId.
+  - Assert a `turn_final` event arrives with `status:"failed"` and `error.code:"INFLIGHT_NOT_FOUND"`.
 
 16. [x] Server unit test (node:test): `unsubscribe_conversation` does not cancel provider generation; completion still persists turns (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Files to read:
-     - `server/src/mongo/repo.ts` (turn persistence)
-   - Purpose:
-     - Ensure navigation away from Chat page stops viewing updates without stopping the underlying run.
-   - Requirements:
-     - Subscribe then immediately unsubscribe from a conversation while it is streaming.
-     - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Files to read:
+  - `server/src/mongo/repo.ts` (turn persistence)
+- Purpose:
+  - Ensure navigation away from Chat page stops viewing updates without stopping the underlying run.
+- Requirements:
+  - Subscribe then immediately unsubscribe from a conversation while it is streaming.
+  - Verify the run still completes and the final turn is persisted (via repo read or REST turns fetch).
 
 17. [x] Server integration test (node:test): `POST /chat` run proceeds with zero WS subscribers and still persists turns (happy path)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-   - Files to edit:
-     - `server/src/test/integration/chat-codex.test.ts`
-   - Purpose:
-     - Prove the “POST /chat does not require an active WebSocket connection” contract.
-   - Requirements:
-     - Start a chat run via HTTP.
-     - Do not open a WebSocket client at all.
-     - Wait for completion (using deterministic mocked provider or polling stored turns).
-     - Assert the user + assistant turns were persisted.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+- Files to edit:
+  - `server/src/test/integration/chat-codex.test.ts`
+- Purpose:
+  - Prove the “POST /chat does not require an active WebSocket connection” contract.
+- Requirements:
+  - Start a chat run via HTTP.
+  - Do not open a WebSocket client at all.
+  - Wait for completion (using deterministic mocked provider or polling stored turns).
+  - Assert the user + assistant turns were persisted.
 
 18. [x] Server integration test (node:test): `POST /chat` returns 409 RUN_IN_PROGRESS when a run is already active for the conversation (error case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-     - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
-   - Files to edit:
-     - `server/src/test/integration/chat-codex.test.ts`
-   - Purpose:
-     - Prevent interleaved persistence and out-of-order WS events.
-   - Requirements:
-     - Start a run for a conversationId.
-     - Immediately attempt to start a second run for the same conversationId.
-     - Assert the second request returns `409` with `{ status:"error", code:"RUN_IN_PROGRESS" }`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409
+- Files to edit:
+  - `server/src/test/integration/chat-codex.test.ts`
+- Purpose:
+  - Prevent interleaved persistence and out-of-order WS events.
+- Requirements:
+  - Start a run for a conversationId.
+  - Immediately attempt to start a second run for the same conversationId.
+  - Assert the second request returns `409` with `{ status:"error", code:"RUN_IN_PROGRESS" }`.
 
 19. [x] Server unit test (node:test): in-flight registry entry is removed after `turn_final` (corner case)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to add:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-   - Files to read:
-     - `server/src/chat/inflightRegistry.ts`
-   - Purpose:
-     - Avoid memory leaks when many conversations stream over time.
-   - Requirements:
-     - Start a run, await `turn_final`, then assert the registry no longer returns an entry for the conversationId.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to add:
+  - `server/src/test/unit/ws-chat-stream.test.ts`
+- Files to read:
+  - `server/src/chat/inflightRegistry.ts`
+- Purpose:
+  - Avoid memory leaks when many conversations stream over time.
+- Requirements:
+  - Start a run, await `turn_final`, then assert the registry no longer returns an entry for the conversationId.
 
 20. [x] Server integration test (node:test): MCP `codebase_question` publishes WS transcript events while the tool call is in progress (happy path)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
-   - Files to read:
-     - `server/src/mcp2/tools/codebaseQuestion.ts` (how conversationId is chosen)
-     - `server/src/mcp2/server.ts` (MCP v2 runs on a separate HTTP server/port)
-     - `server/src/mcp2/router.ts` (JSON-RPC request handling)
-   - Purpose:
-     - Prove MCP-sourced conversations can be viewed live in the Chat UI via the same WS transcript contract.
-   - Requirements:
-     - Start a WS client and subscribe to a known `conversationId`.
-     - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
-     - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
+- Files to read:
+  - `server/src/mcp2/tools/codebaseQuestion.ts` (how conversationId is chosen)
+  - `server/src/mcp2/server.ts` (MCP v2 runs on a separate HTTP server/port)
+  - `server/src/mcp2/router.ts` (JSON-RPC request handling)
+- Purpose:
+  - Prove MCP-sourced conversations can be viewed live in the Chat UI via the same WS transcript contract.
+- Requirements:
+  - Start a WS client and subscribe to a known `conversationId`.
+  - Trigger `codebase_question` via JSON-RPC tool call using that same `conversationId`.
+  - Assert receipt of `inflight_snapshot` then at least one `assistant_delta`/`analysis_delta` (depending on provider) and a `turn_final`.
 
 21. [x] Server integration test (node:test): Agents runs publish WS transcript events while the run is in progress (happy path)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/websockets/ws/8_18_3`
-   - Files to add:
-     - `server/src/test/integration/agents-run-ws-stream.test.ts`
-   - Files to read:
-     - `server/src/routes/agentsRun.ts` (request shape)
-     - `server/src/agents/service.ts` (stream bridge attachment)
-   - Purpose:
-     - Prove agent-initiated conversations can be viewed live across windows (server side).
-   - Requirements:
-     - Use a deterministic `conversationId` in the agent run request.
-     - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
-     - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/websockets/ws/8_18_3`
+- Files to add:
+  - `server/src/test/integration/agents-run-ws-stream.test.ts`
+- Files to read:
+  - `server/src/routes/agentsRun.ts` (request shape)
+  - `server/src/agents/service.ts` (stream bridge attachment)
+- Purpose:
+  - Prove agent-initiated conversations can be viewed live across windows (server side).
+- Requirements:
+  - Use a deterministic `conversationId` in the agent run request.
+  - Start a WS client and subscribe to that `conversationId` before or immediately after starting the run.
+  - Assert receipt of `inflight_snapshot` then transcript events and a `turn_final`.
 
 22. [x] Server integration test (node:test): server emits WS lifecycle logs into `/logs` (observability / debug safety)
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-     - Context7 `/ladjs/supertest`
-   - Files to add:
-     - `server/src/test/integration/ws-logs.test.ts`
-   - Files to read:
-     - `server/src/routes/logs.ts` (GET /logs query)
-   - Purpose:
-     - Ensure required server log messages (`chat.ws.connect`, `chat.ws.subscribe_conversation`, etc.) are actually queryable via the logs store.
-   - Requirements:
-     - Open a WS connection and subscribe to a conversation.
-     - Query `GET /logs?source=server&text=chat.ws.connect` and assert at least one matching log entry exists.
 
+- Docs to read:
+  - https://nodejs.org/api/test.html
+  - Context7 `/ladjs/supertest`
+- Files to add:
+  - `server/src/test/integration/ws-logs.test.ts`
+- Files to read:
+  - `server/src/routes/logs.ts` (GET /logs query)
+- Purpose:
+  - Ensure required server log messages (`chat.ws.connect`, `chat.ws.subscribe_conversation`, etc.) are actually queryable via the logs store.
+- Requirements:
+  - Open a WS connection and subscribe to a conversation.
+  - Query `GET /logs?source=server&text=chat.ws.connect` and assert at least one matching log entry exists.
 
 23. [x] Ensure WS connections are closed during teardown so test runs do not leak handles:
-   - Docs to read:
-     - https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/support/*`
-   - Requirements:
-     - Explicitly close sockets in `afterEach`/`after` hooks.
+
+- Docs to read:
+  - https://nodejs.org/api/test.html
+- Files to edit:
+  - `server/src/test/support/*`
+- Requirements:
+  - Explicitly close sockets in `afterEach`/`after` hooks.
 
 24. [x] Update `projectStructure.md` with any added/removed server test support files:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
-     - Expected file additions (must be reflected in `projectStructure.md`):
-       - `server/src/test/support/wsClient.ts`
-       - `server/src/test/unit/ws-chat-stream.test.ts`
-       - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
-       - `server/src/test/integration/agents-run-ws-stream.test.ts`
-       - `server/src/test/integration/ws-logs.test.ts`
-     - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+  - Expected file additions (must be reflected in `projectStructure.md`):
+    - `server/src/test/support/wsClient.ts`
+    - `server/src/test/unit/ws-chat-stream.test.ts`
+    - `server/src/test/integration/mcp-codebase-question-ws-stream.test.ts`
+    - `server/src/test/integration/agents-run-ws-stream.test.ts`
+    - `server/src/test/integration/ws-logs.test.ts`
+  - If you add additional WS/Cucumber helpers during implementation (for example extra test utilities under `server/src/test/support/`), include those exact paths too.
 
 25. [x] Ensure server WS/stream log lines required by this story are present and emitted during real UI usage (add missing ones if implementation drift occurred):
-   - Files to verify:
-     - `server/src/ws/server.ts`
-     - `server/src/routes/chat.ts`
-   - If missing, files to edit:
-     - `server/src/ws/server.ts`
-     - `server/src/routes/chat.ts`
-     - `server/src/logStore.ts` (use existing append helper; do not change schema)
-   - Required log messages (must match exactly):
-     - `chat.ws.connect`
-     - `chat.ws.subscribe_conversation`
-     - `chat.stream.snapshot`
-     - `chat.stream.final`
-     - `chat.stream.cancel`
-   - Purpose:
-     - Manual Playwright-MCP checks rely on these logs to confirm that WS-only streaming is actually happening.
+
+- Files to verify:
+  - `server/src/ws/server.ts`
+  - `server/src/routes/chat.ts`
+- If missing, files to edit:
+  - `server/src/ws/server.ts`
+  - `server/src/routes/chat.ts`
+  - `server/src/logStore.ts` (use existing append helper; do not change schema)
+- Required log messages (must match exactly):
+  - `chat.ws.connect`
+  - `chat.ws.subscribe_conversation`
+  - `chat.stream.snapshot`
+  - `chat.stream.final`
+  - `chat.stream.cancel`
+- Purpose:
+  - Manual Playwright-MCP checks rely on these logs to confirm that WS-only streaming is actually happening.
 
 26. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -1998,8 +2141,9 @@ Replace SSE-based chat tests with WebSocket-driven coverage, including `POST /ch
 
 ### 6. Chat sidebar bulk actions UI
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: 6f4543c, 8da77c4
+
 #### Overview
 
 Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/restore/delete controls in the Chat sidebar, wired to the new bulk endpoints and persistence guards.
@@ -2015,7 +2159,6 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 - Playwright docs (e2e mocks will later need WS routing via routeWebSocket): Context7 `/microsoft/playwright.dev`
 - Mermaid syntax (for documentation diagrams): Context7 `/mermaid-js/mermaid`
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -2093,10 +2236,11 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
       - Context7 `/mermaid-js/mermaid` (only if adding diagrams)
     - Files to edit:
       - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+
+- Purpose:
+  - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+- Description:
+  - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
 
 11. [x] Update `projectStructure.md` if any new UI modules are added:
     - Docs to read:
@@ -2105,43 +2249,46 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
       - `projectStructure.md`
     - Files to edit:
       - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
 
 12. [x] Add client log lines (forwarded to `/logs`) for sidebar filter + selection + bulk actions so manual checks can confirm the UI events fired:
-   - Files to edit:
-     - `client/src/components/chat/ConversationList.tsx`
-     - `client/src/hooks/useConversations.ts`
-     - `client/src/logging/logger.ts` (use existing logger; do not change schema)
-   - Required log messages (must match exactly):
-     - `chat.sidebar.filter_changed`
-     - `chat.sidebar.selection_changed`
-     - `chat.sidebar.bulk_action_request`
-     - `chat.sidebar.bulk_action_result`
-   - Required fields in `context` (as applicable):
-     - `filterState` (active|all|archived)
-     - `selectedCount`
-     - `action` (archive|restore|delete)
-     - `status` (ok|failed)
-     - `errorCode` (when failed)
-   - Notes:
-     - These must be forwarded into the server `/logs` store so Playwright-MCP can query them in the Logs UI.
+
+- Files to edit:
+  - `client/src/components/chat/ConversationList.tsx`
+  - `client/src/hooks/useConversations.ts`
+  - `client/src/logging/logger.ts` (use existing logger; do not change schema)
+- Required log messages (must match exactly):
+  - `chat.sidebar.filter_changed`
+  - `chat.sidebar.selection_changed`
+  - `chat.sidebar.bulk_action_request`
+  - `chat.sidebar.bulk_action_result`
+- Required fields in `context` (as applicable):
+  - `filterState` (active|all|archived)
+  - `selectedCount`
+  - `action` (archive|restore|delete)
+  - `status` (ok|failed)
+  - `errorCode` (when failed)
+- Notes:
+  - These must be forwarded into the server `/logs` store so Playwright-MCP can query them in the Logs UI.
 
 13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -2205,8 +2352,9 @@ Add the 3-state conversation filter, multi-select checkboxes, and bulk archive/r
 
 ### 7. Chat WebSocket client streaming
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: f4d044b
+
 #### Overview
 
 Replace the chat SSE client with a WebSocket-based streaming client that subscribes per conversation, merges in-flight snapshots, and drives the transcript for the visible conversation only.
@@ -2222,7 +2370,6 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 - Testing Library (RTL) docs (how to assert hook-driven UI changes): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright docs (e2e verification for WS-driven streaming later): Context7 `/microsoft/playwright.dev`
 - Tooling references (npm run workspace commands): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 
 #### Subtasks
 
@@ -2241,7 +2388,12 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - Create `client/src/hooks/useChatWs.ts`
    - Required outbound message format (example):
      ```json
-     { "protocolVersion":"v1", "requestId":"<uuid>", "type":"subscribe_conversation", "conversationId":"..." }
+     {
+       "protocolVersion": "v1",
+       "requestId": "<uuid>",
+       "type": "subscribe_conversation",
+       "conversationId": "..."
+     }
      ```
    - Requirements:
      - Use a single WS connection while the Chat page is mounted.
@@ -2255,7 +2407,13 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
          // switch(msg.type) ...
        };
        function send(msg: object) {
-         ws.send(JSON.stringify({ protocolVersion: 'v1', requestId: crypto.randomUUID(), ...msg }));
+         ws.send(
+           JSON.stringify({
+             protocolVersion: 'v1',
+             requestId: crypto.randomUUID(),
+             ...msg,
+           }),
+         );
        }
        ```
 
@@ -2287,7 +2445,14 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `client/src/pages/ChatPage.tsx`
    - Required inbound transcript event examples:
      ```json
-     { "protocolVersion":"v1", "type":"assistant_delta", "conversationId":"...", "seq": 2, "inflightId":"...", "delta":"hello" }
+     {
+       "protocolVersion": "v1",
+       "type": "assistant_delta",
+       "conversationId": "...",
+       "seq": 2,
+       "inflightId": "...",
+       "delta": "hello"
+     }
      ```
    - Requirements:
      - Track the last seen `seq` per conversation and ignore stale/out-of-order events.
@@ -2315,7 +2480,13 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `client/src/pages/ChatPage.tsx`
    - Required `POST /chat` response example:
      ```json
-     { "status":"started", "conversationId":"...", "inflightId":"...", "provider":"codex", "model":"gpt-5.1-codex-max" }
+     {
+       "status": "started",
+       "conversationId": "...",
+       "inflightId": "...",
+       "provider": "codex",
+       "model": "gpt-5.1-codex-max"
+     }
      ```
    - Requirements:
      - Handle `409 RUN_IN_PROGRESS` by showing a stable UI error bubble.
@@ -2329,7 +2500,13 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
      - `client/src/pages/ChatPage.tsx`
    - Required cancel message example:
      ```json
-     { "protocolVersion":"v1", "requestId":"<uuid>", "type":"cancel_inflight", "conversationId":"...", "inflightId":"..." }
+     {
+       "protocolVersion": "v1",
+       "requestId": "<uuid>",
+       "type": "cancel_inflight",
+       "conversationId": "...",
+       "inflightId": "..."
+     }
      ```
 
 9. [x] Enforce the “mongoConnected === false” behaviour explicitly (this is easy to miss):
@@ -2346,84 +2523,89 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
        - It is acceptable to keep a minimal WS connection open (or open one on-demand) solely to send `cancel_inflight`, but the UI must not render live transcript/sidebar updates in this mode.
 
 10. [x] Enable live transcript streaming for agent-initiated conversations in the Agents UI (same WS transcript contract):
-   - Docs to read:
-     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-     - https://react.dev/learn
-   - Files to edit:
-     - `client/src/pages/AgentsPage.tsx`
-     - `client/src/hooks/useChatWs.ts`
-   - Purpose:
-     - Ensure the acceptance criteria “agent-initiated conversations stream in the UI the same way” is true in practice, not just server-side.
-   - Requirements:
-     - When an agent conversation is selected (`activeConversationId` is set) and persistence is available, subscribe to that conversation over WS.
-     - Render the in-flight assistant state (assistant text + streamed reasoning + tool events) in the transcript so a second window watching the same agent conversation sees live updates.
-     - Unsubscribe on conversation switch and on unmount.
-     - Do not change the Agents REST response format (it still returns `segments`); this subtask only improves live viewing while a run is in progress.
+
+- Docs to read:
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - https://react.dev/learn
+- Files to edit:
+  - `client/src/pages/AgentsPage.tsx`
+  - `client/src/hooks/useChatWs.ts`
+- Purpose:
+  - Ensure the acceptance criteria “agent-initiated conversations stream in the UI the same way” is true in practice, not just server-side.
+- Requirements:
+  - When an agent conversation is selected (`activeConversationId` is set) and persistence is available, subscribe to that conversation over WS.
+  - Render the in-flight assistant state (assistant text + streamed reasoning + tool events) in the transcript so a second window watching the same agent conversation sees live updates.
+  - Unsubscribe on conversation switch and on unmount.
+  - Do not change the Agents REST response format (it still returns `segments`); this subtask only improves live viewing while a run is in progress.
 
 11. [x] Update `design.md` to document the client WS lifecycle and catch-up rules (include Mermaid diagrams):
-   - Docs to read:
-     - Context7 `/mermaid-js/mermaid`
-     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-     - https://react.dev/learn
-   - Files to edit:
-     - `design.md`
-   - Purpose:
-     - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
-   - Description:
-     - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
-   - Requirements:
-     - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
-     - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
+
+- Docs to read:
+  - Context7 `/mermaid-js/mermaid`
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+  - https://react.dev/learn
+- Files to edit:
+  - `design.md`
+- Purpose:
+  - Keep the architecture/flow documentation accurate so future changes and tests follow the intended contract.
+- Description:
+  - Update design.md with the flow/contract changes introduced by this subtask (include any required Mermaid diagrams referenced in the Requirements).
+- Requirements:
+  - Document: subscribe/unsubscribe rules for sidebar + visible conversation, reconnect resnapshot behaviour, and that navigating away does not cancel runs.
+  - Add/extend a Mermaid sequence diagram showing: mount → connect → subscribe_sidebar → subscribe_conversation → switch conversation (unsubscribe/subscribe) → unmount (unsubscribe/close) and a reconnect branch (refresh snapshots then resubscribe).
 
 12. [x] Update `projectStructure.md` with any added/removed client streaming modules:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
-     - Expected file additions (must be reflected in `projectStructure.md`):
-       - `client/src/hooks/useChatWs.ts`
-     - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+  - Expected file additions (must be reflected in `projectStructure.md`):
+    - `client/src/hooks/useChatWs.ts`
+  - If you add additional WS support utilities during implementation (for example shared JSON codec helpers), include those exact paths too.
 
 13. [x] Add client log lines (forwarded to `/logs`) for WS subscription + reconnect behaviors so manual checks can confirm the new client streaming logic is executing:
-   - Files to edit:
-     - `client/src/hooks/useChatWs.ts`
-     - `client/src/logging/logger.ts` (use existing logger; do not change schema)
-   - Required log messages (must match exactly):
-     - `chat.ws.client_connect`
-     - `chat.ws.client_subscribe_conversation`
-     - `chat.ws.client_snapshot_received`
-     - `chat.ws.client_final_received`
-     - `chat.ws.client_reconnect_attempt`
-     - `chat.ws.client_stale_event_ignored`
-   - Required fields in `context` (as applicable):
-     - `conversationId`
-     - `inflightId`
-     - `seq`
-     - `attempt`
-   - Notes:
-     - `chat.ws.client_*` logs must be forwarded to server `/logs` so they show up in the Logs UI.
+
+- Files to edit:
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/logging/logger.ts` (use existing logger; do not change schema)
+- Required log messages (must match exactly):
+  - `chat.ws.client_connect`
+  - `chat.ws.client_subscribe_conversation`
+  - `chat.ws.client_snapshot_received`
+  - `chat.ws.client_final_received`
+  - `chat.ws.client_reconnect_attempt`
+  - `chat.ws.client_stale_event_ignored`
+- Required fields in `context` (as applicable):
+  - `conversationId`
+  - `inflightId`
+  - `seq`
+  - `attempt`
+- Notes:
+  - `chat.ws.client_*` logs must be forwarded to server `/logs` so they show up in the Logs UI.
 
 14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -2478,8 +2660,9 @@ Replace the chat SSE client with a WebSocket-based streaming client that subscri
 
 ### 8. Client streaming logs
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: fbb6188
+
 #### Overview
 
 Emit client-side log entries for WebSocket connect/subscribe/receive events and forward them to server logs for Playwright verification.
@@ -2492,7 +2675,6 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 - Mermaid syntax (required for updating design diagrams in this task): Context7 `/mermaid-js/mermaid`
 - Playwright docs (later e2e will assert forwarded client logs exist in /logs): Context7 `/microsoft/playwright.dev`
 - Tooling references (npm run workspace builds): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 
 #### Subtasks
 
@@ -2617,13 +2799,13 @@ Emit client-side log entries for WebSocket connect/subscribe/receive events and 
 - Testing 9: `npm run compose:down` passed.
 - Testing (extra): Re-ran `npm run test --workspace client` after WS logging tweaks.
 
-
 ---
 
 ### 9. Front-end test updates
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: e3869bd
+
 #### Overview
 
 Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk actions UI, and streaming log assertions.
@@ -2637,7 +2819,6 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 - Playwright WS routing discussion/examples (DeepWiki reference for routeWebSocket / connectToServer caveats): Deepwiki repo `microsoft/playwright`
 - Browser WebSocket API (understanding event ordering and reconnect behavior in tests): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
-
 
 #### Subtasks
 
@@ -2743,538 +2924,585 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
    - Requirements:
      - Provide `mongoConnected=false` and assert no subscriptions are sent and no reconnection behavior runs.
 
-
 10. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.stream.test.tsx for WS-driven streaming semantics
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.stream.test.tsx`
-   - Requirements:
-     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.stream.test.tsx`
+- Requirements:
+  - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
 
 11. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.stop.test.tsx for WS-driven streaming semantics
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.stop.test.tsx`
-   - Requirements:
-     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
-     - Add an explicit case where `mongoConnected === false`:
-       - Purpose: ensure Stop still works when persistence is unavailable (even though streaming subscriptions are disabled).
-       - Assert `cancel_inflight` is still sent over WebSocket (minimal connection is allowed for Stop-only).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.stop.test.tsx`
+- Requirements:
+  - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+  - Add an explicit case where `mongoConnected === false`:
+    - Purpose: ensure Stop still works when persistence is unavailable (even though streaming subscriptions are disabled).
+    - Assert `cancel_inflight` is still sent over WebSocket (minimal connection is allowed for Stop-only).
 
 12. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.newConversation.test.tsx for WS-driven streaming semantics
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.newConversation.test.tsx`
-   - Requirements:
-     - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.newConversation.test.tsx`
+- Requirements:
+  - Purpose: replace fetch-abort expectations with WS cancel_inflight behavior and assert navigation does not cancel.
 
 13. [x] Client unit test (Jest/RTL): update client/src/test/useChatStream.reasoning.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/useChatStream.reasoning.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/useChatStream.reasoning.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 14. [x] Client unit test (Jest/RTL): update client/src/test/useChatStream.toolPayloads.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/useChatStream.toolPayloads.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 15. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.citations.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.citations.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.citations.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 16. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.toolDetails.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.toolDetails.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.toolDetails.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 17. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.reasoning.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.reasoning.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.reasoning.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 18. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.markdown.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.markdown.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.markdown.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 19. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.mermaid.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.mermaid.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.mermaid.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 20. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.noPaths.test.tsx to consume WS fixtures instead of SSE
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.noPaths.test.tsx`
-   - Requirements:
-     - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.noPaths.test.tsx`
+- Requirements:
+  - Purpose: keep existing UI coverage valid when chat streaming becomes WS-only.
 
 21. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.test.tsx for POST /chat 202 + WS transcript contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.provider.test.tsx`
-   - Requirements:
-     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.provider.test.tsx`
+- Requirements:
+  - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
 22. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.provider.conversationSelection.test.tsx for POST /chat 202 + WS transcript contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
-   - Requirements:
-     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+- Requirements:
+  - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
 23. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.source.test.tsx for POST /chat 202 + WS transcript contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.source.test.tsx`
-   - Requirements:
-     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.source.test.tsx`
+- Requirements:
+  - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
 24. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.models.test.tsx for POST /chat 202 + WS transcript contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPage.models.test.tsx`
-   - Requirements:
-     - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPage.models.test.tsx`
+- Requirements:
+  - Purpose: ensure provider/model selection flows align with new start-run response and WS events.
 
 25. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.default.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts` (WS fixtures: inflight_snapshot/assistant_delta/analysis_delta/tool_event/turn_final)
-   - Files to edit:
-     - `client/src/test/chatPage.flags.approval.default.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - If this test currently relies on SSE (EventSource or text/event-stream parsing), remove that and instead:
-       - mock `POST /chat` to return `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`, and
-       - mock the WebSocket transcript so the UI exits “streaming” state deterministically.
-     - WS mock minimum event sequence (example):
-       ```json
-       { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "assistantThink":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
-       { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 2, "inflightId":"...", "status":"ok", "threadId": null }
-       ```
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts` (WS fixtures: inflight_snapshot/assistant_delta/analysis_delta/tool_event/turn_final)
+- Files to edit:
+  - `client/src/test/chatPage.flags.approval.default.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - If this test currently relies on SSE (EventSource or text/event-stream parsing), remove that and instead:
+    - mock `POST /chat` to return `202` JSON `{ status:"started", conversationId, inflightId, provider, model }`, and
+    - mock the WebSocket transcript so the UI exits “streaming” state deterministically.
+  - WS mock minimum event sequence (example):
+    ```json
+    { "protocolVersion":"v1", "type":"inflight_snapshot", "conversationId":"...", "seq": 1, "inflight": { "inflightId":"...", "assistantText":"", "assistantThink":"", "toolEvents": [], "startedAt":"2025-01-01T00:00:00.000Z" } }
+    { "protocolVersion":"v1", "type":"turn_final", "conversationId":"...", "seq": 2, "inflightId":"...", "status":"ok", "threadId": null }
+    ```
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 26. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.approval.payload.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.approval.payload.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.approval.payload.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 27. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.default.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.network.default.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.network.default.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 28. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.network.payload.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.network.payload.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.network.payload.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 29. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.default.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts` (include `analysis_delta` fixtures for reasoning)
-   - Files to edit:
-     - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts` (include `analysis_delta` fixtures for reasoning)
+- Files to edit:
+  - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 30. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.reasoning.payload.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send at least one `analysis_delta` WS event if the UI expects reasoning.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 31. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.default.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 32. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.payload.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 33. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.sandbox.reset.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 34. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.default.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.websearch.default.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.websearch.default.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 35. [x] Client unit test (Jest/RTL): update client/src/test/chatPage.flags.websearch.payload.test.tsx for 202 start-run + WS-only contract
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to read:
-     - `common/src/fixtures/chatStream.ts`
-   - Files to edit:
-     - `client/src/test/chatPage.flags.websearch.payload.test.tsx`
-   - Purpose:
-     - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
-   - Requirements:
-     - Ensure the test does not depend on SSE.
-     - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
-     - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
-     - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to read:
+  - `common/src/fixtures/chatStream.ts`
+- Files to edit:
+  - `client/src/test/chatPage.flags.websearch.payload.test.tsx`
+- Purpose:
+  - Ensure Codex flag payloads remain correct when chat transport changes (no SSE).
+- Requirements:
+  - Ensure the test does not depend on SSE.
+  - Mock `POST /chat` 202 and send a minimal WS transcript sequence so the UI completes the run.
+  - Replace any SSE parsing/mocks with the new WS fixtures (`inflight_snapshot`/`assistant_delta`/`tool_event`/`turn_final`).
+  - Update assertions to expect `POST /chat` returns `202` JSON start-run response (not a streaming response).
 
 36. [x] Client unit test (Jest/RTL): sidebar selection is cleared when the user changes the filter (corner case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-     - https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Requirements:
-     - Purpose: match the acceptance criteria “Selection is cleared when the user changes the view filter”.
-     - Render the Chat sidebar with a list of conversations.
-     - Select 1+ rows, switch the filter (`Active` → `Archived`), and assert the selection count resets to 0.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+  - https://testing-library.com/docs/react-testing-library/intro/
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Requirements:
+  - Purpose: match the acceptance criteria “Selection is cleared when the user changes the view filter”.
+  - Render the Chat sidebar with a list of conversations.
+  - Select 1+ rows, switch the filter (`Active` → `Archived`), and assert the selection count resets to 0.
 
 37. [x] Client unit test (Jest/RTL): selection stays stable when the conversation list reorders due to live updates (corner case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Requirements:
-     - Purpose: match the acceptance criteria “Selection is retained while streaming sidebar updates arrive / resorting by lastMessageAt”.
-     - Select a conversationId, then simulate a list update that changes ordering.
-     - Assert the selected conversation remains selected after resort.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Requirements:
+  - Purpose: match the acceptance criteria “Selection is retained while streaming sidebar updates arrive / resorting by lastMessageAt”.
+  - Select a conversationId, then simulate a list update that changes ordering.
+  - Assert the selected conversation remains selected after resort.
 
 38. [x] Client unit test (Jest/RTL): bulk action buttons and select-all checkbox reflect the active filter state (happy path)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Purpose:
-     - Ensure the correct actions are available per filter mode.
-   - Requirements:
-     - In `Active` and `Active & Archived`, assert “Archive” is available and “Delete permanently” is not.
-     - In `Archived`, assert “Restore” and “Delete permanently” are available.
-     - Assert the header select-all checkbox uses `indeterminate` when some but not all items are selected.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Purpose:
+  - Ensure the correct actions are available per filter mode.
+- Requirements:
+  - In `Active` and `Active & Archived`, assert “Archive” is available and “Delete permanently” is not.
+  - In `Archived`, assert “Restore” and “Delete permanently” are available.
+  - Assert the header select-all checkbox uses `indeterminate` when some but not all items are selected.
 
 39. [x] Client unit test (Jest/RTL): permanent delete requires confirmation dialog (error-prevention case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Purpose:
-     - Prevent accidental destructive actions.
-   - Requirements:
-     - In `Archived` view, select a conversation and click “Delete permanently”.
-     - Assert a confirmation dialog appears.
-     - Assert cancel does not call the bulk delete API, and confirm does.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Purpose:
+  - Prevent accidental destructive actions.
+- Requirements:
+  - In `Archived` view, select a conversation and click “Delete permanently”.
+  - Assert a confirmation dialog appears.
+  - Assert cancel does not call the bulk delete API, and confirm does.
 
 40. [x] Client unit test (Jest/RTL): when `mongoConnected === false`, bulk actions are disabled and the UI explains why (error case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Purpose:
-     - Enforce acceptance criteria gating for safety when persistence is unavailable.
-   - Requirements:
-     - Force persistence status to unavailable.
-     - Assert selection and bulk action controls are disabled and a clear message is shown.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Purpose:
+  - Enforce acceptance criteria gating for safety when persistence is unavailable.
+- Requirements:
+  - Force persistence status to unavailable.
+  - Assert selection and bulk action controls are disabled and a clear message is shown.
 
 41. [x] Client unit test (Jest/RTL): Chat sidebar ignores `conversation_upsert` events for agent conversations (corner case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Purpose:
-     - Ensure the Chat sidebar remains scoped to `agentName=__none__` and does not leak agent conversations into chat history.
-   - Requirements:
-     - Simulate a `conversation_upsert` event whose `conversation.agentName` is a non-empty string.
-     - Assert it is ignored (not rendered in the Chat sidebar list).
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatSidebar.test.tsx`
+- Purpose:
+  - Ensure the Chat sidebar remains scoped to `agentName=__none__` and does not leak agent conversations into chat history.
+- Requirements:
+  - Simulate a `conversation_upsert` event whose `conversation.agentName` is a non-empty string.
+  - Assert it is ignored (not rendered in the Chat sidebar list).
 
 42. [x] Client unit test (Jest/RTL): update client/src/test/chatPersistenceBanner.test.tsx for persistence-unavailable banner states
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/chatPersistenceBanner.test.tsx`
-   - Requirements:
-     - Purpose: ensure the banner messaging remains clear and stable when `mongoConnected === false`.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/chatPersistenceBanner.test.tsx`
+- Requirements:
+  - Purpose: ensure the banner messaging remains clear and stable when `mongoConnected === false`.
 
 43. [x] E2E test (Playwright): update e2e/chat.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 44. [x] E2E test (Playwright): update e2e/chat-tools.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-tools.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-tools.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 45. [x] E2E test (Playwright): update e2e/chat-tools-visibility.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-tools-visibility.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-tools-visibility.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 46. [x] E2E test (Playwright): update e2e/chat-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-reasoning.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-reasoning.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 47. [x] E2E test (Playwright): update e2e/chat-provider-history.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-provider-history.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-provider-history.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 48. [x] E2E test (Playwright): update e2e/chat-mermaid.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-mermaid.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-mermaid.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 49. [x] E2E test (Playwright): update e2e/chat-codex-trust.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-codex-trust.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-codex-trust.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 50. [x] E2E test (Playwright): update e2e/chat-codex-reasoning.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-codex-reasoning.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-codex-reasoning.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 51. [x] E2E test (Playwright): update e2e/chat-codex-mcp.spec.ts to mock chat via routeWebSocket instead of SSE
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/chat-codex-mcp.spec.ts`
-   - Requirements:
-     - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/chat-codex-mcp.spec.ts`
+- Requirements:
+  - Purpose: keep e2e deterministic when chat becomes WS-only; remove any SSE mocks for /chat.
 
 52. [x] E2E test (Playwright): Logs page shows chat WS client streaming logs after receiving transcript events (happy path)
-   - Docs to read:
-     - Context7 `/microsoft/playwright.dev`
-   - Files to edit:
-     - `e2e/logs.spec.ts` (or create a new `e2e/chat-ws-logs.spec.ts`)
-   - Purpose:
-     - Prove WS streaming activity is observable end-to-end via the `/logs` store.
-   - Requirements:
-     - Use the WS chat mocks to emit at least: `inflight_snapshot`, `assistant_delta`, and `turn_final`.
-     - Assert the Logs page contains client log entries like `chat.ws.client_connect` and `chat.ws.client_delta_received`.
+
+- Docs to read:
+  - Context7 `/microsoft/playwright.dev`
+- Files to edit:
+  - `e2e/logs.spec.ts` (or create a new `e2e/chat-ws-logs.spec.ts`)
+- Purpose:
+  - Prove WS streaming activity is observable end-to-end via the `/logs` store.
+- Requirements:
+  - Use the WS chat mocks to emit at least: `inflight_snapshot`, `assistant_delta`, and `turn_final`.
+  - Assert the Logs page contains client log entries like `chat.ws.client_connect` and `chat.ws.client_delta_received`.
 
 53. [x] Client unit test (Jest/RTL): AgentsPage renders in-flight WS transcript updates for agent conversations (happy path)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-     - https://testing-library.com/docs/react-testing-library/intro/
-     - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-   - Files to add:
-     - `client/src/test/agentsPage.streaming.test.tsx`
-   - Files to add/edit (as needed):
-     - `client/src/test/support/mockWebSocket.ts`
-   - Purpose:
-     - Prove agent-initiated conversations can be viewed live (acceptance criteria) using the same WS transcript contract as Chat.
-   - Requirements:
-     - Render `AgentsPage` with persistence enabled.
-     - Select a conversationId (set `activeConversationId` via UI interaction or controlled state).
-     - Emit WS events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`) and assert the transcript UI reflects the in-flight assistant state.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+  - https://testing-library.com/docs/react-testing-library/intro/
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Files to add:
+  - `client/src/test/agentsPage.streaming.test.tsx`
+- Files to add/edit (as needed):
+  - `client/src/test/support/mockWebSocket.ts`
+- Purpose:
+  - Prove agent-initiated conversations can be viewed live (acceptance criteria) using the same WS transcript contract as Chat.
+- Requirements:
+  - Render `AgentsPage` with persistence enabled.
+  - Select a conversationId (set `activeConversationId` via UI interaction or controlled state).
+  - Emit WS events (`inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`) and assert the transcript UI reflects the in-flight assistant state.
 
 54. [x] Client unit test (Jest/RTL): AgentsPage unsubscribes from the previous conversation on switch/unmount (corner case)
-   - Docs to read:
-     - Context7 `/websites/jestjs_io_30_0`
-   - Files to edit:
-     - `client/src/test/agentsPage.streaming.test.tsx`
-   - Purpose:
-     - Prevent WS subscription leaks when switching agent conversations.
-   - Requirements:
-     - Switch `activeConversationId` and assert the mock WebSocket recorded an `unsubscribe_conversation` for the old id.
+
+- Docs to read:
+  - Context7 `/websites/jestjs_io_30_0`
+- Files to edit:
+  - `client/src/test/agentsPage.streaming.test.tsx`
+- Purpose:
+  - Prevent WS subscription leaks when switching agent conversations.
+- Requirements:
+  - Switch `activeConversationId` and assert the mock WebSocket recorded an `unsubscribe_conversation` for the old id.
 
 55. [x] Update `projectStructure.md` with any added/removed test helpers and fixtures:
-   - Docs to read:
-     - https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Keep the repo structure documentation in sync so new/removed files are discoverable.
-   - Description:
-     - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
-   - Requirements:
-     - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
-     - Expected file additions (must be reflected in `projectStructure.md`):
-       - `e2e/support/mockChatWs.ts`
-       - `client/src/test/support/mockWebSocket.ts`
-       - `client/src/test/useChatWs.test.ts`
-       - `client/src/test/agentsPage.streaming.test.tsx`
-     - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
+
+- Docs to read:
+  - https://www.markdownguide.org/basic-syntax/
+- Files to read:
+  - `projectStructure.md`
+- Files to edit:
+  - `projectStructure.md`
+- Purpose:
+  - Keep the repo structure documentation in sync so new/removed files are discoverable.
+- Description:
+  - Update projectStructure.md to reflect any files added/removed/relocated by this task (list the new modules and where they live).
+- Requirements:
+  - This task adds new files. `projectStructure.md` must explicitly list every added file from this task.
+  - Expected file additions (must be reflected in `projectStructure.md`):
+    - `e2e/support/mockChatWs.ts`
+    - `client/src/test/support/mockWebSocket.ts`
+    - `client/src/test/useChatWs.test.ts`
+    - `client/src/test/agentsPage.streaming.test.tsx`
+  - If you add a new e2e spec file instead of editing an existing one (for example `e2e/chat-ws-logs.spec.ts`), include it too.
 
 56. [x] Ensure the UI emits and/or asserts the key log lines that prove WS streaming + bulk actions are working end-to-end (add missing logs if needed so manual checks and e2e can validate behavior):
-   - Files to verify:
-     - `client/src/hooks/useChatWs.ts`
-     - `client/src/components/chat/ConversationList.tsx`
-     - `server/src/routes/conversations.ts`
-   - If missing, files to edit:
-     - `client/src/hooks/useChatWs.ts`
-     - `client/src/components/chat/ConversationList.tsx`
-     - `server/src/routes/conversations.ts`
-     - `client/src/logging/logger.ts`
-     - `server/src/logStore.ts`
-   - Required log messages (must match exactly):
-     - `chat.ws.client_connect`
-     - `chat.ws.client_snapshot_received`
-     - `chat.ws.client_final_received`
-     - `chat.sidebar.bulk_action_result`
-     - `conversations.bulk.success`
-   - Purpose:
-     - These logs are what a human uses in the Logs UI to prove the app is actually executing the new WS + bulk flows.
+
+- Files to verify:
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/components/chat/ConversationList.tsx`
+  - `server/src/routes/conversations.ts`
+- If missing, files to edit:
+  - `client/src/hooks/useChatWs.ts`
+  - `client/src/components/chat/ConversationList.tsx`
+  - `server/src/routes/conversations.ts`
+  - `client/src/logging/logger.ts`
+  - `server/src/logStore.ts`
+- Required log messages (must match exactly):
+  - `chat.ws.client_connect`
+  - `chat.ws.client_snapshot_received`
+  - `chat.ws.client_final_received`
+  - `chat.sidebar.bulk_action_result`
+  - `conversations.bulk.success`
+- Purpose:
+  - These logs are what a human uses in the Logs UI to prove the app is actually executing the new WS + bulk flows.
 
 57. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-     - Context7 `/prettier/prettier/3.6.2`
-   - Files to verify:
-     - `package.json` (root scripts)
-   - Commands to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed (only on failure):
-     - `npm run lint:fix --workspaces`
-     - `npm run format --workspaces`
+
+- Docs to read:
+  - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+  - https://eslint.org/docs/latest/use/command-line-interface
+  - Context7 `/prettier/prettier/3.6.2`
+- Files to verify:
+  - `package.json` (root scripts)
+- Commands to run:
+  - `npm run lint --workspaces`
+  - `npm run format:check --workspaces`
+- If needed (only on failure):
+  - `npm run lint:fix --workspaces`
+  - `npm run format --workspaces`
 
 #### Testing
 
@@ -3338,8 +3566,9 @@ Update Jest/RTL coverage and e2e specs for the new chat WebSocket flow, bulk act
 
 ### 10. Final verification
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: 2652330
+
 #### Overview
 
 Final cross-check against acceptance criteria, full builds/tests, docker validation, and documentation updates. Produce a pull request summary comment covering all story changes.
@@ -3354,7 +3583,6 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 - Cucumber guides index (start here, then follow specific guides): https://cucumber.io/docs/guides/
 - Cucumber guides (use guides for runnable examples and CI setup): https://cucumber.io/docs/guides/10-minute-tutorial/ and https://cucumber.io/docs/guides/continuous-integration/
 - Tooling references (npm run workspaces): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 
 #### Subtasks
 
@@ -3526,7 +3754,7 @@ Final cross-check against acceptance criteria, full builds/tests, docker validat
 
 ### 11. Fix WS sequence gating to accept new in-flight runs
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **ca9c8a6**
 
 #### Overview
@@ -3607,7 +3835,7 @@ The client currently carries `lastSeq` across multiple in-flight runs for the sa
 
 ### 12. Prevent empty history hydration from clearing in-flight transcript
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **e58728e**
 
 #### Overview
@@ -3683,7 +3911,7 @@ When a run starts, the client streams tokens via WebSocket and separately hydrat
 
 ### 13. Prevent duplicate bubbles when hydration arrives during streaming
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **6ae29dd**
 
 #### Overview
@@ -3759,7 +3987,7 @@ When a message is sent, the UI creates an in-flight bubble immediately and later
 
 ### 14. Treat transient Codex reconnects as warnings (no failed turns)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **5248a37, 601f34d**
 
 #### Overview
@@ -3828,7 +4056,12 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - Existing failure path to avoid: `chat.emit('error', { message })` should **not** convert to `turn_final` failed when `isTransientReconnect(message)` is true.
      - If adding a warning event, keep it minimal, e.g.:
        ```json
-       { "type": "stream_warning", "conversationId": "c1", "inflightId": "i1", "message": "Reconnecting... 1/5" }
+       {
+         "type": "stream_warning",
+         "conversationId": "c1",
+         "inflightId": "i1",
+         "message": "Reconnecting... 1/5"
+       }
        ```
    - Code anchors (where the junior dev should look first):
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts` (error handling path)
@@ -3853,7 +4086,12 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
      - If adding a warning event, add it to the `WsServerEvent` union and handle it without setting a failed state.
      - Suggested warning payload (if introduced):
        ```json
-       { "type": "stream_warning", "conversationId": "c1", "inflightId": "i1", "message": "Reconnecting... 1/5" }
+       {
+         "type": "stream_warning",
+         "conversationId": "c1",
+         "inflightId": "i1",
+         "message": "Reconnecting... 1/5"
+       }
        ```
      - Logging style (existing pattern): `log('info' | 'warn', 'chat.ws.client_*', { ... })` in `useChatWs`.
    - UI anchor:
@@ -3927,6 +4165,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
    - Confirm the UI shows a warning (not a failure) and continues streaming.
    - Confirm the final response renders without refresh and is marked complete.
    - Regression: sidebar updates still stream (new conversation appears without refresh).
+
 - Capture screenshots of the warning and the final completed bubble for the plan archive.
 
 9. [x] `npm run compose:down`
@@ -3953,7 +4192,7 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 ### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **745e203, 7ef4031**
 
 #### Overview
@@ -3984,7 +4223,12 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
      - Codex reasoning items arrive with `item.type === "reasoning"` and `item.text` (see `server/src/chat/interfaces/ChatInterfaceCodex.ts`).
      - Existing WS event for reasoning is `analysis_delta`:
        ```json
-       { "type": "analysis_delta", "conversationId": "c1", "inflightId": "i1", "delta": "thinking..." }
+       {
+         "type": "analysis_delta",
+         "conversationId": "c1",
+         "inflightId": "i1",
+         "delta": "thinking..."
+       }
        ```
      - Example of a reset scenario to simulate:
        - Item 1 text: `"Reasoning part A..."`
@@ -4102,9 +4346,10 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 - 2025-12-30: Testing step 7 complete: `npm run compose:up`.
 - 2025-12-30: Testing step 8 complete: Ran Playwright against `http://host.docker.internal:6001/chat` with the `window.__CODEINFO_TEST__` hook to inject two `analysis_delta` blocks (second block reset) and verified the expanded “Thought process” renders both blocks. Screenshot saved to `test-results/screenshots/0000019-15-reasoning-multiblock.png`.
 - 2025-12-30: Testing step 9 complete: `npm run compose:down`.
+
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **62efeef36556b360ecf9e47674ce354390f4e5e3**
 
 #### Overview
@@ -4136,7 +4381,10 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
    - Reference snippets (repeat):
      - Visibility event to simulate:
        ```ts
-       Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+       Object.defineProperty(document, 'visibilityState', {
+         value: 'hidden',
+         configurable: true,
+       });
        document.dispatchEvent(new Event('visibilitychange'));
        ```
      - The refresh entry points to exercise:
@@ -4165,7 +4413,9 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - `useConversationTurns` exposes `refresh()` in `client/src/hooks/useConversationTurns.ts`.
      - Visibility guard:
        ```ts
-       if (document.visibilityState === 'visible') { /* refresh */ }
+       if (document.visibilityState === 'visible') {
+         /* refresh */
+       }
        ```
    - Code anchors:
      - `client/src/pages/ChatPage.tsx` (add focus/visibility listeners).
@@ -4185,7 +4435,11 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
      - `useChatWs` supports `onReconnectBeforeResubscribe` (see `client/src/hooks/useChatWs.ts`).
      - Hook usage pattern:
        ```ts
-       useChatWs({ onReconnectBeforeResubscribe: async () => { await refresh(); } })
+       useChatWs({
+         onReconnectBeforeResubscribe: async () => {
+           await refresh();
+         },
+       });
        ```
    - Code anchors:
      - `client/src/hooks/useChatWs.ts` (reconnect callback is invoked before resubscribe).
@@ -4272,7 +4526,7 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 ### 17. Include in-memory inflight state in conversation snapshot refresh
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **daf09cb**
 
 #### Overview
@@ -4303,7 +4557,9 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - Suggested response shape:
        ```json
        {
-         "items": [/* persisted turns */],
+         "items": [
+           /* persisted turns */
+         ],
          "nextCursor": null,
          "inflight": {
            "inflightId": "i1",
@@ -4439,7 +4695,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 ### 18. Stream user turns over WS at run start (dedupe on sender tab)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **b943664**
 
 #### Overview
@@ -4469,7 +4725,13 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
    - Reference snippets (repeat from story):
      - Proposed WS event:
        ```json
-       { "type": "user_turn", "conversationId": "c1", "inflightId": "i1", "content": "Hello", "createdAt": "2025-12-29T18:00:00.000Z" }
+       {
+         "type": "user_turn",
+         "conversationId": "c1",
+         "inflightId": "i1",
+         "content": "Hello",
+         "createdAt": "2025-12-29T18:00:00.000Z"
+       }
        ```
    - Test scaffolding hints:
      - Server WS tests use `connectWs`, `sendJson`, `waitForEvent` from `server/src/test/support/wsClient.ts`.
@@ -4591,7 +4853,7 @@ Tabs that did not submit a prompt do not see the user’s message until persiste
 
 ### 19. Prevent transcript width expansion (wrap citations/tool/markdown content)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **921ae0b, 1c9530d**
 
 #### Overview
@@ -4623,7 +4885,9 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - Layout assertion example:
        ```ts
        const transcript = screen.getByTestId('chat-transcript');
-       expect(transcript.scrollWidth).toBeLessThanOrEqual(transcript.clientWidth);
+       expect(transcript.scrollWidth).toBeLessThanOrEqual(
+         transcript.clientWidth,
+       );
        ```
      - Example long-token content: `'a'.repeat(400)` used in a citation path or chunk.
    - Code anchors (where to look first):
@@ -4672,7 +4936,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
    - Docs (repeat):
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
- 
+
 4. [x] Add corner-case wrap tests for tool payloads + markdown code blocks:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
@@ -4749,7 +5013,7 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 
 ### 20. Align chat layout: fixed sidebar + full-width transcript column
 
-- Task Status: **__completed__**
+- Task Status: \***\*completed\*\***
 - Git Commits: **a97e89c**
 
 #### Overview
@@ -4782,7 +5046,9 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - Transcript width check:
        ```ts
        const transcript = screen.getByTestId('chat-transcript');
-       expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth);
+       expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
+         window.innerWidth,
+       );
        ```
    - Code anchors (where to look first):
      - Sidebar wrapper `Box` in `client/src/pages/ChatPage.tsx` (width `{ xs: '100%', md: 320 }`).
@@ -4911,7 +5177,7 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 
 ### 21. Make transcript fill remaining viewport height beneath controls
 
-- Task Status: **__completed__**
+- Task Status: \***\*completed\*\***
 - Git Commits: **1d7b857**
 
 #### Overview
@@ -5002,7 +5268,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-7. [x] Run lint/format for client after code/test changes:
+6. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5058,7 +5324,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 
 ### 22. Remove Codex MCP info banner from Chat page
 
-- Task Status: **__completed__**
+- Task Status: \***\*completed\*\***
 - Git Commits: **d926e7d**
 
 #### Overview
@@ -5174,7 +5440,7 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 
 ### 23. Default Codex Flags panel to collapsed
 
-- Task Status: **__completed__**
+- Task Status: \***\*completed\*\***
 - Git Commits: **442ad34**
 
 #### Overview
@@ -5234,7 +5500,10 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
      - Controlled pattern:
        ```tsx
        const [expanded, setExpanded] = useState(false);
-       <Accordion expanded={expanded} onChange={(_, next) => setExpanded(next)} />
+       <Accordion
+         expanded={expanded}
+         onChange={(_, next) => setExpanded(next)}
+       />;
        ```
    - Docs (repeat):
      - https://mui.com/material-ui/react-accordion/
@@ -5264,7 +5533,6 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
    - Docs (repeat):
      - https://react.dev/learn/conditional-rendering
      - Context7 `/jestjs/jest`
-
 
 6. [x] Documentation update (if behavior change is user-visible):
    - Files to edit:
@@ -5330,7 +5598,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 ### 24. Allow full-width layout by removing App container max width (gutters preserved)
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **b642971, 51db639**
 
 #### Overview
@@ -5490,7 +5758,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 
 ### 25. Always merge inflight data into snapshots until persistence completes
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **8f0faa0**
 
 #### Overview
@@ -5646,7 +5914,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
 
 ### 26. Snapshot hardening: stable turn IDs + deterministic merge ordering
 
-- Task Status: **__done__**
+- Task Status: \***\*done\*\***
 - Git Commits: **a696838**
 
 #### Overview
@@ -5789,8 +6057,8 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
 
 ### 27. Reset assistant bubble on cross-tab runs + add diagnostics (and dual-window e2e)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: \***\*in_progress\*\***
+- Git Commits: \***\*to_do\*\***
 
 #### Overview
 
@@ -5806,7 +6074,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
 
 #### Subtasks
 
-1. [ ] Locate assistant pointer reuse and WS `user_turn` flow:
+1. [x] Locate assistant pointer reuse and WS `user_turn` flow:
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -5821,7 +6089,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-2. [ ] Reset assistant pointer on cross-tab runs:
+2. [x] Reset assistant pointer on cross-tab runs:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -5836,7 +6104,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-3. [ ] Add client logging for cross-tab run transitions:
+3. [x] Add client logging for cross-tab run transitions:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/logging/logger.ts` (or existing log helper)
@@ -5852,7 +6120,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-4. [ ] Add client tests for pointer reset:
+4. [x] Add client tests for pointer reset:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
@@ -5869,7 +6137,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Add e2e test with two browser windows:
+5. [x] Add e2e test with two browser windows:
    - Files to edit:
      - `e2e/chat-multiwindow.spec.ts` (new)
    - Test requirements:
@@ -5888,7 +6156,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - https://playwright.dev/docs/pages
      - Context7 `/microsoft/playwright`
 
-6. [ ] Documentation update:
+6. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5898,27 +6166,42 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-7. [ ] Run lint/format after client/e2e changes:
+7. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open two browser windows and reproduce the original scenario.
    - Confirm the second run creates a new assistant bubble in the passive window.
    - Validate the new client log entries appear in the server logs.
    - Capture a screenshot showing both windows after the second response.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Testing 9: `npm run compose:down` stopped the stack.
+- Testing 8: Ran the two-window Playwright check against the running Compose stack via `http://host.docker.internal:5001` and confirmed the passive window renders two assistant bubbles after the follow-up; verified `chat.ws.client_reset_assistant` appears in `GET /logs`; screenshots captured under `test-results/screenshots/0000019-27-multiwindow-*.png` (rebuilt client with `VITE_API_URL=http://host.docker.internal:5010` so the in-container browser can reach the host-mapped server port).
+- Testing 7: `npm run compose:up` started the stack successfully (services healthy).
+- Testing 6: `npm run compose:build` passed (also validates the Dockerfile install-step refactor).
+- Testing 5: `npm run e2e` passed (includes new multiwindow spec; screenshots emitted under `test-results/screenshots/0000019-27-*`).
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 1: `npm run build --workspace server` passed.
+- Subtask 7: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (pass) after fixing new test lint violations and formatting.
+- Subtask 6: Updated `design.md` to document the cross-tab `user_turn` inflightId transition handling and the new diagnostic client log events (`chat.ws.client_user_turn`, `chat.ws.client_reset_assistant`).
+- Subtask 5: Added deterministic multi-window Playwright spec `e2e/chat-multiwindow.spec.ts` (mock chat only) that opens two pages, runs two consecutive turns from page A, and asserts page B shows two assistant bubbles (no overwrite) and remains consistent after refresh; screenshots saved under `test-results/screenshots/0000019-27-...`.
+- Subtask 4: Added Jest/RTL coverage in `client/src/test/chatPage.stream.test.tsx` to simulate back-to-back WS `user_turn` sequences (no local `send()`), asserting a new assistant bubble is created on `inflightId` change and that reset logs fire only for WS-driven transitions.
+- Subtask 3: Added `chat.ws.client_user_turn` and `chat.ws.client_reset_assistant` log events (via `logWithChannel`) including `conversationId`, `prevInflightId`, `inflightId`, and assistant message ids, so cross-tab ordering issues can be diagnosed from the shared `/logs` store.
+- Subtask 2: On WS `user_turn`, when `inflightId` changes and the run was not locally started (`status !== sending`), the client now clears the assistant pointer + in-memory assistant buffers before creating the new processing bubble, preventing cross-tab runs from overwriting the previous assistant message.
+- Subtask 1: Confirmed `activeAssistantMessageIdRef` is set in `ensureAssistantMessage()` and never cleared on `turn_final`; `handleWsEvent` calls `ensureAssistantMessage()` before the `user_turn` branch, which explains cross-tab assistant-bubble reuse when a new `inflightId` arrives.

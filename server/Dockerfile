@@ -10,8 +10,7 @@ COPY tsconfig*.json ./
 COPY tsconfig.base.json ./
 COPY common ./common
 COPY server ./server
-RUN npm ci --workspaces --include-workspace-root --ignore-scripts && npm install --workspaces --include-workspace-root --ignore-scripts --prefer-offline
-
+RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund
 FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app .

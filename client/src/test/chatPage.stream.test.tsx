@@ -31,6 +31,11 @@ const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
 
+type LoggedConsoleEntry = {
+  message?: string;
+  context?: Record<string, unknown>;
+};
+
 const routes = [
   {
     path: '/',
@@ -760,5 +765,197 @@ describe('Chat WS streaming UI', () => {
         .filter((el) => (el.textContent ?? '').includes(userText));
       expect(matches).toHaveLength(1);
     });
+  });
+
+  it('creates a new assistant bubble when a WS user_turn starts a new inflight run (cross-tab follow-up)', async () => {
+    const conversationId = 'c-cross-tab';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Cross tab conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const row = await screen.findByTestId('conversation-row');
+      await act(async () => {
+        await user.click(row);
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn one',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+      harness.emitInflightSnapshot({
+        conversationId,
+        inflightId: 'i1',
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId,
+        inflightId: 'i1',
+        delta: 'Assistant one',
+      });
+      harness.emitFinal({ conversationId, inflightId: 'i1', status: 'ok' });
+
+      expect(await screen.findByText('Assistant one')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i2',
+        content: 'User turn two',
+        createdAt: '2025-01-01T00:01:00.000Z',
+      });
+      harness.emitInflightSnapshot({
+        conversationId,
+        inflightId: 'i2',
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId,
+        inflightId: 'i2',
+        delta: 'Assistant two',
+      });
+      harness.emitFinal({ conversationId, inflightId: 'i2', status: 'ok' });
+
+      expect(await screen.findByText('Assistant two')).toBeInTheDocument();
+
+      const assistantBubbles = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'assistant')
+        .filter((el) => el.getAttribute('data-kind') === 'normal');
+      expect(assistantBubbles).toHaveLength(2);
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeTruthy();
+      const resetContext = (resetLog?.[0] as LoggedConsoleEntry | undefined)
+        ?.context;
+      expect(resetContext?.prevInflightId).toBe('i1');
+      expect(resetContext?.inflightId).toBe('i2');
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('does not reset the assistant pointer when WS user_turn repeats the same inflightId', async () => {
+    const conversationId = 'c-same-inflight';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Same inflight conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const row = await screen.findByTestId('conversation-row');
+      await act(async () => {
+        await user.click(row);
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn one',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn again',
+        createdAt: '2025-01-01T00:00:01.000Z',
+      });
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('does not reset the assistant pointer for local send runs (even if server inflightId differs)', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId() ?? 'c1';
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'server-i2',
+        content: 'Hello',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });

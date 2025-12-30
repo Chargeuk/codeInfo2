@@ -173,6 +173,7 @@ flowchart LR
 
   Note[TS note: SDK types may lag\n(ModelReasoningEffort excludes 'xhigh')] -.-> C
 ```
+
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
 - Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a warning banner shows and inputs disable. If Codex is selected but MCP tools are missing, a separate warning banner explains the tools requirement. When Codex is available, chat is enabled and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 
@@ -280,7 +281,7 @@ flowchart LR
 
 - Codex can emit transient reconnect errors like `Reconnecting... 1/5`.
 - `McpResponder` treats messages matching `/^Reconnecting\.\.\.\s+\d+\/\d+$/` as non-fatal: it tracks/counts them for diagnostics but does not fail `toResult()`.
-- Agent command macros retry per step when the *step call* fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
+- Agent command macros retry per step when the _step call_ fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
 - Retry logs include `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts` and avoid logging prompt content.
 
 ```mermaid
@@ -927,6 +928,8 @@ sequenceDiagram
   - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event` (and optional `stream_warning`), and ends with `turn_final`.
 - Codex reasoning (`analysis_delta`) is append-only in the UI; when Codex emits multiple reasoning items or a non-prefix reset, the server treats it as a new reasoning block and prefixes the next `analysis_delta` with `\n\n` so the “Thought process” view shows all blocks without truncation.
 - Logging: run lifecycle (`chat.run.started`) and WS publish milestones (`chat.stream.*`) are recorded server-side; client forwards `chat.ws.client_*` entries into `/logs` for deterministic manual verification.
+- Cross-tab run hygiene: on WS `user_turn` when the incoming `inflightId` differs from the previous `inflightId` (and the current tab is not mid local-send), the client clears its active assistant pointer + in-memory assistant buffers so the next assistant response renders as a new bubble; it emits diagnostics via `chat.ws.client_user_turn` and `chat.ws.client_reset_assistant`.
+
 - Fixtures: `common/src/fixtures/chatStream.ts` contains both legacy SSE fixtures (for older harnesses) and WS-shaped fixtures used by Jest/Playwright mocks.
 
 ```mermaid

@@ -440,6 +440,17 @@ export function useChatStream(
     setStatus('idle');
   }, [clearThinkingTimer]);
 
+  const resetAssistantPointer = useCallback(() => {
+    activeAssistantMessageIdRef.current = null;
+    toolCallsRef.current = new Map();
+    segmentsRef.current = [];
+    assistantTextRef.current = '';
+    assistantThinkRef.current = '';
+    assistantCitationsRef.current = [];
+    assistantWarningsRef.current = [];
+    clearThinkingTimer();
+  }, [clearThinkingTimer]);
+
   const stop = useCallback(
     (options?: { showStatusBubble?: boolean }) => {
       clearThinkingTimer();
@@ -798,12 +809,47 @@ export function useChatStream(
 
       inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
 
-      ensureAssistantMessage();
-
       if (event.type === 'user_turn') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
+        const nextInflightId =
+          typeof event.inflightId === 'string' && event.inflightId
+            ? event.inflightId
+            : null;
+
+        const prevInflightId = inflightIdRef.current;
+        const assistantMessageIdBefore = activeAssistantMessageIdRef.current;
+
+        const shouldResetAssistantPointer =
+          nextInflightId !== null &&
+          prevInflightId !== null &&
+          nextInflightId !== prevInflightId &&
+          status !== 'sending';
+
+        if (shouldResetAssistantPointer) {
+          resetAssistantPointer();
+          logWithChannel('info', 'chat.ws.client_reset_assistant', {
+            conversationId: event.conversationId,
+            prevInflightId,
+            inflightId: nextInflightId,
+            assistantMessageIdBefore,
+          });
+        }
+
+        if (nextInflightId) {
+          inflightIdRef.current = nextInflightId;
+          setInflightId(nextInflightId);
+        }
+
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
+
+        const assistantMessageIdAfter = ensureAssistantMessage();
+        logWithChannel('info', 'chat.ws.client_user_turn', {
+          conversationId: event.conversationId,
+          inflightId: nextInflightId,
+          prevInflightId,
+          assistantMessageIdBefore,
+          assistantMessageIdAfter,
+          resetAssistantPointer: shouldResetAssistantPointer,
+        });
 
         const normalizedIncoming = normalizeMessageContent(event.content ?? '');
         const nowTimestamp = new Date().getTime();
@@ -871,6 +917,8 @@ export function useChatStream(
         setIsStreaming(true);
         return;
       }
+
+      ensureAssistantMessage();
 
       if (event.type === 'inflight_snapshot') {
         inflightIdRef.current = event.inflight.inflightId;
@@ -995,6 +1043,8 @@ export function useChatStream(
       clearThinkingTimer,
       ensureAssistantMessage,
       logWithChannel,
+      resetAssistantPointer,
+      status,
       syncAssistantMessage,
       updateMessages,
     ],

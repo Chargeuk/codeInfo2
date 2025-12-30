@@ -6057,8 +6057,8 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
 
 ### 27. Reset assistant bubble on cross-tab runs + add diagnostics (and dual-window e2e)
 
-- Task Status: \***\*in_progress\*\***
-- Git Commits: \***\*to_do\*\***
+- Task Status: **__done__**
+- Git Commits: **5bb3299**
 
 #### Overview
 

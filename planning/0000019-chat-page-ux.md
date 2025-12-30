@@ -5806,7 +5806,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
 
 #### Subtasks
 
-1. [ ] Locate assistant pointer reuse and WS `user_turn` flow:
+1. [x] Locate assistant pointer reuse and WS `user_turn` flow:
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -5821,7 +5821,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-2. [ ] Reset assistant pointer on cross-tab runs:
+2. [x] Reset assistant pointer on cross-tab runs:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -5836,7 +5836,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-3. [ ] Add client logging for cross-tab run transitions:
+3. [x] Add client logging for cross-tab run transitions:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/logging/logger.ts` (or existing log helper)
@@ -5852,7 +5852,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-4. [ ] Add client tests for pointer reset:
+4. [x] Add client tests for pointer reset:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
@@ -5869,7 +5869,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Add e2e test with two browser windows:
+5. [x] Add e2e test with two browser windows:
    - Files to edit:
      - `e2e/chat-multiwindow.spec.ts` (new)
    - Test requirements:
@@ -5888,7 +5888,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
      - https://playwright.dev/docs/pages
      - Context7 `/microsoft/playwright`
 
-6. [ ] Documentation update:
+6. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5898,27 +5898,43 @@ When a second browser window receives a new `user_turn` event, the client reuses
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-7. [ ] Run lint/format after client/e2e changes:
+7. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open two browser windows and reproduce the original scenario.
    - Confirm the second run creates a new assistant bubble in the passive window.
    - Validate the new client log entries appear in the server logs.
    - Capture a screenshot showing both windows after the second response.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Testing 9: `npm run compose:down` stopped the stack.
+- Testing 8: Ran the two-window Playwright check against the running Compose stack via `http://host.docker.internal:5001` and confirmed the passive window renders two assistant bubbles after the follow-up; verified `chat.ws.client_reset_assistant` appears in `GET /logs`; screenshots captured under `test-results/screenshots/0000019-27-multiwindow-*.png` (rebuilt client with `VITE_API_URL=http://host.docker.internal:5010` so the in-container browser can reach the host-mapped server port).
+- Testing 7: `npm run compose:up` started the stack successfully (services healthy).
+- Testing 6: `npm run compose:build` passed (also validates the Dockerfile install-step refactor).
+- Testing 5: `npm run e2e` passed (includes new multiwindow spec; screenshots emitted under `test-results/screenshots/0000019-27-*`).
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 1: `npm run build --workspace server` passed.
+- Subtask 7: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (pass) after fixing new test lint violations and formatting.
+- Subtask 6: Updated `design.md` to document the cross-tab `user_turn` inflightId transition handling and the new diagnostic client log events (`chat.ws.client_user_turn`, `chat.ws.client_reset_assistant`).
+- Subtask 5: Added deterministic multi-window Playwright spec `e2e/chat-multiwindow.spec.ts` (mock chat only) that opens two pages, runs two consecutive turns from page A, and asserts page B shows two assistant bubbles (no overwrite) and remains consistent after refresh; screenshots saved under `test-results/screenshots/0000019-27-...`.
+- Subtask 4: Added Jest/RTL coverage in `client/src/test/chatPage.stream.test.tsx` to simulate back-to-back WS `user_turn` sequences (no local `send()`), asserting a new assistant bubble is created on `inflightId` change and that reset logs fire only for WS-driven transitions.
+- Subtask 3: Added `chat.ws.client_user_turn` and `chat.ws.client_reset_assistant` log events (via `logWithChannel`) including `conversationId`, `prevInflightId`, `inflightId`, and assistant message ids, so cross-tab ordering issues can be diagnosed from the shared `/logs` store.
+- Subtask 2: On WS `user_turn`, when `inflightId` changes and the run was not locally started (`status !== sending`), the client now clears the assistant pointer + in-memory assistant buffers before creating the new processing bubble, preventing cross-tab runs from overwriting the previous assistant message.
+- Subtask 1: Confirmed `activeAssistantMessageIdRef` is set in `ensureAssistantMessage()` and never cleared on `turn_final`; `handleWsEvent` calls `ensureAssistantMessage()` before the `user_turn` branch, which explains cross-tab assistant-bubble reuse when a new `inflightId` arrives.
+

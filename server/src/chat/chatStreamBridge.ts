@@ -16,8 +16,8 @@ import {
   appendAnalysisDelta,
   appendAssistantDelta,
   appendToolEvent,
-  cleanupInflight,
   getInflight,
+  markInflightFinal,
   setAssistantText,
   type ToolEvent,
 } from './inflightRegistry.js';
@@ -118,7 +118,11 @@ export function attachChatStreamBridge(params: {
       ...(params.error ? { error: params.error } : {}),
     });
 
-    cleanupInflight({ conversationId, inflightId });
+    markInflightFinal({
+      conversationId,
+      inflightId,
+      status: params.status,
+    });
   };
 
   // Initial snapshot for any already-subscribed viewers.

@@ -575,7 +575,9 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!activeConversationId || !lastMode) return;
-    const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
+    const oldest = lastPage?.[0]?.createdAt ?? 'none';
+    const newest = lastPage?.[lastPage.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${lastMode}-${oldest}-${newest}-${lastPage.length}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
     console.info('[chat-history] hydrating turns', {
@@ -583,6 +585,7 @@ export default function ChatPage() {
       mode: lastMode,
       count: lastPage.length,
       first: lastPage[0]?.createdAt,
+      last: lastPage[lastPage.length - 1]?.createdAt,
     });
     if (lastMode === 'replace') {
       hydrateHistory(

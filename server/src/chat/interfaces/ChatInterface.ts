@@ -13,6 +13,7 @@ import type {
   TurnSource,
   TurnStatus,
 } from '../../mongo/turn.js';
+import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
@@ -117,6 +118,10 @@ export abstract class ChatInterface extends EventEmitter {
     conversationId: string,
     model: string,
   ): Promise<void> {
+    const inflightId =
+      typeof (flags as { inflightId?: unknown })?.inflightId === 'string'
+        ? ((flags as { inflightId?: string }).inflightId as string)
+        : undefined;
     const source = ((flags ?? {}) as { source?: TurnSource }).source ?? 'REST';
     const provider =
       ((flags ?? {}) as { provider?: string }).provider ?? 'unknown';
@@ -128,6 +133,9 @@ export abstract class ChatInterface extends EventEmitter {
     );
     const createdAt = new Date();
     const userStatus: TurnStatus = 'ok';
+
+    let userPersisted = false;
+    let assistantPersisted = false;
 
     const tokenBuffer: string[] = [];
     let finalContent = '';
@@ -201,6 +209,10 @@ export abstract class ChatInterface extends EventEmitter {
           status: userStatus,
           createdAt,
         } as Turn);
+        userPersisted = true;
+        if (inflightId) {
+          markInflightPersisted({ conversationId, inflightId, role: 'user' });
+        }
       } else {
         await this.persistTurn({
           conversationId,
@@ -214,7 +226,13 @@ export abstract class ChatInterface extends EventEmitter {
           status: userStatus,
           createdAt,
         });
+        userPersisted = true;
+        if (inflightId) {
+          markInflightPersisted({ conversationId, inflightId, role: 'user' });
+        }
       }
+    } else {
+      userPersisted = true;
     }
 
     try {
@@ -259,6 +277,19 @@ export abstract class ChatInterface extends EventEmitter {
         toolCalls,
         skipPersistence,
       });
+
+      assistantPersisted = true;
+      if (inflightId) {
+        markInflightPersisted({
+          conversationId,
+          inflightId,
+          role: 'assistant',
+        });
+      }
+
+      if (inflightId && userPersisted && assistantPersisted) {
+        cleanupInflight({ conversationId, inflightId });
+      }
     }
 
     if (executionError) {

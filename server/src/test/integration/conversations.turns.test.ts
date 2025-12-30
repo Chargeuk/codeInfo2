@@ -9,6 +9,7 @@ import {
   bumpSeq,
   cleanupInflight,
   createInflight,
+  markInflightFinal,
 } from '../../chat/inflightRegistry.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
@@ -69,7 +70,17 @@ test('returns not_found when conversation is missing', async () => {
 });
 
 test('optionally includes inflight snapshot when requested', async () => {
-  createInflight({ conversationId: 'c1', inflightId: 'i1' });
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'hello',
+      createdAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
+    },
+  });
   appendAssistantDelta({ conversationId: 'c1', inflightId: 'i1', delta: 'Hi' });
   bumpSeq('c1');
   appendAnalysisDelta({
@@ -101,7 +112,11 @@ test('optionally includes inflight snapshot when requested', async () => {
       .expect(200);
 
     assert.equal(Array.isArray(res.body.items), true);
-    assert.equal(res.body.items.length, 0);
+    assert.equal(res.body.items.length, 2);
+    assert.equal(res.body.items[0].role, 'assistant');
+    assert.equal(res.body.items[0].content, 'Hi');
+    assert.equal(res.body.items[1].role, 'user');
+    assert.equal(res.body.items[1].content, 'hello');
     assert.equal(typeof res.body.inflight?.inflightId, 'string');
     assert.equal(res.body.inflight.inflightId, 'i1');
     assert.equal(res.body.inflight.assistantText, 'Hi');
@@ -113,6 +128,115 @@ test('optionally includes inflight snapshot when requested', async () => {
     assert.equal(typeof res.body.inflight.startedAt, 'string');
     assert.equal(typeof res.body.inflight.seq, 'number');
     assert.ok(res.body.inflight.seq >= 0);
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
+test('always merges inflight turns into snapshot items (includeInflight omitted)', async () => {
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'hello',
+      createdAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
+    },
+  });
+  appendAssistantDelta({ conversationId: 'c1', inflightId: 'i1', delta: 'Hi' });
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: [] }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(res.body.inflight, undefined);
+    assert.equal(res.body.items.length, 2);
+    assert.equal(res.body.items[0].role, 'assistant');
+    assert.equal(res.body.items[0].content, 'Hi');
+    assert.equal(res.body.items[1].role, 'user');
+    assert.equal(res.body.items[1].content, 'hello');
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
+test('keeps inflight merged after final until persistence completes, then stops after cleanup', async () => {
+  const userCreatedAt = new Date('2025-01-01T00:00:00.000Z').toISOString();
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: { content: 'hello', createdAt: userCreatedAt },
+  });
+  appendAssistantDelta({ conversationId: 'c1', inflightId: 'i1', delta: 'Hi' });
+  markInflightFinal({ conversationId: 'c1', inflightId: 'i1', status: 'ok' });
+
+  const persistedUserOnly: TurnSummary[] = [
+    {
+      conversationId: 'c1',
+      role: 'user',
+      content: 'hello',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date(userCreatedAt),
+    },
+  ];
+
+  try {
+    const resBefore = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: persistedUserOnly }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(resBefore.body.items.length, 2);
+    assert.equal(resBefore.body.items[0].role, 'assistant');
+    assert.equal(resBefore.body.items[0].content, 'Hi');
+
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+
+    const persistedBoth: TurnSummary[] = [
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Hi',
+        model: 'llama',
+        provider: 'lmstudio',
+        source: 'REST',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: new Date('2025-01-01T00:00:00.500Z'),
+      },
+      persistedUserOnly[0],
+    ];
+
+    const resAfter = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: persistedBoth }),
+      }),
+    )
+      .get('/conversations/c1/turns?includeInflight=true')
+      .expect(200);
+
+    assert.equal(resAfter.body.items.length, 2);
+    assert.equal(resAfter.body.inflight, undefined);
   } finally {
     cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
   }

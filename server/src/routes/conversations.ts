@@ -1,7 +1,11 @@
 import crypto from 'node:crypto';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
-import { snapshotInflight } from '../chat/inflightRegistry.js';
+import {
+  mergeInflightTurns,
+  snapshotInflight,
+  snapshotInflightTurns,
+} from '../chat/inflightRegistry.js';
 import { append } from '../logStore.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import {
@@ -523,24 +527,38 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
     const { limit, cursor, includeInflight } = parsedQuery.data;
     try {
-      const { items } = await listTurns({
+      const { items: persistedItems } = await listTurns({
         conversationId: parsedParams.data.id,
         limit,
         cursor,
       });
       const nextCursor =
-        items.length === limit
-          ? items[items.length - 1]?.createdAt.toISOString()
+        persistedItems.length === limit
+          ? persistedItems[persistedItems.length - 1]?.createdAt.toISOString()
           : undefined;
 
+      const inflightTurns = snapshotInflightTurns(parsedParams.data.id);
+      const merged = mergeInflightTurns(persistedItems, inflightTurns);
+      const items = merged.slice().sort((a, b) => {
+        const timeDelta = b.createdAt.getTime() - a.createdAt.getTime();
+        if (timeDelta !== 0) return timeDelta;
+        const rolePriority = (role: string) => {
+          if (role === 'assistant') return 0;
+          if (role === 'user') return 1;
+          return 2;
+        };
+        return rolePriority(a.role) - rolePriority(b.role);
+      });
+
+      const response: Record<string, unknown> = { items, nextCursor };
       if (includeInflight === 'true') {
         const inflight = snapshotInflight(parsedParams.data.id);
         if (inflight) {
-          return res.json({ items, nextCursor, inflight });
+          response.inflight = inflight;
         }
       }
 
-      res.json({ items, nextCursor });
+      res.json(response);
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });
     }

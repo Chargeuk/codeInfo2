@@ -5490,7 +5490,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 
 ### 25. Always merge inflight data into snapshots until persistence completes
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -5508,7 +5508,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
 
 #### Subtasks
 
-1. [ ] Locate inflight lifecycle and snapshot path:
+1. [x] Locate inflight lifecycle and snapshot path:
    - Files to read:
      - `server/src/routes/conversations.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
@@ -5525,7 +5525,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - https://expressjs.com/en/guide/routing.html
      - https://mongoosejs.com/docs/api/model.html
 
-2. [ ] Update inflight lifecycle to persist until DB write completes:
+2. [x] Update inflight lifecycle to persist until DB write completes:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterface.ts`
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
@@ -5543,7 +5543,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Docs (repeat):
      - https://mongoosejs.com/docs/api/model.html
 
-3. [ ] Merge inflight into snapshot responses:
+3. [x] Merge inflight into snapshot responses:
    - Files to edit:
      - `server/src/routes/conversations.ts`
      - `server/src/chat/memoryPersistence.ts`
@@ -5556,7 +5556,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Docs (repeat):
      - https://expressjs.com/en/guide/routing.html
 
-4. [ ] Add server tests for inflight merge behavior:
+4. [x] Add server tests for inflight merge behavior:
    - Files to edit:
      - `server/src/test/integration/conversations.turns.test.ts`
      - `server/src/test/support/mockLmStudioSdk.ts`
@@ -5571,7 +5571,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
      - Context7 `/jestjs/jest`
      - https://cucumber.io/docs/guides/
 
-5. [ ] Add client regression tests for multi-window snapshot refresh:
+5. [x] Add client regression tests for multi-window snapshot refresh:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
      - `client/src/test/useChatStream.reasoning.test.tsx` (if needed)
@@ -5584,7 +5584,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-6. [ ] Documentation update (if snapshot semantics change):
+6. [x] Documentation update (if snapshot semantics change):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5594,37 +5594,53 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Docs (repeat):
      - https://expressjs.com/en/guide/routing.html
 
-7. [ ] Run lint/format after server/client changes:
+7. [x] Run lint/format after server/client changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Reproduce the two-window follow-up scenario and verify snapshots keep both assistant responses.
    - Switch away and back; confirm both responses remain.
    - Capture screenshots showing consistent ordering across windows.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Located inflight lifecycle: created in `server/src/routes/chat.ts` (`createInflight`), updated via `server/src/chat/chatStreamBridge.ts` (token/analysis/tool events), and currently cleared at `turn_final` via `cleanupInflight` inside `publishFinalOnce`.
+- Located snapshot path: `server/src/routes/conversations.ts` attaches `snapshotInflight(...)` only when `includeInflight=true` and otherwise returns only persisted `listTurns` data.
+- Changed inflight lifecycle so `turn_final` no longer clears inflight; instead inflight is cleared after turn persistence completes inside `ChatInterface.run` (both user + assistant turns).
+- Extended inflight state to capture the user turn + final status so `GET /conversations/:id/turns` can always merge recent inflight turns into the `items` array (deduped by role+content+createdAt window) while still optionally returning the detailed `inflight` snapshot when `includeInflight=true`.
+- Added server integration coverage in `server/src/test/integration/conversations.turns.test.ts` proving inflight turns are always merged into `items` (even without `includeInflight=true`), are preserved after `turn_final` while persistence is outstanding, and disappear after inflight cleanup with persisted turns remaining.
+- Added a client regression test in `client/src/test/chatPage.stream.test.tsx` that simulates the multi-window “switch away and back” flow by dispatching a `focus` event, mutating the mocked `/turns` snapshot to include a follow-up, and asserting earlier assistant turns remain present and ordered after hydration.
+- Updated `design.md` to document that `GET /conversations/:id/turns` snapshots always merge persisted + inflight turns until persistence completes, while `includeInflight=true` still controls whether the detailed inflight snapshot payload is returned.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: used Playwright to simulate the two-window follow-up + focus refresh against `http://host.docker.internal:5001/chat` and captured `planning/0000019-screenshots/0000019-25-multi-window-refresh-a.png` and `planning/0000019-screenshots/0000019-25-multi-window-refresh-b.png`.
+- Testing: `npm run compose:down`.
+- Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`.
 
 ---
 

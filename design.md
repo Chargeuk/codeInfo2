@@ -195,7 +195,8 @@ flowchart LR
 
 - Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
-- `GET /conversations/:id/turns?includeInflight=true` returns persisted turns plus an optional `inflight` snapshot (when a run is active) containing `{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }`.
+- `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
+- `GET /conversations/:id/turns?includeInflight=true` additionally returns an `inflight` snapshot (when present) containing `{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }` for detailed tool/thinking hydration.
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.

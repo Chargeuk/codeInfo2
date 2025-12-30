@@ -434,6 +434,114 @@ describe('Chat WS streaming UI', () => {
     expect(screen.getAllByText(assistantText)).toHaveLength(1);
   });
 
+  it('keeps prior assistant turns on focus-triggered snapshot refresh (multi-window follow-up)', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:10.000Z',
+        },
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:10.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:10.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
+
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const turnsCallsBefore = mockFetch.mock.calls.filter((call) =>
+      String(call[0]).includes('/turns'),
+    ).length;
+
+    turnsPayload.items = [
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Assistant B',
+        model: 'm1',
+        provider: 'lmstudio',
+        status: 'ok',
+        createdAt: '2025-01-01T00:01:10.000Z',
+      },
+      {
+        conversationId: 'c1',
+        role: 'user',
+        content: 'User B',
+        model: 'm1',
+        provider: 'lmstudio',
+        status: 'ok',
+        createdAt: '2025-01-01T00:01:00.000Z',
+      },
+      ...turnsPayload.items,
+    ];
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    await waitFor(() => {
+      const turnsCallsAfter = mockFetch.mock.calls.filter((call) =>
+        String(call[0]).includes('/turns'),
+      ).length;
+      expect(turnsCallsAfter).toBeGreaterThan(turnsCallsBefore);
+    });
+
+    expect(await screen.findByText('User B')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant B')).toBeInTheDocument();
+    expect(screen.getByText('User A')).toBeInTheDocument();
+    expect(screen.getByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant B')).toBeLessThan(text.indexOf('User B'));
+  });
+
   it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {
     const userText = 'Hello from sender';
     const harness = setupChatWsHarness({ mockFetch });

@@ -13,6 +13,7 @@ import {
   cleanupInflight,
   createInflight,
   getInflight,
+  isInflightFinalized,
 } from '../chat/inflightRegistry.js';
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import type { CodexLike } from '../chat/interfaces/ChatInterfaceCodex.js';
@@ -278,7 +279,14 @@ export function createChatRouter({
         ? requestedInflightId
         : crypto.randomUUID();
 
-    createInflight({ conversationId, inflightId });
+    createInflight({
+      conversationId,
+      inflightId,
+      provider,
+      model,
+      source: 'REST',
+      userTurn: { content: message, createdAt: now.toISOString() },
+    });
 
     publishUserTurn({
       conversationId,
@@ -359,6 +367,7 @@ export function createChatRouter({
               threadId: activeThreadId,
               codexFlags,
               requestId,
+              inflightId,
               signal: getInflight(conversationId)?.abortController.signal,
               source: 'REST',
             },
@@ -378,6 +387,7 @@ export function createChatRouter({
             provider,
             requestId,
             baseUrl,
+            inflightId,
             signal: getInflight(conversationId)?.abortController.signal,
             history: historyForRun,
             source: 'REST',
@@ -401,10 +411,13 @@ export function createChatRouter({
         bridge.cleanup();
 
         // Defensive cleanup: if the provider failed to emit a terminal event,
-        // avoid leaving in-flight state behind.
+        // avoid leaving in-flight state behind. Finalised runs keep inflight
+        // until persistence completes.
         const leftover = getInflight(conversationId);
         if (leftover && leftover.inflightId === inflightId) {
-          cleanupInflight({ conversationId, inflightId });
+          if (!isInflightFinalized(conversationId)) {
+            cleanupInflight({ conversationId, inflightId });
+          }
         }
 
         releaseConversationLock(conversationId);

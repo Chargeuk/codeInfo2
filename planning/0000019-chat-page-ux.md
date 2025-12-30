@@ -5491,7 +5491,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 ### 25. Always merge inflight data into snapshots until persistence completes
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **8f0faa0**
 
 #### Overview
 

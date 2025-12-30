@@ -298,7 +298,6 @@ export default function ChatPage() {
     : codexUnavailable;
   const showCodexToolsMissing =
     providerIsCodex && providerAvailable && !toolsAvailable;
-  const showCodexReady = providerIsCodex && providerAvailable && toolsAvailable;
   const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
   const controlsDisabled =
     isLoading ||
@@ -1170,13 +1169,6 @@ export default function ChatPage() {
                           the `/mcp` endpoints and that tools are enabled, then
                           retry once the CLI/auth/config prerequisites above are
                           satisfied.
-                        </Alert>
-                      )}
-                      {showCodexReady && (
-                        <Alert severity="info" data-testid="codex-ready-banner">
-                          Codex chats are enabled with MCP tools. Threads reuse
-                          returned thread IDs so conversations can continue
-                          across turns.
                         </Alert>
                       )}
 

@@ -123,6 +123,13 @@ test('renders Codex thought process when analysis frames stream', async ({
   await page.getByLabel('Model').click();
   await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
 
+  const codexFlagsToggle = page
+    .getByTestId('codex-flags-panel')
+    .getByRole('button', { name: /Codex flags/i });
+  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await codexFlagsToggle.click();
+  }
+
   const input = page.getByTestId('chat-input');
   await input.fill('Show reasoning');
   await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 10000 });
@@ -135,6 +142,7 @@ test('renders Codex thought process when analysis frames stream', async ({
     timeout: 20000,
   });
 
+  await page.getByTestId('think-toggle').scrollIntoViewIfNeeded();
   await page.getByTestId('think-toggle').click();
   await expect(page.getByTestId('think-content')).toContainText(
     'Codex thinking.',

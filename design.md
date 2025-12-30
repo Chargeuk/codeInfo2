@@ -174,7 +174,7 @@ flowchart LR
   Note[TS note: SDK types may lag\n(ModelReasoningEffort excludes 'xhigh')] -.-> C
 ```
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
-- Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
+- Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a warning banner shows and inputs disable. If Codex is selected but MCP tools are missing, a separate warning banner explains the tools requirement. When Codex is available, chat is enabled and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
 
 ### Chat sidebar (conversations)
 

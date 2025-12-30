@@ -187,6 +187,13 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
   await modelSelect.click();
   await page.getByRole('option', { name: /gpt-5.1-codex-max/i }).click();
 
+  const codexFlagsToggle = page
+    .getByTestId('codex-flags-panel')
+    .getByRole('button', { name: /Codex flags/i });
+  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await codexFlagsToggle.click();
+  }
+
   await input.fill('List ingested repos');
   await send.click();
 

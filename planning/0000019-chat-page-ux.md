@@ -4619,8 +4619,19 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - Assert the transcript container does not exceed its parent width (use `getBoundingClientRect()` / `scrollWidth`).
    - Reference snippet (repeat):
      - `overflowWrap: 'anywhere'` or `wordBreak: 'break-word'` applied on the citation content container.
+   - Reference snippets (repeat):
+     - Layout assertion example:
+       ```ts
+       const transcript = screen.getByTestId('chat-transcript');
+       expect(transcript.scrollWidth).toBeLessThanOrEqual(transcript.clientWidth);
+       ```
+     - Example long-token content: `'a'.repeat(400)` used in a citation path or chunk.
+   - Code anchors (where to look first):
+     - Citations: `client/src/pages/ChatPage.tsx` (`data-testid="citation-path"` / `data-testid="citation-chunk"`).
+     - Transcript container: `client/src/pages/ChatPage.tsx` (`data-testid="chat-transcript"`).
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+     - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
 2. [ ] Apply wrapping + min-width fixes to transcript layout:
@@ -4633,6 +4644,19 @@ The chat transcript can expand horizontally when citations, tool details, or cod
      - Avoid changing sidebar width; only constrain the transcript area.
    - Reference snippet (repeat):
      - `sx={{ minWidth: 0 }}` on the chat column Box.
+   - Reference snippets (repeat):
+     - Citation chunk wrapping:
+       ```ts
+       sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+       ```
+     - Tool payload wrapping:
+       ```ts
+       sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+       ```
+   - Code anchors (where to look first):
+     - Chat column container: `client/src/pages/ChatPage.tsx` (the `Box sx={{ flex: 1 }}` wrapping transcript).
+     - Tool payload text: `client/src/pages/ChatPage.tsx` (`data-testid="tool-payload"`).
+     - Markdown `pre` blocks: `client/src/components/Markdown.tsx`.
    - Docs (repeat):
      - https://mui.com/material-ui/react-box/
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
@@ -4643,8 +4667,11 @@ The chat transcript can expand horizontally when citations, tool details, or cod
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Assert long citation content wraps without expanding the layout.
+   - Reference snippet (repeat):
+     - Use `scrollWidth`/`clientWidth` on `data-testid="chat-transcript"` to assert no horizontal expansion.
    - Docs (repeat):
      - Context7 `/jestjs/jest`
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
 
 4. [ ] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
@@ -4652,8 +4679,11 @@ The chat transcript can expand horizontally when citations, tool details, or cod
    - Requirements:
      - Note that transcript content now wraps to avoid horizontal expansion.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - Mention `minWidth: 0` on the chat column and `overflowWrap: anywhere` on citation content.
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap
+     - https://mui.com/material-ui/react-box/
 
 5. [ ] Run lint/format for client after code/test changes:
    - Commands to run:
@@ -4719,8 +4749,23 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
    - Test requirements:
      - Assert the sidebar width remains fixed (md: 320px).
      - Assert the transcript column uses the remaining width and does not overflow the viewport.
+   - Reference snippets (repeat):
+     - Sidebar width check:
+       ```ts
+       const sidebar = screen.getByTestId('conversation-list');
+       expect(sidebar.getBoundingClientRect().width).toBeCloseTo(320, 0);
+       ```
+     - Transcript width check:
+       ```ts
+       const transcript = screen.getByTestId('chat-transcript');
+       expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth);
+       ```
+   - Code anchors (where to look first):
+     - Sidebar wrapper `Box` in `client/src/pages/ChatPage.tsx` (width `{ xs: '100%', md: 320 }`).
+     - Transcript wrapper `Box` in `client/src/pages/ChatPage.tsx` (`data-testid="chat-transcript"`).
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
 2. [ ] Update the chat layout containers to enforce left sidebar + fluid content:
@@ -4730,6 +4775,17 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
      - Ensure the sidebar box has a fixed width and does not grow.
      - Ensure the chat column is `flex: 1` with `minWidth: 0` and `width: 100%`.
      - Avoid unintended horizontal scroll on the root container.
+   - Reference snippets (repeat):
+     - Sidebar:
+       ```ts
+       sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}
+       ```
+     - Chat column:
+       ```ts
+       sx={{ flex: 1, minWidth: 0, width: '100%' }}
+       ```
+   - Code anchors (where to look first):
+     - Layout `Stack` wrapping sidebar + chat in `client/src/pages/ChatPage.tsx`.
    - Docs (repeat):
      - https://mui.com/material-ui/react-box/
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
@@ -4740,8 +4796,11 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
    - Requirements:
      - Tests must fail before the fix and pass after.
      - Verify sidebar remains on the left with constant width while transcript fills remaining space.
+   - Reference snippets (repeat):
+     - Assert the chat column grows by checking `flex` sizing via `getBoundingClientRect()`.
    - Docs (repeat):
      - Context7 `/jestjs/jest`
+     - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
 4. [ ] Documentation update (if layout behavior changes are user-visible):
    - Files to edit:
@@ -4749,8 +4808,11 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
    - Requirements:
      - Note that the chat layout enforces a fixed-width sidebar and fluid transcript column.
      - If no updates are needed, mark this subtask as “no changes required”.
+   - Reference snippet (repeat):
+     - Mention fixed 320px sidebar + `flex: 1` chat column with `minWidth: 0`.
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
+     - https://mui.com/material-ui/react-box/
 
 5. [ ] Run lint/format for client after code/test changes:
    - Commands to run:

@@ -5105,3 +5105,117 @@ The Chat page currently shows an informational banner: “Codex chats are enable
 #### Implementation notes
 
 - (fill after implementation)
+
+---
+
+### 23. Default Codex Flags panel to collapsed
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The Codex Flags expandable panel currently defaults to expanded on the Chat page. It should default to collapsed, allowing users to expand it only when they need advanced settings.
+
+#### Documentation Locations
+
+- MUI Accordion component: https://mui.com/material-ui/react-accordion/
+- React component state (controlled vs uncontrolled): https://react.dev/learn
+- Jest/RTL patterns: Context7 `/jestjs/jest`
+- Playwright MCP reference (manual verification & screenshots): Context7 `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Locate Codex Flags panel implementation and current default:
+   - Files to read:
+     - `client/src/components/chat/CodexFlagsPanel.tsx`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx` (if it shares the panel or similar pattern)
+   - Requirements:
+     - Identify whether the panel uses MUI `Accordion` with `defaultExpanded` or a controlled `expanded` prop.
+     - Confirm where initial expansion state is set (component-local vs parent).
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-accordion/
+     - https://react.dev/learn
+
+2. [ ] Add tests that assert the panel is collapsed by default:
+   - Files to read:
+     - `client/src/test/chatPage.flags.test.tsx` (existing Codex flags coverage)
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Files to edit:
+     - `client/src/test/chatPage.flags.test.tsx` (preferred)
+     - or new `client/src/test/chatPage.flagsPanel.test.tsx`
+   - Test requirements:
+     - Render ChatPage with Codex provider selected.
+     - Assert the Codex Flags accordion content is not visible by default.
+     - Assert that expanding the accordion reveals the flags controls.
+   - Reference snippets (repeat):
+     - MUI Accordion content selector: `aria-expanded` on the summary toggle.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-accordion/
+     - Context7 `/jestjs/jest`
+
+3. [ ] Update the panel to default collapsed:
+   - Files to edit:
+     - `client/src/components/chat/CodexFlagsPanel.tsx`
+     - `client/src/pages/ChatPage.tsx` (if state is lifted)
+   - Requirements:
+     - If uncontrolled, set `defaultExpanded={false}`.
+     - If controlled, initialize state to `false` and wire `expanded` prop accordingly.
+     - Ensure existing flag selections still render once the panel is expanded.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-accordion/
+     - https://react.dev/learn
+
+4. [ ] Update/extend tests to assert the fix:
+   - Files to edit:
+     - `client/src/test/chatPage.flags.test.tsx` (or new test file)
+   - Requirements:
+     - Tests must fail before the fix and pass after.
+     - Confirm the panel is collapsed by default and expands on click.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+
+5. [ ] Documentation update (if behavior change is user-visible):
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that Codex Flags panel defaults to collapsed.
+     - If no updates are needed, mark this subtask as “no changes required”.
+   - Docs (repeat):
+     - https://mui.com/material-ui/react-accordion/
+
+6. [ ] Run lint/format for client after code/test changes:
+   - Commands to run:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Docs (repeat):
+     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
+     - https://eslint.org/docs/latest/use/command-line-interface
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Load the Chat page with Codex selected.
+   - Confirm the Codex Flags panel is collapsed by default.
+   - Expand it and verify all controls are still available.
+
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill after implementation)

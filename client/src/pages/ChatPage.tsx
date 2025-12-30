@@ -914,8 +914,18 @@ export default function ChatPage() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ pt: 3, pb: 6 }}>
-      <Stack spacing={2}>
+    <Container
+      maxWidth={false}
+      sx={{
+        pt: 3,
+        pb: 6,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
+    >
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
         {persistenceUnavailable && (
           <Alert
             severity="warning"
@@ -934,7 +944,13 @@ export default function ChatPage() {
           direction={{ xs: 'column', md: 'row' }}
           spacing={2}
           alignItems="stretch"
-          sx={{ width: '100%', minWidth: 0, overflowX: 'hidden' }}
+          sx={{
+            width: '100%',
+            minWidth: 0,
+            overflowX: 'hidden',
+            flex: 1,
+            minHeight: 0,
+          }}
         >
           <Box
             data-testid="conversation-list"
@@ -969,233 +985,278 @@ export default function ChatPage() {
 
           <Box
             data-testid="chat-column"
-            sx={{ flex: 1, minWidth: 0, width: '100%' }}
-            style={{ minWidth: 0, width: '100%' }}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              flex: '1 1 0%',
+              minHeight: 0,
+            }}
           >
-            <Stack spacing={2}>
-              {isLoading && (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <CircularProgress size={18} />
-                  <Typography variant="body2" color="text.secondary">
-                    Loading chat providers and models...
-                  </Typography>
-                </Stack>
-              )}
-              {isError && (
-                <Alert
-                  severity="error"
-                  action={
-                    <Button color="inherit" size="small" onClick={retryFetch}>
-                      Retry
-                    </Button>
-                  }
-                >
-                  {combinedError}
-                </Alert>
-              )}
-              {!isLoading && !isError && isEmpty && (
-                <Alert severity="info">
-                  No chat-capable models available for this provider.
-                </Alert>
-              )}
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={1.5}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems="stretch"
-                  >
-                    <FormControl
-                      sx={{ minWidth: 220 }}
-                      disabled={isLoading || providerLocked}
-                    >
-                      <InputLabel id="chat-provider-label">Provider</InputLabel>
-                      <Select
-                        labelId="chat-provider-label"
-                        id="chat-provider-select"
-                        label="Provider"
-                        value={provider ?? ''}
-                        onChange={handleProviderChange}
-                        displayEmpty
-                        data-testid="provider-select"
-                      >
-                        {providers.map((entry) => (
-                          <MenuItem
-                            key={entry.id}
-                            value={entry.id}
-                            disabled={!entry.available}
-                          >
-                            {entry.label}
-                            {!entry.available ? ' (unavailable)' : ''}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl
-                      sx={{ minWidth: 260, flex: 1 }}
-                      disabled={
-                        isLoading || isError || isEmpty || !providerAvailable
-                      }
-                    >
-                      <InputLabel id="chat-model-label">Model</InputLabel>
-                      <Select
-                        labelId="chat-model-label"
-                        id="chat-model-select"
-                        label="Model"
-                        value={selected ?? ''}
-                        onChange={(event) => setSelected(event.target.value)}
-                        displayEmpty
-                        data-testid="model-select"
-                      >
-                        {models.map((model) => (
-                          <MenuItem key={model.key} value={model.key}>
-                            {model.displayName}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="flex-end"
-                      sx={{ minWidth: { xs: '100%', sm: 220 } }}
-                    >
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        color="secondary"
-                        onClick={handleNewConversation}
-                        disabled={isLoading}
-                        fullWidth
-                      >
-                        New conversation
-                      </Button>
+            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+              <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
+                <Stack spacing={2}>
+                  {isLoading && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CircularProgress size={18} />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading chat providers and models...
+                      </Typography>
                     </Stack>
-                  </Stack>
-
-                  {providerIsCodex && (
-                    <CodexFlagsPanel
-                      sandboxMode={sandboxMode}
-                      onSandboxModeChange={(value) => setSandboxMode(value)}
-                      approvalPolicy={approvalPolicy}
-                      onApprovalPolicyChange={setApprovalPolicy}
-                      modelReasoningEffort={modelReasoningEffort}
-                      onModelReasoningEffortChange={setModelReasoningEffort}
-                      networkAccessEnabled={networkAccessEnabled}
-                      onNetworkAccessEnabledChange={setNetworkAccessEnabled}
-                      webSearchEnabled={webSearchEnabled}
-                      onWebSearchEnabledChange={setWebSearchEnabled}
-                      disabled={controlsDisabled}
-                    />
                   )}
-
-                  {showCodexUnavailable ? (
+                  {isError && (
                     <Alert
-                      severity="warning"
-                      data-testid="codex-unavailable-banner"
-                    >
-                      OpenAI Codex is unavailable. Install the CLI (`npm install
-                      -g @openai/codex`), log in with `CODEX_HOME=./codex codex
-                      login` (or your `~/.codex`), and ensure
-                      `./codex/config.toml` is seeded. Compose mounts{' '}
-                      <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to
-                      `/host/codex` and copies `auth.json` into `/app/codex`
-                      when missing, so container logins are not required. See
-                      the guidance in{' '}
-                      <Link
-                        href="https://github.com/Chargeuk/codeInfo2#codex-cli"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        README ▸ Codex (CLI)
-                      </Link>
-                      .
-                      {providerIsCodex || codexProvider?.reason
-                        ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
-                        : ''}
-                    </Alert>
-                  ) : null}
-                  {showCodexToolsMissing && (
-                    <Alert severity="warning" data-testid="codex-tools-banner">
-                      Codex requires MCP tools. Ensure `config.toml` lists the
-                      `/mcp` endpoints and that tools are enabled, then retry
-                      once the CLI/auth/config prerequisites above are
-                      satisfied.
-                    </Alert>
-                  )}
-                  {showCodexReady && (
-                    <Alert severity="info" data-testid="codex-ready-banner">
-                      Codex chats are enabled with MCP tools. Threads reuse
-                      returned thread IDs so conversations can continue across
-                      turns.
-                    </Alert>
-                  )}
-
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-                  >
-                    <TextField
-                      inputRef={inputRef}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      label="Message"
-                      placeholder="Type your prompt"
-                      value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      disabled={controlsDisabled}
-                      inputProps={{ 'data-testid': 'chat-input' }}
-                      helperText={
-                        providerIsCodex &&
-                        (!providerAvailable || !toolsAvailable)
-                          ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
-                          : undefined
-                      }
-                    />
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        data-testid="chat-send"
-                        disabled={
-                          controlsDisabled || isSending || !input.trim()
-                        }
-                      >
-                        Send
-                      </Button>
-                      {showStop && (
+                      severity="error"
+                      action={
                         <Button
-                          type="button"
-                          variant="outlined"
-                          color="warning"
-                          onClick={handleStop}
-                          data-testid="chat-stop"
+                          color="inherit"
+                          size="small"
+                          onClick={retryFetch}
                         >
-                          Stop
+                          Retry
                         </Button>
+                      }
+                    >
+                      {combinedError}
+                    </Alert>
+                  )}
+                  {!isLoading && !isError && isEmpty && (
+                    <Alert severity="info">
+                      No chat-capable models available for this provider.
+                    </Alert>
+                  )}
+                  <form onSubmit={handleSubmit}>
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems="stretch"
+                      >
+                        <FormControl
+                          sx={{ minWidth: 220 }}
+                          disabled={isLoading || providerLocked}
+                        >
+                          <InputLabel id="chat-provider-label">
+                            Provider
+                          </InputLabel>
+                          <Select
+                            labelId="chat-provider-label"
+                            id="chat-provider-select"
+                            label="Provider"
+                            value={provider ?? ''}
+                            onChange={handleProviderChange}
+                            displayEmpty
+                            data-testid="provider-select"
+                          >
+                            {providers.map((entry) => (
+                              <MenuItem
+                                key={entry.id}
+                                value={entry.id}
+                                disabled={!entry.available}
+                              >
+                                {entry.label}
+                                {!entry.available ? ' (unavailable)' : ''}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        <FormControl
+                          sx={{ minWidth: 260, flex: 1 }}
+                          disabled={
+                            isLoading ||
+                            isError ||
+                            isEmpty ||
+                            !providerAvailable
+                          }
+                        >
+                          <InputLabel id="chat-model-label">Model</InputLabel>
+                          <Select
+                            labelId="chat-model-label"
+                            id="chat-model-select"
+                            label="Model"
+                            value={selected ?? ''}
+                            onChange={(event) =>
+                              setSelected(event.target.value)
+                            }
+                            displayEmpty
+                            data-testid="model-select"
+                          >
+                            {models.map((model) => (
+                              <MenuItem key={model.key} value={model.key}>
+                                {model.displayName}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          justifyContent="flex-end"
+                          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+                        >
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            color="secondary"
+                            onClick={handleNewConversation}
+                            disabled={isLoading}
+                            fullWidth
+                          >
+                            New conversation
+                          </Button>
+                        </Stack>
+                      </Stack>
+
+                      {providerIsCodex && (
+                        <CodexFlagsPanel
+                          sandboxMode={sandboxMode}
+                          onSandboxModeChange={(value) => setSandboxMode(value)}
+                          approvalPolicy={approvalPolicy}
+                          onApprovalPolicyChange={setApprovalPolicy}
+                          modelReasoningEffort={modelReasoningEffort}
+                          onModelReasoningEffortChange={setModelReasoningEffort}
+                          networkAccessEnabled={networkAccessEnabled}
+                          onNetworkAccessEnabledChange={setNetworkAccessEnabled}
+                          webSearchEnabled={webSearchEnabled}
+                          onWebSearchEnabledChange={setWebSearchEnabled}
+                          disabled={controlsDisabled}
+                        />
                       )}
+
+                      {showCodexUnavailable ? (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-unavailable-banner"
+                        >
+                          OpenAI Codex is unavailable. Install the CLI (`npm
+                          install -g @openai/codex`), log in with
+                          `CODEX_HOME=./codex codex login` (or your `~/.codex`),
+                          and ensure `./codex/config.toml` is seeded. Compose
+                          mounts <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to
+                          `/host/codex` and copies `auth.json` into `/app/codex`
+                          when missing, so container logins are not required.
+                          See the guidance in{' '}
+                          <Link
+                            href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            README ▸ Codex (CLI)
+                          </Link>
+                          .
+                          {providerIsCodex || codexProvider?.reason
+                            ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
+                            : ''}
+                        </Alert>
+                      ) : null}
+                      {showCodexToolsMissing && (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-tools-banner"
+                        >
+                          Codex requires MCP tools. Ensure `config.toml` lists
+                          the `/mcp` endpoints and that tools are enabled, then
+                          retry once the CLI/auth/config prerequisites above are
+                          satisfied.
+                        </Alert>
+                      )}
+                      {showCodexReady && (
+                        <Alert severity="info" data-testid="codex-ready-banner">
+                          Codex chats are enabled with MCP tools. Threads reuse
+                          returned thread IDs so conversations can continue
+                          across turns.
+                        </Alert>
+                      )}
+
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                      >
+                        <TextField
+                          inputRef={inputRef}
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          label="Message"
+                          placeholder="Type your prompt"
+                          value={input}
+                          onChange={(event) => setInput(event.target.value)}
+                          disabled={controlsDisabled}
+                          inputProps={{ 'data-testid': 'chat-input' }}
+                          helperText={
+                            providerIsCodex &&
+                            (!providerAvailable || !toolsAvailable)
+                              ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
+                              : undefined
+                          }
+                        />
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="flex-start"
+                        >
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            data-testid="chat-send"
+                            disabled={
+                              controlsDisabled || isSending || !input.trim()
+                            }
+                          >
+                            Send
+                          </Button>
+                          {showStop && (
+                            <Button
+                              type="button"
+                              variant="outlined"
+                              color="warning"
+                              onClick={handleStop}
+                              data-testid="chat-stop"
+                            >
+                              Stop
+                            </Button>
+                          )}
+                        </Stack>
+                      </Stack>
                     </Stack>
-                  </Stack>
+                  </form>
+                  {isSending && (
+                    <Typography variant="body2" color="text.secondary">
+                      Responding...
+                    </Typography>
+                  )}
                 </Stack>
-              </form>
-              {isSending && (
-                <Typography variant="body2" color="text.secondary">
-                  Responding...
-                </Typography>
-              )}
-              <Paper variant="outlined" sx={{ minHeight: 320, p: 2 }}>
+              </Box>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  flex: '1 1 0%',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
                 {isLoading && (
                   <Stack
                     direction="row"
                     spacing={1}
                     alignItems="center"
                     justifyContent="center"
-                    sx={{ height: '100%' }}
+                    sx={{ flex: 1 }}
                   >
                     <CircularProgress size={20} />
                     <Typography color="text.secondary">
@@ -1226,15 +1287,21 @@ export default function ChatPage() {
                     ref={transcriptRef}
                     onScroll={handleTranscriptScroll}
                     data-testid="chat-transcript"
+                    style={{
+                      flex: '1 1 0%',
+                      minHeight: 0,
+                      overflowY: 'auto',
+                    }}
                     sx={{
-                      maxHeight: 640,
+                      flex: 1,
+                      minHeight: 0,
                       overflowY: 'auto',
                       overflowX: 'hidden',
                       pr: 1,
                       minWidth: 0,
                     }}
                   >
-                    <Stack spacing={1} sx={{ minHeight: 280 }}>
+                    <Stack spacing={1} sx={{ minHeight: 0 }}>
                       {turnsLoading && (
                         <Typography
                           color="text.secondary"

@@ -5330,7 +5330,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 ### 24. Allow full-width layout by removing App container max width (gutters preserved)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -5347,7 +5347,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 
 #### Subtasks
 
-1. [ ] Add a failing-first test for full-width layout with gutters preserved:
+1. [x] Add a failing-first test for full-width layout with gutters preserved:
    - Files to read:
      - `client/src/App.tsx`
      - `client/src/pages/ChatPage.tsx`
@@ -5376,7 +5376,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - https://mui.com/material-ui/api/container/
      - Context7 `/jestjs/jest`
 
-2. [ ] Update the App container to remove width constraint:
+2. [x] Update the App container to remove width constraint:
    - Files to edit:
      - `client/src/App.tsx`
    - Requirements:
@@ -5392,7 +5392,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
    - Docs (repeat):
      - https://mui.com/material-ui/api/container/
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx` (or new full-width test)
    - Requirements:
@@ -5407,7 +5407,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-4. [ ] Add corner-case test for narrow viewports:
+4. [x] Add corner-case test for narrow viewports:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx` (or new full-width test)
    - Test requirements:
@@ -5423,7 +5423,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
      - https://mui.com/material-ui/react-container/
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if width behavior changes are user-visible):
+5. [x] Documentation update (if width behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5436,7 +5436,7 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
    - Docs (repeat):
      - https://mui.com/material-ui/react-container/
 
-6. [ ] Run lint/format for client after code/test changes:
+6. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5446,30 +5446,45 @@ The App shell currently wraps all routes in a MUI `Container` with `maxWidth="lg
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Load the Chat page and confirm the conversation list is aligned to the left within gutters.
    - Confirm the chat column expands to fill the remaining horizontal space.
    - Capture a screenshot showing full-width layout with gutters intact.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Added a failing-first RTL/Jest assertion in `client/src/test/chatPage.layoutWrap.test.tsx` that the **App shell** container no longer applies `MuiContainer-maxWidthLg`, while gutters (padding) remain enabled.
+- Added a companion Home route check in the same test file to ensure gutters remain enabled outside `/chat`.
+- Updated `client/src/App.tsx` to change the shell `<Container>` from `maxWidth="lg"` to `maxWidth={false}` (gutters preserved via default `disableGutters={false}`).
+- Verified the new layout assertions pass after the `maxWidth={false}` change by running `npm run test --workspace client -- chatPage.layoutWrap.test.tsx`.
+- Extended `client/src/test/chatPage.layoutWrap.test.tsx` with an xs/narrow viewport case that asserts gutters remain non-zero and long tool payload content does not force horizontal overflow.
+- Updated `design.md` to reflect that the App shell container is now full-width (`maxWidth={false}`) with gutters preserved.
+- Ran `npm run lint --workspace client` and `npm run format:check --workspace client` (after applying Prettier write fix) to confirm the client workspace remains clean.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e` (30 passed).
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: captured `planning/0000019-screenshots/0000019-24-full-width-layout.png` from `http://host.docker.internal:5001/chat` (full-width container + gutters preserved).
+- Testing: `npm run compose:down`.
 
 ---
 

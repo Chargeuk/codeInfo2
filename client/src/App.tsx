@@ -8,7 +8,7 @@ export default function App() {
       <CssBaseline />
       <NavBar />
       <Container
-        maxWidth="lg"
+        maxWidth={false}
         sx={{
           mt: 3,
           pb: 4,

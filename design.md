@@ -152,7 +152,7 @@ sequenceDiagram
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.
 - Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
-- Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while content sits inside a single `Container maxWidth="lg"` with left-aligned spacing (no Vite starter centering/dark background).
+- Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while the app shell uses a full-width `Container maxWidth={false}` with gutters preserved so pages (notably Chat) can take advantage of the available horizontal space.
 
 ### Chat page (models list)
 

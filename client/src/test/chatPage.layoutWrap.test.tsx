@@ -25,14 +25,37 @@ beforeEach(() => {
 
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
+const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [
   {
     path: '/',
     element: <App />,
-    children: [{ path: 'chat', element: <ChatPage /> }],
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'chat', element: <ChatPage /> },
+    ],
   },
 ];
+
+function getAppShellContainer(): HTMLElement {
+  const containers = Array.from(
+    document.querySelectorAll<HTMLElement>('.MuiContainer-root'),
+  );
+  expect(containers.length).toBeGreaterThanOrEqual(1);
+
+  if (containers.length === 1) {
+    return containers[0]!;
+  }
+
+  const nested = containers.find((container) =>
+    containers.some(
+      (other) => other !== container && container.contains(other),
+    ),
+  );
+
+  return nested ?? containers[0]!;
+}
 
 function installTranscriptWidthMock(transcript: HTMLElement) {
   const baseWidth = 420;
@@ -298,6 +321,43 @@ describe('Chat transcript layout wrapping', () => {
 });
 
 describe('Chat page layout alignment', () => {
+  it('does not constrain the app shell width and preserves gutters', async () => {
+    setupChatWsHarness({ mockFetch });
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-input');
+
+    const appContainer = getAppShellContainer();
+    expect(appContainer).not.toHaveClass('MuiContainer-maxWidthLg');
+    expect(appContainer).not.toHaveClass('MuiContainer-disableGutters');
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingLeft),
+    ).toBeGreaterThan(0);
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingRight),
+    ).toBeGreaterThan(0);
+  });
+
+  it('keeps gutters enabled on non-chat routes', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ version: '0.0.0-test' }),
+    } as Response);
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/'] });
+    render(<RouterProvider router={router} />);
+
+    const appContainer = getAppShellContainer();
+    expect(appContainer).not.toHaveClass('MuiContainer-disableGutters');
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingLeft),
+    ).toBeGreaterThan(0);
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingRight),
+    ).toBeGreaterThan(0);
+  });
+
   it('keeps a fixed sidebar width (md) and a fluid transcript column', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));
@@ -337,5 +397,75 @@ describe('Chat page layout alignment', () => {
     expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
       window.innerWidth,
     );
+  });
+
+  it('preserves gutters and avoids horizontal overflow on narrow viewports', async () => {
+    window.innerWidth = 360;
+    window.dispatchEvent(new Event('resize'));
+
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const appContainer = getAppShellContainer();
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingLeft),
+    ).toBeGreaterThan(0);
+    expect(
+      parseFloat(getComputedStyle(appContainer).paddingRight),
+    ).toBeGreaterThan(0);
+
+    installChatLayoutRectMocks();
+    const sidebar = screen.getByTestId('conversation-list');
+    expect(sidebar.getBoundingClientRect().width).toBeCloseTo(
+      window.innerWidth,
+      0,
+    );
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+
+    harness.emitToolEvent({
+      conversationId: conversationId!,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: 't1',
+        name: 'WeirdTool',
+        result: {
+          key: 'd'.repeat(600),
+        },
+      },
+    });
+
+    const toolToggle = await screen.findByTestId('tool-toggle');
+    await act(async () => {
+      await user.click(toolToggle);
+    });
+    expect(await screen.findByTestId('tool-payload')).toBeInTheDocument();
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    installTranscriptWidthMock(transcript);
+    expect(transcript.scrollWidth).toBeLessThanOrEqual(transcript.clientWidth);
   });
 });

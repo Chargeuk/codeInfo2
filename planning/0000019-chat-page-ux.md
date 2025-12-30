@@ -3953,8 +3953,8 @@ Codex sometimes emits transient errors like “Reconnecting... 1/5” during a r
 
 ### 15. Fix Codex reasoning delta truncation (multi-item reasoning support)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **745e203, 7ef4031**
 
 #### Overview
 

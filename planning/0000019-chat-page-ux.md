@@ -4911,8 +4911,8 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 
 ### 21. Make transcript fill remaining viewport height beneath controls
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__completed__**
+- Git Commits: **1d7b857**
 
 #### Overview
 
@@ -4928,7 +4928,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 
 #### Subtasks
 
-1. [ ] Add a layout test for transcript height fill:
+1. [x] Add a layout test for transcript height fill:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -4945,7 +4945,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - https://mui.com/material-ui/react-box/
      - Context7 `/jestjs/jest`
 
-2. [ ] Update ChatPage layout to allow vertical fill:
+2. [x] Update ChatPage layout to allow vertical fill:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -4959,7 +4959,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - https://mui.com/material-ui/react-box/
 
-3. [ ] Update/extend tests to assert the fix:
+3. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx` (or new height test)
    - Requirements:
@@ -4977,7 +4977,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - Context7 `/jestjs/jest`
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-4. [ ] Add corner-case height tests (small viewport + tall controls):
+4. [x] Add corner-case height tests (small viewport + tall controls):
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -4993,7 +4993,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if height behavior changes are user-visible):
+5. [x] Documentation update (if height behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -5002,7 +5002,7 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/CSS/flex
 
-7. [ ] Run lint/format for client after code/test changes:
+7. [x] Run lint/format for client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace client`
      - `npm run format:check --workspace client`
@@ -5012,30 +5012,47 @@ Ensure the chat transcript area expands to fill the remaining vertical space ben
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Resize the viewport height and confirm the transcript grows/shrinks accordingly.
    - Ensure input controls remain visible and fixed while transcript height changes.
    - Capture a screenshot showing the transcript filling the remaining height.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-30: Marked task as in progress; starting with layout tests then flex-height refactor.
+- 2025-12-30: Added failing-first Jest layout test scaffold in `client/src/test/chatPage.layoutHeight.test.tsx` (expects a `chat-controls` wrapper + flex sizing).
+- 2025-12-30: Refactored `client/src/App.tsx` + `client/src/pages/ChatPage.tsx` to be full-height flex columns and made the transcript Paper/scroll container `flex: 1` with `minHeight: 0` (removed fixed `maxHeight: 640`).
+- 2025-12-30: Extended the new height test to assert exact remaining-height math (mocked) and verify the transcript grows with viewport height.
+- 2025-12-30: Added corner-case test ensuring transcript height never goes negative when Codex flags panel is present (tall controls + small viewport).
+- 2025-12-30: Updated `design.md` Chat page streaming UI section to note the transcript fills remaining viewport height and scrolls within the panel.
+- 2025-12-30: Ran `npm run format --workspace client`, `npm run format:check --workspace client`, and `npm run lint --workspace client` to confirm formatting/lint are clean after the flex layout changes.
+- 2025-12-30: Testing step 1 passed: `npm run build --workspace server`.
+- 2025-12-30: Testing step 2 passed: `npm run build --workspace client` (Vite build succeeded).
+- 2025-12-30: Testing step 3 passed: `npm run test --workspace server` (44 scenarios / 214 steps passed; longer runtime ~5min).
+- 2025-12-30: Testing step 4 passed: `npm run test --workspace client` (67 suites / 131 tests passed).
+- 2025-12-30: Testing step 5 passed: `npm run e2e` (30 Playwright specs passed).
+- 2025-12-30: Testing step 6 passed: `npm run compose:build`.
+- 2025-12-30: Testing step 7 passed: `npm run compose:up` (containers started healthy).
+- 2025-12-30: Manual check: used Playwright against `http://host.docker.internal:5001/chat` to verify transcript height increases when viewport grows; saved `test-results/screenshots/0000019-21-transcript-fill-viewport.png`.
+- 2025-12-30: Gotcha: initial flex refactor used `minHeight: 100vh`; manual check showed transcript height did not respond to viewport changes because the app shell could still expand with content. Fixed by constraining `client/src/App.tsx` to `height: 100vh` and making the main container scrollable (`overflow: auto`), then rebuilt/recreated Compose containers.
+- 2025-12-30: Testing step 9 passed: `npm run compose:down`.
+- 2025-12-30: Post-fix validation: reran `npm run test --workspace client` + `npm run format:check --workspace client` after the `height: 100vh` app-shell adjustment.
 
 ---
 

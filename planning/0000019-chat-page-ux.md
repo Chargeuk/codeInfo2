@@ -4272,8 +4272,8 @@ When a tab is backgrounded, it can miss streamed events and local optimistic upd
 
 ### 17. Include in-memory inflight state in conversation snapshot refresh
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **daf09cb**
 
 #### Overview
 
@@ -4288,7 +4288,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 #### Subtasks
 
-1. [ ] Add a server test for inflight-aware turns snapshot:
+1. [x] Add a server test for inflight-aware turns snapshot:
    - Files to read:
      - `server/src/routes/conversations.ts`
      - `server/src/chat/inflightRegistry.ts`
@@ -4321,7 +4321,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - https://expressjs.com/en/api.html#res.json
      - Context7 `/jestjs/jest`
 
-2. [ ] Extend the turns snapshot response to include inflight state:
+2. [x] Extend the turns snapshot response to include inflight state:
    - Files to edit:
      - `server/src/routes/conversations.ts`
      - `server/src/chat/inflightRegistry.ts`
@@ -4337,7 +4337,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
    - Docs (repeat):
      - https://expressjs.com/en/api.html#res.json
 
-3. [ ] Update the client refresh to request and merge inflight state:
+3. [x] Update the client refresh to request and merge inflight state:
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -4353,7 +4353,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - Context7 `/jestjs/jest`
 
-4. [ ] Update/extend tests to assert inflight snapshot merge:
+4. [x] Update/extend tests to assert inflight snapshot merge:
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx` (or new `client/src/test/useConversationTurns.inflightSnapshot.test.tsx`)
    - Requirements:
@@ -4364,7 +4364,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if the snapshot response shape changes):
+5. [x] Documentation update (if the snapshot response shape changes):
    - Files to edit:
      - `design.md`
      - `openapi.json` (if the REST response shape changes)
@@ -4376,7 +4376,7 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
    - Docs (repeat):
      - https://www.markdownguide.org/basic-syntax/
 
-6. [ ] Run lint/format for server + client after code/test changes:
+6. [x] Run lint/format for server + client after code/test changes:
    - Commands to run:
      - `npm run lint --workspace server`
      - `npm run lint --workspace client`
@@ -4388,32 +4388,46 @@ Refreshing the conversation turns currently returns only persisted Mongo data, w
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Start a Codex or LM Studio run and wait for streaming to begin.
    - Reload the page or switch tabs mid-stream to trigger a snapshot refresh.
    - Confirm the partial assistant text/tool progress appears immediately (no empty transcript), and streaming continues.
    - Regression: no duplicate bubbles after hydration.
    - Capture screenshots for the plan archive showing the mid-stream refresh and final completion.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- Server: `GET /conversations/:id/turns` now accepts `includeInflight=true` and returns an optional `inflight` snapshot when a run is active.
+- Server tests: added an integration test that creates an in-memory inflight state and asserts it is surfaced via the turns endpoint.
+- Client: `useConversationTurns` requests `includeInflight=true` on replace refreshes and exposes the returned snapshot.
+- Client: `useChatStream` adds `hydrateInflightSnapshot(...)`, and `ChatPage` wires the inflight snapshot into hydration so a mid-stream refresh shows partial text immediately.
+- Client tests: added a focused Jest test verifying inflight snapshot hydration and continued WS streaming updates.
+- Docs: updated `design.md`; `openapi.json` remains a stub in this repo.
+- Testing: `npm run build --workspace server` passed.
+- Testing: `npm run build --workspace client` passed.
+- Testing: `npm run test --workspace server` passed.
+- Testing: `npm run test --workspace client` passed.
+- Testing: `npm run e2e` passed.
+- Testing: `npm run compose:build` passed.
+- Testing: `npm run compose:up` started successfully (containers healthy).
+- Manual check: ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-inflight-refresh.spec.ts` and captured `test-results/screenshots/0000019-17-midstream-refresh.png` and `test-results/screenshots/0000019-17-final.png`.
+- Testing: `npm run compose:down` completed.
 
 ---
 

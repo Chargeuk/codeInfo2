@@ -17,9 +17,38 @@ export type StoredTurn = {
   createdAt: string;
 };
 
+export type InflightToolEvent =
+  | {
+      type: 'tool-request';
+      callId: string | number;
+      name: string;
+      stage?: string;
+      parameters?: unknown;
+    }
+  | {
+      type: 'tool-result';
+      callId: string | number;
+      name: string;
+      stage?: string;
+      parameters?: unknown;
+      result?: unknown;
+      errorTrimmed?: { code?: string; message?: string } | null;
+      errorFull?: unknown;
+    };
+
+export type InflightSnapshot = {
+  inflightId: string;
+  assistantText: string;
+  assistantThink: string;
+  toolEvents: InflightToolEvent[];
+  startedAt: string;
+  seq: number;
+};
+
 type ApiResponse = {
   items?: StoredTurn[];
   nextCursor?: string;
+  inflight?: InflightSnapshot;
 };
 
 type Mode = 'replace' | 'prepend';
@@ -28,6 +57,7 @@ type State = {
   turns: StoredTurn[];
   lastPage: StoredTurn[];
   lastMode: Mode | null;
+  inflight: InflightSnapshot | null;
   isLoading: boolean;
   isError: boolean;
   error?: string;
@@ -46,6 +76,7 @@ export function useConversationTurns(
   const [turns, setTurns] = useState<StoredTurn[]>([]);
   const [lastPage, setLastPage] = useState<StoredTurn[]>([]);
   const [lastMode, setLastMode] = useState<Mode | null>(null);
+  const [inflight, setInflight] = useState<InflightSnapshot | null>(null);
   const cursorRef = useRef<string | undefined>(undefined);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +103,7 @@ export function useConversationTurns(
         setTurns([]);
         setLastPage([]);
         setLastMode(null);
+        setInflight(null);
         setHasMore(false);
         return;
       }
@@ -90,6 +122,9 @@ export function useConversationTurns(
         if (mode === 'prepend' && cursorToUse) {
           search.set('cursor', cursorToUse);
         }
+        if (mode === 'replace') {
+          search.set('includeInflight', 'true');
+        }
         const res = await fetch(
           new URL(
             `/conversations/${conversationId}/turns?${search.toString()}`,
@@ -101,6 +136,7 @@ export function useConversationTurns(
           setTurns([]);
           setLastPage([]);
           setLastMode(null);
+          setInflight(null);
           setHasMore(false);
           setIsError(false);
           setError(undefined);
@@ -114,6 +150,9 @@ export function useConversationTurns(
         const chronological = items.slice().reverse();
         setLastPage(chronological);
         setLastMode(mode);
+        if (mode === 'replace') {
+          setInflight(data.inflight ?? null);
+        }
         setHasMore(Boolean(data.nextCursor));
         cursorRef.current = data.nextCursor;
         setTurns((prev) => {
@@ -125,6 +164,12 @@ export function useConversationTurns(
           conversationId,
           mode,
           pageCount: chronological.length,
+          inflight: data.inflight
+            ? {
+                inflightId: data.inflight.inflightId,
+                seq: data.inflight.seq,
+              }
+            : null,
           hasMore: Boolean(data.nextCursor),
           nextCursor: data.nextCursor,
         });
@@ -148,6 +193,7 @@ export function useConversationTurns(
     setTurns([]);
     setLastPage([]);
     setLastMode(null);
+    setInflight(null);
     cursorRef.current = undefined;
     setHasMore(false);
     if (!conversationId) return;
@@ -169,6 +215,7 @@ export function useConversationTurns(
     setTurns([]);
     setLastPage([]);
     setLastMode(null);
+    setInflight(null);
     cursorRef.current = undefined;
     setHasMore(false);
     setIsError(false);
@@ -181,6 +228,7 @@ export function useConversationTurns(
       turns,
       lastPage,
       lastMode,
+      inflight,
       isLoading,
       isError,
       error,
@@ -193,6 +241,7 @@ export function useConversationTurns(
       turns,
       lastPage,
       lastMode,
+      inflight,
       isLoading,
       isError,
       error,

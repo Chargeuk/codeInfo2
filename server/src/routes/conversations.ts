@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Router, type Response } from 'express';
 import { z } from 'zod';
+import { snapshotInflight } from '../chat/inflightRegistry.js';
 import { append } from '../logStore.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import {
@@ -48,6 +49,9 @@ const listTurnsQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
     cursor: z.string().datetime().optional(),
+    includeInflight: z
+      .union([z.literal('true'), z.literal('false')])
+      .optional(),
   })
   .strict();
 
@@ -517,7 +521,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     const conversation = await findConversationById(parsedParams.data.id);
     if (!conversation) return res.status(404).json({ error: 'not_found' });
 
-    const { limit, cursor } = parsedQuery.data;
+    const { limit, cursor, includeInflight } = parsedQuery.data;
     try {
       const { items } = await listTurns({
         conversationId: parsedParams.data.id,
@@ -528,6 +532,14 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         items.length === limit
           ? items[items.length - 1]?.createdAt.toISOString()
           : undefined;
+
+      if (includeInflight === 'true') {
+        const inflight = snapshotInflight(parsedParams.data.id);
+        if (inflight) {
+          return res.json({ items, nextCursor, inflight });
+        }
+      }
+
       res.json({ items, nextCursor });
     } catch (err) {
       res.status(500).json({ error: 'server_error', message: `${err}` });

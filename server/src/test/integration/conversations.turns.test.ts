@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import {
+  appendAnalysisDelta,
+  appendAssistantDelta,
+  appendToolEvent,
+  bumpSeq,
+  cleanupInflight,
+  createInflight,
+} from '../../chat/inflightRegistry.js';
 import type { TurnSummary } from '../../mongo/repo.js';
 import { createConversationsRouter } from '../../routes/conversations.js';
 
@@ -58,6 +66,56 @@ test('returns not_found when conversation is missing', async () => {
     .get('/conversations/missing/turns')
     .expect(404);
   assert.equal(res.body.error, 'not_found');
+});
+
+test('optionally includes inflight snapshot when requested', async () => {
+  createInflight({ conversationId: 'c1', inflightId: 'i1' });
+  appendAssistantDelta({ conversationId: 'c1', inflightId: 'i1', delta: 'Hi' });
+  bumpSeq('c1');
+  appendAnalysisDelta({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    delta: 'thinking...',
+  });
+  bumpSeq('c1');
+  appendToolEvent({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    event: {
+      type: 'tool-request',
+      callId: 'call-1',
+      name: 'VectorSearch',
+      parameters: { query: 'hello' },
+    },
+  });
+  bumpSeq('c1');
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listTurns: async () => ({ items: [] }),
+      }),
+    )
+      .get('/conversations/c1/turns?includeInflight=true')
+      .expect(200);
+
+    assert.equal(Array.isArray(res.body.items), true);
+    assert.equal(res.body.items.length, 0);
+    assert.equal(typeof res.body.inflight?.inflightId, 'string');
+    assert.equal(res.body.inflight.inflightId, 'i1');
+    assert.equal(res.body.inflight.assistantText, 'Hi');
+    assert.equal(res.body.inflight.assistantThink, 'thinking...');
+    assert.equal(Array.isArray(res.body.inflight.toolEvents), true);
+    assert.equal(res.body.inflight.toolEvents.length, 1);
+    assert.equal(res.body.inflight.toolEvents[0].type, 'tool-request');
+    assert.equal(res.body.inflight.toolEvents[0].name, 'VectorSearch');
+    assert.equal(typeof res.body.inflight.startedAt, 'string');
+    assert.equal(typeof res.body.inflight.seq, 'number');
+    assert.ok(res.body.inflight.seq >= 0);
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
 });
 
 test('rejects appending to archived conversation', async () => {

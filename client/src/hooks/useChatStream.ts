@@ -2,6 +2,7 @@ import type { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createLogger } from '../logging/logger';
 import type { ChatWsToolEvent, ChatWsTranscriptEvent } from './useChatWs';
+import type { InflightSnapshot } from './useConversationTurns';
 
 export type SandboxMode =
   | 'read-only'
@@ -156,6 +157,7 @@ export function useChatStream(
 
   const inflightIdRef = useRef<string | null>(null);
   const [inflightId, setInflightId] = useState<string | null>(null);
+  const inflightSeqRef = useRef<number>(0);
   const activeAssistantMessageIdRef = useRef<string | null>(null);
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
@@ -425,6 +427,7 @@ export function useChatStream(
   const resetInflightState = useCallback(() => {
     inflightIdRef.current = null;
     setInflightId(null);
+    inflightSeqRef.current = 0;
     activeAssistantMessageIdRef.current = null;
     toolCallsRef.current = new Map();
     segmentsRef.current = [];
@@ -574,6 +577,43 @@ export function useChatStream(
       }
     },
     [isStreaming, resetInflightState, status, updateMessages],
+  );
+
+  const hydrateInflightSnapshot = useCallback(
+    (historyConversationId: string, inflight: InflightSnapshot | null) => {
+      if (!inflight) return;
+
+      if (inflight.seq < inflightSeqRef.current) {
+        return;
+      }
+
+      inflightSeqRef.current = inflight.seq;
+      conversationIdRef.current = historyConversationId;
+      setConversationId(historyConversationId);
+
+      ensureAssistantMessage();
+
+      inflightIdRef.current = inflight.inflightId;
+      setInflightId(inflight.inflightId);
+      assistantTextRef.current = inflight.assistantText;
+      assistantThinkRef.current = inflight.assistantThink;
+      toolCallsRef.current = new Map();
+      segmentsRef.current = [
+        { id: makeId(), kind: 'text', content: assistantTextRef.current },
+      ];
+      assistantCitationsRef.current = [];
+      assistantWarningsRef.current = [];
+
+      inflight.toolEvents.forEach((toolEvent) => applyToolEvent(toolEvent));
+
+      if (segmentsRef.current.length === 0) {
+        segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
+      }
+
+      setIsStreaming(true);
+      syncAssistantMessage({ streamStatus: 'processing' });
+    },
+    [applyToolEvent, ensureAssistantMessage, syncAssistantMessage],
   );
 
   const send = useCallback(
@@ -756,11 +796,14 @@ export function useChatStream(
         return;
       }
 
+      inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
+
       ensureAssistantMessage();
 
       if (event.type === 'inflight_snapshot') {
         inflightIdRef.current = event.inflight.inflightId;
         setInflightId(event.inflight.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantTextRef.current = event.inflight.assistantText;
         assistantThinkRef.current = event.inflight.assistantThink;
         toolCallsRef.current = new Map();
@@ -783,6 +826,7 @@ export function useChatStream(
       if (event.type === 'assistant_delta') {
         inflightIdRef.current = event.inflightId;
         setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantTextRef.current += event.delta;
         const last = segmentsRef.current[segmentsRef.current.length - 1];
         if (last?.kind === 'text') {
@@ -804,6 +848,7 @@ export function useChatStream(
       if (event.type === 'stream_warning') {
         inflightIdRef.current = event.inflightId;
         setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         if (
           event.message &&
           !assistantWarningsRef.current.includes(event.message)
@@ -821,6 +866,7 @@ export function useChatStream(
       if (event.type === 'analysis_delta') {
         inflightIdRef.current = event.inflightId;
         setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantThinkRef.current += event.delta;
         setIsStreaming(true);
         syncAssistantMessage({ streamStatus: 'processing' });
@@ -830,6 +876,7 @@ export function useChatStream(
       if (event.type === 'tool_event') {
         inflightIdRef.current = event.inflightId;
         setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         applyToolEvent(event.event);
         setIsStreaming(true);
         syncAssistantMessage({ streamStatus: 'processing' });
@@ -839,6 +886,7 @@ export function useChatStream(
       if (event.type === 'turn_final') {
         inflightIdRef.current = event.inflightId;
         setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         if (event.threadId !== undefined) {
           setThreadId(event.threadId ?? null);
           threadIdRef.current = event.threadId ?? null;
@@ -892,6 +940,7 @@ export function useChatStream(
       conversationId,
       setConversation,
       hydrateHistory,
+      hydrateInflightSnapshot,
       inflightId,
       getInflightId,
       handleWsEvent,
@@ -906,6 +955,7 @@ export function useChatStream(
       conversationId,
       setConversation,
       hydrateHistory,
+      hydrateInflightSnapshot,
       inflightId,
       getInflightId,
       handleWsEvent,

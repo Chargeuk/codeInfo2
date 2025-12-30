@@ -100,6 +100,7 @@ export default function ChatPage() {
     conversationId,
     setConversation,
     hydrateHistory,
+    hydrateInflightSnapshot,
     getInflightId,
     handleWsEvent,
   } = useChatStream(selected, provider, {
@@ -162,13 +163,16 @@ export default function ChatPage() {
       ),
     [activeConversationId, conversations],
   );
-  const turnsConversationId = persistenceUnavailable ? undefined : activeConversationId;
+  const turnsConversationId = persistenceUnavailable
+    ? undefined
+    : activeConversationId;
   const turnsAutoFetch = Boolean(
     turnsConversationId && knownConversationIds.has(turnsConversationId),
   );
   const {
     lastPage,
     lastMode,
+    inflight: inflightSnapshot,
     isLoading: turnsLoading,
     isError: turnsError,
     error: turnsErrorMessage,
@@ -567,6 +571,7 @@ export default function ChatPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const lastInflightHydratedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeConversationId || !lastMode) return;
@@ -601,6 +606,14 @@ export default function ChatPage() {
     lastPage,
     mapTurnsToMessages,
   ]);
+
+  useEffect(() => {
+    if (!activeConversationId || !inflightSnapshot) return;
+    const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
+    if (lastInflightHydratedRef.current === inflightKey) return;
+    lastInflightHydratedRef.current = inflightKey;
+    hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
+  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
 
   type RepoEntry = {
     id: string;

@@ -4742,21 +4742,6 @@ The chat transcript can expand horizontally when citations, tool details, or cod
 - Updated `client/src/components/Markdown.tsx` to be flex-safe (`minWidth: 0`) and to constrain wide markdown constructs (code blocks already scroll with `overflowX: auto`; tables/images now cap to `maxWidth: 100%`).
 - Updated `design.md` to document the transcript overflow guardrails (minWidth fix + wrap/scroll behavior) as a stable UI guarantee.
 - Verified `npm run lint --workspace client` and `npm run format:check --workspace client` pass (used Prettier write to fix formatting in `client/src/test/chatPage.layoutWrap.test.tsx`).
-- Testing progress: `npm run build --workspace server` passed.
-- Testing progress: `npm run build --workspace client` passed.
-- Testing progress: `npm run test --workspace server` passed.
-- Testing progress: `npm run test --workspace client` passed.
-- Testing progress: `npm run e2e` passed.
-- Testing progress: `npm run compose:build` passed.
-- Testing progress: `npm run compose:up` passed.
-- Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` captured screenshots at `test-results/screenshots/0000019-20-chat-layout-md.png` and `test-results/screenshots/0000019-20-chat-layout-xs.png` (md sidebar width measured at 320px).
-- Testing progress: `npm run compose:down` passed.
-- Testing progress: `npm run build --workspace client` passed.
-- Testing progress: `npm run test --workspace server` passed.
-- Testing progress: `npm run test --workspace client` passed.
-- Testing progress: `npm run e2e` passed.
-- Testing progress: `npm run compose:build` passed.
-- Testing progress: `npm run compose:up` passed.
 - Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` passed (no horizontal overflow after expanding citations/tool details) and saved screenshot to `test-results/screenshots/0000019-19-wrapped-citation.png`.
 - Testing progress: `npm run compose:down` passed.
 
@@ -4913,3 +4898,11 @@ Ensure the Conversations sidebar remains fixed on the left, and the chat transcr
 - Verified `npm run lint --workspace client` passes.
 - Verified `npm run format:check --workspace client` passes.
 - Testing progress: `npm run build --workspace server` passed.
+- Testing progress: `npm run build --workspace client` passed.
+- Testing progress: `npm run test --workspace server` passed.
+- Testing progress: `npm run test --workspace client` passed.
+- Testing progress: `npm run e2e` passed.
+- Testing progress: `npm run compose:build` passed.
+- Testing progress: `npm run compose:up` passed.
+- Testing progress: Playwright-driven manual check against `http://host.docker.internal:5001/chat` captured screenshots at `test-results/screenshots/0000019-20-chat-layout-md.png` and `test-results/screenshots/0000019-20-chat-layout-xs.png` (md sidebar width measured at 320px).
+- Testing progress: `npm run compose:down` passed.

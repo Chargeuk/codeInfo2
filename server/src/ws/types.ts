@@ -229,6 +229,16 @@ export type WsSidebarConversationDeleteEvent = {
   conversationId: string;
 };
 
+export type WsUserTurnEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'user_turn';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  content: string;
+  createdAt: string;
+};
+
 export type WsInflightSnapshotEvent = {
   protocolVersion: WsProtocolVersion;
   type: 'inflight_snapshot';
@@ -293,6 +303,7 @@ export type WsTurnFinalEvent = {
 export type WsServerEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent
+  | WsUserTurnEvent
   | WsInflightSnapshotEvent
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent

@@ -11,6 +11,12 @@ export type MockChatWsServer = {
   waitForConversationSubscription: (conversationId: string) => Promise<void>;
   getLastCancel: () => { conversationId: string; inflightId: string } | null;
 
+  sendUserTurn: (args: {
+    conversationId: string;
+    inflightId: string;
+    content: string;
+    createdAt?: string;
+  }) => Promise<void>;
   sendInflightSnapshot: (args: {
     conversationId: string;
     inflightId: string;
@@ -128,6 +134,16 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
 
     getLastCancel: () => lastCancel,
 
+    sendUserTurn: async ({ conversationId, inflightId, content, createdAt }) => {
+      await sendTranscript(conversationId, {
+        type: 'user_turn',
+        seq: nextSeq(conversationId),
+        inflightId,
+        content,
+        createdAt: createdAt ?? '2025-01-01T00:00:00.000Z',
+      });
+    },
+
     sendInflightSnapshot: async ({
       conversationId,
       inflightId,
@@ -187,4 +203,3 @@ export async function installMockChatWs(page: Page): Promise<MockChatWsServer> {
     },
   };
 }
-

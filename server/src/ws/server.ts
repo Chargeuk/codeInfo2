@@ -32,6 +32,7 @@ import {
   type WsStreamWarningEvent,
   type WsToolEventEvent,
   type WsTurnFinalEvent,
+  type WsUserTurnEvent,
 } from './types.js';
 
 export type WsServerHandle = {
@@ -86,6 +87,25 @@ export function publishInflightSnapshot(conversationId: string) {
   };
 
   broadcastConversation(conversationId, event);
+}
+
+export function publishUserTurn(params: {
+  conversationId: string;
+  inflightId: string;
+  content: string;
+  createdAt: string;
+}) {
+  const event: WsUserTurnEvent = {
+    protocolVersion: WS_PROTOCOL_VERSION,
+    type: 'user_turn',
+    conversationId: params.conversationId,
+    seq: bumpSeq(params.conversationId),
+    inflightId: params.inflightId,
+    content: params.content,
+    createdAt: params.createdAt,
+  };
+
+  broadcastConversation(params.conversationId, event);
 }
 
 export function publishAssistantDelta(params: {

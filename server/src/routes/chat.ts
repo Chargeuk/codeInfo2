@@ -27,6 +27,7 @@ import { ConversationModel, type Conversation } from '../mongo/conversation.js';
 import { createConversation, updateConversationMeta } from '../mongo/repo.js';
 import { TurnModel, type Turn } from '../mongo/turn.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
+import { publishUserTurn } from '../ws/server.js';
 import { ChatValidationError, validateChatRequest } from './chatValidators.js';
 import { BASE_URL_REGEX, scrubBaseUrl } from './lmstudioUrl.js';
 
@@ -278,6 +279,13 @@ export function createChatRouter({
         : crypto.randomUUID();
 
     createInflight({ conversationId, inflightId });
+
+    publishUserTurn({
+      conversationId,
+      inflightId,
+      content: message,
+      createdAt: now.toISOString(),
+    });
 
     let chat: ChatInterface;
     try {

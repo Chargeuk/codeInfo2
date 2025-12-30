@@ -169,6 +169,7 @@ export function setupChatWsHarness(params: {
           : undefined;
 
       const isTranscript =
+        withProtocol.type === 'user_turn' ||
         withProtocol.type === 'inflight_snapshot' ||
         withProtocol.type === 'stream_warning' ||
         withProtocol.type === 'assistant_delta' ||
@@ -222,6 +223,21 @@ export function setupChatWsHarness(params: {
           toolEvents: payload.toolEvents ?? [],
           startedAt: payload.startedAt ?? '2025-01-01T00:00:00.000Z',
         },
+      });
+    },
+    emitUserTurn: (payload: {
+      conversationId: string;
+      inflightId: string;
+      content: string;
+      createdAt?: string;
+    }) => {
+      emit({
+        type: 'user_turn',
+        conversationId: payload.conversationId,
+        seq: nextSeq(),
+        inflightId: payload.inflightId,
+        content: payload.content,
+        createdAt: payload.createdAt ?? '2025-01-01T00:00:00.000Z',
       });
     },
     emitAssistantDelta: (payload: {

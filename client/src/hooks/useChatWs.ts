@@ -39,6 +39,15 @@ type WsSidebarConversationDeleteEvent = WsServerEventBase & {
   conversationId: string;
 };
 
+type WsUserTurnEvent = WsServerEventBase & {
+  type: 'user_turn';
+  conversationId: string;
+  seq: number;
+  inflightId: string;
+  content: string;
+  createdAt: string;
+};
+
 type WsToolEvent =
   | {
       type: 'tool-request';
@@ -116,6 +125,7 @@ type WsTurnFinalEvent = WsServerEventBase & {
 type WsServerEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent
+  | WsUserTurnEvent
   | WsInflightSnapshotEvent
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent
@@ -128,6 +138,7 @@ export type ChatWsSidebarEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent;
 export type ChatWsTranscriptEvent =
+  | WsUserTurnEvent
   | WsInflightSnapshotEvent
   | WsAssistantDeltaEvent
   | WsAnalysisDeltaEvent

@@ -800,6 +800,78 @@ export function useChatStream(
 
       ensureAssistantMessage();
 
+      if (event.type === 'user_turn') {
+        inflightIdRef.current = event.inflightId;
+        setInflightId(event.inflightId);
+        inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
+
+        const normalizedIncoming = normalizeMessageContent(event.content ?? '');
+        const nowTimestamp = new Date().getTime();
+        const incomingTimestamp = parseTimestamp(event.createdAt);
+        const assistantId = activeAssistantMessageIdRef.current;
+
+        updateMessages((prev) => {
+          if (!normalizedIncoming) return prev;
+
+          for (
+            let i = prev.length - 1;
+            i >= 0 && i >= prev.length - 8;
+            i -= 1
+          ) {
+            const existing = prev[i];
+            if (existing?.role !== 'user') continue;
+            if (
+              normalizeMessageContent(existing.content ?? '') !==
+              normalizedIncoming
+            ) {
+              continue;
+            }
+
+            const existingTimestamp = parseTimestamp(existing.createdAt);
+
+            const withinHydrationWindow =
+              existingTimestamp !== null && incomingTimestamp !== null
+                ? Math.abs(existingTimestamp - incomingTimestamp) <=
+                  HYDRATION_DEDUPE_WINDOW_MS
+                : false;
+
+            const existingIsRecent =
+              existingTimestamp !== null
+                ? nowTimestamp - existingTimestamp <= 60_000
+                : false;
+
+            if (!withinHydrationWindow && !existingIsRecent) continue;
+
+            if (existing.createdAt === event.createdAt) return prev;
+            const next = [...prev];
+            next[i] = { ...existing, createdAt: event.createdAt };
+            return next;
+          }
+
+          const userMessage: ChatMessage = {
+            id: makeId(),
+            role: 'user',
+            content: event.content,
+            createdAt: event.createdAt,
+          };
+
+          const last = prev[prev.length - 1];
+          if (
+            assistantId &&
+            last?.id === assistantId &&
+            last.role === 'assistant' &&
+            last.streamStatus === 'processing'
+          ) {
+            return [...prev.slice(0, -1), userMessage, last];
+          }
+
+          return [...prev, userMessage];
+        });
+
+        setIsStreaming(true);
+        return;
+      }
+
       if (event.type === 'inflight_snapshot') {
         inflightIdRef.current = event.inflight.inflightId;
         setInflightId(event.inflight.inflightId);
@@ -924,6 +996,7 @@ export function useChatStream(
       ensureAssistantMessage,
       logWithChannel,
       syncAssistantMessage,
+      updateMessages,
     ],
   );
 

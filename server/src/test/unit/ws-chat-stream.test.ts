@@ -28,6 +28,8 @@ type WsTranscriptEvent = {
   seq?: number;
   conversationId?: string;
   inflightId?: string;
+  content?: string;
+  createdAt?: string;
   message?: string;
   inflight?: {
     inflightId?: string;
@@ -484,6 +486,73 @@ test('cancel_inflight with invalid inflightId yields turn_final failed INFLIGHT_
 
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('streams user turn over WS at run start', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withAnalysis: false,
+      withTools: false,
+      delayMs: 40,
+    }),
+  });
+  const conversationId = 'ws-user-turn-1';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await delay(10);
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId,
+        message: 'Hello',
+      })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    const userTurn = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'user_turn' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(userTurn.content, 'Hello');
+    assert.equal(typeof userTurn.createdAt, 'string');
+    assert.ok((userTurn.createdAt ?? '').length > 0);
+
+    const firstDelta = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'assistant_delta' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.ok(
+      (userTurn.seq ?? 0) < (firstDelta.seq ?? 0),
+      'user_turn event must arrive before assistant deltas',
+    );
   } finally {
     await closeWs(ws);
     await stopServer(server);

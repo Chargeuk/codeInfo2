@@ -76,6 +76,7 @@ end
   - `subscribe_conversation` / `unsubscribe_conversation` (requires `conversationId`)
 
 - Transcript events are broadcast only to sockets subscribed to the relevant `conversationId`:
+  - `user_turn` (broadcast at run start so non-originating tabs render the user bubble immediately)
   - `inflight_snapshot` (sent immediately after `subscribe_conversation` when a run is in progress)
   - `assistant_delta`, `analysis_delta`
   - `tool_event`
@@ -917,6 +918,7 @@ sequenceDiagram
   - WebSocket transcript events to any subscribed viewers.
 - Transcript streaming is WebSocket-only at `/ws`:
   - Client sends `subscribe_conversation` (and `subscribe_sidebar`).
+  - Server broadcasts `user_turn` at run start (before persistence) so other tabs render immediately.
   - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event` (and optional `stream_warning`), and ends with `turn_final`.
 - Codex reasoning (`analysis_delta`) is append-only in the UI; when Codex emits multiple reasoning items or a non-prefix reset, the server treats it as a new reasoning block and prefixes the next `analysis_delta` with `\n\n` so the “Thought process” view shows all blocks without truncation.
 - Logging: run lifecycle (`chat.run.started`) and WS publish milestones (`chat.stream.*`) are recorded server-side; client forwards `chat.ws.client_*` entries into `/logs` for deterministic manual verification.

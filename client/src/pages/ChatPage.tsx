@@ -233,6 +233,7 @@ export default function ChatPage() {
           applyWsDelete(event.conversationId);
           return;
         case 'inflight_snapshot':
+        case 'user_turn':
         case 'assistant_delta':
         case 'stream_warning':
         case 'analysis_delta':

@@ -433,4 +433,90 @@ describe('Chat WS streaming UI', () => {
     expect(screen.getAllByText(userText)).toHaveLength(1);
     expect(screen.getAllByText(assistantText)).toHaveLength(1);
   });
+
+  it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {
+    const userText = 'Hello from sender';
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: userText } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitUserTurn({
+      conversationId: conversationId!,
+      inflightId,
+      content: userText,
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
+
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes(userText));
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  it('renders ws user_turn bubbles in a tab that did not send the prompt', async () => {
+    const conversationId = 'c-user-turn-2';
+    const userText = 'Hello from other tab';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Other tab conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    harness.emitUserTurn({
+      conversationId,
+      inflightId: 'i1',
+      content: userText,
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
+
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes(userText));
+      expect(matches).toHaveLength(1);
+    });
+  });
 });

@@ -5502,6 +5502,8 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Test requirements:
      - Simulate a run that finishes before persistence completes; assert snapshot still includes the assistant turn.
      - Simulate persistence completion; assert inflight no longer appears but persisted data remains.
+     - Simulate a persistence failure (append/write error); assert inflight remains available in snapshots until a later successful write.
+     - Verify snapshots include inflight data even when `includeInflight` is omitted/false (new always-merge behavior).
 
 5. [ ] Add client regression tests for multi-window snapshot refresh:
    - Files to edit:
@@ -5510,6 +5512,7 @@ Snapshot responses must always reflect the complete conversation. The server sho
    - Test requirements:
      - Simulate a snapshot refresh after a follow-up in another tab; assert prior assistant turn is not dropped.
      - Ensure assistant ordering remains above its user prompt.
+     - Simulate a refresh when inflight data is absent (persistence lag) and assert the last assistant turn is still present after hydration.
 
 6. [ ] Documentation update (if snapshot semantics change):
    - Files to edit:
@@ -5601,12 +5604,14 @@ Harden snapshot merging by adding stable turn identifiers, reliable dedupe, and 
      - Validate `turnId` is present in snapshot responses.
      - Validate ordering when two turns share the same `createdAt`.
      - Validate dedupe prefers `turnId` over timestamp windows.
+     - Validate fallback dedupe (no `turnId`) still preserves distinct turns when content differs.
 
 5. [ ] Client tests for stable ordering (snapshot consumption):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
      - Simulate turns with same `createdAt`; ensure UI renders in correct order.
+     - Simulate missing `turnId` (legacy payload) and assert ordering remains deterministic.
 
 6. [ ] Documentation update (if snapshot schema changes):
    - Files to edit:

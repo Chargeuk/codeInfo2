@@ -80,4 +80,59 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     await waitFor(() => expect(thinkContent).toBeVisible());
     expect(thinkContent.textContent ?? '').toContain('Thinking');
   });
+
+  it('renders multi-block reasoning without dropping prefixes', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, {
+      target: { value: 'Show multi-block reasoning' },
+    });
+    const sendButton = screen.getByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: 'Answer',
+      assistantThink: '',
+    });
+    harness.emitAnalysisDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Reasoning part A...',
+    });
+    harness.emitAnalysisDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: '\n\nNew block',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    const toggle = await screen.findByTestId('think-toggle');
+    await user.click(toggle);
+
+    const thinkContent = await screen.findByTestId('think-content');
+    await waitFor(() => expect(thinkContent).toBeVisible());
+    const content = thinkContent.textContent ?? '';
+    expect(content).toContain('Reasoning part A');
+    expect(content).toContain('New block');
+  });
 });

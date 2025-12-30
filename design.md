@@ -917,6 +917,7 @@ sequenceDiagram
 - Transcript streaming is WebSocket-only at `/ws`:
   - Client sends `subscribe_conversation` (and `subscribe_sidebar`).
   - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event` (and optional `stream_warning`), and ends with `turn_final`.
+- Codex reasoning (`analysis_delta`) is append-only in the UI; when Codex emits multiple reasoning items or a non-prefix reset, the server treats it as a new reasoning block and prefixes the next `analysis_delta` with `\n\n` so the “Thought process” view shows all blocks without truncation.
 - Logging: run lifecycle (`chat.run.started`) and WS publish milestones (`chat.stream.*`) are recorded server-side; client forwards `chat.ws.client_*` entries into `/logs` for deterministic manual verification.
 - Fixtures: `common/src/fixtures/chatStream.ts` contains both legacy SSE fixtures (for older harnesses) and WS-shaped fixtures used by Jest/Playwright mocks.
 

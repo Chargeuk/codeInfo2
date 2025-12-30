@@ -6,6 +6,7 @@ import type {
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
 import { buildCodexOptions } from '../../config/codexConfig.js';
+import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import { detectCodexForHome } from '../../providers/codexDetection.js';
@@ -289,7 +290,8 @@ export class ChatInterfaceCodex extends ChatInterface {
     };
 
     let finalText = '';
-    let reasoningText = '';
+    const reasoningByItemKey = new Map<string, string>();
+    let hasEmittedReasoning = false;
 
     try {
       for await (const rawEvent of events as AsyncGenerator<unknown>) {
@@ -317,12 +319,58 @@ export class ChatInterfaceCodex extends ChatInterface {
               | undefined;
 
             if (item?.type === 'reasoning') {
+              const itemKey =
+                typeof (item as { id?: unknown }).id === 'string'
+                  ? String((item as { id?: unknown }).id)
+                  : '__anonymous__';
+              const previous = reasoningByItemKey.get(itemKey) ?? '';
               const text = (item as { text?: string }).text ?? '';
-              const delta = text.slice(reasoningText.length);
-              if (delta) {
-                this.emitEvent({ type: 'analysis', content: delta });
-                reasoningText = text;
+
+              if (text.length === 0) {
+                reasoningByItemKey.set(itemKey, '');
+                break;
               }
+
+              const isContinuation =
+                previous.length > 0 && text.startsWith(previous);
+
+              if (!hasEmittedReasoning) {
+                const delta = isContinuation
+                  ? text.slice(previous.length)
+                  : text;
+                if (delta) {
+                  this.emitEvent({ type: 'analysis', content: delta });
+                  hasEmittedReasoning = true;
+                }
+                reasoningByItemKey.set(itemKey, text);
+                break;
+              }
+
+              if (isContinuation) {
+                const delta = text.slice(previous.length);
+                if (delta) this.emitEvent({ type: 'analysis', content: delta });
+                reasoningByItemKey.set(itemKey, text);
+                break;
+              }
+
+              // Non-prefix updates are treated as a new reasoning block (multi-item or reset).
+              if (previous.length > 0) {
+                append({
+                  level: 'info',
+                  message: 'chat.codex.reasoning_reset',
+                  timestamp: new Date().toISOString(),
+                  source: 'server',
+                  requestId,
+                  context: {
+                    conversationId,
+                    itemKey,
+                    previousLength: previous.length,
+                    nextLength: text.length,
+                  },
+                });
+              }
+              this.emitEvent({ type: 'analysis', content: `\n\n${text}` });
+              reasoningByItemKey.set(itemKey, text);
               break;
             }
 

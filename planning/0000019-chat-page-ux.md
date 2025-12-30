@@ -3969,7 +3969,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 
 #### Subtasks
 
-1. [ ] Reproduce the truncation in tests:
+1. [x] Reproduce the truncation in tests:
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -3997,7 +3997,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - Context7 `/jestjs/jest`
 
-2. [ ] Update Codex reasoning delta logic to handle multi-item streams:
+2. [x] Update Codex reasoning delta logic to handle multi-item streams:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
@@ -4014,7 +4014,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Docs (repeat):
      - https://nodejs.org/api/events.html
 
-3. [ ] Add server logs for reasoning resets (optional but helpful for debugging):
+3. [x] Add server logs for reasoning resets (optional but helpful for debugging):
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/logger.ts` (if a new log key is required)
@@ -4027,7 +4027,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
      - https://nodejs.org/api/events.html
      - https://github.com/pinojs/pino
 
-4. [ ] Update/extend tests to assert the fix:
+4. [x] Update/extend tests to assert the fix:
    - Files to edit:
      - `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
      - `client/src/test/chatPage.reasoning.test.tsx`
@@ -4040,7 +4040,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update (if reasoning stream behavior changes are user-visible):
+5. [x] Documentation update (if reasoning stream behavior changes are user-visible):
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -4051,7 +4051,7 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
    - Docs (repeat):
      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-6. [ ] Run lint/format for affected workspaces after code/test changes:
+6. [x] Run lint/format for affected workspaces after code/test changes:
    - Commands to run:
      - `npm run lint --workspace server`
      - `npm run lint --workspace client`
@@ -4063,31 +4063,45 @@ Codex reasoning streams arrive as `item.type === "reasoning"` events. The curren
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Trigger a Codex run that emits multiple reasoning items (or a reset).
    - Confirm the “Thought process” shows full reasoning with no missing prefix.
    - Regression: normal assistant streaming still renders without refresh.
    - Capture a screenshot of the expanded reasoning block for the plan archive.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill after implementation)
+- 2025-12-30: Added a failing Codex reasoning reset reproduction in `server/src/test/unit/chat-codex-reasoning-delta.test.ts` and extended `client/src/test/chatPage.reasoning.test.tsx` to render two reasoning blocks via `analysis_delta` events. The server test simulates two distinct reasoning items where the second is shorter/non-prefix and currently fails until the delta logic is updated.
+- 2025-12-30: Updated `server/src/chat/interfaces/ChatInterfaceCodex.ts` reasoning aggregation to scope buffers per `item.id` when available, detect non-prefix updates, and emit a new `analysis` block with a `\n\n` separator so multi-item or reset reasoning streams no longer truncate.
+- 2025-12-30: Added a server logStore entry (`chat.codex.reasoning_reset`) when Codex emits a non-prefix reasoning update for the same item id, including previous/next lengths to aid debugging.
+- 2025-12-30: Confirmed the new tests cover multi-item reasoning streams by asserting that both reasoning blocks are present (no truncation) when the second item resets to a shorter/non-prefix text.
+- 2025-12-30: Updated `design.md` to note that Codex `analysis_delta` handling treats non-prefix reasoning updates as a new reasoning block (prefixed with `\n\n`) so the UI never truncates multi-item reasoning streams.
+- 2025-12-30: Ran `npm run lint --workspace server`, `npm run lint --workspace client`, `npm run format:check --workspace server`, and `npm run format:check --workspace client` (using `npm run format --workspace server` and `npm run format --workspace client` to fix Prettier output).
+- 2025-12-30: Testing step 1 complete: `npm run build --workspace server`.
+- 2025-12-30: Testing step 2 complete: `npm run build --workspace client`.
+- 2025-12-30: Testing step 3 complete: `npm run test --workspace server`.
+- 2025-12-30: Testing step 4 complete: `npm run test --workspace client`.
+- 2025-12-30: Testing step 5 complete: `npm run e2e`.
+- 2025-12-30: Testing step 6 complete: `npm run compose:build`.
+- 2025-12-30: Testing step 7 complete: `npm run compose:up`.
+- 2025-12-30: Testing step 8 complete: Ran Playwright against `http://host.docker.internal:6001/chat` with the `window.__CODEINFO_TEST__` hook to inject two `analysis_delta` blocks (second block reset) and verified the expanded “Thought process” renders both blocks. Screenshot saved to `test-results/screenshots/0000019-15-reasoning-multiblock.png`.
+- 2025-12-30: Testing step 9 complete: `npm run compose:down`.
 ### 16. Refresh transcript + sidebar snapshots on focus/reconnect (no cross-tab broadcast)
 
 - Task Status: **__to_do__**

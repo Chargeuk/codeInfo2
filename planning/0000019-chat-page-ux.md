@@ -5330,7 +5330,7 @@ The Codex Flags expandable panel currently defaults to expanded on the Chat page
 
 ### 24. Allow full-width layout by removing App container max width (gutters preserved)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

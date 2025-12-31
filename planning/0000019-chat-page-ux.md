@@ -6274,3 +6274,168 @@ The sending tab clears its inflight state before WS events arrive. Because the a
 - Testing 7: `npm run compose:up` started stack successfully (containers healthy).
 - Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-multiwindow.spec.ts` against the compose stack; verified window 1 retains the first assistant reply after the second prompt completes.
 - Testing 9: `npm run compose:down` stopped the stack.
+
+### 31. Fix Provider/Model label clipping by switching to TextField select
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The Provider/Model select labels are clipped. Switch to MUI `TextField` with `select` to let MUI manage label positioning and avoid the clipped label baseline.
+
+#### Documentation Locations
+
+- MUI TextField API (select usage + label handling): https://mui.com/material-ui/api/text-field/
+- MUI Select API (if needed for props parity): https://mui.com/material-ui/api/select/
+
+#### Subtasks
+
+1. [ ] Replace Provider/Model FormControl+Select with TextField select:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Replace the Provider and Model `FormControl + InputLabel + Select` blocks with `TextField select`.
+     - Preserve `label`, `value`, `onChange`, `disabled`, and `data-testid` attributes (`provider-select`, `model-select`).
+     - Keep existing `minWidth` sizing and layout behavior.
+   - Code pointers:
+     - Provider select block near `data-testid="provider-select"`.
+     - Model select block near `data-testid="model-select"`.
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/text-field/
+
+2. [ ] Update client tests that depend on provider/model selects:
+   - Files to edit (known tests from code_info analysis):
+     - `client/src/test/chatPage.provider.test.tsx`
+     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+     - `client/src/test/chatPage.flags.panelCollapsed.test.tsx`
+     - `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+     - `client/src/test/chatPage.flags.reasoning.default.test.tsx`
+     - `client/src/test/chatPage.flags.approval.default.test.tsx`
+     - `client/src/test/chatPage.flags.websearch.default.test.tsx`
+     - `client/src/test/chatPage.flags.sandbox.reset.test.tsx`
+     - `client/src/test/chatSendPayload.test.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
+   - Requirements:
+     - Ensure tests still find the selects by `data-testid` and any text queries used to open the menu still work after switching to `TextField select`.
+     - If tests use label-based queries, update to match the new rendered structure.
+
+3. [ ] Update e2e coverage if needed:
+   - Files to edit (likely impacted):
+     - `e2e/chat.spec.ts`
+   - Requirements:
+     - Confirm model/provider selection still works via Playwright selectors; update selectors if the DOM structure changes.
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that Chat provider/model selectors use `TextField select` to avoid label clipping.
+
+5. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Verify Provider/Model labels are fully visible (no clipping) on Chat page.
+   - Open/close Provider and Model selects and confirm selection still updates.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._
+
+### 32. Add responsive collapsible Conversations drawer (sm breakpoint)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **persistent on desktop** and **temporary on mobile** (sm breakpoint), with a toggle button to open/close. On small screens the drawer overlays the chat; on larger screens it pushes the chat content.
+
+#### Documentation Locations
+
+- MUI Drawer API: https://mui.com/material-ui/api/drawer/
+- MUI SwipeableDrawer API (if gesture support is desired later): https://mui.com/material-ui/api/swipeable-drawer/
+- MUI Responsive UI guide (breakpoints + useMediaQuery): https://mui.com/material-ui/guides/responsive-ui/
+
+#### Subtasks
+
+1. [ ] Add drawer state + breakpoint behavior:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Use `useMediaQuery(theme.breakpoints.down('sm'))` to determine mobile mode.
+     - Default: open on desktop, closed on mobile.
+     - Add a toggle button to open/close the drawer.
+   - Code pointers:
+     - Conversation list container currently under `data-testid="conversation-list"`.
+     - Main layout stack around the chat controls + transcript.
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/drawer/
+     - https://mui.com/material-ui/guides/responsive-ui/
+
+2. [ ] Replace static sidebar with Drawer variants:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Use `Drawer` with `variant="persistent"` for desktop and `variant="temporary"` for mobile.
+     - Ensure the main chat column expands when drawer is closed (desktop) and remains full-width under overlay (mobile).
+     - Ensure ConversationList still receives the same props and scroll behavior.
+     - Preserve existing test ids if tests rely on them (e.g., `conversation-list`).
+
+3. [ ] Update client tests + e2e coverage:
+   - Files to edit (known impacted tests from code_info analysis + layout changes):
+     - `client/src/test/chatPage.provider.test.tsx`
+     - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
+     - `client/src/test/chatPage.flags.panelCollapsed.test.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `e2e/chat.spec.ts`
+     - `e2e/chat-multiwindow.spec.ts`
+   - Requirements:
+     - Adjust tests if the sidebar DOM is now nested inside a Drawer.
+     - Add coverage for toggle behavior (open/close) in at least one client test or e2e spec.
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document the responsive drawer behavior (sm breakpoint, persistent vs temporary).
+
+5. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Desktop: verify drawer opens by default, closes via toggle, and chat area expands.
+   - Mobile (sm/down): verify drawer is closed by default and overlays chat when opened.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._

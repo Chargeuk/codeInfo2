@@ -6533,6 +6533,12 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Code pointers:
      - Drawer `sx` block near `data-testid="conversation-drawer"`.
      - Container `sx` block with `pt: 3` at the top of `ChatPage`.
+   - Reference snippet (current):
+     - `sx={{ pt: 3, pb: 6, ... }}`
+     - `& .MuiDrawer-paper: { width: drawerWidth }`
+   - Reference snippet (target):
+     - `const drawerTopOffset = theme.spacing(3);`
+     - `& .MuiDrawer-paper: { mt: drawerTopOffset, height: \`calc(100% - ${drawerTopOffset})\` }`
    - Docs (repeat):
      - https://mui.com/material-ui/api/drawer/
 
@@ -6542,6 +6548,11 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Requirements:
      - Add/adjust assertions to confirm the drawer’s top aligns with the chat panel top (no overlap into the header area).
      - Add a regression check for the case where `persistenceUnavailable` banner is shown (ensure the drawer offset still aligns with the chat panel even when an alert/banner is rendered).
+   - Code pointers:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` layout assertions using bounding boxes.
+     - Use `getByTestId('conversation-drawer')` + `getByTestId('chat-column')` for bounding box comparison.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 3. [ ] Update e2e coverage:
    - Files to edit:
@@ -6549,6 +6560,11 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Requirements:
      - Add a regression check that the Conversations panel is vertically aligned with the chat column (e.g., compare bounding boxes).
      - Include a run where the persistence banner is visible (mock mongo disconnected) and confirm alignment remains correct.
+   - Code pointers:
+     - `e2e/chat.spec.ts` (add a case that reads bounding boxes for the drawer and chat column).
+     - Use `page.locator('[data-testid=\"conversation-drawer\"]')` and `page.getByTestId('chat-column')`.
+   - Docs (repeat):
+     - Context7 `/microsoft/playwright`
 
 4. [ ] Documentation update:
    - Files to edit:
@@ -6605,6 +6621,8 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
    - Code pointers:
      - Drawer component in ChatPage near `data-testid="conversation-drawer"`.
      - `useMediaQuery` logic and `drawerOpen` state in ChatPage.
+   - Reference snippet (target):
+     - `<Drawer key={isMobile ? 'mobile' : 'desktop'} variant={isMobile ? 'temporary' : 'persistent'} ... />`
    - Docs (repeat):
      - https://mui.com/material-ui/api/drawer/
      - https://mui.com/material-ui/guides/responsive-ui/
@@ -6615,6 +6633,11 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
    - Requirements:
      - Add a regression test that simulates a desktop→mobile resize and ensures the toggle opens the drawer afterward.
      - Add a reverse resize test (mobile→desktop) to ensure the drawer defaults open again and toggle still works.
+   - Code pointers:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (set `window.innerWidth` + dispatch `resize`).
+     - Use `getByTestId('conversation-drawer-toggle')` and assert `aria-expanded` changes.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 3. [ ] Update e2e coverage:
    - Files to edit:
@@ -6622,6 +6645,11 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
    - Requirements:
      - Add a Playwright test that resizes from desktop to mobile and verifies the toggle opens the drawer.
      - Add a second Playwright check that resizes back to desktop and confirms the drawer remains usable (open by default and toggle closes).
+   - Code pointers:
+     - `e2e/chat.spec.ts` (use `page.setViewportSize(...)` between assertions).
+     - Use `page.getByTestId('conversation-drawer-toggle')` + `page.locator('[data-testid=\"conversation-list\"]')`.
+   - Docs (repeat):
+     - Context7 `/microsoft/playwright`
 
 4. [ ] Documentation update:
    - Files to edit:

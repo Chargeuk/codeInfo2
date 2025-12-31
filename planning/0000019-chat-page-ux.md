@@ -6613,8 +6613,10 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
 
 ### 34. Remount Drawer on breakpoint switch to prevent stuck toggle
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits:
+  - DEV-19 - Start Task 34 remount drawer (`b41ac9a`)
+  - DEV-19 - Fix drawer breakpoint remount (`db5dbe2`)
 
 #### Overview
 
@@ -6627,7 +6629,7 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
 
 #### Subtasks
 
-1. [ ] Force Drawer remount on breakpoint switch:
+1. [x] Force Drawer remount on breakpoint switch:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -6644,7 +6646,7 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
      - https://mui.com/material-ui/api/drawer/
      - https://mui.com/material-ui/guides/responsive-ui/
 
-2. [ ] Update client tests for resize behavior:
+2. [x] Update client tests for resize behavior:
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -6656,7 +6658,7 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-3. [ ] Update e2e coverage:
+3. [x] Update e2e coverage:
    - Files to edit:
      - `e2e/chat.spec.ts`
    - Requirements:
@@ -6668,31 +6670,45 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
    - Docs (repeat):
      - Context7 `/microsoft/playwright`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document the Drawer remount key used to avoid variant-switch glitches.
 
-5. [ ] Run lint/format after client/e2e changes:
+5. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Resize from desktop to mobile and confirm the hamburger opens the Conversations drawer.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _In progress._
+- 2025-12-31: Started Task 34 (remount Drawer on breakpoint switches).
+- Subtask 1: Added a breakpoint-based `key` to the Conversations `Drawer` and a `drawerOpenResolved` value so the temporary drawer never mounts in an inconsistent open state during desktop↔mobile transitions.
+- Subtask 2: Added Jest resize regressions and enhanced the `matchMedia` polyfill to emit `change` events on `window.resize` so MUI `useMediaQuery` updates after render.
+- Subtask 3: Added a Playwright regression that resizes desktop→mobile→desktop and confirms the hamburger toggle remains usable (including when the list stays mounted but hidden).
+- Subtask 4: Updated `design.md` to document the breakpoint-based remount key.
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (pass).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed (includes the new breakpoint resize regression).
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started the local stack successfully (containers healthy).
+- Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat.spec.ts -g "resizing across breakpoints"` against the compose stack.
+- Testing 9: `npm run compose:down` stopped the stack.
 - Notes: `useMediaQuery` is imported from `@mui/material` (not `@mui/material/useMediaQuery`) so Jest uses the CJS entrypoint and avoids ESM/CJS default-export interop issues.

@@ -34,7 +34,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have tings that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Commit after making any changes."]
+      "content": ["Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have things that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Commit after making any changes."]
     },
     {
       "type": "message",

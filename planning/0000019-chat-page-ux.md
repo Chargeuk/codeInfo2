@@ -1476,16 +1476,20 @@ Refactor chat execution so `POST /chat` is a non-streaming start request, then p
 - Testing 7: `npm run compose:up` passed (services healthy).
 
 - Testing 6: `npm run compose:build` passed.
-
 - Testing 5: `npm run e2e` passed after fixing the e2e Mongo service init race (`docker-compose.e2e.yml` no longer mounts `init-mongo.js`, relying on healthcheck rs.initiate).
 
 - Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed (31 Playwright specs).
+- Testing 6: `npm run compose:build` passed.
 
 - Testing 3: Ran `npm run test --workspace server`. Expected failures due to Task 4 transport change (`POST /chat` now returns 202 and WS publishes transcript); failing assertions still expect SSE/200 and will be updated in Task 5.
 
 - Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed (note: first run hit the agent command timeout; reran with a longer timeout and it completed successfully).
+- Testing 4: `npm run test --workspace client` passed.
 
 - Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
 
 - Testing/Lint: `npm run lint --workspaces` passed. `npm run format:check --workspaces` passed after running `npm run format --workspace server` to fix Prettier issues in the new server files.
 
@@ -6168,7 +6172,7 @@ Add deterministic log lines that prove whether the active assistant pointer and 
 
 ### 30. Fix sending-tab assistant overwrite on second prompt
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6183,7 +6187,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
 
 #### Subtasks
 
-1. [ ] Pin assistant pointer to inflightId during send:
+1. [x] Pin assistant pointer to inflightId during send:
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
    - Files to edit:
@@ -6202,7 +6206,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
    - Docs (repeat):
       - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-2. [ ] Update client tests (including “previous reply already complete” case):
+2. [x] Update client tests (including “previous reply already complete” case):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
@@ -6214,7 +6218,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
    - Docs (repeat):
       - Context7 `/jestjs/jest`
 
-3. [ ] Update e2e multi-window test:
+3. [x] Update e2e multi-window test:
    - Files to edit:
      - `e2e/chat-multiwindow.spec.ts`
    - Test requirements:
@@ -6225,7 +6229,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
    - Docs (repeat):
       - Context7 `/microsoft/playwright`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -6233,26 +6237,40 @@ The sending tab clears its inflight state before WS events arrive. Because the a
    - Docs (repeat):
       - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-5. [ ] Run lint/format after client/e2e changes:
+5. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open two windows on the same conversation.
    - Send two prompts from window 1.
    - Confirm the first assistant reply remains visible after the second prompt completes.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- 2025-12-31: Started Task 30 (fix assistant overwrite on second prompt).
+- Subtask 1: Updated `client/src/hooks/useChatStream.ts` to bind assistant bubbles to `inflightId` (map ref) and force a new assistant bubble on `send()` so late `turn_final` events can’t overwrite a newer run.
+- Subtask 2: Added client unit coverage in `client/src/test/chatPage.stream.test.tsx` for two consecutive sends and the “Stop then send again while prior assistant is still processing” scenario, including a late `turn_final` regression.
+- Subtask 3: Tightened `e2e/chat-multiwindow.spec.ts` to assert the sending tab still shows the first assistant reply after the second send completes (count + visibility in both windows).
+- Subtask 4: Updated `design.md` with the new per-`inflightId` assistant bubble binding invariant and the late `turn_final` handling rule.
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and fixed formatting for `client/src/hooks/useChatStream.ts` (`npx prettier ... --write`), then `npm run format:check --workspaces` passed.
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed (note: first run hit the agent command timeout; reran with a longer timeout and it completed successfully).
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed (31 Playwright specs).
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started stack successfully (containers healthy).
+- Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat-multiwindow.spec.ts` against the compose stack; verified window 1 retains the first assistant reply after the second prompt completes.
+- Testing 9: `npm run compose:down` stopped the stack.

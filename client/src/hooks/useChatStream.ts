@@ -159,6 +159,9 @@ export function useChatStream(
   const [inflightId, setInflightId] = useState<string | null>(null);
   const inflightSeqRef = useRef<number>(0);
   const activeAssistantMessageIdRef = useRef<string | null>(null);
+  const assistantMessageIdByInflightIdRef = useRef<Map<string, string>>(
+    new Map(),
+  );
   const toolCallsRef = useRef<Map<string, ToolCall>>(new Map());
   const segmentsRef = useRef<ChatSegment[]>([]);
   const assistantTextRef = useRef('');
@@ -170,6 +173,10 @@ export function useChatStream(
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  useEffect(() => {
+    assistantMessageIdByInflightIdRef.current.clear();
   }, [conversationId]);
 
   useEffect(() => {
@@ -218,49 +225,93 @@ export function useChatStream(
     }, 1000);
   }, [clearThinkingTimer, isStreaming, markAssistantThinking]);
 
-  const ensureAssistantMessage = useCallback(() => {
-    let assistantId = activeAssistantMessageIdRef.current;
+  const ensureAssistantMessage = useCallback(
+    (options?: { forceNew?: boolean; inflightId?: string | null }) => {
+      const inflightKey = options?.inflightId ?? null;
+      let assistantId: string | null = inflightKey
+        ? (assistantMessageIdByInflightIdRef.current.get(inflightKey) ?? null)
+        : null;
 
-    if (!assistantId) {
-      const last = messagesRef.current[messagesRef.current.length - 1];
-      if (last?.role === 'assistant' && last.streamStatus === 'processing') {
-        assistantId = last.id;
+      if (options?.forceNew) {
+        assistantId = null;
       }
-    }
 
-    if (!assistantId) {
-      assistantId = makeId();
-      activeAssistantMessageIdRef.current = assistantId;
-      segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
-      toolCallsRef.current = new Map();
-      assistantTextRef.current = '';
-      assistantThinkRef.current = '';
-      assistantCitationsRef.current = [];
-      assistantWarningsRef.current = [];
-      updateMessages((prev) => [
-        ...prev,
-        {
-          id: assistantId,
-          role: 'assistant',
-          content: '',
-          warnings: undefined,
-          segments: segmentsRef.current,
-          streamStatus: 'processing',
-          thinking: false,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-    } else {
-      activeAssistantMessageIdRef.current = assistantId;
-    }
+      if (!assistantId && !inflightKey) {
+        assistantId = activeAssistantMessageIdRef.current;
+      }
 
-    return assistantId;
-  }, [updateMessages]);
+      // Only reuse the most recent processing assistant bubble when we are not
+      // explicitly targeting an inflightId (prevents inflight cross-talk).
+      if (!assistantId && !inflightKey) {
+        const last = messagesRef.current[messagesRef.current.length - 1];
+        if (last?.role === 'assistant' && last.streamStatus === 'processing') {
+          assistantId = last.id;
+        }
+      }
+
+      if (!assistantId) {
+        assistantId = makeId();
+        activeAssistantMessageIdRef.current = assistantId;
+        segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
+        toolCallsRef.current = new Map();
+        assistantTextRef.current = '';
+        assistantThinkRef.current = '';
+        assistantCitationsRef.current = [];
+        assistantWarningsRef.current = [];
+        if (inflightKey) {
+          assistantMessageIdByInflightIdRef.current.set(
+            inflightKey,
+            assistantId,
+          );
+        }
+        updateMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: '',
+            warnings: undefined,
+            segments: segmentsRef.current,
+            streamStatus: 'processing',
+            thinking: false,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        activeAssistantMessageIdRef.current = assistantId;
+        if (
+          inflightKey &&
+          !assistantMessageIdByInflightIdRef.current.has(inflightKey)
+        ) {
+          assistantMessageIdByInflightIdRef.current.set(
+            inflightKey,
+            assistantId,
+          );
+        }
+      }
+
+      return assistantId;
+    },
+    [updateMessages],
+  );
 
   const syncAssistantMessage = useCallback(
-    (updates?: Partial<ChatMessage>) => {
-      const assistantId = activeAssistantMessageIdRef.current;
+    (
+      updates?: Partial<ChatMessage>,
+      options?: { assistantId?: string | null; useRefs?: boolean },
+    ) => {
+      const assistantId =
+        options?.assistantId ?? activeAssistantMessageIdRef.current;
       if (!assistantId) return;
+
+      if (options?.useRefs === false) {
+        updateMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId ? { ...msg, ...(updates ?? {}) } : msg,
+          ),
+        );
+        return;
+      }
 
       const tools = Array.from(toolCallsRef.current.values());
       updateMessages((prev) =>
@@ -457,7 +508,10 @@ export function useChatStream(
       setIsStreaming(false);
       setStatus('idle');
       markAssistantThinking(false);
-      syncAssistantMessage({ thinkStreaming: false, thinking: false });
+      syncAssistantMessage(
+        { thinkStreaming: false, thinking: false },
+        { useRefs: false },
+      );
 
       if (options?.showStatusBubble) {
         updateMessages((prev) => [
@@ -602,7 +656,9 @@ export function useChatStream(
       conversationIdRef.current = historyConversationId;
       setConversationId(historyConversationId);
 
-      ensureAssistantMessage();
+      const assistantId = ensureAssistantMessage({
+        inflightId: inflight.inflightId,
+      });
 
       inflightIdRef.current = inflight.inflightId;
       setInflightId(inflight.inflightId);
@@ -622,7 +678,7 @@ export function useChatStream(
       }
 
       setIsStreaming(true);
-      syncAssistantMessage({ streamStatus: 'processing' });
+      syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
     },
     [applyToolEvent, ensureAssistantMessage, syncAssistantMessage],
   );
@@ -670,7 +726,10 @@ export function useChatStream(
       conversationIdRef.current = currentConversationId;
       setConversationId(currentConversationId);
 
-      const nextAssistantMessageId = ensureAssistantMessage();
+      const nextAssistantMessageId = ensureAssistantMessage({
+        inflightId: nextInflightId,
+        forceNew: true,
+      });
       logWithChannel('info', 'chat.client_send_after_reset', {
         prevAssistantMessageId,
         nextAssistantMessageId,
@@ -860,7 +919,9 @@ export function useChatStream(
 
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
 
-        const assistantMessageIdAfter = ensureAssistantMessage();
+        const assistantMessageIdAfter = ensureAssistantMessage({
+          inflightId: nextInflightId,
+        });
         logWithChannel('info', 'chat.ws.client_user_turn', {
           conversationId: event.conversationId,
           inflightId: nextInflightId,
@@ -937,11 +998,27 @@ export function useChatStream(
         return;
       }
 
-      ensureAssistantMessage();
+      const currentInflightId = inflightIdRef.current;
 
       if (event.type === 'inflight_snapshot') {
-        inflightIdRef.current = event.inflight.inflightId;
-        setInflightId(event.inflight.inflightId);
+        const eventInflightId = event.inflight.inflightId;
+        const assistantId = ensureAssistantMessage({
+          inflightId: eventInflightId,
+        });
+
+        const inflightMismatch =
+          currentInflightId !== null && eventInflightId !== currentInflightId;
+
+        if (inflightMismatch && status === 'sending') {
+          syncAssistantMessage(
+            { streamStatus: 'processing' },
+            { assistantId, useRefs: false },
+          );
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantTextRef.current = event.inflight.assistantText;
         assistantThinkRef.current = event.inflight.assistantThink;
@@ -958,13 +1035,33 @@ export function useChatStream(
           segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
         }
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' });
+        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
         return;
       }
 
+      const eventInflightId = event.inflightId;
+      const preMappedAssistantId =
+        assistantMessageIdByInflightIdRef.current.get(eventInflightId) ?? null;
+      const assistantId = ensureAssistantMessage({
+        inflightId: eventInflightId,
+      });
+      const inflightMismatch =
+        currentInflightId !== null && eventInflightId !== currentInflightId;
+
       if (event.type === 'assistant_delta') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
+        if (inflightMismatch && status === 'sending') {
+          updateMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? { ...msg, content: (msg.content ?? '') + event.delta }
+                : msg,
+            ),
+          );
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantTextRef.current += event.delta;
         const last = segmentsRef.current[segmentsRef.current.length - 1];
@@ -980,13 +1077,17 @@ export function useChatStream(
           ];
         }
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' });
+        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
         return;
       }
 
       if (event.type === 'stream_warning') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
+        if (inflightMismatch && status === 'sending') {
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         if (
           event.message &&
@@ -998,38 +1099,76 @@ export function useChatStream(
           ];
         }
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' });
+        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
         return;
       }
 
       if (event.type === 'analysis_delta') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
+        if (inflightMismatch && status === 'sending') {
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         assistantThinkRef.current += event.delta;
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' });
+        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
         return;
       }
 
       if (event.type === 'tool_event') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
+        if (inflightMismatch && status === 'sending') {
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         applyToolEvent(event.event);
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' });
+        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
         return;
       }
 
       if (event.type === 'turn_final') {
-        inflightIdRef.current = event.inflightId;
-        setInflightId(event.inflightId);
         inflightSeqRef.current = Math.max(inflightSeqRef.current, event.seq);
         if (event.threadId !== undefined) {
           setThreadId(event.threadId ?? null);
           threadIdRef.current = event.threadId ?? null;
         }
+
+        const streamStatus: ChatMessage['streamStatus'] =
+          event.status === 'failed' ? 'failed' : 'complete';
+
+        logWithChannel('info', 'chat.client_turn_final_sync', {
+          inflightId: event.inflightId,
+          assistantMessageId: assistantId,
+          assistantTextLen: assistantTextRef.current.length,
+          streamStatus,
+          inflightMismatch,
+        });
+
+        assistantMessageIdByInflightIdRef.current.delete(event.inflightId);
+
+        const isOutOfBandFinal =
+          preMappedAssistantId !== null && currentInflightId !== eventInflightId;
+
+        if (inflightMismatch || isOutOfBandFinal) {
+          syncAssistantMessage(
+            {
+              streamStatus,
+              thinking: false,
+              thinkStreaming: false,
+              ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
+            },
+            { assistantId, useRefs: false },
+          );
+          return;
+        }
+
+        inflightIdRef.current = eventInflightId;
+        setInflightId(eventInflightId);
 
         clearThinkingTimer();
         setIsStreaming(false);
@@ -1046,22 +1185,15 @@ export function useChatStream(
           ];
         }
 
-        const streamStatus: ChatMessage['streamStatus'] =
-          event.status === 'failed' ? 'failed' : 'complete';
-
-        logWithChannel('info', 'chat.client_turn_final_sync', {
-          inflightId: event.inflightId,
-          assistantMessageId: activeAssistantMessageIdRef.current,
-          assistantTextLen: assistantTextRef.current.length,
-          streamStatus,
-        });
-
-        syncAssistantMessage({
-          streamStatus,
-          thinking: false,
-          thinkStreaming: false,
-          ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
-        });
+        syncAssistantMessage(
+          {
+            streamStatus,
+            thinking: false,
+            thinkStreaming: false,
+            ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
+          },
+          { assistantId },
+        );
       }
     },
     [

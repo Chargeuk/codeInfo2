@@ -188,6 +188,175 @@ describe('Chat WS streaming UI', () => {
     }
   });
 
+  it('keeps the first assistant reply intact after a second send completes', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    fireEvent.change(input, { target: { value: 'Hello 1' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId1 = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      delta: 'First reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      status: 'ok',
+    });
+
+    await screen.findByText('First reply');
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+    fireEvent.change(input, { target: { value: 'Hello 2' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    const inflightId2 = harness.getInflightId() ?? 'i2';
+    expect(harness.chatBodies[0]?.inflightId).not.toEqual(
+      harness.chatBodies[1]?.inflightId,
+    );
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      delta: 'Second reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      status: 'ok',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('First reply');
+
+    const assistantBubbles = screen
+      .getAllByTestId('chat-bubble')
+      .filter(
+        (node) =>
+          node.getAttribute('data-role') === 'assistant' &&
+          node.getAttribute('data-kind') === 'normal',
+      );
+    expect(assistantBubbles.length).toBe(2);
+  });
+
+  it('creates a new assistant bubble after Stop even if a prior bubble is still processing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    fireEvent.change(input, { target: { value: 'Hello 1' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId1 = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      delta: 'Partial reply',
+    });
+
+    await screen.findByText('Partial reply');
+
+    const stopButton = await screen.findByTestId('chat-stop');
+    await act(async () => {
+      await user.click(stopButton);
+    });
+
+    fireEvent.change(input, { target: { value: 'Hello 2' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    const inflightId2 = harness.getInflightId() ?? 'i2';
+
+    const assistantBubblesAfterSecondSend = screen
+      .getAllByTestId('chat-bubble')
+      .filter(
+        (node) =>
+          node.getAttribute('data-role') === 'assistant' &&
+          node.getAttribute('data-kind') === 'normal',
+      );
+    expect(assistantBubblesAfterSecondSend.length).toBe(2);
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      delta: 'Second reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      status: 'ok',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('Partial reply');
+
+    // Late turn_final from the first inflight should not overwrite the second.
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      status: 'stopped',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('Partial reply');
+  });
+
   it('treats transient reconnect notices as warnings (no failed bubble)', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();

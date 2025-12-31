@@ -51,6 +51,8 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
     },
   };
 
+  let inflightIdForConversationA: string | null = null;
+
   await page.route('**/health', (route) =>
     route.fulfill({
       status: 200,
@@ -133,6 +135,10 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
     >;
     const conversationId = String(payload.conversationId ?? 'c1');
     const inflightId = String(payload.inflightId ?? 'i1');
+
+    if (conversationId === 'c1') {
+      inflightIdForConversationA = inflightId;
+    }
 
     await route.fulfill({
       status: 202,
@@ -221,12 +227,20 @@ test('mid-stream conversation switch hydrates inflight snapshot on return', asyn
   });
 
   await page.waitForTimeout(150);
+  if (!inflightIdForConversationA) {
+    throw new Error('Expected inflightIdForConversationA to be set');
+  }
+
   await mockWs.sendAssistantDelta({
     conversationId: 'c1',
-    inflightId: 'i1',
+    inflightId: inflightIdForConversationA,
     delta: ' (continued)',
   });
-  await mockWs.sendFinal({ conversationId: 'c1', inflightId: 'i1', status: 'ok' });
+  await mockWs.sendFinal({
+    conversationId: 'c1',
+    inflightId: inflightIdForConversationA,
+    status: 'ok',
+  });
 
   await expect(page.getByText('Partial response (continued)')).toBeVisible({
     timeout: 10000,

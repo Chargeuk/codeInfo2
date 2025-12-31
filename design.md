@@ -1228,6 +1228,12 @@ Required log names and key fields:
     - `chat.ws.server_publish_assistant_delta` (`conversationId`, `inflightId`, `seq`, `deltaLen`)
     - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
 
+Assistant bubble binding invariant (Task 30):
+
+- The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
+- The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
+- When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
+
 
 ```mermaid
 sequenceDiagram

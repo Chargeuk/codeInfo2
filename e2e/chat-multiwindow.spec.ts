@@ -310,6 +310,18 @@ test('cross-tab follow-up creates a new assistant bubble in passive window', asy
     timeout: 10000,
   });
 
+  // The sending tab should not overwrite the previous assistant reply when a
+  // second send completes.
+  await expect(page.getByText('Assistant one')).toBeVisible({ timeout: 10000 });
+  await expect(pageB.getByText('Assistant one')).toBeVisible({
+    timeout: 10000,
+  });
+
+  const assistantBubblesA = page.locator(
+    '[data-testid="chat-bubble"][data-role="assistant"][data-kind="normal"]',
+  );
+  await expect(assistantBubblesA).toHaveCount(2);
+
   const assistantBubblesB = pageB.locator(
     '[data-testid="chat-bubble"][data-role="assistant"][data-kind="normal"]',
   );

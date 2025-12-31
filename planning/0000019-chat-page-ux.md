@@ -6321,12 +6321,15 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
    - Requirements:
      - Ensure tests still find the selects by `data-testid` and any text queries used to open the menu still work after switching to `TextField select`.
      - If tests use label-based queries, update to match the new rendered structure.
+     - Add explicit coverage that disabled/locked states still apply (provider locked, model disabled when provider unavailable).
+     - Add a regression check for the empty-models state (provider selected but `models` empty) to ensure the `TextField select` still renders alongside the “No chat-capable models” banner.
 
 3. [ ] Update e2e coverage if needed:
    - Files to edit (likely impacted):
      - `e2e/chat.spec.ts`
    - Requirements:
      - Confirm model/provider selection still works via Playwright selectors; update selectors if the DOM structure changes.
+     - Add a small-viewport run (below `sm`) to confirm the selects remain usable when stacked vertically.
 
 4. [ ] Documentation update:
    - Files to edit:
@@ -6410,6 +6413,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
    - Requirements:
      - Adjust tests if the sidebar DOM is now nested inside a Drawer.
      - Add coverage for toggle behavior (open/close) in at least one client test or e2e spec.
+     - Add explicit assertions for default open on desktop and default closed on mobile (`sm` breakpoint), including overlay vs push layout behavior.
 
 4. [ ] Documentation update:
    - Files to edit:

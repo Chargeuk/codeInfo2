@@ -8,12 +8,9 @@ import {
   Alert,
   Button,
   CircularProgress,
-  FormControl,
-  InputLabel,
   Link,
   MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
@@ -1046,63 +1043,59 @@ export default function ChatPage() {
                         spacing={2}
                         alignItems="stretch"
                       >
-                        <FormControl
-                          sx={{ minWidth: 220 }}
+                        <TextField
+                          select
+                          id="chat-provider-select"
+                          label="Provider"
+                          value={provider ?? ''}
+                          onChange={handleProviderChange}
                           disabled={isLoading || providerLocked}
+                          sx={{ minWidth: 220 }}
+                          SelectProps={{
+                            displayEmpty: true,
+                            SelectDisplayProps: {
+                              'data-testid': 'provider-select',
+                            },
+                          }}
                         >
-                          <InputLabel id="chat-provider-label">
-                            Provider
-                          </InputLabel>
-                          <Select
-                            labelId="chat-provider-label"
-                            id="chat-provider-select"
-                            label="Provider"
-                            value={provider ?? ''}
-                            onChange={handleProviderChange}
-                            displayEmpty
-                            data-testid="provider-select"
-                          >
-                            {providers.map((entry) => (
-                              <MenuItem
-                                key={entry.id}
-                                value={entry.id}
-                                disabled={!entry.available}
-                              >
-                                {entry.label}
-                                {!entry.available ? ' (unavailable)' : ''}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                          {providers.map((entry) => (
+                            <MenuItem
+                              key={entry.id}
+                              value={entry.id}
+                              disabled={!entry.available}
+                            >
+                              {entry.label}
+                              {!entry.available ? ' (unavailable)' : ''}
+                            </MenuItem>
+                          ))}
+                        </TextField>
 
-                        <FormControl
-                          sx={{ minWidth: 260, flex: 1 }}
+                        <TextField
+                          select
+                          id="chat-model-select"
+                          label="Model"
+                          value={selected ?? ''}
+                          onChange={(event) => setSelected(event.target.value)}
                           disabled={
                             isLoading ||
                             isError ||
                             isEmpty ||
                             !providerAvailable
                           }
+                          sx={{ minWidth: 260, flex: 1 }}
+                          SelectProps={{
+                            displayEmpty: true,
+                            SelectDisplayProps: {
+                              'data-testid': 'model-select',
+                            },
+                          }}
                         >
-                          <InputLabel id="chat-model-label">Model</InputLabel>
-                          <Select
-                            labelId="chat-model-label"
-                            id="chat-model-select"
-                            label="Model"
-                            value={selected ?? ''}
-                            onChange={(event) =>
-                              setSelected(event.target.value)
-                            }
-                            displayEmpty
-                            data-testid="model-select"
-                          >
-                            {models.map((model) => (
-                              <MenuItem key={model.key} value={model.key}>
-                                {model.displayName}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                          {models.map((model) => (
+                            <MenuItem key={model.key} value={model.key}>
+                              {model.displayName}
+                            </MenuItem>
+                          ))}
+                        </TextField>
 
                         <Stack
                           direction="row"

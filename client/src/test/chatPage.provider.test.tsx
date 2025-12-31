@@ -105,6 +105,132 @@ describe('Chat provider selection (WS transport)', () => {
     expect(link).toHaveAttribute('href', expect.stringContaining('#codex-cli'));
   });
 
+  it('keeps Provider/Model selects visible when models are empty', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const banner = await screen.findByText(/no chat-capable models available/i);
+    expect(banner).toBeInTheDocument();
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    expect(providerSelect).toBeInTheDocument();
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    expect(modelSelect).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('disables Model select when provider is unavailable', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: false,
+            toolsAvailable: false,
+            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    expect(modelSelect).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('reuses Codex threadId from WS turn_final on subsequent turns', async () => {
     const bodies: Record<string, unknown>[] = [];
 

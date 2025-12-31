@@ -221,3 +221,111 @@ test('chat streams end-to-end', async ({ page }) => {
     });
   }
 });
+
+test('chat provider/model selects work on small viewport', async ({ page }) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 500, height: 900 });
+
+  let models: ChatModel[] = [];
+  const mockModels: ChatModel[] = [
+    { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+  ];
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+            {
+              id: 'codex',
+              label: 'OpenAI Codex',
+              available: false,
+              toolsAvailable: false,
+              reason: codexReason,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: mockModels,
+        }),
+      }),
+    );
+
+    models = mockModels;
+  } else {
+    try {
+      const modelsRes = await page.request.get(`${apiBase}/chat/models`);
+      if (!modelsRes.ok()) {
+        test.skip(`LM Studio models not reachable (${modelsRes.status()})`);
+      }
+      const data = await modelsRes.json();
+      models = Array.isArray(data)
+        ? (data as ChatModel[])
+        : ((data as { models?: ChatModel[] }).models ?? []);
+    } catch {
+      test.skip('LM Studio models not reachable (request failed)');
+    }
+  }
+
+  if (!Array.isArray(models) || models.length === 0) {
+    test.skip('No models reported by /chat/models');
+  }
+
+  const selectedModel = pickChatModel(models);
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const providerSelect = page.getByRole('combobox', { name: /Provider/i });
+  await expect(providerSelect).toBeVisible({ timeout: 20000 });
+  await providerSelect.click();
+  const providerOption = page.getByRole('option').first();
+  const providerMenuItem = page.getByRole('menuitem').first();
+  if (await providerOption.count()) {
+    await expect(providerOption).toBeVisible();
+  } else {
+    await expect(providerMenuItem).toBeVisible();
+  }
+  await page.keyboard.press('Escape');
+
+  const modelSelect = page.getByRole('combobox', { name: /Model/i });
+  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await modelSelect.click();
+
+  const option = page.getByRole('option', {
+    name: selectedModel.displayName,
+    exact: false,
+  });
+  const menuItem = page.getByRole('menuitem', {
+    name: selectedModel.displayName,
+    exact: false,
+  });
+  if (await option.count()) {
+    await option.click();
+  } else {
+    await menuItem.click();
+  }
+  await expect(modelSelect).toHaveText(selectedModel.displayName, {
+    timeout: 5000,
+  });
+});

@@ -6277,7 +6277,7 @@ The sending tab clears its inflight state before WS events arrive. Because the a
 
 ### 31. Fix Provider/Model label clipping by switching to TextField select
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6291,7 +6291,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
 
 #### Subtasks
 
-1. [ ] Replace Provider/Model FormControl+Select with TextField select:
+1. [x] Replace Provider/Model FormControl+Select with TextField select:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -6312,7 +6312,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
    - Docs (repeat):
      - https://mui.com/material-ui/api/text-field/
 
-2. [ ] Update client tests that depend on provider/model selects:
+2. [x] Update client tests that depend on provider/model selects:
    - Files to edit (known tests from code_info analysis):
      - `client/src/test/chatPage.provider.test.tsx`
      - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
@@ -6335,7 +6335,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-3. [ ] Update e2e coverage if needed:
+3. [x] Update e2e coverage if needed:
    - Files to edit (likely impacted):
      - `e2e/chat.spec.ts`
    - Requirements:
@@ -6347,34 +6347,48 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
    - Docs (repeat):
      - Context7 `/microsoft/playwright`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Note that Chat provider/model selectors use `TextField select` to avoid label clipping.
 
-5. [ ] Run lint/format after client/e2e changes:
+5. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Verify Provider/Model labels are fully visible (no clipping) on Chat page.
    - Open/close Provider and Model selects and confirm selection still updates.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- 2025-12-31: Started Task 31 (switch Provider/Model selects to `TextField select` to fix clipped labels).
+- Subtask 1: Replaced Provider/Model `FormControl + InputLabel + Select` with `TextField select` in `client/src/pages/ChatPage.tsx`, preserving ids, disabled logic, sizing, and `data-testid` via `SelectDisplayProps`.
+- Subtask 2: Updated client tests to keep using role/testid queries after the `TextField select` switch; added explicit assertions for provider-locked disabling and model-disabled states (provider unavailable + empty models banner).
+- Subtask 3: Updated `e2e/chat.spec.ts` with a small-viewport test (`width: 500`) to confirm Provider/Model selects open and selection still updates when the layout stacks.
+- Subtask 4: Updated `design.md` to document that Chat provider/model selectors use `TextField select` to avoid label clipping.
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (after `npm run format --workspace client`).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started stack successfully (containers healthy).
+- Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat.spec.ts -g "chat streams end-to-end"` and `-g "small viewport"` against the compose stack; confirmed Provider/Model labels render without clipping in the captured screenshot and both selects open/close with selection updates.
+- Testing 9: `npm run compose:down` stopped the stack.
 
 ### 32. Add responsive collapsible Conversations drawer (sm breakpoint)
 

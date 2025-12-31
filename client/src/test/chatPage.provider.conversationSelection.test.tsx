@@ -216,6 +216,11 @@ describe('Chat page provider follows selected conversation', () => {
       ),
     );
 
+    const providerCombobox = screen.getByRole('combobox', {
+      name: /provider/i,
+    });
+    expect(providerCombobox).toHaveAttribute('aria-disabled', 'true');
+
     const transcript = await screen.findByTestId('chat-transcript');
     expect(within(transcript).getByText('codex reply')).toBeInTheDocument();
   });

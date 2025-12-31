@@ -6278,7 +6278,8 @@ The sending tab clears its inflight state before WS events arrive. Because the a
 ### 31. Fix Provider/Model label clipping by switching to TextField select
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits:
+  - DEV-19 - Fix provider/model label clipping in ChatPage (`37709cf`)
 
 #### Overview
 

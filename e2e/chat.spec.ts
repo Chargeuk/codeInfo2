@@ -329,3 +329,122 @@ test('chat provider/model selects work on small viewport', async ({ page }) => {
     timeout: 5000,
   });
 });
+
+test('conversations drawer is persistent on desktop and pushes content', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+        }),
+      }),
+    );
+  }
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const drawerToggle = page.getByTestId('conversation-drawer-toggle');
+  await expect(drawerToggle).toBeVisible();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+  await expect(page.locator('.MuiBackdrop-root')).toHaveCount(0);
+
+  const chatColumn = page.getByTestId('chat-column');
+  const boxOpen = await chatColumn.boundingBox();
+  expect(boxOpen).not.toBeNull();
+
+  await drawerToggle.click();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
+
+  const boxClosed = await chatColumn.boundingBox();
+  expect(boxClosed).not.toBeNull();
+  expect((boxClosed?.x ?? 0) + 150).toBeLessThan(boxOpen?.x ?? 0);
+});
+
+test('conversations drawer is closed by default on mobile and overlays content', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 500, height: 900 });
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+        }),
+      }),
+    );
+  }
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const drawerToggle = page.getByTestId('conversation-drawer-toggle');
+  await expect(drawerToggle).toBeVisible();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('[data-testid="conversation-list"]')).toHaveCount(0);
+
+  const chatColumn = page.getByTestId('chat-column');
+  const boxBefore = await chatColumn.boundingBox();
+  expect(boxBefore).not.toBeNull();
+
+  await drawerToggle.click();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+  await expect(page.locator('.MuiBackdrop-root')).toHaveCount(1);
+
+  const boxAfter = await chatColumn.boundingBox();
+  expect(boxAfter).not.toBeNull();
+  expect(Math.abs((boxAfter?.x ?? 0) - (boxBefore?.x ?? 0))).toBeLessThan(20);
+});

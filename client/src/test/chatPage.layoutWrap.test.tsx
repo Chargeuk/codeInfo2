@@ -112,14 +112,14 @@ function installTranscriptWidthMock(transcript: HTMLElement) {
 }
 
 function installChatLayoutRectMocks() {
-  const mdBreakpoint = 900;
-  const mdSidebarWidth = 320;
-  const mdGap = 16;
+  const smBreakpoint = 600;
+  const sidebarWidth = 320;
+  const columnGap = 16;
 
   const sidebar = screen.queryByTestId('conversation-list');
   const transcript = screen.queryByTestId('chat-transcript');
   const chatColumn = screen.queryByTestId('chat-column');
-  const isMd = window.innerWidth >= mdBreakpoint;
+  const isDesktop = window.innerWidth >= smBreakpoint;
 
   const chatColumnMinWidth = chatColumn?.style.minWidth;
   const chatColumnWidth = chatColumn?.style.width;
@@ -128,11 +128,13 @@ function installChatLayoutRectMocks() {
     chatColumnWidth === '100%';
   const sidebarConfigured = Boolean(sidebar);
 
-  const layoutOk = Boolean(chatColumnConfigured && sidebarConfigured);
+  const layoutOk = Boolean(
+    chatColumnConfigured && (isDesktop ? sidebarConfigured : true),
+  );
 
   if (sidebar) {
     sidebar.getBoundingClientRect = () => {
-      const width = isMd ? mdSidebarWidth : window.innerWidth;
+      const width = isDesktop ? sidebarWidth : window.innerWidth;
       return {
         x: 0,
         y: 0,
@@ -149,7 +151,8 @@ function installChatLayoutRectMocks() {
 
   if (transcript) {
     transcript.getBoundingClientRect = () => {
-      const left = isMd ? mdSidebarWidth + mdGap : 0;
+      const left =
+        isDesktop && sidebarConfigured ? sidebarWidth + columnGap : 0;
       const right = layoutOk ? window.innerWidth : window.innerWidth + 120;
       return {
         x: left,
@@ -377,7 +380,26 @@ describe('Chat page layout alignment', () => {
     );
   });
 
-  it('stacks sidebar + transcript vertically on small viewports (xs)', async () => {
+  it('defaults to open on desktop and toggles the drawer closed', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const toggle = screen.getByTestId('conversation-drawer-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('defaults to closed on mobile and opens a temporary overlay drawer', async () => {
     window.innerWidth = 375;
     window.dispatchEvent(new Event('resize'));
 
@@ -385,18 +407,18 @@ describe('Chat page layout alignment', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('chat-transcript');
-    installChatLayoutRectMocks();
 
-    const sidebar = screen.getByTestId('conversation-list');
-    expect(sidebar.getBoundingClientRect().width).toBeCloseTo(
-      window.innerWidth,
-      0,
-    );
+    const toggle = screen.getByTestId('conversation-drawer-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('conversation-list')).toBeNull();
 
-    const transcript = screen.getByTestId('chat-transcript');
-    expect(transcript.getBoundingClientRect().right).toBeLessThanOrEqual(
-      window.innerWidth,
-    );
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
   });
 
   it('preserves gutters and avoids horizontal overflow on narrow viewports', async () => {
@@ -420,11 +442,6 @@ describe('Chat page layout alignment', () => {
     ).toBeGreaterThan(0);
 
     installChatLayoutRectMocks();
-    const sidebar = screen.getByTestId('conversation-list');
-    expect(sidebar.getBoundingClientRect().width).toBeCloseTo(
-      window.innerWidth,
-      0,
-    );
 
     const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });

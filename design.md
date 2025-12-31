@@ -190,7 +190,9 @@ flowchart LR
   - **Delete** is enabled for any selection and requires a confirmation dialog.
 - When MongoDB persistence is unavailable (`mongoConnected === false`), selection and bulk actions are disabled and the sidebar shows a warning that bulk actions are unavailable.
 - Bulk actions call `POST /conversations/bulk/archive|restore|delete` and surface success/failure via snackbars; selection is cleared after a successful bulk operation.
-- Layout: sidebar is fixed-width (`320px`) on `md+` and stacks above the transcript on `xs`; the transcript column is fluid (`flex: 1` + `minWidth: 0`) and fills the remaining page width without introducing horizontal scroll.
+- Layout: the sidebar is a responsive MUI `Drawer`.
+  - Desktop (`sm+`): `variant="persistent"`, open by default, fixed width (`320px`), and closing it lets the transcript column expand to full width.
+  - Mobile (`sm` and down): `variant="temporary"`, closed by default, and opening it overlays the chat (no horizontal push).
 
 ### Chat page (streaming UI)
 

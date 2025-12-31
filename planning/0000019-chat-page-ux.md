@@ -6393,7 +6393,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
 
 ### 32. Add responsive collapsible Conversations drawer (sm breakpoint)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6408,7 +6408,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
 
 #### Subtasks
 
-1. [ ] Add drawer state + breakpoint behavior:
+1. [x] Add drawer state + breakpoint behavior:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -6428,7 +6428,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
      - https://mui.com/material-ui/api/drawer/
      - https://mui.com/material-ui/guides/responsive-ui/
 
-2. [ ] Replace static sidebar with Drawer variants:
+2. [x] Replace static sidebar with Drawer variants:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -6442,12 +6442,14 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
    - Docs (repeat):
      - https://mui.com/material-ui/api/drawer/
 
-3. [ ] Update client tests + e2e coverage:
+3. [x] Update client tests + e2e coverage:
    - Files to edit (known impacted tests from code_info analysis + layout changes):
      - `client/src/test/chatPage.provider.test.tsx`
      - `client/src/test/chatPage.provider.conversationSelection.test.tsx`
      - `client/src/test/chatPage.flags.panelCollapsed.test.tsx`
      - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+     - `client/src/test/setupTests.ts`
      - `e2e/chat.spec.ts`
      - `e2e/chat-multiwindow.spec.ts`
    - Requirements:
@@ -6461,31 +6463,46 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
      - Context7 `/jestjs/jest`
      - Context7 `/microsoft/playwright`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document the responsive drawer behavior (sm breakpoint, persistent vs temporary).
 
-5. [ ] Run lint/format after client/e2e changes:
+5. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Desktop: verify drawer opens by default, closes via toggle, and chat area expands.
    - Mobile (sm/down): verify drawer is closed by default and overlays chat when opened.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- 2025-12-31: Started Task 32 (responsive collapsible Conversations drawer).
+- Subtask 1: Added `useMediaQuery(theme.breakpoints.down('sm'))`-driven `drawerOpen` state + a toggle button (`data-testid="conversation-drawer-toggle"`) in `client/src/pages/ChatPage.tsx`.
+- Subtask 2: Replaced the static sidebar `<Box>` with an MUI `Drawer` (`persistent` on desktop, `temporary` on mobile) while preserving the inner `data-testid="conversation-list"` container.
+- Subtask 3: Added a Jest `matchMedia` polyfill for `useMediaQuery`, updated layout wrap tests for the new sm breakpoint behavior, and added e2e coverage for desktop push vs mobile overlay drawer behavior.
+- Subtask 4: Updated `design.md` to document the Conversations drawer responsiveness (sm breakpoint, persistent vs temporary).
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (after `npm run format --workspace client`).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started stack successfully (containers healthy).
+- Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat.spec.ts -g "conversations drawer"` against the compose stack; confirmed desktop push + mobile overlay behavior.
+- Testing 9: `npm run compose:down` stopped the stack.
+- Notes: `useMediaQuery` is imported from `@mui/material` (not `@mui/material/useMediaQuery`) so Jest uses the CJS entrypoint and avoids ESM/CJS default-export interop issues.

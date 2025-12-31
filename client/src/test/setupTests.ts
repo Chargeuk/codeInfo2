@@ -110,6 +110,56 @@ if (!global.fetch) {
   global.fetch = jest.fn();
 }
 
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = (query: string) => {
+    const normalized = query.replace(/^@media\s*/i, '').trim();
+    const listeners = new Set<(event: MediaQueryListEvent) => void>();
+
+    const computeMatches = () => {
+      const maxMatch = normalized.match(/max-width:\s*([0-9.]+)px/i);
+      const minMatch = normalized.match(/min-width:\s*([0-9.]+)px/i);
+      const maxWidth = maxMatch ? Number(maxMatch[1]) : null;
+      const minWidth = minMatch ? Number(minMatch[1]) : null;
+
+      if (maxWidth !== null && window.innerWidth > maxWidth) {
+        return false;
+      }
+      if (minWidth !== null && window.innerWidth < minWidth) {
+        return false;
+      }
+      return true;
+    };
+
+    const list: MediaQueryList = {
+      media: query,
+      get matches() {
+        return computeMatches();
+      },
+      onchange: null,
+      addEventListener: (_type, listener) => {
+        listeners.add(listener as (event: MediaQueryListEvent) => void);
+      },
+      removeEventListener: (_type, listener) => {
+        listeners.delete(listener as (event: MediaQueryListEvent) => void);
+      },
+      addListener: (listener) => {
+        listeners.add(listener as (event: MediaQueryListEvent) => void);
+      },
+      removeListener: (listener) => {
+        listeners.delete(listener as (event: MediaQueryListEvent) => void);
+      },
+      dispatchEvent: (event) => {
+        for (const listener of listeners) {
+          listener(event as MediaQueryListEvent);
+        }
+        return true;
+      },
+    };
+
+    return list;
+  };
+}
+
 // Default fetch mock for tests; individual tests can override as needed.
 (global.fetch as jest.Mock).mockImplementation(
   async (input: RequestInfo | URL) => {

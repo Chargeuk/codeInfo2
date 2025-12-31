@@ -1152,7 +1152,8 @@ export function useChatStream(
         assistantMessageIdByInflightIdRef.current.delete(event.inflightId);
 
         const isOutOfBandFinal =
-          preMappedAssistantId !== null && currentInflightId !== eventInflightId;
+          preMappedAssistantId !== null &&
+          currentInflightId !== eventInflightId;
 
         if (inflightMismatch || isOutOfBandFinal) {
           syncAssistantMessage(

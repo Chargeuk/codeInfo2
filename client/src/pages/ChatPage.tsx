@@ -2,12 +2,14 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import MenuIcon from '@mui/icons-material/Menu';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Container,
   Alert,
   Button,
   CircularProgress,
+  IconButton,
   Link,
   MenuItem,
   Paper,
@@ -18,11 +20,14 @@ import {
   Collapse,
   Chip,
   Button as MuiButton,
+  Drawer,
+  useMediaQuery,
   Accordion,
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
   useCallback,
@@ -51,6 +56,11 @@ import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 
 export default function ChatPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const drawerWidth = 320;
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(!isMobile);
+
   const {
     providers,
     provider,
@@ -152,6 +162,10 @@ export default function ChatPage() {
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+
+  useEffect(() => {
+    setDrawerOpen(!isMobile);
+  }, [isMobile]);
 
   const selectedConversation = useMemo(
     () =>
@@ -485,6 +499,9 @@ export default function ChatPage() {
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
+    if (isMobile) {
+      setDrawerOpen(false);
+    }
     setTimeout(() => {
       console.info('[chat-history] post-select scheduled', {
         clickedId: conversation,
@@ -943,7 +960,7 @@ export default function ChatPage() {
           </Alert>
         )}
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
+          direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           alignItems="stretch"
           sx={{
@@ -954,36 +971,47 @@ export default function ChatPage() {
             minHeight: 0,
           }}
         >
-          <Box
-            data-testid="conversation-list"
+          <Drawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            variant={isMobile ? 'temporary' : 'persistent'}
+            data-testid="conversation-drawer"
             sx={{
-              width: { xs: '100%', md: 320 },
+              width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
               flexShrink: 0,
-              flexGrow: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+              },
             }}
           >
-            <ConversationList
-              conversations={conversations}
-              selectedId={activeConversationId}
-              isLoading={conversationsLoading}
-              isError={conversationsError}
-              error={conversationsErrorMessage}
-              hasMore={conversationsHasMore}
-              filterState={filterState}
-              mongoConnected={mongoConnected}
-              disabled={persistenceUnavailable || persistenceLoading}
-              onSelect={handleSelectConversation}
-              onFilterChange={setFilterState}
-              onArchive={handleArchive}
-              onRestore={handleRestore}
-              onBulkArchive={bulkArchive}
-              onBulkRestore={bulkRestore}
-              onBulkDelete={bulkDelete}
-              onLoadMore={loadMoreConversations}
-              onRefresh={refreshConversations}
-              onRetry={refreshConversations}
-            />
-          </Box>
+            <Box
+              id="conversation-drawer"
+              data-testid="conversation-list"
+              sx={{ width: drawerWidth, height: '100%' }}
+            >
+              <ConversationList
+                conversations={conversations}
+                selectedId={activeConversationId}
+                isLoading={conversationsLoading}
+                isError={conversationsError}
+                error={conversationsErrorMessage}
+                hasMore={conversationsHasMore}
+                filterState={filterState}
+                mongoConnected={mongoConnected}
+                disabled={persistenceUnavailable || persistenceLoading}
+                onSelect={handleSelectConversation}
+                onFilterChange={setFilterState}
+                onArchive={handleArchive}
+                onRestore={handleRestore}
+                onBulkArchive={bulkArchive}
+                onBulkRestore={bulkRestore}
+                onBulkDelete={bulkDelete}
+                onLoadMore={loadMoreConversations}
+                onRefresh={refreshConversations}
+                onRetry={refreshConversations}
+              />
+            </Box>
+          </Drawer>
 
           <Box
             data-testid="chat-column"
@@ -1007,6 +1035,18 @@ export default function ChatPage() {
             <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
               <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
                 <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="flex-start">
+                    <IconButton
+                      aria-label="Toggle conversations"
+                      aria-controls="conversation-drawer"
+                      aria-expanded={drawerOpen}
+                      onClick={() => setDrawerOpen((prev) => !prev)}
+                      size="small"
+                      data-testid="conversation-drawer-toggle"
+                    >
+                      <MenuIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
                   {isLoading && (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CircularProgress size={18} />

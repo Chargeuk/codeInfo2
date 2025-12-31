@@ -5964,6 +5964,13 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
    - Requirements:
      - Note that `/logs` appends to `logStore` but does not persist to the file logger.
      - Identify where to inject file logging without double-writing server-side entries.
+   - Code pointers:
+      - `server/src/logStore.ts`: `append()` currently stores in-memory + emits to subscribers only.
+      - `server/src/logger.ts`: `baseLogger` writes to the file destination (`LOG_FILE_PATH`).
+      - `server/src/routes/logs.ts`: `router.post('/')` accepts client log entries and calls `append()`.
+   - Docs (repeat):
+      - https://getpino.io/#/
+      - https://github.com/pinojs/pino-http
 
 2. [ ] Add stable client identifier to client logs:
    - Files to edit:
@@ -5973,6 +5980,14 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
      - Generate a `clientId` (UUID) and persist to `localStorage` (fallback to in-memory if storage is unavailable).
      - Ensure each log entry includes `clientId` in `context` (not `message`) and retains the existing `source: "client"`.
      - Keep the log payload size within `VITE_LOG_MAX_BYTES`.
+   - Code pointers:
+      - `client/src/logging/logger.ts`: `createLogger()` assembles the `LogEntry`.
+      - `client/src/logging/transport.ts`: `sendLogs()` enqueues entries and enforces `VITE_LOG_MAX_BYTES`.
+   - Expected entry shape (example):
+      - `{ source: "client", message: "chat.client_send_begin", context: { clientId: "...", ... } }`
+   - Docs (repeat):
+      - https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+      - https://getpino.io/#/
 
 3. [ ] Persist client log entries to the server log file:
    - Files to edit:
@@ -5982,6 +5997,13 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
      - When `append()` is called for client entries, forward them to the file logger with a clear prefix (e.g. `CLIENT_LOG` or `source=client`).
      - Preserve the log `sequence` and include `clientId` from `entry.context` in the output.
      - Ensure server log formatting remains JSON (pino) and does not break existing parsing.
+   - Code pointers:
+      - `server/src/logStore.ts`: add a call to `baseLogger` inside `append()` when `entry.source === 'client'`.
+      - `server/src/logger.ts`: reuse `baseLogger` so entries land in `LOG_FILE_PATH`.
+   - Suggested log payload (JSON):
+      - `baseLogger.info({ source: "client", clientId, sequence, message, context }, "CLIENT_LOG")`
+   - Docs (repeat):
+      - https://getpino.io/#/
 
 4. [ ] Add tests for client log persistence + clientId stability:
    - Files to edit:
@@ -5993,6 +6015,12 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
      - Validate that the server logger was invoked (spy/mocked destination or log store entry includes a `source=client` marker).
      - Unit test: `createLogger()` includes a stable `clientId` across multiple log calls.
      - Unit test: when `localStorage` is unavailable, logger falls back to an in-memory `clientId` without throwing.
+   - Code pointers:
+      - `server/src/routes/logs.ts`: POST handler is the entry point used by client log forwarding.
+      - `client/src/logging/logger.ts`: ensure `clientId` logic is testable (export helper if needed).
+   - Docs (repeat):
+      - https://getpino.io/#/
+      - Context7 `/jestjs/jest`
 
 5. [ ] Documentation update:
    - Files to edit:
@@ -6048,6 +6076,11 @@ Add deterministic log lines that prove whether the active assistant pointer and 
      - Log `chat.client_send_begin` with: `status`, `isStreaming`, `inflightId`, `activeAssistantMessageId`, `lastMessageStreamStatus`, `lastMessageContentLen`.
      - Log `chat.client_send_after_reset` with: `prevAssistantMessageId`, `nextAssistantMessageId`, `createdNewAssistant`.
      - Log `chat.client_turn_final_sync` with: `inflightId`, `assistantMessageId`, `assistantTextLen`, `streamStatus`.
+   - Code pointers:
+      - `send()` (after `stop()` + before `resetInflightState()`), and again after `ensureAssistantMessage()`.
+      - `handleWsEvent()` branch for `turn_final` right before `syncAssistantMessage(...)`.
+   - Docs (repeat):
+      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 2. [ ] Add server logs around WS publish events:
    - Files to edit:
@@ -6055,6 +6088,10 @@ Add deterministic log lines that prove whether the active assistant pointer and 
    - Requirements:
      - Log `chat.ws.server_publish_user_turn`, `chat.ws.server_publish_assistant_delta`, `chat.ws.server_publish_turn_final`.
      - Include `conversationId`, `inflightId`, `seq`, and any size/count context (e.g., delta length).
+   - Code pointers:
+      - `publishUserTurn`, `publishAssistantDelta`, `publishTurnFinal` in `server/src/ws/server.ts` (log before `broadcastConversation()`).
+   - Docs (repeat):
+      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 3. [ ] Add tests or log assertions (including send-state corner case):
    - Files to edit:
@@ -6063,6 +6100,11 @@ Add deterministic log lines that prove whether the active assistant pointer and 
    - Requirements:
      - Verify client log events are emitted during simulated send + WS flow (including `status === 'sending'`).
      - Verify server publishes include the new log entries.
+   - Code pointers:
+      - `client/src/test/chatPage.stream.test.tsx` already sets up WS events; extend to capture logger output.
+      - `server/src/test/unit/ws-chat-stream.test.ts` already asserts publish ordering for `user_turn`/`assistant_delta`/`turn_final`.
+   - Docs (repeat):
+      - Context7 `/jestjs/jest`
 
 4. [ ] Documentation update:
    - Files to edit:
@@ -6120,6 +6162,15 @@ The sending tab clears its inflight state before WS events arrive. Because the a
      - Ensure a **new assistant message** is created when `send()` starts (even if a previous assistant message is still `processing`).
      - Ensure WS updates for a new inflight do not reuse a previous assistant message id.
      - Preserve existing cross-tab reset behavior from Task 27.
+   - Code pointers:
+      - `ensureAssistantMessage()` currently reuses the last `processing` assistant bubble if `activeAssistantMessageIdRef` is empty.
+      - `send()` calls `stop()` then `resetInflightState()` before `ensureAssistantMessage()`.
+      - `handleWsEvent()` `user_turn` branch skips pointer reset when `status === 'sending'`.
+   - Suggested approach (pseudo):
+      - In `send()`, clear `activeAssistantMessageIdRef` **after** `stop()` and before `ensureAssistantMessage()`, or add a `forceNew` flag to `ensureAssistantMessage()` so the send path always creates a fresh assistant bubble.
+      - Keep the WS cross-tab reset logic intact (Task 27).
+   - Docs (repeat):
+      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 2. [ ] Update client tests (including “previous reply already complete” case):
    - Files to edit:
@@ -6128,6 +6179,10 @@ The sending tab clears its inflight state before WS events arrive. Because the a
      - Simulate two consecutive sends in a single tab where the first reply has already finalized (`streamStatus=complete`) and assert it remains intact.
      - Simulate a second send while a previous assistant message is still `processing` and assert the new run still creates a new assistant bubble.
      - Assert the second response creates a new assistant bubble in both scenarios.
+   - Code pointers:
+      - Use existing helpers that seed `messagesRef` and trigger `send()` + `handleWsEvent` with `user_turn`/`turn_final`.
+   - Docs (repeat):
+      - Context7 `/jestjs/jest`
 
 3. [ ] Update e2e multi-window test:
    - Files to edit:
@@ -6135,12 +6190,18 @@ The sending tab clears its inflight state before WS events arrive. Because the a
    - Test requirements:
      - Confirm window 1 does not overwrite the first assistant response when sending the second request.
      - Confirm window 2 remains consistent after the second response.
+   - Code pointers:
+      - Add a second send from window A; assert both windows render two assistant replies in the correct order.
+   - Docs (repeat):
+      - Context7 `/microsoft/playwright`
 
 4. [ ] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document the fix logic and any new invariants (assistant pointer now per inflight).
+   - Docs (repeat):
+      - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 5. [ ] Run lint/format after client/e2e changes:
    - Commands to run:

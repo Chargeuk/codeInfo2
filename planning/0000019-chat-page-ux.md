@@ -5941,7 +5941,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
 ### 28. Persist client logs to server log file (tagged + client correlation)
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **ffadb2a**
 
 #### Overview
 

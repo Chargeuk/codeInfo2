@@ -13,7 +13,7 @@ COPY tsconfig*.json ./
 COPY tsconfig.base.json ./
 COPY common ./common
 COPY client ./client
-RUN npm ci --workspaces --include-workspace-root --ignore-scripts && npm install --workspaces --include-workspace-root --ignore-scripts --prefer-offline
+RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund
 RUN npm run build --workspace client
 
 FROM node:22-slim AS runtime

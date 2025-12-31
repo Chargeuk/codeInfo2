@@ -1,33 +1,69 @@
 import assert from 'assert';
-import type { Server } from 'http';
-import {
-  chatRequestFixture,
-  chatSseEventsFixture,
-  chatErrorEventFixture,
-} from '@codeinfo2/common';
+import http, { type Server } from 'node:http';
+
+import { chatRequestFixture } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import type WebSocket from 'ws';
+
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs, type WsServerHandle } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 import {
   MockLMStudioClient,
   type MockScenario,
+  getLastChatHistory,
   startMock,
   stopMock,
-  getLastChatHistory,
 } from '../support/mockLmStudioSdk.js';
 
+type ChatStartResponse = {
+  status: 'started';
+  conversationId: string;
+  inflightId: string;
+  provider: string;
+  model: string;
+};
+
+type WsEvent = {
+  protocolVersion?: string;
+  type?: string;
+  conversationId?: string;
+  inflightId?: string;
+  inflight?: { inflightId?: string; toolEvents?: unknown[] };
+  event?: { type?: string };
+  status?: string;
+  error?: { message?: string };
+};
+
 let server: Server | null = null;
+let wsHandle: WsServerHandle | null = null;
+let ws: WebSocket | null = null;
 let baseUrl = '';
-let events: unknown[] = [];
 let statusCode: number | null = null;
+let startResponse: ChatStartResponse | null = null;
+let received: WsEvent[] = [];
+
+async function ensureWsSubscribed(conversationId: string) {
+  if (!ws) {
+    ws = await connectWs({ baseUrl });
+  }
+  sendJson(ws, { type: 'subscribe_conversation', conversationId });
+}
 
 Before(async () => {
   resetStore();
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -44,10 +80,13 @@ Before(async () => {
     }),
   );
 
+  const httpServer = http.createServer(app);
+  server = httpServer;
+  wsHandle = attachWs({ httpServer });
+
   await new Promise<void>((resolve) => {
-    const listener = app.listen(0, () => {
-      server = listener;
-      const address = listener.address();
+    httpServer.listen(0, () => {
+      const address = httpServer.address();
       if (!address || typeof address === 'string') {
         throw new Error('Unable to start test server');
       }
@@ -57,15 +96,28 @@ Before(async () => {
   });
 });
 
-After(() => {
+After(async () => {
   stopMock();
   resetStore();
+
+  if (ws) {
+    await closeWs(ws);
+    ws = null;
+  }
+
+  if (wsHandle) {
+    await wsHandle.close();
+    wsHandle = null;
+  }
+
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
-  events = [];
+
+  received = [];
   statusCode = null;
+  startResponse = null;
 });
 
 Given('chat stream scenario {string}', (name: string) => {
@@ -73,6 +125,16 @@ Given('chat stream scenario {string}', (name: string) => {
 });
 
 When('I POST to the chat endpoint with the chat request fixture', async () => {
+  await ensureWsSubscribed('chat-fixture-conv');
+
+  const userMessage = Array.isArray(chatRequestFixture.messages)
+    ? String(
+        chatRequestFixture.messages.find(
+          (msg) => (msg as { role?: string }).role === 'user',
+        )?.content ?? 'Hello',
+      )
+    : 'Hello';
+
   const res = await fetch(`${baseUrl}/chat`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -81,86 +143,143 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
         (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
       model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
       conversationId: 'chat-fixture-conv',
-      message: Array.isArray(
-        (chatRequestFixture as { messages?: Array<{ content?: unknown }> })
-          .messages,
-      )
-        ? String(
-            (
-              chatRequestFixture as { messages?: Array<{ content?: unknown }> }
-            ).messages?.find((m) => (m as { role?: string }).role === 'user')
-              ?.content ?? 'Hello',
-          )
-        : 'Hello',
+      message: userMessage,
     }),
   });
   statusCode = res.status;
-  const reader = res.body?.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  if (!reader) return;
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split('\n\n');
-    buffer = frames.pop() ?? '';
-    frames.forEach((frame) => {
-      const trimmed = frame.trim();
-      if (!trimmed || trimmed.startsWith(':')) return;
-      const payload = trimmed.startsWith('data:')
-        ? trimmed.slice(5).trim()
-        : trimmed;
-      try {
-        events.push(JSON.parse(payload));
-      } catch {
-        // ignore parse errors for malformed frames
-      }
-    });
-  }
+  startResponse = (await res.json()) as ChatStartResponse;
 });
 
 Then('the chat stream status code is {int}', (status: number) => {
   assert.strictEqual(statusCode, status);
-});
-
-Then('the streamed events include token, final, and complete in order', () => {
-  const types = events.map((event) => (event as { type?: string }).type);
-  const tokenIndex = types.indexOf(chatSseEventsFixture[0].type);
-  const finalIndex = types.findIndex(
-    (type, idx) =>
-      type === chatSseEventsFixture[1].type &&
-      (tokenIndex < 0 || idx > tokenIndex),
-  );
-  const completeIndex = types.lastIndexOf(chatSseEventsFixture[2].type);
-  if (finalIndex < 0) {
-    assert(completeIndex >= 0, 'complete event missing');
-    return;
-  }
-  assert(completeIndex > finalIndex, 'complete should follow final');
+  assert.ok(startResponse);
+  assert.equal(startResponse.status, 'started');
+  assert.ok(startResponse.conversationId);
+  assert.ok(startResponse.inflightId);
 });
 
 Then(
-  'the streamed events include an error event {string}',
-  (message: string) => {
-    const error = events.find(
-      (event) =>
-        (event as { type?: string }).type === chatErrorEventFixture.type &&
-        (event as { message?: string }).message === message,
-    );
-    assert(error, `expected error event ${message}`);
+  'I can subscribe via WebSocket and receive an inflight snapshot and a final event',
+  async () => {
+    assert.ok(startResponse);
+    await ensureWsSubscribed(startResponse.conversationId);
+
+    const snapshot = await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'inflight_snapshot' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflight?.inflightId === startResponse?.inflightId
+        );
+      },
+    });
+    received.push(snapshot);
+
+    const final = await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'turn_final' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflightId === startResponse?.inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+    received.push(final);
   },
 );
 
-Then('the streamed events include tool request and result events', () => {
-  const types = events.map((event) => (event as { type?: string }).type);
-  assert(types.includes('tool-request'), 'tool-request event missing');
-  assert(types.includes('tool-result'), 'tool-result event missing');
+Then(
+  'the WebSocket stream includes a failed final event {string}',
+  async (message: string) => {
+    assert.ok(startResponse);
+    await ensureWsSubscribed(startResponse.conversationId);
+
+    await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'turn_final' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflightId === startResponse?.inflightId &&
+          e.status === 'failed' &&
+          (e.error?.message ?? '').includes(message)
+        );
+      },
+      timeoutMs: 4000,
+    });
+  },
+);
+
+Then('the streamed events include tool request and result events', async () => {
+  assert.ok(startResponse);
+  await ensureWsSubscribed(startResponse.conversationId);
+
+  const seen = new Set<string>();
+
+  const snapshot = await waitForEvent({
+    ws: ws as WebSocket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'inflight_snapshot' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflight?.inflightId === startResponse?.inflightId
+      );
+    },
+  });
+
+  (snapshot.inflight?.toolEvents ?? []).forEach((tool) => {
+    const type = (tool as { type?: string }).type;
+    if (type) seen.add(type);
+  });
+  received.push(snapshot);
+
+  // Also wait for at least one live tool_event so this scenario asserts WS streaming.
+  const firstTool = await waitForEvent({
+    ws: ws as WebSocket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'tool_event' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 4000,
+  });
+  received.push(firstTool);
+  if (firstTool.event?.type) seen.add(firstTool.event.type);
+
+  // If we didn't see both request/result yet, wait a bit longer.
+  while (!(seen.has('tool-request') && seen.has('tool-result'))) {
+    const next = await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'tool_event' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflightId === startResponse?.inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+    received.push(next);
+    if (next.event?.type) seen.add(next.event.type);
+  }
+
+  assert(seen.has('tool-request'), 'tool-request missing');
+  assert(seen.has('tool-result'), 'tool-result missing');
 });
 
 Then('tool events are logged to the log store', () => {
-  const toolLogs = query({ text: 'chat tool event' });
+  const toolLogs = query({ text: 'chat.stream.tool_event' });
   assert(toolLogs.length > 0, 'expected tool events in log store');
 });
 
@@ -168,6 +287,7 @@ When(
   'I POST to the chat endpoint with a two-message chat history',
   async () => {
     const conversationId = 'chat-history-conv';
+    await ensureWsSubscribed(conversationId);
 
     const first = await fetch(`${baseUrl}/chat`, {
       method: 'POST',
@@ -179,15 +299,23 @@ When(
         message: 'First question',
       }),
     });
-    const firstReader = first.body?.getReader();
-    if (firstReader) {
-      while (true) {
-        const { done } = await firstReader.read();
-        if (done) break;
-      }
-    }
+    const firstBody = (await first.json()) as ChatStartResponse;
+    statusCode = first.status;
 
-    const res = await fetch(`${baseUrl}/chat`, {
+    await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === firstBody.inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    const second = await fetch(`${baseUrl}/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -197,13 +325,21 @@ When(
         message: 'Second question',
       }),
     });
-    statusCode = res.status;
-    const reader = res.body?.getReader();
-    if (!reader) return;
-    while (true) {
-      const { done } = await reader.read();
-      if (done) break;
-    }
+    const secondBody = (await second.json()) as ChatStartResponse;
+    statusCode = second.status;
+
+    await waitForEvent({
+      ws: ws as WebSocket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === secondBody.inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
   },
 );
 

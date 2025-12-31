@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import mongoose from 'mongoose';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
-import type { TurnStatus } from '../../mongo/turn.js';
+import type { AppendTurnInput } from '../../mongo/repo.js';
+import type { TurnSource } from '../../mongo/turn.js';
 
 class PersistSpyChat extends ChatInterface {
   public persisted: Array<{
@@ -14,15 +15,9 @@ class PersistSpyChat extends ChatInterface {
   }> = [];
   public executeCalls = 0;
 
-  protected override async persistTurn(input: {
-    conversationId: string;
-    role: string;
-    content: string;
-    model: string;
-    provider: string;
-    status: TurnStatus;
-    source?: string;
-  }): Promise<void> {
+  protected override async persistTurn(
+    input: AppendTurnInput & { source?: TurnSource },
+  ): Promise<{ turnId?: string }> {
     this.persisted.push({
       role: input.role,
       content: input.content,
@@ -30,6 +25,8 @@ class PersistSpyChat extends ChatInterface {
       provider: input.provider,
       source: input.source,
     });
+
+    return {};
   }
 
   async execute(): Promise<void> {

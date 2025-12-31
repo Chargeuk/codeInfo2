@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import {
   act,
@@ -9,6 +8,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn();
 
@@ -18,6 +18,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -35,116 +38,61 @@ const routes = [
   },
 ];
 
-const modelList = [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }];
-const providerPayload = {
-  providers: [
-    {
-      id: 'lmstudio',
-      label: 'LM Studio',
-      available: true,
-      toolsAvailable: true,
-    },
-  ],
-};
-
 describe('Chat page new conversation control', () => {
-  it('aborts the current stream, clears transcript, and refocuses input', async () => {
-    const abortFns: jest.Mock[] = [];
-    const OriginalAbortController = global.AbortController;
+  it('cancels the current inflight run then clears transcript and refocuses input', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
 
-    class MockAbortController {
-      signal: AbortSignal;
-      abort: jest.Mock;
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
 
-      constructor() {
-        this.signal = { aborted: false } as AbortSignal;
-        this.abort = jest.fn(() => {
-          this.signal = { ...this.signal, aborted: true } as AbortSignal;
-        });
-        abortFns.push(this.abort);
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    const newConversationButton = screen.getByRole('button', {
+      name: /new conversation/i,
+    });
+
+    await act(async () => {
+      await user.click(newConversationButton);
+    });
+
+    expect(
+      screen.getByText(/Transcript will appear here/i),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(input).toHaveFocus());
+
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
       }
-    }
+    ).__wsMock;
 
-    // @ts-expect-error partial mock is sufficient for tests
-    global.AbortController = MockAbortController;
-
-    try {
-      const stream = new ReadableStream<Uint8Array>({
-        start() {
-          // keep stream open until aborted
-        },
-      });
-
-      mockFetch.mockImplementation((url: RequestInfo | URL) => {
-        const href = typeof url === 'string' ? url : url.toString();
-        if (href.includes('/chat/providers')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: async () => providerPayload,
-          }) as unknown as Response;
+    const cancelMessages = (wsRegistry?.instances ?? [])
+      .flatMap((socket) => socket.sent)
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
         }
-        if (href.includes('/chat/models')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: async () => ({
-              provider: 'lmstudio',
-              available: true,
-              toolsAvailable: true,
-              models: modelList,
-            }),
-          }) as unknown as Response;
-        }
-        if (href.includes('/chat')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            body: stream,
-          }) as unknown as Response;
-        }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({}),
-        }) as unknown as Response;
-      });
+      })
+      .filter(Boolean)
+      .filter((msg) => msg?.type === 'cancel_inflight');
 
-      const user = userEvent.setup();
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const modelSelect = await screen.findByRole('combobox', {
-        name: /model/i,
-      });
-      await waitFor(() => expect(modelSelect).toHaveTextContent('Model 1'));
-
-      const input = await screen.findByTestId('chat-input');
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      const sendButton = await screen.findByTestId('chat-send');
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      await waitFor(() => expect(sendButton).toBeDisabled());
-      const newConversationButton = screen.getByRole('button', {
-        name: /new conversation/i,
-      });
-
-      await act(async () => {
-        await user.click(newConversationButton);
-      });
-
-      expect(abortFns.at(-1)).toHaveBeenCalled();
-      expect(
-        screen.getByText(/Transcript will appear here/i),
-      ).toBeInTheDocument();
-      expect(modelSelect).toHaveTextContent('Model 1');
-      await waitFor(() => expect(input).toHaveFocus());
-    } finally {
-      global.AbortController = OriginalAbortController;
-    }
+    expect(cancelMessages.length).toBeGreaterThan(0);
+    expect(cancelMessages.at(-1)?.conversationId).toBe(conversationId);
+    expect(cancelMessages.at(-1)?.inflightId).toBe(inflightId);
   });
 });

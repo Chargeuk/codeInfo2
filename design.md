@@ -34,7 +34,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
-- HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
+- HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
+- Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 
@@ -59,9 +60,91 @@ sequenceDiagram
   Server->>Provider: stream chat with loaded history + flags
   Provider-->>Server: tokens/tool calls/final
   Server->>Mongo: append user + assistant turns, update lastMessageAt
-  Server-->>Client: SSE tokens + final + complete
+  Server-->>Client: /ws transcript events (deltas + warnings + tool events + turn_final)
   alt Mongo down
     Server-->>Client: banner via /health mongoConnected=false (chat still streams)
+end
+```
+
+## WebSocket transport (v1 foundation)
+
+- The server now exposes a WebSocket endpoint at `GET /ws` on the same HTTP port as Express.
+- Chat streaming is now WebSocket-only: `POST /chat` starts a run (HTTP 202) and all transcript updates are published to subscribed viewers via `/ws` (chat SSE removed).
+- All client → server WS messages must include `protocolVersion: "v1"`, `requestId`, and `type`. Malformed JSON or missing/invalid `protocolVersion` closes the socket.
+- Subscription state is tracked per socket:
+  - `subscribe_sidebar` / `unsubscribe_sidebar`
+  - `subscribe_conversation` / `unsubscribe_conversation` (requires `conversationId`)
+
+- Transcript events are broadcast only to sockets subscribed to the relevant `conversationId`:
+  - `user_turn` (broadcast at run start so non-originating tabs render the user bubble immediately)
+  - `inflight_snapshot` (sent immediately after `subscribe_conversation` when a run is in progress)
+  - `assistant_delta`, `analysis_delta`
+  - `tool_event`
+  - `stream_warning` (non-terminal warning event; does not end the in-flight turn)
+  - `turn_final` (terminal status for the in-flight turn)
+- Sequence gating is scoped per in-flight run: client-side dedupe/out-of-order checks reset when the `inflightId` changes so a new run starting at `seq=1` is accepted.
+- Stop/cancel is driven by `cancel_inflight` (mapped to an in-flight AbortController).
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Repo as Repo (Mongo)
+
+  Client->>Server: WS upgrade GET /ws
+  Server-->>Client: WebSocket connected
+
+  Client->>Server: { protocolVersion:"v1", requestId:"...", type:"subscribe_sidebar" }
+  Note over Server: Track socket as sidebar-subscribed
+
+  Client->>Server: { protocolVersion:"v1", requestId:"...", type:"subscribe_conversation", conversationId:"c1" }
+  Note over Server: Track socket subscribed to conversation c1
+
+  Repo-->>Server: conversation_upsert/delete events (in-process bus)
+  Server-->>Client: { type:"conversation_upsert", seq:1, conversation:{...} }
+
+  alt Malformed JSON or protocolVersion != "v1"
+    Server-->>Client: WS close (policy violation)
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as UI (tab A)
+  participant Viewer as UI (tab B)
+  participant Server
+
+  UI->>Server: POST /chat (202 started)
+  Note over Server: Create inflight entry + start provider run
+  Server-->>Viewer: conversation_upsert (sidebar)
+
+  Viewer->>Server: WS subscribe_conversation(conversationId)
+  alt Run already in progress
+    Server-->>Viewer: inflight_snapshot (catch-up)
+  end
+
+  Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+
+  Viewer->>Server: WS cancel_inflight(conversationId, inflightId)
+  Note over Server: AbortController aborts provider run
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Repo as Repo (Mongo)
+
+  Client->>Server: POST /conversations/bulk/<action> { conversationIds: [...] }
+  Server->>Repo: Validate ids exist + validate state (delete requires archived)
+  alt Invalid ids or invalid state
+    Repo-->>Server: { invalidIds, invalidStateIds }
+    Server-->>Client: 409 { code: BATCH_CONFLICT } (no writes)
+  else All valid
+    Repo-->>Server: OK
+    Server->>Repo: Apply bulk update/delete (idempotent)
+    Server-->>Client: 200 { status: ok, updatedCount/deletedCount }
   end
 ```
 
@@ -69,12 +152,12 @@ sequenceDiagram
 
 - Vite + React 19 + MUI; dev server on port 5001 (host enabled). Env `VITE_API_URL` from `client/.env`.
 - Startup fetch calls `${VITE_API_URL}/version`, parses `VersionInfo` from `@codeinfo2/common`, and displays alongside client version (from package.json) in a MUI Card with loading/error states.
-- Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while content sits inside a single `Container maxWidth="lg"` with left-aligned spacing (no Vite starter centering/dark background).
+- Layout uses MUI `CssBaseline` for global resets; the `NavBar` AppBar spans the full width while the app shell uses a full-width `Container maxWidth={false}` with gutters preserved so pages (notably Chat) can take advantage of the available horizontal space.
 
 ### Chat page (models list)
 
-- Route `/chat` surfaces the chat shell; controls sit at the top with a Provider `<Select>` (LM Studio default, OpenAI Codex when detected) to the left of the Model `<Select>`. The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `xhigh`, `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+- Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
+- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `xhigh`, `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
 
 #### Codex reasoning effort flow
 
@@ -90,28 +173,55 @@ flowchart LR
 
   Note[TS note: SDK types may lag\n(ModelReasoningEffort excludes 'xhigh')] -.-> C
 ```
+
 - `useChatModel` fetches `/chat/providers` then `/chat/models?provider=...`, aborts on unmount, and exposes provider/model selection, availability flags, and errors. Loading shows a small inline spinner; errors render an Alert with a Retry action; empty lists render "No chat-capable models available" and keep inputs disabled.
-- Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a banner warns and inputs disable. When Codex is available, chat is enabled (tools stay hidden) and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
+- Controls are disabled while loading, on errors, or when no models exist. Codex is available only when its CLI/auth/config are present; otherwise a warning banner shows and inputs disable. If Codex is selected but MCP tools are missing, a separate warning banner explains the tools requirement. When Codex is available, chat is enabled and the client will reuse the server-returned `threadId` for subsequent Codex turns instead of replaying history. The message input is multiline beneath the selectors with Send/Stop beside it.
+
+### Chat sidebar (conversations)
+
+- The Chat page sidebar lists conversations and supports a 3-state filter:
+  - `active`: show only active (non-archived) conversations
+  - `all`: show active + archived conversations
+  - `archived`: show only archived conversations
+- Each row includes a selection checkbox, and the header includes a select-all checkbox plus a selected-count indicator.
+- Bulk actions are available when one or more conversations are selected:
+  - **Archive** is enabled only when all selected conversations are active.
+  - **Restore** is enabled only when all selected conversations are archived.
+  - **Delete** is enabled for any selection and requires a confirmation dialog.
+- When MongoDB persistence is unavailable (`mongoConnected === false`), selection and bulk actions are disabled and the sidebar shows a warning that bulk actions are unavailable.
+- Bulk actions call `POST /conversations/bulk/archive|restore|delete` and surface success/failure via snackbars; selection is cleared after a successful bulk operation.
+- Layout: the sidebar is a responsive MUI `Drawer`.
+  - Desktop (`sm+`): `variant="persistent"`, open by default, fixed width (`320px`), and closing it lets the transcript column expand to full width.
+  - Mobile (`sm` and down): `variant="temporary"`, closed by default, and opening it overlays the chat (no horizontal push).
+  - The `Drawer` is keyed by breakpoint (`key={isMobile ? 'mobile' : 'desktop'}`) so switching variants forces a remount and avoids temporary drawers getting stuck closed after resizing.
+  - Drawer paper is vertically offset to align with the chat column top (including the persistence banner height when shown) so the Conversations panel doesn’t overlap the page header/banners.
 
 ### Chat page (streaming UI)
 
-- Message input and Send button feed into `useChatStream(model, provider)`, which POSTs to `/chat` and parses SSE frames (`token`, `final`, `error`, `thread`, `complete`) into a single assistant bubble per turn. Codex frames include a `thread`/`complete` payload with `threadId` so the hook can resume Codex threads without resending prior turns; LM Studio continues to use chat history replay.
+- Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.
+- Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
+- `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
+- Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.
+- `GET /conversations/:id/turns?includeInflight=true` additionally returns an `inflight` snapshot (when present) containing `{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }` for detailed tool/thinking hydration.
+- Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
+- The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
-- Thought process buffering is append-only: multiple `<think>`/Harmony analysis bursts are preserved even after final/tool frames, and the spinner only stops once the stream completes and pending tools finish.
+- Thought process buffering is append-only: multiple `<think>`/Harmony analysis bursts are preserved even after tool events, and the spinner only stops once `turn_final` arrives and pending tools finish.
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
-- Stream status chip: each assistant bubble shows a chip at the top—Processing (spinner), Complete (tick), or Failed (cross) driven by stream lifecycle events. Complete now triggers only after the `complete` SSE frame **and** when no tool calls remain pending (tool requests without a result keep the chip in Processing even if a `final` arrives early).
+- Stream status chip: each assistant bubble shows a chip at the top—Processing (spinner), Complete (tick), or Failed (cross) driven by stream lifecycle events. Complete now triggers only after `turn_final` **and** when no tool calls remain pending (tool requests without a result keep the chip in Processing even if assistant text arrives).
 - Thinking placeholder: when streaming is active and no tool results are pending, a “Thinking…” inline spinner appears only after 1s with no visible assistant text (including pre-token starts or mid-turn silent gaps); it hides immediately once visible text arrives or the stream completes/fails, and it stays off during tool-only waits if text is already visible.
-- **New conversation control:** button lives beside Send, stays enabled during streaming, calls `stop()` to abort the in-flight fetch, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately. Copy reinforces the empty state with “Transcript will appear here once you send a message.”
-- **Tool-call visibility:** `tool-request` events render an inline spinner + tool name inside the active assistant bubble; when `tool-result` arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
-- Tool completion synthesis: when LM Studio delivers tool payloads only via a `role: "tool"` final message (no `onToolCallResult`), the server synthesizes a `tool-result` SSE right after that message (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` on `complete`, and now clears any pending tool spinner as soon as assistant output resumes (token or final) after a tool call so ordering is preserved and the UI never waits for stream completion to stop spinners.
+- **New conversation control:** button lives beside Send, stays enabled while a run is active, clears all transcript state, keeps the current model selection, resets `status` to `idle`, and re-focuses the message field so the next prompt can be typed immediately.
+- **Tool-call visibility:** WebSocket `tool_event` updates render an inline spinner + tool name inside the active assistant bubble; when a matching tool completion arrives the spinner swaps for a collapsible block. VectorSearch payloads list repo/relPath, hostPath, and chunk text; other tool payloads fall back to JSON. Tool results stay structured (not markdown-rendered) and can be toggled open/closed per call.
+- Tool completion synthesis: when a provider delivers tool payloads without an explicit completion callback, the server synthesizes a matching completion `tool_event` (deduped if the real callback fires). The client also marks any lingering `requesting` tools as `done` after `turn_final`, and clears pending tool spinners as soon as assistant output resumes after a tool call so the UI never waits for a terminal event to stop spinners.
 
 ### Chat citations UI
 
-- `tool-result` frames from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
+- `tool_event` completions from LM Studio vector search tools are parsed client-side into citation objects containing repo, relPath, hostPath (when available), chunk text, and provenance ids.
 - Citations attach to the in-flight assistant bubble inside a default-closed “Citations” accordion; expanding reveals the `repo/relPath` + host path (when available). The path line ellipsizes within the bubble width for small screens.
 - Chunk text from the tool response is shown under the path inside the expanded panel to make grounding explicit without waiting for the model to quote it verbatim.
+- Transcript overflow guardrails: the chat column sets `minWidth: 0` (flexbox shrink fix) and citation/tool/markdown content uses token-breaking (`overflowWrap: 'anywhere'`) or internal scrolling (`pre { overflowX: auto }`) so long unbroken strings do not expand the layout horizontally.
 
 ### Chat tool detail UI
 
@@ -120,12 +230,12 @@ flowchart LR
 - ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
 - VectorSearch: renders an alphabetical, host-path-only file list. Each file shows highest match value, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
-- Tool-result delivery: if LM Studio omits `onToolCallResult`/`role:"tool"`, the server now synthesizes `tool-result` events from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
+- Tool-result delivery: if a provider omits explicit tool completion callbacks, the server synthesizes a completion `tool_event` from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
 ### Codex MCP flow
 
 - On the first Codex turn the server prefixes the prompt string with the shared `SYSTEM_CONTEXT` (from `common/src/systemContext.ts`) and runs Codex with `workingDirectory=/data` plus `skipGitRepoCheck:true` so untrusted mounts do not block execution.
-- Codex `mcp_tool_call` events are translated into SSE `tool-request`/`tool-result` frames carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
+- Codex `mcp_tool_call` events are translated into WebSocket `tool_event` updates carrying parameters and vector/repo payloads from the MCP server, letting the client render tool blocks and citations when Codex tools are available.
 - Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
 - Codex home selection:
   - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
@@ -170,6 +280,13 @@ flowchart LR
   - `run_agent_instruction`: `{ agentName: string, instruction: string, conversationId?: string, working_folder?: string }`.
   - `run_command`: `{ agentName: string, commandName: string, conversationId?: string, working_folder?: string }`.
 - All tools delegate to the shared agents service (`server/src/agents/service.ts`) so REST and MCP behaviors stay aligned.
+
+#### Transient reconnect handling
+
+- Codex can emit transient reconnect errors like `Reconnecting... 1/5`.
+- `McpResponder` treats messages matching `/^Reconnecting\.\.\.\s+\d+\/\d+$/` as non-fatal: it tracks/counts them for diagnostics but does not fail `toResult()`.
+- Agent command macros retry per step when the _step call_ fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
+- Retry logs include `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts` and avoid logging prompt content.
 
 ```mermaid
 flowchart LR
@@ -538,18 +655,20 @@ flowchart TD
 sequenceDiagram
   participant User
   participant ChatPage
-  participant Hook as useChatStream
+  participant Hook as useChatWs
   participant Server
 
   User->>ChatPage: type prompt, click Send
   ChatPage->>Hook: send(message, model)
-  Hook->>Server: POST /chat {model,messages}
-  Server-->>Hook: SSE token/final/error frames
+  Hook->>Server: POST /chat (202 started)
+  Hook->>Server: WS subscribe_conversation(conversationId)
+  Server-->>Hook: inflight_snapshot + assistant_delta/tool_event + turn_final
   Hook-->>ChatPage: update assistant bubble, status=sending
   alt error
     Hook-->>ChatPage: append error bubble, status=idle
   end
-  Hook-->>Server: abort() on unmount/stop
+  Hook-->>Server: unsubscribe_conversation() on unmount/switch
+  Hook-->>Server: cancel_inflight() on Stop
   ChatPage-->>User: shows newest-first bubbles near controls
 ```
 
@@ -800,62 +919,61 @@ sequenceDiagram
 - Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
 - Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
 
-## Chat streaming endpoint
+## Chat run + WebSocket streaming
 
-- `POST /chat` uses `LMSTUDIO_BASE_URL` to call `client.llm.model(model).act()` with the registered LM Studio tools (ListIngestedRepositories, VectorSearch) and `allowParallelToolExecution: false`. Before calling `act`, the server builds a LM Studio `Chat` history from the incoming messages so the model receives full context. The server streams `text/event-stream` frames: `token`, `tool-request`, `tool-result`, `final`, `complete`, or `error`, starting with a heartbeat from `chatStream.ts`.
-- If a streamed assistant message contains `<think>...</think>`, the client extracts the think content and renders it in a collapsible “Thought process” section within the assistant bubble; the main reply remains visible.
-- Payloads reuse the canonical fixtures in `@codeinfo2/common` (`chatRequestFixture`, `chatSseEventsFixture`, `chatErrorEventFixture`) for server Cucumber and client RTL coverage; bodies are capped by `LOG_MAX_CLIENT_BYTES`.
-- Logging: start/end/error and every tool lifecycle event are recorded to the log store + pino with only metadata (`type`, `callId`, `name`, model, base URL origin); tool arguments/results stay out of logs. Tool events stream to the client as metadata but are ignored by the transcript while still being logged (client logger + server log buffer that surfaces on the Logs page).
-- Cancellation: the route attaches an `AbortController` to the LM Studio `.act()` call and listens for `req` `close/aborted` events to invoke `controller.abort()`, call `ongoing.cancel?.()`, log `{ reason: "client_disconnect" }`, and end the SSE safely when the client drops.
-- UI states: `Responding...` helper shows while streaming; inline error bubble renders on `error` frames; send is disabled during streams; stop/new actions abort and keep the model selection; conversation state is in-memory only.
-- Model filtering: `/chat/models` maps LM Studio `listDownloadedModels` and filters out embeddings/vectors so only chat-capable LLMs appear in the dropdown; empty state copy reflects "No chat-capable models".
-- System context: `client/src/constants/systemContext.ts` holds an optional system prompt; `useChatStream` prepends it to payloads only when non-empty, keeping current behaviour unchanged until text is supplied.
+- `POST /chat` validates the request, ensures a conversation exists (or creates one), acquires the per-conversation run lock, creates an in-flight registry entry, and returns immediately with `202 { status:"started", conversationId, inflightId, provider, model }`.
+- The run continues in the background via `ChatInterface.run(...)` (LM Studio or Codex). Provider events are normalized and bridged into:
+  - in-flight buffers (for late subscribers),
+  - persisted turns (MongoDB when available), and
+  - WebSocket transcript events to any subscribed viewers.
+- Transcript streaming is WebSocket-only at `/ws`:
+  - Client sends `subscribe_conversation` (and `subscribe_sidebar`).
+  - Server broadcasts `user_turn` at run start (before persistence) so other tabs render immediately.
+  - Server responds with `inflight_snapshot` when a run is in progress, then streams `assistant_delta`/`analysis_delta`/`tool_event` (and optional `stream_warning`), and ends with `turn_final`.
+- Codex reasoning (`analysis_delta`) is append-only in the UI; when Codex emits multiple reasoning items or a non-prefix reset, the server treats it as a new reasoning block and prefixes the next `analysis_delta` with `\n\n` so the “Thought process” view shows all blocks without truncation.
+- Logging: run lifecycle (`chat.run.started`) and WS publish milestones (`chat.stream.*`) are recorded server-side; client forwards `chat.ws.client_*` entries into `/logs` for deterministic manual verification.
+- Cross-tab run hygiene: on WS `user_turn` when the incoming `inflightId` differs from the previous `inflightId` (and the current tab is not mid local-send), the client clears its active assistant pointer + in-memory assistant buffers so the next assistant response renders as a new bubble; it emits diagnostics via `chat.ws.client_user_turn` and `chat.ws.client_reset_assistant`.
+
+- Fixtures: `common/src/fixtures/chatStream.ts` contains both legacy SSE fixtures (for older harnesses) and WS-shaped fixtures used by Jest/Playwright mocks.
 
 ```mermaid
 sequenceDiagram
-  participant Client
+  participant UI as UI (tab A)
+  participant Viewer as UI (tab B)
   participant Server
-  participant LM as LM Studio
+  participant Provider as LM Studio/Codex
   participant Logs as Log store
-  Client->>Server: POST /chat {model,messages}
-  Server->>LM: model.act(messages, tools=[ListIngestedRepositories, VectorSearch])
-  LM-->>Server: predictionFragment(content)
-  Server-->>Client: SSE {type:"token", content}
-  LM-->>Server: toolCallRequest*/Result
-  Server-->>Logs: append chat tool event (metadata only)
-  Server-->>Client: SSE tool-request/result (metadata only)
-  LM-->>Server: message(final)
-  Server-->>Client: SSE {type:"final"} then {type:"complete"}
-  alt LM Studio error
-    Server-->>Client: SSE {type:"error", message}
+
+  UI->>Server: POST /chat (202 started)
+  Note over Server: acquire run lock + create inflight
+  Server->>Provider: ChatInterface.run(...)
+  Provider-->>Server: deltas/tool events/final
+  Server-->>Logs: append chat.run/chat.stream logs
+
+  Viewer->>Server: WS subscribe_conversation(conversationId)
+  alt Run already in progress
+    Server-->>Viewer: inflight_snapshot (catch-up)
   end
-    alt Client disconnects
-      Server->>LM: cancel prediction via AbortController/ongoing.cancel()
-      Server-->>Client: SSE stream ends without final/complete
-    end
+  Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
 ```
 
 ### Stop control
 
-- ChatPage shows a **Stop** button only while `status === "sending"`; it calls `stop({ showStatusBubble: true })` in `useChatStream`, which aborts the fetch `AbortController`, sets status back to `idle`, and appends a status bubble reading "Generation stopped" (responses may truncate).
-- Aborting bubbles through to the server via the closed HTTP stream, triggering the LM Studio `OngoingPrediction.cancel()` path described above and logging `{ reason: "client_disconnect" }`.
-- Send remains disabled while streaming; once stop fires, Send re-enables and focus returns to the message field for a follow-up prompt.
+- ChatPage shows a **Stop** button only while a run is in progress; it sends `cancel_inflight` over `/ws`.
+- Cancellation aborts the run via the in-flight AbortController; switching conversations/unmounting only unsubscribes from streaming and does not cancel server-side.
 
 ```mermaid
 sequenceDiagram
   participant User
-  participant Chat as ChatPage
-  participant Hook as useChatStream
+  participant UI as ChatPage
+  participant WS as useChatWs
   participant Server
-  participant LM as LM Studio
 
-  User->>Chat: click Stop
-  Chat->>Hook: stop(showStatusBubble=true)
-  Hook->>Hook: AbortController.abort()
-  Hook-->>Chat: status bubble "Generation stopped"; status=idle
-  Hook-->>Server: HTTP stream closes/aborts
-  Server->>LM: cancel ongoing prediction
-  Server-->>Server: log {reason:"client_disconnect"}
+  User->>UI: click Stop
+  UI->>WS: send cancel_inflight
+  WS-->>Server: { type:"cancel_inflight", conversationId, inflightId }
+  Note over Server: AbortController.abort(); publish turn_final(status:"stopped")
 ```
 
 ### Agent tooling (Chroma list + search)
@@ -874,7 +992,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  REST[REST: POST /chat (SSE)] --> Factory[getChatInterface(provider)]
+  REST[REST: POST /chat (202)] --> Factory[getChatInterface(provider)]
   MCP[MCP v2: tools/call codebase_question] --> Factory
   Factory --> Codex[ChatInterfaceCodex]
   Factory --> LM[ChatInterfaceLMStudio]
@@ -882,7 +1000,7 @@ flowchart TD
   LM --> Events
   Events --> Base[ChatInterface.run buffers + persists]
   Base --> Persist[(MongoDB or memoryPersistence)]
-  Base --> SSE[SSE frames to client]
+  Base --> WS[/ws transcript publish]
   Base --> Mcp[McpResponder -> segments JSON]
 ```
 
@@ -942,7 +1060,7 @@ sequenceDiagram
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
 - Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
-- Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks chat SSE with the returned chunk, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
+- Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
 - Dedicated e2e stack: `docker-compose.e2e.yml` runs client (6001), server (6010), and Chroma (8800) with an isolated `chroma-e2e-data` volume and a mounted fixture repo at `/fixtures`. Scripts `compose:e2e:*` wrap build/up/down. Ingest e2e specs (`e2e/ingest.spec.ts`) exercise happy path, cancel, re-embed, and remove; they auto-skip when LM Studio/models are unavailable.
@@ -980,7 +1098,7 @@ flowchart TD
 
 ### Server log APIs & streaming
 
-- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, and appends to the in-memory store.
+- `POST /logs` validates `LogEntry`, whitelists levels (`error|warn|info|debug`) and sources (`client|server`), enforces the 32KB payload cap from `LOG_MAX_CLIENT_BYTES`, redacts obvious secrets (`authorization`, `password`, `token`) in contexts, attaches the middleware `requestId`, appends to the in-memory store, and forwards client-originated entries into the pino log file as JSON with a `CLIENT_LOG` marker and `clientId` (lifted from `entry.context.clientId`).
 - `GET /logs` returns `{ items, lastSequence, hasMore }` sorted by sequence and filtered via `level`, `source`, `text`, `since`, `until` with a hard limit of 200 items per call.
 - `GET /logs/stream` keeps an SSE connection alive with `text/event-stream`, heartbeats every 15s (`:\n\n`), and replays missed entries when `Last-Event-ID` or `?sinceSequence=` is provided. SSE payloads carry `id: <sequence>` so clients can resume accurately.
 - Redaction + retention defaults: contexts strip obvious secrets; buffer defaults to 5000 entries; payload cap 32KB; file rotation daily unless `LOG_FILE_ROTATE=false`.
@@ -1005,7 +1123,7 @@ sequenceDiagram
 
 ### Client logging flow & hooks
 
-- `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
+- `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, a stable `clientId` (persisted to `localStorage` with an in-memory fallback), and a generated `correlationId`, tees to `console`, then forwards to the transport queue. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
 - `createLogger(source, routeProvider)` captures level/message/context, enriches with timestamp, route, user agent, and a generated `correlationId`, tees to `console`, then forwards to the transport queue. Chat tool events now use `source: client` with `context.channel = "client-chat"` so they satisfy the server schema while staying filterable for telemetry. `installGlobalErrorHooks` wires `window.onerror` and `unhandledrejection` with a 1s throttle to avoid noisy loops.
 - The transport queues entries, enforces `VITE_LOG_MAX_BYTES` (default 32768), batches up to 10, and POSTs to `${VITE_API_URL}/logs` unless forwarding is disabled (`VITE_LOG_FORWARD_ENABLED=false`), the app is offline, or `MODE === 'test'`. Failures back off with delays `[500, 1000, 2000, 4000]` ms before retrying.
 - Context should avoid PII; URLs with embedded credentials are redacted before logging. Forwarding can be opt-out via `.env.local` while keeping console output for local debugging.
@@ -1041,4 +1159,105 @@ flowchart LR
   S --> U
   B[Send sample log] --> L[createLogger -> POST /logs]
   L --> S
+```
+
+### Client WebSocket lifecycle (Chat + Agents)
+
+- Each browser tab mounts a single WebSocket connection while the page is active.
+- When persistence is available (`mongoConnected !== false`):
+  - Chat page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the visible transcript only.
+  - Agents page subscribes only to `subscribe_conversation(activeConversationId)` for the selected agent conversation.
+- Switching conversations sends `unsubscribe_conversation(old)` then `subscribe_conversation(new)`; **unsubscribing never cancels a run**.
+- Unmounting the page closes the socket after unsubscribing; **navigation never cancels a run**.
+- Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes **both** the sidebar snapshot and the active conversation turns snapshot via REST before resubscribing.
+- Focus/visibility behavior: when a tab becomes active again (`document.visibilityState === 'visible'` and/or `window.focus`), the client refreshes the same snapshots so missed sidebar/transcript updates are recovered without any cross-tab broadcast.
+- The server sends an `inflight_snapshot` after `subscribe_conversation` when a run is in progress so the client can catch up deterministically.
+
+```mermaid
+sequenceDiagram
+  participant UI as UI (single tab)
+  participant WS as WS (/ws)
+  participant REST as REST API
+
+  UI->>WS: connect GET /ws
+  WS-->>UI: open
+
+  UI->>WS: subscribe_sidebar
+  UI->>WS: subscribe_conversation(c1)
+  WS-->>UI: inflight_snapshot? (if run in flight)
+
+  alt Switch conversation
+    UI->>WS: unsubscribe_conversation(c1)
+    UI->>WS: subscribe_conversation(c2)
+    WS-->>UI: inflight_snapshot? (if run in flight)
+  end
+
+  alt Reconnect
+    WS-->>UI: close (network hiccup)
+    loop backoff (250ms → 2000ms max)
+      UI->>WS: reconnect GET /ws
+      WS-->>UI: open
+    end
+    UI->>REST: GET /conversations (snapshot refresh)
+    UI->>WS: resubscribe_sidebar + resubscribe_conversation
+    WS-->>UI: inflight_snapshot?
+  end
+
+  UI->>WS: close (unmount)
+```
+
+### Client streaming logs (WS observability)
+
+- The Chat UI emits explicit `chat.ws.client_*` log entries from the WebSocket hook so end-to-end streaming can be verified via the `/logs` store.
+- These logs follow the existing client log pipeline: `createLogger()` → batched `POST /logs` via the client transport.
+- Tests and manual checks assert behavior by querying `/logs` (or streaming `/logs/stream`) rather than relying on browser console output.
+
+Required log names and key fields:
+
+- `chat.ws.client_connect`
+- `chat.ws.client_disconnect`
+- `chat.ws.client_subscribe_conversation` (`conversationId`)
+- `chat.ws.client_snapshot_received` (`conversationId`, `inflightId`, `seq`)
+- `chat.ws.client_delta_received` (`conversationId`, `inflightId`, `seq`, `deltaCount`; throttled: first + every 25)
+- `chat.ws.client_tool_event_received` (`conversationId`, `inflightId`, `seq`, `toolEventCount`; emitted per tool event)
+- `chat.ws.client_final_received` (`conversationId`, `inflightId`, `seq`)
+
+- Targeted cross-tab overwrite investigation logs (avoid logging prompt content; log ids + sizes only):
+  - Client (source=client, query via `/logs`):
+    - `chat.client_send_begin` (`status`, `isStreaming`, `inflightId`, `activeAssistantMessageId`, `lastMessageStreamStatus`, `lastMessageContentLen`)
+    - `chat.client_send_after_reset` (`prevAssistantMessageId`, `nextAssistantMessageId`, `createdNewAssistant`)
+    - `chat.client_turn_final_sync` (`inflightId`, `assistantMessageId`, `assistantTextLen`, `streamStatus`)
+  - Server (source=server, query via `/logs`):
+    - `chat.ws.server_publish_user_turn` (`conversationId`, `inflightId`, `seq`, `contentLen`)
+    - `chat.ws.server_publish_assistant_delta` (`conversationId`, `inflightId`, `seq`, `deltaLen`)
+    - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
+
+Assistant bubble binding invariant (Task 30):
+
+- The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
+- The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
+- When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
+
+
+```mermaid
+sequenceDiagram
+  participant Chat as ChatPage/useChatWs
+  participant Client as Client logger/transport
+  participant Logs as Server /logs
+  participant Store as Server logStore
+  participant UI as Logs UI / e2e
+
+  Chat->>Client: emit chat.ws.client_* logs
+  Client->>Logs: POST /logs (batched LogEntry[])
+  Logs->>Store: append(redact + sequence)
+  Store-->>Logs: sequence
+  Logs-->>Client: 202 accepted
+
+  alt Assert via snapshot
+    UI->>Logs: GET /logs?text=chat.ws.client_
+    Logs-->>UI: { items, lastSequence }
+  else Assert via stream
+    UI->>Logs: GET /logs/stream (SSE)
+    Logs-->>UI: events (id = sequence)
+  end
 ```

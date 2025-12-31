@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const apiBase = process.env.E2E_API_URL ?? 'http://localhost:5010';
@@ -76,6 +77,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
 
   if (useMockChat) {
     let chatCalls = 0;
+    const mockWs = await installMockChatWs(page);
 
     await page.route('**/chat/providers', (route) =>
       route.fulfill({
@@ -128,31 +130,42 @@ test('Codex chat succeeds without trust error when working directory is handled'
       });
     });
 
-    await page.route('**/chat', (route) => {
+    await page.route('**/chat', async (route) => {
       if (route.request().method() !== 'POST') return route.continue();
       chatCalls += 1;
 
-      if (chatCalls === 1) {
-        const body = [
-          `data: ${JSON.stringify({ type: 'error', message: trustErrorText })}\n\n`,
-        ].join('');
-        return route.fulfill({
-          status: 200,
-          contentType: 'text/event-stream',
-          body,
-        });
-      }
+      const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const conversationId = String(payload.conversationId ?? 'c1');
+      const inflightId = String(payload.inflightId ?? `i-${chatCalls}`);
 
-      const body = [
-        'data: {"type":"thread","threadId":"mock-thread"}\n\n',
-        'data: {"type":"token","content":"Hello"}\n\n',
-        'data: {"type":"final","message":{"role":"assistant","content":"Hello from Codex"}}\n\n',
-        'data: {"type":"complete","threadId":"mock-thread"}\n\n',
-      ].join('');
-      return route.fulfill({
-        status: 200,
-        contentType: 'text/event-stream',
-        body,
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'started',
+          conversationId,
+          inflightId,
+          provider: payload.provider,
+          model: payload.model,
+        }),
+      });
+
+      await mockWs.waitForConversationSubscription(conversationId);
+      mockWs.sendInflightSnapshot({ conversationId, inflightId });
+
+      mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta: 'Hello from Codex',
+      });
+      mockWs.sendFinal({
+        conversationId,
+        inflightId,
+        status: 'ok',
+        threadId: 'mock-thread',
       });
     });
   } else {
@@ -198,15 +211,8 @@ test('Codex chat succeeds without trust error when working directory is handled'
   await send.click();
 
   if (useMockChat) {
-    await expect(errorBubble.first()).toContainText(trustErrorText, {
-      timeout: 20000,
-    });
-
-    await input.fill('Second Codex try');
-    await send.click();
-  }
-
-  if (useMockChat) {
+    // Mock path no longer emits the legacy trust error frame; it should go straight
+    // to a successful reply when the working directory is handled.
     await expect(assistantBubble.first()).toHaveText(/Hello from Codex/i, {
       timeout: 20000,
     });
@@ -214,9 +220,7 @@ test('Codex chat succeeds without trust error when working directory is handled'
     await expect(assistantBubble.first()).toHaveText(/.+/, { timeout: 20000 });
   }
 
-  await expect(errorBubble.filter({ hasText: trustErrorText })).toHaveCount(
-    useMockChat ? 1 : 0,
-  );
+  await expect(errorBubble.filter({ hasText: trustErrorText })).toHaveCount(0);
 
   await page.screenshot({
     path: 'test-results/screenshots/0000010-4-codex-trust.png',

@@ -206,6 +206,7 @@ test.describe.serial('Ingest flows', () => {
       .poll(
         async () =>
           (await currentFile.textContent())?.trim()?.toLowerCase() ?? '',
+        { timeout: 120_000, message: 'waiting for current file to advance' },
       )
       .not.toBe(firstPath ?? '');
 

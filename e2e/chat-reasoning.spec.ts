@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
@@ -7,106 +8,93 @@ const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
 test('collapses reasoning while streaming Harmony channels', async ({
   page,
 }) => {
-  await page.addInitScript(
-    ({ codexReason: injectedCodexReason }) => {
-      const encoder = new TextEncoder();
-      const streamEvents = [
-        {
-          delay: 0,
-          chunk:
-            'data: {"type":"token","content":"<|channel|>analysis<|message|>Need answer: Neil Armstrong."}\n\n',
-        },
-        {
-          delay: 1200,
-          chunk: 'data: {"type":"token","content":" Continue analysis."}\n\n',
-        },
-        {
-          delay: 2200,
-          chunk:
-            'data: {"type":"final","message":{"role":"assistant","content":"<|channel|>analysis<|message|>Need answer: Neil Armstrong.<|end|><|start|>assistant<|channel|>final<|message|>He was the first person on the Moon."}}\n\n',
-        },
-        { delay: 2300, chunk: 'data: {"type":"complete"}\n\n' },
-      ];
+  const mockWs = await installMockChatWs(page);
 
-      const originalFetch = window.fetch.bind(window);
-
-      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input.toString();
-
-        if (url.includes('/chat/providers')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                providers: [
-                  {
-                    id: 'lmstudio',
-                    label: 'LM Studio',
-                    available: true,
-                    toolsAvailable: true,
-                  },
-                  {
-                    id: 'codex',
-                    label: 'OpenAI Codex',
-                    available: false,
-                    toolsAvailable: false,
-                    reason: injectedCodexReason,
-                  },
-                ],
-              }),
-              {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-              },
-            ),
-          );
-        }
-
-        if (url.includes('/chat/models')) {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                provider: 'lmstudio',
-                available: true,
-                toolsAvailable: true,
-                models: [{ key: 'mock-chat', displayName: 'Mock Chat Model' }],
-              }),
-              {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-              },
-            ),
-          );
-        }
-
-        if (url.endsWith('/chat')) {
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              streamEvents.forEach(({ chunk, delay }) =>
-                setTimeout(
-                  () => controller.enqueue(encoder.encode(chunk)),
-                  delay,
-                ),
-              );
-              const lastDelay = Math.max(
-                ...streamEvents.map((evt) => evt.delay),
-              );
-              setTimeout(() => controller.close(), lastDelay + 50);
-            },
-          });
-
-          return Promise.resolve(
-            new Response(stream, {
-              status: 200,
-              headers: { 'Content-Type': 'text/event-stream' },
-            }),
-          );
-        }
-
-        return originalFetch(input, init);
-      };
-    },
-    { codexReason },
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
+        ],
+      }),
+    }),
   );
+
+  await page.route('**/chat/models', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [{ key: 'mock-chat', displayName: 'Mock Chat Model' }],
+      }),
+    }),
+  );
+
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    setTimeout(() => {
+      mockWs.sendAnalysisDelta({
+        conversationId,
+        inflightId,
+        delta: 'Need answer: Neil Armstrong.',
+      });
+    }, 0);
+    setTimeout(() => {
+      mockWs.sendAnalysisDelta({
+        conversationId,
+        inflightId,
+        delta: ' Continue analysis.',
+      });
+    }, 1200);
+    setTimeout(() => {
+      mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta: 'He was the first person on the Moon.',
+      });
+    }, 2200);
+    setTimeout(() => {
+      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    }, 2300);
+  });
 
   await page.goto(`${baseUrl}/chat`);
 

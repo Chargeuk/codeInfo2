@@ -14,7 +14,7 @@ services:
     networks:
       - internal_docker
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/heartbeat']
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v2/heartbeat']
       interval: 5s
       timeout: 3s
       retries: 10

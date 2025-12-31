@@ -22,6 +22,7 @@ export type ChatRequestBody = {
   messages?: unknown;
   provider?: unknown;
   threadId?: unknown;
+  inflightId?: unknown;
   sandboxMode?: unknown;
   networkAccessEnabled?: unknown;
   webSearchEnabled?: unknown;
@@ -35,6 +36,7 @@ export type ValidatedChatRequest = {
   conversationId: string;
   provider: Provider;
   threadId?: string;
+  inflightId?: string;
   codexFlags: {
     sandboxMode?: SandboxMode;
     networkAccessEnabled?: boolean;
@@ -121,6 +123,15 @@ export function validateChatRequest(
     typeof body.threadId === 'string' && body.threadId.length > 0
       ? body.threadId
       : undefined;
+
+  const inflightId =
+    typeof body.inflightId === 'string' && body.inflightId.length > 0
+      ? body.inflightId
+      : undefined;
+
+  if (body.inflightId !== undefined && inflightId === undefined) {
+    throw new ChatValidationError('inflightId must be a non-empty string');
+  }
 
   const codexFlags: ValidatedChatRequest['codexFlags'] = {};
 
@@ -232,6 +243,7 @@ export function validateChatRequest(
     conversationId,
     provider,
     threadId,
+    inflightId,
     codexFlags,
     warnings,
   };

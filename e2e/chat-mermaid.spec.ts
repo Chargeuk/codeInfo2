@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const codexReason = 'Missing auth.json in ./codex and config.toml in ./codex';
@@ -17,17 +18,9 @@ const mermaidMessage = [
   '```',
 ].join('\n');
 
-const mermaidEvents = [
-  { type: 'token', content: 'Rendering diagram', roundIndex: 0 },
-  {
-    type: 'final',
-    message: { role: 'assistant', content: mermaidMessage },
-    roundIndex: 0,
-  },
-  { type: 'complete' },
-];
-
 test('renders mermaid diagrams safely', async ({ page }) => {
+  const mockWs = await installMockChatWs(page);
+
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
       status: 200,
@@ -82,16 +75,31 @@ test('renders mermaid diagrams safely', async ({ page }) => {
     });
   });
 
-  await page.route('**/chat', (route) => {
+  await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
-    const body = mermaidEvents
-      .map((event) => `data: ${JSON.stringify(event)}\n\n`)
-      .join('');
-    return route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body,
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
     });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    mockWs.sendAssistantDelta({ conversationId, inflightId, delta: mermaidMessage });
+    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
   });
 
   await page.goto(`${baseUrl}/chat`);

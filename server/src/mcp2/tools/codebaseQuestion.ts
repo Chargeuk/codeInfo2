@@ -1,19 +1,27 @@
+import crypto from 'node:crypto';
+
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
+import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
 } from '../../chat/factory.js';
+import {
+  cleanupInflight,
+  createInflight,
+  getInflight,
+} from '../../chat/inflightRegistry.js';
 import type {
   ChatAnalysisEvent,
   ChatCompleteEvent,
   ChatFinalEvent,
+  ChatInterface,
   ChatThreadEvent,
   ChatToolResultEvent,
-  ChatInterface,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { ConversationModel } from '../../mongo/conversation.js';
@@ -223,6 +231,8 @@ export async function runCodebaseQuestion(
     conversationId ??
     `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
+  const inflightId = crypto.randomUUID();
+
   await ensureConversation(
     resolvedConversationId,
     provider,
@@ -236,37 +246,62 @@ export async function runCodebaseQuestion(
     provider === 'codex' ? { ...threadOpts } : undefined,
   );
 
-  if (provider === 'codex') {
-    await chat.run(
-      question,
-      {
-        provider,
-        threadId: conversationId,
-        codexFlags: threadOpts,
-        source: 'MCP',
-      },
-      resolvedConversationId,
-      threadOpts.model ?? 'gpt-5.1-codex-max',
-    );
-  } else {
-    const lmstudioModel =
-      requestedModel ??
-      process.env.MCP_LMSTUDIO_MODEL ??
-      process.env.LMSTUDIO_DEFAULT_MODEL ??
-      'gpt-3.1';
-    const baseUrl =
-      process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+  createInflight({ conversationId: resolvedConversationId, inflightId });
+  const bridge = attachChatStreamBridge({
+    conversationId: resolvedConversationId,
+    inflightId,
+    provider,
+    model:
+      provider === 'codex'
+        ? (threadOpts.model ?? 'gpt-5.1-codex-max')
+        : (requestedModel ??
+          process.env.MCP_LMSTUDIO_MODEL ??
+          process.env.LMSTUDIO_DEFAULT_MODEL ??
+          'gpt-3.1'),
+    chat,
+  });
 
-    await chat.run(
-      question,
-      {
-        provider,
-        baseUrl,
-        source: 'MCP',
-      },
-      resolvedConversationId,
-      lmstudioModel,
-    );
+  try {
+    if (provider === 'codex') {
+      await chat.run(
+        question,
+        {
+          provider,
+          threadId: conversationId,
+          codexFlags: threadOpts,
+          signal: getInflight(resolvedConversationId)?.abortController.signal,
+          source: 'MCP',
+        },
+        resolvedConversationId,
+        threadOpts.model ?? 'gpt-5.1-codex-max',
+      );
+    } else {
+      const lmstudioModel =
+        requestedModel ??
+        process.env.MCP_LMSTUDIO_MODEL ??
+        process.env.LMSTUDIO_DEFAULT_MODEL ??
+        'gpt-3.1';
+      const baseUrl =
+        process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+
+      await chat.run(
+        question,
+        {
+          provider,
+          baseUrl,
+          signal: getInflight(resolvedConversationId)?.abortController.signal,
+          source: 'MCP',
+        },
+        resolvedConversationId,
+        lmstudioModel,
+      );
+    }
+  } finally {
+    bridge.cleanup();
+    const leftover = getInflight(resolvedConversationId);
+    if (leftover && leftover.inflightId === inflightId) {
+      cleanupInflight({ conversationId: resolvedConversationId, inflightId });
+    }
   }
 
   const payload: CodebaseQuestionResult = responder.toResult(

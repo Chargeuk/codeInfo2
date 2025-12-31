@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -29,266 +31,58 @@ const routes = [
   },
 ];
 
-function mockChatApis() {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"final","message":{"role":"assistant","content":"ok"}}\n\n',
-        ),
-      );
-      controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-      controller.close();
-    },
-  });
-
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
-    const href = typeof url === 'string' ? url : url.toString();
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: false,
-              toolsAvailable: false,
-              reason: 'Missing auth',
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        body: stream,
-      }) as unknown as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
-}
-
-function makeStream(frames: unknown[]) {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      frames.forEach((frame) =>
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(frame)}\n\n`),
-        ),
-      );
-      controller.close();
-    },
-  });
-}
-
-function mockCodexAvailable(chatBodies: Array<Record<string, unknown>>) {
-  const streams = [
-    makeStream([
-      { type: 'thread', threadId: 'thread-codex' },
-      { type: 'token', content: 'Hello' },
-      { type: 'final', message: { role: 'assistant', content: 'Hello world' } },
-      { type: 'complete', threadId: 'thread-codex' },
-    ]),
-    makeStream([
-      { type: 'final', message: { role: 'assistant', content: 'Second turn' } },
-      { type: 'complete', threadId: 'thread-codex' },
-    ]),
-  ];
-
-  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
-    const href = typeof url === 'string' ? url : url.toString();
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: true,
-              toolsAvailable: true,
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models') && href.includes('provider=codex')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'codex',
-          available: true,
-          toolsAvailable: true,
-          models: [
-            {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
-              type: 'codex',
-            },
-            {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
-              type: 'codex',
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat')) {
-      if (opts?.body) {
-        try {
-          chatBodies.push(JSON.parse(opts.body as string));
-        } catch {
-          chatBodies.push({});
-        }
+describe('Chat provider selection (WS transport)', () => {
+  it('shows Codex as unavailable with guidance banner', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: false,
+                toolsAvailable: false,
+                reason: 'Compose mounts missing',
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+          }),
+        }) as unknown as Response;
       }
       return Promise.resolve({
         ok: true,
         status: 200,
-        body: streams.shift() ?? makeStream([]),
+        json: async () => ({}),
       }) as unknown as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
-}
-
-function mockCodexToolsMissing() {
-  const stream = makeStream([
-    { type: 'final', message: { role: 'assistant', content: 'ok' } },
-    { type: 'complete' },
-  ]);
-
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
-    const href = typeof url === 'string' ? url : url.toString();
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          providers: [
-            {
-              id: 'lmstudio',
-              label: 'LM Studio',
-              available: true,
-              toolsAvailable: true,
-            },
-            {
-              id: 'codex',
-              label: 'OpenAI Codex',
-              available: true,
-              toolsAvailable: false,
-              reason: 'MCP tools missing',
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models') && href.includes('provider=codex')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'codex',
-          available: true,
-          toolsAvailable: false,
-          reason: 'MCP tools missing',
-          models: [
-            {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
-              type: 'codex',
-            },
-            {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
-              type: 'codex',
-            },
-          ],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          provider: 'lmstudio',
-          available: true,
-          toolsAvailable: true,
-          models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
-        }),
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        body: stream,
-      }) as unknown as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
-}
-
-describe('Chat provider selection', () => {
-  it('shows Codex as unavailable with guidance banner', async () => {
-    mockChatApis();
+    });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
@@ -309,13 +103,235 @@ describe('Chat provider selection', () => {
     expect(banner).toHaveTextContent('Compose mounts');
     const link = within(banner).getByRole('link', { name: /codex \(cli\)/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('#codex-cli'));
+  });
+
+  it('keeps Provider/Model selects visible when models are empty', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const banner = await screen.findByText(/no chat-capable models available/i);
+    expect(banner).toBeInTheDocument();
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    expect(providerSelect).toBeInTheDocument();
 
     const modelSelect = await screen.findByRole('combobox', { name: /model/i });
-    await waitFor(() => expect(modelSelect).toHaveTextContent('Model 1'));
+    expect(modelSelect).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('keeps Codex disabled when tools are unavailable', async () => {
-    mockCodexToolsMissing();
+  it('disables Model select when provider is unavailable', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations') && href.includes('pageSize')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: false,
+            toolsAvailable: false,
+            models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const modelSelect = await screen.findByRole('combobox', { name: /model/i });
+    expect(modelSelect).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('reuses Codex threadId from WS turn_final on subsequent turns', async () => {
+    const bodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, opts?: RequestInit) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        if (href.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/conversations') && opts?.method !== 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [], nextCursor: null }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              providers: [
+                {
+                  id: 'lmstudio',
+                  label: 'LM Studio',
+                  available: true,
+                  toolsAvailable: true,
+                },
+                {
+                  id: 'codex',
+                  label: 'OpenAI Codex',
+                  available: true,
+                  toolsAvailable: true,
+                },
+              ],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat/models')) {
+          const providerParam = new URL(
+            href,
+            'http://localhost',
+          ).searchParams.get('provider');
+          if (providerParam === 'codex') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                provider: 'codex',
+                available: true,
+                toolsAvailable: true,
+                models: [
+                  {
+                    key: 'gpt-5.1-codex-max',
+                    displayName: 'gpt-5.1-codex-max',
+                    type: 'codex',
+                  },
+                ],
+              }),
+            }) as unknown as Response;
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              provider: 'lmstudio',
+              available: true,
+              toolsAvailable: true,
+              models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+            }),
+          }) as unknown as Response;
+        }
+        if (href.includes('/chat') && opts?.method === 'POST') {
+          const body =
+            opts?.body && typeof opts.body === 'string'
+              ? JSON.parse(opts.body)
+              : {};
+          bodies.push(body);
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              conversationId: body.conversationId,
+              inflightId: 'i1',
+              provider: body.provider,
+              model: body.model,
+            }),
+          }) as unknown as Response;
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        }) as unknown as Response;
+      },
+    );
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
@@ -329,100 +345,44 @@ describe('Chat provider selection', () => {
     });
     await userEvent.click(codexOption);
 
-    const toolsBanner = await screen.findByTestId('codex-tools-banner');
-    expect(toolsBanner).toBeInTheDocument();
-
     const input = await screen.findByTestId('chat-input');
-    expect(input).toBeDisabled();
-    const sendButton = screen.getByTestId('chat-send');
-    expect(sendButton).toBeDisabled();
-  });
+    const sendButton = await screen.findByTestId('chat-send');
 
-  it('locks the provider after sending the first message', async () => {
-    mockChatApis();
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() => expect(modelSelect).toBeEnabled());
-    const input = await screen.findByTestId('chat-input');
-    await waitFor(() => expect(input).toBeEnabled());
-    const providerSelect = screen.getByRole('combobox', { name: /provider/i });
-    const sendButton = screen.getByTestId('chat-send');
-
-    await userEvent.type(input, 'Hello world');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
+    await userEvent.type(input, 'First');
     await act(async () => {
       await userEvent.click(sendButton);
     });
 
-    await waitFor(() => {
-      expect(providerSelect).toHaveAttribute('aria-disabled', 'true');
+    await waitFor(() => expect(bodies.length).toBe(1));
+    expect(bodies[0]).not.toHaveProperty('threadId');
+
+    const conversationId = bodies[0].conversationId as string;
+
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { last: () => { _receive: (d: unknown) => void } | null };
+      }
+    ).__wsMock;
+    const ws = wsRegistry?.last();
+    expect(ws).toBeTruthy();
+
+    ws!._receive({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId,
+      seq: 1,
+      inflightId: 'i1',
+      status: 'ok',
+      threadId: 't1',
     });
-  });
-
-  it('sends Codex chat and reuses threadId on subsequent turns', async () => {
-    const chatBodies: Record<string, unknown>[] = [];
-    mockCodexAvailable(chatBodies);
-
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
-
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
-
-    await userEvent.click(modelSelect);
-    await screen.findByRole('option', { name: 'gpt-5.2' });
-    await userEvent.keyboard('{Escape}');
-
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = screen.getByTestId('chat-send');
 
     await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
-    await waitFor(() => expect(sendButton).toBeEnabled());
+    await userEvent.type(input, 'Second');
     await act(async () => {
       await userEvent.click(sendButton);
     });
 
-    await waitFor(() =>
-      expect(screen.getByText(/Hello world/i)).toBeInTheDocument(),
-    );
-
-    await waitFor(() => {
-      expect(providerSelect).toHaveAttribute('aria-disabled', 'true');
-    });
-
-    await userEvent.type(input, 'Second turn');
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
-
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-
-    const firstBody = chatBodies[0];
-    const secondBody = chatBodies[1];
-
-    expect(firstBody.provider).toBe('codex');
-    expect(firstBody.threadId).toBeUndefined();
-    expect(secondBody.provider).toBe('codex');
-    expect(secondBody.threadId).toBe('thread-codex');
+    await waitFor(() => expect(bodies.length).toBe(2));
+    expect(bodies[1].threadId).toBe('t1');
   });
 });

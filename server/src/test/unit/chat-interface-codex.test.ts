@@ -29,6 +29,7 @@ class TestChatInterfaceCodex extends ChatInterfaceCodex {
   protected override async loadHistory(): Promise<TurnSummary[]> {
     return [
       {
+        turnId: 't1',
         conversationId: 'conv-1',
         role: 'user',
         content: 'prev',
@@ -42,8 +43,9 @@ class TestChatInterfaceCodex extends ChatInterfaceCodex {
     ];
   }
 
-  protected override async persistTurn(): Promise<void> {
+  protected override async persistTurn(): Promise<{ turnId?: string }> {
     // no-op for unit isolation
+    return {};
   }
 }
 

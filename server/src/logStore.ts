@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { LogEntry, LogLevel } from '@codeinfo2/common';
-import { resolveLogConfig } from './logger.js';
+import { baseLogger, resolveLogConfig } from './logger.js';
 
 export type Filters = {
   level?: LogLevel[];
@@ -44,7 +44,39 @@ export function append(entry: LogEntry): LogEntry {
   const enriched = { ...entry, sequence: ++sequence };
   store.push(enriched);
   if (store.length > maxEntries) store.shift();
-  // TODO: forward appended logs to baseLogger destination when file wiring is added.
+
+  if (enriched.source === 'client') {
+    const ctx = enriched.context ?? {};
+    const clientId =
+      typeof ctx.clientId === 'string' && ctx.clientId.trim()
+        ? ctx.clientId
+        : undefined;
+    const payload = {
+      source: enriched.source,
+      clientId,
+      sequence: enriched.sequence,
+      entryLevel: enriched.level,
+      message: enriched.message,
+      timestamp: enriched.timestamp,
+      requestId: enriched.requestId,
+      correlationId: enriched.correlationId,
+      route: enriched.route,
+      userAgent: enriched.userAgent,
+      tags: enriched.tags,
+      context: ctx,
+    };
+
+    if (enriched.level === 'error') {
+      baseLogger.error(payload, 'CLIENT_LOG');
+    } else if (enriched.level === 'warn') {
+      baseLogger.warn(payload, 'CLIENT_LOG');
+    } else if (enriched.level === 'debug') {
+      baseLogger.debug(payload, 'CLIENT_LOG');
+    } else {
+      baseLogger.info(payload, 'CLIENT_LOG');
+    }
+  }
+
   emitter.emit('append', enriched);
   return enriched;
 }

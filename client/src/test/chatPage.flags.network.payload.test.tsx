@@ -1,8 +1,8 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -12,6 +12,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -29,25 +32,23 @@ const routes = [
   },
 ];
 
-function makeStream(content: string) {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const encoder = new TextEncoder();
-      controller.enqueue(
-        encoder.encode(
-          `data: {"type":"final","message":{"role":"assistant","content":"${content}"}}\n\n`,
-        ),
-      );
-      controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-      controller.close();
-    },
-  });
-}
-
 function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
-  const streams = [makeStream('lm'), makeStream('codex')];
   mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
     const href = typeof url === 'string' ? url : url.toString();
+    if (href.includes('/health')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ mongoConnected: true }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/conversations') && opts?.method !== 'POST') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [], nextCursor: null }),
+      }) as unknown as Response;
+    }
     if (href.includes('/chat/providers')) {
       return Promise.resolve({
         ok: true,
@@ -105,7 +106,7 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
         }),
       }) as unknown as Response;
     }
-    if (href.includes('/chat')) {
+    if (href.includes('/chat') && opts?.method === 'POST') {
       if (opts?.body) {
         try {
           chatBodies.push(JSON.parse(opts.body as string));
@@ -113,10 +114,18 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
           chatBodies.push({});
         }
       }
+
+      const body = chatBodies.at(-1) ?? {};
       return Promise.resolve({
         ok: true,
-        status: 200,
-        body: streams.shift() ?? makeStream(''),
+        status: 202,
+        json: async () => ({
+          status: 'started',
+          conversationId: body.conversationId,
+          inflightId: 'i1',
+          provider: body.provider,
+          model: body.model,
+        }),
       }) as unknown as Response;
     }
     return Promise.resolve({
@@ -167,6 +176,8 @@ describe('Codex network access flag payloads', () => {
     });
     await userEvent.click(codexOption);
 
+    await ensureCodexFlagsPanelExpanded();
+
     const networkSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(networkSwitch).toBeChecked());
     await userEvent.click(networkSwitch); // disable network
@@ -193,6 +204,8 @@ describe('Codex network access flag payloads', () => {
     await act(async () => {
       await userEvent.click(newConversationButton);
     });
+
+    await ensureCodexFlagsPanelExpanded();
     const resetSwitch = await screen.findByTestId('network-access-switch');
     await waitFor(() => expect(resetSwitch).toBeChecked());
   });

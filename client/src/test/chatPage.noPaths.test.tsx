@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import {
   act,
@@ -9,11 +8,15 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn();
 
 afterEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 beforeAll(() => {
@@ -35,70 +38,30 @@ const routes = [
   },
 ];
 
-const providerPayload = {
-  providers: [
-    {
-      id: 'lmstudio',
-      label: 'LM Studio',
-      available: true,
-      toolsAvailable: true,
-    },
-  ],
-};
-
-const modelPayload = {
-  provider: 'lmstudio',
-  available: true,
-  toolsAvailable: true,
-  models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
-};
-
-const streamFrames = [
-  'data: {"type":"tool-result","callId":"c1","result":{"results":[{"repo":"repo","relPath":"docs/main.txt","chunk":"fixture chunk"}],"modelId":"text-embedding-qwen3-embedding-4b"}}\n\n',
-  'data: {"type":"final","message":{"content":"Here is what I found","role":"assistant"}}\n\n',
-  'data: {"type":"complete"}\n\n',
-];
-
-function streamFromFrames(frames: string[]) {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
-      controller.close();
-    },
-  });
-}
-
 describe('Chat citations without host paths', () => {
   it('shows citation without hostPath and renders chunk', async () => {
-    mockFetch.mockImplementation((url: RequestInfo | URL) => {
-      const href = typeof url === 'string' ? url : url.toString();
-      if (href.includes('/chat/providers')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => providerPayload,
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat/models')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => modelPayload,
-        }) as unknown as Response;
-      }
-      if (href.includes('/chat')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          body: streamFromFrames(streamFrames),
-        }) as unknown as Response;
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      }) as unknown as Response;
+    const providerPayload = {
+      providers: [
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+    };
+
+    const modelPayload = {
+      provider: 'lmstudio',
+      available: true,
+      toolsAvailable: true,
+      models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+    };
+
+    const harness = setupChatWsHarness({
+      mockFetch,
+      providers: providerPayload,
+      models: modelPayload,
     });
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -116,6 +79,45 @@ describe('Chat citations without host paths', () => {
 
     await act(async () => {
       await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
+    harness.emitToolEvent({
+      conversationId: conversationId!,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: 'c1',
+        result: {
+          results: [
+            {
+              repo: 'repo',
+              relPath: 'docs/main.txt',
+              chunk: 'fixture chunk',
+            },
+          ],
+          modelId: 'text-embedding-qwen3-embedding-4b',
+        },
+      },
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Here is what I found',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
     });
 
     expect(

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test, { afterEach, beforeEach, mock } from 'node:test';
 import { type LMStudioClient } from '@lmstudio/sdk';
 import { ChromaClient } from 'chromadb';
@@ -10,6 +11,13 @@ import {
   setLmClientResolver,
 } from '../../ingest/chromaClient.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 const ORIGINAL_BASE_URL = process.env.LMSTUDIO_BASE_URL;
 
@@ -123,6 +131,20 @@ function buildChatApp(clientFactory: () => LMStudioClient) {
   return app;
 }
 
+async function startChatServer(clientFactory: () => LMStudioClient) {
+  const app = buildChatApp(clientFactory);
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  return {
+    httpServer,
+    wsHandle,
+    baseUrl: `http://127.0.0.1:${address.port}`,
+  };
+}
+
 function toolContext() {
   return {
     status: () => undefined,
@@ -150,11 +172,11 @@ afterEach(() => {
   }
 });
 
-test('chat SSE surfaces INGEST_REQUIRED when no locked model exists', async () => {
+test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async () => {
   setupChromaMock(null);
   const embedCalls = setupLmStudioEmbedMock();
 
-  const app = buildChatApp(
+  const server = await startChatServer(
     () =>
       ({
         llm: {
@@ -192,28 +214,71 @@ test('chat SSE surfaces INGEST_REQUIRED when no locked model exists', async () =
       }) as unknown as LMStudioClient,
   );
 
-  const res = await request(app).post('/chat').send({
-    model: 'm',
-    conversationId: 'conv-vectorsearch-locked',
-    message: 'hello',
-  });
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: 'conv-vectorsearch-locked',
+    });
 
-  const errorEvents = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')))
-    .filter((evt) => evt.type === 'error');
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        model: 'm',
+        conversationId: 'conv-vectorsearch-locked',
+        message: 'hello',
+      })
+      .expect(202);
 
-  assert.ok(errorEvents.length >= 1, 'expected at least one error event');
-  assert.match(errorEvents[0].message, /INGEST_REQUIRED/i);
-  assert.equal(embedCalls.length, 0);
+    const inflightId = res.body.inflightId as string;
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.conversationId, 'conv-vectorsearch-locked');
+    assert.equal(typeof inflightId, 'string');
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        status: string;
+        error?: { message?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          status?: string;
+          error?: { message?: string };
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === 'conv-vectorsearch-locked' &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    assert.equal(final.status, 'failed');
+    assert.match(String(final.error?.message ?? ''), /INGEST_REQUIRED/i);
+    assert.equal(embedCalls.length, 0);
+  } finally {
+    await closeWs(ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+  }
 });
 
 test('chat VectorSearch uses locked embedding model and streams tool-result', async () => {
   const embedCalls = setupLmStudioEmbedMock();
   setupChromaMock('embed-model');
 
-  const app = buildChatApp(
+  const server = await startChatServer(
     () =>
       ({
         llm: {
@@ -267,28 +332,92 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
       }) as unknown as LMStudioClient,
   );
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'm',
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, {
+      type: 'subscribe_conversation',
       conversationId: 'conv-vectorsearch-locked-2',
-      message: 'hello',
-    })
-    .expect(200);
+    });
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({
+        model: 'm',
+        conversationId: 'conv-vectorsearch-locked-2',
+        message: 'hello',
+      })
+      .expect(202);
 
-  const toolResult = events.find((evt) => evt.type === 'tool-result');
-  assert.ok(toolResult, 'expected tool-result event');
-  assert.equal(toolResult.result.modelId, 'embed-model');
-  assert.equal(
-    toolResult.result.results[0].hostPath,
-    '/host/base/repo-one/docs/readme.md',
-  );
+    const inflightId = res.body.inflightId as string;
+    assert.equal(res.body.status, 'started');
 
-  const modelCalls = embedCalls.filter((c) => c.text === undefined);
-  assert.ok(modelCalls.some((c) => c.model === 'embed-model'));
+    const toolResult = await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        event: { type: string; result?: unknown };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          event?: { type?: string };
+        };
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === 'conv-vectorsearch-locked-2' &&
+          e.inflightId === inflightId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    const payload = toolResult.event.result as {
+      modelId?: string;
+      results?: Array<{ hostPath?: string }>;
+    };
+
+    assert.equal(payload.modelId, 'embed-model');
+    assert.equal(
+      payload.results?.[0]?.hostPath,
+      '/host/base/repo-one/docs/readme.md',
+    );
+
+    const modelCalls = embedCalls.filter((c) => c.text === undefined);
+    assert.ok(modelCalls.some((c) => c.model === 'embed-model'));
+
+    await waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === 'conv-vectorsearch-locked-2' &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+  } finally {
+    await closeWs(ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+  }
 });

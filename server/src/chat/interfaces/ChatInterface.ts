@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { isTransientReconnect } from '../../agents/transientReconnect.js';
 import {
   appendTurn,
   listTurns,
@@ -12,6 +13,7 @@ import type {
   TurnSource,
   TurnStatus,
 } from '../../mongo/turn.js';
+import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
   recordMemoryTurn,
   shouldUseMemoryPersistence,
@@ -116,6 +118,10 @@ export abstract class ChatInterface extends EventEmitter {
     conversationId: string,
     model: string,
   ): Promise<void> {
+    const inflightId =
+      typeof (flags as { inflightId?: unknown })?.inflightId === 'string'
+        ? ((flags as { inflightId?: string }).inflightId as string)
+        : undefined;
     const source = ((flags ?? {}) as { source?: TurnSource }).source ?? 'REST';
     const provider =
       ((flags ?? {}) as { provider?: string }).provider ?? 'unknown';
@@ -128,6 +134,9 @@ export abstract class ChatInterface extends EventEmitter {
     const createdAt = new Date();
     const userStatus: TurnStatus = 'ok';
 
+    let userPersisted = false;
+    let assistantPersisted = false;
+
     const tokenBuffer: string[] = [];
     let finalContent = '';
     const toolResults = new Map<string, ChatToolResultEvent>();
@@ -139,6 +148,7 @@ export abstract class ChatInterface extends EventEmitter {
 
     const deriveStatusFromError = (msg: string | undefined) => {
       if (status !== 'ok') return;
+      if (isTransientReconnect(msg)) return;
       const text = (msg ?? '').toLowerCase();
       if (text.includes('abort') || text.includes('stop')) {
         status = 'stopped';
@@ -160,6 +170,9 @@ export abstract class ChatInterface extends EventEmitter {
     };
 
     const onError: Listener<'error'> = (event) => {
+      if (isTransientReconnect(event.message)) {
+        return;
+      }
       lastErrorMessage = event.message;
       deriveStatusFromError(event.message);
     };
@@ -196,8 +209,12 @@ export abstract class ChatInterface extends EventEmitter {
           status: userStatus,
           createdAt,
         } as Turn);
+        userPersisted = true;
+        if (inflightId) {
+          markInflightPersisted({ conversationId, inflightId, role: 'user' });
+        }
       } else {
-        await this.persistTurn({
+        const persisted = await this.persistTurn({
           conversationId,
           role: 'user',
           content: message,
@@ -209,7 +226,18 @@ export abstract class ChatInterface extends EventEmitter {
           status: userStatus,
           createdAt,
         });
+        userPersisted = true;
+        if (inflightId) {
+          markInflightPersisted({
+            conversationId,
+            inflightId,
+            role: 'user',
+            turnId: persisted.turnId,
+          });
+        }
       }
+    } else {
+      userPersisted = true;
     }
 
     try {
@@ -243,7 +271,7 @@ export abstract class ChatInterface extends EventEmitter {
           (status === 'stopped' ? 'Stopped' : 'Request failed');
       }
 
-      await this.persistAssistantTurn({
+      const persistedAssistantTurnId = await this.persistAssistantTurn({
         conversationId,
         content,
         model,
@@ -254,6 +282,20 @@ export abstract class ChatInterface extends EventEmitter {
         toolCalls,
         skipPersistence,
       });
+
+      assistantPersisted = true;
+      if (inflightId) {
+        markInflightPersisted({
+          conversationId,
+          inflightId,
+          role: 'assistant',
+          turnId: persistedAssistantTurnId,
+        });
+      }
+
+      if (inflightId && userPersisted && assistantPersisted) {
+        cleanupInflight({ conversationId, inflightId });
+      }
     }
 
     if (executionError) {
@@ -279,12 +321,18 @@ export abstract class ChatInterface extends EventEmitter {
 
   protected async persistTurn(
     input: AppendTurnInput & { source?: TurnSource },
-  ): Promise<void> {
+  ): Promise<{ turnId?: string }> {
     const turn = await appendTurn(input);
     await updateConversationMeta({
       conversationId: input.conversationId,
       lastMessageAt: turn.createdAt,
     });
+
+    const turnId =
+      turn && typeof turn === 'object' && '_id' in (turn as object)
+        ? String((turn as { _id?: unknown })._id ?? '')
+        : undefined;
+    return turnId?.length ? { turnId } : {};
   }
 
   protected async persistAssistantTurn(params: {
@@ -297,7 +345,7 @@ export abstract class ChatInterface extends EventEmitter {
     status: TurnStatus;
     toolCalls: ChatToolResultEvent[];
     skipPersistence: boolean;
-  }): Promise<void> {
+  }): Promise<string | undefined> {
     const {
       conversationId,
       content,
@@ -310,7 +358,7 @@ export abstract class ChatInterface extends EventEmitter {
       skipPersistence,
     } = params;
 
-    if (skipPersistence) return;
+    if (skipPersistence) return undefined;
 
     const turnPayload: AppendTurnInput = {
       conversationId,
@@ -327,9 +375,10 @@ export abstract class ChatInterface extends EventEmitter {
 
     if (shouldUseMemoryPersistence()) {
       recordMemoryTurn(turnPayload as Turn);
-      return;
+      return undefined;
     }
 
-    await this.persistTurn(turnPayload);
+    const persisted = await this.persistTurn(turnPayload);
+    return persisted.turnId;
   }
 }

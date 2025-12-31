@@ -2,7 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
+import {
+  createInflight,
+  cleanupInflight,
+  getInflight,
+} from '../chat/inflightRegistry.js';
 import type {
   ChatAnalysisEvent,
   ChatFinalEvent,
@@ -14,6 +20,7 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
@@ -49,6 +56,8 @@ export type RunAgentInstructionParams = {
   conversationId?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
+  inflightId?: string;
+  chatFactory?: typeof getChatInterface;
 };
 
 export type RunAgentInstructionResult = {
@@ -144,6 +153,8 @@ async function ensureAgentConversation(params: {
   modelId: string;
   title: string;
   source: 'REST' | 'MCP';
+  inflightId?: string;
+  chatFactory?: typeof getChatInterface;
 }): Promise<void> {
   const now = new Date();
   if (shouldUseMemoryPersistence()) {
@@ -211,6 +222,8 @@ export async function runAgentCommand(params: {
   working_folder?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
+  inflightId?: string;
+  chatFactory?: typeof getChatInterface;
 }): Promise<{
   agentName: string;
   commandName: string;
@@ -242,6 +255,8 @@ export async function runAgentInstructionUnlocked(params: {
   command?: TurnCommandMetadata;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
+  inflightId?: string;
+  chatFactory?: typeof getChatInterface;
 }): Promise<RunAgentInstructionResult> {
   const fallbackModelId = 'gpt-5.1-codex-max';
 
@@ -308,9 +323,11 @@ export async function runAgentInstructionUnlocked(params: {
     }
   }
 
+  const resolvedChatFactory = params.chatFactory ?? getChatInterface;
+
   let chat;
   try {
-    chat = getChatInterface('codex');
+    chat = resolvedChatFactory('codex');
   } catch (err) {
     if (err instanceof UnsupportedProviderError) {
       throw new Error(err.message);
@@ -322,31 +339,68 @@ export async function runAgentInstructionUnlocked(params: {
     params.working_folder,
   );
 
+  const inflightId = params.inflightId ?? crypto.randomUUID();
+  createInflight({ conversationId, inflightId, externalSignal: params.signal });
+
+  const bridge = attachChatStreamBridge({
+    conversationId,
+    inflightId,
+    provider: 'codex',
+    model: modelId,
+    chat,
+  });
+
   const responder = new McpResponder();
   chat.on('analysis', (ev: ChatAnalysisEvent) => responder.handle(ev));
   chat.on('tool-result', (ev: ChatToolResultEvent) => responder.handle(ev));
   chat.on('final', (ev: ChatFinalEvent) => responder.handle(ev));
   chat.on('error', (ev) => responder.handle(ev));
 
-  await chat.run(
-    params.instruction,
-    {
-      provider: 'codex',
-      threadId,
-      useConfigDefaults: true,
-      codexHome: agent.home,
-      ...(workingDirectoryOverride !== undefined
-        ? { workingDirectoryOverride }
-        : {}),
-      disableSystemContext: true,
-      systemPrompt,
-      signal: params.signal,
-      source: params.source,
-      ...(params.command ? { command: params.command } : {}),
-    },
-    conversationId,
-    modelId,
-  );
+  try {
+    await chat.run(
+      params.instruction,
+      {
+        provider: 'codex',
+        threadId,
+        useConfigDefaults: true,
+        codexHome: agent.home,
+        ...(workingDirectoryOverride !== undefined
+          ? { workingDirectoryOverride }
+          : {}),
+        disableSystemContext: true,
+        systemPrompt,
+        signal: getInflight(conversationId)?.abortController.signal,
+        source: params.source,
+        ...(params.command ? { command: params.command } : {}),
+      },
+      conversationId,
+      modelId,
+    );
+  } finally {
+    bridge.cleanup();
+    const leftover = getInflight(conversationId);
+    if (leftover && leftover.inflightId === inflightId) {
+      cleanupInflight({ conversationId, inflightId });
+    }
+  }
+
+  const transientReconnectCount = responder.getTransientReconnectCount();
+  if (transientReconnectCount > 0) {
+    baseLogger.warn(
+      {
+        agentName: params.agentName,
+        conversationId,
+        modelId,
+        commandName: params.command?.name,
+        stepIndex: params.command?.stepIndex,
+        totalSteps: params.command?.totalSteps,
+        transientReconnectCount,
+        transientReconnectLastMessage:
+          responder.getTransientReconnectLastMessage(),
+      },
+      'transient reconnect events observed during agent run',
+    );
+  }
 
   const { segments } = responder.toResult(modelId, conversationId);
   return {

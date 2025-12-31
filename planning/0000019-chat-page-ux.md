@@ -6393,7 +6393,7 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
 
 ### 32. Add responsive collapsible Conversations drawer (sm breakpoint)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

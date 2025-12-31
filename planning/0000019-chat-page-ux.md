@@ -6509,7 +6509,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
 
 ### 33. Align Conversations drawer vertically with Chat panel
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

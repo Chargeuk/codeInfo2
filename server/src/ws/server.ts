@@ -68,6 +68,17 @@ function broadcastConversation(conversationId: string, event: unknown) {
   }
 }
 
+function logPublish(message: string, context: Record<string, unknown>) {
+  append({
+    level: 'info',
+    message,
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context,
+  });
+  baseLogger.info(context, message);
+}
+
 export function publishInflightSnapshot(conversationId: string) {
   const snapshot = snapshotInflight(conversationId);
   if (!snapshot) return;
@@ -105,6 +116,13 @@ export function publishUserTurn(params: {
     createdAt: params.createdAt,
   };
 
+  logPublish('chat.ws.server_publish_user_turn', {
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    seq: event.seq,
+    contentLen: params.content.length,
+  });
+
   broadcastConversation(params.conversationId, event);
 }
 
@@ -121,6 +139,14 @@ export function publishAssistantDelta(params: {
     inflightId: params.inflightId,
     delta: params.delta,
   };
+
+  logPublish('chat.ws.server_publish_assistant_delta', {
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    seq: event.seq,
+    deltaLen: params.delta.length,
+  });
+
   broadcastConversation(params.conversationId, event);
 }
 
@@ -192,6 +218,14 @@ export function publishTurnFinal(params: {
     ...(params.threadId !== undefined ? { threadId: params.threadId } : {}),
     ...(params.error !== undefined ? { error: params.error } : {}),
   };
+
+  logPublish('chat.ws.server_publish_turn_final', {
+    conversationId: params.conversationId,
+    inflightId: params.inflightId,
+    seq,
+    status: params.status,
+    errorCode: params.error?.code,
+  });
 
   broadcastConversation(params.conversationId, event);
 }

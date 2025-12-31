@@ -6069,7 +6069,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
 
 ### 29. Add targeted client/server logs for cross-tab overwrite investigation
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6083,7 +6083,7 @@ Add deterministic log lines that prove whether the active assistant pointer and 
 
 #### Subtasks
 
-1. [ ] Add client logs around send/reset + turn final:
+1. [x] Add client logs around send/reset + turn final:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -6096,7 +6096,7 @@ Add deterministic log lines that prove whether the active assistant pointer and 
    - Docs (repeat):
       - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-2. [ ] Add server logs around WS publish events:
+2. [x] Add server logs around WS publish events:
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
@@ -6107,7 +6107,7 @@ Add deterministic log lines that prove whether the active assistant pointer and 
    - Docs (repeat):
       - https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
-3. [ ] Add tests or log assertions (including send-state corner case):
+3. [x] Add tests or log assertions (including send-state corner case):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
      - `server/src/test/unit/ws-chat-stream.test.ts` (or integration)
@@ -6120,35 +6120,51 @@ Add deterministic log lines that prove whether the active assistant pointer and 
    - Docs (repeat):
       - Context7 `/jestjs/jest`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document the new log messages and fields so manual Playwright runs can validate them.
 
-5. [ ] Run lint/format after client/server changes:
+5. [x] Run lint/format after client/server changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open two windows on the same conversation.
    - Send a second prompt from window 1.
    - Confirm the log sequence shows `chat.client_send_begin` → `chat.client_send_after_reset` → WS publish logs → `chat.client_turn_final_sync`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Documentation: MDN WebSocket (message ordering, event-driven lifecycle) informs the expected publish/receive flow we log; Jest docs guide log-capture assertions in unit tests.
+- Gotchas: client logs are emitted via `createLogger()` (console + batched POST /logs), so tests should spy on `console.log` rather than relying on fetch side-effects; keep log payloads free of user prompt content beyond lengths/ids.
+- Gotchas: server `append()` only forwards `source=client` into the pino file logger; these new server publish logs should remain `source=server` and are intended for /logs query-based verification.
+- Subtask 1: Added `chat.client_send_begin`, `chat.client_send_after_reset`, and `chat.client_turn_final_sync` logs in `client/src/hooks/useChatStream.ts` with the required inflight + assistant message fields for cross-tab overwrite correlation.
+- Subtask 2: Logged server WS publish milestones in `server/src/ws/server.ts` (`chat.ws.server_publish_user_turn`, `chat.ws.server_publish_assistant_delta`, `chat.ws.server_publish_turn_final`) including `conversationId`, `inflightId`, `seq`, and size metadata (content/delta length).
+- Subtask 3: Extended `client/src/test/chatPage.stream.test.tsx` to assert the new client log messages and added a WS stream unit assertion in `server/src/test/unit/ws-chat-stream.test.ts` to prove publish logs are appended to the server log store.
+- Subtask 4: Updated `design.md` to document the new client send/reset + turn-final sync logs and the server WS publish milestone logs (names + key fields) for manual verification via the Logs UI.
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (pass after formatting `server/src/test/unit/ws-chat-stream.test.ts`).
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed (31 Playwright specs).
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started stack successfully (containers healthy).
+- Testing 8: Two-window (headless Playwright) run against compose via host-mapped ports confirmed `chat.client_send_begin`/`chat.client_send_after_reset` and the server publish logs (`chat.ws.server_publish_user_turn`/`assistant_delta`/`turn_final`) appear in `GET /logs`. Observed `chat.client_turn_final_sync` can arrive for the *previous* inflightId after the second send begins (evidence for Task 30 overwrite bug); this task’s logs now make that mismatch visible.
+- Testing 9: `npm run compose:down` stopped the stack.
 
 ### 30. Fix sending-tab assistant overwrite on second prompt
 

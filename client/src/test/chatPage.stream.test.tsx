@@ -94,6 +94,100 @@ describe('Chat WS streaming UI', () => {
     expect(await screen.findByText('Done')).toBeInTheDocument();
   });
 
+  it('emits deterministic client send/reset + turn_final sync logs', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId();
+      const inflightId = harness.getInflightId() ?? 'i1';
+      expect(conversationId).toBeTruthy();
+
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId,
+        delta: 'Done',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId,
+        status: 'ok',
+      });
+
+      const statusChip = await screen.findByTestId('status-chip');
+      await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+      const entries = logSpy.mock.calls
+        .map(([entry]) => entry)
+        .filter((entry): entry is LoggedConsoleEntry =>
+          Boolean(entry && typeof entry === 'object'),
+        );
+
+      const sendBegin = entries.find(
+        (entry) => entry.message === 'chat.client_send_begin',
+      );
+      expect(sendBegin).toBeTruthy();
+      expect(sendBegin?.context).toEqual(
+        expect.objectContaining({
+          status: 'idle',
+          isStreaming: expect.any(Boolean),
+          inflightId: null,
+          activeAssistantMessageId: null,
+          lastMessageStreamStatus: null,
+          lastMessageContentLen: 0,
+        }),
+      );
+
+      const sendAfterReset = entries.find(
+        (entry) => entry.message === 'chat.client_send_after_reset',
+      );
+      expect(sendAfterReset).toBeTruthy();
+      expect(sendAfterReset?.context).toEqual(
+        expect.objectContaining({
+          prevAssistantMessageId: null,
+          nextAssistantMessageId: expect.any(String),
+          createdNewAssistant: true,
+        }),
+      );
+
+      const turnFinal = entries.find(
+        (entry) => entry.message === 'chat.client_turn_final_sync',
+      );
+      expect(turnFinal).toBeTruthy();
+      expect(turnFinal?.context).toEqual(
+        expect.objectContaining({
+          inflightId,
+          assistantMessageId: sendAfterReset?.context?.nextAssistantMessageId,
+          assistantTextLen: 4,
+          streamStatus: 'complete',
+        }),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it('treats transient reconnect notices as warnings (no failed bubble)', async () => {
     const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();

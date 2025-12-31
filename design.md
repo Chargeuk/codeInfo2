@@ -1218,6 +1218,17 @@ Required log names and key fields:
 - `chat.ws.client_tool_event_received` (`conversationId`, `inflightId`, `seq`, `toolEventCount`; emitted per tool event)
 - `chat.ws.client_final_received` (`conversationId`, `inflightId`, `seq`)
 
+- Targeted cross-tab overwrite investigation logs (avoid logging prompt content; log ids + sizes only):
+  - Client (source=client, query via `/logs`):
+    - `chat.client_send_begin` (`status`, `isStreaming`, `inflightId`, `activeAssistantMessageId`, `lastMessageStreamStatus`, `lastMessageContentLen`)
+    - `chat.client_send_after_reset` (`prevAssistantMessageId`, `nextAssistantMessageId`, `createdNewAssistant`)
+    - `chat.client_turn_final_sync` (`inflightId`, `assistantMessageId`, `assistantTextLen`, `streamStatus`)
+  - Server (source=server, query via `/logs`):
+    - `chat.ws.server_publish_user_turn` (`conversationId`, `inflightId`, `seq`, `contentLen`)
+    - `chat.ws.server_publish_assistant_delta` (`conversationId`, `inflightId`, `seq`, `deltaLen`)
+    - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
+
+
 ```mermaid
 sequenceDiagram
   participant Chat as ChatPage/useChatWs

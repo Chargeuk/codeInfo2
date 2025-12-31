@@ -13,6 +13,7 @@ import {
   memoryConversations,
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
+import { query, resetStore } from '../../logStore.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
 import {
@@ -172,11 +173,13 @@ async function stopServer(server: {
 beforeEach(() => {
   memoryConversations.clear();
   memoryTurns.clear();
+  resetStore();
 });
 
 afterEach(() => {
   memoryConversations.clear();
   memoryTurns.clear();
+  resetStore();
 });
 
 test('transcript seq increases monotonically per conversation stream', async () => {
@@ -232,6 +235,83 @@ test('transcript seq increases monotonically per conversation stream', async () 
       lastSeq = event.seq ?? lastSeq;
       if (event.type === 'turn_final') sawFinal = true;
     }
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('server logs WS publish milestones to log store', async () => {
+  const server = await startServer({
+    chatFactory: buildChatFactory({
+      withTools: false,
+      withAnalysis: false,
+      delayMs: 20,
+    }),
+  });
+  const conversationId = 'ws-logs-1';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({ provider: 'lmstudio', model: 'm', conversationId, message: 'hi' })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    await waitForEvent({
+      ws,
+      predicate: (candidate: unknown): candidate is WsTranscriptEvent => {
+        const e = candidate as WsTranscriptEvent;
+        return (
+          e.protocolVersion === 'v1' &&
+          e.conversationId === conversationId &&
+          e.type === 'turn_final' &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    const userTurnLogs = query({
+      source: ['server'],
+      text: 'chat.ws.server_publish_user_turn',
+    });
+    assert.ok(userTurnLogs.length > 0);
+
+    const userTurnContext = userTurnLogs.at(-1)?.context as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(userTurnContext?.conversationId, conversationId);
+    assert.equal(userTurnContext?.inflightId, inflightId);
+
+    const deltaLogs = query({
+      source: ['server'],
+      text: 'chat.ws.server_publish_assistant_delta',
+    });
+    assert.ok(deltaLogs.length > 0);
+
+    const deltaContext = deltaLogs.at(-1)?.context as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(deltaContext?.conversationId, conversationId);
+    assert.equal(deltaContext?.inflightId, inflightId);
+
+    const finalLogs = query({
+      source: ['server'],
+      text: 'chat.ws.server_publish_turn_final',
+    });
+    assert.ok(finalLogs.length > 0);
+
+    const finalContext = finalLogs.at(-1)?.context as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(finalContext?.conversationId, conversationId);
+    assert.equal(finalContext?.inflightId, inflightId);
+    assert.equal(finalContext?.status, 'ok');
   } finally {
     await closeWs(ws);
     await stopServer(server);

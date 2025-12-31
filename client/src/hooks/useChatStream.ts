@@ -634,7 +634,20 @@ export function useChatStream(
         return;
       }
 
+      const prevAssistantMessageId = activeAssistantMessageIdRef.current;
+
       stop();
+
+      const lastMessage = messagesRef.current[messagesRef.current.length - 1];
+      logWithChannel('info', 'chat.client_send_begin', {
+        status,
+        isStreaming,
+        inflightId: inflightIdRef.current,
+        activeAssistantMessageId: prevAssistantMessageId,
+        lastMessageStreamStatus: lastMessage?.streamStatus ?? null,
+        lastMessageContentLen: (lastMessage?.content ?? '').length,
+      });
+
       resetInflightState();
 
       const nextInflightId = makeId();
@@ -657,7 +670,12 @@ export function useChatStream(
       conversationIdRef.current = currentConversationId;
       setConversationId(currentConversationId);
 
-      ensureAssistantMessage();
+      const nextAssistantMessageId = ensureAssistantMessage();
+      logWithChannel('info', 'chat.client_send_after_reset', {
+        prevAssistantMessageId,
+        nextAssistantMessageId,
+        createdNewAssistant: nextAssistantMessageId !== prevAssistantMessageId,
+      });
       assistantTextRef.current = '';
       assistantThinkRef.current = '';
       segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
@@ -787,6 +805,7 @@ export function useChatStream(
       resetInflightState,
       scheduleThinkingTimer,
       status,
+      isStreaming,
       stop,
       syncAssistantMessage,
       updateMessages,
@@ -1029,6 +1048,13 @@ export function useChatStream(
 
         const streamStatus: ChatMessage['streamStatus'] =
           event.status === 'failed' ? 'failed' : 'complete';
+
+        logWithChannel('info', 'chat.client_turn_final_sync', {
+          inflightId: event.inflightId,
+          assistantMessageId: activeAssistantMessageIdRef.current,
+          assistantTextLen: assistantTextRef.current.length,
+          streamStatus,
+        });
 
         syncAssistantMessage({
           streamStatus,

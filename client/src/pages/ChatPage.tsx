@@ -61,6 +61,12 @@ export default function ChatPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const drawerWidth = 320;
   const [drawerOpen, setDrawerOpen] = useState<boolean>(!isMobile);
+  const lastIsMobileRef = useRef(isMobile);
+  const didBreakpointChange = lastIsMobileRef.current !== isMobile;
+  if (didBreakpointChange) {
+    lastIsMobileRef.current = isMobile;
+  }
+  const drawerOpenResolved = didBreakpointChange ? !isMobile : drawerOpen;
 
   const {
     providers,
@@ -167,7 +173,7 @@ export default function ChatPage() {
   const chatColumnRef = useRef<HTMLDivElement | null>(null);
   const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDrawerOpen(!isMobile);
   }, [isMobile]);
 
@@ -993,12 +999,17 @@ export default function ChatPage() {
           }}
         >
           <Drawer
-            open={drawerOpen}
+            key={isMobile ? 'mobile' : 'desktop'}
+            open={drawerOpenResolved}
             onClose={() => setDrawerOpen(false)}
             variant={isMobile ? 'temporary' : 'persistent'}
             data-testid="conversation-drawer"
             sx={{
-              width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
+              width: isMobile
+                ? undefined
+                : drawerOpenResolved
+                  ? drawerWidth
+                  : 0,
               flexShrink: 0,
               '& .MuiDrawer-paper': {
                 width: drawerWidth,
@@ -1063,7 +1074,7 @@ export default function ChatPage() {
                     <IconButton
                       aria-label="Toggle conversations"
                       aria-controls="conversation-drawer"
-                      aria-expanded={drawerOpen}
+                      aria-expanded={drawerOpenResolved}
                       onClick={() => setDrawerOpen((prev) => !prev)}
                       size="small"
                       data-testid="conversation-drawer-toggle"

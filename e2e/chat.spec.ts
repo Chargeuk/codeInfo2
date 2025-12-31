@@ -461,6 +461,68 @@ test('conversations drawer is closed by default on mobile and overlays content',
   expect(Math.abs((drawerBox?.y ?? 0) - (boxBefore?.y ?? 0))).toBeLessThan(2);
 });
 
+test('conversations drawer toggle works after resizing across breakpoints', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+        }),
+      }),
+    );
+  }
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const drawerToggle = page.getByTestId('conversation-drawer-toggle');
+  await expect(drawerToggle).toBeVisible();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+
+  await page.setViewportSize({ width: 500, height: 900 });
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('conversation-list')).toBeHidden();
+
+  await drawerToggle.click();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('conversation-list')).toBeVisible();
+
+  await drawerToggle.click();
+  await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('conversations drawer stays vertically aligned when persistence banner is visible', async ({
   page,
 }) => {

@@ -421,6 +421,71 @@ describe('Chat page layout alignment', () => {
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
   });
 
+  it('keeps the drawer toggle working after resizing from desktop to mobile', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const toggle = screen.getByTestId('conversation-drawer-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
+
+    await act(async () => {
+      window.innerWidth = 375;
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute('aria-expanded', 'false'),
+    );
+    await waitFor(() => {
+      const list = screen.queryByTestId('conversation-list');
+      if (!list) return;
+      expect(list).not.toBeVisible();
+    });
+
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByTestId('conversation-list')).toBeInTheDocument();
+  });
+
+  it('keeps the drawer usable after resizing from mobile to desktop', async () => {
+    window.innerWidth = 375;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const toggle = screen.getByTestId('conversation-drawer-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('conversation-list')).toBeNull();
+
+    await act(async () => {
+      window.innerWidth = 1280;
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    await waitFor(() =>
+      expect(toggle).toHaveAttribute('aria-expanded', 'true'),
+    );
+    expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('offsets the conversations drawer paper to align with the chat column top', async () => {
     window.innerWidth = 1280;
     window.dispatchEvent(new Event('resize'));

@@ -111,9 +111,13 @@ if (!global.fetch) {
 }
 
 if (typeof window !== 'undefined' && !window.matchMedia) {
+  const allLists = new Set<MediaQueryList>();
+  let resizeListenerInstalled = false;
+
   window.matchMedia = (query: string) => {
     const normalized = query.replace(/^@media\s*/i, '').trim();
     const listeners = new Set<(event: MediaQueryListEvent) => void>();
+    let lastMatches: boolean | null = null;
 
     const computeMatches = () => {
       const maxMatch = normalized.match(/max-width:\s*([0-9.]+)px/i);
@@ -155,6 +159,39 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
         return true;
       },
     };
+
+    const dispatchChangeIfNeeded = () => {
+      const next = computeMatches();
+      if (lastMatches === null) {
+        lastMatches = next;
+        return;
+      }
+      if (next === lastMatches) return;
+      lastMatches = next;
+
+      const event = { matches: next, media: query } as MediaQueryListEvent;
+      list.dispatchEvent(event);
+      if (typeof list.onchange === 'function') {
+        list.onchange(event);
+      }
+    };
+
+    if (!resizeListenerInstalled) {
+      resizeListenerInstalled = true;
+      window.addEventListener('resize', () => {
+        for (const list of allLists) {
+          (
+            list as unknown as { __dispatchChangeIfNeeded?: () => void }
+          ).__dispatchChangeIfNeeded?.();
+        }
+      });
+    }
+
+    (
+      list as unknown as { __dispatchChangeIfNeeded?: () => void }
+    ).__dispatchChangeIfNeeded = dispatchChangeIfNeeded;
+    allLists.add(list);
+    dispatchChangeIfNeeded();
 
     return list;
   };

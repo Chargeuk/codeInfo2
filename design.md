@@ -193,6 +193,7 @@ flowchart LR
 - Layout: the sidebar is a responsive MUI `Drawer`.
   - Desktop (`sm+`): `variant="persistent"`, open by default, fixed width (`320px`), and closing it lets the transcript column expand to full width.
   - Mobile (`sm` and down): `variant="temporary"`, closed by default, and opening it overlays the chat (no horizontal push).
+  - The `Drawer` is keyed by breakpoint (`key={isMobile ? 'mobile' : 'desktop'}`) so switching variants forces a remount and avoids temporary drawers getting stuck closed after resizing.
   - Drawer paper is vertically offset to align with the chat column top (including the persistence banner height when shown) so the Conversations panel doesn’t overlap the page header/banners.
 
 ### Chat page (streaming UI)

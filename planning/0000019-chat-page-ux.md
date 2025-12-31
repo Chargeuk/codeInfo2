@@ -5983,13 +5983,16 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
      - Preserve the log `sequence` and include `clientId` from `entry.context` in the output.
      - Ensure server log formatting remains JSON (pino) and does not break existing parsing.
 
-4. [ ] Add tests for client log persistence:
+4. [ ] Add tests for client log persistence + clientId stability:
    - Files to edit:
      - `server/src/test/integration/ws-logs.test.ts` (or new test file)
      - `server/src/test/features/logs.feature` (if using Cucumber)
+     - `client/src/test/clientLogging.test.ts` (new)
    - Test requirements:
      - POST a client log entry and assert it appears in `/logs` with the new `clientId`.
      - Validate that the server logger was invoked (spy/mocked destination or log store entry includes a `source=client` marker).
+     - Unit test: `createLogger()` includes a stable `clientId` across multiple log calls.
+     - Unit test: when `localStorage` is unavailable, logger falls back to an in-memory `clientId` without throwing.
 
 5. [ ] Documentation update:
    - Files to edit:
@@ -6053,12 +6056,12 @@ Add deterministic log lines that prove whether the active assistant pointer and 
      - Log `chat.ws.server_publish_user_turn`, `chat.ws.server_publish_assistant_delta`, `chat.ws.server_publish_turn_final`.
      - Include `conversationId`, `inflightId`, `seq`, and any size/count context (e.g., delta length).
 
-3. [ ] Add tests or log assertions:
+3. [ ] Add tests or log assertions (including send-state corner case):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
      - `server/src/test/unit/ws-chat-stream.test.ts` (or integration)
    - Requirements:
-     - Verify client log events are emitted during simulated send + WS flow.
+     - Verify client log events are emitted during simulated send + WS flow (including `status === 'sending'`).
      - Verify server publishes include the new log entries.
 
 4. [ ] Documentation update:
@@ -6118,12 +6121,13 @@ The sending tab clears its inflight state before WS events arrive. Because the a
      - Ensure WS updates for a new inflight do not reuse a previous assistant message id.
      - Preserve existing cross-tab reset behavior from Task 27.
 
-2. [ ] Update client tests:
+2. [ ] Update client tests (including “previous reply already complete” case):
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Test requirements:
-     - Simulate two consecutive sends in a single tab and assert the first assistant reply remains intact.
-     - Assert the second response creates a new assistant bubble.
+     - Simulate two consecutive sends in a single tab where the first reply has already finalized (`streamStatus=complete`) and assert it remains intact.
+     - Simulate a second send while a previous assistant message is still `processing` and assert the new run still creates a new assistant bubble.
+     - Assert the second response creates a new assistant bubble in both scenarios.
 
 3. [ ] Update e2e multi-window test:
    - Files to edit:

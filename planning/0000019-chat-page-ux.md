@@ -6506,4 +6506,144 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
 - Testing 7: `npm run compose:up` started stack successfully (containers healthy).
 - Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat.spec.ts -g "conversations drawer"` against the compose stack; confirmed desktop push + mobile overlay behavior.
 - Testing 9: `npm run compose:down` stopped the stack.
+
+### 33. Align Conversations drawer vertically with Chat panel
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+The Drawer paper is pinned to the viewport top, so the Conversations panel sits above the Chat panel. Align the drawer with the chat container by applying a top offset and height adjustment on the Drawer paper.
+
+#### Documentation Locations
+
+- MUI Drawer API (PaperProps / slotProps.paper): https://mui.com/material-ui/api/drawer/
+
+#### Subtasks
+
+1. [ ] Apply paper top offset + height adjustment:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Apply a top offset equal to the chat container’s top padding (currently `pt: 3`) to the Drawer paper.
+     - Reduce Drawer paper height by the same amount to keep it within the container height.
+   - Code pointers:
+     - Drawer `sx` block near `data-testid="conversation-drawer"`.
+     - Container `sx` block with `pt: 3` at the top of `ChatPage`.
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/drawer/
+
+2. [ ] Update client tests (layout alignment):
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Requirements:
+     - Add/adjust assertions to confirm the drawer’s top aligns with the chat panel top (no overlap into the header area).
+
+3. [ ] Update e2e coverage:
+   - Files to edit:
+     - `e2e/chat.spec.ts`
+   - Requirements:
+     - Add a regression check that the Conversations panel is vertically aligned with the chat column (e.g., compare bounding boxes).
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Note that the drawer paper is offset to align with the chat container.
+
+5. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Confirm the Conversations drawer top aligns with the Chat panel top (no overlap into the page header).
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._
+
+### 34. Remount Drawer on breakpoint switch to prevent stuck toggle
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+When resizing from desktop to mobile, the Drawer swaps between `persistent` and `temporary`. This can leave the temporary drawer stuck closed. Force a remount on breakpoint changes via a `key`, so the toggle works after resizing.
+
+#### Documentation Locations
+
+- MUI Drawer API (variant behavior): https://mui.com/material-ui/api/drawer/
+- MUI Responsive UI guide: https://mui.com/material-ui/guides/responsive-ui/
+
+#### Subtasks
+
+1. [ ] Force Drawer remount on breakpoint switch:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Add a `key` to the Drawer that changes when `isMobile` flips (e.g., `key={isMobile ? 'mobile' : 'desktop'}`).
+     - Preserve existing open/close logic and toggle button behavior.
+   - Code pointers:
+     - Drawer component in ChatPage near `data-testid="conversation-drawer"`.
+     - `useMediaQuery` logic and `drawerOpen` state in ChatPage.
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/drawer/
+     - https://mui.com/material-ui/guides/responsive-ui/
+
+2. [ ] Update client tests for resize behavior:
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Requirements:
+     - Add a regression test that simulates a desktop→mobile resize and ensures the toggle opens the drawer afterward.
+
+3. [ ] Update e2e coverage:
+   - Files to edit:
+     - `e2e/chat.spec.ts`
+   - Requirements:
+     - Add a Playwright test that resizes from desktop to mobile and verifies the toggle opens the drawer.
+
+4. [ ] Documentation update:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document the Drawer remount key used to avoid variant-switch glitches.
+
+5. [ ] Run lint/format after client/e2e changes:
+   - Commands to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (task focus + regressions):
+   - Resize from desktop to mobile and confirm the hamburger opens the Conversations drawer.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _Pending._
 - Notes: `useMediaQuery` is imported from `@mui/material` (not `@mui/material/useMediaQuery`) so Jest uses the CJS entrypoint and avoids ESM/CJS default-export interop issues.

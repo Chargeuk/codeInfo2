@@ -2,17 +2,17 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import MenuIcon from '@mui/icons-material/Menu';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Container,
   Alert,
   Button,
   CircularProgress,
-  FormControl,
-  InputLabel,
+  IconButton,
   Link,
   MenuItem,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
@@ -20,15 +20,19 @@ import {
   Collapse,
   Chip,
   Button as MuiButton,
+  Drawer,
+  useMediaQuery,
   Accordion,
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,6 +49,7 @@ import useChatStream, {
   ToolCitation,
   ToolCall,
 } from '../hooks/useChatStream';
+import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
@@ -52,6 +57,17 @@ import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 
 export default function ChatPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const drawerWidth = 320;
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(!isMobile);
+  const lastIsMobileRef = useRef(isMobile);
+  const didBreakpointChange = lastIsMobileRef.current !== isMobile;
+  if (didBreakpointChange) {
+    lastIsMobileRef.current = isMobile;
+  }
+  const drawerOpenResolved = didBreakpointChange ? !isMobile : drawerOpen;
+
   const {
     providers,
     provider,
@@ -98,6 +114,9 @@ export default function ChatPage() {
     conversationId,
     setConversation,
     hydrateHistory,
+    hydrateInflightSnapshot,
+    getInflightId,
+    handleWsEvent,
   } = useChatStream(selected, provider, {
     sandboxMode,
     approvalPolicy,
@@ -108,8 +127,8 @@ export default function ChatPage() {
 
   const {
     conversations,
-    includeArchived,
-    setIncludeArchived,
+    filterState,
+    setFilterState,
     isLoading: conversationsLoading,
     isError: conversationsError,
     error: conversationsErrorMessage,
@@ -118,6 +137,11 @@ export default function ChatPage() {
     refresh: refreshConversations,
     archive: archiveConversation,
     restore: restoreConversation,
+    bulkArchive,
+    bulkRestore,
+    bulkDelete,
+    applyWsUpsert,
+    applyWsDelete,
   } = useConversations({ agentName: '__none__' });
 
   const {
@@ -130,6 +154,7 @@ export default function ChatPage() {
     string | undefined
   >(conversationId);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
@@ -144,6 +169,31 @@ export default function ChatPage() {
     [conversations],
   );
   const persistenceUnavailable = mongoConnected === false;
+
+  const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
+
+  useLayoutEffect(() => {
+    setDrawerOpen(!isMobile);
+  }, [isMobile]);
+
+  useLayoutEffect(() => {
+    const updateOffset = () => {
+      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
+      setDrawerTopOffsetPx(top);
+    };
+
+    updateOffset();
+    window.addEventListener('resize', updateOffset);
+    return () => window.removeEventListener('resize', updateOffset);
+  }, [isMobile, persistenceUnavailable]);
+
+  const drawerTopOffset =
+    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
+  const drawerHeight =
+    drawerTopOffsetPx > 0
+      ? `calc(100% - ${drawerTopOffsetPx}px)`
+      : `calc(100% - ${theme.spacing(3)})`;
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -151,28 +201,98 @@ export default function ChatPage() {
       ),
     [activeConversationId, conversations],
   );
-  const shouldLoadTurns = Boolean(
-    activeConversationId &&
-      !persistenceUnavailable &&
-      knownConversationIds.has(activeConversationId),
+  const turnsConversationId = persistenceUnavailable
+    ? undefined
+    : activeConversationId;
+  const turnsAutoFetch = Boolean(
+    turnsConversationId && knownConversationIds.has(turnsConversationId),
   );
   const {
     lastPage,
     lastMode,
+    inflight: inflightSnapshot,
     isLoading: turnsLoading,
     isError: turnsError,
     error: turnsErrorMessage,
     hasMore: turnsHasMore,
     loadOlder,
+    refresh: refreshTurns,
     reset: resetTurns,
-  } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
+  } = useConversationTurns(turnsConversationId, { autoFetch: turnsAutoFetch });
+
+  const refreshSnapshots = useCallback(async () => {
+    if (persistenceUnavailable) return;
+    await Promise.all([
+      refreshConversations(),
+      turnsConversationId ? refreshTurns() : Promise.resolve(),
+    ]);
+  }, [
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+    turnsConversationId,
+  ]);
+
+  const {
+    connectionState: wsConnectionState,
+    subscribeSidebar,
+    unsubscribeSidebar,
+    subscribeConversation,
+    unsubscribeConversation,
+    cancelInflight,
+  } = useChatWs({
+    realtimeEnabled: mongoConnected !== false,
+    onReconnectBeforeResubscribe: async () => {
+      if (mongoConnected === false) return;
+      await refreshSnapshots();
+    },
+    onEvent: (event: ChatWsServerEvent) => {
+      if (mongoConnected === false) return;
+      switch (event.type) {
+        case 'conversation_upsert': {
+          const agentName = event.conversation.agentName;
+          if (typeof agentName === 'string' && agentName.trim().length > 0) {
+            return;
+          }
+          applyWsUpsert({
+            conversationId: event.conversation.conversationId,
+            title: event.conversation.title,
+            provider: event.conversation.provider,
+            model: event.conversation.model,
+            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
+            lastMessageAt: event.conversation.lastMessageAt,
+            archived: event.conversation.archived,
+            flags: event.conversation.flags,
+            agentName: event.conversation.agentName,
+          });
+          return;
+        }
+        case 'conversation_delete':
+          applyWsDelete(event.conversationId);
+          return;
+        case 'inflight_snapshot':
+        case 'user_turn':
+        case 'assistant_delta':
+        case 'stream_warning':
+        case 'analysis_delta':
+        case 'tool_event':
+        case 'turn_final':
+          handleWsEvent(event);
+          return;
+        default:
+          return;
+      }
+    },
+  });
 
   useEffect(() => {
     const debugState = {
       activeConversationId,
+      wsConnectionState,
       persistenceUnavailable,
       knownIds: Array.from(knownConversationIds),
-      shouldLoadTurns,
+      turnsConversationId,
+      turnsAutoFetch,
       lastMode,
       lastPageCount: lastPage.length,
       lastPageFirst: lastPage[0]?.createdAt,
@@ -184,13 +304,26 @@ export default function ChatPage() {
     console.info('[chat-history] load-turns-state', debugState);
   }, [
     activeConversationId,
+    wsConnectionState,
     knownConversationIds,
     persistenceUnavailable,
-    shouldLoadTurns,
+    turnsAutoFetch,
+    turnsConversationId,
     lastMode,
     lastPage,
     messages.length,
   ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const enabled = Boolean(
+      (window as unknown as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__,
+    );
+    if (!enabled) return;
+    (window as unknown as { __chatTest?: unknown }).__chatTest = {
+      handleWsEvent,
+    };
+  }, [handleWsEvent]);
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexProvider = useMemo(
@@ -203,7 +336,6 @@ export default function ChatPage() {
     : codexUnavailable;
   const showCodexToolsMissing =
     providerIsCodex && providerAvailable && !toolsAvailable;
-  const showCodexReady = providerIsCodex && providerAvailable && toolsAvailable;
   const activeToolsAvailable = Boolean(toolsAvailable && providerAvailable);
   const controlsDisabled =
     isLoading ||
@@ -238,6 +370,41 @@ export default function ChatPage() {
   }, [conversationId]);
 
   useEffect(() => {
+    if (persistenceUnavailable) return;
+    subscribeSidebar();
+    return () => unsubscribeSidebar();
+  }, [persistenceUnavailable, subscribeSidebar, unsubscribeSidebar]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshSnapshots();
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
+  }, [persistenceUnavailable, refreshSnapshots]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (!activeConversationId) return;
+    subscribeConversation(activeConversationId);
+    return () => unsubscribeConversation(activeConversationId);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    subscribeConversation,
+    unsubscribeConversation,
+  ]);
+
+  useEffect(() => {
     if (!selectedConversation?.provider) return;
     if (selectedConversation.provider !== provider) {
       setProvider(selectedConversation.provider);
@@ -251,12 +418,15 @@ export default function ChatPage() {
     }
   }, [models, selectedConversation, setSelected]);
 
-  useEffect(
-    () => () => {
-      stop();
-    },
-    [stop],
-  );
+  useEffect(() => {
+    stopRef.current = stop;
+  }, [stop]);
+
+  useEffect(() => {
+    return () => {
+      stopRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     if (lastMode !== 'prepend') {
@@ -280,12 +450,20 @@ export default function ChatPage() {
   };
 
   const handleStop = () => {
+    const currentInflightId = getInflightId();
+    if (activeConversationId && currentInflightId) {
+      cancelInflight(activeConversationId, currentInflightId);
+    }
     stop({ showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
   };
 
   const handleNewConversation = () => {
+    const currentInflightId = getInflightId();
+    if (activeConversationId && currentInflightId) {
+      cancelInflight(activeConversationId, currentInflightId);
+    }
     stop();
     resetTurns();
     const nextId = reset();
@@ -306,11 +484,7 @@ export default function ChatPage() {
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
-    setSandboxMode(defaultSandboxMode);
-    setApprovalPolicy(defaultApprovalPolicy);
-    setModelReasoningEffort(defaultModelReasoningEffort);
-    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
-    setWebSearchEnabled(defaultWebSearchEnabled);
+    handleNewConversation();
   };
 
   const toggleThink = (id: string) => {
@@ -352,6 +526,9 @@ export default function ChatPage() {
     resetTurns();
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
+    if (isMobile) {
+      setDrawerOpen(false);
+    }
     setTimeout(() => {
       console.info('[chat-history] post-select scheduled', {
         clickedId: conversation,
@@ -423,7 +600,10 @@ export default function ChatPage() {
       items.map(
         (turn) =>
           ({
-            id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
+            id:
+              typeof turn.turnId === 'string' && turn.turnId.trim().length > 0
+                ? `turn-${turn.turnId}`
+                : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
@@ -435,10 +615,13 @@ export default function ChatPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const lastInflightHydratedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeConversationId || !lastMode) return;
-    const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
+    const oldest = lastPage?.[0]?.createdAt ?? 'none';
+    const newest = lastPage?.[lastPage.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${lastMode}-${oldest}-${newest}-${lastPage.length}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
     console.info('[chat-history] hydrating turns', {
@@ -446,6 +629,7 @@ export default function ChatPage() {
       mode: lastMode,
       count: lastPage.length,
       first: lastPage[0]?.createdAt,
+      last: lastPage[lastPage.length - 1]?.createdAt,
     });
     if (lastMode === 'replace') {
       hydrateHistory(
@@ -469,6 +653,14 @@ export default function ChatPage() {
     lastPage,
     mapTurnsToMessages,
   ]);
+
+  useEffect(() => {
+    if (!activeConversationId || !inflightSnapshot) return;
+    const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
+    if (lastInflightHydratedRef.current === inflightKey) return;
+    lastInflightHydratedRef.current = inflightKey;
+    hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
+  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
 
   type RepoEntry = {
     id: string;
@@ -749,7 +941,15 @@ export default function ChatPage() {
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ wordBreak: 'break-word' }}
+            style={{
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
             data-testid="tool-payload"
           >
             {JSON.stringify(tool.payload)}
@@ -760,8 +960,18 @@ export default function ChatPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 6 }}>
-      <Stack spacing={2}>
+    <Container
+      maxWidth={false}
+      sx={{
+        pt: 3,
+        pb: 6,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
+    >
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
         {persistenceUnavailable && (
           <Alert
             severity="warning"
@@ -777,255 +987,342 @@ export default function ChatPage() {
           </Alert>
         )}
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
+          direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           alignItems="stretch"
+          sx={{
+            width: '100%',
+            minWidth: 0,
+            overflowX: 'hidden',
+            flex: 1,
+            minHeight: 0,
+          }}
         >
-          <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
-            <ConversationList
-              conversations={conversations}
-              selectedId={activeConversationId}
-              isLoading={conversationsLoading}
-              isError={conversationsError}
-              error={conversationsErrorMessage}
-              hasMore={conversationsHasMore}
-              includeArchived={includeArchived}
-              disabled={persistenceUnavailable || persistenceLoading}
-              onSelect={handleSelectConversation}
-              onToggleArchived={setIncludeArchived}
-              onArchive={handleArchive}
-              onRestore={handleRestore}
-              onLoadMore={loadMoreConversations}
-              onRefresh={refreshConversations}
-              onRetry={refreshConversations}
-            />
-          </Box>
+          <Drawer
+            key={isMobile ? 'mobile' : 'desktop'}
+            open={drawerOpenResolved}
+            onClose={() => setDrawerOpen(false)}
+            variant={isMobile ? 'temporary' : 'persistent'}
+            data-testid="conversation-drawer"
+            sx={{
+              width: isMobile
+                ? undefined
+                : drawerOpenResolved
+                  ? drawerWidth
+                  : 0,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                mt: drawerTopOffset,
+                height: drawerHeight,
+              },
+            }}
+          >
+            <Box
+              id="conversation-drawer"
+              data-testid="conversation-list"
+              sx={{ width: drawerWidth, height: '100%' }}
+            >
+              <ConversationList
+                conversations={conversations}
+                selectedId={activeConversationId}
+                isLoading={conversationsLoading}
+                isError={conversationsError}
+                error={conversationsErrorMessage}
+                hasMore={conversationsHasMore}
+                filterState={filterState}
+                mongoConnected={mongoConnected}
+                disabled={persistenceUnavailable || persistenceLoading}
+                onSelect={handleSelectConversation}
+                onFilterChange={setFilterState}
+                onArchive={handleArchive}
+                onRestore={handleRestore}
+                onBulkArchive={bulkArchive}
+                onBulkRestore={bulkRestore}
+                onBulkDelete={bulkDelete}
+                onLoadMore={loadMoreConversations}
+                onRefresh={refreshConversations}
+                onRetry={refreshConversations}
+              />
+            </Box>
+          </Drawer>
 
-          <Box sx={{ flex: 1 }}>
-            <Stack spacing={2}>
-              {isLoading && (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <CircularProgress size={18} />
-                  <Typography variant="body2" color="text.secondary">
-                    Loading chat providers and models...
-                  </Typography>
-                </Stack>
-              )}
-              {isError && (
-                <Alert
-                  severity="error"
-                  action={
-                    <Button color="inherit" size="small" onClick={retryFetch}>
-                      Retry
-                    </Button>
-                  }
-                >
-                  {combinedError}
-                </Alert>
-              )}
-              {!isLoading && !isError && isEmpty && (
-                <Alert severity="info">
-                  No chat-capable models available for this provider.
-                </Alert>
-              )}
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={1.5}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems="stretch"
-                  >
-                    <FormControl
-                      sx={{ minWidth: 220 }}
-                      disabled={isLoading || providerLocked}
+          <Box
+            data-testid="chat-column"
+            ref={chatColumnRef}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              flex: '1 1 0%',
+              minHeight: 0,
+            }}
+          >
+            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+              <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="flex-start">
+                    <IconButton
+                      aria-label="Toggle conversations"
+                      aria-controls="conversation-drawer"
+                      aria-expanded={drawerOpenResolved}
+                      onClick={() => setDrawerOpen((prev) => !prev)}
+                      size="small"
+                      data-testid="conversation-drawer-toggle"
                     >
-                      <InputLabel id="chat-provider-label">Provider</InputLabel>
-                      <Select
-                        labelId="chat-provider-label"
-                        id="chat-provider-select"
-                        label="Provider"
-                        value={provider ?? ''}
-                        onChange={handleProviderChange}
-                        displayEmpty
-                        data-testid="provider-select"
-                      >
-                        {providers.map((entry) => (
-                          <MenuItem
-                            key={entry.id}
-                            value={entry.id}
-                            disabled={!entry.available}
-                          >
-                            {entry.label}
-                            {!entry.available ? ' (unavailable)' : ''}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl
-                      sx={{ minWidth: 260, flex: 1 }}
-                      disabled={
-                        isLoading || isError || isEmpty || !providerAvailable
-                      }
-                    >
-                      <InputLabel id="chat-model-label">Model</InputLabel>
-                      <Select
-                        labelId="chat-model-label"
-                        id="chat-model-select"
-                        label="Model"
-                        value={selected ?? ''}
-                        onChange={(event) => setSelected(event.target.value)}
-                        displayEmpty
-                        data-testid="model-select"
-                      >
-                        {models.map((model) => (
-                          <MenuItem key={model.key} value={model.key}>
-                            {model.displayName}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="flex-end"
-                      sx={{ minWidth: { xs: '100%', sm: 220 } }}
-                    >
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        color="secondary"
-                        onClick={handleNewConversation}
-                        disabled={isLoading}
-                        fullWidth
-                      >
-                        New conversation
-                      </Button>
-                    </Stack>
+                      <MenuIcon fontSize="small" />
+                    </IconButton>
                   </Stack>
-
-                  {providerIsCodex && (
-                    <CodexFlagsPanel
-                      sandboxMode={sandboxMode}
-                      onSandboxModeChange={(value) => setSandboxMode(value)}
-                      approvalPolicy={approvalPolicy}
-                      onApprovalPolicyChange={setApprovalPolicy}
-                      modelReasoningEffort={modelReasoningEffort}
-                      onModelReasoningEffortChange={setModelReasoningEffort}
-                      networkAccessEnabled={networkAccessEnabled}
-                      onNetworkAccessEnabledChange={setNetworkAccessEnabled}
-                      webSearchEnabled={webSearchEnabled}
-                      onWebSearchEnabledChange={setWebSearchEnabled}
-                      disabled={controlsDisabled}
-                    />
+                  {isLoading && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CircularProgress size={18} />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading chat providers and models...
+                      </Typography>
+                    </Stack>
                   )}
-
-                  {showCodexUnavailable ? (
+                  {isError && (
                     <Alert
-                      severity="warning"
-                      data-testid="codex-unavailable-banner"
-                    >
-                      OpenAI Codex is unavailable. Install the CLI (`npm install
-                      -g @openai/codex`), log in with `CODEX_HOME=./codex codex
-                      login` (or your `~/.codex`), and ensure
-                      `./codex/config.toml` is seeded. Compose mounts{' '}
-                      <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to
-                      `/host/codex` and copies `auth.json` into `/app/codex`
-                      when missing, so container logins are not required. See
-                      the guidance in{' '}
-                      <Link
-                        href="https://github.com/Chargeuk/codeInfo2#codex-cli"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        README ▸ Codex (CLI)
-                      </Link>
-                      .
-                      {providerIsCodex || codexProvider?.reason
-                        ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
-                        : ''}
-                    </Alert>
-                  ) : null}
-                  {showCodexToolsMissing && (
-                    <Alert severity="warning" data-testid="codex-tools-banner">
-                      Codex requires MCP tools. Ensure `config.toml` lists the
-                      `/mcp` endpoints and that tools are enabled, then retry
-                      once the CLI/auth/config prerequisites above are
-                      satisfied.
-                    </Alert>
-                  )}
-                  {showCodexReady && (
-                    <Alert severity="info" data-testid="codex-ready-banner">
-                      Codex chats are enabled with MCP tools. Threads reuse
-                      returned thread IDs so conversations can continue across
-                      turns.
-                    </Alert>
-                  )}
-
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
-                  >
-                    <TextField
-                      inputRef={inputRef}
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      label="Message"
-                      placeholder="Type your prompt"
-                      value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      disabled={controlsDisabled}
-                      inputProps={{ 'data-testid': 'chat-input' }}
-                      helperText={
-                        providerIsCodex &&
-                        (!providerAvailable || !toolsAvailable)
-                          ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
-                          : undefined
-                      }
-                    />
-                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        data-testid="chat-send"
-                        disabled={
-                          controlsDisabled || isSending || !input.trim()
-                        }
-                      >
-                        Send
-                      </Button>
-                      {showStop && (
+                      severity="error"
+                      action={
                         <Button
-                          type="button"
-                          variant="outlined"
-                          color="warning"
-                          onClick={handleStop}
-                          data-testid="chat-stop"
+                          color="inherit"
+                          size="small"
+                          onClick={retryFetch}
                         >
-                          Stop
+                          Retry
                         </Button>
+                      }
+                    >
+                      {combinedError}
+                    </Alert>
+                  )}
+                  {!isLoading && !isError && isEmpty && (
+                    <Alert severity="info">
+                      No chat-capable models available for this provider.
+                    </Alert>
+                  )}
+                  <form onSubmit={handleSubmit}>
+                    <Stack spacing={1.5}>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems="stretch"
+                      >
+                        <TextField
+                          select
+                          id="chat-provider-select"
+                          label="Provider"
+                          value={provider ?? ''}
+                          onChange={handleProviderChange}
+                          disabled={isLoading || providerLocked}
+                          sx={{ minWidth: 220 }}
+                          SelectProps={{
+                            displayEmpty: true,
+                            SelectDisplayProps: {
+                              'data-testid': 'provider-select',
+                            },
+                          }}
+                        >
+                          {providers.map((entry) => (
+                            <MenuItem
+                              key={entry.id}
+                              value={entry.id}
+                              disabled={!entry.available}
+                            >
+                              {entry.label}
+                              {!entry.available ? ' (unavailable)' : ''}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        <TextField
+                          select
+                          id="chat-model-select"
+                          label="Model"
+                          value={selected ?? ''}
+                          onChange={(event) => setSelected(event.target.value)}
+                          disabled={
+                            isLoading ||
+                            isError ||
+                            isEmpty ||
+                            !providerAvailable
+                          }
+                          sx={{ minWidth: 260, flex: 1 }}
+                          SelectProps={{
+                            displayEmpty: true,
+                            SelectDisplayProps: {
+                              'data-testid': 'model-select',
+                            },
+                          }}
+                        >
+                          {models.map((model) => (
+                            <MenuItem key={model.key} value={model.key}>
+                              {model.displayName}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          justifyContent="flex-end"
+                          sx={{ minWidth: { xs: '100%', sm: 220 } }}
+                        >
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            color="secondary"
+                            onClick={handleNewConversation}
+                            disabled={isLoading}
+                            fullWidth
+                          >
+                            New conversation
+                          </Button>
+                        </Stack>
+                      </Stack>
+
+                      {providerIsCodex && (
+                        <CodexFlagsPanel
+                          sandboxMode={sandboxMode}
+                          onSandboxModeChange={(value) => setSandboxMode(value)}
+                          approvalPolicy={approvalPolicy}
+                          onApprovalPolicyChange={setApprovalPolicy}
+                          modelReasoningEffort={modelReasoningEffort}
+                          onModelReasoningEffortChange={setModelReasoningEffort}
+                          networkAccessEnabled={networkAccessEnabled}
+                          onNetworkAccessEnabledChange={setNetworkAccessEnabled}
+                          webSearchEnabled={webSearchEnabled}
+                          onWebSearchEnabledChange={setWebSearchEnabled}
+                          disabled={controlsDisabled}
+                        />
                       )}
+
+                      {showCodexUnavailable ? (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-unavailable-banner"
+                        >
+                          OpenAI Codex is unavailable. Install the CLI (`npm
+                          install -g @openai/codex`), log in with
+                          `CODEX_HOME=./codex codex login` (or your `~/.codex`),
+                          and ensure `./codex/config.toml` is seeded. Compose
+                          mounts <code>{'${CODEX_HOME:-$HOME/.codex}'}</code> to
+                          `/host/codex` and copies `auth.json` into `/app/codex`
+                          when missing, so container logins are not required.
+                          See the guidance in{' '}
+                          <Link
+                            href="https://github.com/Chargeuk/codeInfo2#codex-cli"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            README ▸ Codex (CLI)
+                          </Link>
+                          .
+                          {providerIsCodex || codexProvider?.reason
+                            ? ` (${providerIsCodex ? (providerReason ?? '') : (codexProvider?.reason ?? '')})`
+                            : ''}
+                        </Alert>
+                      ) : null}
+                      {showCodexToolsMissing && (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-tools-banner"
+                        >
+                          Codex requires MCP tools. Ensure `config.toml` lists
+                          the `/mcp` endpoints and that tools are enabled, then
+                          retry once the CLI/auth/config prerequisites above are
+                          satisfied.
+                        </Alert>
+                      )}
+
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                      >
+                        <TextField
+                          inputRef={inputRef}
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          label="Message"
+                          placeholder="Type your prompt"
+                          value={input}
+                          onChange={(event) => setInput(event.target.value)}
+                          disabled={controlsDisabled}
+                          inputProps={{ 'data-testid': 'chat-input' }}
+                          helperText={
+                            providerIsCodex &&
+                            (!providerAvailable || !toolsAvailable)
+                              ? 'Codex is unavailable until the CLI is installed, logged in, and MCP tools are enabled.'
+                              : undefined
+                          }
+                        />
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="flex-start"
+                        >
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            data-testid="chat-send"
+                            disabled={
+                              controlsDisabled || isSending || !input.trim()
+                            }
+                          >
+                            Send
+                          </Button>
+                          {showStop && (
+                            <Button
+                              type="button"
+                              variant="outlined"
+                              color="warning"
+                              onClick={handleStop}
+                              data-testid="chat-stop"
+                            >
+                              Stop
+                            </Button>
+                          )}
+                        </Stack>
+                      </Stack>
                     </Stack>
-                  </Stack>
+                  </form>
+                  {isSending && (
+                    <Typography variant="body2" color="text.secondary">
+                      Responding...
+                    </Typography>
+                  )}
                 </Stack>
-              </form>
-              {isSending && (
-                <Typography variant="body2" color="text.secondary">
-                  Responding...
-                </Typography>
-              )}
-              <Paper variant="outlined" sx={{ minHeight: 320, p: 2 }}>
+              </Box>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  flex: '1 1 0%',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
                 {isLoading && (
                   <Stack
                     direction="row"
                     spacing={1}
                     alignItems="center"
                     justifyContent="center"
-                    sx={{ height: '100%' }}
+                    sx={{ flex: 1 }}
                   >
                     <CircularProgress size={20} />
                     <Typography color="text.secondary">
@@ -1056,9 +1353,21 @@ export default function ChatPage() {
                     ref={transcriptRef}
                     onScroll={handleTranscriptScroll}
                     data-testid="chat-transcript"
-                    sx={{ maxHeight: 640, overflowY: 'auto', pr: 1 }}
+                    style={{
+                      flex: '1 1 0%',
+                      minHeight: 0,
+                      overflowY: 'auto',
+                    }}
+                    sx={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      overflowX: 'hidden',
+                      pr: 1,
+                      minWidth: 0,
+                    }}
                   >
-                    <Stack spacing={1} sx={{ minHeight: 280 }}>
+                    <Stack spacing={1} sx={{ minHeight: 0 }}>
                       {turnsLoading && (
                         <Typography
                           color="text.secondary"
@@ -1186,6 +1495,30 @@ export default function ChatPage() {
                                         data-testid="status-chip"
                                         sx={{ alignSelf: 'flex-start' }}
                                       />
+                                    )}
+                                  {message.role === 'assistant' &&
+                                    message.warnings &&
+                                    message.warnings.length > 0 && (
+                                      <Stack
+                                        direction="row"
+                                        spacing={1}
+                                        sx={{ flexWrap: 'wrap' }}
+                                      >
+                                        {message.warnings.map((warning) => (
+                                          <Chip
+                                            key={`${message.id}-warning-${warning}`}
+                                            size="small"
+                                            variant="outlined"
+                                            color="warning"
+                                            icon={
+                                              <WarningAmberIcon fontSize="small" />
+                                            }
+                                            label={warning}
+                                            data-testid="warning-chip"
+                                            sx={{ alignSelf: 'flex-start' }}
+                                          />
+                                        ))}
+                                      </Stack>
                                     )}
                                   {segments.map((segment) => {
                                     if (segment.kind === 'text') {
@@ -1387,8 +1720,14 @@ export default function ChatPage() {
                                                 <Typography
                                                   variant="body2"
                                                   color="text.primary"
+                                                  style={{
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                  }}
                                                   sx={{
                                                     whiteSpace: 'pre-wrap',
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
                                                   }}
                                                   data-testid="citation-chunk"
                                                 >

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -11,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -38,6 +41,7 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 
 describe('Agents page - commands list', () => {
   it('refreshes the commands dropdown when switching agents', async () => {
+    const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -84,32 +88,23 @@ describe('Agents page - commands list', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     await screen.findByTestId('agent-command-option-first_cmd');
     expect(screen.queryByTestId('agent-command-option-second_cmd')).toBeNull();
-    await act(async () => {
-      await userEvent.keyboard('{Escape}');
-    });
+    await user.keyboard('{Escape}');
 
-    await act(async () => {
-      await userEvent.click(agentSelect);
-    });
+    await user.click(agentSelect);
     const a2Option = await screen.findByRole('option', { name: 'a2' });
-    await act(async () => {
-      await userEvent.click(a2Option);
-    });
+    await user.click(a2Option);
     await waitFor(() => expect(agentSelect).toHaveTextContent('a2'));
 
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     await screen.findByTestId('agent-command-option-second_cmd');
     expect(screen.queryByTestId('agent-command-option-first_cmd')).toBeNull();
   });
 
   it('renders invalid commands as disabled/unselectable', async () => {
+    const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -148,9 +143,7 @@ describe('Agents page - commands list', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
 
     const disabledOption = await screen.findByTestId(
       'agent-command-option-bad',
@@ -171,6 +164,7 @@ describe('Agents page - commands list', () => {
   });
 
   it('shows command names with underscores replaced by spaces', async () => {
+    const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -208,9 +202,7 @@ describe('Agents page - commands list', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
 
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan',
@@ -220,6 +212,7 @@ describe('Agents page - commands list', () => {
   });
 
   it('shows the selected command Description and never renders raw JSON', async () => {
+    const user = userEvent.setup();
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -257,15 +250,11 @@ describe('Agents page - commands list', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan',
     );
-    await act(async () => {
-      await userEvent.click(option);
-    });
+    await user.click(option);
 
     await waitFor(() =>
       expect(screen.getByTestId('agent-command-description')).toHaveTextContent(

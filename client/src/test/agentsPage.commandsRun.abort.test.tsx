@@ -1,11 +1,5 @@
 import { jest } from '@jest/globals';
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -17,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -37,6 +34,7 @@ const routes = [
 describe('Agents page - abort command execute', () => {
   it('Stop aborts an in-flight command execute request', async () => {
     let capturedSignal: AbortSignal | undefined;
+    const user = userEvent.setup();
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -115,19 +113,13 @@ describe('Agents page - abort command execute', () => {
       name: /command/i,
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(commandSelect);
-    });
+    await user.click(commandSelect);
     const option = await screen.findByTestId(
       'agent-command-option-improve_plan',
     );
-    await act(async () => {
-      await userEvent.click(option);
-    });
+    await user.click(option);
 
-    await act(async () => {
-      await userEvent.keyboard('{Escape}');
-    });
+    await user.keyboard('{Escape}');
 
     await waitFor(() =>
       expect(
@@ -143,14 +135,12 @@ describe('Agents page - abort command execute', () => {
 
     const execute = await screen.findByTestId('agent-command-execute');
     await waitFor(() => expect(execute).toBeEnabled());
-    fireEvent.click(execute);
+    await user.click(execute);
 
     await waitFor(() => expect(capturedSignal).toBeDefined());
 
     await waitFor(() => expect(screen.getByTestId('agent-stop')).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('agent-stop'));
-    });
+    await user.click(screen.getByTestId('agent-stop'));
 
     await waitFor(() => expect(capturedSignal?.aborted).toBe(true));
   });

@@ -1,4 +1,3 @@
-import { ReadableStream } from 'node:stream/web';
 import { jest } from '@jest/globals';
 import {
   act,
@@ -9,15 +8,9 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn();
-const loggedEntries: unknown[] = [];
-
-await jest.unstable_mockModule('../logging/transport', () => ({
-  sendLogs: jest.fn((entries: unknown[]) => loggedEntries.push(...entries)),
-  flushQueue: jest.fn(),
-  _getQueue: () => loggedEntries,
-}));
 
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
@@ -25,7 +18,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
-  loggedEntries.length = 0;
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 afterEach(() => {
@@ -35,6 +30,11 @@ afterEach(() => {
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
 const { default: HomePage } = await import('../pages/HomePage');
+
+type LoggedConsoleEntry = {
+  message?: string;
+  context?: Record<string, unknown>;
+};
 
 const routes = [
   {
@@ -47,716 +47,1178 @@ const routes = [
   },
 ];
 
-const modelPayload = {
-  provider: 'lmstudio',
-  available: true,
-  toolsAvailable: true,
-  models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
-};
-const providerPayload = {
-  providers: [
-    {
-      id: 'lmstudio',
-      label: 'LM Studio',
-      available: true,
-      toolsAvailable: true,
-    },
-  ],
-};
-
-function mockChatFetch(
-  stream: ReadableStream<Uint8Array>,
-  overrides?: {
-    models?: typeof modelPayload;
-    providers?: typeof providerPayload;
-  },
-) {
-  mockFetch.mockImplementation((url: RequestInfo | URL) => {
-    const href = typeof url === 'string' ? url.toString() : url.toString();
-    if (href.includes('/chat/providers')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => overrides?.providers ?? providerPayload,
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat/models')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => overrides?.models ?? modelPayload,
-      }) as unknown as Response;
-    }
-    if (href.includes('/chat')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        body: stream,
-      }) as unknown as Response;
-    }
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: async () => ({}),
-    }) as unknown as Response;
-  });
-}
-
-function streamFromFrames(frames: string[]) {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
-      controller.close();
-    },
-  });
-}
-
-function delayedStream(frames: string[], delayMs: number) {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      setTimeout(() => {
-        frames.forEach((frame) => controller.enqueue(encoder.encode(frame)));
-        controller.close();
-      }, delayMs);
-    },
-  });
-}
-
-function timedStream(frames: Array<{ frame: string; delay: number }>) {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      const lastDelay = Math.max(...frames.map((item) => item.delay), 0);
-      frames.forEach(({ frame, delay }) => {
-        setTimeout(() => controller.enqueue(encoder.encode(frame)), delay);
-      });
-      setTimeout(() => controller.close(), lastDelay + 10);
-    },
-  });
-}
-
-async function getReadyControls() {
-  const modelSelect = await screen.findByRole('combobox', { name: /model/i });
-  await waitFor(() => expect(modelSelect).toBeEnabled());
-  const input = await screen.findByTestId('chat-input');
-  await waitFor(() => expect(input).toBeEnabled());
-  const sendButton = screen.getByTestId('chat-send');
-  return { modelSelect, input, sendButton };
-}
-
-describe('Chat page streaming', () => {
-  it('shows processing status chip, thinking placeholder after idle, then completes', async () => {
-    jest.useFakeTimers();
-    try {
-      mockChatFetch(
-        delayedStream(
-          [
-            'data: {"type":"final","message":{"content":"All done","role":"assistant"}}\n\n',
-            'data: {"type":"complete"}\n\n',
-          ],
-          1500,
-        ),
-      );
-
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(1100);
-      });
-
-      expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
-
-      await act(async () => {
-        jest.advanceTimersByTime(1000);
-      });
-
-      expect(await screen.findByText(/All done/)).toBeInTheDocument();
-      expect(screen.getByTestId('status-chip')).toHaveTextContent(/Complete/i);
-      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('shows thinking after a pre-token pause then hides on first streamed text', async () => {
-    jest.useFakeTimers();
-    try {
-      mockChatFetch(
-        timedStream([
-          {
-            frame: 'data: {"type":"token","content":"First chunk"}\n\n',
-            delay: 1200,
-          },
-          {
-            frame:
-              'data: {"type":"final","message":{"content":"First chunk","role":"assistant"}}\n\n',
-            delay: 1500,
-          },
-          { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
-        ]),
-      );
-
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      await act(async () => {
-        jest.advanceTimersByTime(1100);
-      });
-
-      expect(screen.getByTestId('thinking-placeholder')).toBeInTheDocument();
-
-      await act(async () => {
-        jest.advanceTimersByTime(800);
-      });
-
-      expect(await screen.findByText(/First chunk/)).toBeInTheDocument();
-      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  }, 15000);
-
-  it('restarts thinking after a mid-turn silent gap and stops once text resumes', async () => {
-    jest.useFakeTimers();
-    try {
-      mockChatFetch(
-        timedStream([
-          {
-            frame: 'data: {"type":"token","content":"Hello"}\n\n',
-            delay: 0,
-          },
-          {
-            frame: 'data: {"type":"token","content":" again"}\n\n',
-            delay: 1400,
-          },
-          {
-            frame:
-              'data: {"type":"final","message":{"content":"Hello again","role":"assistant"}}\n\n',
-            delay: 1400,
-          },
-          { frame: 'data: {"type":"complete"}\n\n', delay: 1600 },
-        ]),
-      );
-
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      await act(async () => {
-        jest.advanceTimersByTime(2000);
-      });
-
-      const assistantTexts = await screen.findAllByTestId('assistant-markdown');
-      expect(
-        assistantTexts.some((node) =>
-          node.textContent?.includes('Hello again'),
-        ),
-      ).toBe(true);
-      expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  }, 15000);
-
-  it('stays processing after final until the complete frame arrives', async () => {
-    jest.useFakeTimers();
-    try {
-      mockChatFetch(
-        timedStream([
-          {
-            frame:
-              'data: {"type":"final","message":{"content":"All done","role":"assistant"}}\n\n',
-            delay: 0,
-          },
-          { frame: 'data: {"type":"complete"}\n\n', delay: 800 },
-        ]),
-      );
-
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(20);
-      });
-
-      expect(await screen.findByText(/All done/)).toBeInTheDocument();
-      expect(screen.getByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(800);
-      });
-
-      expect(screen.getByTestId('status-chip')).toHaveTextContent(/Complete/i);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('waits for tool-result after complete before marking complete', async () => {
-    jest.useFakeTimers();
-    try {
-      mockChatFetch(
-        timedStream([
-          {
-            frame:
-              'data: {"type":"tool-request","callId":"1","name":"VectorSearch","stage":"request","parameters":{"query":"q"}}\n\n',
-            delay: 0,
-          },
-          {
-            frame:
-              'data: {"type":"final","message":{"content":"Working","role":"assistant"}}\n\n',
-            delay: 0,
-          },
-          { frame: 'data: {"type":"complete"}\n\n', delay: 800 },
-          {
-            frame:
-              'data: {"type":"tool-result","callId":"1","name":"VectorSearch","result":{"results":[{"hostPath":"/repo/a.txt","chunk":"x","score":0.9}]}}\n\n',
-            delay: 1200,
-          },
-        ]),
-      );
-
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      render(<RouterProvider router={router} />);
-
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(sendButton).toBeEnabled());
-
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      expect(await screen.findByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(10);
-      });
-
-      expect(await screen.findByText(/Working/)).toBeInTheDocument();
-      expect(screen.getByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(800);
-      });
-      expect(screen.getByTestId('status-chip')).toHaveTextContent(
-        /Processing/i,
-      );
-
-      await act(async () => {
-        jest.advanceTimersByTime(400);
-      });
-
-      await waitFor(() =>
-        expect(screen.getByTestId('status-chip')).toHaveTextContent(
-          /Complete/i,
-        ),
-      );
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-  it('streams tokens into one assistant bubble and re-enables send', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"token","content":"Hi"}\n\n',
-        'data: {"type":"final","message":{"content":"Hi","role":"assistant"}}\n\n',
-      ]),
-    );
-
+describe('Chat WS streaming UI', () => {
+  it('renders Processing then Complete as transcript events arrive', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
+
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
+    const input = await screen.findByTestId('chat-input');
     fireEvent.change(input, { target: { value: 'Hello' } });
-    await waitFor(() => expect(input).toHaveValue('Hello'));
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await waitFor(() => expect(sendButton).toBeEnabled());
+    const sendButton = await screen.findByTestId('chat-send');
 
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await user.click(sendButton);
     });
 
-    await waitFor(() => expect(sendButton).toBeDisabled());
-    const assistantTexts = await screen.findAllByTestId('assistant-markdown');
-    expect(
-      assistantTexts.some((node) => node.textContent?.includes('Hi')),
-    ).toBe(true);
-  });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
 
-  it('renders <think> content as a collapsible section', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"final","message":{"content":"Visible reply <think>internal chain</think>","role":"assistant"}}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
 
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
-    await act(async () => {
-      await user.click(sendButton);
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
     });
 
-    expect(await screen.findByText('Visible reply')).toBeInTheDocument();
-    const toggle = screen.getByTestId('think-toggle');
-    expect(toggle).toBeInTheDocument();
-    expect(screen.queryByTestId('think-content')).not.toBeInTheDocument();
-    await user.click(toggle);
-    expect(await screen.findByTestId('think-content')).toHaveTextContent(
-      'internal chain',
-    );
-  });
+    const statusChip = await screen.findByTestId('status-chip');
+    expect(statusChip).toHaveTextContent('Processing');
 
-  it('shows an inline error bubble when the stream errors', async () => {
-    mockChatFetch(
-      streamFromFrames(['data: {"type":"error","message":"boom"}\n\n']),
-    );
-
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    await waitFor(() => expect(input).toHaveValue('Hello'));
-
-    await act(async () => {
-      await user.click(sendButton);
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Done',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
     });
 
-    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
-    expect(screen.getByTestId('status-chip')).toHaveTextContent(/Failed/i);
-    expect(screen.queryByTestId('thinking-placeholder')).toBeNull();
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+    expect(await screen.findByText('Done')).toBeInTheDocument();
   });
 
-  it('does not surface tool payload text as an assistant reply when only tool-result is streamed', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"tool-request","callId":"t5","name":"VectorSearch"}\n\n',
-        'data: {"type":"tool-result","callId":"t5","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"repo":"r","relPath":"a.txt","hostPath":"/h/a.txt","chunk":"one","chunkId":"1","score":0.7,"modelId":"m"}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.7,"chunkCount":1,"lineCount":1}]}}\n\n',
-        'data: {"type":"final","message":{"data":{"role":"assistant","content":[{"type":"text","text":"<|channel|>final<|message|>ok"}]}},"roundIndex":0}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
-
+  it('emits deterministic client send/reset + turn_final sync logs', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
-    await act(async () => {
-      await user.click(sendButton);
-    });
-
-    // Tool block should render, but raw JSON payload should not appear as assistant text.
-    expect(
-      await screen.findByText(/VectorSearch · Success/i),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/"chunk"/i)).toBeNull();
-  });
-
-  it('suppresses assistant JSON vector payload without callId', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"tool-request","callId":"t6","name":"VectorSearch"}\n\n',
-        'data: {"type":"tool-result","callId":"t6","name":"VectorSearch","stage":"success","parameters":{"query":"hi"},"result":{"results":[{"hostPath":"/h/a.txt","chunk":"one","score":0.7,"lineCount":2}],"files":[{"hostPath":"/h/a.txt","highestMatch":0.7,"chunkCount":1,"lineCount":2}]}}\n\n',
-        'data: {"type":"final","message":{"role":"assistant","content":"{\\"results\\":[{\\"hostPath\\":\\"/h/a.txt\\",\\"chunk\\":\\"one\\",\\"score\\":0.7}]}"}}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
-
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    await waitFor(() => expect(sendButton).toBeEnabled());
-
-    await act(async () => {
-      await user.click(sendButton);
-    });
-
-    await expect(
-      screen.findByText(/VectorSearch · Success/i),
-    ).resolves.toBeInTheDocument();
-    expect(screen.queryByText(/one/)).toBeNull();
-  });
-
-  it('aborts the stream when the page unmounts', async () => {
-    const abortFns: jest.Mock[] = [];
-    const OriginalAbortController = global.AbortController;
-    class MockAbortController {
-      signal = {
-        aborted: false,
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-      } as unknown as AbortSignal;
-      abort = jest.fn(() => {
-        this.signal = { ...this.signal, aborted: true } as AbortSignal;
-      });
-      constructor() {
-        abortFns.push(this.abort);
-      }
-    }
-    // @ts-expect-error partial mock is sufficient for tests
-    global.AbortController = MockAbortController;
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     try {
-      mockChatFetch(
-        new ReadableStream<Uint8Array>({
-          // keep stream open until abort closes it
-          start() {},
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId();
+      const inflightId = harness.getInflightId() ?? 'i1';
+      expect(conversationId).toBeTruthy();
+
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId,
+        delta: 'Done',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId,
+        status: 'ok',
+      });
+
+      const statusChip = await screen.findByTestId('status-chip');
+      await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+      const entries = logSpy.mock.calls
+        .map(([entry]) => entry)
+        .filter((entry): entry is LoggedConsoleEntry =>
+          Boolean(entry && typeof entry === 'object'),
+        );
+
+      const sendBegin = entries.find(
+        (entry) => entry.message === 'chat.client_send_begin',
+      );
+      expect(sendBegin).toBeTruthy();
+      expect(sendBegin?.context).toEqual(
+        expect.objectContaining({
+          status: 'idle',
+          isStreaming: expect.any(Boolean),
+          inflightId: null,
+          activeAssistantMessageId: null,
+          lastMessageStreamStatus: null,
+          lastMessageContentLen: 0,
         }),
       );
 
-      const user = userEvent.setup();
-      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-      const { unmount } = render(<RouterProvider router={router} />);
+      const sendAfterReset = entries.find(
+        (entry) => entry.message === 'chat.client_send_after_reset',
+      );
+      expect(sendAfterReset).toBeTruthy();
+      expect(sendAfterReset?.context).toEqual(
+        expect.objectContaining({
+          prevAssistantMessageId: null,
+          nextAssistantMessageId: expect.any(String),
+          createdNewAssistant: true,
+        }),
+      );
 
-      const { input, sendButton } = await getReadyControls();
-      fireEvent.change(input, { target: { value: 'Hello' } });
-      await waitFor(() => expect(input).toHaveValue('Hello'));
-      await waitFor(() => expect(sendButton).toBeEnabled());
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      await waitFor(() => expect(sendButton).toBeDisabled());
-      unmount();
-      expect(abortFns.at(-1)).toHaveBeenCalled();
-    } finally {
-      global.AbortController = OriginalAbortController;
-    }
-  });
-
-  it('logs tool events without rendering them as bubbles', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"tool-request","callId":"c1","name":"VectorSearch"}\n\n',
-        'data: {"type":"tool-result","callId":"c1","stage":"toolCallResult"}\n\n',
-        'data: {"type":"token","content":"Hi"}\n\n',
-        'data: {"type":"final","message":{"content":"Hi there","role":"assistant"}}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
-
-    const user = userEvent.setup();
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
-
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
-
-    try {
-      await act(async () => {
-        await user.click(sendButton);
-      });
-
-      const assistantTexts = await screen.findAllByTestId('assistant-markdown');
-      expect(
-        assistantTexts.some((node) => node.textContent?.includes('Hi there')),
-      ).toBe(true);
-
-      const bubbles = screen.getAllByTestId('chat-bubble');
-      expect(bubbles.length).toBe(2);
-      expect(
-        logSpy.mock.calls.some(
-          ([entry]) =>
-            entry &&
-            typeof entry === 'object' &&
-            (entry as { message?: string }).message === 'chat tool event',
-        ),
-      ).toBe(true);
+      const turnFinal = entries.find(
+        (entry) => entry.message === 'chat.client_turn_final_sync',
+      );
+      expect(turnFinal).toBeTruthy();
+      expect(turnFinal?.context).toEqual(
+        expect.objectContaining({
+          inflightId,
+          assistantMessageId: sendAfterReset?.context?.nextAssistantMessageId,
+          assistantTextLen: 4,
+          streamStatus: 'complete',
+        }),
+      );
     } finally {
       logSpy.mockRestore();
     }
   });
 
-  it('sends tool event logs with client source and chat channel tag', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"tool-request","callId":"c1","name":"VectorSearch"}\n\n',
-        'data: {"type":"tool-result","callId":"c1","name":"VectorSearch","result":{"results":[]}}\n\n',
-        'data: {"type":"final","message":{"content":"Done","role":"assistant"}}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
-
+  it('keeps the first assistant reply intact after a second send completes', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
     const user = userEvent.setup();
+
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
 
+    fireEvent.change(input, { target: { value: 'Hello 1' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId1 = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      delta: 'First reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      status: 'ok',
+    });
+
+    await screen.findByText('First reply');
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+    fireEvent.change(input, { target: { value: 'Hello 2' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await user.click(sendButton);
     });
 
-    await screen.findByText('Done');
-
-    await waitFor(
-      () => {
-        expect(loggedEntries.length).toBeGreaterThan(0);
-      },
-      { timeout: 3000 },
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    const inflightId2 = harness.getInflightId() ?? 'i2';
+    expect(harness.chatBodies[0]?.inflightId).not.toEqual(
+      harness.chatBodies[1]?.inflightId,
     );
 
-    const payload = loggedEntries[0] as {
-      source?: string;
-      context?: { channel?: string };
-    };
-    expect(payload.source).toBe('client');
-    expect(payload.context?.channel).toBe('client-chat');
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      delta: 'Second reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      status: 'ok',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('First reply');
+
+    const assistantBubbles = screen
+      .getAllByTestId('chat-bubble')
+      .filter(
+        (node) =>
+          node.getAttribute('data-role') === 'assistant' &&
+          node.getAttribute('data-kind') === 'normal',
+      );
+    expect(assistantBubbles.length).toBe(2);
   });
 
-  it('prepends system context to chat payloads when provided', async () => {
-    mockChatFetch(streamFromFrames(['data: {"type":"complete"}\n\n']));
+  it('creates a new assistant bubble after Stop even if a prior bubble is still processing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    fireEvent.change(input, { target: { value: 'Hello 1' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId1 = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      delta: 'Partial reply',
+    });
+
+    await screen.findByText('Partial reply');
+
+    const stopButton = await screen.findByTestId('chat-stop');
+    await act(async () => {
+      await user.click(stopButton);
+    });
+
+    fireEvent.change(input, { target: { value: 'Hello 2' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    const inflightId2 = harness.getInflightId() ?? 'i2';
+
+    const assistantBubblesAfterSecondSend = screen
+      .getAllByTestId('chat-bubble')
+      .filter(
+        (node) =>
+          node.getAttribute('data-role') === 'assistant' &&
+          node.getAttribute('data-kind') === 'normal',
+      );
+    expect(assistantBubblesAfterSecondSend.length).toBe(2);
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      delta: 'Second reply',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId2,
+      status: 'ok',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('Partial reply');
+
+    // Late turn_final from the first inflight should not overwrite the second.
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId: inflightId1,
+      status: 'stopped',
+    });
+
+    await screen.findByText('Second reply');
+    await screen.findByText('Partial reply');
+  });
+
+  it('treats transient reconnect notices as warnings (no failed bubble)', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+
+    harness.emitStreamWarning({
+      conversationId: conversationId!,
+      inflightId,
+      message: 'Reconnecting... 1/5',
+    });
+
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Still going',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+    expect(await screen.findByText('Still going')).toBeInTheDocument();
+    expect(await screen.findByText('Reconnecting... 1/5')).toBeInTheDocument();
+    expect(statusChip).not.toHaveTextContent('Failed');
+  });
+
+  it('does not send cancel_inflight when navigating away from the page', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    await act(async () => {
+      await router.navigate('/');
+    });
+
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
+      }
+    ).__wsMock;
+    const sent = (wsRegistry?.instances ?? []).flatMap((socket) => socket.sent);
+
+    const cancel = sent
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .some((msg) => msg?.type === 'cancel_inflight');
+
+    expect(cancel).toBe(false);
+  });
+
+  it('accepts new inflight runs when sequence numbers reset', async () => {
+    const previousFlag = (
+      globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+    ).__CODEINFO_TEST__;
+    const windowRef = (
+      globalThis as unknown as { window?: { __CODEINFO_TEST__?: boolean } }
+    ).window;
+
+    (
+      globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+    ).__CODEINFO_TEST__ = false;
+    if (windowRef) {
+      windowRef.__CODEINFO_TEST__ = false;
+      (windowRef as unknown as { __chatTest?: unknown }).__chatTest = undefined;
+    }
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const harness = setupChatWsHarness({ mockFetch });
+      const user = userEvent.setup();
+
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId();
+      const inflightId = harness.getInflightId() ?? 'i1';
+
+      harness.setSeq(40);
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId,
+        delta: 'First',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId,
+        status: 'ok',
+      });
+
+      expect(await screen.findByText('First')).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: 'Again' } });
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+
+      const inflightId2 = harness.getInflightId() ?? 'i2';
+      harness.setSeq(0);
+      harness.emitInflightSnapshot({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        delta: 'Second',
+      });
+      harness.emitFinal({
+        conversationId: conversationId!,
+        inflightId: inflightId2,
+        status: 'ok',
+      });
+
+      expect(await screen.findByText('Second')).toBeInTheDocument();
+
+      const staleLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as { message?: string; context?: unknown };
+        if (record.message !== 'chat.ws.client_stale_event_ignored')
+          return false;
+        const context = record.context as { inflightId?: string } | undefined;
+        return context?.inflightId === inflightId2;
+      });
+      expect(staleLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+      (
+        globalThis as unknown as { __CODEINFO_TEST__?: boolean }
+      ).__CODEINFO_TEST__ = previousFlag;
+      if (windowRef) {
+        windowRef.__CODEINFO_TEST__ = previousFlag;
+      }
+    }
+  });
+
+  it('keeps streaming transcript when empty history hydration arrives', async () => {
+    const harness = setupChatWsHarness({
+      mockFetch,
+      turns: { items: [], nextCursor: null },
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Streaming reply',
+    });
+
+    expect(await screen.findByText('Streaming reply')).toBeInTheDocument();
+
+    harness.emitSidebarUpsert({
+      conversationId: conversationId!,
+      title: 'Hello',
+      provider: 'lmstudio',
+      model: 'm1',
+      source: 'REST',
+      lastMessageAt: '2025-01-01T00:00:00.000Z',
+      archived: false,
+    });
+
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some((call) => String(call[0]).includes('/turns')),
+      ).toBe(true),
+    );
+
+    expect(screen.getByText('Streaming reply')).toBeInTheDocument();
+  });
+
+  it('dedupes hydrated turns against in-flight bubbles', async () => {
+    const now = Date.now();
+    const userText = 'User message 123';
+    const assistantText = 'Assistant reply 123';
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: assistantText,
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: new Date(now + 2 * 60 * 1000).toISOString(),
+        },
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: userText,
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: new Date(now).toISOString(),
+        },
+      ],
+      nextCursor: null,
+    };
+
+    const harness = setupChatWsHarness({
+      mockFetch,
+      turns: turnsPayload,
+    });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: userText } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: assistantText,
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    expect(await screen.findByText(assistantText)).toBeInTheDocument();
+
+    harness.emitSidebarUpsert({
+      conversationId: conversationId!,
+      title: 'Hydration test',
+      provider: 'lmstudio',
+      model: 'm1',
+      source: 'REST',
+      lastMessageAt: new Date(now + 3 * 60 * 1000).toISOString(),
+      archived: false,
+    });
+
+    await waitFor(() =>
+      expect(
+        mockFetch.mock.calls.some((call) => String(call[0]).includes('/turns')),
+      ).toBe(true),
+    );
+
+    expect(screen.getAllByText(userText)).toHaveLength(1);
+    expect(screen.getAllByText(assistantText)).toHaveLength(1);
+  });
+
+  it('keeps prior assistant turns on focus-triggered snapshot refresh (multi-window follow-up)', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:10.000Z',
+        },
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:10.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:10.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
 
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
-    fireEvent.change(input, { target: { value: 'Hello' } });
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
+
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const turnsCallsBefore = mockFetch.mock.calls.filter((call) =>
+      String(call[0]).includes('/turns'),
+    ).length;
+
+    turnsPayload.items = [
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Assistant B',
+        model: 'm1',
+        provider: 'lmstudio',
+        status: 'ok',
+        createdAt: '2025-01-01T00:01:10.000Z',
+      },
+      {
+        conversationId: 'c1',
+        role: 'user',
+        content: 'User B',
+        model: 'm1',
+        provider: 'lmstudio',
+        status: 'ok',
+        createdAt: '2025-01-01T00:01:00.000Z',
+      },
+      ...turnsPayload.items,
+    ];
 
     await act(async () => {
-      await user.click(sendButton);
+      window.dispatchEvent(new Event('focus'));
     });
 
     await waitFor(() => {
-      const chatCalls = mockFetch.mock.calls.filter(([target]) => {
-        const href = target.toString();
-        return (
-          href.includes('/chat') &&
-          !href.includes('/chat/providers') &&
-          !href.includes('/chat/models')
-        );
-      });
-      expect(chatCalls.length).toBeGreaterThan(0);
+      const turnsCallsAfter = mockFetch.mock.calls.filter((call) =>
+        String(call[0]).includes('/turns'),
+      ).length;
+      expect(turnsCallsAfter).toBeGreaterThan(turnsCallsBefore);
     });
 
-    const chatCalls = mockFetch.mock.calls.filter(([target]) => {
-      const href = target.toString();
-      return (
-        href.includes('/chat') &&
-        !href.includes('/chat/providers') &&
-        !href.includes('/chat/models')
-      );
-    });
-    const chatCall = chatCalls.at(-1);
-    const body = (chatCall?.[1] as RequestInit | undefined)?.body as string;
-    const parsed = JSON.parse(body);
-    expect(typeof parsed.conversationId).toBe('string');
-    expect(parsed.message).toBe('Hello');
-    expect(parsed.provider).toBe('lmstudio');
-    expect(parsed.messages).toBeUndefined();
+    expect(await screen.findByText('User B')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant B')).toBeInTheDocument();
+    expect(screen.getByText('User A')).toBeInTheDocument();
+    expect(screen.getByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant B')).toBeLessThan(text.indexOf('User B'));
   });
 
-  it('renders user and assistant bubbles with 14px border radius', async () => {
-    mockChatFetch(
-      streamFromFrames([
-        'data: {"type":"final","message":{"content":"Reply","role":"assistant"}}\n\n',
-        'data: {"type":"complete"}\n\n',
-      ]),
-    );
+  it('renders same-createdAt turns deterministically when turnId is present', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+          turnId: 't-user',
+        },
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+          turnId: 't-assistant',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
 
     const user = userEvent.setup();
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
-    const { input, sendButton } = await getReadyControls();
-    await user.type(input, 'Hello');
-    await waitFor(() => expect(sendButton).toBeEnabled());
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
 
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+  });
+
+  it('renders same-createdAt turns deterministically when turnId is missing (legacy)', async () => {
+    const turnsPayload = {
+      items: [
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: 'User A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: 'Assistant A',
+          model: 'm1',
+          provider: 'lmstudio',
+          status: 'ok',
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      ],
+      nextCursor: null,
+    };
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation 1',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+            flags: {},
+            createdAt: '2025-01-01T00:00:00.000Z',
+            updatedAt: '2025-01-01T00:00:00.000Z',
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: turnsPayload,
+    });
+
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const titleNode = await screen.findByText('Conversation 1');
+    const row = titleNode.closest('[data-testid="conversation-row"]');
+    expect(row).toBeTruthy();
+    await act(async () => {
+      await user.click(row!);
+    });
+
+    expect(await screen.findByText('User A')).toBeInTheDocument();
+    expect(await screen.findByText('Assistant A')).toBeInTheDocument();
+
+    const transcript = screen.getByTestId('chat-transcript');
+    const text = transcript.textContent ?? '';
+    expect(text.indexOf('Assistant A')).toBeLessThan(text.indexOf('User A'));
+  });
+
+  it('dedupes ws user_turn against the sender tab optimistic bubble', async () => {
+    const userText = 'Hello from sender';
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: userText } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await user.click(sendButton);
     });
 
-    const bubbles = await screen.findAllByTestId('chat-bubble');
-    const assistantBubble = bubbles.find(
-      (bubble) => bubble.getAttribute('data-role') === 'assistant',
-    );
-    const userBubble = bubbles.find(
-      (bubble) => bubble.getAttribute('data-role') === 'user',
-    );
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
 
-    expect(assistantBubble).toBeTruthy();
-    expect(userBubble).toBeTruthy();
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
 
-    const assistantRadius = getComputedStyle(
-      assistantBubble as HTMLElement,
-    ).borderRadius;
-    const userRadius = getComputedStyle(userBubble as HTMLElement).borderRadius;
+    harness.emitUserTurn({
+      conversationId: conversationId!,
+      inflightId,
+      content: userText,
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
 
-    expect(assistantRadius).toBe('14px');
-    expect(userRadius).toBe('14px');
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes(userText));
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  it('renders ws user_turn bubbles in a tab that did not send the prompt', async () => {
+    const conversationId = 'c-user-turn-2';
+    const userText = 'Hello from other tab';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Other tab conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    harness.emitUserTurn({
+      conversationId,
+      inflightId: 'i1',
+      content: userText,
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
+
+    await waitFor(() => {
+      const matches = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'user')
+        .filter((el) => (el.textContent ?? '').includes(userText));
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  it('creates a new assistant bubble when a WS user_turn starts a new inflight run (cross-tab follow-up)', async () => {
+    const conversationId = 'c-cross-tab';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Cross tab conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const row = await screen.findByTestId('conversation-row');
+      await act(async () => {
+        await user.click(row);
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn one',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+      harness.emitInflightSnapshot({
+        conversationId,
+        inflightId: 'i1',
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId,
+        inflightId: 'i1',
+        delta: 'Assistant one',
+      });
+      harness.emitFinal({ conversationId, inflightId: 'i1', status: 'ok' });
+
+      expect(await screen.findByText('Assistant one')).toBeInTheDocument();
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i2',
+        content: 'User turn two',
+        createdAt: '2025-01-01T00:01:00.000Z',
+      });
+      harness.emitInflightSnapshot({
+        conversationId,
+        inflightId: 'i2',
+        assistantText: '',
+      });
+      harness.emitAssistantDelta({
+        conversationId,
+        inflightId: 'i2',
+        delta: 'Assistant two',
+      });
+      harness.emitFinal({ conversationId, inflightId: 'i2', status: 'ok' });
+
+      expect(await screen.findByText('Assistant two')).toBeInTheDocument();
+
+      const assistantBubbles = screen
+        .getAllByTestId('chat-bubble')
+        .filter((el) => el.getAttribute('data-role') === 'assistant')
+        .filter((el) => el.getAttribute('data-kind') === 'normal');
+      expect(assistantBubbles).toHaveLength(2);
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeTruthy();
+      const resetContext = (resetLog?.[0] as LoggedConsoleEntry | undefined)
+        ?.context;
+      expect(resetContext?.prevInflightId).toBe('i1');
+      expect(resetContext?.inflightId).toBe('i2');
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('does not reset the assistant pointer when WS user_turn repeats the same inflightId', async () => {
+    const conversationId = 'c-same-inflight';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Same inflight conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            source: 'REST',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: { items: [], nextCursor: null },
+    });
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const row = await screen.findByTestId('conversation-row');
+      await act(async () => {
+        await user.click(row);
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn one',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'i1',
+        content: 'User turn again',
+        createdAt: '2025-01-01T00:00:01.000Z',
+      });
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('does not reset the assistant pointer for local send runs (even if server inflightId differs)', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, { target: { value: 'Hello' } });
+      const sendButton = await screen.findByTestId('chat-send');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+      const conversationId = harness.getConversationId() ?? 'c1';
+      harness.emitUserTurn({
+        conversationId,
+        inflightId: 'server-i2',
+        content: 'Hello',
+        createdAt: '2025-01-01T00:00:00.000Z',
+      });
+
+      const resetLog = logSpy.mock.calls.find(([entry]) => {
+        if (!entry || typeof entry !== 'object') return false;
+        const record = entry as LoggedConsoleEntry;
+        return record.message === 'chat.ws.client_reset_assistant';
+      });
+      expect(resetLog).toBeUndefined();
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });

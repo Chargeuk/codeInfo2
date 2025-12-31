@@ -1,12 +1,22 @@
 import assert from 'assert';
-import type { Server } from 'http';
+import http, { type Server } from 'node:http';
+
 import { chatRequestFixture } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import type WebSocket from 'ws';
+
 import { createRequestLogger } from '../../logger.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs, type WsServerHandle } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 import {
   MockLMStudioClient,
   type MockScenario,
@@ -15,13 +25,38 @@ import {
   stopMock,
 } from '../support/mockLmStudioSdk.js';
 
+type ChatStartResponse = {
+  status: 'started';
+  conversationId: string;
+  inflightId: string;
+  provider: string;
+  model: string;
+};
+
+type WsEvent = {
+  type?: string;
+  conversationId?: string;
+  inflightId?: string;
+  inflight?: { inflightId?: string };
+  status?: string;
+};
+
 let server: Server | null = null;
+let wsHandle: WsServerHandle | null = null;
+let ws: WebSocket | null = null;
 let baseUrl = '';
-let events: unknown[] = [];
-let statusCode: number | null = null;
+let startResponse: ChatStartResponse | null = null;
+
+async function ensureWs() {
+  if (!ws) {
+    ws = await connectWs({ baseUrl });
+  }
+  return ws;
+}
 
 Before(async () => {
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -38,10 +73,13 @@ Before(async () => {
     }),
   );
 
+  const httpServer = http.createServer(app);
+  server = httpServer;
+  wsHandle = attachWs({ httpServer });
+
   await new Promise<void>((resolve) => {
-    const listener = app.listen(0, () => {
-      server = listener;
-      const address = listener.address();
+    httpServer.listen(0, () => {
+      const address = httpServer.address();
       if (!address || typeof address === 'string') {
         throw new Error('Unable to start test server');
       }
@@ -51,85 +89,140 @@ Before(async () => {
   });
 });
 
-After(() => {
+After(async () => {
   stopMock();
+
+  if (ws) {
+    await closeWs(ws);
+    ws = null;
+  }
+  if (wsHandle) {
+    await wsHandle.close();
+    wsHandle = null;
+  }
   if (server) {
-    server.close();
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
     server = null;
   }
-  events = [];
-  statusCode = null;
+  startResponse = null;
 });
 
 Given('chat cancellation scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
 
-When('I start a chat stream and abort after first token', async () => {
-  const controller = new AbortController();
-  const userMessage = Array.isArray(chatRequestFixture.messages)
-    ? String(
-        chatRequestFixture.messages.find(
-          (msg) => (msg as { role?: string }).role === 'user',
-        )?.content ?? 'Hello',
-      )
-    : 'Hello';
-  const res = await fetch(`${baseUrl}/chat`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      provider:
-        (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
-      model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
-      conversationId: 'chat-cancel-fixture',
-      message: userMessage,
-    }),
-    signal: controller.signal,
-  });
+When(
+  'I start a chat run and unsubscribe from the conversation stream',
+  async () => {
+    const controller = new AbortController();
+    const userMessage = Array.isArray(chatRequestFixture.messages)
+      ? String(
+          chatRequestFixture.messages.find(
+            (msg) => (msg as { role?: string }).role === 'user',
+          )?.content ?? 'Hello',
+        )
+      : 'Hello';
 
-  statusCode = res.status;
-  const reader = res.body?.getReader();
-  if (!reader) return;
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider:
+          (chatRequestFixture as { provider?: string }).provider ?? 'lmstudio',
+        model: (chatRequestFixture as { model?: string }).model ?? 'model-1',
+        conversationId: 'chat-cancel-fixture',
+        message: userMessage,
+      }),
+      signal: controller.signal,
+    });
 
-  try {
-    const { value } = await reader.read();
-    if (value) {
-      const decoder = new TextDecoder();
-      const chunk = decoder.decode(value, { stream: true });
-      chunk
-        .split('\n\n')
-        .map((frame) => frame.trim())
-        .filter((frame) => frame && !frame.startsWith(':'))
-        .forEach((frame) => {
-          const payload = frame.startsWith('data:')
-            ? frame.slice(5).trim()
-            : frame;
-          try {
-            events.push(JSON.parse(payload));
-          } catch {
-            // ignore parse errors for malformed frames
-          }
-        });
-    }
-    controller.abort();
-  } catch (err) {
-    const name = (err as { name?: string } | undefined)?.name;
-    if (name !== 'AbortError') {
-      throw err;
-    }
-  }
-});
+    startResponse = (await res.json()) as ChatStartResponse;
+    assert.equal(res.status, 202);
+    assert.ok(startResponse.inflightId);
 
-Then('the chat prediction is cancelled server side', async () => {
-  await new Promise((resolve) => setTimeout(resolve, 20));
+    const socket = await ensureWs();
+    sendJson(socket, {
+      type: 'subscribe_conversation',
+      conversationId: startResponse.conversationId,
+    });
+
+    // Wait for the subscription snapshot to prove we're receiving events, then unsubscribe.
+    await waitForEvent({
+      ws: socket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'inflight_snapshot' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflight?.inflightId === startResponse?.inflightId
+        );
+      },
+    });
+
+    sendJson(socket, {
+      type: 'unsubscribe_conversation',
+      conversationId: startResponse.conversationId,
+    });
+  },
+);
+
+Then('the chat prediction is not cancelled server side', async () => {
   const state = getLastPredictionState();
   assert(state, 'prediction state missing');
-  assert.strictEqual(state.cancelled, true);
+  assert.strictEqual(state.cancelled, false);
 });
 
-Then('the streamed events stop before completion', () => {
-  const types = events.map((event) => (event as { type?: string }).type);
-  assert(!types.includes('complete'), 'should not emit complete after abort');
-  assert(!types.includes('final'), 'should not emit final after abort');
-  assert.strictEqual(statusCode, 200);
+When('I send cancel_inflight for the active run', async () => {
+  assert.ok(startResponse);
+  const socket = await ensureWs();
+
+  // Re-subscribe so we can observe the final status.
+  sendJson(socket, {
+    type: 'subscribe_conversation',
+    conversationId: startResponse.conversationId,
+  });
+
+  await waitForEvent({
+    ws: socket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'inflight_snapshot' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflight?.inflightId === startResponse?.inflightId
+      );
+    },
+  });
+
+  sendJson(socket, {
+    type: 'cancel_inflight',
+    conversationId: startResponse.conversationId,
+    inflightId: startResponse.inflightId,
+  });
 });
+
+Then(
+  'the WebSocket stream final status is {string}',
+  async (status: string) => {
+    assert.ok(startResponse);
+    const socket = await ensureWs();
+
+    const final = await waitForEvent({
+      ws: socket,
+      predicate: (event: unknown): event is WsEvent => {
+        const e = event as WsEvent;
+        return (
+          e?.type === 'turn_final' &&
+          e.conversationId === startResponse?.conversationId &&
+          e.inflightId === startResponse?.inflightId
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    assert.equal(final.status, status);
+    const state = getLastPredictionState();
+    assert(state, 'prediction state missing');
+    assert.strictEqual(state.cancelled, true);
+  },
+);

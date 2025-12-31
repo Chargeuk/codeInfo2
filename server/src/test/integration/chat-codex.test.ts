@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
@@ -7,8 +8,20 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 class MockThread {
   id: string | null;
@@ -70,6 +83,8 @@ const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 beforeEach(() => {
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
+  memoryConversations.clear();
+  memoryTurns.clear();
   setCodexDetection({
     available: false,
     authPresent: false,
@@ -102,6 +117,18 @@ const buildCodexBody = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    if (turns.some((t) => t.role === 'assistant' && (t.content ?? '').length)) {
+      return turns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
+}
+
 test('codex chat streams token/final/complete with thread id', async () => {
   setCodexDetection({
     available: true,
@@ -119,43 +146,114 @@ test('codex chat streams token/final/complete with thread id', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  const res = await request(app)
-    .post('/chat')
-    .send(buildCodexBody({ conversationId: 'thread-abc' }))
-    .expect(200);
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
 
-  // Debug aid for SSE frames if this test fails
-  // console.log('codex sse raw', res.text);
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
 
-  const frames = res.text
-    .split('\n\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('data:'))
-    .map(
-      (line) =>
-        JSON.parse(line.replace(/^data:\s*/, '')) as {
-          type: string;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    // Subscribe before starting so the run-start snapshot is broadcast.
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: 'thread-abc',
+    });
+
+    // Start waits before triggering the HTTP request to avoid missing early frames.
+    const snapshotPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflight: { inflightId: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflight?: { inflightId?: string };
+        };
+        return (
+          e.type === 'inflight_snapshot' && e.conversationId === 'thread-abc'
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    const deltaPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+        };
+        return (
+          e.type === 'assistant_delta' && e.conversationId === 'thread-abc'
+        );
+      },
+      timeoutMs: 4000,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        status: string;
+        threadId?: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          status?: string;
           threadId?: string;
-          content?: string;
-          message?: { content?: string };
-        },
-    );
+        };
+        return e.type === 'turn_final' && e.conversationId === 'thread-abc';
+      },
+      timeoutMs: 4000,
+    });
 
-  const threadFrame =
-    frames.find((f) => f.type === 'thread' && f.threadId) ??
-    frames.find((f) => f.threadId);
-  assert.equal(threadFrame?.threadId, 'thread-abc');
-  assert.ok(frames.some((f) => f.type === 'token' && f.content === 'Hello'));
-  assert.ok(
-    frames.some(
-      (f) =>
-        f.type === 'final' &&
-        (f.message?.content ?? '').includes('Hello world'),
-    ),
-  );
-  const completeFrame = frames.find((f) => f.type === 'complete');
-  assert.ok(completeFrame);
-  assert.equal(completeFrame?.threadId, 'thread-abc');
+    const res = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId: 'thread-abc' }))
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.conversationId, 'thread-abc');
+    assert.equal(typeof res.body.inflightId, 'string');
+
+    const snapshot = await snapshotPromise;
+    assert.equal(snapshot.inflight.inflightId, res.body.inflightId);
+
+    const delta = await deltaPromise;
+    assert.equal(delta.inflightId, res.body.inflightId);
+
+    const final = await finalPromise;
+    assert.equal(final.inflightId, res.body.inflightId);
+
+    assert.equal(final.status, 'ok');
+    assert.equal(final.threadId, 'thread-abc');
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
 });
 
 test('codex chat resumes existing thread when threadId supplied', async () => {
@@ -179,7 +277,7 @@ test('codex chat resumes existing thread when threadId supplied', async () => {
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ threadId: 'thread-resume' }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(mockCodex.lastResumeOptions?.model, 'gpt-5.1-codex-max');
 });
@@ -202,7 +300,7 @@ test('codex chat sets workingDirectory and skipGitRepoCheck', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app).post('/chat').send(buildCodexBody()).expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(202);
 
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);
@@ -218,5 +316,99 @@ test('codex chat rejects when detection is unavailable', async () => {
     .send(buildCodexBody({ message: 'hi' }));
 
   assert.equal(resUnavailable.status, 503);
-  assert.ok(resUnavailable.body.error?.includes('codex'));
+  assert.equal(resUnavailable.body.status, 'error');
+  assert.equal(resUnavailable.body.code, 'PROVIDER_UNAVAILABLE');
+  assert.equal(typeof resUnavailable.body.message, 'string');
+  assert.ok(String(resUnavailable.body.message).length > 0);
+});
+
+test('POST /chat persists turns without WS subscribers (run continues)', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const codexFactory = () => new MockCodex('thread-no-ws');
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const conversationId = 'thread-no-ws';
+  await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ conversationId }))
+    .expect(202);
+
+  const turns = await waitForAssistantTurn(conversationId);
+  assert.ok(turns.some((t) => t.role === 'user'));
+  assert.ok(turns.some((t) => t.role === 'assistant'));
+});
+
+test('POST /chat returns 409 RUN_IN_PROGRESS when a run is already active', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class SlowThread extends MockThread {
+    async runStreamed(): Promise<{ events: AsyncGenerator<ThreadEvent> }> {
+      const threadId = this.id;
+      async function* generator(): AsyncGenerator<ThreadEvent> {
+        yield { type: 'thread.started', thread_id: threadId } as ThreadEvent;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', text: 'Hello' },
+        } as ThreadEvent;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        yield {
+          type: 'item.completed',
+          item: { type: 'agent_message', text: 'Hello world' },
+        } as ThreadEvent;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        yield { type: 'turn.completed' } as ThreadEvent;
+      }
+
+      return { events: generator() };
+    }
+  }
+
+  class SlowCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      return new SlowThread(this.id);
+    }
+  }
+
+  const codexFactory = () => new SlowCodex('thread-lock');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const conversationId = 'thread-lock';
+  const first = await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ conversationId }))
+    .expect(202);
+  assert.equal(first.body.status, 'started');
+
+  const second = await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ conversationId, message: 'Second' }));
+  assert.equal(second.status, 409);
+  assert.equal(second.body.status, 'error');
+  assert.equal(second.body.code, 'RUN_IN_PROGRESS');
+
+  await waitForAssistantTurn(conversationId);
 });

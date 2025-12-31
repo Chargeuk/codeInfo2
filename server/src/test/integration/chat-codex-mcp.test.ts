@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test, { afterEach, beforeEach } from 'node:test';
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -11,6 +12,13 @@ import request from 'supertest';
 import { query, resetStore } from '../../logStore.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 class MockThread {
   id: string | null;
@@ -201,53 +209,166 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  const res = await request(app)
-    .post('/chat')
-    .send(buildCodexBody({ conversationId: 'thread-mcp' }))
-    .expect(200);
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
 
-  const frames = res.text
-    .split('\n\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('data:'))
-    .map(
-      (line) =>
-        JSON.parse(line.replace(/^data:\s*/, '')) as Record<string, unknown>,
-    );
+  const ws = await connectWs({ baseUrl });
 
-  const toolRequest = frames.find((f) => f.type === 'tool-request');
-  assert.ok(toolRequest, 'tool-request frame should exist');
-  assert.equal((toolRequest as { callId?: string }).callId, 'tool-1');
-  assert.equal((toolRequest as { name?: string }).name, 'VectorSearch');
+  try {
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: 'thread-mcp',
+    });
 
-  const toolResult = frames.find((f) => f.type === 'tool-result');
-  assert.ok(toolResult, 'tool-result frame should exist');
-  assert.equal((toolResult as { callId?: string }).callId, 'tool-1');
-  assert.equal((toolResult as { stage?: string }).stage, 'success');
-  assert.deepEqual((toolResult as { parameters?: unknown }).parameters, {
-    query: 'hello',
-    limit: 3,
-  });
+    // Start WS waits before triggering the HTTP request to avoid missing early frames.
+    const snapshotPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { type: string } => {
+        const e = event as { type?: string; conversationId?: string };
+        return (
+          e.type === 'inflight_snapshot' && e.conversationId === 'thread-mcp'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const resultPayload = (toolResult as { result?: Record<string, unknown> })
-    .result as Record<string, unknown>;
-  assert.ok(Array.isArray(resultPayload?.results));
-  assert.ok(Array.isArray(resultPayload?.files));
+    const toolRequestPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        event: { type: string; callId?: string; name?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          event?: { type?: string };
+        };
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === 'thread-mcp' &&
+          e.event?.type === 'tool-request'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const analysisIndex = frames.findIndex((f) => f.type === 'analysis');
-  assert.notEqual(analysisIndex, -1, 'analysis frame should be present');
-  assert.match(
-    String((frames[analysisIndex] as { content?: unknown }).content ?? ''),
-    /Thinking about the answer/,
-  );
+    const toolResultPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        event: {
+          type: string;
+          callId?: string;
+          stage?: string;
+          parameters?: unknown;
+          result?: Record<string, unknown>;
+        };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          event?: { type?: string };
+        };
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === 'thread-mcp' &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const finalFrame = frames.find((f) => f.type === 'final');
-  assert.ok(finalFrame);
-  const finalIndex = frames.findIndex((f) => f.type === 'final');
-  assert.ok(
-    analysisIndex === -1 || analysisIndex < finalIndex,
-    'analysis should arrive before final frame',
-  );
+    const analysisPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        delta: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          delta?: string;
+        };
+        return e.type === 'analysis_delta' && e.conversationId === 'thread-mcp';
+      },
+      timeoutMs: 5000,
+    });
+
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        status: string;
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return e.type === 'turn_final' && e.conversationId === 'thread-mcp';
+      },
+      timeoutMs: 5000,
+    });
+
+    const res = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId: 'thread-mcp' }))
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.conversationId, 'thread-mcp');
+    assert.equal(typeof inflightId, 'string');
+
+    await snapshotPromise;
+
+    const toolRequest = await toolRequestPromise;
+    assert.equal(toolRequest.inflightId, inflightId);
+    assert.equal(toolRequest.event.callId, 'tool-1');
+    assert.equal(toolRequest.event.name, 'VectorSearch');
+
+    const toolResult = await toolResultPromise;
+    assert.equal(toolResult.inflightId, inflightId);
+    assert.equal(toolResult.event.callId, 'tool-1');
+    assert.equal(toolResult.event.stage, 'success');
+    assert.deepEqual(toolResult.event.parameters, { query: 'hello', limit: 3 });
+
+    const resultPayload = toolResult.event.result ?? {};
+    assert.ok(Array.isArray(resultPayload.results));
+    assert.ok(Array.isArray(resultPayload.files));
+
+    const analysis = await analysisPromise;
+    assert.equal(analysis.inflightId, inflightId);
+    assert.match(String(analysis.delta ?? ''), /Thinking about the answer/);
+
+    const final = await finalPromise;
+    assert.equal(final.inflightId, inflightId);
+    assert.equal(final.status, 'ok');
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
 
   assert.ok(mockCodex.lastThread?.lastPrompt);
   assert.ok(
@@ -298,26 +419,89 @@ test('codex tool requests fall back to tool name when Codex omits name field', a
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  const res = await request(app)
-    .post('/chat')
-    .send(buildCodexBody())
-    .expect(200);
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
 
-  const frames = res.text
-    .split('\n\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('data:'))
-    .map((line) => JSON.parse(line.replace(/^data:\s*/, '')));
+  const ws = await connectWs({ baseUrl });
+  try {
+    const conversationId = 'thread-mcp-omit-name';
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const toolRequest = frames.find((f) => f.type === 'tool-request');
-  assert.ok(toolRequest, 'tool-request frame should exist');
-  assert.equal((toolRequest as { callId?: string }).callId, 'tool-1');
-  assert.equal((toolRequest as { name?: string }).name, 'VectorSearch');
+    const toolRequestPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        event: { type: string; callId?: string; name?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          event?: { type?: string };
+        };
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-request'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const toolResult = frames.find((f) => f.type === 'tool-result');
-  assert.ok(toolResult, 'tool-result frame should exist');
-  assert.equal((toolResult as { callId?: string }).callId, 'tool-1');
-  assert.equal((toolResult as { name?: string }).name, 'VectorSearch');
+    const toolResultPromise = waitForEvent({
+      ws,
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: string;
+        conversationId: string;
+        inflightId: string;
+        event: { type: string; callId?: string; name?: string };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          event?: { type?: string };
+        };
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    const res = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId }))
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    const toolRequest = await toolRequestPromise;
+    assert.equal(toolRequest.inflightId, inflightId);
+
+    assert.equal(toolRequest.event.callId, 'tool-1');
+    assert.equal(toolRequest.event.name, 'VectorSearch');
+
+    const toolResult = await toolResultPromise;
+    assert.equal(toolResult.inflightId, inflightId);
+
+    assert.equal(toolResult.event.callId, 'tool-1');
+    assert.equal(toolResult.event.name, 'VectorSearch');
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
 });
 
 test('codex chat rejects invalid sandbox mode early', async () => {
@@ -452,7 +636,7 @@ test('codex chat forwards non-default sandbox mode to codex thread', async () =>
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ sandboxMode: 'danger-full-access' }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.sandboxMode,
@@ -479,7 +663,7 @@ test('codex chat defaults approvalPolicy when omitted', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app).post('/chat').send(buildCodexBody()).expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
@@ -543,7 +727,7 @@ test('codex chat defaults modelReasoningEffort when omitted', async () => {
     createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
   );
 
-  await request(app).post('/chat').send(buildCodexBody()).expect(200);
+  await request(app).post('/chat').send(buildCodexBody()).expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
@@ -610,7 +794,7 @@ test('codex chat forwards xhigh modelReasoningEffort flag to codex thread', asyn
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ modelReasoningEffort: 'xhigh' }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
@@ -640,7 +824,7 @@ test('codex chat forwards approvalPolicy flag to codex thread', async () => {
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ approvalPolicy: 'on-request' }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
@@ -670,7 +854,7 @@ test('codex chat forwards networkAccessEnabled flag to codex thread', async () =
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ networkAccessEnabled: false }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.networkAccessEnabled,
@@ -700,7 +884,7 @@ test('codex chat forwards webSearchEnabled flag to codex thread', async () => {
   await request(app)
     .post('/chat')
     .send(buildCodexBody({ webSearchEnabled: false }))
-    .expect(200);
+    .expect(202);
 
   assert.equal(
     mockCodex.lastStartOptions?.webSearchEnabled,
@@ -743,7 +927,7 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
         approvalPolicy: 'never',
         modelReasoningEffort: 'medium',
       })
-      .expect(200);
+      .expect(202);
 
     const warnings = query({
       level: ['warn'],

@@ -71,7 +71,7 @@ export default function CodexFlagsPanel({
 }: Props) {
   return (
     <Accordion
-      defaultExpanded
+      defaultExpanded={false}
       disableGutters
       data-testid="codex-flags-panel"
       sx={{

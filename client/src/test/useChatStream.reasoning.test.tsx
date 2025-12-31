@@ -1,232 +1,80 @@
-import { ReadableStream } from 'node:stream/web';
-import { jest } from '@jest/globals';
-import { render, waitFor } from '@testing-library/react';
-import { useEffect } from 'react';
-import useChatStream, { type ChatMessage } from '../hooks/useChatStream';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import useChatStream from '../hooks/useChatStream';
+import type { ChatWsTranscriptEvent } from '../hooks/useChatWs';
 
-const mockFetch = jest.fn();
+describe('useChatStream reasoning (analysis_delta)', () => {
+  it('captures streamed analysis into think and turns it off on final', async () => {
+    const conversationId = 'c1';
 
-beforeAll(() => {
-  global.fetch = mockFetch as unknown as typeof fetch;
-});
+    const { result } = renderHook(() => useChatStream('m1', 'codex'));
 
-beforeEach(() => {
-  mockFetch.mockReset();
-});
-
-function Wrapper({
-  prompt,
-  onUpdate,
-  provider = 'lmstudio',
-}: {
-  prompt: string;
-  onUpdate: (messages: ChatMessage[]) => void;
-  provider?: string;
-}) {
-  const { messages, send } = useChatStream('m1', provider);
-
-  useEffect(() => {
-    onUpdate(messages);
-  }, [messages, onUpdate]);
-
-  useEffect(() => {
-    void send(prompt);
-  }, [prompt, send]);
-
-  return null;
-}
-
-const harmonyStream = () => {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"token","content":"<|channel|>analysis<|message|>Need answer: Neil Armstrong."}\n\n',
-        ),
-      );
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode(
-            'data: {"type":"final","message":{"role":"assistant","content":"<|channel|>analysis<|message|>Need answer: Neil Armstrong.<|end|><|start|>assistant<|channel|>final<|message|>He was the first person on the Moon."}}\n\n',
-          ),
-        );
-        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-        controller.close();
-      }, 20);
-    },
-  });
-};
-
-const thinkStream = () => {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"token","content":"<think>Analyzing"}\n\n',
-        ),
-      );
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode('data: {"type":"token","content":" steps"}\n\n'),
-        );
-      }, 10);
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode(
-            'data: {"type":"token","content":"</think>Final answer"}\n\n',
-          ),
-        );
-        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-        controller.close();
-      }, 25);
-    },
-  });
-};
-
-const multiAnalysisFinalStream = () => {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"token","content":"<|channel|>analysis<|message|>First part."}\n\n',
-        ),
-      );
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode(
-            'data: {"type":"final","message":{"role":"assistant","content":"<|channel|>analysis<|message|>Second part.<|end|><|start|>assistant<|channel|>final<|message|>Visible answer."}}\n\n',
-          ),
-        );
-        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-        controller.close();
-      }, 10);
-    },
-  });
-};
-
-const codexAnalysisStream = () => {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(
-        encoder.encode(
-          'data: {"type":"analysis","content":"Thinking with Codex."}\n\n',
-        ),
-      );
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode('data: {"type":"token","content":"Answer"}\n\n'),
-        );
-      }, 10);
-      setTimeout(() => {
-        controller.enqueue(
-          encoder.encode(
-            'data: {"type":"final","message":{"role":"assistant","content":"Answer"}}\n\n',
-          ),
-        );
-        controller.enqueue(encoder.encode('data: {"type":"complete"}\n\n'));
-        controller.close();
-      }, 20);
-    },
-  });
-};
-
-describe('useChatStream reasoning parsing', () => {
-  it('splits Harmony analysis/final into hidden and visible buffers', async () => {
-    const onUpdate = jest.fn();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      body: harmonyStream(),
+    act(() => {
+      result.current.setConversation(conversationId, { clearMessages: true });
     });
 
-    render(<Wrapper prompt="Tell me" onUpdate={onUpdate} />);
+    const snapshot: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId,
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      },
+    };
+
+    const analysis: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'analysis_delta',
+      conversationId,
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'Thinking... ',
+    };
+
+    const assistantDelta: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId,
+      seq: 3,
+      inflightId: 'i1',
+      delta: 'Answer',
+    };
+
+    const final: ChatWsTranscriptEvent = {
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId,
+      seq: 4,
+      inflightId: 'i1',
+      status: 'ok',
+      threadId: 't1',
+    };
+
+    act(() => result.current.handleWsEvent(snapshot));
+    act(() => result.current.handleWsEvent(analysis));
 
     await waitFor(() => {
-      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-      const assistant = latest.find((msg) => msg.role === 'assistant');
-      expect(assistant?.content).toContain(
-        'He was the first person on the Moon.',
+      const assistant = result.current.messages.find(
+        (msg) => msg.role === 'assistant',
       );
+      expect(assistant?.think).toContain('Thinking');
+      expect(assistant?.thinkStreaming).toBe(true);
     });
 
-    const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-    const assistant = latest.find((msg) => msg.role === 'assistant');
-    expect(assistant?.think).toContain('Need answer: Neil Armstrong.');
-    expect(assistant?.thinkStreaming).toBe(false);
-  });
-
-  it('tracks <think> streaming then final text', async () => {
-    const onUpdate = jest.fn();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      body: thinkStream(),
-    });
-
-    render(<Wrapper prompt="hi" onUpdate={onUpdate} />);
+    act(() => result.current.handleWsEvent(assistantDelta));
+    act(() => result.current.handleWsEvent(final));
 
     await waitFor(() => {
-      const sawStreaming = onUpdate.mock.calls.some((call) =>
-        (call[0] as ChatMessage[]).some(
-          (msg) => msg.role === 'assistant' && msg.thinkStreaming,
-        ),
+      const assistant = result.current.messages.find(
+        (msg) => msg.role === 'assistant',
       );
-      expect(sawStreaming).toBe(true);
-    });
-
-    await waitFor(() => {
-      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-      const assistant = latest.find((msg) => msg.role === 'assistant');
-      expect(assistant?.content).toContain('Final answer');
-    });
-
-    const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-    const assistant = latest.find((msg) => msg.role === 'assistant');
-    expect(assistant?.think).toContain('Analyzing steps');
-    expect(assistant?.thinkStreaming).toBe(false);
-  });
-
-  it('keeps earlier analysis when final content includes another analysis block', async () => {
-    const onUpdate = jest.fn();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      body: multiAnalysisFinalStream(),
-    });
-
-    render(<Wrapper prompt="multi" onUpdate={onUpdate} />);
-
-    await waitFor(() => {
-      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-      const assistant = latest.find((msg) => msg.role === 'assistant');
-      expect(assistant?.content).toContain('Visible answer.');
-    });
-
-    const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-    const assistant = latest.find((msg) => msg.role === 'assistant');
-    expect(assistant?.think).toContain('First part.');
-    expect(assistant?.think).toContain('Second part.');
-  });
-
-  it('parses analysis SSE frames for Codex provider', async () => {
-    const onUpdate = jest.fn();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      body: codexAnalysisStream(),
-    });
-
-    render(<Wrapper prompt="codex" onUpdate={onUpdate} provider="codex" />);
-
-    await waitFor(() => {
-      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
-      const assistant = latest.find((msg) => msg.role === 'assistant');
-      expect(assistant?.think).toContain('Thinking with Codex.');
       expect(assistant?.content).toContain('Answer');
+      expect(assistant?.think).toContain('Thinking');
+      expect(assistant?.thinkStreaming).toBe(false);
     });
   });
 });

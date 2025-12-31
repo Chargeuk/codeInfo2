@@ -95,3 +95,59 @@ export const chatErrorEventFixture = {
 export const chatSseFrameFixture = chatSseEventsFixture.map(
   (event) => `data: ${JSON.stringify(event)}\n\n`,
 );
+
+export const chatWsInflightSnapshotFixture = {
+  protocolVersion: 'v1',
+  type: 'inflight_snapshot',
+  conversationId: 'c1',
+  seq: 1,
+  inflight: {
+    inflightId: 'i1',
+    assistantText: '',
+    assistantThink: '',
+    toolEvents: [],
+    startedAt: '2025-01-01T00:00:00.000Z',
+  },
+} as const;
+
+export const chatWsAssistantDeltaFixture = {
+  protocolVersion: 'v1',
+  type: 'assistant_delta',
+  conversationId: 'c1',
+  seq: 2,
+  inflightId: 'i1',
+  delta: 'Hi',
+} as const;
+
+export const chatWsAnalysisDeltaFixture = {
+  protocolVersion: 'v1',
+  type: 'analysis_delta',
+  conversationId: 'c1',
+  seq: 3,
+  inflightId: 'i1',
+  delta: '<think>Reasoning</think>',
+} as const;
+
+export const chatWsToolEventFixture = {
+  protocolVersion: 'v1',
+  type: 'tool_event',
+  conversationId: 'c1',
+  seq: 4,
+  inflightId: 'i1',
+  event: {
+    type: 'toolCallRequestStart',
+    callId: 'call-1',
+    name: 'VectorSearch',
+    roundIndex: 0,
+  },
+} as const;
+
+export const chatWsTurnFinalFixture = {
+  protocolVersion: 'v1',
+  type: 'turn_final',
+  conversationId: 'c1',
+  seq: 5,
+  inflightId: 'i1',
+  status: 'ok',
+  threadId: null,
+} as const;

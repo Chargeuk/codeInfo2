@@ -52,8 +52,151 @@ test('lists conversations newest-first with nextCursor when page is full', async
   assert.equal(res.body.items[0].conversationId, 'c1');
   assert.equal(res.body.nextCursor, items[0].lastMessageAt.toISOString());
 
-  const firstCall = calls[0] as { includeArchived?: boolean };
-  assert.equal(firstCall.includeArchived, true);
+  const firstCall = calls[0] as { state?: string };
+  assert.equal(firstCall.state, 'all');
+});
+
+test('default list behaves like state=active (excludes archived)', async () => {
+  const activeItem: ConversationSummary = { ...baseItem, archived: false };
+  const archivedItem: ConversationSummary = {
+    ...baseItem,
+    conversationId: 'c2',
+    archived: true,
+  };
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        if (params.state === 'active') return { items: [activeItem] };
+        if (params.state === 'archived') return { items: [archivedItem] };
+        return { items: [activeItem, archivedItem] };
+      },
+    }),
+  )
+    .get('/conversations')
+    .expect(200);
+
+  assert.deepEqual(
+    res.body.items.map((c: { conversationId: string }) => c.conversationId),
+    ['c1'],
+  );
+});
+
+test('state=active returns only active conversations', async () => {
+  const activeItem: ConversationSummary = { ...baseItem, archived: false };
+  const archivedItem: ConversationSummary = {
+    ...baseItem,
+    conversationId: 'c2',
+    archived: true,
+  };
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        if (params.state === 'active') return { items: [activeItem] };
+        if (params.state === 'archived') return { items: [archivedItem] };
+        return { items: [activeItem, archivedItem] };
+      },
+    }),
+  )
+    .get('/conversations?state=active')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 1);
+  assert.equal(res.body.items[0].archived, false);
+});
+
+test('state=archived returns only archived conversations', async () => {
+  const activeItem: ConversationSummary = { ...baseItem, archived: false };
+  const archivedItem: ConversationSummary = {
+    ...baseItem,
+    conversationId: 'c2',
+    archived: true,
+  };
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        if (params.state === 'active') return { items: [activeItem] };
+        if (params.state === 'archived') return { items: [archivedItem] };
+        return { items: [activeItem, archivedItem] };
+      },
+    }),
+  )
+    .get('/conversations?state=archived')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 1);
+  assert.equal(res.body.items[0].archived, true);
+});
+
+test('state=all returns active + archived conversations', async () => {
+  const activeItem: ConversationSummary = { ...baseItem, archived: false };
+  const archivedItem: ConversationSummary = {
+    ...baseItem,
+    conversationId: 'c2',
+    archived: true,
+  };
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        if (params.state === 'active') return { items: [activeItem] };
+        if (params.state === 'archived') return { items: [archivedItem] };
+        return { items: [activeItem, archivedItem] };
+      },
+    }),
+  )
+    .get('/conversations?state=all')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 2);
+  assert.equal(
+    res.body.items.some((c: { archived: boolean }) => c.archived === true),
+    true,
+  );
+  assert.equal(
+    res.body.items.some((c: { archived: boolean }) => c.archived === false),
+    true,
+  );
+});
+
+test('archived=true remains backward compatible (maps to state=all)', async () => {
+  const activeItem: ConversationSummary = { ...baseItem, archived: false };
+  const archivedItem: ConversationSummary = {
+    ...baseItem,
+    conversationId: 'c2',
+    archived: true,
+  };
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        if (params.state === 'active') return { items: [activeItem] };
+        if (params.state === 'archived') return { items: [archivedItem] };
+        return { items: [activeItem, archivedItem] };
+      },
+    }),
+  )
+    .get('/conversations?archived=true')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 2);
+});
+
+test('invalid state query returns 400 VALIDATION_FAILED', async () => {
+  const res = await request(
+    appWith({
+      listConversations: async () => {
+        throw new Error('listConversations should not be called');
+      },
+    }),
+  )
+    .get('/conversations?state=not-a-state')
+    .expect(400);
+
+  assert.equal(res.body.status, 'error');
+  assert.equal(res.body.code, 'VALIDATION_FAILED');
 });
 
 test('omits nextCursor when fewer results than limit', async () => {

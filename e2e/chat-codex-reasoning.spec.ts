@@ -1,145 +1,118 @@
 import { mkdirSync } from 'fs';
 import { expect, test } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 
 test('renders Codex thought process when analysis frames stream', async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    const encoder = new TextEncoder();
+  const mockWs = await installMockChatWs(page);
 
-    const streamEvents = [
-      {
-        delay: 0,
-        chunk: 'data: {"type":"analysis","content":"Codex thinking."}\n\n',
-      },
-      {
-        delay: 300,
-        chunk:
-          'data: {"type":"token","content":"<|channel|>analysis<|message|>Codex thinking."}\n\n',
-      },
-      {
-        delay: 800,
-        chunk: 'data: {"type":"token","content":"Final"}\n\n',
-      },
-      {
-        delay: 1400,
-        chunk:
-          'data: {"type":"final","message":{"role":"assistant","content":"Final"}}\n\n',
-      },
-      { delay: 1500, chunk: 'data: {"type":"complete"}\n\n' },
-    ];
-
-    const originalFetch = window.fetch.bind(window);
-
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString();
-
-      if (url.includes('/chat/providers')) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              providers: [
-                {
-                  id: 'lmstudio',
-                  label: 'LM Studio',
-                  available: true,
-                  toolsAvailable: true,
-                },
-                {
-                  id: 'codex',
-                  label: 'OpenAI Codex',
-                  available: true,
-                  toolsAvailable: true,
-                },
-              ],
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            },
-          ),
-        );
-      }
-
-      if (url.includes('/chat/models')) {
-        const provider = new URL(url, 'http://localhost').searchParams.get(
-          'provider',
-        );
-        if (provider === 'codex') {
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                provider: 'codex',
-                available: true,
-                toolsAvailable: true,
-                models: [
-                  {
-                    key: 'gpt-5.1-codex-max',
-                    displayName: 'gpt-5.1-codex-max',
-                    type: 'codex',
-                  },
-                ],
-              }),
-              {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' },
-              },
-            ),
-          );
-        }
-
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              provider: 'lmstudio',
-              available: true,
-              toolsAvailable: true,
-              models: [
-                {
-                  key: 'mock-chat',
-                  displayName: 'Mock Chat Model',
-                  type: 'gguf',
-                },
-              ],
-            }),
-            {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' },
-            },
-          ),
-        );
-      }
-
-      if (
-        url.includes('/chat') &&
-        !url.includes('/chat/models') &&
-        !url.includes('/chat/providers')
-      ) {
-        const stream = new ReadableStream<Uint8Array>({
-          start(controller) {
-            streamEvents.forEach(({ chunk, delay }) =>
-              setTimeout(
-                () => controller.enqueue(encoder.encode(chunk)),
-                delay,
-              ),
-            );
-            const lastDelay = Math.max(...streamEvents.map((evt) => evt.delay));
-            setTimeout(() => controller.close(), lastDelay + 50);
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
           },
-        });
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      }),
+    }),
+  );
 
-        return Promise.resolve(
-          new Response(stream, {
-            status: 200,
-            headers: { 'Content-Type': 'text/event-stream' },
-          }),
-        );
-      }
+  await page.route('**/chat/models?**', (route) => {
+    const provider = new URL(route.request().url()).searchParams.get(
+      'provider',
+    );
+    if (provider === 'codex') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'codex',
+          available: true,
+          toolsAvailable: true,
+          models: [
+            {
+              key: 'gpt-5.1-codex-max',
+              displayName: 'gpt-5.1-codex-max',
+              type: 'codex',
+            },
+          ],
+        }),
+      });
+    }
 
-      return originalFetch(input, init);
-    };
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: [
+          {
+            key: 'mock-chat',
+            displayName: 'Mock Chat Model',
+            type: 'gguf',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    setTimeout(() => {
+      mockWs.sendAnalysisDelta({
+        conversationId,
+        inflightId,
+        delta: 'Codex thinking.',
+      });
+    }, 0);
+    setTimeout(() => {
+      mockWs.sendAssistantDelta({
+        conversationId,
+        inflightId,
+        delta: 'Final',
+      });
+    }, 800);
+    setTimeout(() => {
+      mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+    }, 1500);
   });
 
   await page.goto(`${baseUrl}/chat`);
@@ -149,6 +122,13 @@ test('renders Codex thought process when analysis frames stream', async ({
 
   await page.getByLabel('Model').click();
   await page.getByRole('option', { name: 'gpt-5.1-codex-max' }).click();
+
+  const codexFlagsToggle = page
+    .getByTestId('codex-flags-panel')
+    .getByRole('button', { name: /Codex flags/i });
+  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await codexFlagsToggle.click();
+  }
 
   const input = page.getByTestId('chat-input');
   await input.fill('Show reasoning');
@@ -162,6 +142,7 @@ test('renders Codex thought process when analysis frames stream', async ({
     timeout: 20000,
   });
 
+  await page.getByTestId('think-toggle').scrollIntoViewIfNeeded();
   await page.getByTestId('think-toggle').click();
   await expect(page.getByTestId('think-content')).toContainText(
     'Codex thinking.',

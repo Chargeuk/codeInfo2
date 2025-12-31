@@ -45,7 +45,13 @@ async function ensureContainer() {
     );
 
     const env = await new DockerComposeEnvironment(composePath, composeFile)
-      .withWaitStrategy('chroma', Wait.forHealthCheck())
+      // The Chroma image used in tests does not ship with curl/wget, so a
+      // container-level healthcheck can be unreliable. Wait on the HTTP
+      // heartbeat endpoint instead.
+      .withWaitStrategy(
+        'chroma-cucumber',
+        Wait.forHttp('/api/v2/heartbeat', 8000).forStatusCode(200),
+      )
       .withStartupTimeout(120_000)
       .up();
 

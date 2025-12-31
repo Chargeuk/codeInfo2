@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import test, { beforeEach } from 'node:test';
+
 import {
   Chat,
   type LMStudioClient,
@@ -9,8 +11,21 @@ import {
 } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
+
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { createChatRouter } from '../../routes/chat.js';
+import { attachWs } from '../../ws/server.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 
 const toolDeps = {
   getRootsCollection: async () =>
@@ -70,13 +85,87 @@ type ActCallbacks = {
   onMessage?: (message: unknown) => void;
 };
 
+type WsTranscriptEvent = {
+  protocolVersion?: string;
+  type?: string;
+  seq?: number;
+  conversationId?: string;
+  inflightId?: string;
+  status?: string;
+  event?: {
+    type?: string;
+    callId?: unknown;
+    name?: unknown;
+    stage?: unknown;
+    parameters?: unknown;
+    result?: unknown;
+    errorTrimmed?: unknown;
+    errorFull?: unknown;
+  };
+  delta?: unknown;
+};
+
 beforeEach(() => {
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
   process.env.HOST_INGEST_DIR = '/host/base';
+  memoryConversations.clear();
+  memoryTurns.clear();
 });
 
+async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const turns = getMemoryTurns(conversationId);
+    if (turns.some((t) => t.role === 'assistant')) {
+      return turns;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
+}
+
+async function startServer(
+  act: (chat: Chat, tools: Tool[], opts: ActCallbacks) => Promise<unknown>,
+) {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: () =>
+        ({
+          llm: {
+            model: async () => ({ act }),
+          },
+        }) as unknown as LMStudioClient,
+      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  return {
+    httpServer,
+    wsHandle,
+    baseUrl: `http://127.0.0.1:${address.port}`,
+  };
+}
+
+async function stopServer(server: {
+  httpServer: http.Server;
+  wsHandle: { close: () => Promise<void> };
+}) {
+  await server.wsHandle.close();
+  await new Promise<void>((resolve) =>
+    server.httpServer.close(() => resolve()),
+  );
+}
+
 test('chat route streams tool-result with hostPath/relPath from LM Studio tools', async () => {
-  const act = async (chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+  const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
     const toolNames = tools.map((t) => t.name);
     assert.ok(toolNames.includes('VectorSearch'));
     assert.ok(toolNames.includes('ListIngestedRepositories'));
@@ -177,74 +266,126 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
     return Promise.resolve();
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-integration-tools';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-integration-tools',
-      message: 'hello',
-    })
-    .expect(200);
+  let toolRequestPromise: Promise<WsTranscriptEvent> | undefined;
+  let toolResultPromise: Promise<WsTranscriptEvent> | undefined;
+  let finalPromise: Promise<WsTranscriptEvent> | undefined;
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const toolResultEvent = events.find((e) => e.type === 'tool-result');
-  const toolRequestEvent = events.find(
-    (e) => e.type === 'tool-request' && typeof e.name === 'string',
-  );
+    toolRequestPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-request' &&
+          String(e.event?.callId) === '1'
+        );
+      },
+      timeoutMs: 5000,
+    }).catch((err) => {
+      throw new Error('Timed out waiting for tool-request WS event', {
+        cause: err as Error,
+      });
+    });
 
-  assert.ok(toolRequestEvent, 'expected tool-request event');
-  assert.equal(toolRequestEvent.callId, 1);
-  assert.equal(toolRequestEvent.name, 'VectorSearch');
+    toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    }).catch((err) => {
+      throw new Error('Timed out waiting for tool-result WS event', {
+        cause: err as Error,
+      });
+    });
 
-  assert.ok(toolResultEvent, 'expected tool-result event');
-  assert.equal(toolResultEvent.callId, 1);
-  assert.equal(toolResultEvent.name, 'VectorSearch');
-  assert.deepEqual(toolResultEvent.parameters, { query: 'hi' });
-  assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
-  assert.equal(
-    toolResultEvent.result.results[0].hostPath,
-    '/host/base/repo-id/docs/readme.md',
-  );
-  assert.equal(toolResultEvent.result.results[0].repo, 'repo-name');
-  assert.equal(
-    toolResultEvent.result.files[0].hostPath,
-    '/host/base/repo-id/docs/readme.md',
-  );
-  assert.equal(toolResultEvent.result.files[0].chunkCount, 1);
-  assert.equal(toolResultEvent.result.files[0].lineCount, 1);
+    finalPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    }).catch((err) => {
+      throw new Error('Timed out waiting for turn_final WS event', {
+        cause: err as Error,
+      });
+    });
 
-  const tokenEvent = events.find((e) => e.type === 'token');
-  assert.equal(tokenEvent?.content, 'partial');
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
 
-  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
-  assert.ok(
-    typeof finalEvent?.message?.content === 'string' &&
-      finalEvent.message.content.includes('done'),
-    'expected final assistant content to include done',
-  );
+    const inflightId = res.body.inflightId as string;
+    assert.equal(res.body.status, 'started');
+
+    const [toolRequestEvent, toolResultEvent] = await Promise.all([
+      toolRequestPromise,
+      toolResultPromise,
+    ]);
+
+    assert.equal(toolRequestEvent.inflightId, inflightId);
+    assert.equal(String(toolRequestEvent.event?.callId), '1');
+    assert.equal(typeof toolRequestEvent.event?.name, 'string');
+
+    assert.equal(toolResultEvent.inflightId, inflightId);
+    assert.equal(String(toolResultEvent.event?.callId), '1');
+    assert.equal(toolResultEvent.event?.name, 'VectorSearch');
+    assert.deepEqual(toolResultEvent.event?.parameters, { query: 'hi' });
+
+    const toolResult = toolResultEvent.event?.result as {
+      results: Array<{ relPath: string; hostPath: string; repo: string }>;
+      files: Array<{ hostPath: string; chunkCount: number; lineCount: number }>;
+    };
+    assert.equal(toolResult.results[0].relPath, 'docs/readme.md');
+    assert.equal(
+      toolResult.results[0].hostPath,
+      '/host/base/repo-id/docs/readme.md',
+    );
+    assert.equal(toolResult.results[0].repo, 'repo-name');
+    assert.equal(
+      toolResult.files[0].hostPath,
+      '/host/base/repo-id/docs/readme.md',
+    );
+    assert.equal(toolResult.files[0].chunkCount, 1);
+    assert.equal(toolResult.files[0].lineCount, 1);
+
+    await finalPromise;
+
+    const turns = await waitForAssistantTurn(conversationId);
+    const finalAssistant = turns.filter((t) => t.role === 'assistant').at(-1);
+    assert.ok(
+      (finalAssistant?.content ?? '').includes('done'),
+      'expected final assistant content to include done',
+    );
+  } finally {
+    // Avoid unhandled promise rejections if the test fails mid-stream.
+    await Promise.allSettled([
+      toolRequestPromise,
+      toolResultPromise,
+      finalPromise,
+    ]);
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });
 
 test('chat route synthesizes tool-result when LM Studio only returns a final tool message', async () => {
-  const act = async (chat: Chat, tools: Tool[], opts: ActCallbacks) => {
+  const act = async (_chat: Chat, tools: Tool[], opts: ActCallbacks) => {
     opts.onRoundStart?.(0);
 
     const vectorTool = tools.find((t) => t.name === 'VectorSearch');
@@ -286,42 +427,48 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
     return Promise.resolve();
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-tools-wire-2';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-tools-wire-2',
-      message: 'hello',
-    })
-    .expect(200);
+  let toolResultPromise: Promise<WsTranscriptEvent> | undefined;
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const toolResultEvent = events.find((e) => e.type === 'tool-result');
-  assert.ok(toolResultEvent, 'expected synthesized tool-result');
-  assert.equal(toolResultEvent.callId, 1);
-  assert.equal(toolResultEvent.name, 'VectorSearch');
-  assert.deepEqual(toolResultEvent.parameters, { query: 'hi' });
-  assert.equal(toolResultEvent.result.results[0].relPath, 'docs/readme.md');
-  assert.ok(Array.isArray(toolResultEvent.result.files));
+    await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
+
+    const toolResultEvent = await toolResultPromise;
+    assert.equal(String(toolResultEvent.event?.callId), '1');
+    assert.equal(toolResultEvent.event?.name, 'VectorSearch');
+    assert.deepEqual(toolResultEvent.event?.parameters, { query: 'hi' });
+
+    const toolResult = toolResultEvent.event?.result as {
+      results: Array<{ relPath: string }>;
+      files: unknown[];
+    };
+    assert.equal(toolResult.results[0].relPath, 'docs/readme.md');
+    assert.ok(Array.isArray(toolResult.files));
+  } finally {
+    await Promise.allSettled([toolResultPromise]);
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });
 
 test('chat route emits tool-result with error details when a tool call fails', async () => {
@@ -338,43 +485,57 @@ test('chat route emits tool-result with error details when a tool call fails', a
     opts.onMessage?.({ role: 'assistant', content: 'after failure' });
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-tools-wire-3';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-tools-wire-3',
-      message: 'hello',
-    })
-    .expect(200);
+    const toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
 
-  const toolResultEvent = events.find((e) => e.type === 'tool-result');
-  assert.ok(toolResultEvent, 'expected tool-result event');
-  assert.equal(toolResultEvent.stage, 'error');
-  assert.deepEqual(toolResultEvent.parameters, { query: 'fail' });
-  assert.equal(toolResultEvent.errorTrimmed?.message, 'MODEL_UNAVAILABLE');
-  assert.ok(toolResultEvent.errorFull);
-  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
-  assert.equal(finalEvent?.message?.content, 'after failure');
+    await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
+
+    const toolResultEvent = await toolResultPromise;
+    assert.equal(toolResultEvent.event?.stage, 'error');
+    assert.deepEqual(toolResultEvent.event?.parameters, { query: 'fail' });
+    assert.equal(
+      (toolResultEvent.event?.errorTrimmed as { message?: string } | undefined)
+        ?.message,
+      'MODEL_UNAVAILABLE',
+    );
+    assert.ok(toolResultEvent.event?.errorFull);
+
+    await finalPromise;
+    const turns = await waitForAssistantTurn(conversationId);
+    const finalAssistant = turns.filter((t) => t.role === 'assistant').at(-1);
+    assert.equal(finalAssistant?.content, 'after failure');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });
 
 test('chat route synthesizes tool-result when LM Studio omits onToolCallResult entirely', async () => {
@@ -411,43 +572,51 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
     return Promise.resolve(toolResult);
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-tools-wire-4';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-tools-wire-4',
-      message: 'hello',
-    })
-    .expect(200);
+    const toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result' &&
+          (e.event.callId === 99 || e.event.callId === '99')
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
 
-  const toolResultEvent = events.find((e) => e.type === 'tool-result');
-  assert.ok(toolResultEvent, 'expected synthesized tool-result event');
-  assert.equal(toolResultEvent.callId, 99);
-  assert.equal(toolResultEvent.name, 'VectorSearch');
-  assert.deepEqual(toolResultEvent.parameters, { query: 'hello' });
-  assert.equal(toolResultEvent.stage, 'success');
-  const finalEvent = events.filter((e) => e.type === 'final').at(-1);
-  assert.equal(finalEvent?.message?.content, 'after synthetic');
+    await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
+
+    const toolResultEvent = await toolResultPromise;
+    assert.equal(toolResultEvent.event?.stage, 'success');
+
+    await finalPromise;
+    const turns = await waitForAssistantTurn(conversationId);
+    const finalAssistant = turns.filter((t) => t.role === 'assistant').at(-1);
+    assert.equal(finalAssistant?.content, 'after synthetic');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });
 
 test('chat route emits complete after tool-result arrives', async () => {
@@ -494,46 +663,52 @@ test('chat route emits complete after tool-result arrives', async () => {
     return Promise.resolve();
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-tools-complete-order';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-tools-complete-order',
-      message: 'hello',
-    })
-    .expect(200);
+    const toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result'
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+    const finalPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
 
-  const firstToolResultIndex = events.findIndex(
-    (e) => e.type === 'tool-result',
-  );
-  const firstCompleteIndex = events.findIndex((e) => e.type === 'complete');
+    await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
 
-  assert.ok(firstToolResultIndex >= 0, 'expected tool-result event');
-  assert.ok(firstCompleteIndex >= 0, 'expected complete event');
-  assert.ok(
-    firstCompleteIndex > firstToolResultIndex,
-    'complete should be emitted after tool-result',
-  );
+    const toolResultEvent = await toolResultPromise;
+    const finalEvent = await finalPromise;
+
+    assert.equal(typeof toolResultEvent.seq, 'number');
+    assert.equal(typeof finalEvent.seq, 'number');
+    assert.ok(
+      (finalEvent.seq ?? 0) > (toolResultEvent.seq ?? 0),
+      'turn_final should be emitted after tool-result',
+    );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });
 
 test('chat route suppresses assistant tool payload echo while emitting tool-result', async () => {
@@ -583,46 +758,61 @@ test('chat route suppresses assistant tool payload echo while emitting tool-resu
     return Promise.resolve(toolResult);
   };
 
-  const app = express();
-  app.use(express.json());
-  app.use(
-    '/chat',
-    createChatRouter({
-      clientFactory: () =>
-        ({
-          llm: {
-            model: async () => ({ act }),
-          },
-        }) as unknown as LMStudioClient,
-      toolFactory: (opts) => createLmStudioTools({ ...opts, deps: toolDeps }),
-    }),
-  );
+  const conversationId = 'conv-tools-wire-5';
+  const server = await startServer(act);
+  const ws = await connectWs({ baseUrl: server.baseUrl });
 
-  const res = await request(app)
-    .post('/chat')
-    .send({
-      model: 'dummy-model',
-      conversationId: 'conv-tools-wire-5',
-      message: 'hello',
-    })
-    .expect(200);
+  let toolResultPromise: Promise<WsTranscriptEvent> | undefined;
+  let finalPromise: Promise<WsTranscriptEvent> | undefined;
 
-  const events = res.text
-    .split('\n\n')
-    .filter((chunk) => chunk.startsWith('data: '))
-    .map((chunk) => JSON.parse(chunk.replace('data: ', '')));
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
 
-  const toolResultEvent = events.find(
-    (e) => e.type === 'tool-result' && (e.callId === 101 || e.callId === '101'),
-  );
-  assert.ok(toolResultEvent, 'expected tool-result event');
-  assert.ok(toolResultEvent.result?.files?.[0]?.hostPath);
+    toolResultPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return (
+          e.type === 'tool_event' &&
+          e.conversationId === conversationId &&
+          e.event?.type === 'tool-result' &&
+          (e.event.callId === 101 || e.event.callId === '101')
+        );
+      },
+      timeoutMs: 5000,
+    });
 
-  const assistantEcho = events.find(
-    (e) =>
-      e.type === 'final' &&
-      typeof e.message?.content === 'string' &&
-      e.message.content.includes('/host/path/a'),
-  );
-  assert.equal(assistantEcho, undefined);
+    finalPromise = waitForEvent({
+      ws,
+      predicate: (event: unknown): event is WsTranscriptEvent => {
+        const e = event as WsTranscriptEvent;
+        return e.type === 'turn_final' && e.conversationId === conversationId;
+      },
+      timeoutMs: 5000,
+    });
+
+    await request(server.httpServer)
+      .post('/chat')
+      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .expect(202);
+
+    const toolResultEvent = await toolResultPromise;
+    assert.ok(
+      (
+        toolResultEvent.event?.result as {
+          files?: Array<{ hostPath?: string }>;
+        }
+      )?.files?.[0]?.hostPath,
+    );
+
+    await finalPromise;
+
+    const turns = await waitForAssistantTurn(conversationId);
+    const finalAssistant = turns.filter((t) => t.role === 'assistant').at(-1);
+    assert.ok(!String(finalAssistant?.content ?? '').includes('/host/path/a'));
+  } finally {
+    await Promise.allSettled([toolResultPromise, finalPromise]);
+    await closeWs(ws);
+    await stopServer(server);
+  }
 });

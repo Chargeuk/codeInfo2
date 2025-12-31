@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { installMockChatWs } from './support/mockChatWs';
 
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://localhost:5001';
 const useMockChat = process.env.E2E_USE_MOCK_CHAT === 'true';
@@ -49,6 +50,8 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     test.skip('Runs only with mock chat to keep determinism');
   }
 
+  const mockWs = await installMockChatWs(page);
+
   await page.route('**/chat/providers', (route) =>
     route.fulfill({
       status: 200,
@@ -91,42 +94,83 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
     });
   });
 
-  await page.route('**/chat', (route) => {
+  await page.route('**/chat', async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
 
-    const body = [
-      'data: {"type":"thread","threadId":"mock-thread"}\n\n',
-      'data: {"type":"tool-request","callId":"repos-1","name":"ListIngestedRepositories","roundIndex":0}\n\n',
-      `data: ${JSON.stringify({
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    mockWs.sendToolEvent({
+      conversationId,
+      inflightId,
+      event: {
+        type: 'tool-request',
+        callId: 'repos-1',
+        name: 'ListIngestedRepositories',
+      },
+    });
+    mockWs.sendToolEvent({
+      conversationId,
+      inflightId,
+      event: {
         type: 'tool-result',
         callId: 'repos-1',
         name: 'ListIngestedRepositories',
-        roundIndex: 0,
         parameters: {},
         result: { repos },
-      })}\n\n`,
-      'data: {"type":"tool-request","callId":"vec-1","name":"VectorSearch","roundIndex":0}\n\n',
-      `data: ${JSON.stringify({
+      },
+    });
+    mockWs.sendToolEvent({
+      conversationId,
+      inflightId,
+      event: {
+        type: 'tool-request',
+        callId: 'vec-1',
+        name: 'VectorSearch',
+      },
+    });
+    mockWs.sendToolEvent({
+      conversationId,
+      inflightId,
+      event: {
         type: 'tool-result',
         callId: 'vec-1',
         name: 'VectorSearch',
-        roundIndex: 0,
         parameters: { query: 'alpha' },
         result: {
           files: vectorFiles,
           results: vectorResults,
           modelId: 'embed-model',
         },
-      })}\n\n`,
-      'data: {"type":"token","content":"Here are your repos","roundIndex":0}\n\n',
-      'data: {"type":"final","message":{"role":"assistant","content":"Here are your repos."},"roundIndex":0}\n\n',
-      'data: {"type":"complete","threadId":"mock-thread"}\n\n',
-    ].join('');
-
-    return route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body,
+      },
+    });
+    mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Here are your repos.',
+    });
+    mockWs.sendFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+      threadId: 'mock-thread',
     });
   });
 
@@ -142,6 +186,13 @@ test('Codex MCP tool call succeeds (mock)', async ({ page }) => {
 
   await modelSelect.click();
   await page.getByRole('option', { name: /gpt-5.1-codex-max/i }).click();
+
+  const codexFlagsToggle = page
+    .getByTestId('codex-flags-panel')
+    .getByRole('button', { name: /Codex flags/i });
+  if ((await codexFlagsToggle.getAttribute('aria-expanded')) === 'true') {
+    await codexFlagsToggle.click();
+  }
 
   await input.fill('List ingested repos');
   await send.click();

@@ -113,6 +113,9 @@ export default function Markdown({
     <Box
       data-testid={dataTestId}
       sx={{
+        minWidth: 0,
+        overflowWrap: 'anywhere',
+        wordBreak: 'break-word',
         '& p': { margin: '0 0 0.5em' },
         '& ul, & ol': { paddingLeft: '1.25rem', margin: '0 0 0.5em' },
         '& li': { marginBottom: '0.25em' },
@@ -121,6 +124,7 @@ export default function Markdown({
           borderRadius: 1,
           padding: 1,
           overflowX: 'auto',
+          maxWidth: '100%',
           margin: '0.25em 0',
           fontSize: '0.9rem',
         },
@@ -141,6 +145,15 @@ export default function Markdown({
           margin: '0.25em 0',
           paddingLeft: '0.75em',
           color: 'text.secondary',
+        },
+        '& table': {
+          display: 'block',
+          maxWidth: '100%',
+          overflowX: 'auto',
+        },
+        '& img': {
+          maxWidth: '100%',
+          height: 'auto',
         },
         '& a': {
           color: 'primary.main',

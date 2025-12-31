@@ -6541,12 +6541,14 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
      - Add/adjust assertions to confirm the drawer’s top aligns with the chat panel top (no overlap into the header area).
+     - Add a regression check for the case where `persistenceUnavailable` banner is shown (ensure the drawer offset still aligns with the chat panel even when an alert/banner is rendered).
 
 3. [ ] Update e2e coverage:
    - Files to edit:
      - `e2e/chat.spec.ts`
    - Requirements:
      - Add a regression check that the Conversations panel is vertically aligned with the chat column (e.g., compare bounding boxes).
+     - Include a run where the persistence banner is visible (mock mongo disconnected) and confirm alignment remains correct.
 
 4. [ ] Documentation update:
    - Files to edit:
@@ -6612,12 +6614,14 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
      - Add a regression test that simulates a desktop→mobile resize and ensures the toggle opens the drawer afterward.
+     - Add a reverse resize test (mobile→desktop) to ensure the drawer defaults open again and toggle still works.
 
 3. [ ] Update e2e coverage:
    - Files to edit:
      - `e2e/chat.spec.ts`
    - Requirements:
      - Add a Playwright test that resizes from desktop to mobile and verifies the toggle opens the drawer.
+     - Add a second Playwright check that resizes back to desktop and confirms the drawer remains usable (open by default and toggle closes).
 
 4. [ ] Documentation update:
    - Files to edit:

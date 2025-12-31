@@ -6613,7 +6613,7 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
 
 ### 34. Remount Drawer on breakpoint switch to prevent stuck toggle
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6694,5 +6694,5 @@ When resizing from desktop to mobile, the Drawer swaps between `persistent` and 
 
 #### Implementation notes
 
-- _Pending._
+- _In progress._
 - Notes: `useMediaQuery` is imported from `@mui/material` (not `@mui/material/useMediaQuery`) so Jest uses the CJS entrypoint and avoids ESM/CJS default-export interop issues.

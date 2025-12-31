@@ -6509,7 +6509,7 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
 
 ### 33. Align Conversations drawer vertically with Chat panel
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -6522,7 +6522,7 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
 
 #### Subtasks
 
-1. [ ] Apply paper top offset + height adjustment:
+1. [x] Apply paper top offset + height adjustment:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
    - Files to edit:
@@ -6542,7 +6542,7 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Docs (repeat):
      - https://mui.com/material-ui/api/drawer/
 
-2. [ ] Update client tests (layout alignment):
+2. [x] Update client tests (layout alignment):
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -6554,7 +6554,7 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Docs (repeat):
      - Context7 `/jestjs/jest`
 
-3. [ ] Update e2e coverage:
+3. [x] Update e2e coverage:
    - Files to edit:
      - `e2e/chat.spec.ts`
    - Requirements:
@@ -6566,33 +6566,48 @@ The Drawer paper is pinned to the viewport top, so the Conversations panel sits 
    - Docs (repeat):
      - Context7 `/microsoft/playwright`
 
-4. [ ] Documentation update:
+4. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Note that the drawer paper is offset to align with the chat container.
 
-5. [ ] Run lint/format after client/e2e changes:
+5. [x] Run lint/format after client/e2e changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Confirm the Conversations drawer top aligns with the Chat panel top (no overlap into the page header).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Testing 9: `npm run compose:down` stopped the local stack.
+- Testing 8: Ran `E2E_BASE_URL=http://host.docker.internal:5001 E2E_API_URL=http://host.docker.internal:5010 E2E_USE_MOCK_CHAT=true npx playwright test e2e/chat.spec.ts -g "conversations drawer"` against the local compose stack; confirmed drawer top aligns with the chat panel top (no overlap into header) including with the persistence banner visible.
+- Testing 7: `npm run compose:up` started the local stack successfully (containers healthy).
+- Testing 6: `npm run compose:build` passed.
+- Testing 5: `npm run e2e` passed (includes the new vertical alignment checks in `e2e/chat.spec.ts`).
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 1: `npm run build --workspace server` passed.
+- Subtask 5: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` after formatting `client/src/test/chatPage.layoutWrap.test.tsx`.
+- Subtask 4: Updated `design.md` to document the drawer paper vertical offset used to align the Conversations drawer with the Chat panel.
+- Subtask 3: Updated `e2e/chat.spec.ts` to assert the drawer paper top aligns with `chat-column` on desktop/mobile, and added a regression case that forces the persistence banner to be visible via a mocked `/health` response.
+- Subtask 2: Updated `client/src/test/chatPage.layoutWrap.test.tsx` to assert the drawer paper vertical offset matches the chat padding, and added a regression case for when the persistence banner is visible.
+- 2025-12-31: Started Task 33 (align Conversations drawer vertically with Chat panel).
+- Subtask 1: Added a Drawer paper vertical offset and height adjustment in `client/src/pages/ChatPage.tsx`, including the persistence banner height so the drawer aligns even when the banner is visible.
+- Follow-up: Switched the drawer offset logic to measure the `chat-column` element’s actual `getBoundingClientRect().top` so the drawer aligns under the 64px NavBar and still tracks the persistence banner/spacing in real layouts.
 
 ### 34. Remount Drawer on breakpoint switch to prevent stuck toggle
 

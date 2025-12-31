@@ -32,6 +32,7 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -163,10 +164,30 @@ export default function ChatPage() {
   );
   const persistenceUnavailable = mongoConnected === false;
 
+  const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
+
   useEffect(() => {
     setDrawerOpen(!isMobile);
   }, [isMobile]);
 
+  useLayoutEffect(() => {
+    const updateOffset = () => {
+      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
+      setDrawerTopOffsetPx(top);
+    };
+
+    updateOffset();
+    window.addEventListener('resize', updateOffset);
+    return () => window.removeEventListener('resize', updateOffset);
+  }, [isMobile, persistenceUnavailable]);
+
+  const drawerTopOffset =
+    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
+  const drawerHeight =
+    drawerTopOffsetPx > 0
+      ? `calc(100% - ${drawerTopOffsetPx}px)`
+      : `calc(100% - ${theme.spacing(3)})`;
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -981,6 +1002,8 @@ export default function ChatPage() {
               flexShrink: 0,
               '& .MuiDrawer-paper': {
                 width: drawerWidth,
+                mt: drawerTopOffset,
+                height: drawerHeight,
               },
             }}
           >
@@ -1015,6 +1038,7 @@ export default function ChatPage() {
 
           <Box
             data-testid="chat-column"
+            ref={chatColumnRef}
             sx={{
               flex: 1,
               minWidth: 0,

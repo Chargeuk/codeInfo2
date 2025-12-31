@@ -381,6 +381,12 @@ test('conversations drawer is persistent on desktop and pushes content', async (
   const boxOpen = await chatColumn.boundingBox();
   expect(boxOpen).not.toBeNull();
 
+  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  await expect(drawerPaper).toBeVisible();
+  const drawerBox = await drawerPaper.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  expect(Math.abs((drawerBox?.y ?? 0) - (boxOpen?.y ?? 0))).toBeLessThan(2);
+
   await drawerToggle.click();
   await expect(drawerToggle).toHaveAttribute('aria-expanded', 'false');
 
@@ -447,4 +453,71 @@ test('conversations drawer is closed by default on mobile and overlays content',
   const boxAfter = await chatColumn.boundingBox();
   expect(boxAfter).not.toBeNull();
   expect(Math.abs((boxAfter?.x ?? 0) - (boxBefore?.x ?? 0))).toBeLessThan(20);
+
+  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  await expect(drawerPaper).toBeVisible();
+  const drawerBox = await drawerPaper.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  expect(Math.abs((drawerBox?.y ?? 0) - (boxBefore?.y ?? 0))).toBeLessThan(2);
+});
+
+test('conversations drawer stays vertically aligned when persistence banner is visible', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  await page.route('**/health', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ mongoConnected: false }),
+    }),
+  );
+
+  if (useMockChat) {
+    await installMockChatWs(page);
+    await page.route('**/chat/providers*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'lmstudio',
+              label: 'LM Studio',
+              available: true,
+              toolsAvailable: true,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route('**/chat/models*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'lmstudio',
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' }],
+        }),
+      }),
+    );
+  }
+
+  await page.goto(baseUrl + '/chat');
+
+  await expect(page.getByTestId('persistence-banner')).toBeVisible();
+
+  const drawerPaper = page.locator('[data-testid="conversation-drawer"] .MuiDrawer-paper');
+  await expect(drawerPaper).toBeVisible();
+
+  const drawerBox = await drawerPaper.boundingBox();
+  const chatBox = await page.getByTestId('chat-column').boundingBox();
+  expect(drawerBox).not.toBeNull();
+  expect(chatBox).not.toBeNull();
+  expect(Math.abs((drawerBox?.y ?? 0) - (chatBox?.y ?? 0))).toBeLessThan(2);
 });

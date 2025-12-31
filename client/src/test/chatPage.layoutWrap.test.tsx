@@ -421,6 +421,49 @@ describe('Chat page layout alignment', () => {
     expect(screen.getByTestId('conversation-list')).toBeInTheDocument();
   });
 
+  it('offsets the conversations drawer paper to align with the chat column top', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    setupChatWsHarness({ mockFetch, health: { mongoConnected: true } });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const drawer = screen.getByTestId('conversation-drawer');
+    const paper = drawer.querySelector(
+      '.MuiDrawer-paper',
+    ) as HTMLElement | null;
+    expect(paper).not.toBeNull();
+
+    expect(getComputedStyle(paper!).marginTop).toBe('24px');
+  });
+
+  it('keeps the drawer paper aligned when the persistence banner is visible', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    setupChatWsHarness({ mockFetch, health: { mongoConnected: false } });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('persistence-banner');
+    await screen.findByTestId('chat-transcript');
+
+    const drawer = screen.getByTestId('conversation-drawer');
+    const paper = drawer.querySelector(
+      '.MuiDrawer-paper',
+    ) as HTMLElement | null;
+    expect(paper).not.toBeNull();
+
+    await waitFor(() => {
+      const marginTop = getComputedStyle(paper!).marginTop.replace(/\s+/g, '');
+      expect(marginTop).toBe('24px');
+    });
+  });
   it('preserves gutters and avoids horizontal overflow on narrow viewports', async () => {
     window.innerWidth = 360;
     window.dispatchEvent(new Event('resize'));

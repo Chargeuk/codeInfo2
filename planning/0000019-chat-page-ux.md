@@ -5940,7 +5940,7 @@ When a second browser window receives a new `user_turn` event, the client reuses
 
 ### 28. Persist client logs to server log file (tagged + client correlation)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -5955,7 +5955,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
 
 #### Subtasks
 
-1. [ ] Confirm current log flow and log file writing:
+1. [x] Confirm current log flow and log file writing:
    - Files to read:
      - `server/src/logStore.ts`
      - `server/src/logger.ts`
@@ -5972,7 +5972,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
       - https://getpino.io/#/
       - https://github.com/pinojs/pino-http
 
-2. [ ] Add stable client identifier to client logs:
+2. [x] Add stable client identifier to client logs:
    - Files to edit:
      - `client/src/logging/logger.ts`
      - `client/src/logging/transport.ts`
@@ -5989,7 +5989,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
       - https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
       - https://getpino.io/#/
 
-3. [ ] Persist client log entries to the server log file:
+3. [x] Persist client log entries to the server log file:
    - Files to edit:
      - `server/src/logStore.ts`
      - `server/src/logger.ts`
@@ -6005,7 +6005,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
    - Docs (repeat):
       - https://getpino.io/#/
 
-4. [ ] Add tests for client log persistence + clientId stability:
+4. [x] Add tests for client log persistence + clientId stability:
    - Files to edit:
      - `server/src/test/integration/ws-logs.test.ts` (or new test file)
      - `server/src/test/features/logs.feature` (if using Cucumber)
@@ -6022,36 +6022,50 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
       - https://getpino.io/#/
       - Context7 `/jestjs/jest`
 
-5. [ ] Documentation update:
+5. [x] Documentation update:
    - Files to edit:
      - `design.md`
    - Requirements:
      - Document the `clientId` field and how client logs are persisted into the server log file.
      - Note the required env vars: `VITE_LOG_FORWARD_ENABLED`, `VITE_API_URL`.
 
-6. [ ] Run lint/format after client/server changes:
+6. [x] Run lint/format after client/server changes:
    - Commands to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (task focus + regressions):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (task focus + regressions):
    - Open Chat in a browser with `VITE_LOG_FORWARD_ENABLED=true`.
    - Trigger a chat run and confirm new client log entries appear in `/logs`.
    - Tail the server log file and confirm the same entries are persisted with `source=client` and `clientId`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _Pending._
+- Subtask 1: Confirmed `POST /logs` only appends to `server/src/logStore.ts` (in-memory) and does not forward to the pino file logger; server-originated log flows (e.g. `chatStreamBridge.ts`) already call `baseLogger.*` directly so file forwarding must be limited to `entry.source === 'client'` to avoid double-writing.
+- Subtask 2: Added a stable `clientId` (stored under `localStorage['codeinfo2.clientId']`, falling back to an in-memory id if storage is unavailable) and inject it into every client `LogEntry.context` so forwarded `/logs` entries can be correlated to a single browser instance.
+- Subtask 3: Updated `server/src/logStore.ts` to forward `entry.source === 'client'` to `baseLogger` with a `CLIENT_LOG` marker, preserving `sequence` and lifting `context.clientId` to a top-level `clientId` field for easier grepping in JSON log files.
+- Subtask 4: Added `server/src/test/integration/client-logs-persist.test.ts` to assert `POST /logs` forwards client entries to `baseLogger` (spy) and that entries remain queryable via `GET /logs`; added `client/src/test/clientLogging.test.ts` to verify `clientId` stability and the localStorage fallback path.
+- Subtask 5: Updated `design.md` to document the new stable `clientId` field (persisted client-side) and the server-side `CLIENT_LOG` forwarding of client entries into the pino log file.
+- Subtask 6: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (pass) after formatting new test files.
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed.
+- Testing 3: `npm run test --workspace server` passed.
+- Testing 4: `npm run test --workspace client` passed.
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` started the stack successfully (services healthy).
+- Testing 8: Manual check (container-safe via mapped ports): `POST http://host.docker.internal:5010/logs` with a client entry including `context.clientId` and confirmed it appears in `GET /logs?source=client&text=chat.ws.client_manual_check_rebuilt`; verified the same entry is persisted in the pino file output under `logs/server.3.log` with `msg:"CLIENT_LOG"`, `source:"client"`, and top-level `clientId`.
+- Testing 9: `npm run compose:down` stopped the stack.
 
 ### 29. Add targeted client/server logs for cross-tab overwrite investigation
 

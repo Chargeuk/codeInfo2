@@ -6070,7 +6070,7 @@ Client logs currently POST to `/logs` and are queryable via the in-memory log st
 ### 29. Add targeted client/server logs for cross-tab overwrite investigation
 
 - Task Status: **__completed__**
-- Git Commits: **__to_do__**
+- Git Commits: **5769b21**
 
 #### Overview
 

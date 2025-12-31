@@ -6301,8 +6301,14 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
      - Preserve `label`, `value`, `onChange`, `disabled`, and `data-testid` attributes (`provider-select`, `model-select`).
      - Keep existing `minWidth` sizing and layout behavior.
    - Code pointers:
-     - Provider select block near `data-testid="provider-select"`.
-     - Model select block near `data-testid="model-select"`.
+     - Provider select block near `data-testid="provider-select"` (ChatPage form header).
+     - Model select block near `data-testid="model-select"` (immediately after provider field).
+   - Reference snippet (current structure):
+     - `<FormControl ...><InputLabel>Provider</InputLabel><Select data-testid="provider-select" ... /></FormControl>`
+     - `<FormControl ...><InputLabel>Model</InputLabel><Select data-testid="model-select" ... /></FormControl>`
+   - Reference snippet (target structure):
+     - `<TextField select label="Provider" value={provider ?? ''} onChange={handleProviderChange} data-testid="provider-select">...</TextField>`
+     - `<TextField select label="Model" value={selected ?? ''} onChange={(event) => setSelected(event.target.value)} data-testid="model-select">...</TextField>`
    - Docs (repeat):
      - https://mui.com/material-ui/api/text-field/
 
@@ -6323,6 +6329,11 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
      - If tests use label-based queries, update to match the new rendered structure.
      - Add explicit coverage that disabled/locked states still apply (provider locked, model disabled when provider unavailable).
      - Add a regression check for the empty-models state (provider selected but `models` empty) to ensure the `TextField select` still renders alongside the “No chat-capable models” banner.
+   - Code pointers:
+     - Tests currently use `screen.getByTestId('provider-select')` / `model-select` in provider/flags suites.
+     - If any tests use `getByLabelText('Provider')` / `getByLabelText('Model')`, verify the label remains present after switching to `TextField select`.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
 
 3. [ ] Update e2e coverage if needed:
    - Files to edit (likely impacted):
@@ -6330,6 +6341,11 @@ The Provider/Model select labels are clipped. Switch to MUI `TextField` with `se
    - Requirements:
      - Confirm model/provider selection still works via Playwright selectors; update selectors if the DOM structure changes.
      - Add a small-viewport run (below `sm`) to confirm the selects remain usable when stacked vertically.
+   - Code pointers:
+     - `e2e/chat.spec.ts` uses `data-testid="provider-select"` / `model-select` selectors.
+     - Use `page.setViewportSize({ width: 500, height: 900 })` for the `sm` breakpoint check.
+   - Docs (repeat):
+     - Context7 `/microsoft/playwright`
 
 4. [ ] Documentation update:
    - Files to edit:
@@ -6389,6 +6405,10 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
    - Code pointers:
      - Conversation list container currently under `data-testid="conversation-list"`.
      - Main layout stack around the chat controls + transcript.
+   - Reference snippet (target structure):
+     - `const isMobile = useMediaQuery(theme.breakpoints.down('sm'));`
+     - `const [drawerOpen, setDrawerOpen] = useState(!isMobile);`
+     - Toggle button: `<IconButton onClick={() => setDrawerOpen((prev) => !prev)} ... />`
    - Docs (repeat):
      - https://mui.com/material-ui/api/drawer/
      - https://mui.com/material-ui/guides/responsive-ui/
@@ -6401,6 +6421,11 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
      - Ensure the main chat column expands when drawer is closed (desktop) and remains full-width under overlay (mobile).
      - Ensure ConversationList still receives the same props and scroll behavior.
      - Preserve existing test ids if tests rely on them (e.g., `conversation-list`).
+   - Code pointers:
+     - Sidebar currently in a `<Box data-testid="conversation-list">...</Box>`; wrap this content inside `<Drawer>` so the same `data-testid` is still present on the inner container.
+     - Main content `Stack` uses `flex: 1` — ensure it respects drawer width when open by applying `ml` or `width` adjustments only in desktop mode.
+   - Docs (repeat):
+     - https://mui.com/material-ui/api/drawer/
 
 3. [ ] Update client tests + e2e coverage:
    - Files to edit (known impacted tests from code_info analysis + layout changes):
@@ -6414,6 +6439,12 @@ Make the Conversations sidebar collapsible. Use a responsive `Drawer` that is **
      - Adjust tests if the sidebar DOM is now nested inside a Drawer.
      - Add coverage for toggle behavior (open/close) in at least one client test or e2e spec.
      - Add explicit assertions for default open on desktop and default closed on mobile (`sm` breakpoint), including overlay vs push layout behavior.
+   - Code pointers:
+     - Update tests that query `conversation-list` to account for `Drawer` + `Paper` DOM wrapper.
+     - For mobile overlay, use `getByRole('presentation')` or `MuiDrawer-paper` class to assert overlay is present.
+   - Docs (repeat):
+     - Context7 `/jestjs/jest`
+     - Context7 `/microsoft/playwright`
 
 4. [ ] Documentation update:
    - Files to edit:

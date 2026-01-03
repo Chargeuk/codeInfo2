@@ -338,6 +338,8 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
        - `server/src/mongo/ingestFile.ts`
        - `server/src/test/unit/ingest-files-schema.test.ts`
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -345,8 +347,6 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 2. [ ] `npm run build --workspace client`
 
 3. [ ] `npm run test:unit --workspace server`
-
-4. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -487,13 +487,13 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - Add the new file path (`server/src/test/unit/ingest-files-repo-guards.test.ts`) under the server unit test section.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -621,13 +621,13 @@ Create a pure “delta planner” that compares the discovered on-disk file list
        - `server/src/ingest/deltaPlan.ts`
        - `server/src/test/unit/ingest-delta-plan.test.ts`
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1204,13 +1204,13 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`
        - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
+31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test --workspace server`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1437,13 +1437,13 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `server/src/routes/ingestDirs.ts`
        - `server/src/test/unit/ingest-dirs-router.test.ts`
 
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1621,13 +1621,13 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      }));
      ```
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1705,13 +1705,13 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Requirements:
      - Assert the model select is disabled when `lockedModelId` is present.
 
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1953,13 +1953,13 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `client/src/components/ingest/ingestDirsApi.ts`
        - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
-
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -2049,6 +2049,8 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] Manual verification checklist (before running full automation):
@@ -2089,9 +2091,6 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 10. [ ] `npm run compose:down`
 
-11. [ ] `npm run lint --workspaces`
-
-12. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 

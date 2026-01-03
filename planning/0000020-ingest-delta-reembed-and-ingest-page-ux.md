@@ -441,9 +441,12 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Load the previous per-file index from Mongo (`ingest_files`) for the discovered `root`.
      - Hash all discovered files using SHA-256 of file bytes.
      - Use `buildDeltaPlan(...)` to compute `added/changed/unchanged/deleted`.
-     - If `added.length + changed.length === 0`:
+     - If `added.length + changed.length + deleted.length === 0`:
        - Do not write to Chroma.
        - Mark the run as `skipped` with a clear `message`.
+     - If there are deletions only (`deleted.length > 0` and `added.length + changed.length === 0`):
+       - Perform the required deletes in Chroma.
+       - The run must not claim “No changes detected”. Use a terminal state/message that indicates work occurred.
      - For each changed/added file:
        - Chunk and embed as usual.
        - Store vector metadata including `root`, `relPath`, `fileHash`, `chunkHash`, and `runId`.
@@ -451,7 +454,20 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - For each changed file, delete older vectors for that `{ root, relPath }` where `fileHash != newHash` (use a Chroma `where: { $and: [...] }` structure).
        - For each deleted file, delete vectors for `{ root, relPath }`.
 
-4. [ ] Implement “legacy root upgrade” behavior:
+4. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/mongo/ingestFilesRepo.ts`
+   - Requirements:
+     - Initial ingest (`operation === 'start'`): after a successful run, write `ingest_files` rows for all discovered files and their `fileHash` values.
+       - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a “full rebuild” operation).
+     - Re-embed (`operation === 'reembed'`): after a successful run, update the index using the delta plan:
+       - Upsert rows for `added + changed`.
+       - Delete rows for `deleted`.
+       - Do not rewrite rows for `unchanged`.
+     - Do not update the Mongo per-file index on cancellation or error.
+
+5. [ ] Implement “legacy root upgrade” behavior:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/mongo/ingestFilesRepo.ts`
@@ -463,14 +479,14 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Perform a full ingest of all discovered files (same behavior as current re-embed today).
        - Populate `ingest_files` for all files as part of the successful run.
 
-5. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+6. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
      - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
-6. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
+7. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
    - Files to add:
      - `server/src/test/features/ingest-delta-reembed.feature`
      - `server/src/test/steps/ingest-delta-reembed.steps.ts`
@@ -480,10 +496,15 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - “Changed file” → vectors for old hash are deleted, vectors for new hash exist.
        - “Deleted file” → vectors for the deleted relPath are removed.
        - “Unchanged file” → vectors remain untouched.
+       - The `ingest_files` index matches the post-run truth:
+         - changed file hash updated
+         - deleted file row removed
+         - unchanged file row remains unchanged
      - The step definitions must query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert the fileHash conditions.
+     - The step definitions must query Mongo (`ingest_files`) to assert the per-file index rows are correct.
      - The test must not rely on manual inspection.
 
-7. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+8. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
    - Files to edit:
      - `design.md`
      - `projectStructure.md`
@@ -491,7 +512,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
      - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
 
 #### Testing
 

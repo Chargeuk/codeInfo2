@@ -41,12 +41,12 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 
 - Re-ingest supports an incremental/delta mode that:
   - Removes vectors for files that no longer exist in the folder.
-  - For files whose content has changed (based on a file hash), performs a file-level replacement: add new vectors first, then delete older vectors for `{ root, relPath }` where `fileHash` differs.
+  - For files whose content has changed (based on a file hash), performs a file-level replacement: add new vectors first (tagged with `runId` + new hash), then delete older vectors for `{ root, relPath }` where `fileHash` differs.
   - Embeds and ingests files that are new (not previously present for that folder).
   - Leaves vectors for unchanged files untouched.
-  - Automatically upgrades legacy roots (ingested before the Mongo per-file index existed): if there are **no** `ingest_files` records for the root, delete all existing vectors for that root and re-ingest, populating the per-file index as part of that run.
+  - Automatically upgrades legacy roots (ingested before the Mongo per-file index existed): legacy root = no `ingest_files` records for that root; delete all existing vectors for the root and re-ingest, populating the per-file index as part of that run.
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
-  - Store a file path including filename (relative to the ingested root, or another agreed representation).
+  - Store `relPath` (POSIX, relative to the ingested root) including filename.
   - Store a file hash (SHA-256) for diffing.
 - A per-file index is persisted in **MongoDB** and is the primary source of truth for delta decisions:
   - Collection name: `ingest_files`.
@@ -61,7 +61,8 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Ingest page UX:
   - The “Embedding model locked to …” notice is shown only once (below “Start a new ingest” title, not duplicated inside the form).
   - The Folder path remains editable as a text field, and there is an additional “Choose folder…” mechanism that updates the field value when used.
-    - The “Choose folder…” UX is implemented as a **server-backed directory picker modal** limited to an allowed base (e.g., `/data` / `HOST_INGEST_DIR`), and selecting a folder updates the text field with the server-readable path.
+    - The “Choose folder…” UX is implemented as a **server-backed directory picker modal** limited to `HOST_INGEST_DIR` (default `/data`), and selecting a folder updates the text field with the server-readable path.
+    - The directory picker endpoint lists child directories under the base path and rejects only lexically out-of-base paths; symlink escapes are allowed if the path resolves and is accessible.
     - The directory picker is backed by a simple server endpoint that lists child directories under the allowed base and rejects paths outside that base; the UI displays directory names and writes the server-readable path into the input.
 
 ---

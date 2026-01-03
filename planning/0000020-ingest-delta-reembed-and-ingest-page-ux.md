@@ -2072,8 +2072,8 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 ### 8. Ingest UI: server-backed directory picker modal (“Choose folder…”)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: e6655a3
 
 #### Overview
 
@@ -2094,14 +2094,14 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 #### Subtasks
 
-1. [ ] Read the existing ingest form state management and serverBase usage:
+1. [x] Read the existing ingest form state management and serverBase usage:
    - Docs to read (repeat; do not skip):
      - MUI Dialog docs: https://mui.com/material-ui/api/dialog/
      - Fetch URL building: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
    - Files to read:
      - `client/src/components/ingest/IngestForm.tsx`
 
-2. [ ] Add a small, typed fetch helper for `GET /ingest/dirs` (keeps the dialog component simple):
+2. [x] Add a small, typed fetch helper for `GET /ingest/dirs` (keeps the dialog component simple):
    - Docs to read (repeat; do not skip):
      - Fetch URL building: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
    - Files to add:
@@ -2129,7 +2129,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      const payload = await res.json();
      ```
 
-3. [ ] Add a small directory picker dialog component (UI shell + loading/error states):
+3. [x] Add a small directory picker dialog component (UI shell + loading/error states):
    - Docs to read (repeat; do not skip):
      - MUI Dialog docs: https://mui.com/material-ui/api/dialog/
      - React Testing Library (for later tests): https://testing-library.com/docs/react-testing-library/intro/
@@ -2148,7 +2148,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Data loading:
        - Call the helper from `ingestDirsApi.ts`.
 
-4. [ ] Implement directory navigation within the dialog:
+4. [x] Implement directory navigation within the dialog:
    - Docs to read (repeat; do not skip):
      - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String
    - Files to edit:
@@ -2158,7 +2158,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Provide an "Up" action unless already at `base`.
      - Provide a "Use this folder" action for the currently viewed folder.
 
-5. [ ] Wire the dialog into the Folder path input:
+5. [x] Wire the dialog into the Folder path input:
    - Docs to read (repeat; do not skip):
      - MUI TextField docs: https://mui.com/material-ui/api/text-field/
    - Files to edit:
@@ -2169,7 +2169,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - The Folder path text field must remain editable even if the picker is available.
      - Do not use browser filesystem APIs (no native directory pickers).
 
-6. [ ] Add client log entries (visible in the Logs page) for directory picker interactions:
+6. [x] Add client log entries (visible in the Logs page) for directory picker interactions:
    - Purpose: allow deterministic manual verification that open/navigate/pick/error flows are exercised.
    - Files to edit:
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
@@ -2186,7 +2186,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Emit `opened` only when the dialog transitions from closed → open.
      - Emit `picked` only when the user explicitly picks a folder.
 
-7. [ ] Test setup: mock `fetch` helpers for `GET /ingest/dirs` responses:
+7. [x] Test setup: mock `fetch` helpers for `GET /ingest/dirs` responses:
    - Purpose: keep the picker tests readable by centralizing repetitive mocking.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
@@ -2211,7 +2211,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      };
      ```
 
-8. [ ] Client unit test: selecting a directory updates the Folder path input value:
+8. [x] Client unit test: selecting a directory updates the Folder path input value:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: prove the main happy path of the directory picker.
@@ -2223,7 +2223,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Open the dialog (click “Choose folder…”), choose a directory, and assert the Folder path input value changes.
 
-9. [ ] Client unit test: clicking a directory triggers a second fetch for the new path:
+9. [x] Client unit test: clicking a directory triggers a second fetch for the new path:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: ensure navigation is server-backed and keeps state consistent.
@@ -2235,7 +2235,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Assert `fetch` is called twice and the second call includes the clicked path.
 
-10. [ ] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
+10. [x] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: prevent navigation that would attempt to browse above the allowed base.
@@ -2248,7 +2248,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Assert “Up” is not available at base.
      - After navigating into a subdirectory, assert “Up” becomes available.
 
-11. [ ] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
+11. [x] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: allow selecting the currently viewed directory.
@@ -2261,7 +2261,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Open the dialog and click “Use this folder”.
      - Assert the Folder path input is set to the currently viewed `path`.
 
-12. [ ] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
+12. [x] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: ensure users can understand and recover from invalid navigation.
@@ -2273,7 +2273,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Mock a server error payload and assert the dialog renders an error state/message.
 
-13. [ ] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
+13. [x] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -2311,7 +2311,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
          UI-->>User: Show error state
        ```
 
-14. [ ] Update `projectStructure.md` with the new client ingest picker files:
+14. [x] Update `projectStructure.md` with the new client ingest picker files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2321,26 +2321,26 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `client/src/components/ingest/ingestDirsApi.ts`
        - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (directory picker modal):
+8. [x] Manual Playwright-MCP check (directory picker modal):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
@@ -2353,12 +2353,30 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Error case: type an outside-base path (example: `/tmp`) into the Folder path text field, then click “Choose folder…”.
        - Confirm the dialog renders an error state and `0000020 ingest dirpicker error` exists in `http://localhost:5001/logs` as a **client** entry.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
-
+- Subtask 1: Reviewed `IngestForm.tsx` state + `serverBase` usage to mirror existing fetch patterns for the directory picker.
+- Subtask 2: Added `client/src/components/ingest/ingestDirsApi.ts` with minimal typed success/error unions and runtime guards to keep the dialog fetch path simple.
+- Subtask 3: Added `client/src/components/ingest/DirectoryPickerDialog.tsx` with a MUI `Dialog` shell, loading spinner, and inline error display backed by `fetchIngestDirs`.
+- Subtask 4: Implemented server-backed navigation (directory click to browse, conditional "Up", and "Use this folder" pick action) with the selected path controlled by server responses.
+- Subtask 5: Wired `DirectoryPickerDialog` into `IngestForm.tsx` via a "Choose folder…" button; picking a folder writes the absolute server path back into the editable text field.
+- Subtask 6: Added client log breadcrumbs (opened/navigated/picked/error) using `createLogger('client')` with exact strings required for deterministic verification in the Logs page.
+- Subtask 7: Added `enqueueFetchJson` helper in `client/src/test/ingestForm.test.tsx` to queue successive `fetch` payloads for browse/navigate flows without repeating boilerplate mocks.
+- Subtasks 8–12: Added Jest + RTL coverage for open/navigate/up/pick and OUTSIDE_BASE error rendering to lock down the picker UX and server-backed navigation.
+- Subtask 13: Updated `design.md` with a directory picker UX `sequenceDiagram` documenting open/browse/pick and OUTSIDE_BASE error handling.
+- Subtask 14: Updated `projectStructure.md` to include the new ingest directory picker files under `client/src/components/ingest`.
+- Subtask 15: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; fixed client Prettier issues via `npm run format --workspaces`.
+- Testing 1: `npm run build --workspace server` passed.
+- Testing 2: `npm run build --workspace client` passed (Vite warns about large chunks, but build succeeds).
+- Testing 3: `npm run test --workspace server` passed (unit + integration).
+- Testing 4: `npm run test --workspace client` passed (Jest + RTL).
+- Testing 5: `npm run e2e` passed.
+- Testing 6: `npm run compose:build` passed.
+- Testing 7: `npm run compose:up` passed (containers started and healthy).
+- Testing 8: Performed a manual browser automation check against `http://host.docker.internal:5001/ingest` using Playwright with request routing to proxy `http://localhost:5010` API calls to `http://host.docker.internal:5010`; verified choose/navigate/pick updates the Folder path input, confirmed OUTSIDE_BASE error UI, and confirmed the required client log entries exist via `GET /logs?text=...`.
+- Testing 9: `npm run compose:down` passed.
 ---
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
@@ -2473,20 +2491,20 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
 8. [ ] Manual Playwright-MCP check (story acceptance + regression smoke):
    - Docs to read:
@@ -2505,7 +2523,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
      - `0000020-9-ingest-delta.png` (Roots table reflects a completed/skipped re-embed run)
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 
 #### Implementation notes

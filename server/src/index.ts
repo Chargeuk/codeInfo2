@@ -6,6 +6,7 @@ import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
+import './ingest/index.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';

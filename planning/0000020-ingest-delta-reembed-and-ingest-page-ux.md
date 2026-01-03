@@ -595,7 +595,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 ### 3. Delta decision engine (pure planning of new/changed/deleted files)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -609,7 +609,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 
 #### Subtasks
 
-1. [ ] Create the delta planner module:
+1. [x] Create the delta planner module:
    - Docs to read:
      - https://nodejs.org/api/test.html (for how we’ll test this)
    - Files to add:
@@ -640,7 +640,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
      // 4) Sort each array by relPath
      ```
 
-2. [ ] Create the server unit test suite for `buildDeltaPlan(...)`:
+2. [x] Create the server unit test suite for `buildDeltaPlan(...)`:
    - Test type: Server unit (node:test)
    - Purpose: validate delta categorization logic without relying on Mongo/Chroma.
    - Docs to read:
@@ -648,7 +648,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Files to add:
      - `server/src/test/unit/ingest-delta-plan.test.ts`
 
-3. [ ] Unit test: “No previous, discovered has 2 files” → all are `added`:
+3. [x] Unit test: “No previous, discovered has 2 files” → all are `added`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
    - Purpose: ensure first-time delta planning behaves like a full ingest.
@@ -659,7 +659,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Assert `added.length === 2` and the other arrays are empty.
 
-4. [ ] Unit test: “Previous has 2, discovered matches hashes” → all are `unchanged`:
+4. [x] Unit test: “Previous has 2, discovered matches hashes” → all are `unchanged`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
    - Purpose: ensure true no-op runs are detected.
@@ -670,7 +670,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Assert `unchanged.length === 2` and the other arrays are empty.
 
-5. [ ] Unit test: “Previous has 2, discovered changes one hash” → 1 `changed`, 1 `unchanged`:
+5. [x] Unit test: “Previous has 2, discovered changes one hash” → 1 `changed`, 1 `unchanged`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
    - Purpose: ensure a single-file edit triggers a single-file re-embed.
@@ -681,7 +681,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Assert the changed item is the correct `relPath`.
 
-6. [ ] Unit test: “Previous has 2, discovered missing one relPath” → 1 `deleted`:
+6. [x] Unit test: “Previous has 2, discovered missing one relPath” → 1 `deleted`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
    - Purpose: ensure deletions are detected even if discovery returns fewer files.
@@ -692,7 +692,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Assert `deleted.length === 1` and the deleted item is the correct `relPath`.
 
-7. [ ] Unit test: “Mixed add + change + delete” in one run:
+7. [x] Unit test: “Mixed add + change + delete” in one run:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
    - Purpose: ensure categorization stays correct when multiple kinds of work happen together.
@@ -703,7 +703,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Include at least one file in each of `added`, `changed`, and `deleted`.
 
-8. [ ] Add a server log entry that confirms the delta planning module is loaded:
+8. [x] Add a server log entry that confirms the delta planning module is loaded:
    - Purpose: make it easy to confirm (via Logs page) that the delta planner code shipped and is being loaded by the server.
    - Files to edit:
      - `server/src/ingest/index.ts`
@@ -717,7 +717,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
        - `context`: include `{ module: 'server/src/ingest/deltaPlan.ts' }`
      - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
 
-9. [ ] Update `projectStructure.md` to include the new delta planner files:
+9. [x] Update `projectStructure.md` to include the new delta planner files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -727,37 +727,54 @@ Create a pure “delta planner” that compares the discovered on-disk file list
        - `server/src/ingest/deltaPlan.ts`
        - `server/src/test/unit/ingest-delta-plan.test.ts`
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (delta plan regression):
+8. [x] Manual Playwright-MCP check (delta plan regression):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
      - Load `http://localhost:5001/ingest` and confirm it renders (this task is server-only, but this ensures nothing broke the page).
      - Load `http://localhost:5001/logs`, search for `0000020 ingest deltaPlan module ready`, and confirm at least one **server** log entry exists.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-03: Added pure `buildDeltaPlan(...)` helper in `server/src/ingest/deltaPlan.ts` that classifies discovered vs indexed files into added/changed/unchanged/deleted with deterministic `relPath` sorting.
+- 2026-01-03: Started unit coverage for delta planning in `server/src/test/unit/ingest-delta-plan.test.ts` (baseline “no previous -> all added” case).
+- 2026-01-03: Added unit coverage for the no-op delta case (previous hashes match discovered -> all `unchanged`).
+- 2026-01-03: Added unit coverage for the single-file change case (one `changed`, one `unchanged`).
+- 2026-01-03: Added unit coverage for deletion detection (`deleted` entries returned when prior index contains relPaths not present in discovery).
+- 2026-01-03: Added unit coverage for mixed added/changed/deleted categorization and verified `relPath` sort determinism.
+- 2026-01-03: Exported `deltaPlan` via `server/src/ingest/index.ts` and added a module-init log entry `0000020 ingest deltaPlan module ready` (forced-load via `server/src/index.ts` side-effect import so it appears on startup).
+- 2026-01-03: Documented `server/src/ingest/deltaPlan.ts` and `server/src/test/unit/ingest-delta-plan.test.ts` in `projectStructure.md`.
+- 2026-01-03: Ran `npm run lint --workspaces` (warnings only; pre-existing import-order warnings remain) and `npm run format:check --workspaces` (passed).
+- 2026-01-03: Testing progress: `npm run build --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run build --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run e2e` passed.
+- 2026-01-03: Testing progress: `npm run compose:build` passed.
+- 2026-01-03: Testing progress: `npm run compose:up` started containers successfully.
+- 2026-01-03: Manual regression check: fetched `http://host.docker.internal:5001/ingest` and `http://host.docker.internal:5001/logs` (both 200) and verified `GET http://host.docker.internal:5010/logs?text=0000020%20ingest%20deltaPlan%20module%20ready&source=server` returned 3 items (Playwright-MCP transport unavailable in this environment).
+- 2026-01-03: Testing progress: `npm run compose:down` stopped local compose stack.
 
 ---
 

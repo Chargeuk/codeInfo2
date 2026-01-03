@@ -1043,7 +1043,45 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Run completes in a terminal state (completed/skipped).
      - The server does not crash/hang due to Mongo being unavailable.
 
-26. [ ] Implement the step definitions for the delta feature:
+26. [ ] Cucumber scenario: @mongo Legacy root upgrade deletes old vectors when `ingest_files` is empty and repopulates the index:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: prove the “legacy root upgrade” branch is real and prevents duplicate vectors when migrating existing roots.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+     - https://docs.trychroma.com/ (delete with metadata `where`)
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Tag this scenario with `@mongo`.
+     - Scenario setup must create a legacy root state:
+       - Run an initial ingest for a temp repo root so vectors exist.
+       - Explicitly delete all `ingest_files` rows for that `root` (this simulates a pre-story root that has vectors but no per-file index).
+     - Re-embed that same root.
+     - Assertions:
+       - The re-embed run must **not** end with `state: 'skipped'` (it must do work).
+       - The post-reembed vectors must **not** include any vectors from the previous runId (assert by querying Chroma metadatas and confirming no `{ runId: <previousRunId> }` exist).
+       - `ingest_files` must be populated for **all discovered files** under the root.
+
+27. [ ] Cucumber scenario: Re-embed selects the most recent root metadata entry when duplicates exist:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure `reembed(rootPath)` uses the latest `name/description/model` when multiple root entries exist for the same root.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+     - https://docs.trychroma.com/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Create a temp repo root with at least one eligible file.
+     - Seed the Chroma roots collection with **two** metadata entries for the same `root` (path):
+       - Entry A: older `lastIngestAt`, `name: "old-name"` (and/or a distinct description)
+       - Entry B: newer `lastIngestAt`, `name: "new-name"`
+     - Trigger `POST /ingest/reembed/:root` for that root.
+     - Assertion:
+       - After the run completes, `GET /ingest/roots` must show the root’s `name` as `"new-name"` (proving the re-embed used the most recent metadata).
+
+28. [ ] Implement the step definitions for the delta feature:
    - Docs to read (repeat; do not skip):
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
      - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
@@ -1061,9 +1099,13 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - assert `state` is terminal (`completed|cancelled|error|skipped`)
        - for no-op runs, assert `state === 'skipped'` and message contains a clear reason
        - for deletions-only runs, assert message is not "No changes detected"
+     - Add step support for the new scenarios:
+       - A step to delete all `ingest_files` rows for a root (used to simulate a legacy root).
+       - A step to seed duplicate root metadata entries (two roots records for the same `root` path with different `lastIngestAt` and `name`).
+       - A step/assertion to confirm there are **zero** vectors matching `{ runId: <priorRunId> }` after a legacy-upgrade re-embed.
      - The test must not rely on manual inspection.
 
-27. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
+29. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -1088,9 +1130,9 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
            G -- yes --> I[Write new vectors for added/changed]
            I --> J[Delete old vectors for changed]\n+ delete vectors for deleted
            J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
-         ```
+       ```
 
-28. [ ] Update `projectStructure.md` to include all new/changed server files added in this task:
+30. [ ] Update `projectStructure.md` to include all new/changed server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1102,7 +1144,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`
        - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
-29. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1450,7 +1492,26 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Requirements:
      - Assert form/buttons are enabled after the skipped response.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Client unit test: IngestPage triggers roots + models refresh when the terminal state is `skipped`:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestStatus.test.tsx`
+   - Purpose: ensure the page-level `useEffect` that runs after completion also runs for `skipped` (so the UI reflects latest roots/models after no-op re-embeds).
+   - Docs to read (repeat; do not skip):
+     - https://testing-library.com/docs/react-testing-library/intro/
+     - https://jestjs.io/docs/mock-functions
+     - https://jestjs.io/docs/jest-object#jestmockmodulename-factory-options
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+   - Requirements:
+     - Mock `useIngestModels` to expose a spy `refresh` function.
+     - Mock `useIngestRoots` to expose a spy `refetch` function.
+     - Mock `useIngestStatus` so it returns a terminal `status: 'skipped'` once an `activeRunId` exists.
+     - Trigger `activeRunId` inside the test in a KISS way:
+       - Prefer mocking `client/src/components/ingest/IngestForm.tsx` to call `props.onStarted('run-1')` on mount.
+     - Assertion:
+       - Once the component renders with `activeRunId` and `status: 'skipped'`, `refetch` and `refresh` are each called exactly once.
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

@@ -328,7 +328,19 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Assert `IngestFileModel.schema.indexes()` includes one non-unique index with keys `{ root: 1 }`.
 
-8. [ ] Update `projectStructure.md` with the files added in this task:
+8. [ ] Add a server log entry that confirms the `ingest_files` model is registered and usable at runtime:
+   - Purpose: make it obvious (via Logs page) that the new Mongo model is wired in and available.
+   - Files to edit:
+     - `server/src/mongo/connection.ts`
+   - Requirements:
+     - Import the new model module so it is registered during server boot.
+     - Append a server log entry (using `server/src/logStore.ts` `append`) immediately after a successful `connectMongo(...)`:
+       - `message`: `0000020 ingest_files model ready`
+       - `level`: `info`
+       - `context`: include `{ modelName: 'IngestFile', collection: 'ingest_files' }`
+     - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
+
+9. [ ] Update `projectStructure.md` with the files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -338,7 +350,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
        - `server/src/mongo/ingestFile.ts`
        - `server/src/test/unit/ingest-files-schema.test.ts`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -363,6 +375,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Checks:
      - Load `http://localhost:5001/chat` and confirm the page renders without console errors.
      - Load `http://localhost:5001/ingest` and confirm the page renders (roots table loads or shows a sensible empty state).
+     - Load `http://localhost:5001/logs`, search for `0000020 ingest_files model ready`, and confirm at least one **server** log entry exists.
 
 9. [ ] `npm run compose:down`
 
@@ -497,7 +510,18 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
 
-8. [ ] Update `projectStructure.md` to include the new unit test file:
+8. [ ] Add server log entries to confirm `ingest_files` repo helpers are loaded:
+   - Purpose: make it obvious (via Logs page) that the new Mongo helper surface is present.
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Append a server log entry (using `server/src/logStore.ts` `append`) at module init time:
+       - `message`: `0000020 ingest_files repo helpers ready`
+       - `level`: `info`
+       - `context`: include `{ module: 'server/src/mongo/repo.ts' }`
+     - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
+
+9. [ ] Update `projectStructure.md` to include the new unit test file:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -505,7 +529,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - Add the new file path (`server/src/test/unit/ingest-files-repo-guards.test.ts`) under the server unit test section.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -530,6 +554,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Checks:
      - Load `http://localhost:5001/chat` and confirm chat history renders even if Mongo is unavailable (banner behavior is acceptable).
      - Load `http://localhost:5001/ingest` and confirm the page renders without hard failures.
+     - Load `http://localhost:5001/logs`, search for `0000020 ingest_files repo helpers ready`, and confirm at least one **server** log entry exists.
 
 9. [ ] `npm run compose:down`
 
@@ -649,7 +674,21 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Include at least one file in each of `added`, `changed`, and `deleted`.
 
-8. [ ] Update `projectStructure.md` to include the new delta planner files:
+8. [ ] Add a server log entry that confirms the delta planning module is loaded:
+   - Purpose: make it easy to confirm (via Logs page) that the delta planner code shipped and is being loaded by the server.
+   - Files to edit:
+     - `server/src/ingest/index.ts`
+     - `server/src/ingest/deltaPlan.ts`
+   - Requirements:
+     - Ensure `server/src/ingest/index.ts` exports the delta planner so it is evaluated during normal server startup:
+       - Add `export * from './deltaPlan.js';`
+     - In `server/src/ingest/deltaPlan.ts`, append a server log entry (using `server/src/logStore.ts` `append`) at module init time:
+       - `message`: `0000020 ingest deltaPlan module ready`
+       - `level`: `info`
+       - `context`: include `{ module: 'server/src/ingest/deltaPlan.ts' }`
+     - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
+
+9. [ ] Update `projectStructure.md` to include the new delta planner files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -659,7 +698,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
        - `server/src/ingest/deltaPlan.ts`
        - `server/src/test/unit/ingest-delta-plan.test.ts`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -683,6 +722,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
      - Context7 `/microsoft/playwright`
    - Checks:
      - Load `http://localhost:5001/ingest` and confirm it renders (this task is server-only, but this ensures nothing broke the page).
+     - Load `http://localhost:5001/logs`, search for `0000020 ingest deltaPlan module ready`, and confirm at least one **server** log entry exists.
 
 9. [ ] `npm run compose:down`
 
@@ -1222,7 +1262,28 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - A step/assertion to confirm there are **zero** vectors matching `{ runId: <priorRunId> }` after a legacy-upgrade re-embed.
      - The test must not rely on manual inspection.
 
-29. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
+29. [ ] Add server log entries (visible in the Logs page) that prove delta re-embed branches are being hit:
+   - Purpose: allow manual verification to confirm the server executed the intended branch (delta/no-op/deletions-only/legacy upgrade) without guessing.
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/routes/ingestRoots.ts`
+   - Requirements:
+     - Emit **server** logStore entries (use the existing `logLifecycle(...)` helper where possible) with these exact `message` strings:
+       - `0000020 ingest reembed metadata selected`
+         - context must include: `{ root, selectedLastIngestAt, selectedRunId }`
+       - `0000020 ingest delta mode decided`
+         - context must include: `{ root, mode }` where `mode` is one of `delta`, `legacy_upgrade`, `degraded_full`
+       - `0000020 ingest delta plan summary`
+         - context must include: `{ root, added, changed, deleted, unchanged }` (counts as numbers)
+       - `0000020 ingest delta no-op skipped`
+         - context must include: `{ root }`
+       - `0000020 ingest delta deletions-only`
+         - context must include: `{ root, deleted }` (count)
+     - When implementing `/ingest/roots` response dedupe, append a **server** log entry:
+       - `message`: `0000020 ingest roots dedupe applied`
+       - `context`: include `{ before, after }` counts
+
+30. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -1249,7 +1310,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
            J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
        ```
 
-30. [ ] Update `projectStructure.md` to include all new server files added in this task:
+31. [ ] Update `projectStructure.md` to include all new server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1261,7 +1322,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`
        - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
-31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+32. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1287,6 +1348,15 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Load `http://localhost:5001/ingest` and confirm:
        - Roots list loads without duplicate rows for the same path.
        - Re-embed runs that do no work can surface `skipped` in status endpoints (server-side behavior).
+     - Trigger a no-op re-embed (no files changed) and then open `http://localhost:5001/logs` and confirm **server** logs include:
+       - `0000020 ingest reembed metadata selected`
+       - `0000020 ingest delta mode decided`
+       - `0000020 ingest delta plan summary`
+       - `0000020 ingest delta no-op skipped`
+     - Trigger a deletions-only re-embed (delete a file, re-embed) and confirm **server** logs include:
+       - `0000020 ingest delta deletions-only`
+     - Confirm the roots endpoint dedupe ran at least once by searching logs for:
+       - `0000020 ingest roots dedupe applied`
 
 9. [ ] `npm run compose:down`
 
@@ -1505,7 +1575,20 @@ Add a small server endpoint that lists child directories under a single allowed 
            K --> L[200 { base, path, dirs[] }]
          ```
 
-14. [ ] Update `projectStructure.md` with any new server files added in this task:
+14. [ ] Add server log entries (visible in the Logs page) for directory browsing so the UI can be verified by logs:
+   - Purpose: allow manual verification to confirm the endpoint was hit and what it returned.
+   - Files to edit:
+     - `server/src/routes/ingestDirs.ts`
+   - Requirements:
+     - Append **server** logStore entries (use `server/src/logStore.ts` `append`) with these exact message strings:
+       - `0000020 ingest dirs list start`
+         - context must include: `{ base, path }`
+       - `0000020 ingest dirs list success`
+         - context must include: `{ base, path, dirs }` where `dirs` is the count
+       - `0000020 ingest dirs list error`
+         - context must include: `{ base, path, code }` where `code` matches the response (`OUTSIDE_BASE|NOT_FOUND|NOT_DIRECTORY`)
+
+15. [ ] Update `projectStructure.md` with any new server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1515,7 +1598,7 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `server/src/routes/ingestDirs.ts`
        - `server/src/test/unit/ingest-dirs-router.test.ts`
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1540,6 +1623,10 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Checks:
      - Load `http://localhost:5010/ingest/dirs` in the browser and confirm response contains `{ base, path, dirs }`.
      - Load `http://localhost:5010/ingest/dirs?path=/does-not-exist` and confirm `{ status:'error', code:'NOT_FOUND' }`.
+     - Load `http://localhost:5001/logs` and confirm **server** logs include (triggered by the requests above):
+       - `0000020 ingest dirs list start`
+       - `0000020 ingest dirs list success`
+       - `0000020 ingest dirs list error`
 
 9. [ ] `npm run compose:down`
 
@@ -1719,7 +1806,19 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      }));
      ```
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add client log entries (visible in the Logs page) so we can confirm the `skipped` terminal flow is exercised:
+   - Purpose: prove the UI reached terminal state and fired the expected post-run refresh logic.
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Requirements:
+     - Use `createLogger('client')` and emit these exact message strings:
+       - `0000020 ingest run finished`
+         - context must include: `{ runId, state }`
+       - `0000020 ingest run refresh triggered`
+         - context must include: `{ runId }`
+     - Emit these logs only when the run transitions to a terminal state (including `skipped`) so the logs are not spammy.
+
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1743,6 +1842,8 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      - Context7 `/microsoft/playwright`
    - Checks:
      - Start an ingest/re-embed run that results in `skipped` and confirm the UI stops polling and re-enables actions.
+     - Open `http://localhost:5001/logs`, search for `0000020 ingest run finished`, and confirm at least one **client** log entry exists with `state: 'skipped'`.
+     - Confirm a matching **client** log entry exists for `0000020 ingest run refresh triggered`.
 
 9. [ ] `npm run compose:down`
 
@@ -1764,7 +1865,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 #### Documentation Locations
 
 - MUI Alert component docs:
-  - MUI MCP `@mui/material@6.4.12` (closest available in MCP; repo resolves to MUI `6.5.0`)
+  - MUI MCP `@mui/material@6.4.12` (closest available in MCP)
   - MUI site API reference (verify props for current 6.x): https://mui.com/material-ui/api/alert/
 - React testing patterns (repo uses Testing Library): https://testing-library.com/docs/react-testing-library/intro/
 - Jest (client unit tests): Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started
@@ -1822,7 +1923,18 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Requirements:
      - Assert the model select is disabled when `lockedModelId` is present.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Add a client log entry (visible in the Logs page) when the page-level lock notice is displayed:
+   - Purpose: allow deterministic manual verification that the lock notice rendering path is exercised (and only once).
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Requirements:
+     - Use `createLogger('client')` and emit this exact message string:
+       - `0000020 ingest lock notice displayed`
+         - context must include: `{ lockedModelId }`
+     - Emit this log only when `lockedModelId` is truthy and the notice is actually being rendered.
+     - Avoid emitting repeatedly on rerenders (use a `useEffect` keyed by `lockedModelId`).
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1845,7 +1957,9 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
+     - If the model is not locked yet (no notice appears), run a small ingest once to create a lock, then reload the Ingest page.
      - Open the Ingest page and confirm “Embedding model locked to …” appears exactly once.
+     - Open `http://localhost:5001/logs`, search for `0000020 ingest lock notice displayed`, and confirm at least one **client** log entry exists.
 
 9. [ ] `npm run compose:down`
 
@@ -1867,7 +1981,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 #### Documentation Locations
 
 - MUI Dialog docs:
-  - MUI MCP `@mui/material@6.4.12` (closest available in MCP; repo resolves to MUI `6.5.0`)
+  - MUI MCP `@mui/material@6.4.12` (closest available in MCP)
   - MUI site API reference (verify props for current 6.x): https://mui.com/material-ui/api/dialog/
 - MUI TextField docs (Folder path input is a TextField): https://mui.com/material-ui/api/text-field/
 - Fetch API (query string building): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
@@ -1954,7 +2068,24 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - The Folder path text field must remain editable even if the picker is available.
      - Do not use browser filesystem APIs (no native directory pickers).
 
-6. [ ] Test setup: mock `fetch` helpers for `GET /ingest/dirs` responses:
+6. [ ] Add client log entries (visible in the Logs page) for directory picker interactions:
+   - Purpose: allow deterministic manual verification that open/navigate/pick/error flows are exercised.
+   - Files to edit:
+     - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+   - Requirements:
+     - Use `createLogger('client')` and emit these exact message strings:
+       - `0000020 ingest dirpicker opened`
+         - context must include: `{ path }`
+       - `0000020 ingest dirpicker navigated`
+         - context must include: `{ from, to }`
+       - `0000020 ingest dirpicker picked`
+         - context must include: `{ path }`
+       - `0000020 ingest dirpicker error`
+         - context must include: `{ path, code }` where `code` matches the server error contract (`OUTSIDE_BASE` | `NOT_FOUND` | `NOT_DIRECTORY`).
+     - Emit `opened` only when the dialog transitions from closed → open.
+     - Emit `picked` only when the user explicitly picks a folder.
+
+7. [ ] Test setup: mock `fetch` helpers for `GET /ingest/dirs` responses:
    - Purpose: keep the picker tests readable by centralizing repetitive mocking.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
@@ -1979,7 +2110,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      };
      ```
 
-7. [ ] Client unit test: selecting a directory updates the Folder path input value:
+8. [ ] Client unit test: selecting a directory updates the Folder path input value:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: prove the main happy path of the directory picker.
@@ -1991,7 +2122,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Open the dialog (click “Choose folder…”), choose a directory, and assert the Folder path input value changes.
 
-8. [ ] Client unit test: clicking a directory triggers a second fetch for the new path:
+9. [ ] Client unit test: clicking a directory triggers a second fetch for the new path:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: ensure navigation is server-backed and keeps state consistent.
@@ -2003,7 +2134,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Assert `fetch` is called twice and the second call includes the clicked path.
 
-9. [ ] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
+10. [ ] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: prevent navigation that would attempt to browse above the allowed base.
@@ -2016,7 +2147,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Assert “Up” is not available at base.
      - After navigating into a subdirectory, assert “Up” becomes available.
 
-10. [ ] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
+11. [ ] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: allow selecting the currently viewed directory.
@@ -2029,7 +2160,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Open the dialog and click “Use this folder”.
      - Assert the Folder path input is set to the currently viewed `path`.
 
-11. [ ] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
+12. [ ] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: ensure users can understand and recover from invalid navigation.
@@ -2041,7 +2172,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Mock a server error payload and assert the dialog renders an error state/message.
 
-12. [ ] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
+13. [ ] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -2079,7 +2210,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
          UI-->>User: Show error state
        ```
 
-13. [ ] Update `projectStructure.md` with the new client ingest picker files:
+14. [ ] Update `projectStructure.md` with the new client ingest picker files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2089,7 +2220,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `client/src/components/ingest/ingestDirsApi.ts`
        - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -2114,6 +2245,12 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Checks:
      - Open the Ingest page, click “Choose folder…”, navigate into a folder, then click “Use this folder”.
      - Confirm the Folder path input updates to the chosen path.
+     - Open `http://localhost:5001/logs` and confirm these log entries exist (filter by each string):
+       - `0000020 ingest dirpicker opened` (client)
+       - `0000020 ingest dirpicker navigated` (client)
+       - `0000020 ingest dirpicker picked` (client)
+     - Error case: type an outside-base path (example: `/tmp`) into the Folder path text field, then click “Choose folder…”.
+       - Confirm the dialog renders an error state and `0000020 ingest dirpicker error` exists in `http://localhost:5001/logs` as a **client** entry.
 
 9. [ ] `npm run compose:down`
 
@@ -2160,7 +2297,33 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no "it should" assumptions).
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
-2. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
+
+2. [ ] Add a client log entry on Logs page mount (visible in the Logs page) to prove the Logs UI was visited during manual verification:
+   - Purpose: provide a deterministic breadcrumb for the final Playwright-MCP verification step.
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Requirements:
+     - Use `createLogger('client')` and emit this exact message string:
+       - `0000020 logs page opened`
+     - Emit once per mount (use a `useEffect` with a stable logger).
+
+3. [ ] Client unit test: LogsPage emits `0000020 logs page opened` on mount:
+   - Test type: Client unit (Jest)
+   - Location: `client/src/test/logsPage.test.tsx`
+   - Purpose: prevent regressions where the breadcrumb is removed or renamed.
+   - Docs to read:
+     - Context7 `/jestjs/jest`
+     - https://jestjs.io/docs/getting-started
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/logsPage.test.tsx`
+   - Requirements:
+     - Mock `client/src/logging/logger.ts` so `createLogger` returns a spy.
+     - Render `<LogsPage />` and assert the spy was called with:
+       - level: `'info'`
+       - message: `'0000020 logs page opened'`
+
+4. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
    - Document: `README.md`
    - Location: repo root (`README.md`)
    - Purpose: keep the “how to run/use” docs correct for developers.
@@ -2173,7 +2336,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the README accurately reflects any new/changed env vars or behavior required by this story (e.g. `HOST_INGEST_DIR` defaulting and directory picker expectations).
      - Do not duplicate detailed API/flow diagrams here (those belong in the design document).
 
-3. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
+5. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
    - Document: `design.md`
    - Location: repo root (`design.md`)
    - Purpose: keep architecture and feature behavior understandable, especially for on-boarding.
@@ -2188,7 +2351,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the `/ingest/dirs` endpoint contract and the client directory picker UX flow are documented.
      - Ensure Mermaid diagrams render (fenced code blocks with language `mermaid`, valid syntax).
 
-4. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
+6. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
    - Document: `projectStructure.md`
    - Location: repo root (`projectStructure.md`)
    - Purpose: keep the codebase map accurate for developers navigating the repo.
@@ -2201,11 +2364,11 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Confirm all new server/client/test files introduced by tasks 1–8 are listed under the correct sections.
      - Remove any references to files that no longer exist.
 
-5. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+7. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -2235,6 +2398,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
    - Checks (regression):
      - Load `http://localhost:5001/chat` and confirm chat loads.
      - Load `http://localhost:5001/logs` and confirm logs page loads.
+     - Search the logs list for `0000020 logs page opened` and confirm at least one **client** entry exists.
    - Required screenshots (save to `./test-results/screenshots/`):
      - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)

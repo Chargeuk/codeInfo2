@@ -1709,7 +1709,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 ### 6. Client ingest status: handle `skipped` as a terminal state
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: fc7cc7f
 
 #### Overview
 

@@ -1941,7 +1941,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 
 ### 7. Ingest UI: remove duplicate “model locked” notice
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1959,14 +1959,14 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 #### Subtasks
 
-1. [ ] Confirm the duplication exists today and identify the two render locations:
+1. [x] Confirm the duplication exists today and identify the two render locations:
    - Docs to read (repeat; do not skip):
      - MUI Alert docs: https://mui.com/material-ui/api/alert/
    - Files to read:
      - `client/src/pages/IngestPage.tsx`
      - `client/src/components/ingest/IngestForm.tsx`
 
-2. [ ] Remove the in-form locked notice:
+2. [x] Remove the in-form locked notice:
    - Docs to read (repeat; do not skip):
      - MUI Alert docs: https://mui.com/material-ui/api/alert/
    - Files to edit:
@@ -1975,7 +1975,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
      - Remove the `Alert` that renders “Embedding model locked to …” inside the form.
      - Keep the existing behavior that disables the model select when `lockedModelId` exists.
 
-3. [ ] Ensure the page-level notice is shown in the correct location:
+3. [x] Ensure the page-level notice is shown in the correct location:
    - Docs to read (repeat; do not skip):
      - MUI Alert docs: https://mui.com/material-ui/api/alert/
    - Files to edit:
@@ -1984,7 +1984,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
      - Render exactly one notice “Embedding model locked to <id>”.
      - Place it directly below the “Start a new ingest” title (not duplicated elsewhere).
 
-4. [ ] Client unit test update: lock banner is not rendered inside `IngestForm`:
+4. [x] Client unit test update: lock banner is not rendered inside `IngestForm`:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: enforce the “single notice” requirement and prevent UI duplication regressions.
@@ -1997,7 +1997,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Requirements:
      - Update/remove assertions that expect the lock banner to be inside `IngestForm`.
 
-5. [ ] Client unit test: Embedding model select is disabled when `lockedModelId` is provided:
+5. [x] Client unit test: Embedding model select is disabled when `lockedModelId` is provided:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestForm.test.tsx`
    - Purpose: preserve the safety constraint that prevents mixing embedding models.
@@ -2009,7 +2009,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Requirements:
      - Assert the model select is disabled when `lockedModelId` is present.
 
-6. [ ] Add a client log entry (visible in the Logs page) when the page-level lock notice is displayed:
+6. [x] Add a client log entry (visible in the Logs page) when the page-level lock notice is displayed:
    - Purpose: allow deterministic manual verification that the lock notice rendering path is exercised (and only once).
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
@@ -2020,26 +2020,26 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
      - Emit this log only when `lockedModelId` is truthy and the notice is actually being rendered.
      - Avoid emitting repeatedly on rerenders (use a `useEffect` keyed by `lockedModelId`).
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (single lock notice):
+8. [x] Manual Playwright-MCP check (single lock notice):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
@@ -2047,11 +2047,26 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
      - Open the Ingest page and confirm “Embedding model locked to …” appears exactly once.
      - Open `http://localhost:5001/logs`, search for `0000020 ingest lock notice displayed`, and confirm at least one **client** log entry exists.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- (2026-01-03) Marked Task 7 as in progress.
+- (2026-01-03) Confirmed duplication: `client/src/pages/IngestPage.tsx` renders “Embedding model locked to …” at the page level and `client/src/components/ingest/IngestForm.tsx` renders the same message inside the form.
+- (2026-01-03) Removed the in-form lock `Alert` from `client/src/components/ingest/IngestForm.tsx`; kept the model select disabled behavior when `lockedModelId` is present.
+- (2026-01-03) Moved the page-level lock notice in `client/src/pages/IngestPage.tsx` so “Embedding model locked to …” renders directly below the “Start a new ingest” title.
+- (2026-01-03) Added client log `0000020 ingest lock notice displayed` (context `{ lockedModelId }`) emitted once per lock id via a `useEffect` in `client/src/pages/IngestPage.tsx`.
+- (2026-01-03) Updated `client/src/test/ingestForm.test.tsx` to stop expecting the lock banner inside `IngestForm`, and to explicitly assert the model select remains disabled when `lockedModelId` is provided.
+- (2026-01-03) Verified `npm run lint --workspaces`; ran `npm run format --workspace client` to fix formatting, then verified `npm run format:check --workspaces`.
+- (2026-01-03) Testing: `npm run build --workspace server`.
+- (2026-01-03) Testing: `npm run build --workspace client`.
+- (2026-01-03) Testing: `npm run test --workspace server`.
+- (2026-01-03) Testing: `npm run test --workspace client`.
+- (2026-01-03) Testing: `npm run e2e`.
+- (2026-01-03) Testing: `npm run compose:build`.
+- (2026-01-03) Testing: `npm run compose:up`.
+- (2026-01-03) Testing: manual lock notice verified via headless Playwright against `http://host.docker.internal:5001/ingest` (with a host-resolver rule mapping `localhost` to `host.docker.internal` so the client can reach the server). Confirmed “Embedding model locked to …” appears exactly once and `GET /logs?source=client&text=0000020%20ingest%20lock%20notice%20displayed` returns at least one entry.
+- (2026-01-03) Testing: `npm run compose:down`.
 
 ---
 

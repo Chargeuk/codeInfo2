@@ -34,7 +34,7 @@ describe('IngestForm', () => {
     expect(screen.getByText(/name is required/i)).toBeInTheDocument();
   });
 
-  it('disables model select and shows lock banner when locked', () => {
+  it('does not render lock banner inside the form when locked', () => {
     render(
       <IngestForm
         models={models}
@@ -44,8 +44,18 @@ describe('IngestForm', () => {
     );
 
     expect(
-      screen.getByText(/embedding model locked to locked-model/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/embedding model locked to locked-model/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables model select when lockedModelId is provided', () => {
+    render(
+      <IngestForm
+        models={models}
+        lockedModelId="locked-model"
+        onStarted={jest.fn()}
+      />,
+    );
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     expect(select).toBeDisabled();
   });

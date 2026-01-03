@@ -46,6 +46,8 @@ export default function IngestPage() {
   );
   const lastFinishedRef = useRef<string | null>(null);
 
+  const locked = lockedModelId ?? rootsLockedModelId;
+
   const isRunActive = useMemo(
     () =>
       Boolean(
@@ -57,6 +59,13 @@ export default function IngestPage() {
   useEffect(() => {
     lastFinishedRef.current = null;
   }, [activeRunId]);
+
+  useEffect(() => {
+    if (!locked) return;
+    log('info', '0000020 ingest lock notice displayed', {
+      lockedModelId: locked,
+    });
+  }, [locked, log]);
 
   useEffect(() => {
     if (!activeRunId) return;
@@ -79,8 +88,6 @@ export default function IngestPage() {
     }
   }, [activeRunId, status.status, refetchRoots, refresh, terminalStates, log]);
 
-  const locked = lockedModelId ?? rootsLockedModelId;
-
   return (
     <Container sx={{ py: 3 }}>
       <Stack spacing={3}>
@@ -101,18 +108,18 @@ export default function IngestPage() {
         ) : null}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          {locked ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Embedding model locked to {locked}
-            </Alert>
-          ) : null}
-
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
             <Typography variant="h6" sx={{ flex: 1 }}>
               Start a new ingest
             </Typography>
             {isLoading ? <CircularProgress size={20} /> : null}
           </Stack>
+
+          {locked ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Embedding model locked to {locked}
+            </Alert>
+          ) : null}
 
           <IngestForm
             models={models}

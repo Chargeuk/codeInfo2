@@ -132,12 +132,6 @@ export default function IngestForm({
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={2}>
-        {lockedModelId ? (
-          <Alert severity="info">
-            Embedding model locked to {lockedModelId}
-          </Alert>
-        ) : null}
-
         <TextField
           label="Folder path"
           name="path"

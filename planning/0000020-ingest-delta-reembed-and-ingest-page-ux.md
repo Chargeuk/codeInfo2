@@ -18,12 +18,14 @@ Today, ingest (and re-embed) behaves like a full rebuild of a folder’s embeddi
 
 We want to introduce a **delta re-ingest** mechanism driven by **file content hashes** so that when a user requests a re-ingest, the server only re-embeds files that are new or have changed, and removes embeddings for files that have been deleted.
 
-To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we will introduce a lightweight **per-file index stored in MongoDB** (for example `ingest_files`) keyed by `{ root, relPath }` and storing `fileHash` (and any other small fields we decide are useful). This index is used to:
+To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we will introduce a lightweight **per-file index stored in MongoDB** (collection `ingest_files`) keyed by `{ root, relPath }` and storing `fileHash` (plus a minimal `updatedAt` for debugging). This index is used to:
 - detect deleted files (present in the index but not found on disk),
 - detect changed files (hash differs), and
 - detect new files (present on disk but not in the index).
 
-For changed files, we will treat re-ingest as a **file-level replacement**: delete all existing vectors for `{ root, relPath }` and then re-chunk and re-add the file’s vectors. We will not attempt chunk-level upserts because modified files are very unlikely to retain the same chunk boundaries.
+File hashes use a simple, deterministic algorithm (SHA-256 of the file bytes as read from disk). We do not use mtime/size shortcuts in v1.
+
+For changed files, we will treat re-ingest as a **file-level replacement**: re-chunk and re-add the file’s vectors tagged with the run id, and only after success delete older vectors for `{ root, relPath }` where the stored `fileHash` differs. We will not attempt chunk-level upserts because modified files are very unlikely to retain the same chunk boundaries. If a run is cancelled mid-file, existing vectors remain intact.
 
 Separately, the Ingest page UI has a couple of small usability issues:
 - When the embedding model is locked, the same info notice appears twice (once on the page and once inside the form). We want to show it only once to reduce noise.
@@ -39,24 +41,28 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 
 - Re-ingest supports an incremental/delta mode that:
   - Removes vectors for files that no longer exist in the folder.
-  - For files whose content has changed (based on a file hash), performs a file-level replacement by deleting all vectors for `{ root, relPath }` and re-embedding the file.
+  - For files whose content has changed (based on a file hash), performs a file-level replacement: add new vectors first, then delete older vectors for `{ root, relPath }` where `fileHash` differs.
   - Embeds and ingests files that are new (not previously present for that folder).
   - Leaves vectors for unchanged files untouched.
-  - Automatically upgrades legacy roots (ingested before the Mongo per-file index existed): if there is no per-file index data for the root, delete all existing vectors for that root and re-ingest, populating the per-file index as part of that run.
+  - Automatically upgrades legacy roots (ingested before the Mongo per-file index existed): if there are **no** `ingest_files` records for the root, delete all existing vectors for that root and re-ingest, populating the per-file index as part of that run.
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
   - Store a file path including filename (relative to the ingested root, or another agreed representation).
-  - Store a file hash (and any other identifiers needed for diffing).
+  - Store a file hash (SHA-256) for diffing.
 - A per-file index is persisted in **MongoDB** and is the primary source of truth for delta decisions:
-  - It is keyed by `{ root, relPath }` and stores `fileHash` (minimum).
-  - Delta re-ingest uses this index to detect new/changed/deleted files without scanning all chunk metadata in Chroma.
+  - Collection name: `ingest_files`.
+  - It is keyed by `{ root, relPath }` and stores `fileHash` and `updatedAt`.
+  - Indexes: unique `{ root, relPath }` and non-unique `{ root }`.
+- Delta re-ingest uses this index to detect new/changed/deleted files without scanning all chunk metadata in Chroma.
 - Re-ingest remains safe/robust:
   - Cancelling a run cleans up only the in-progress vectors for that run (no partial corruption of existing unchanged vectors).
+  - For changed files, new vectors are added first and old vectors are deleted only after successful replacement.
   - Concurrency is controlled (no simultaneous ingest/re-ingest against the same collections beyond existing locking rules).
   - Existing ingest status polling (`GET /ingest/status/:runId`) continues to work unchanged.
 - Ingest page UX:
   - The “Embedding model locked to …” notice is shown only once (below “Start a new ingest” title, not duplicated inside the form).
   - The Folder path remains editable as a text field, and there is an additional “Choose folder…” mechanism that updates the field value when used.
     - The “Choose folder…” UX is implemented as a **server-backed directory picker modal** limited to an allowed base (e.g., `/data` / `HOST_INGEST_DIR`), and selecting a folder updates the text field with the server-readable path.
+    - The directory picker is backed by a simple server endpoint that lists child directories under the allowed base and rejects paths outside that base; the UI displays directory names and writes the server-readable path into the input.
 
 ---
 
@@ -70,19 +76,41 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - A browser-native folder picker that depends on local filesystem selection and implies upload-based ingest or a desktop wrapper (we will use a server-backed directory picker instead).
 - Storing the per-file index inside Chroma (we will store it in MongoDB instead).
 - Any UI redesign beyond the two specific Ingest page adjustments described above.
+- Chunker/config versioning for delta decisions (if needed later, we will force a full re-ingest by clearing the per-file index for a root).
+- Embedding model migration during re-ingest (delta re-ingest only runs when the locked model matches).
+- Multiple directory picker bases (v1 uses a single base: `HOST_INGEST_DIR` or `/data`).
+- Hash shortcuts (mtime/size) for delta decisions; v1 always hashes file bytes.
+
+---
+
+## Decisions
+
+- **Per-file index schema:** collection `ingest_files` with `{ root, relPath, fileHash, updatedAt }`, indexes on `{ root }` and unique `{ root, relPath }`.
+- **Chunk metadata:** store `relPath` and `fileHash`; derive host/container paths upstream when needed.
+- **Hashing:** SHA-256 of file bytes as read from disk; no mtime/size shortcuts.
+- **Delta replacement flow:** add new vectors first (tagged with `runId` + new hash), then delete older vectors for `{ root, relPath }` where `fileHash` differs; cancel leaves old vectors intact.
+- **Chunker/config versioning:** defer; if rules change, force full re-ingest by clearing the per-file index for that root.
+- **Model lock:** delta re-ingest only when locked model matches; no auto-migration.
+- **Directory picker:** server-backed modal scoped to a single base (`HOST_INGEST_DIR` default `/data`).
+- **Performance target:** assume medium/large repos (10k–100k files); per-file index required.
+- **Legacy roots:** defined as no `ingest_files` rows for a root; do a full re-ingest and populate the index.
+
+---
+
+## Research Findings (MCP)
+
+- **Current chunk metadata:** `server/src/ingest/types.ts` defines per-chunk metadata fields including `fileHash`, `chunkHash`, `relPath`, `chunkIndex`, and `tokenCount`, so delta work can reuse `relPath`/`fileHash` without inventing new names.
+- **Cancel cleanup:** `cancelRun` in `server/src/ingest/ingestJob.ts` deletes vectors with `where: { runId }`, so run-scoped cleanup already exists and is safe to keep for delta.
+- **Root-wide deletes:** `reembed` and `removeRoot` in `server/src/ingest/ingestJob.ts` delete vectors/roots by `root`, with low-level delete helpers in `server/src/ingest/chromaClient.ts` (delete vectors/roots, drop empty collections, clear locked model).
+- **Path normalization:** `mapIngestPath` in `server/src/ingest/pathMap.ts` already normalizes host/container paths and extracts `relPath`; reuse it to keep relPath consistent.
+- **Chroma delete filters:** Chroma `collection.delete` accepts a `where` filter (same filter grammar as query), supporting compound operators (`$and`, `$or`) and comparisons like `$eq`/`$ne`. This confirms we can target deletes by metadata filters (use equality filters for safety).
+- **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
 
 ---
 
 ## Questions
 
-1. **Mongo per-file index shape:** what exact Mongo schema do we want for the per-file index (minimum `{ root, relPath, fileHash }`; optionally `updatedAt`, `sizeBytes`, `mtimeMs`, `chunkerVersion/configHash`, `lastEmbeddedAt`) and what indexes should we add for performance?
-2. **Path representation:** the current chunk metadata stores `relPath`. Is that sufficient for “path including filename”, or do we need to store additional fields (e.g., `absContainerPath`, `repo`, `hostPath`) to support future UI and tool-citation use-cases?
-3. **Chunking/config versioning:** should delta logic consider a `chunkerVersion` / `configHash` so that a re-ingest can be forced even when `fileHash` is unchanged but chunking rules change?
-4. **Cancellation semantics:** if a re-ingest is “in-place” (updating vectors for a root), how do we ensure cancel does not leave the root in a mixed state? (Options: stage changes under a runId, then “swap” on completion; or accept eventual consistency with per-file deletes/adds.)
-5. **Model lock + delta:** should a delta re-ingest be allowed only when the locked embedding model matches, or do we ever support migrating embeddings to a new model (likely out of scope for v1)?
-6. **Directory picker details:** what is the allowed base (default `/data` vs `HOST_INGEST_DIR`), do we support browsing multiple bases, and how do we present/validate container-path vs host-path expectations in the UI copy?
-7. **Performance constraints:** what folder sizes/repos are the target? This affects whether scanning Chroma metadatas is acceptable or whether we must add the per-file index collection.
-8. **Backward compatibility:** agreed: re-ingest auto-upgrades legacy roots during the first delta run. If there is no Mongo per-file index data for that root, remove all vectors for the root prior to re-ingesting, and populate the per-file index as part of that run.
+None (resolved; details folded into Description / Acceptance Criteria / Out Of Scope).
 
 ---
 

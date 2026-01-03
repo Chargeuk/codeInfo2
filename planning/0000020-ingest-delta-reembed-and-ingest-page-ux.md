@@ -432,12 +432,18 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Requirements:
      - `reembed(rootPath)` must still validate the root exists in the roots collection (as today).
      - It must start the ingest run with `operation: 'reembed'` and allow `processRun()` to decide full vs delta.
-     - Do not delete vectors/roots up front.
+     - Do not delete vectors up front.
+     - Root metadata deduplication must still be preserved so `/ingest/roots` does not accumulate duplicates:
+       - The roots list endpoint does not dedupe entries; the UI table rows are keyed by `root.path`, so duplicates cause unstable rendering.
+       - Implement dedupe at write time (see below): delete existing root metadata entries for `{ root }` immediately before writing the new run’s root metadata entry.
 
 3. [ ] Implement delta flow inside `processRun()` for `operation === 'reembed'`:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
+     - Do not early-return “skipped” just because the discovered file list is empty.
+       - Today, `processRun` returns early for re-embed when `files.length === 0`.
+       - Delta re-embed must still be able to detect that *previously ingested* files were deleted (including “all files deleted” case), which requires comparing against the `ingest_files` index even when discovery returns zero eligible files.
      - Load the previous per-file index from Mongo (`ingest_files`) for the discovered `root`.
      - Hash all discovered files using SHA-256 of file bytes.
      - Use `buildDeltaPlan(...)` to compute `added/changed/unchanged/deleted`.
@@ -446,7 +452,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Mark the run as `skipped` with a clear `message`.
      - If there are deletions only (`deleted.length > 0` and `added.length + changed.length === 0`):
        - Perform the required deletes in Chroma.
-       - The run must not claim “No changes detected”. Use a terminal state/message that indicates work occurred.
+       - The run must not claim “No changes detected”. Use a terminal message that indicates work occurred (state may remain `skipped` if no embeddings were required).
      - For each changed/added file:
        - Chunk and embed as usual.
        - Store vector metadata including `root`, `relPath`, `fileHash`, `chunkHash`, and `runId`.
@@ -454,7 +460,15 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - For each changed file, delete older vectors for that `{ root, relPath }` where `fileHash != newHash` (use a Chroma `where: { $and: [...] }` structure).
        - For each deleted file, delete vectors for `{ root, relPath }`.
 
-4. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
+4. [ ] Ensure root metadata is updated and deduped on run completion (prevents duplicate rows in `/ingest/roots`):
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - Immediately before writing a run’s root metadata entry (the `roots.add(...)` call in the success/terminal flow), delete existing root metadata entries for the same `{ root }` using the existing helper `deleteRoots({ where: { root } })`.
+     - This applies for successful `start` and `reembed` runs.
+     - This must not delete vectors; it only keeps the roots listing stable.
+
+5. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/mongo/ingestFilesRepo.ts`
@@ -467,7 +481,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Do not rewrite rows for `unchanged`.
      - Do not update the Mongo per-file index on cancellation or error.
 
-5. [ ] Implement “legacy root upgrade” behavior:
+6. [ ] Implement “legacy root upgrade” behavior:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/mongo/ingestFilesRepo.ts`
@@ -479,14 +493,14 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Perform a full ingest of all discovered files (same behavior as current re-embed today).
        - Populate `ingest_files` for all files as part of the successful run.
 
-6. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+7. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
      - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
-7. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
+8. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
    - Files to add:
      - `server/src/test/features/ingest-delta-reembed.feature`
      - `server/src/test/steps/ingest-delta-reembed.steps.ts`
@@ -496,15 +510,20 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - “Changed file” → vectors for old hash are deleted, vectors for new hash exist.
        - “Deleted file” → vectors for the deleted relPath are removed.
        - “Unchanged file” → vectors remain untouched.
-       - The `ingest_files` index matches the post-run truth:
-         - changed file hash updated
-         - deleted file row removed
-         - unchanged file row remains unchanged
+      - The `ingest_files` index matches the post-run truth:
+        - changed file hash updated
+        - deleted file row removed
+        - unchanged file row remains unchanged
+       - “All files deleted” case is handled:
+         - discovery returns 0 eligible files
+         - vectors for previously indexed files are deleted
+         - `ingest_files` rows for the root are removed
+         - run ends in a terminal state and status polling completes
      - The step definitions must query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert the fileHash conditions.
      - The step definitions must query Mongo (`ingest_files`) to assert the per-file index rows are correct.
      - The test must not rely on manual inspection.
 
-8. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+9. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
    - Files to edit:
      - `design.md`
      - `projectStructure.md`
@@ -512,7 +531,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
      - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
 
 #### Testing
 
@@ -540,6 +559,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 - Express 5 routing (new endpoint): https://expressjs.com/en/guide/routing.html and https://expressjs.com/en/5x/api.html
 - Node fs/promises readdir (Dirent + withFileTypes): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
 - Node path resolution + normalization: https://nodejs.org/api/path.html
+- Existing repo path normalization/lexical containment patterns (no realpath): `server/src/ingest/pathMap.ts` + unit tests in `server/src/test/unit/pathMap.test.ts`
 - SuperTest (route testing patterns used by server): Context7 `/ladjs/supertest`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
@@ -561,12 +581,15 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `base = process.env.HOST_INGEST_DIR || '/data'`.
        - If query `path` is omitted, list the base.
      - Validation:
+       - Use POSIX normalization + lexical containment checks consistent with existing repo helpers:
+         - Normalize by converting backslashes to `/` and using `path.posix.normalize`.
+         - Use a trailing-slash-safe prefix check to determine “inside base”.
+         - Do not call `realpath` (symlink escapes allowed).
        - Reject lexically out-of-base requests with `400` and `{ status:'error', code:'OUTSIDE_BASE' }`.
        - If `path` doesn’t exist: `404` and `{ status:'error', code:'NOT_FOUND' }`.
        - If `path` exists but is not a directory: `400` and `{ status:'error', code:'NOT_DIRECTORY' }`.
-       - Do not use `realpath` containment checks (symlink escapes are allowed per story).
-     - Success response:
-       - `{ base, path, dirs: string[] }` where `dirs` are immediate child directory names (not full paths), sorted ascending.
+       - Success response:
+         - `{ base, path, dirs: string[] }` where `dirs` are immediate child directory names (not full paths), sorted ascending.
 
 3. [ ] Mount the router in the server:
    - Files to edit:
@@ -608,7 +631,69 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 ---
 
-### 6. Ingest UI: remove duplicate “model locked” notice
+### 6. Client ingest status: handle `skipped` as a terminal state
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure the client correctly treats the server’s ingest status state `skipped` as a terminal state so polling stops, the UI re-enables, and roots/models refresh behavior matches `completed`. This is required for delta re-embed no-op runs and for existing re-embed “skipped” behavior.
+
+#### Documentation Locations
+
+- React hooks patterns (polling + cleanup): https://react.dev/reference/react/useEffect
+- Fetch API + URL building: https://developer.mozilla.org/en-US/docs/Web/API/URL
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Confirm current mismatch between server and client ingest states:
+   - Files to read:
+     - `server/src/ingest/types.ts` (server includes `skipped`)
+     - `client/src/hooks/useIngestStatus.ts` (client terminalStates does not include `skipped`)
+     - `client/src/pages/IngestPage.tsx` (run-active and refresh logic)
+
+2. [ ] Update the ingest status types and polling logic to treat `skipped` as terminal:
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Requirements:
+     - Add `'skipped'` to the `IngestState` union.
+     - Add `'skipped'` to `terminalStates` so the hook stops polling.
+
+3. [ ] Update IngestPage terminal/run-active logic to treat `skipped` as terminal:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Requirements:
+     - Include `skipped` in the “run finished” checks so the UI:
+       - re-enables form/table actions
+       - triggers `refetchRoots()` and `refresh()` when a run ends as `skipped`
+
+4. [ ] Add client tests proving polling stops on `skipped`:
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+   - Requirements:
+     - Add a test similar to “polls until completed then stops”, but with the terminal response returning `state: 'skipped'`.
+     - Assert:
+       - polling stops after the `skipped` response
+       - the UI renders a `skipped` status label
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 7. Ingest UI: remove duplicate “model locked” notice
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -665,7 +750,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 ---
 
-### 7. Ingest UI: server-backed directory picker modal (“Choose folder…”)
+### 8. Ingest UI: server-backed directory picker modal (“Choose folder…”)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -735,7 +820,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 ---
 
-### 8. Final verification (acceptance criteria, clean builds, docs, and PR summary)
+### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -784,9 +869,9 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 8. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
    - Required screenshots:
-     - `0000020-8-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
-     - `0000020-8-ingest-picker.png` (Directory picker dialog open)
-     - `0000020-8-ingest-delta.png` (Roots table reflects a completed re-embed run)
+     - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
+     - `0000020-9-ingest-picker.png` (Directory picker dialog open)
+     - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
 
 9. [ ] Documentation updates (must be accurate and complete):
    - Files to edit:

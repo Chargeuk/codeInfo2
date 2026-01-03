@@ -338,11 +338,6 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
        - `server/src/mongo/ingestFile.ts`
        - `server/src/test/unit/ingest-files-schema.test.ts`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-     - https://eslint.org/docs/latest/use/command-line-interface
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -350,6 +345,8 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 2. [ ] `npm run build --workspace client`
 
 3. [ ] `npm run test:unit --workspace server`
+
+4. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -490,15 +487,13 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - Add the new file path (`server/src/test/unit/ingest-files-repo-guards.test.ts`) under the server unit test section.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -626,15 +621,13 @@ Create a pure “delta planner” that compares the discovered on-disk file list
        - `server/src/ingest/deltaPlan.ts`
        - `server/src/test/unit/ingest-delta-plan.test.ts`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1211,15 +1204,13 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`
        - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
-31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test --workspace server`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1446,15 +1437,13 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `server/src/routes/ingestDirs.ts`
        - `server/src/test/unit/ingest-dirs-router.test.ts`
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 
 2. [ ] `npm run test:unit --workspace server`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1632,15 +1621,13 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      }));
      ```
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1718,15 +1705,13 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Requirements:
      - Assert the model select is disabled when `lockedModelId` is present.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -1968,15 +1953,13 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `client/src/components/ingest/ingestDirsApi.ts`
        - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 
 2. [ ] `npm run test --workspace client`
+
+3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces` (fix failures with repo scripts)
 
 #### Implementation notes
 
@@ -2021,67 +2004,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no "it should" assumptions).
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
-
-2. [ ] Manual verification checklist (before running full automation):
-   - Docs to read:
-     - https://docs.trychroma.com/ (sanity check what we can assert via metadata filters)
-   - Requirements:
-     - Trigger a delta re-embed where nothing changed and confirm:
-       - server returns a terminal `skipped` state with a clear message
-       - the client stops polling and re-enables actions
-     - Trigger a delta re-embed where at least one file is deleted and confirm:
-       - the run does not claim "No changes detected"
-       - deleted file vectors disappear from Chroma and `ingest_files` rows are removed
-     - Open the directory picker and confirm it:
-       - lists directories under the allowed base
-       - updates the Folder path field when "Use this folder" is chosen
-
-3. [ ] Build the server outside Docker:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Command:
-     - `npm run build --workspace server`
-
-4. [ ] Build the client outside Docker:
-   - Docs to read:
-     - https://docs.npmjs.com/cli/v10/commands/npm-run-script
-   - Command:
-     - `npm run build --workspace client`
-
-5. [ ] Run server tests (unit + integration + cucumber):
-   - Docs to read:
-     - https://cucumber.io/docs/guides/
-   - Command:
-     - `npm run test --workspace server`
-
-6. [ ] Run client Jest tests:
-   - Docs to read:
-     - https://jestjs.io/docs/getting-started
-   - Command:
-     - `npm run test --workspace client`
-
-7. [ ] Perform a clean Docker build and restart Compose:
-   - Docs to read:
-     - Context7 `/docker/docs`
-   - Commands:
-     - `npm run compose:build:clean`
-     - `npm run compose:up`
-
-8. [ ] Run e2e tests:
-   - Docs to read:
-     - Context7 `/microsoft/playwright`
-   - Command:
-     - `npm run e2e`
-
-9. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
-   - Docs to read:
-     - Context7 `/microsoft/playwright`
-   - Required screenshots:
-     - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
-     - `0000020-9-ingest-picker.png` (Directory picker dialog open)
-     - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
-
-10. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
+2. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
    - Document: `README.md`
    - Location: repo root (`README.md`)
    - Purpose: keep the “how to run/use” docs correct for developers.
@@ -2094,7 +2017,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the README accurately reflects any new/changed env vars or behavior required by this story (e.g. `HOST_INGEST_DIR` defaulting and directory picker expectations).
      - Do not duplicate detailed API/flow diagrams here (those belong in the design document).
 
-11. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
+3. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
    - Document: `design.md`
    - Location: repo root (`design.md`)
    - Purpose: keep architecture and feature behavior understandable, especially for on-boarding.
@@ -2109,7 +2032,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the `/ingest/dirs` endpoint contract and the client directory picker UX flow are documented.
      - Ensure Mermaid diagrams render (fenced code blocks with language `mermaid`, valid syntax).
 
-12. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
+4. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
    - Document: `projectStructure.md`
    - Location: repo root (`projectStructure.md`)
    - Purpose: keep the codebase map accurate for developers navigating the repo.
@@ -2122,22 +2045,53 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Confirm all new server/client/test files introduced by tasks 1–8 are listed under the correct sections.
      - Remove any references to files that no longer exist.
 
-13. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+5. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
-14. [ ] Bring Compose down:
-   - Docs to read:
-     - Context7 `/docker/docs`
-   - Command:
-     - `npm run compose:down`
-
-
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
+1. [ ] Manual verification checklist (before running full automation):
+   - Docs to read:
+     - https://docs.trychroma.com/ (sanity check what we can assert via metadata filters)
+   - Requirements:
+     - Trigger a delta re-embed where nothing changed and confirm:
+       - server returns a terminal `skipped` state with a clear message
+       - the client stops polling and re-enables actions
+     - Trigger a delta re-embed where at least one file is deleted and confirm:
+       - the run does not claim "No changes detected"
+       - deleted file vectors disappear from Chroma and `ingest_files` rows are removed
+     - Open the directory picker and confirm it:
+       - lists directories under the allowed base
+       - updates the Folder path field when "Use this folder" is chosen
 
-2. [ ] `npm run format:check --workspaces`
+2. [ ] `npm run build --workspace server`
+
+3. [ ] `npm run build --workspace client`
+
+4. [ ] `npm run test --workspace server`
+
+5. [ ] `npm run test --workspace client`
+
+6. [ ] `npm run compose:build:clean`
+
+7. [ ] `npm run compose:up`
+
+8. [ ] `npm run e2e`
+
+9. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Required screenshots:
+     - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
+     - `0000020-9-ingest-picker.png` (Directory picker dialog open)
+     - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
+
+10. [ ] `npm run compose:down`
+
+11. [ ] `npm run lint --workspaces`
+
+12. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 

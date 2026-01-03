@@ -10,6 +10,7 @@ type IngestState =
   | 'scanning'
   | 'embedding'
   | 'completed'
+  | 'skipped'
   | 'cancelled'
   | 'error';
 
@@ -58,7 +59,12 @@ type Status = {
   cancel: () => Promise<void>;
 };
 
-const terminalStates: IngestState[] = ['completed', 'cancelled', 'error'];
+const terminalStates: IngestState[] = [
+  'completed',
+  'cancelled',
+  'error',
+  'skipped',
+];
 
 export function useIngestStatus(runId?: string): Status {
   const [status, setStatus] = useState<IngestState | undefined>();

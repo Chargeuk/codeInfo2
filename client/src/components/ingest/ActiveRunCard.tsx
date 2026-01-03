@@ -16,6 +16,7 @@ export type ActiveRunCardProps = {
     | 'scanning'
     | 'embedding'
     | 'completed'
+    | 'skipped'
     | 'cancelled'
     | 'error';
   counts?: {
@@ -45,6 +46,7 @@ const statusColor: Record<
   scanning: 'info',
   embedding: 'info',
   completed: 'success',
+  skipped: 'info',
   cancelled: 'warning',
   error: 'error',
 };
@@ -66,7 +68,10 @@ export default function ActiveRunCard({
   error,
 }: ActiveRunCardProps) {
   const isTerminal =
-    status === 'completed' || status === 'cancelled' || status === 'error';
+    status === 'completed' ||
+    status === 'cancelled' ||
+    status === 'error' ||
+    status === 'skipped';
   const showCancel = !isTerminal;
   const logsHref = `/logs?text=${encodeURIComponent(runId)}`;
 

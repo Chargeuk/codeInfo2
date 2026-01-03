@@ -281,19 +281,54 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
      ingestFileSchema.index({ root: 1 });
      ```
 
-4. [ ] Add a unit test proving the schema shape + indexes exist (no real Mongo connection):
+4. [ ] Create the server unit test suite for the `ingest_files` Mongoose schema:
+   - Test type: Server unit (node:test)
+   - Purpose: prevent accidental schema/index regressions that would break delta re-embed.
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/automattic/mongoose/9.0.1` (Schema#indexes)
    - Files to add:
      - `server/src/test/unit/ingest-files-schema.test.ts`
    - Requirements:
-     - Assert `IngestFileModel.schema.indexes()` includes:
-       - one unique index on `root + relPath`
-       - one non-unique index on `root`
-     - Assert required fields are present on the schema.
+     - The test must not attempt a real Mongo connection.
 
-5. [ ] Update project structure docs if a new file was introduced:
+5. [ ] Unit test: required fields exist on the schema (`root`, `relPath`, `fileHash`):
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-schema.test.ts`
+   - Purpose: ensure the minimal per-file index document shape stays stable.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/automattic/mongoose/9.0.1` (Schema paths)
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-schema.test.ts`
+   - Requirements:
+     - Assert the three schema paths exist and are marked required.
+
+6. [ ] Unit test: unique compound index exists on `{ root: 1, relPath: 1 }`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-schema.test.ts`
+   - Purpose: ensure Mongo can safely treat `{ root, relPath }` as a key.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/automattic/mongoose/9.0.1` (Schema#indexes)
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-schema.test.ts`
+   - Requirements:
+     - Assert `IngestFileModel.schema.indexes()` includes exactly one unique index with keys `{ root: 1, relPath: 1 }`.
+
+7. [ ] Unit test: non-unique index exists on `{ root: 1 }`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-schema.test.ts`
+   - Purpose: ensure lookups by `root` stay efficient.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+     - Context7 `/automattic/mongoose/9.0.1` (Schema#indexes)
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-schema.test.ts`
+   - Requirements:
+     - Assert `IngestFileModel.schema.indexes()` includes one non-unique index with keys `{ root: 1 }`.
+
+8. [ ] Update project structure docs if a new file was introduced:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -301,7 +336,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Add the new file path under the `server/src/mongo/` section.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
      - https://eslint.org/docs/latest/use/command-line-interface
@@ -383,22 +418,69 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
      );
      ```
 
-3. [ ] Add unit tests proving the helpers are “safe” when Mongo is disconnected:
+3. [ ] Create the server unit test suite for the `ingest_files` repo guard behavior:
+   - Test type: Server unit (node:test)
+   - Purpose: ensure ingest can run in degraded mode without Mongoose buffering/hanging when Mongo is down.
    - Docs to read:
      - https://nodejs.org/api/test.html
      - Context7 `/automattic/mongoose/9.0.1` (Connection state)
    - Files to add:
      - `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Requirements:
-     - Override `mongoose.connection.readyState` to `0` and assert each helper returns `null` quickly.
      - The test must not attempt a real Mongo connection.
+     - Override `mongoose.connection.readyState` to `0`.
+     - Include a helper to restore the original descriptor in a cleanup/finally.
    - Copy/paste testing hint:
      ```ts
      // In node:test you can use Object.defineProperty to temporarily override getters.
      // Make sure you restore the original descriptor in a cleanup/finally.
      ```
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+4. [ ] Unit test: `listIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Purpose: ensure delta logic can detect degraded-mode and fall back safely.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Requirements:
+     - With `mongoose.connection.readyState = 0`, assert the helper returns `null` without contacting Mongo.
+
+5. [ ] Unit test: `upsertIngestFiles(...)` returns `null` quickly when Mongo is disconnected:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Purpose: ensure ingest does not hang on write attempts when Mongo is down.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Requirements:
+     - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
+
+6. [ ] Unit test: `deleteIngestFilesByRelPaths(...)` returns `null` quickly when Mongo is disconnected:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Purpose: ensure delta runs that need deletions don’t block when Mongo is down.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Requirements:
+     - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
+
+7. [ ] Unit test: `clearIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Purpose: ensure legacy-upgrade/full-rebuild helpers don’t block in degraded mode.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Requirements:
+     - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -461,19 +543,70 @@ Create a pure “delta planner” that compares the discovered on-disk file list
      // 4) Sort each array by relPath
      ```
 
-2. [ ] Add unit tests covering common scenarios:
+2. [ ] Create the server unit test suite for `buildDeltaPlan(...)`:
+   - Test type: Server unit (node:test)
+   - Purpose: validate delta categorization logic without relying on Mongo/Chroma.
    - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to add:
      - `server/src/test/unit/ingest-delta-plan.test.ts`
-   - Required test cases:
-     - “No previous, discovered has 2 files” → all are `added`.
-     - “Previous has 2, discovered matches hashes” → all are `unchanged`.
-     - “Previous has 2, discovered changes one hash” → 1 `changed`, 1 `unchanged`.
-     - “Previous has 2, discovered missing one relPath” → 1 `deleted`.
-     - “Mixed add + change + delete” in one run.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+3. [ ] Unit test: “No previous, discovered has 2 files” → all are `added`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Purpose: ensure first-time delta planning behaves like a full ingest.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Requirements:
+     - Assert `added.length === 2` and the other arrays are empty.
+
+4. [ ] Unit test: “Previous has 2, discovered matches hashes” → all are `unchanged`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Purpose: ensure true no-op runs are detected.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Requirements:
+     - Assert `unchanged.length === 2` and the other arrays are empty.
+
+5. [ ] Unit test: “Previous has 2, discovered changes one hash” → 1 `changed`, 1 `unchanged`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Purpose: ensure a single-file edit triggers a single-file re-embed.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Requirements:
+     - Assert the changed item is the correct `relPath`.
+
+6. [ ] Unit test: “Previous has 2, discovered missing one relPath” → 1 `deleted`:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Purpose: ensure deletions are detected even if discovery returns fewer files.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Requirements:
+     - Assert `deleted.length === 1` and the deleted item is the correct `relPath`.
+
+7. [ ] Unit test: “Mixed add + change + delete” in one run:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Purpose: ensure categorization stays correct when multiple kinds of work happen together.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Requirements:
+     - Include at least one file in each of `added`, `changed`, and `deleted`.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -642,25 +775,48 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      });
      ```
 
-10. [ ] Keep `/ingest/roots` stable by deduping the response by root `path` (prevents duplicate rows in the UI):
-   - Docs to read (repeat; do not skip):
+10. [ ] Implement `/ingest/roots` response dedupe by root `path` (prevents duplicate rows in the UI):
+   - Purpose: keep the roots table stable without risky write-time deletes.
+   - Docs to read:
      - https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/routes/ingestRoots.ts`
-   - Files to add:
-     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
    - Requirements:
      - Implement the dedupe at read/response time (not write time):
        - If multiple root metadata entries exist for the same `path`, return only one entry for that path.
        - Keep the most recent entry (prefer `lastIngestAt` when present; otherwise fall back to `runId` ordering).
-     - KISS: implement a small pure helper (e.g. `dedupeRootsByPath(roots: RootEntry[]): RootEntry[]`) and unit test that helper.
+     - KISS: implement a small pure helper (e.g. `dedupeRootsByPath(roots: RootEntry[]): RootEntry[]`).
    - Copy/paste helper outline:
      ```ts
      // group by path, keep the entry with the greatest lastIngestAt (Date.parse)
      // if lastIngestAt is missing, keep the later runId entry (string compare is fine for IDs)
      ```
 
-11. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
+11. [ ] Unit test: dedupe keeps the most recent entry by `lastIngestAt` when multiple paths are duplicated:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
+   - Purpose: ensure UI shows the latest ingest activity for a path.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to add:
+     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+   - Requirements:
+     - Create two root entries with the same `path` but different `lastIngestAt`.
+     - Assert the deduped output keeps the one with the later `lastIngestAt`.
+
+12. [ ] Unit test: dedupe falls back to `runId` ordering when `lastIngestAt` is missing:
+   - Test type: Server unit (node:test)
+   - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
+   - Purpose: keep deterministic selection even when timestamps are absent.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+   - Requirements:
+     - Create two root entries with the same `path` and no `lastIngestAt`.
+     - Assert the deduped output keeps the one with the later `runId`.
+
+13. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Docs to read (repeat; do not skip):
      - Context7 `/automattic/mongoose/9.0.1` (bulkWrite, deleteMany)
    - Files to edit:
@@ -677,7 +833,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Reminder of exact document shape in `ingest_files` (do not improvise fields):
        - `{ root: string, relPath: string, fileHash: string, updatedAt: Date }`
 
-12. [ ] Implement "legacy root upgrade" behavior:
+14. [ ] Implement "legacy root upgrade" behavior:
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete all by metadata filter)
    - Files to edit:
@@ -693,7 +849,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Reminder: legacy upgrade is only for the case where Mongo is connected and the index is empty.
        - If Mongo is disconnected (`listIngestFilesByRoot` returns `null`), treat it as a degraded mode and do not attempt to update `ingest_files`.
 
-13. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+15. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete with `where: { runId }`)
    - Files to edit:
@@ -702,7 +858,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
      - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
-14. [ ] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
+16. [ ] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
    - Docs to read (repeat; do not skip):
      - Context7 `/testcontainers/testcontainers-node` (GenericContainer + Wait)
      - https://cucumber.io/docs/guides/
@@ -727,7 +883,10 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
        - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
 
-15. [ ] Add the Cucumber feature file describing delta semantics:
+17. [ ] Add the Cucumber feature file scaffold for delta semantics (tagging rules + shared background):
+   - Test type: Cucumber feature (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: define the acceptance-level behavior of delta re-embed in a way that exercises the real HTTP API + Chroma (and Mongo where tagged).
    - Docs to read (repeat; do not skip):
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (high-level how scenarios/steps fit together)
      - https://cucumber.io/docs/gherkin/reference (exact keyword/tag syntax)
@@ -737,38 +896,126 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Tagging rules (important for running the right infrastructure):
        - Add `@mongo` only to scenarios that require Mongo assertions.
        - Do **not** tag the whole feature file `@mongo`, because we need at least one scenario to run with Mongo disconnected.
-     - The feature must include scenarios covering the happy path, error cases, and corner cases:
-       - @mongo Changed file replacement:
-         - vectors for old hash are deleted
-         - vectors for new hash exist
-         - `ingest_files` row for the relPath is updated
-       - @mongo Deleted file cleanup:
-         - vectors for the deleted relPath are removed
-         - `ingest_files` row for the relPath is removed
-       - @mongo Added file ingest:
-         - vectors exist for the newly added relPath
-         - `ingest_files` row for the relPath is inserted
-       - @mongo Unchanged file untouched:
-         - vectors remain for the unchanged relPath (same fileHash)
-         - `ingest_files` row remains unchanged
-       - @mongo Corner case: all files deleted:
-         - discovery returns 0 eligible files
-         - vectors for previously indexed files are deleted
-         - `ingest_files` rows for the root are removed
-         - run ends in a terminal state and status polling completes
-       - @mongo Corner case: no-op re-embed:
-         - no vectors are added or removed
-         - run ends with `state: 'skipped'`
-         - message indicates no changes (must not be empty)
-       - @mongo Corner case: deletions-only re-embed:
-         - vectors are deleted for removed relPaths
-         - run message must not claim “No changes detected” (because work occurred)
-       - No-Mongo corner case: re-embed still works when Mongo is disconnected:
-         - do not start the Mongo container for this scenario
-         - run completes in a terminal state (completed/skipped)
-         - the server does not crash/hang due to Mongo being unavailable
+     - Add a short `Feature:` description that explains what delta re-embed is and why `ingest_files` exists.
 
-16. [ ] Implement the step definitions for the delta feature:
+18. [ ] Cucumber scenario: @mongo Changed file replacement updates vectors and `ingest_files`:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure changed files are replaced without deleting vectors up-front.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+     - https://docs.trychroma.com/ (metadata filter semantics)
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must cause a file content change for a single `relPath` between runs.
+     - Assertions:
+       - vectors for the old hash are deleted
+       - vectors for the new hash exist
+       - `ingest_files` row for the relPath is updated
+
+19. [ ] Cucumber scenario: @mongo Deleted file cleanup removes vectors and `ingest_files` row:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure deletions are applied even if no re-embedding is required.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+     - https://docs.trychroma.com/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must delete a previously ingested file.
+     - Assertions:
+       - vectors for the deleted relPath are removed
+       - `ingest_files` row for the relPath is removed
+
+20. [ ] Cucumber scenario: @mongo Added file ingest inserts vectors and `ingest_files` row:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure newly added files are embedded and indexed.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must add a new file under the root between runs.
+     - Assertions:
+       - vectors exist for the newly added relPath
+       - `ingest_files` row for the relPath is inserted
+
+21. [ ] Cucumber scenario: @mongo Unchanged file untouched keeps vectors and `ingest_files` stable:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure delta does not churn vectors when no changes exist.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must keep one file unchanged between runs.
+     - Assertions:
+       - vectors remain for the unchanged relPath (same fileHash)
+       - `ingest_files` row remains unchanged
+
+22. [ ] Cucumber scenario: @mongo Corner case “all files deleted” still cleans up and completes:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure deletion detection works when discovery returns zero eligible files.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must remove all eligible files under the root before re-embed.
+     - Assertions:
+       - discovery returns 0 eligible files
+       - vectors for previously indexed files are deleted
+       - `ingest_files` rows for the root are removed
+       - run ends in a terminal state and status polling completes
+
+23. [ ] Cucumber scenario: @mongo Corner case “no-op re-embed” returns `skipped` with a clear message:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure no-op delta runs are detectable by the UI.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must ensure no file content changes between runs.
+     - Assertions:
+       - no vectors are added or removed
+       - run ends with `state: 'skipped'`
+       - message indicates no changes (must not be empty)
+
+24. [ ] Cucumber scenario: @mongo Corner case “deletions-only re-embed” message must not claim “No changes detected”:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: avoid misleading UX when deletions occurred.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Steps must delete at least one file but not add/change any others.
+     - Assertions:
+       - vectors are deleted for removed relPaths
+       - run message is not “No changes detected”
+
+25. [ ] Cucumber scenario: No-Mongo corner case “re-embed works when Mongo is disconnected”:
+   - Test type: Cucumber scenario (server integration)
+   - Location: `server/src/test/features/ingest-delta-reembed.feature`
+   - Purpose: ensure the server does not crash/hang when Mongo is unavailable.
+   - Docs to read:
+     - https://cucumber.io/docs/gherkin/reference/
+   - Files to edit:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
+     - Do not start the Mongo container for this scenario (do not tag `@mongo`).
+     - Run completes in a terminal state (completed/skipped).
+     - The server does not crash/hang due to Mongo being unavailable.
+
+26. [ ] Implement the step definitions for the delta feature:
    - Docs to read (repeat; do not skip):
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
      - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
@@ -788,7 +1035,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - for deletions-only runs, assert message is not "No changes detected"
      - The test must not rely on manual inspection.
 
-17. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+27. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -798,7 +1045,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
      - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+28. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -897,7 +1144,9 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Mount the router at `/` like other ingest routes.
 
-4. [ ] Add server unit tests for the endpoint:
+4. [ ] Create the server unit test suite for `GET /ingest/dirs`:
+   - Test type: Server unit (node:test + SuperTest)
+   - Purpose: validate edge cases and error handling without relying on a real filesystem outside the test temp directory.
    - Docs to read (repeat; do not skip):
      - Context7 `/ladjs/supertest`
      - https://nodejs.org/api/test.html
@@ -906,17 +1155,96 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Create a temp directory tree.
      - Set `process.env.HOST_INGEST_DIR` to the temp base for the test.
-     - Assert:
-       - default request (no path) lists child directories.
-       - `path=` (empty string) behaves like omitted path (lists base).
-       - `path=   ` (whitespace) behaves like omitted path (lists base).
-       - a non-string query value behaves like omitted path (lists base).
-       - returned `dirs` are sorted ascending.
-       - `OUTSIDE_BASE` for `path` outside the base.
-       - `NOT_FOUND` for missing path.
-       - `NOT_DIRECTORY` when `path` points at a file.
 
-5. [ ] Update docs if files were added:
+5. [ ] Unit test: default request (no `path` query) lists child directories under the base:
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: confirm the simplest happy path for the directory picker.
+   - Docs to read:
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - `GET /ingest/dirs` returns `200` and includes `dirs` with only directory names.
+
+6. [ ] Unit test: `path=` (empty string) behaves like omitted path (lists base):
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: avoid ambiguous client behavior when the query string is present but blank.
+   - Docs to read:
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - `GET /ingest/dirs?path=` returns `200` and lists the base.
+
+7. [ ] Unit test: `path=   ` (whitespace) behaves like omitted path (lists base):
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: ensure the API is resilient to UI trimming/formatting issues.
+   - Docs to read:
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - `GET /ingest/dirs?path=%20%20%20` returns `200` and lists the base.
+
+8. [ ] Unit test: non-string `path` query behaves like omitted path (lists base):
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: avoid hard-to-debug crashes if clients send repeated query keys.
+   - Docs to read:
+     - Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Send a request like `GET /ingest/dirs?path=a&path=b` and assert it lists the base.
+
+9. [ ] Unit test: returned `dirs` are sorted ascending:
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: keep the UI stable and predictable.
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Create directories out of order and assert response `dirs` is sorted.
+
+10. [ ] Unit test: `OUTSIDE_BASE` for a `path` outside the base:
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: enforce lexical containment and protect the server from browsing arbitrary FS paths.
+   - Docs to read:
+     - https://nodejs.org/api/path.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Request a path outside base and assert `400` with `{ status:'error', code:'OUTSIDE_BASE' }`.
+
+11. [ ] Unit test: `NOT_FOUND` for a missing path:
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: ensure the UI can show a meaningful error if the directory disappears.
+   - Docs to read:
+     - https://nodejs.org/api/fs.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Request a non-existent path inside base and assert `404` with `{ status:'error', code:'NOT_FOUND' }`.
+
+12. [ ] Unit test: `NOT_DIRECTORY` when `path` points at a file:
+   - Test type: Server unit (node:test + SuperTest)
+   - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Purpose: ensure the API does not return an invalid list response for files.
+   - Docs to read:
+     - https://nodejs.org/api/fs.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
+
+13. [ ] Update docs if files were added:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -926,7 +1254,7 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Add the endpoint contract to `design.md` (request + responses).
      - Update `projectStructure.md` with new router/test file paths.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -992,19 +1320,42 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
        - re-enables form/table actions
        - triggers `refetchRoots()` and `refresh()` when a run ends as `skipped`
 
-4. [ ] Add client tests proving polling stops on `skipped`:
+4. [ ] Client unit test: polling stops when ingest status returns `state: 'skipped'`:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestStatus.test.tsx`
+   - Purpose: prevent infinite polling loops on no-op delta re-embeds.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Requirements:
      - Add a test similar to “polls until completed then stops”, but with the terminal response returning `state: 'skipped'`.
-     - Assert:
-       - polling stops after the `skipped` response
-       - the UI renders a `skipped` status label
-       - the UI re-enables actions (form/buttons are not stuck disabled)
+     - Assert polling stops after the `skipped` response.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+5. [ ] Client unit test: the UI renders a `skipped` status label:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestStatus.test.tsx`
+   - Purpose: make skipped runs visible/understandable.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+   - Requirements:
+     - Assert the run status label includes “skipped” (or the exact text used by the UI).
+
+6. [ ] Client unit test: the UI re-enables actions after a `skipped` terminal state:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestStatus.test.tsx`
+   - Purpose: ensure the form/buttons are not stuck disabled after no-op runs.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+   - Requirements:
+     - Assert form/buttons are enabled after the skipped response.
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1065,16 +1416,30 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
      - Render exactly one notice “Embedding model locked to <id>”.
      - Place it directly below the “Start a new ingest” title (not duplicated elsewhere).
 
-4. [ ] Update client tests:
+4. [ ] Client unit test update: lock banner is not rendered inside `IngestForm`:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: enforce the “single notice” requirement and prevent UI duplication regressions.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
      - Update/remove assertions that expect the lock banner to be inside `IngestForm`.
-     - Keep (or add) an assertion that the Embedding model select is disabled when `lockedModelId` is provided.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+5. [ ] Client unit test: Embedding model select is disabled when `lockedModelId` is provided:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: preserve the safety constraint that prevents mixing embedding models.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Assert the model select is disabled when `lockedModelId` is present.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1188,21 +1553,74 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - The Folder path text field must remain editable even if the picker is available.
      - Do not use browser filesystem APIs (no native directory pickers).
 
-6. [ ] Add/extend ingest form tests proving the picker updates the Folder path field:
+6. [ ] Test setup: mock `fetch` helpers for `GET /ingest/dirs` responses:
+   - Purpose: keep the picker tests readable by centralizing repetitive mocking.
    - Docs to read (repeat; do not skip):
+     - https://testing-library.com/docs/react-testing-library/intro/
+     - https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Provide a small helper to enqueue successive `fetch` responses for directory navigation.
+
+7. [ ] Client unit test: selecting a directory updates the Folder path input value:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: prove the main happy path of the directory picker.
+   - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
-     - Mock `fetch` for `GET /ingest/dirs`.
      - Open the dialog (click “Choose folder…”), choose a directory, and assert the Folder path input value changes.
-     - Cover navigation corner cases:
-       - clicking a directory triggers a second fetch for the new path
-       - “Up” is disabled/hidden at the base and enabled when not at base
-       - “Use this folder” sets the current path even if no subdirectory is clicked
-     - Include an error-path test (server returns `{ status:'error', code:'OUTSIDE_BASE' }`) and assert the dialog shows an error message.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Client unit test: clicking a directory triggers a second fetch for the new path:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: ensure navigation is server-backed and keeps state consistent.
+   - Docs to read:
+     - https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Assert `fetch` is called twice and the second call includes the clicked path.
+
+9. [ ] Client unit test: “Up” is disabled/hidden at the base and enabled when not at base:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: prevent navigation that would attempt to browse above the allowed base.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Assert “Up” is not available at base.
+     - After navigating into a subdirectory, assert “Up” becomes available.
+
+10. [ ] Client unit test: “Use this folder” sets the current path even if no child directory is clicked:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: allow selecting the currently viewed directory.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Open the dialog and click “Use this folder”.
+     - Assert the Folder path input is set to the currently viewed `path`.
+
+11. [ ] Client unit test: error path displays an error message when server returns `{ status:'error', code:'OUTSIDE_BASE' }`:
+   - Test type: Client unit (Jest + React Testing Library)
+   - Location: `client/src/test/ingestForm.test.tsx`
+   - Purpose: ensure users can understand and recover from invalid navigation.
+   - Docs to read:
+     - https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Mock a server error payload and assert the dialog renders an error state/message.
+
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

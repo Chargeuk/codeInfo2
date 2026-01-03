@@ -92,6 +92,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - **Chunker/config versioning:** defer; if rules change, force full re-ingest by clearing the per-file index for that root.
 - **Model lock:** delta re-ingest only when locked model matches; no auto-migration.
 - **Directory picker:** server-backed modal scoped to a single base (`HOST_INGEST_DIR` default `/data`).
+- **Symlink handling:** symlinked paths that escape the base are allowed if they resolve and are accessible; do not reject based on realpath containment.
 - **Performance target:** assume medium/large repos (10k–100k files); per-file index required.
 - **Legacy roots:** defined as no `ingest_files` rows for a root; do a full re-ingest and populate the index.
 
@@ -104,11 +105,12 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - **Root-wide deletes:** `reembed` and `removeRoot` in `server/src/ingest/ingestJob.ts` delete vectors/roots by `root`, with low-level delete helpers in `server/src/ingest/chromaClient.ts` (delete vectors/roots, drop empty collections, clear locked model).
 - **Delete helper signature:** `deleteVectors` in `server/src/ingest/chromaClient.ts` accepts `where` and/or `ids` and forwards them directly to Chroma’s `collection.delete`, so we can pass metadata filters without extra wrapper changes.
 - **Path normalization:** `mapIngestPath` in `server/src/ingest/pathMap.ts` already normalizes host/container paths and extracts `relPath`; reuse it to keep relPath consistent.
-- **Chroma delete filters:** Chroma `collection.delete` accepts a `where` filter (and optional `where_document`) and uses the same filter grammar as query/get. Operators include `$eq`, `$ne`, `$gt/$gte/$lt/$lte`, `$in/$nin`, plus logical `$and/$or` for compound filters.
+- **Chroma delete filters:** Chroma `collection.delete` accepts `where` and optional `where_document`. The documented filter schema includes metadata operators `$eq/$ne/$gt/$gte/$lt/$lte`, `$in/$nin`, and logical `$and/$or`, with a single operator per field (maxProperties=1). Document filters support `$contains/$not_contains` plus `$and/$or`.
 - **Filter machinery:** Chroma’s core filter implementation treats delete filters consistently with query/get; the same `Where` structures and operators back all three operations.
 - **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
 - **Directory picker endpoint (codebase):** there is no existing route or helper that lists directories under `HOST_INGEST_DIR`; current ingest routes only validate required fields and `GET /ingest/roots` lists stored ingest metadata (not live filesystem contents). Existing path validation helpers live in `server/src/ingest/pathMap.ts` and agents’ working-folder resolver.
-- **Directory picker endpoint (recommended behavior):** use `fs.promises.readdir` with `withFileTypes: true` to list child directories, and validate the requested path by resolving/canonicalizing it against the allowed base (e.g., `path.resolve` + `fs.realpath`) before listing. Reject any request whose resolved path is outside the base. This aligns with common path traversal guidance (avoid trusting `path.join` alone; enforce a base directory allowlist).
+- **Symlink/realpath behavior (codebase):** current path helpers and discovery logic normalize paths and rely on prefix checks without calling `realpath`, so they do not guard against symlink escapes; this aligns with the decision to allow symlinked paths that resolve outside the base.
+- **Directory picker endpoint (recommended behavior):** use `fs.promises.readdir` with `withFileTypes: true` to list child directories, and validate the requested path by resolving it against the allowed base (e.g., `path.resolve` + prefix check). Do not reject paths that escape via symlinks, per the symlink allowance decision; only reject paths that are outside the base by string/lexical resolution or are unreadable.
 
 ---
 

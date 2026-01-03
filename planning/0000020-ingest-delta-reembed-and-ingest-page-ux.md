@@ -346,7 +346,25 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 
 2. [ ] `npm run build --workspace client`
 
-3. [ ] `npm run test:unit --workspace server`
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (basic regression smoke):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Load `http://localhost:5001/chat` and confirm the page renders without console errors.
+     - Load `http://localhost:5001/ingest` and confirm the page renders (roots table loads or shows a sensible empty state).
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -493,7 +511,27 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test:unit --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (Mongo degraded-mode regression):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Load `http://localhost:5001/chat` and confirm chat history renders even if Mongo is unavailable (banner behavior is acceptable).
+     - Load `http://localhost:5001/ingest` and confirm the page renders without hard failures.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -627,7 +665,26 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 
 1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test:unit --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (delta plan regression):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Load `http://localhost:5001/ingest` and confirm it renders (this task is server-only, but this ensures nothing broke the page).
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1210,7 +1267,28 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (delta re-embed behavior smoke):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Load `http://localhost:5001/ingest` and confirm:
+       - Roots list loads without duplicate rows for the same path.
+       - Re-embed runs that do no work can surface `skipped` in status endpoints (server-side behavior).
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1443,7 +1521,27 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test:unit --workspace server`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (`GET /ingest/dirs` endpoint contract):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Load `http://localhost:5010/ingest/dirs` in the browser and confirm response contains `{ base, path, dirs }`.
+     - Load `http://localhost:5010/ingest/dirs?path=/does-not-exist` and confirm `{ status:'error', code:'NOT_FOUND' }`.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1625,9 +1723,28 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (`skipped` terminal UX):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Start an ingest/re-embed run that results in `skipped` and confirm the UI stops polling and re-enables actions.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1709,9 +1826,28 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (single lock notice):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Open the Ingest page and confirm “Embedding model locked to …” appears exactly once.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1957,9 +2093,29 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test --workspace server`
+
+4. [ ] `npm run test --workspace client`
+
+5. [ ] `npm run e2e`
+
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
+
+7. [ ] `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (directory picker modal):
+   - Docs to read:
+     - Context7 `/microsoft/playwright`
+   - Checks:
+     - Open the Ingest page, click “Choose folder…”, navigate into a folder, then click “Use this folder”.
+     - Confirm the Folder path input updates to the chosen path.
+
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2053,43 +2209,38 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 #### Testing
 
-1. [ ] Manual verification checklist (before running full automation):
-   - Docs to read:
-     - https://docs.trychroma.com/ (sanity check what we can assert via metadata filters)
-   - Requirements:
-     - Trigger a delta re-embed where nothing changed and confirm:
-       - server returns a terminal `skipped` state with a clear message
-       - the client stops polling and re-enables actions
-     - Trigger a delta re-embed where at least one file is deleted and confirm:
-       - the run does not claim "No changes detected"
-       - deleted file vectors disappear from Chroma and `ingest_files` rows are removed
-     - Open the directory picker and confirm it:
-       - lists directories under the allowed base
-       - updates the Folder path field when "Use this folder" is chosen
+1. [ ] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
 
-3. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
 
-5. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
 
-6. [ ] `npm run compose:build:clean`
+6. [ ] `npm run compose:build`
+   - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
 7. [ ] `npm run compose:up`
 
-8. [ ] `npm run e2e`
-
-9. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
+8. [ ] Manual Playwright-MCP check (story acceptance + regression smoke):
    - Docs to read:
      - Context7 `/microsoft/playwright`
-   - Required screenshots:
+   - Checks (story-specific):
+     - Delta no-op re-embed: run a re-embed with no file changes and confirm status becomes `skipped` with a clear message.
+     - Deletions-only: delete a file under a root, re-embed, and confirm the run does **not** claim “No changes detected”.
+     - Directory picker: open “Choose folder…”, navigate into a directory, pick it, and confirm Folder path updates.
+     - Lock notice: confirm “Embedding model locked to …” appears exactly once on the Ingest page.
+   - Checks (regression):
+     - Load `http://localhost:5001/chat` and confirm chat loads.
+     - Load `http://localhost:5001/logs` and confirm logs page loads.
+   - Required screenshots (save to `./test-results/screenshots/`):
      - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
-     - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
+     - `0000020-9-ingest-delta.png` (Roots table reflects a completed/skipped re-embed run)
 
-10. [ ] `npm run compose:down`
+9. [ ] `npm run compose:down`
 
 
 #### Implementation notes

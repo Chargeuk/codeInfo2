@@ -659,6 +659,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 - Mongoose v9 (connecting, guarding `readyState`, and simple query patterns): Context7 `/automattic/mongoose/9.0.1`
 - Node fs/promises (readFile, readdir) and crypto hashing: https://nodejs.org/api/fs.html and https://nodejs.org/api/crypto.html
 - Testcontainers Node (GenericContainer lifecycle, wait strategies): Context7 `/testcontainers/testcontainers-node`
+- Mermaid diagram syntax (for documenting delta flows): Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/syntax-reference.html
 - Cucumber (feature files + step definitions + hooks):
   - https://cucumber.io/docs/guides/ (main guides index; this is the canonical starting point)
   - https://cucumber.io/docs/guides/10-minute-tutorial/ (how feature/step wiring works)
@@ -1054,13 +1055,32 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - for deletions-only runs, assert message is not "No changes detected"
      - The test must not rely on manual inspection.
 
-27. [ ] Update `design.md` to reflect delta re-embed behavior:
+27. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Requirements:
      - Describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
+     - Add at least one Mermaid diagram so the flow is unambiguous (use fenced code blocks with language `mermaid`).
+       - Preferred diagrams:
+         - A Mermaid `sequenceDiagram` showing request → run creation → status polling → terminal state.
+         - A Mermaid `flowchart` showing the `processRun` decision points (delta vs legacy upgrade vs degraded-mode fallback).
+       - Copy/paste starter flowchart (adapt labels to match the final code paths):
+         ```mermaid
+         flowchart TD
+           A[POST /ingest/reembed/:root] --> B{Mongo connected?}
+           B -- no --> C[Degraded mode: full re-embed]\n(no ingest_files updates)
+           B -- yes --> D{ingest_files has rows for root?}
+           D -- no --> E[Legacy upgrade]\n(delete root vectors + full ingest + populate ingest_files]
+           D -- yes --> F[Delta plan]\n(added/changed/unchanged/deleted)
+           F --> G{Any added/changed/deleted?}
+           G -- no --> H[Mark run skipped]\n(message: no changes]
+           G -- yes --> I[Write new vectors for added/changed]
+           I --> J[Delete old vectors for changed]\n+ delete vectors for deleted
+           J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
+         ```
 
 28. [ ] Update `projectStructure.md` to include all new/changed server files added in this task:
    - Docs to read:
@@ -1106,6 +1126,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 - Node path resolution + normalization: https://nodejs.org/api/path.html
 - SuperTest (route testing patterns used by server): Context7 `/ladjs/supertest`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Mermaid diagram syntax (for documenting the new `/ingest/dirs` flow): Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/syntax-reference.html
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 - Markdown syntax (used when updating docs): https://www.markdownguide.org/basic-syntax/
 
@@ -1273,13 +1294,30 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
 
-13. [ ] Update `design.md` with the `GET /ingest/dirs` endpoint contract:
+13. [ ] Update `design.md` with the `GET /ingest/dirs` endpoint contract and a Mermaid flow diagram:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md`
    - Requirements:
      - Add the endpoint contract (request + success/error responses).
+     - Add a short Mermaid diagram showing the server-side validation flow (base selection → lexical containment check → stat/isDirectory → readdir → sorted dirs).
+       - Copy/paste starter diagram (adapt names to match the final implementation):
+         ```mermaid
+         flowchart TD
+           A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+           B --> C{path provided?}
+           C -- no/blank --> D[List base]
+           C -- yes --> E[Validate inside base (lexical)]
+           E -- outside --> F[400 OUTSIDE_BASE]
+           E -- ok --> G{exists?}
+           G -- no --> H[404 NOT_FOUND]
+           G -- yes --> I{isDirectory?}
+           I -- no --> J[400 NOT_DIRECTORY]
+           I -- yes --> K[readdir withFileTypes]\nfilter dirs\nsort
+           K --> L[200 { base, path, dirs[] }]
+         ```
 
 14. [ ] Update `projectStructure.md` with any new server files added in this task:
    - Docs to read:
@@ -1509,6 +1547,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 - MUI TextField docs (Folder path input is a TextField): https://mui.com/material-ui/api/text-field/
 - Fetch API (query string building): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - Fetch API basics (used for calling the server endpoint): https://developer.mozilla.org/en-US/docs/Web/API/fetch
+- Mermaid diagram syntax (for documenting the directory picker UX flow): Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/syntax-reference.html
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - Jest (client unit tests): Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
@@ -1657,7 +1696,45 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Mock a server error payload and assert the dialog renders an error state/message.
 
-12. [ ] Update `projectStructure.md` with the new client ingest picker files:
+12. [ ] Update `design.md` with the directory picker UX flow (including a Mermaid diagram):
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Document how the “Choose folder…” dialog uses `GET /ingest/dirs` to browse within `HOST_INGEST_DIR`.
+     - Add a Mermaid `sequenceDiagram` that shows:
+       - opening the dialog triggers an initial `GET /ingest/dirs`
+       - clicking a directory triggers another `GET /ingest/dirs?path=...`
+       - clicking “Use this folder” calls `onPick(path)` and updates the Folder path field
+       - an error response (`OUTSIDE_BASE` / `NOT_FOUND` / `NOT_DIRECTORY`) results in an error state in the dialog
+     - Copy/paste starter diagram (adapt names/labels to match the final UI):
+       ```mermaid
+       sequenceDiagram
+         participant User
+         participant UI as Client UI (IngestForm + DirectoryPickerDialog)
+         participant API as Server API
+
+         User->>UI: Click "Choose folder…"
+         UI->>API: GET /ingest/dirs
+         API-->>UI: 200 { base, path, dirs[] }
+         UI-->>User: Show directory list
+
+         User->>UI: Click a directory
+         UI->>API: GET /ingest/dirs?path=<clicked>
+         API-->>UI: 200 { base, path, dirs[] }
+
+         User->>UI: Click "Use this folder"
+         UI-->>User: Folder path field updated
+
+         Note over UI,API: Error case
+         UI->>API: GET /ingest/dirs?path=<outside>
+         API-->>UI: 400 { status:'error', code:'OUTSIDE_BASE' }
+         UI-->>User: Show error state
+       ```
+
+13. [ ] Update `projectStructure.md` with the new client ingest picker files:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1667,7 +1744,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `client/src/components/ingest/ingestDirsApi.ts`
        - `client/src/components/ingest/DirectoryPickerDialog.tsx`
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

@@ -328,13 +328,15 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Assert `IngestFileModel.schema.indexes()` includes one non-unique index with keys `{ root: 1 }`.
 
-8. [ ] Update project structure docs if a new file was introduced:
+8. [ ] Update `projectStructure.md` with the files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add the new file path under the `server/src/mongo/` section.
+     - Add the new file paths:
+       - `server/src/mongo/ingestFile.ts`
+       - `server/src/test/unit/ingest-files-schema.test.ts`
 
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
@@ -1132,13 +1134,13 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
            J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
        ```
 
-30. [ ] Update `projectStructure.md` to include all new/changed server files added in this task:
+30. [ ] Update `projectStructure.md` to include all new server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add any new file paths introduced by this task under the appropriate server sections, including (but not limited to):
+     - Add the new file paths:
        - `server/src/test/support/mongoContainer.ts`
        - `server/src/test/features/ingest-delta-reembed.feature`
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`

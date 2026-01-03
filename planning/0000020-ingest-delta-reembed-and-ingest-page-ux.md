@@ -439,9 +439,8 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `reembed(rootPath)` must still validate the root exists in the roots collection (as today).
      - It must start the ingest run with `operation: 'reembed'` and allow `processRun()` to decide full vs delta.
      - Do not delete vectors up front.
-     - Root metadata deduplication must still be preserved so `/ingest/roots` does not accumulate duplicates:
-       - The roots list endpoint does not dedupe entries; the UI table rows are keyed by `root.path`, so duplicates cause unstable rendering.
-       - Implement dedupe at write time (see below): delete existing root metadata entries for `{ root }` immediately before writing the new run’s root metadata entry.
+     - Do not attempt to "dedupe roots" at write time in this story (deleting metadata is risky and can hide useful history).
+       - Instead, keep the roots listing stable by deduping the `/ingest/roots` response by `path` (see subtask 10).
 
 3. [ ] Remove the current re-embed early-return so delta can process deletions even when discovery returns zero eligible files:
    - Files to edit:
@@ -500,13 +499,16 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - For each deleted file:
        - Delete vectors for `{ root, relPath }`.
 
-10. [ ] Ensure root metadata is updated and deduped on run completion (prevents duplicate rows in `/ingest/roots`):
+10. [ ] Keep `/ingest/roots` stable by deduping the response by root `path` (prevents duplicate rows in the UI):
    - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
+     - `server/src/routes/ingestRoots.ts`
+   - Files to add:
+     - `server/src/test/unit/ingest-roots-dedupe.test.ts`
    - Requirements:
-     - Immediately before writing a run’s root metadata entry (the `roots.add(...)` call in the success/terminal flow), delete existing root metadata entries for the same `{ root }` using the existing helper `deleteRoots({ where: { root } })`.
-     - This applies for successful `start` and `reembed` runs.
-     - This must not delete vectors; it only keeps the roots listing stable.
+     - Implement the dedupe at read/response time (not write time):
+       - If multiple root metadata entries exist for the same `path`, return only one entry for that path.
+       - Keep the most recent entry (prefer `lastIngestAt` when present; otherwise fall back to `runId` ordering).
+     - KISS: implement a small pure helper (e.g. `dedupeRootsByPath(roots: RootEntry[]): RootEntry[]`) and unit test that helper.
 
 11. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Files to edit:
@@ -552,12 +554,14 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
        - Configure it explicitly for reliability:
          - `.withExposedPorts(27017)`
-         - `.withWaitStrategy(Wait.forLogMessage('Waiting for connections'))`
+         - `.withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))`
          - `.withStartupTimeout(120_000)`
        - Construct a connection string like:
          - `mongodb://<host>:<mappedPort>/db?directConnection=true`
        - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
-       - Ensure `disconnectMongo()` and container stop happen in an `After`/`AfterAll` hook for tagged scenarios.
+       - De-risk: start the container lazily once and reuse it across all `@mongo` scenarios (like the existing Chroma compose setup) instead of starting/stopping per scenario.
+       - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
+       - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
 
 15. [ ] Add the Cucumber feature file describing delta semantics:
    - Files to add:
@@ -882,18 +886,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - The Folder path text field must remain editable even if the picker is available.
      - Do not use browser filesystem APIs (no native directory pickers).
 
-6. [ ] Add client tests for the directory picker component:
-   - Files to add:
-     - `client/src/test/directoryPickerDialog.test.tsx`
-   - Requirements:
-     - Mock `fetch` for `GET /ingest/dirs` success and error payloads.
-     - Assert:
-       - loading state appears then renders directory list
-       - clicking a directory triggers navigation (subsequent fetch with updated path)
-       - "Use this folder" calls `onPick` with the current path
-       - error payloads render a clear message
-
-7. [ ] Add/extend ingest form tests proving the picker updates the Folder path field:
+6. [ ] Add/extend ingest form tests proving the picker updates the Folder path field:
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -901,7 +894,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Open the dialog, choose a directory, and assert the Folder path input value changes.
      - Include an error-path test (server returns `{ status:'error', code:'OUTSIDE_BASE' }`) and assert the dialog shows an error message.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
 
 #### Testing
 

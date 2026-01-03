@@ -822,6 +822,32 @@ flowchart TD
   K --> L[200 { base, path, dirs[] }]
 ```
 
+#### Directory picker UX flow (client)
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as Client UI (IngestForm + DirectoryPickerDialog)
+  participant API as Server API
+
+  User->>UI: Click "Choose folder…"
+  UI->>API: GET /ingest/dirs (or ?path=<current>)
+  API-->>UI: 200 { base, path, dirs[] }
+  UI-->>User: Show directory list
+
+  User->>UI: Click a directory
+  UI->>API: GET /ingest/dirs?path=<clicked>
+  API-->>UI: 200 { base, path, dirs[] }
+
+  User->>UI: Click "Use this folder"
+  UI-->>User: Folder path field updated
+
+  Note over UI,API: Error case
+  UI->>API: GET /ingest/dirs?path=<outside>
+  API-->>UI: 400 { status:'error', code:'OUTSIDE_BASE' }
+  UI-->>User: Show error state
+```
+
 ### Ingest start/status flow
 
 ```mermaid

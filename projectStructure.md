@@ -54,6 +54,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
+â”‚     â”‚     â”œâ”€ DirectoryPickerDialog.tsx — server-backed directory picker modal for Folder path
+â”‚     â”‚     â”œâ”€ ingestDirsApi.ts — typed fetch helper for GET /ingest/dirs
 â”‚     â”‚     â”œâ”€ RootsTable.tsx — embedded roots table with bulk/row actions and lock chip
 â”‚     â”‚     â””â”€ RootDetailsDrawer.tsx — drawer showing root metadata, counts, include/exclude lists
 â”‚     â”œâ”€ logging/

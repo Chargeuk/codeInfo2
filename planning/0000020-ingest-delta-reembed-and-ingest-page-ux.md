@@ -781,7 +781,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 ### 4. Server delta re-embed (file-level replacement) + legacy upgrade
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: 0531ae5
 
 #### Overview
 

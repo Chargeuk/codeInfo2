@@ -307,8 +307,10 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
      - There is an existing convention of bailing out early when `mongoose.connection.readyState !== 1`.
 
 2. [ ] Add repository helper functions for `ingest_files`:
-   - Files to add:
-     - `server/src/mongo/ingestFilesRepo.ts`
+   - Reuse existing repo module (do not introduce a new “repo file” pattern):
+     - The codebase centralizes Mongo helpers in `server/src/mongo/repo.ts`.
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
    - Requirements:
      - All helpers must return `null` (or a clearly typed `{ ok:false }`) when `mongoose.connection.readyState !== 1`.
      - Implement:
@@ -471,7 +473,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 5. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
-     - `server/src/mongo/ingestFilesRepo.ts`
+     - `server/src/mongo/repo.ts`
    - Requirements:
      - Initial ingest (`operation === 'start'`): after a successful run, write `ingest_files` rows for all discovered files and their `fileHash` values.
        - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a “full rebuild” operation).
@@ -484,7 +486,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 6. [ ] Implement “legacy root upgrade” behavior:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
-     - `server/src/mongo/ingestFilesRepo.ts`
+     - `server/src/mongo/repo.ts`
    - Requirements:
      - Legacy root definition: there are **zero** `ingest_files` rows for the root.
      - When legacy is detected on a re-embed:
@@ -581,10 +583,10 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `base = process.env.HOST_INGEST_DIR || '/data'`.
        - If query `path` is omitted, list the base.
      - Validation:
-       - Use POSIX normalization + lexical containment checks consistent with existing repo helpers:
-         - Normalize by converting backslashes to `/` and using `path.posix.normalize`.
-         - Use a trailing-slash-safe prefix check to determine “inside base”.
+       - Reuse the existing lexical containment logic in `server/src/ingest/pathMap.ts`:
+         - Use `mapHostWorkingFolderToWorkdir({ hostIngestDir: base, codexWorkdir: '/', hostWorkingFolder: path })` to validate `path` is lexically inside `base`.
          - Do not call `realpath` (symlink escapes allowed).
+         - Map any `INVALID_ABSOLUTE_PATH` / `OUTSIDE_HOST_INGEST_DIR` errors to the endpoint’s `OUTSIDE_BASE` error code to preserve the story contract.
        - Reject lexically out-of-base requests with `400` and `{ status:'error', code:'OUTSIDE_BASE' }`.
        - If `path` doesn’t exist: `404` and `{ status:'error', code:'NOT_FOUND' }`.
        - If `path` exists but is not a directory: `400` and `{ status:'error', code:'NOT_DIRECTORY' }`.

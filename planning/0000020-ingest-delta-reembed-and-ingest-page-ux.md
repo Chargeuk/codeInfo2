@@ -1423,8 +1423,8 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 ### 5. Server directory picker endpoint (`GET /ingest/dirs`)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 18cbca5, 0b28e64
 
 #### Overview
 

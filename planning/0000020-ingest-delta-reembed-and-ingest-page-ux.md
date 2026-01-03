@@ -97,13 +97,15 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 
 ---
 
-## Research Findings (MCP)
+## Research Findings (MCP + Web)
 
 - **Current chunk metadata:** `server/src/ingest/types.ts` defines per-chunk metadata fields including `fileHash`, `chunkHash`, `relPath`, `chunkIndex`, and `tokenCount`, so delta work can reuse `relPath`/`fileHash` without inventing new names.
 - **Cancel cleanup:** `cancelRun` in `server/src/ingest/ingestJob.ts` deletes vectors with `where: { runId }`, so run-scoped cleanup already exists and is safe to keep for delta.
 - **Root-wide deletes:** `reembed` and `removeRoot` in `server/src/ingest/ingestJob.ts` delete vectors/roots by `root`, with low-level delete helpers in `server/src/ingest/chromaClient.ts` (delete vectors/roots, drop empty collections, clear locked model).
+- **Delete helper signature:** `deleteVectors` in `server/src/ingest/chromaClient.ts` accepts `where` and/or `ids` and forwards them directly to Chroma’s `collection.delete`, so we can pass metadata filters without extra wrapper changes.
 - **Path normalization:** `mapIngestPath` in `server/src/ingest/pathMap.ts` already normalizes host/container paths and extracts `relPath`; reuse it to keep relPath consistent.
-- **Chroma delete filters:** Chroma `collection.delete` accepts a `where` filter (same filter grammar as query), supporting compound operators (`$and`, `$or`) and comparisons like `$eq`/`$ne`. This confirms we can target deletes by metadata filters (use equality filters for safety).
+- **Chroma delete filters:** Chroma `collection.delete` accepts a `where` filter (and optional `where_document`) and uses the same filter grammar as query/get. Operators include `$eq`, `$ne`, `$gt/$gte/$lt/$lte`, `$in/$nin`, plus logical `$and/$or` for compound filters.
+- **Filter machinery:** Chroma’s core filter implementation treats delete filters consistently with query/get; the same `Where` structures and operators back all three operations.
 - **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
 
 ---

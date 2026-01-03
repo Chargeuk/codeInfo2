@@ -207,8 +207,8 @@ None (resolved; details folded into Description / Acceptance Criteria / Out Of S
 
 ### 1. MongoDB per-file index schema (`ingest_files`)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 64751be
 
 #### Overview
 
@@ -224,14 +224,14 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 
 #### Subtasks
 
-1. [ ] Read existing Mongoose model patterns so the new model matches repo conventions:
+1. [x] Read existing Mongoose model patterns so the new model matches repo conventions:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1`
    - Files to read:
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/turn.ts`
 
-2. [ ] Create the `ingest_files` model with the required document shape:
+2. [x] Create the `ingest_files` model with the required document shape:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1` (Schemas, models, timestamps)
    - Files to add:
@@ -265,7 +265,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
      );
      ```
 
-3. [ ] Add the required indexes:
+3. [x] Add the required indexes:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1` (Schema#index)
      - https://www.mongodb.com/docs/manual/indexes/
@@ -281,7 +281,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
      ingestFileSchema.index({ root: 1 });
      ```
 
-4. [ ] Create the server unit test suite for the `ingest_files` Mongoose schema:
+4. [x] Create the server unit test suite for the `ingest_files` Mongoose schema:
    - Test type: Server unit (node:test)
    - Purpose: prevent accidental schema/index regressions that would break delta re-embed.
    - Docs to read:
@@ -292,7 +292,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - The test must not attempt a real Mongo connection.
 
-5. [ ] Unit test: required fields exist on the schema (`root`, `relPath`, `fileHash`):
+5. [x] Unit test: required fields exist on the schema (`root`, `relPath`, `fileHash`):
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-schema.test.ts`
    - Purpose: ensure the minimal per-file index document shape stays stable.
@@ -304,7 +304,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Assert the three schema paths exist and are marked required.
 
-6. [ ] Unit test: unique compound index exists on `{ root: 1, relPath: 1 }`:
+6. [x] Unit test: unique compound index exists on `{ root: 1, relPath: 1 }`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-schema.test.ts`
    - Purpose: ensure Mongo can safely treat `{ root, relPath }` as a key.
@@ -316,7 +316,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Assert `IngestFileModel.schema.indexes()` includes exactly one unique index with keys `{ root: 1, relPath: 1 }`.
 
-7. [ ] Unit test: non-unique index exists on `{ root: 1 }`:
+7. [x] Unit test: non-unique index exists on `{ root: 1 }`:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-schema.test.ts`
    - Purpose: ensure lookups by `root` stay efficient.
@@ -328,7 +328,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
    - Requirements:
      - Assert `IngestFileModel.schema.indexes()` includes one non-unique index with keys `{ root: 1 }`.
 
-8. [ ] Add a server log entry that confirms the `ingest_files` model is registered and usable at runtime:
+8. [x] Add a server log entry that confirms the `ingest_files` model is registered and usable at runtime:
    - Purpose: make it obvious (via Logs page) that the new Mongo model is wired in and available.
    - Files to edit:
      - `server/src/mongo/connection.ts`
@@ -340,7 +340,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
        - `context`: include `{ modelName: 'IngestFile', collection: 'ingest_files' }`
      - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
 
-9. [ ] Update `projectStructure.md` with the files added in this task:
+9. [x] Update `projectStructure.md` with the files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -350,26 +350,26 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
        - `server/src/mongo/ingestFile.ts`
        - `server/src/test/unit/ingest-files-schema.test.ts`
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (basic regression smoke):
+8. [x] Manual Playwright-MCP check (basic regression smoke):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
@@ -377,11 +377,26 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
      - Load `http://localhost:5001/ingest` and confirm the page renders (roots table loads or shows a sensible empty state).
      - Load `http://localhost:5001/logs`, search for `0000020 ingest_files model ready`, and confirm at least one **server** log entry exists.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-03: Task started; implementing `ingest_files` Mongoose model + schema tests, then wiring model registration + log entry.
+- 2026-01-03: Reviewed existing Mongoose model conventions (`ConversationModel`, `TurnModel`) and Mongoose v9 docs for `timestamps` + `schema.index(...)` + `schema.indexes()`.
+- 2026-01-03: Added `server/src/mongo/ingestFile.ts` with `collection: 'ingest_files'`, `timestamps: true`, and required indexes (`{root,relPath}` unique + `{root}` non-unique).
+- 2026-01-03: Added unit coverage for schema paths + indexes in `server/src/test/unit/ingest-files-schema.test.ts` (no Mongo connection required).
+- 2026-01-03: Updated `server/src/mongo/connection.ts` to import/register `IngestFileModel` and emit `0000020 ingest_files model ready` to the Logs store after successful Mongo connect.
+- 2026-01-03: Documented new files in `projectStructure.md`.
+- 2026-01-03: Ran `npm run lint --workspaces` and `npm run format:check --workspaces` (required Prettier write on touched files; lint error in `client/src/pages/ChatPage.tsx` fixed by moving breakpoint sync into `useLayoutEffect`).
+- 2026-01-03: Testing progress: `npm run build --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run build --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run e2e` passed.
+- 2026-01-03: Testing progress: `npm run compose:build` passed.
+- 2026-01-03: Testing progress: `npm run compose:up` started containers successfully.
+- 2026-01-03: Manual smoke checks (via host-mapped ports): `/chat` 200, `/ingest` 200, `/logs` 200; `GET /logs?text=0000020%20ingest_files%20model%20ready&source=server` returned 1 item.
+- 2026-01-03: Testing progress: `npm run compose:down` stopped local compose stack.
 
 ---
 

@@ -1,6 +1,11 @@
 Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
+Planning:
+Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Then update the plan with your findings.
+
+Please create tasks for this story, ensuring that each task is detailed enough for a junior developer to work through without the insup of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
+
 Tasks:
 can you check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the
 tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the front end and MPC servers be ablt to actually

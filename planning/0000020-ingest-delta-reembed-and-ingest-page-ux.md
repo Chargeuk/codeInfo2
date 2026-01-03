@@ -642,6 +642,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 - Node fs/promises (readFile, readdir) and crypto hashing: https://nodejs.org/api/fs.html and https://nodejs.org/api/crypto.html
 - Testcontainers Node (GenericContainer lifecycle, wait strategies): Context7 `/testcontainers/testcontainers-node`
 - Cucumber (feature files + step definitions + hooks):
+  - https://cucumber.io/docs/guides/ (main guides index; this is the canonical starting point)
   - https://cucumber.io/docs/guides/10-minute-tutorial/ (how feature/step wiring works)
   - https://cucumber.io/docs/cucumber/api/ (hooks/tags API used by this repo’s step files)
   - https://cucumber.io/docs/gherkin/reference/ (Gherkin syntax reference)
@@ -1284,7 +1285,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 - React hooks patterns (polling + cleanup): https://react.dev/reference/react/useEffect
 - Fetch API + URL building: https://developer.mozilla.org/en-US/docs/Web/API/URL
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Jest (test runner used by the client workspace): https://jestjs.io/docs/getting-started
+- Jest (client unit tests): Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 #### Subtasks
@@ -1386,7 +1387,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
   - MUI MCP `@mui/material@6.4.12` (closest available in MCP; repo resolves to MUI `6.5.0`)
   - MUI site API reference (verify props for current 6.x): https://mui.com/material-ui/api/alert/
 - React testing patterns (repo uses Testing Library): https://testing-library.com/docs/react-testing-library/intro/
-- Jest (test runner used by the client workspace): https://jestjs.io/docs/getting-started
+- Jest (client unit tests): Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 #### Subtasks
@@ -1473,7 +1474,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 - Fetch API (query string building): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - Fetch API basics (used for calling the server endpoint): https://developer.mozilla.org/en-US/docs/Web/API/fetch
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Jest (test runner used by the client workspace): https://jestjs.io/docs/getting-started
+- Jest (client unit tests): Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
 #### Subtasks
@@ -1663,6 +1664,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
   - Context7 `/jestjs/jest`
   - https://jestjs.io/docs/getting-started
 - Cucumber:
+  - https://cucumber.io/docs/guides/
   - https://cucumber.io/docs/guides/10-minute-tutorial/
   - https://cucumber.io/docs/gherkin/reference/
 - Markdown syntax (used for PR summaries and docs edits): https://www.markdownguide.org/basic-syntax/

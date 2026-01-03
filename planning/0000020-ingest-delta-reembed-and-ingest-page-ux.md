@@ -96,14 +96,18 @@ Each chunk includes:
   "fileHash": "sha256-hex",
   "runId": "r1",
   "chunkHash": "sha256-hex",
-  "chunkIndex": 0,
-  "tokenCount": 123
+  "embeddedAt": "2026-01-03T00:00:00.000Z",
+  "ingestedAtMs": 1735862400000,
+  "model": "embed-1",
+  "name": "repo-name",
+  "description": "optional"
 }
 ```
 
 Notes:
 - Deletes for file replacement use Chroma `where` metadata filters over `{ root, relPath, fileHash }`.
 - `runId` is used to clean up in-progress vectors on cancel.
+- `chunkIndex` is encoded in the vector id (e.g., `${runId}:${relPath}:${chunkIndex}`); `tokenCount` is not persisted in metadata today.
 
 ---
 
@@ -174,16 +178,19 @@ Notes:
 ## Research Findings (MCP + Web)
 
 - **Current chunk metadata:** `server/src/ingest/types.ts` defines per-chunk metadata fields including `fileHash`, `chunkHash`, `relPath`, `chunkIndex`, and `tokenCount`, so delta work can reuse `relPath`/`fileHash` without inventing new names.
+- **Metadata actually stored on add:** `processRun` in `server/src/ingest/ingestJob.ts` builds the metadata objects passed to Chroma. The stored fields include `runId`, `root`, `relPath`, `fileHash`, `chunkHash`, `embeddedAt`, `ingestedAtMs`, `model`, `name`, and optional `description`. `chunkIndex` is encoded in the vector id and `tokenCount` is not stored.
 - **Cancel cleanup:** `cancelRun` in `server/src/ingest/ingestJob.ts` deletes vectors with `where: { runId }`, so run-scoped cleanup already exists and is safe to keep for delta.
 - **Root-wide deletes:** `reembed` and `removeRoot` in `server/src/ingest/ingestJob.ts` delete vectors/roots by `root`, with low-level delete helpers in `server/src/ingest/chromaClient.ts` (delete vectors/roots, drop empty collections, clear locked model).
 - **Delete helper signature:** `deleteVectors` in `server/src/ingest/chromaClient.ts` accepts `where` and/or `ids` and forwards them directly to Chroma’s `collection.delete`, so we can pass metadata filters without extra wrapper changes.
 - **Path normalization:** `mapIngestPath` in `server/src/ingest/pathMap.ts` already normalizes host/container paths and extracts `relPath`; reuse it to keep relPath consistent.
-- **Chroma delete filters:** Chroma `collection.delete` accepts `where` and optional `where_document`. The documented filter schema includes metadata operators `$eq/$ne/$gt/$gte/$lt/$lte`, `$in/$nin`, and logical `$and/$or`, with a single operator per field (maxProperties=1). Document filters support `$contains/$not_contains` plus `$and/$or`.
+- **Chroma delete filters:** Chroma `collection.delete` accepts `where` and optional `where_document`. The documented filter schema includes metadata operators `$eq/$ne/$gt/$gte/$lt/$lte`, `$in/$nin`, and logical `$and/$or`, with a single operator per field (maxProperties=1). Document filters support `$contains/$not_contains` plus `$and/$or` and are **document-only** (metadata fields do not support contains/regex).
 - **Filter machinery:** Chroma’s core filter implementation treats delete filters consistently with query/get; the same `Where` structures and operators back all three operations.
+- **Chroma filter validation:** Chroma’s client and backend parsers enforce a single operator per field and structured `$and/$or` lists; set operators (`$in/$nin`) require consistent value types. Use this schema to avoid invalid where payloads.
+- **Chroma reference schema:** The Chroma Cookbook publishes explicit JSON schemas for `where` and `where_document`, confirming maxProperties=1 per clause and the supported operator sets for metadata vs document filters.
 - **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
 - **Directory picker endpoint (codebase):** there is no existing route or helper that lists directories under `HOST_INGEST_DIR`; current ingest routes only validate required fields and `GET /ingest/roots` lists stored ingest metadata (not live filesystem contents). Existing path validation helpers live in `server/src/ingest/pathMap.ts` and agents’ working-folder resolver.
 - **Symlink/realpath behavior (codebase):** current path helpers and discovery logic normalize paths and rely on prefix checks without calling `realpath`, so they do not guard against symlink escapes; this aligns with the decision to allow symlinked paths that resolve outside the base.
-- **Directory picker endpoint (recommended behavior):** use `fs.promises.readdir` with `withFileTypes: true` to list child directories, and validate the requested path by resolving it against the allowed base (e.g., `path.resolve` + prefix check). Do not reject paths that escape via symlinks, per the symlink allowance decision; only reject paths that are outside the base by string/lexical resolution or are unreadable.
+- **Directory picker endpoint (recommended behavior):** Node’s `fs.promises.readdir` supports `withFileTypes: true` (Dirent results), and `path.resolve` can be used to build a lexical base check; pair these for lightweight directory listing without realpath containment. Do not reject paths that escape via symlinks, per the symlink allowance decision; only reject paths that are outside the base by lexical resolution or are unreadable.
 
 ---
 

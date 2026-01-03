@@ -1942,7 +1942,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
 ### 7. Ingest UI: remove duplicate “model locked” notice
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: 1408145
 
 #### Overview
 

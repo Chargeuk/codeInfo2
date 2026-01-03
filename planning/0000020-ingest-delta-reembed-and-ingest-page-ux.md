@@ -1857,23 +1857,52 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
      - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
 
-10. [ ] Documentation updates (must be accurate and complete):
+10. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
+   - Document: `README.md`
+   - Location: repo root (`README.md`)
+   - Purpose: keep the “how to run/use” docs correct for developers.
+   - Description: ensure any new runtime behavior introduced by delta re-embed and directory picking is discoverable.
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md`
+   - Requirements:
+     - Ensure the README accurately reflects any new/changed env vars or behavior required by this story (e.g. `HOST_INGEST_DIR` defaulting and directory picker expectations).
+     - Do not duplicate detailed API/flow diagrams here (those belong in the design document).
+
+11. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
+   - Document: `design.md`
+   - Location: repo root (`design.md`)
+   - Purpose: keep architecture and feature behavior understandable, especially for on-boarding.
+   - Description: ensure the story’s new ingest semantics and directory picker UX flow are fully documented with Mermaid diagrams.
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+     - Context7 `/mermaid-js/mermaid`
+   - Files to edit:
      - `design.md`
+   - Requirements:
+     - Ensure the delta re-embed behavior (including `skipped` no-op and deletions-only messaging) is documented.
+     - Ensure the `/ingest/dirs` endpoint contract and the client directory picker UX flow are documented.
+     - Ensure Mermaid diagrams render (fenced code blocks with language `mermaid`, valid syntax).
+
+12. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
+   - Document: `projectStructure.md`
+   - Location: repo root (`projectStructure.md`)
+   - Purpose: keep the codebase map accurate for developers navigating the repo.
+   - Description: ensure all files added or removed in story 0000020 are reflected in the project structure listing.
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Document `/ingest/dirs`.
-     - Document the `ingest_files` collection and how it affects delta re-embed.
-     - Ensure `projectStructure.md` includes any new files added in this story.
+     - Confirm all new server/client/test files introduced by tasks 1–8 are listed under the correct sections.
+     - Remove any references to files that no longer exist.
 
-11. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+13. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
-12. [ ] Bring Compose down:
+14. [ ] Bring Compose down:
    - Docs to read:
      - Context7 `/docker/docs`
    - Command:

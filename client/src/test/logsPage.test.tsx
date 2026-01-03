@@ -1,6 +1,14 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import LogsPage from '../pages/LogsPage';
+
+const logSpy = jest.fn();
+
+await jest.unstable_mockModule('../logging/logger', async () => ({
+  __esModule: true,
+  createLogger: jest.fn(() => logSpy),
+}));
+
+const { default: LogsPage } = await import('../pages/LogsPage');
 
 const sampleBody = {
   items: [
@@ -31,6 +39,7 @@ describe('LogsPage', () => {
   const originalEventSource = global.EventSource;
 
   beforeEach(() => {
+    logSpy.mockClear();
     (global as typeof globalThis & { fetch: jest.Mock }).fetch = jest
       .fn()
       .mockResolvedValue({
@@ -75,5 +84,17 @@ describe('LogsPage', () => {
     (global.EventSource as jest.Mock).mockClear();
     fireEvent.click(screen.getByText('Refresh now'));
     expect(global.EventSource).not.toHaveBeenCalled();
+  });
+
+  it('emits a story verification breadcrumb when opened', async () => {
+    render(<LogsPage />);
+
+    await waitFor(() =>
+      expect(logSpy).toHaveBeenCalledWith(
+        'info',
+        '0000020 logs page opened',
+        expect.anything(),
+      ),
+    );
   });
 });

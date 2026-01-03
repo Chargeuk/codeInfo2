@@ -937,6 +937,9 @@ sequenceDiagram
   - **Legacy upgrade** (Mongo connected but `ingest_files` has zero rows): delete all vectors for `{ root }` and perform a full ingest to repopulate `ingest_files`.
   - **Degraded full** (Mongo disconnected): fall back to a full re-embed (delete vectors for `{ root }` then ingest all discovered files) and skip `ingest_files` updates.
 - Safety guarantee: changed files are replaced by writing new vectors first (tagged with the current `runId`), then deleting older vectors after the run succeeds. Cancellation deletes only `{ runId }` vectors, leaving older vectors intact.
+- Status/messaging:
+  - **No-op** (no added/changed/deleted): the run is marked `skipped` with a clear “No changes detected …” message.
+  - **Deletions-only** (deleted > 0 but no added/changed): the server deletes vectors + `ingest_files` rows for the deleted relPaths and marks the run `skipped` with a “Removed vectors for N deleted file(s)” message (so it does not claim “No changes detected”).
 
 ```mermaid
 flowchart TD
@@ -947,9 +950,11 @@ flowchart TD
   D -- yes --> F[Delta plan\n(added/changed/unchanged/deleted)]
   F --> G{Any added/changed/deleted?}
   G -- no --> H[Mark run skipped\n(message: no changes)]
-  G -- yes --> I[Write new vectors for added/changed]
-  I --> J[Delete old vectors for changed\n+ delete vectors for deleted]
-  J --> K[Update ingest_files\n(upsert added/changed, delete deleted)]
+  G -- yes --> I{Added/changed?}
+  I -- no --> J[Deletions-only\n(delete vectors + ingest_files for deleted)\nmark skipped with deletion message]
+  I -- yes --> K[Write new vectors for added/changed]
+  K --> L[Delete old vectors for changed\n+ delete vectors for deleted]
+  L --> M[Update ingest_files\n(upsert added/changed, delete deleted)]
 ```
 
 ```mermaid

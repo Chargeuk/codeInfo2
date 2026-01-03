@@ -2381,7 +2381,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -2413,11 +2413,11 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 #### Subtasks
 
-1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no "it should" assumptions).
+1. [x] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no "it should" assumptions).
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
-2. [ ] Add a client log entry on Logs page mount (visible in the Logs page) to prove the Logs UI was visited during manual verification:
+2. [x] Add a client log entry on Logs page mount (visible in the Logs page) to prove the Logs UI was visited during manual verification:
    - Purpose: provide a deterministic breadcrumb for the final Playwright-MCP verification step.
    - Files to edit:
      - `client/src/pages/LogsPage.tsx`
@@ -2426,7 +2426,8 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
        - `0000020 logs page opened`
      - Emit once per mount (use a `useEffect` with a stable logger).
 
-3. [ ] Client unit test: LogsPage emits `0000020 logs page opened` on mount:
+
+3. [x] Client unit test: LogsPage emits `0000020 logs page opened` on mount:
    - Test type: Client unit (Jest)
    - Location: `client/src/test/logsPage.test.tsx`
    - Purpose: prevent regressions where the breadcrumb is removed or renamed.
@@ -2442,7 +2443,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
        - level: `'info'`
        - message: `'0000020 logs page opened'`
 
-4. [ ] Documentation update: verify and update `README.md` for story 0000020 changes:
+4. [x] Documentation update: verify and update `README.md` for story 0000020 changes:
    - Document: `README.md`
    - Location: repo root (`README.md`)
    - Purpose: keep the “how to run/use” docs correct for developers.
@@ -2455,7 +2456,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the README accurately reflects any new/changed env vars or behavior required by this story (e.g. `HOST_INGEST_DIR` defaulting and directory picker expectations).
      - Do not duplicate detailed API/flow diagrams here (those belong in the design document).
 
-5. [ ] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
+5. [x] Documentation update: verify and update `design.md` (architecture + flows + Mermaid diagrams):
    - Document: `design.md`
    - Location: repo root (`design.md`)
    - Purpose: keep architecture and feature behavior understandable, especially for on-boarding.
@@ -2470,7 +2471,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Ensure the `/ingest/dirs` endpoint contract and the client directory picker UX flow are documented.
      - Ensure Mermaid diagrams render (fenced code blocks with language `mermaid`, valid syntax).
 
-6. [ ] Documentation update: verify and update `projectStructure.md` for any added/removed files:
+6. [x] Documentation update: verify and update `projectStructure.md` for any added/removed files:
    - Document: `projectStructure.md`
    - Location: repo root (`projectStructure.md`)
    - Purpose: keep the codebase map accurate for developers navigating the repo.
@@ -2483,11 +2484,11 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Confirm all new server/client/test files introduced by tasks 1–8 are listed under the correct sections.
      - Remove any references to files that no longer exist.
 
-7. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+7. [x] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -2506,7 +2507,7 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (story acceptance + regression smoke):
+8. [x] Manual Playwright-MCP check (story acceptance + regression smoke):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks (story-specific):
@@ -2523,9 +2524,34 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
      - `0000020-9-ingest-delta.png` (Roots table reflects a completed/skipped re-embed run)
 
+
 9. [x] `npm run compose:down`
 
 
 #### Implementation notes
 
-- 
+- Subtask 1: Audited the story Acceptance Criteria and mapped each bullet to existing automated coverage (server/client/e2e) plus the remaining manual verifications required in Testing step 8 (delta no-op, deletions-only messaging, Ingest page lock notice, directory picker).
+- Subtask 2: Added a one-per-mount `createLogger('client')` breadcrumb in `LogsPage.tsx` emitting `0000020 logs page opened` so manual verification can prove the Logs UI was visited.
+- Subtask 3: Added Jest coverage in `client/src/test/logsPage.test.tsx` using `jest.unstable_mockModule` to mock `client/src/logging/logger.ts` and assert the mount breadcrumb is emitted.
+- Subtask 4: Updated `README.md` to document delta `/ingest/reembed/{root}` behavior, include the `skipped` status example, and add the `/ingest/dirs` directory picker endpoint used by “Choose folder…”.
+- Subtask 5: Updated `design.md` delta re-embed documentation to explicitly cover deletions-only runs (skipped state with a deletion-specific message) and refreshed the Mermaid flowchart accordingly.
+- Subtask 6: Verified `projectStructure.md` already lists the story 0000020 files (server delta ingest + directory picker + tests); no additional updates required for the Task 9 breadcrumb/test changes.
+- Subtask 7: Drafted a PR-ready summary comment (kept in this task’s Implementation notes for easy copy/paste).
+- Subtask 8: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (clean).
+- Testing 8: Rebuilt + restarted Compose to pick up Task 9 changes, then ran a headless browser verification against `http://host.docker.internal:5001` (with request routing to proxy `http://localhost:5010` API calls to `http://host.docker.internal:5010` since the browser runs inside a container).
+  - Delta no-op: `POST /ingest/reembed/<path>` returned `state:"skipped"` with message “No changes detected …”; UI shows a skipped run and the message (see screenshot).
+  - Deletions-only: re-added `b.txt`, re-embedded (completed), deleted `b.txt`, re-embedded again and confirmed `state:"skipped"` with message “Removed vectors for 1 deleted file(s)” (so it does not claim “No changes detected”).
+  - Directory picker: opened “Choose folder…”, navigated into the fixture directory, picked it, and confirmed Folder path updates.
+  - Lock notice: verified “Embedding model locked to …” appears exactly once on `/ingest`.
+  - Regression: loaded `/chat` and confirmed the Message input renders; loaded `/logs`, searched for `0000020 logs page opened`, and confirmed a `client` log entry exists.
+  - Screenshots saved to `test-results/screenshots/0000020-9-ingest-page.png`, `test-results/screenshots/0000020-9-ingest-picker.png`, `test-results/screenshots/0000020-9-ingest-delta.png`.
+- Testing 9: Re-ran `npm run compose:down` after the manual verification to leave the environment clean.
+
+PR summary comment (story 0000020)
+
+- Server: Added delta `/ingest/reembed/:root` driven by per-file SHA-256 hashing, backed by MongoDB `ingest_files` (detects added/changed/deleted without scanning Chroma metadata) with safe file-level replacement (write new vectors first, then delete old) and run-scoped cancel cleanup.
+- Server: Added `/ingest/dirs` endpoint for a server-backed directory picker, limited to `HOST_INGEST_DIR` (default `/data`) with lexical base validation and explicit error codes.
+- Client: Tidy Ingest UX (single “Embedding model locked to …” notice) and added “Choose folder…” dialog that browses directories via `/ingest/dirs` and writes the picked absolute server path back into the Folder path input.
+- Client: Added deterministic log breadcrumbs for directory picker events and the Logs page mount (`0000020 logs page opened`) to make manual verification auditable.
+- Tests: Added/updated server unit + Cucumber coverage for delta re-embed (no-op skipped messaging, deletions-only messaging, legacy upgrade) and `/ingest/dirs`; added client Jest + RTL coverage for directory picker flows and the LogsPage breadcrumb.
+- Docs: Updated `README.md` (delta re-embed semantics, `skipped` status, `/ingest/dirs`) and `design.md` (delta flow + directory picker UX diagrams, including deletions-only messaging).

@@ -1423,7 +1423,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 ### 5. Server directory picker endpoint (`GET /ingest/dirs`)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1443,7 +1443,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 #### Subtasks
 
-1. [ ] Read existing ingest route patterns for consistent error handling and mount style:
+1. [x] Read existing ingest route patterns for consistent error handling and mount style:
    - Docs to read (repeat; do not skip):
      - Context7 `/expressjs/express/v5.1.0` (routing)
    - Files to read:
@@ -1687,7 +1687,7 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 #### Implementation notes
 
-- 
+- (2026-01-03) Marked Task 5 as in progress; reviewed existing ingest route patterns, shared path validation (`mapHostWorkingFolderToWorkdir`), and unit test conventions (node:test + SuperTest).
 
 ---
 

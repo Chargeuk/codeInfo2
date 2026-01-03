@@ -2,7 +2,13 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Planning:
+Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be?
+
 Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Then update the plan with your findings.
+
+Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive?
+
+Does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed?
 
 Please create tasks for this story, ensuring that each task is detailed enough for a junior developer to work through without the insup of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
 

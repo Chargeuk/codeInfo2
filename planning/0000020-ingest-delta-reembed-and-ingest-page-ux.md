@@ -183,14 +183,17 @@ Notes:
 - **Root-wide deletes:** `reembed` and `removeRoot` in `server/src/ingest/ingestJob.ts` delete vectors/roots by `root`, with low-level delete helpers in `server/src/ingest/chromaClient.ts` (delete vectors/roots, drop empty collections, clear locked model).
 - **Delete helper signature:** `deleteVectors` in `server/src/ingest/chromaClient.ts` accepts `where` and/or `ids` and forwards them directly to Chroma’s `collection.delete`, so we can pass metadata filters without extra wrapper changes.
 - **Path normalization:** `mapIngestPath` in `server/src/ingest/pathMap.ts` already normalizes host/container paths and extracts `relPath`; reuse it to keep relPath consistent.
-- **Chroma delete filters:** Chroma `collection.delete` accepts `where` and optional `where_document`. The documented filter schema includes metadata operators `$eq/$ne/$gt/$gte/$lt/$lte`, `$in/$nin`, and logical `$and/$or`, with a single operator per field (maxProperties=1). Document filters support `$contains/$not_contains` plus `$and/$or` and are **document-only** (metadata fields do not support contains/regex).
+- **Chroma delete filters:** In the JS client (`chromadb`), `collection.delete` accepts `where` (metadata) and optional `whereDocument` (document content). The HTTP API/docs often spell this as `where_document`, but the JS client uses `whereDocument`. For this story we only need metadata `where` filters over `{ root, relPath, fileHash, runId }` using operators like `$ne` and logical `$and/$or`.
 - **Filter machinery:** Chroma’s core filter implementation treats delete filters consistently with query/get; the same `Where` structures and operators back all three operations.
 - **Chroma filter validation:** Chroma’s client and backend parsers enforce a single operator per field and structured `$and/$or` lists; set operators (`$in/$nin`) require consistent value types. Use this schema to avoid invalid where payloads.
-- **Chroma reference schema:** The Chroma Cookbook publishes explicit JSON schemas for `where` and `where_document`, confirming maxProperties=1 per clause and the supported operator sets for metadata vs document filters.
+- **Chroma reference schema:** The Chroma Cookbook publishes explicit JSON schemas for `where` and `where_document` (aka `whereDocument` in the JS client), including maxProperties=1 per clause and the supported operator sets for metadata vs document filters.
 - **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
+- **MUI 6.5.0:** repo uses `@mui/material` 6.5.0; the 6.5.0 release notes (https://github.com/mui/material-ui/releases/tag/v6.5.0) do not indicate any Dialog API changes relevant to this story (the release mainly includes a Dialog codemod entry), so using MUI MCP 6.4.12 docs for Dialog is acceptable.
 - **Directory picker endpoint (codebase):** there is no existing route or helper that lists directories under `HOST_INGEST_DIR`; current ingest routes only validate required fields and `GET /ingest/roots` lists stored ingest metadata (not live filesystem contents). Existing path validation helpers live in `server/src/ingest/pathMap.ts` and agents’ working-folder resolver.
 - **Symlink/realpath behavior (codebase):** current path helpers and discovery logic normalize paths and rely on prefix checks without calling `realpath`, so they do not guard against symlink escapes; this aligns with the decision to allow symlinked paths that resolve outside the base.
 - **Directory picker endpoint (recommended behavior):** Node’s `fs.promises.readdir` supports `withFileTypes: true` (Dirent results), and `path.resolve` can be used to build a lexical base check; pair these for lightweight directory listing without realpath containment. Do not reject paths that escape via symlinks, per the symlink allowance decision; only reject paths that are outside the base by lexical resolution or are unreadable.
+
+- **Dependency versions (verified from package-lock.json):** this repo currently resolves to React `19.2.0`, Express `5.1.0`, and MUI `6.5.0` (plus `chromadb` `3.1.6`, `mongoose` `9.0.1`, `testcontainers` `10.10.2`, `zod` `3.25.76`). Ensure doc references match these versions where possible.
 
 ---
 
@@ -415,6 +418,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 - Chroma delete filters (`where` schema, `$and/$or`, `$ne`, `$in` constraints): https://docs.trychroma.com/ and https://cookbook.chromadb.dev/
 - Mongoose v9 (connecting, guarding `readyState`, and simple query patterns): Context7 `/automattic/mongoose/9.0.1`
 - Node fs/promises (readFile, readdir) and crypto hashing: https://nodejs.org/api/fs.html and https://nodejs.org/api/crypto.html
+- Testcontainers Node (GenericContainer lifecycle, wait strategies): Context7 `/testcontainers/testcontainers-node`
 - Cucumber guides (new feature + step definitions): https://cucumber.io/docs/guides/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
@@ -504,10 +508,24 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 8. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
    - Files to add:
+     - `server/src/test/support/mongoContainer.ts`
      - `server/src/test/features/ingest-delta-reembed.feature`
      - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+   - Files to edit:
+     - `server/cucumber.js`
    - Requirements:
-     - Use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
+     - In `server/src/test/support/mongoContainer.ts`, use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
+     - Update `server/cucumber.js` to require `src/test/support/mongoContainer.ts` (alongside `chromaContainer.ts`) so the hooks are registered.
+     - Important: this repo does **not** currently include `@testcontainers/mongodb`, so do not use `MongoDBContainer`.
+       - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
+       - Configure it explicitly for reliability:
+         - `.withExposedPorts(27017)`
+         - `.withWaitStrategy(Wait.forLogMessage('Waiting for connections'))`
+         - `.withStartupTimeout(120_000)`
+       - Construct a connection string like:
+         - `mongodb://<host>:<mappedPort>/db?directConnection=true`
+       - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
+       - Ensure `disconnectMongo()` and container stop happen in an `After`/`AfterAll` hook for tagged scenarios.
      - The feature must prove:
        - “Changed file” → vectors for old hash are deleted, vectors for new hash exist.
        - “Deleted file” → vectors for the deleted relPath are removed.
@@ -558,10 +576,9 @@ Add a small server endpoint that lists child directories under a single allowed 
 
 #### Documentation Locations
 
-- Express 5 routing (new endpoint): https://expressjs.com/en/guide/routing.html and https://expressjs.com/en/5x/api.html
+- Express 5.1.0 routing (new endpoint; async handler + promise semantics): Context7 `/expressjs/express/v5.1.0` and https://expressjs.com/en/guide/routing.html
 - Node fs/promises readdir (Dirent + withFileTypes): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
 - Node path resolution + normalization: https://nodejs.org/api/path.html
-- Existing repo path normalization/lexical containment patterns (no realpath): `server/src/ingest/pathMap.ts` + unit tests in `server/src/test/unit/pathMap.test.ts`
 - SuperTest (route testing patterns used by server): Context7 `/ladjs/supertest`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
@@ -573,6 +590,8 @@ Add a small server endpoint that lists child directories under a single allowed 
      - `server/src/routes/ingestStart.ts`
      - `server/src/routes/ingestRoots.ts`
      - `server/src/index.ts`
+     - `server/src/ingest/pathMap.ts`
+     - `server/src/test/unit/pathMap.test.ts`
 
 2. [ ] Implement the directory listing route:
    - Files to add:
@@ -582,6 +601,7 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Base path:
        - `base = process.env.HOST_INGEST_DIR || '/data'`.
        - If query `path` is omitted, list the base.
+       - If query `path` is present but empty/whitespace (or not a string), treat it as omitted and list the base (do not introduce new error codes).
      - Validation:
        - Reuse the existing lexical containment logic in `server/src/ingest/pathMap.ts`:
          - Use `mapHostWorkingFolderToWorkdir({ hostIngestDir: base, codexWorkdir: '/', hostWorkingFolder: path })` to validate `path` is lexically inside `base`.
@@ -706,7 +726,9 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
 
 #### Documentation Locations
 
-- MUI Alert component docs (via MUI MCP; use the same version as the repo): MUI MCP `@mui/material@6.4.12`
+- MUI Alert component docs:
+  - MUI MCP `@mui/material@6.4.12` (closest available in MCP; repo resolves to MUI `6.5.0`)
+  - MUI site API reference (verify props for current 6.x): https://mui.com/material-ui/api/alert/
 - React testing patterns (repo uses Testing Library): https://testing-library.com/docs/react-testing-library/intro/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
 
@@ -763,7 +785,9 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 
 #### Documentation Locations
 
-- MUI Dialog docs (via MUI MCP; use the same version as the repo): MUI MCP `@mui/material@6.4.12`
+- MUI Dialog docs:
+  - MUI MCP `@mui/material@6.4.12` (closest available in MCP; repo resolves to MUI `6.5.0`)
+  - MUI site API reference (verify props for current 6.x): https://mui.com/material-ui/api/dialog/
 - Fetch API (query string building): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`

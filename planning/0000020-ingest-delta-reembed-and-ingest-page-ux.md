@@ -107,6 +107,8 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - **Chroma delete filters:** Chroma `collection.delete` accepts a `where` filter (and optional `where_document`) and uses the same filter grammar as query/get. Operators include `$eq`, `$ne`, `$gt/$gte/$lt/$lte`, `$in/$nin`, plus logical `$and/$or` for compound filters.
 - **Filter machinery:** Chroma’s core filter implementation treats delete filters consistently with query/get; the same `Where` structures and operators back all three operations.
 - **MUI modal choice:** MUI `Dialog` (built on `Modal`) provides `open` and `onClose` and is appropriate for a simple directory picker modal.
+- **Directory picker endpoint (codebase):** there is no existing route or helper that lists directories under `HOST_INGEST_DIR`; current ingest routes only validate required fields and `GET /ingest/roots` lists stored ingest metadata (not live filesystem contents). Existing path validation helpers live in `server/src/ingest/pathMap.ts` and agents’ working-folder resolver.
+- **Directory picker endpoint (recommended behavior):** use `fs.promises.readdir` with `withFileTypes: true` to list child directories, and validate the requested path by resolving/canonicalizing it against the allowed base (e.g., `path.resolve` + `fs.realpath`) before listing. Reject any request whose resolved path is outside the base. This aligns with common path traversal guidance (avoid trusting `path.join` alone; enforce a base directory allowlist).
 
 ---
 

@@ -2382,7 +2382,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: 9bb1be5
 
 #### Overview
 

@@ -443,30 +443,64 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - The roots list endpoint does not dedupe entries; the UI table rows are keyed by `root.path`, so duplicates cause unstable rendering.
        - Implement dedupe at write time (see below): delete existing root metadata entries for `{ root }` immediately before writing the new run’s root metadata entry.
 
-3. [ ] Implement delta flow inside `processRun()` for `operation === 'reembed'`:
+3. [ ] Remove the current re-embed early-return so delta can process deletions even when discovery returns zero eligible files:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
-     - Do not early-return “skipped” just because the discovered file list is empty.
-       - Today, `processRun` returns early for re-embed when `files.length === 0`.
-       - Delta re-embed must still be able to detect that *previously ingested* files were deleted (including “all files deleted” case), which requires comparing against the `ingest_files` index even when discovery returns zero eligible files.
+     - Today, `processRun` returns early for re-embed when `files.length === 0`.
+     - Delta re-embed must still be able to detect that *previously ingested* files were deleted (including "all files deleted"), so it must still load the `ingest_files` index and compute deletions.
+
+4. [ ] Load the previous per-file index and compute hashes for the newly discovered files:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
      - Load the previous per-file index from Mongo (`ingest_files`) for the discovered `root`.
      - Hash all discovered files using SHA-256 of file bytes.
+     - Ensure relPath normalization is consistent with existing ingest/discovery.
+
+5. [ ] Compute the delta plan and decide the "work to perform" set:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
      - Use `buildDeltaPlan(...)` to compute `added/changed/unchanged/deleted`.
+     - Ensure determinism (stable ordering of work by `relPath`).
+
+6. [ ] Implement the no-op ("nothing changed") behavior for delta re-embed:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
      - If `added.length + changed.length + deleted.length === 0`:
        - Do not write to Chroma.
        - Mark the run as `skipped` with a clear `message`.
-     - If there are deletions only (`deleted.length > 0` and `added.length + changed.length === 0`):
-       - Perform the required deletes in Chroma.
-       - The run must not claim “No changes detected”. Use a terminal message that indicates work occurred (state may remain `skipped` if no embeddings were required).
+
+7. [ ] Implement deletions-only delta runs (no new embeddings required):
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - If `deleted.length > 0` and `added.length + changed.length === 0`:
+       - Perform the required deletes in Chroma for `{ root, relPath }`.
+       - The run must not claim "No changes detected". Use a terminal message that indicates work occurred.
+       - State may remain `skipped` if no embeddings were required.
+
+8. [ ] Embed only the `added + changed` files (unchanged files are not re-embedded):
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
      - For each changed/added file:
        - Chunk and embed as usual.
        - Store vector metadata including `root`, `relPath`, `fileHash`, `chunkHash`, and `runId`.
-     - After all new vectors for the run are successfully written:
-       - For each changed file, delete older vectors for that `{ root, relPath }` where `fileHash != newHash` (use a Chroma `where: { $and: [...] }` structure).
-       - For each deleted file, delete vectors for `{ root, relPath }`.
+     - Do not touch vectors for `unchanged` files.
 
-4. [ ] Ensure root metadata is updated and deduped on run completion (prevents duplicate rows in `/ingest/roots`):
+9. [ ] After new vectors are successfully written, apply post-write deletes for changed/deleted files:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - For each changed file:
+       - Delete older vectors for `{ root, relPath }` where `fileHash != newHash` (use a Chroma `where: { $and: [...] }` structure).
+     - For each deleted file:
+       - Delete vectors for `{ root, relPath }`.
+
+10. [ ] Ensure root metadata is updated and deduped on run completion (prevents duplicate rows in `/ingest/roots`):
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -474,20 +508,20 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - This applies for successful `start` and `reembed` runs.
      - This must not delete vectors; it only keeps the roots listing stable.
 
-5. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
+11. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/mongo/repo.ts`
    - Requirements:
      - Initial ingest (`operation === 'start'`): after a successful run, write `ingest_files` rows for all discovered files and their `fileHash` values.
-       - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a “full rebuild” operation).
+       - KISS approach: clear existing rows for the root and insert/upsert all discovered file hashes (start ingest is already a "full rebuild" operation).
      - Re-embed (`operation === 'reembed'`): after a successful run, update the index using the delta plan:
        - Upsert rows for `added + changed`.
        - Delete rows for `deleted`.
        - Do not rewrite rows for `unchanged`.
      - Do not update the Mongo per-file index on cancellation or error.
 
-6. [ ] Implement “legacy root upgrade” behavior:
+12. [ ] Implement "legacy root upgrade" behavior:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/mongo/repo.ts`
@@ -499,18 +533,16 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Perform a full ingest of all discovered files (same behavior as current re-embed today).
        - Populate `ingest_files` for all files as part of the successful run.
 
-7. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+13. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
      - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
-8. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
+14. [ ] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
    - Files to add:
      - `server/src/test/support/mongoContainer.ts`
-     - `server/src/test/features/ingest-delta-reembed.feature`
-     - `server/src/test/steps/ingest-delta-reembed.steps.ts`
    - Files to edit:
      - `server/cucumber.js`
    - Requirements:
@@ -526,24 +558,34 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
          - `mongodb://<host>:<mappedPort>/db?directConnection=true`
        - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
        - Ensure `disconnectMongo()` and container stop happen in an `After`/`AfterAll` hook for tagged scenarios.
+
+15. [ ] Add the Cucumber feature file describing delta semantics:
+   - Files to add:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+   - Requirements:
      - The feature must prove:
-       - “Changed file” → vectors for old hash are deleted, vectors for new hash exist.
-       - “Deleted file” → vectors for the deleted relPath are removed.
-       - “Unchanged file” → vectors remain untouched.
-      - The `ingest_files` index matches the post-run truth:
-        - changed file hash updated
-        - deleted file row removed
-        - unchanged file row remains unchanged
-       - “All files deleted” case is handled:
+       - "Changed file" → vectors for old hash are deleted, vectors for new hash exist.
+       - "Deleted file" → vectors for the deleted relPath are removed.
+       - "Unchanged file" → vectors remain untouched.
+       - The `ingest_files` index matches the post-run truth:
+         - changed file hash updated
+         - deleted file row removed
+         - unchanged file row remains unchanged
+       - "All files deleted" case is handled:
          - discovery returns 0 eligible files
          - vectors for previously indexed files are deleted
          - `ingest_files` rows for the root are removed
          - run ends in a terminal state and status polling completes
+
+16. [ ] Implement the step definitions for the delta feature:
+   - Files to add:
+     - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+   - Requirements:
      - The step definitions must query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert the fileHash conditions.
      - The step definitions must query Mongo (`ingest_files`) to assert the per-file index rows are correct.
      - The test must not rely on manual inspection.
 
-9. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+17. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
    - Files to edit:
      - `design.md`
      - `projectStructure.md`
@@ -551,7 +593,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
      - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
 
 #### Testing
 
@@ -798,7 +840,16 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Files to read:
      - `client/src/components/ingest/IngestForm.tsx`
 
-2. [ ] Add a small directory picker dialog component:
+2. [ ] Add a small, typed fetch helper for `GET /ingest/dirs` (keeps the dialog component simple):
+   - Files to add:
+     - `client/src/components/ingest/ingestDirsApi.ts`
+   - Requirements:
+     - Export minimal types matching the server contract:
+       - success: `{ base: string; path: string; dirs: string[] }`
+       - error: `{ status: 'error'; code: 'OUTSIDE_BASE' | 'NOT_FOUND' | 'NOT_DIRECTORY' }`
+     - Export a single function like `fetchIngestDirs(params: { path?: string }): Promise<...>`.
+
+3. [ ] Add a small directory picker dialog component (UI shell + loading/error states):
    - Files to add:
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
    - Requirements:
@@ -808,23 +859,41 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
        - `onClose(): void`
        - `onPick(path: string): void`
      - UI:
-       - Show current `path` and list child directories as buttons/list items.
-       - Allow navigation into a directory by clicking it.
-       - Provide an “Up” action unless already at `base`.
-       - Provide a “Use this folder” action for the currently viewed folder.
+       - Use MUI `Dialog` with title and actions.
+       - Show current `path` and a list region.
+       - Render loading and error states.
      - Data loading:
-       - Call `GET /ingest/dirs` and handle the success/error shapes from the story contract.
+       - Call the helper from `ingestDirsApi.ts`.
 
-3. [ ] Wire the dialog into the Folder path input:
+4. [ ] Implement directory navigation within the dialog:
+   - Files to edit:
+     - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+   - Requirements:
+     - Allow navigation into a directory by clicking it.
+     - Provide an "Up" action unless already at `base`.
+     - Provide a "Use this folder" action for the currently viewed folder.
+
+5. [ ] Wire the dialog into the Folder path input:
    - Files to edit:
      - `client/src/components/ingest/IngestForm.tsx`
    - Requirements:
-     - Add a “Choose folder…” button next to the Folder path field.
+     - Add a "Choose folder…" button next to the Folder path field.
      - When a folder is picked, update the text field value to the chosen absolute server path.
      - The Folder path text field must remain editable even if the picker is available.
      - Do not use browser filesystem APIs (no native directory pickers).
 
-4. [ ] Add client tests proving the picker updates the field:
+6. [ ] Add client tests for the directory picker component:
+   - Files to add:
+     - `client/src/test/directoryPickerDialog.test.tsx`
+   - Requirements:
+     - Mock `fetch` for `GET /ingest/dirs` success and error payloads.
+     - Assert:
+       - loading state appears then renders directory list
+       - clicking a directory triggers navigation (subsequent fetch with updated path)
+       - "Use this folder" calls `onPick` with the current path
+       - error payloads render a clear message
+
+7. [ ] Add/extend ingest form tests proving the picker updates the Folder path field:
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -832,7 +901,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - Open the dialog, choose a directory, and assert the Folder path input value changes.
      - Include an error-path test (server returns `{ status:'error', code:'OUTSIDE_BASE' }`) and assert the dialog shows an error message.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
 
 #### Testing
 
@@ -866,40 +935,52 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
 
 #### Subtasks
 
-1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no “it should” assumptions).
+1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no "it should" assumptions).
 
-2. [ ] Build the server outside Docker:
+2. [ ] Manual verification checklist (before running full automation):
+   - Requirements:
+     - Trigger a delta re-embed where nothing changed and confirm:
+       - server returns a terminal `skipped` state with a clear message
+       - the client stops polling and re-enables actions
+     - Trigger a delta re-embed where at least one file is deleted and confirm:
+       - the run does not claim "No changes detected"
+       - deleted file vectors disappear from Chroma and `ingest_files` rows are removed
+     - Open the directory picker and confirm it:
+       - lists directories under the allowed base
+       - updates the Folder path field when "Use this folder" is chosen
+
+3. [ ] Build the server outside Docker:
    - Command:
      - `npm run build --workspace server`
 
-3. [ ] Build the client outside Docker:
+4. [ ] Build the client outside Docker:
    - Command:
      - `npm run build --workspace client`
 
-4. [ ] Run server tests (unit + integration + cucumber):
+5. [ ] Run server tests (unit + integration + cucumber):
    - Command:
      - `npm run test --workspace server`
 
-5. [ ] Run client Jest tests:
+6. [ ] Run client Jest tests:
    - Command:
      - `npm run test --workspace client`
 
-6. [ ] Perform a clean Docker build and restart Compose:
+7. [ ] Perform a clean Docker build and restart Compose:
    - Commands:
      - `npm run compose:build:clean`
      - `npm run compose:up`
 
-7. [ ] Run e2e tests:
+8. [ ] Run e2e tests:
    - Command:
      - `npm run e2e`
 
-8. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
+9. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
    - Required screenshots:
      - `0000020-9-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
      - `0000020-9-ingest-picker.png` (Directory picker dialog open)
      - `0000020-9-ingest-delta.png` (Roots table reflects a completed re-embed run)
 
-9. [ ] Documentation updates (must be accurate and complete):
+10. [ ] Documentation updates (must be accurate and complete):
    - Files to edit:
      - `README.md`
      - `design.md`
@@ -909,11 +990,12 @@ Perform end-to-end verification for the story: delta re-embed behavior, director
      - Document the `ingest_files` collection and how it affects delta re-embed.
      - Ensure `projectStructure.md` includes any new files added in this story.
 
-10. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+11. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
 
-11. [ ] Bring Compose down:
+12. [ ] Bring Compose down:
    - Command:
      - `npm run compose:down`
+
 
 #### Testing
 

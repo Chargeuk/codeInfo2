@@ -202,4 +202,593 @@ None (resolved; details folded into Description / Acceptance Criteria / Out Of S
 
 # Tasks
 
-(Not yet created — this story is still in the “Description/Acceptance Criteria/Out Of Scope/Questions” phase.)
+### 1. MongoDB per-file index schema (`ingest_files`)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-file hash index keyed by `{ root, relPath }`. This index is the upstream source of truth that enables delta decisions without scanning chunk metadata in Chroma.
+
+#### Documentation Locations
+
+- Mongoose v9 schema + indexes: Context7 `/automattic/mongoose/9.0.1`
+- MongoDB index concepts (unique compound index): https://www.mongodb.com/docs/manual/indexes/
+- Node.js test runner (server uses node:test for unit/integration tests): https://nodejs.org/api/test.html
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Read existing Mongoose model patterns so the new model matches repo conventions:
+   - Docs to read:
+     - Context7 `/automattic/mongoose/9.0.1`
+   - Files to read:
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/turn.ts`
+
+2. [ ] Create the `ingest_files` model with the required document shape:
+   - Files to add:
+     - `server/src/mongo/ingestFile.ts`
+   - Requirements:
+     - Export a TS `IngestFile` interface with fields:
+       - `root: string`
+       - `relPath: string`
+       - `fileHash: string`
+       - `updatedAt: Date`
+     - Use Mongoose `timestamps: true` so `updatedAt` is maintained automatically (and is available for debugging).
+     - Use a stable model name (e.g. `IngestFile`) and follow the existing `models.<Name> || model(...)` pattern.
+
+3. [ ] Add the required indexes:
+   - Files to edit:
+     - `server/src/mongo/ingestFile.ts`
+   - Requirements:
+     - Unique compound index: `{ root: 1, relPath: 1 }`.
+     - Non-unique index: `{ root: 1 }`.
+     - Do not add extra indexes in v1.
+
+4. [ ] Add a unit test proving the schema shape + indexes exist (no real Mongo connection):
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to add:
+     - `server/src/test/unit/ingest-files-schema.test.ts`
+   - Requirements:
+     - Assert `IngestFileModel.schema.indexes()` includes:
+       - one unique index on `root + relPath`
+       - one non-unique index on `root`
+     - Assert required fields are present on the schema.
+
+5. [ ] Update project structure docs if a new file was introduced:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new file path under the `server/src/mongo/` section.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run build --workspace client`
+
+3. [ ] `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. MongoDB per-file index repository helpers (safe when Mongo is unavailable)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add focused repository helper functions for reading/upserting/deleting `ingest_files` rows. These helpers must avoid Mongoose buffering/timeouts when Mongo is unavailable (tests and degraded runtime), so ingest can safely fall back to non-delta behavior.
+
+#### Documentation Locations
+
+- Mongoose v9 bulkWrite + updateOne upserts: Context7 `/automattic/mongoose/9.0.1`
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Read the existing Mongo repo patterns and the “Mongo unavailable” guard used elsewhere:
+   - Files to read:
+     - `server/src/mongo/repo.ts`
+     - `server/src/mongo/connection.ts`
+   - Notes:
+     - There is an existing convention of bailing out early when `mongoose.connection.readyState !== 1`.
+
+2. [ ] Add repository helper functions for `ingest_files`:
+   - Files to add:
+     - `server/src/mongo/ingestFilesRepo.ts`
+   - Requirements:
+     - All helpers must return `null` (or a clearly typed `{ ok:false }`) when `mongoose.connection.readyState !== 1`.
+     - Implement:
+       - `listIngestFilesByRoot(root: string)` → returns `Array<{ relPath: string; fileHash: string }>`
+       - `upsertIngestFiles(params: { root: string; files: Array<{ relPath: string; fileHash: string }> })` → bulk upsert
+       - `deleteIngestFilesByRelPaths(params: { root: string; relPaths: string[] })` → deleteMany
+       - `clearIngestFilesByRoot(root: string)` → deleteMany (used for legacy upgrade/full rebuilds)
+     - KISS: do not add “clever” partial updates (no mtime/size shortcuts; no chunk-level indexing).
+
+3. [ ] Add unit tests proving the helpers are “safe” when Mongo is disconnected:
+   - Docs to read:
+     - https://nodejs.org/api/test.html
+   - Files to add:
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Requirements:
+     - Override `mongoose.connection.readyState` to `0` and assert each helper returns `null` quickly.
+     - The test must not attempt a real Mongo connection.
+
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Delta decision engine (pure planning of new/changed/deleted files)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Create a pure “delta planner” that compares the discovered on-disk file list (with hashes) to the previous `ingest_files` index and produces a deterministic plan: which files are `new`, `changed`, `unchanged`, and `deleted`. This module is intentionally DB/Chroma-free so it can be unit-tested easily.
+
+#### Documentation Locations
+
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Create the delta planner module:
+   - Files to add:
+     - `server/src/ingest/deltaPlan.ts`
+   - Requirements:
+     - Export minimal types:
+       - `IndexedFile = { relPath: string; fileHash: string }`
+       - `DiscoveredFileHash = { absPath: string; relPath: string; fileHash: string }`
+     - Export a single function:
+       - `buildDeltaPlan(params: { previous: IndexedFile[]; discovered: DiscoveredFileHash[] })`
+     - The return value must contain:
+       - `unchanged: IndexedFile[]`
+       - `changed: DiscoveredFileHash[]`
+       - `added: DiscoveredFileHash[]`
+       - `deleted: IndexedFile[]`
+     - Determinism:
+       - Always sort results by `relPath` ascending so progress/logging is stable.
+     - KISS: do not incorporate “legacy root detection” here (that is decided by whether Mongo has any rows for the root).
+
+2. [ ] Add unit tests covering common scenarios:
+   - Files to add:
+     - `server/src/test/unit/ingest-delta-plan.test.ts`
+   - Required test cases:
+     - “No previous, discovered has 2 files” → all are `added`.
+     - “Previous has 2, discovered matches hashes” → all are `unchanged`.
+     - “Previous has 2, discovered changes one hash” → 1 `changed`, 1 `unchanged`.
+     - “Previous has 2, discovered missing one relPath” → 1 `deleted`.
+     - “Mixed add + change + delete” in one run.
+
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Server delta re-embed (file-level replacement) + legacy upgrade
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `ingest_files` index and file SHA-256 hashes. The server must only re-embed changed/new files, delete vectors for deleted files, and replace vectors for changed files by adding new vectors first and deleting old vectors afterwards.
+
+#### Documentation Locations
+
+- Chroma delete filters (`where` schema, `$and/$or`, `$ne`, `$in` constraints): https://docs.trychroma.com/ and https://cookbook.chromadb.dev/
+- Mongoose v9 (connecting, guarding `readyState`, and simple query patterns): Context7 `/automattic/mongoose/9.0.1`
+- Node fs/promises (readFile, readdir) and crypto hashing: https://nodejs.org/api/fs.html and https://nodejs.org/api/crypto.html
+- Cucumber guides (new feature + step definitions): https://cucumber.io/docs/guides/
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Read the current ingest flow so delta changes are applied upstream (not bolted on downstream):
+   - Files to read:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/ingest/discovery.ts`
+     - `server/src/ingest/hashing.ts`
+     - `server/src/ingest/chromaClient.ts`
+     - `server/src/routes/ingestReembed.ts`
+
+2. [ ] Update `reembed()` so it no longer performs a root-wide delete before starting:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - `reembed(rootPath)` must still validate the root exists in the roots collection (as today).
+     - It must start the ingest run with `operation: 'reembed'` and allow `processRun()` to decide full vs delta.
+     - Do not delete vectors/roots up front.
+
+3. [ ] Implement delta flow inside `processRun()` for `operation === 'reembed'`:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - Load the previous per-file index from Mongo (`ingest_files`) for the discovered `root`.
+     - Hash all discovered files using SHA-256 of file bytes.
+     - Use `buildDeltaPlan(...)` to compute `added/changed/unchanged/deleted`.
+     - If `added.length + changed.length === 0`:
+       - Do not write to Chroma.
+       - Mark the run as `skipped` with a clear `message`.
+     - For each changed/added file:
+       - Chunk and embed as usual.
+       - Store vector metadata including `root`, `relPath`, `fileHash`, `chunkHash`, and `runId`.
+     - After all new vectors for the run are successfully written:
+       - For each changed file, delete older vectors for that `{ root, relPath }` where `fileHash != newHash` (use a Chroma `where: { $and: [...] }` structure).
+       - For each deleted file, delete vectors for `{ root, relPath }`.
+
+4. [ ] Implement “legacy root upgrade” behavior:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/mongo/ingestFilesRepo.ts`
+   - Requirements:
+     - Legacy root definition: there are **zero** `ingest_files` rows for the root.
+     - When legacy is detected on a re-embed:
+       - Delete all vectors for `{ root }`.
+       - Delete all root metadata entries for `{ root }`.
+       - Perform a full ingest of all discovered files (same behavior as current re-embed today).
+       - Populate `ingest_files` for all files as part of the successful run.
+
+5. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
+     - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
+
+6. [ ] Add Cucumber coverage for delta semantics (with a real Mongo container):
+   - Files to add:
+     - `server/src/test/features/ingest-delta-reembed.feature`
+     - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+   - Requirements:
+     - Use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
+     - The feature must prove:
+       - “Changed file” → vectors for old hash are deleted, vectors for new hash exist.
+       - “Deleted file” → vectors for the deleted relPath are removed.
+       - “Unchanged file” → vectors remain untouched.
+     - The step definitions must query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert the fileHash conditions.
+     - The test must not rely on manual inspection.
+
+7. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+   - Files to edit:
+     - `design.md`
+     - `projectStructure.md`
+   - Requirements:
+     - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
+     - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Server directory picker endpoint (`GET /ingest/dirs`)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add a small server endpoint that lists child directories under a single allowed base (`HOST_INGEST_DIR` default `/data`). This powers the “Choose folder…” UI without requiring browser filesystem access or switching ingest to an upload-based model.
+
+#### Documentation Locations
+
+- Express 5 routing (new endpoint): https://expressjs.com/en/guide/routing.html and https://expressjs.com/en/5x/api.html
+- Node fs/promises readdir (Dirent + withFileTypes): https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
+- Node path resolution + normalization: https://nodejs.org/api/path.html
+- SuperTest (route testing patterns used by server): Context7 `/ladjs/supertest`
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Read existing ingest route patterns for consistent error handling and mount style:
+   - Files to read:
+     - `server/src/routes/ingestStart.ts`
+     - `server/src/routes/ingestRoots.ts`
+     - `server/src/index.ts`
+
+2. [ ] Implement the directory listing route:
+   - Files to add:
+     - `server/src/routes/ingestDirs.ts`
+   - Requirements:
+     - Route: `GET /ingest/dirs?path=<absolute server path>`.
+     - Base path:
+       - `base = process.env.HOST_INGEST_DIR || '/data'`.
+       - If query `path` is omitted, list the base.
+     - Validation:
+       - Reject lexically out-of-base requests with `400` and `{ status:'error', code:'OUTSIDE_BASE' }`.
+       - If `path` doesn’t exist: `404` and `{ status:'error', code:'NOT_FOUND' }`.
+       - If `path` exists but is not a directory: `400` and `{ status:'error', code:'NOT_DIRECTORY' }`.
+       - Do not use `realpath` containment checks (symlink escapes are allowed per story).
+     - Success response:
+       - `{ base, path, dirs: string[] }` where `dirs` are immediate child directory names (not full paths), sorted ascending.
+
+3. [ ] Mount the router in the server:
+   - Files to edit:
+     - `server/src/index.ts`
+   - Requirements:
+     - Mount the router at `/` like other ingest routes.
+
+4. [ ] Add server unit tests for the endpoint:
+   - Files to add:
+     - `server/src/test/unit/ingest-dirs-router.test.ts`
+   - Requirements:
+     - Create a temp directory tree.
+     - Set `process.env.HOST_INGEST_DIR` to the temp base for the test.
+     - Assert:
+       - default request (no path) lists child directories.
+       - `OUTSIDE_BASE` for `path` outside the base.
+       - `NOT_FOUND` for missing path.
+       - `NOT_DIRECTORY` when `path` points at a file.
+
+5. [ ] Update docs if files were added:
+   - Files to edit:
+     - `design.md`
+     - `projectStructure.md`
+   - Requirements:
+     - Add the endpoint contract to `design.md` (request + responses).
+     - Update `projectStructure.md` with new router/test file paths.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+
+2. [ ] `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 6. Ingest UI: remove duplicate “model locked” notice
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Reduce UI noise by showing the locked embedding model notice only once on the Ingest page (not duplicated inside the form). This is a pure UI change and should not alter ingest behavior.
+
+#### Documentation Locations
+
+- MUI Alert component docs (via MUI MCP; use the same version as the repo): MUI MCP `@mui/material@6.4.12`
+- React testing patterns (repo uses Testing Library): https://testing-library.com/docs/react-testing-library/intro/
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Confirm the duplication exists today and identify the two render locations:
+   - Files to read:
+     - `client/src/pages/IngestPage.tsx`
+     - `client/src/components/ingest/IngestForm.tsx`
+
+2. [ ] Remove the in-form locked notice:
+   - Files to edit:
+     - `client/src/components/ingest/IngestForm.tsx`
+   - Requirements:
+     - Remove the `Alert` that renders “Embedding model locked to …” inside the form.
+     - Keep the existing behavior that disables the model select when `lockedModelId` exists.
+
+3. [ ] Ensure the page-level notice is shown in the correct location:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Requirements:
+     - Render exactly one notice “Embedding model locked to <id>”.
+     - Place it directly below the “Start a new ingest” title (not duplicated elsewhere).
+
+4. [ ] Update client tests:
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Update/remove assertions that expect the lock banner to be inside `IngestForm`.
+     - Keep (or add) an assertion that the Embedding model select is disabled when `lockedModelId` is provided.
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 7. Ingest UI: server-backed directory picker modal (“Choose folder…”)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add a “Choose folder…” affordance to the Folder path field that opens a server-backed directory picker modal. The modal browses directories under the allowed server base (`HOST_INGEST_DIR` default `/data`) and writes the selected absolute server path into the existing editable text field.
+
+#### Documentation Locations
+
+- MUI Dialog docs (via MUI MCP; use the same version as the repo): MUI MCP `@mui/material@6.4.12`
+- Fetch API (query string building): https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Tooling references for required verification commands (npm run, ESLint CLI, Prettier CLI): https://docs.npmjs.com/cli/v10/commands/npm-run-script, https://eslint.org/docs/latest/use/command-line-interface, Context7 `/prettier/prettier/3.6.2`
+
+#### Subtasks
+
+1. [ ] Read the existing ingest form state management and serverBase usage:
+   - Files to read:
+     - `client/src/components/ingest/IngestForm.tsx`
+
+2. [ ] Add a small directory picker dialog component:
+   - Files to add:
+     - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+   - Requirements:
+     - Props:
+       - `open: boolean`
+       - `path?: string` (current path to browse; optional)
+       - `onClose(): void`
+       - `onPick(path: string): void`
+     - UI:
+       - Show current `path` and list child directories as buttons/list items.
+       - Allow navigation into a directory by clicking it.
+       - Provide an “Up” action unless already at `base`.
+       - Provide a “Use this folder” action for the currently viewed folder.
+     - Data loading:
+       - Call `GET /ingest/dirs` and handle the success/error shapes from the story contract.
+
+3. [ ] Wire the dialog into the Folder path input:
+   - Files to edit:
+     - `client/src/components/ingest/IngestForm.tsx`
+   - Requirements:
+     - Add a “Choose folder…” button next to the Folder path field.
+     - When a folder is picked, update the text field value to the chosen absolute server path.
+     - The Folder path text field must remain editable even if the picker is available.
+     - Do not use browser filesystem APIs (no native directory pickers).
+
+4. [ ] Add client tests proving the picker updates the field:
+   - Files to edit:
+     - `client/src/test/ingestForm.test.tsx`
+   - Requirements:
+     - Mock `fetch` for `GET /ingest/dirs`.
+     - Open the dialog, choose a directory, and assert the Folder path input value changes.
+     - Include an error-path test (server returns `{ status:'error', code:'OUTSIDE_BASE' }`) and assert the dialog shows an error message.
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 8. Final verification (acceptance criteria, clean builds, docs, and PR summary)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Perform end-to-end verification for the story: delta re-embed behavior, directory picker endpoint + UI, and documentation accuracy. This task ensures the story’s acceptance criteria are met and produces a PR-ready summary.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Re-check the story Acceptance Criteria section and confirm each bullet is demonstrably satisfied (no “it should” assumptions).
+
+2. [ ] Build the server outside Docker:
+   - Command:
+     - `npm run build --workspace server`
+
+3. [ ] Build the client outside Docker:
+   - Command:
+     - `npm run build --workspace client`
+
+4. [ ] Run server tests (unit + integration + cucumber):
+   - Command:
+     - `npm run test --workspace server`
+
+5. [ ] Run client Jest tests:
+   - Command:
+     - `npm run test --workspace client`
+
+6. [ ] Perform a clean Docker build and restart Compose:
+   - Commands:
+     - `npm run compose:build:clean`
+     - `npm run compose:up`
+
+7. [ ] Run e2e tests:
+   - Command:
+     - `npm run e2e`
+
+8. [ ] Manual Playwright-MCP smoke check and screenshots (save to `./test-results/screenshots/`):
+   - Required screenshots:
+     - `0000020-8-ingest-page.png` (Ingest page shows single lock notice + Choose folder button)
+     - `0000020-8-ingest-picker.png` (Directory picker dialog open)
+     - `0000020-8-ingest-delta.png` (Roots table reflects a completed re-embed run)
+
+9. [ ] Documentation updates (must be accurate and complete):
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+     - `projectStructure.md`
+   - Requirements:
+     - Document `/ingest/dirs`.
+     - Document the `ingest_files` collection and how it affects delta re-embed.
+     - Ensure `projectStructure.md` includes any new files added in this story.
+
+10. [ ] Create a PR summary comment that covers all changes (server + client + tests) and references any new commands/behaviors.
+
+11. [ ] Bring Compose down:
+   - Command:
+     - `npm run compose:down`
+
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
+
+2. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- 

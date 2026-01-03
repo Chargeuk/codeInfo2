@@ -402,7 +402,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 
 ### 2. MongoDB per-file index repository helpers (safe when Mongo is unavailable)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -417,7 +417,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 #### Subtasks
 
-1. [ ] Read the existing Mongo repo patterns and the “Mongo unavailable” guard used elsewhere:
+1. [x] Read the existing Mongo repo patterns and the “Mongo unavailable” guard used elsewhere:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1` (Connections, buffering, `readyState`)
    - Files to read:
@@ -426,7 +426,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Notes:
      - There is an existing convention of bailing out early when `mongoose.connection.readyState !== 1`.
 
-2. [ ] Add repository helper functions for `ingest_files`:
+2. [x] Add repository helper functions for `ingest_files`:
    - Docs to read:
      - Context7 `/automattic/mongoose/9.0.1` (bulkWrite, updateOne upsert, deleteMany)
    - Reuse existing repo module (do not introduce a new “repo file” pattern):
@@ -463,7 +463,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
      );
      ```
 
-3. [ ] Create the server unit test suite for the `ingest_files` repo guard behavior:
+3. [x] Create the server unit test suite for the `ingest_files` repo guard behavior:
    - Test type: Server unit (node:test)
    - Purpose: ensure ingest can run in degraded mode without Mongoose buffering/hanging when Mongo is down.
    - Docs to read:
@@ -481,7 +481,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
      // Make sure you restore the original descriptor in a cleanup/finally.
      ```
 
-4. [ ] Unit test: `listIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
+4. [x] Unit test: `listIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Purpose: ensure delta logic can detect degraded-mode and fall back safely.
@@ -492,7 +492,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null` without contacting Mongo.
 
-5. [ ] Unit test: `upsertIngestFiles(...)` returns `null` quickly when Mongo is disconnected:
+5. [x] Unit test: `upsertIngestFiles(...)` returns `null` quickly when Mongo is disconnected:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Purpose: ensure ingest does not hang on write attempts when Mongo is down.
@@ -503,7 +503,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
 
-6. [ ] Unit test: `deleteIngestFilesByRelPaths(...)` returns `null` quickly when Mongo is disconnected:
+6. [x] Unit test: `deleteIngestFilesByRelPaths(...)` returns `null` quickly when Mongo is disconnected:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Purpose: ensure delta runs that need deletions don’t block when Mongo is down.
@@ -514,7 +514,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
 
-7. [ ] Unit test: `clearIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
+7. [x] Unit test: `clearIngestFilesByRoot(root)` returns `null` quickly when Mongo is disconnected:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Purpose: ensure legacy-upgrade/full-rebuild helpers don’t block in degraded mode.
@@ -525,7 +525,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
 
-8. [ ] Add server log entries to confirm `ingest_files` repo helpers are loaded:
+8. [x] Add server log entries to confirm `ingest_files` repo helpers are loaded:
    - Purpose: make it obvious (via Logs page) that the new Mongo helper surface is present.
    - Files to edit:
      - `server/src/mongo/repo.ts`
@@ -536,7 +536,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
        - `context`: include `{ module: 'server/src/mongo/repo.ts' }`
      - This log must show up in the Logs page (`/logs`) after `npm run compose:up`.
 
-9. [ ] Update `projectStructure.md` to include the new unit test file:
+9. [x] Update `projectStructure.md` to include the new unit test file:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -544,38 +544,52 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - Add the new file path (`server/src/test/unit/ingest-files-repo-guards.test.ts`) under the server unit test section.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (Mongo degraded-mode regression):
+8. [x] Manual Playwright-MCP check (Mongo degraded-mode regression):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
-     - Load `http://localhost:5001/chat` and confirm chat history renders even if Mongo is unavailable (banner behavior is acceptable).
-     - Load `http://localhost:5001/ingest` and confirm the page renders without hard failures.
-     - Load `http://localhost:5001/logs`, search for `0000020 ingest_files repo helpers ready`, and confirm at least one **server** log entry exists.
+     - Load `http://host.docker.internal:5001/chat` and confirm chat history renders even if Mongo is unavailable (banner behavior is acceptable).
+     - Load `http://host.docker.internal:5001/ingest` and confirm the page renders without hard failures.
+     - Load `http://host.docker.internal:5001/logs`, search for `0000020 ingest_files repo helpers ready`, and confirm at least one **server** log entry exists.
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-03: Reviewed existing mongo repo guard pattern (`mongoose.connection.readyState !== 1`) and Mongoose v9 connection/buffering docs for degraded-mode safety.
+- 2026-01-03: Added `ingest_files` repo helpers in `server/src/mongo/repo.ts` with early readyState guards and simple bulk upsert/delete primitives.
+- 2026-01-03: Added unit coverage in `server/src/test/unit/ingest-files-repo-guards.test.ts` that forces `readyState = 0` and asserts helpers return `null` without calling model methods.
+- 2026-01-03: Added a module-init server log entry `0000020 ingest_files repo helpers ready` to make helper availability visible in `/logs`.
+- 2026-01-03: Documented the new unit test file in `projectStructure.md`.
+- 2026-01-03: Ran `npm run lint --workspaces` (warnings only, pre-existing import-order warnings remain) and `npm run format:check --workspaces` (fixed with `npm run format --workspaces`).
+- 2026-01-03: Testing progress: `npm run build --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run build --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace server` passed.
+- 2026-01-03: Testing progress: `npm run test --workspace client` passed.
+- 2026-01-03: Testing progress: `npm run e2e` passed.
+- 2026-01-03: Testing progress: `npm run compose:build` passed.
+- 2026-01-03: Testing progress: `npm run compose:up` started containers successfully.
+- 2026-01-03: Manual degraded-mode smoke: stopped compose `mongo` service, then loaded `http://host.docker.internal:5001/chat`, `/ingest`, `/logs` (all 200) and verified `GET http://host.docker.internal:5010/logs?text=0000020%20ingest_files%20repo%20helpers%20ready&source=server` returned 1 item.
+- 2026-01-03: Testing progress: `npm run compose:down` stopped local compose stack.
 
 ---
 

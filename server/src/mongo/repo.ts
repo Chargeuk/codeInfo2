@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { append } from '../logStore.js';
 import {
   ConversationModel,
   Conversation,
@@ -10,6 +11,7 @@ import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from './events.js';
+import { IngestFileModel } from './ingestFile.js';
 import {
   TurnModel,
   Turn,
@@ -18,6 +20,14 @@ import {
   TurnStatus,
   TurnSource,
 } from './turn.js';
+
+append({
+  level: 'info',
+  message: '0000020 ingest_files repo helpers ready',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: { module: 'server/src/mongo/repo.ts' },
+});
 
 function toConversationEvent(doc: Conversation): ConversationEventSummary {
   return {
@@ -417,4 +427,68 @@ export async function bulkDeleteConversations(
 
 function toDate(value: string | Date): Date {
   return value instanceof Date ? value : new Date(value);
+}
+
+export type IngestFileIndexRow = { relPath: string; fileHash: string };
+
+export async function listIngestFilesByRoot(
+  root: string,
+): Promise<IngestFileIndexRow[] | null> {
+  // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const docs = (await IngestFileModel.find({ root })
+    .select({ _id: 0, relPath: 1, fileHash: 1 })
+    .lean()
+    .exec()) as IngestFileIndexRow[];
+
+  return docs;
+}
+
+export async function upsertIngestFiles(params: {
+  root: string;
+  files: IngestFileIndexRow[];
+}): Promise<{ ok: true } | null> {
+  // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, files } = params;
+  if (files.length === 0) return { ok: true };
+
+  await IngestFileModel.bulkWrite(
+    files.map((file) => ({
+      updateOne: {
+        filter: { root, relPath: file.relPath },
+        update: { $set: { fileHash: file.fileHash } },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  );
+
+  return { ok: true };
+}
+
+export async function deleteIngestFilesByRelPaths(params: {
+  root: string;
+  relPaths: string[];
+}): Promise<{ ok: true } | null> {
+  // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, relPaths } = params;
+  if (relPaths.length === 0) return { ok: true };
+
+  await IngestFileModel.deleteMany({ root, relPath: { $in: relPaths } }).exec();
+  return { ok: true };
+}
+
+export async function clearIngestFilesByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  // Avoid Mongoose buffering timeouts when Mongo is unavailable (tests and degraded runtime).
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await IngestFileModel.deleteMany({ root }).exec();
+  return { ok: true };
 }

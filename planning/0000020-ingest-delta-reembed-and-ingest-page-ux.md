@@ -729,33 +729,63 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 15. [ ] Add the Cucumber feature file describing delta semantics:
    - Docs to read (repeat; do not skip):
-     - https://cucumber.io/docs/gherkin/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/ (high-level how scenarios/steps fit together)
+     - https://cucumber.io/docs/gherkin/reference (exact keyword/tag syntax)
    - Files to add:
      - `server/src/test/features/ingest-delta-reembed.feature`
    - Requirements:
-     - The feature must prove:
-       - "Changed file" → vectors for old hash are deleted, vectors for new hash exist.
-       - "Deleted file" → vectors for the deleted relPath are removed.
-       - "Unchanged file" → vectors remain untouched.
-       - The `ingest_files` index matches the post-run truth:
-         - changed file hash updated
-         - deleted file row removed
-         - unchanged file row remains unchanged
-       - "All files deleted" case is handled:
+     - Tagging rules (important for running the right infrastructure):
+       - Add `@mongo` only to scenarios that require Mongo assertions.
+       - Do **not** tag the whole feature file `@mongo`, because we need at least one scenario to run with Mongo disconnected.
+     - The feature must include scenarios covering the happy path, error cases, and corner cases:
+       - @mongo Changed file replacement:
+         - vectors for old hash are deleted
+         - vectors for new hash exist
+         - `ingest_files` row for the relPath is updated
+       - @mongo Deleted file cleanup:
+         - vectors for the deleted relPath are removed
+         - `ingest_files` row for the relPath is removed
+       - @mongo Added file ingest:
+         - vectors exist for the newly added relPath
+         - `ingest_files` row for the relPath is inserted
+       - @mongo Unchanged file untouched:
+         - vectors remain for the unchanged relPath (same fileHash)
+         - `ingest_files` row remains unchanged
+       - @mongo Corner case: all files deleted:
          - discovery returns 0 eligible files
          - vectors for previously indexed files are deleted
          - `ingest_files` rows for the root are removed
          - run ends in a terminal state and status polling completes
+       - @mongo Corner case: no-op re-embed:
+         - no vectors are added or removed
+         - run ends with `state: 'skipped'`
+         - message indicates no changes (must not be empty)
+       - @mongo Corner case: deletions-only re-embed:
+         - vectors are deleted for removed relPaths
+         - run message must not claim “No changes detected” (because work occurred)
+       - No-Mongo corner case: re-embed still works when Mongo is disconnected:
+         - do not start the Mongo container for this scenario
+         - run completes in a terminal state (completed/skipped)
+         - the server does not crash/hang due to Mongo being unavailable
 
 16. [ ] Implement the step definitions for the delta feature:
    - Docs to read (repeat; do not skip):
-     - https://cucumber.io/docs/cucumber/api/
+     - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
+     - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
      - https://docs.trychroma.com/ (collection.get + include metadatas)
    - Files to add:
      - `server/src/test/steps/ingest-delta-reembed.steps.ts`
    - Requirements:
-     - The step definitions must query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert the fileHash conditions.
-     - The step definitions must query Mongo (`ingest_files`) to assert the per-file index rows are correct.
+     - Query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert:
+       - presence/absence of vectors for `{ root, relPath }`
+       - `fileHash` differences across re-embed runs for changed files
+     - Query Mongo (`ingest_files`) to assert per-file index rows are correct *only for scenarios tagged `@mongo`*.
+       - For non-@mongo scenarios, do not access Mongo and do not make assertions about `ingest_files`.
+     - Add assertions for the ingest status API:
+       - poll `GET /ingest/status/:runId` until terminal
+       - assert `state` is terminal (`completed|cancelled|error|skipped`)
+       - for no-op runs, assert `state === 'skipped'` and message contains a clear reason
+       - for deletions-only runs, assert message is not "No changes detected"
      - The test must not rely on manual inspection.
 
 17. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
@@ -878,6 +908,10 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Set `process.env.HOST_INGEST_DIR` to the temp base for the test.
      - Assert:
        - default request (no path) lists child directories.
+       - `path=` (empty string) behaves like omitted path (lists base).
+       - `path=   ` (whitespace) behaves like omitted path (lists base).
+       - a non-string query value behaves like omitted path (lists base).
+       - returned `dirs` are sorted ascending.
        - `OUTSIDE_BASE` for `path` outside the base.
        - `NOT_FOUND` for missing path.
        - `NOT_DIRECTORY` when `path` points at a file.
@@ -968,6 +1002,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      - Assert:
        - polling stops after the `skipped` response
        - the UI renders a `skipped` status label
+       - the UI re-enables actions (form/buttons are not stuck disabled)
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
@@ -1160,7 +1195,11 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
      - Mock `fetch` for `GET /ingest/dirs`.
-     - Open the dialog, choose a directory, and assert the Folder path input value changes.
+     - Open the dialog (click “Choose folder…”), choose a directory, and assert the Folder path input value changes.
+     - Cover navigation corner cases:
+       - clicking a directory triggers a second fetch for the new path
+       - “Up” is disabled/hidden at the base and enabled when not at base
+       - “Use this folder” sets the current path even if no subdirectory is clicked
      - Include an error-path test (server returns `{ status:'error', code:'OUTSIDE_BASE' }`) and assert the dialog shows an error message.
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.

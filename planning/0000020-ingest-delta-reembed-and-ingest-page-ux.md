@@ -595,7 +595,7 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
 
 ### 3. Delta decision engine (pure planning of new/changed/deleted files)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -480,7 +480,15 @@ Add focused repository helper functions for reading/upserting/deleting `ingest_f
    - Requirements:
      - With `mongoose.connection.readyState = 0`, assert the helper returns `null`.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Update `projectStructure.md` to include the new unit test file:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new file path (`server/src/test/unit/ingest-files-repo-guards.test.ts`) under the server unit test section.
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -606,7 +614,17 @@ Create a pure “delta planner” that compares the discovered on-disk file list
    - Requirements:
      - Include at least one file in each of `added`, `changed`, and `deleted`.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Update `projectStructure.md` to include the new delta planner files:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new file paths:
+       - `server/src/ingest/deltaPlan.ts`
+       - `server/src/test/unit/ingest-delta-plan.test.ts`
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1036,17 +1054,27 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - for deletions-only runs, assert message is not "No changes detected"
      - The test must not rely on manual inspection.
 
-27. [ ] Update docs to reflect delta re-embed behavior and the new Mongo collection:
+27. [ ] Update `design.md` to reflect delta re-embed behavior:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md`
+   - Requirements:
+     - Describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
+
+28. [ ] Update `projectStructure.md` to include all new/changed server files added in this task:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - `design.md`: describe delta vs legacy re-embed behavior and the safety guarantee (add new vectors first, delete old after).
-     - `projectStructure.md`: list any new files added under `server/src/ingest/` and `server/src/mongo/` and `server/src/test/`.
+     - Add any new file paths introduced by this task under the appropriate server sections, including (but not limited to):
+       - `server/src/test/support/mongoContainer.ts`
+       - `server/src/test/features/ingest-delta-reembed.feature`
+       - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+       - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
-28. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+29. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1245,17 +1273,25 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
 
-13. [ ] Update docs if files were added:
+13. [ ] Update `design.md` with the `GET /ingest/dirs` endpoint contract:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md`
+   - Requirements:
+     - Add the endpoint contract (request + success/error responses).
+
+14. [ ] Update `projectStructure.md` with any new server files added in this task:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add the endpoint contract to `design.md` (request + responses).
-     - Update `projectStructure.md` with new router/test file paths.
+     - Add the new file paths:
+       - `server/src/routes/ingestDirs.ts`
+       - `server/src/test/unit/ingest-dirs-router.test.ts`
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -1621,7 +1657,17 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Requirements:
      - Mock a server error payload and assert the dialog renders an error state/message.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+12. [ ] Update `projectStructure.md` with the new client ingest picker files:
+   - Docs to read:
+     - https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new file paths:
+       - `client/src/components/ingest/ingestDirsApi.ts`
+       - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

@@ -917,21 +917,45 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: define the acceptance-level behavior of delta re-embed in a way that exercises the real HTTP API + Chroma (and Mongo where tagged).
    - Docs to read (repeat; do not skip):
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (high-level how scenarios/steps fit together)
      - https://cucumber.io/docs/gherkin/reference (exact keyword/tag syntax)
    - Files to add:
      - `server/src/test/features/ingest-delta-reembed.feature`
+   - Files to read (copy patterns; do not re-invent wiring):
+     - `server/src/test/features/ingest-reembed.feature`
+     - `server/src/test/features/ingest-roots.feature`
    - Requirements:
      - Tagging rules (important for running the right infrastructure):
        - Add `@mongo` only to scenarios that require Mongo assertions.
        - Do **not** tag the whole feature file `@mongo`, because we need at least one scenario to run with Mongo disconnected.
      - Add a short `Feature:` description that explains what delta re-embed is and why `ingest_files` exists.
+   - Copy/paste skeleton (adapt step wording to match your step definitions):
+     ```gherkin
+     Feature: Ingest delta re-embed
+
+       Background:
+         Given the ingest delta test server is running with chroma and lmstudio
+         And ingest delta chroma stores are empty
+         And ingest delta models scenario "basic"
+
+       @mongo
+       Scenario: Changed file replacement updates vectors and ingest_files
+         Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+         When I POST ingest start for the delta repo with model "embed-1"
+         Then ingest delta status for the last run becomes "completed"
+         When I change ingest delta temp file "a.ts" to "export const a=2;"
+         And I POST ingest reembed for the delta repo
+         Then ingest delta status for the last run becomes "completed"
+         And ingest delta vectors for "a.ts" have the latest fileHash
+     ```
 
 18. [ ] Cucumber scenario: @mongo Changed file replacement updates vectors and `ingest_files`:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure changed files are replaced without deleting vectors up-front.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
      - https://docs.trychroma.com/ (metadata filter semantics)
    - Files to edit:
@@ -948,6 +972,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure deletions are applied even if no re-embedding is required.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
      - https://docs.trychroma.com/
    - Files to edit:
@@ -963,6 +988,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure newly added files are embedded and indexed.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -977,6 +1003,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure delta does not churn vectors when no changes exist.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -991,6 +1018,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure deletion detection works when discovery returns zero eligible files.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -1007,6 +1035,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure no-op delta runs are detectable by the UI.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -1022,6 +1051,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: avoid misleading UX when deletions occurred.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -1036,6 +1066,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure the server does not crash/hang when Mongo is unavailable.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
    - Files to edit:
      - `server/src/test/features/ingest-delta-reembed.feature`
@@ -1050,6 +1081,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: prove the “legacy root upgrade” branch is real and prevents duplicate vectors when migrating existing roots.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
      - https://docs.trychroma.com/ (delete with metadata `where`)
    - Files to edit:
@@ -1064,12 +1096,27 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - The re-embed run must **not** end with `state: 'skipped'` (it must do work).
        - The post-reembed vectors must **not** include any vectors from the previous runId (assert by querying Chroma metadatas and confirming no `{ runId: <previousRunId> }` exist).
        - `ingest_files` must be populated for **all discovered files** under the root.
+   - Copy/paste Gherkin outline (adapt step wording to match your step file):
+     ```gherkin
+     @mongo
+     Scenario: Legacy upgrade removes old vectors and repopulates ingest_files
+       Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+       When I POST ingest start for the delta repo with model "embed-1"
+       Then ingest delta status for the last run becomes "completed"
+       And I remember the last runId as "initialRunId"
+       And I delete all ingest_files rows for the delta repo root
+       When I POST ingest reembed for the delta repo
+       Then ingest delta status for the last run becomes "completed"
+       And no vectors exist for runId "initialRunId"
+       And ingest_files contains at least 1 row for the delta repo root
+     ```
 
 27. [ ] Cucumber scenario: Re-embed selects the most recent root metadata entry when duplicates exist:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure `reembed(rootPath)` uses the latest `name/description/model` when multiple root entries exist for the same root.
    - Docs to read:
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/gherkin/reference/
      - https://docs.trychroma.com/
    - Files to edit:
@@ -1080,16 +1127,34 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Entry A: older `lastIngestAt`, `name: "old-name"` (and/or a distinct description)
        - Entry B: newer `lastIngestAt`, `name: "new-name"`
      - Trigger `POST /ingest/reembed/:root` for that root.
-     - Assertion:
-       - After the run completes, `GET /ingest/roots` must show the root’s `name` as `"new-name"` (proving the re-embed used the most recent metadata).
+    - Assertion:
+      - After the run completes, `GET /ingest/roots` must show the root’s `name` as `"new-name"` (proving the re-embed used the most recent metadata).
+   - Copy/paste Gherkin outline (adapt step wording to match your step file):
+     ```gherkin
+     Scenario: Re-embed uses latest root metadata when duplicates exist
+       Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+       And ingest delta roots collection contains duplicate metadata for the delta repo root:
+         | lastIngestAt         | name     |
+         | 2026-01-01T00:00:00Z | old-name |
+         | 2026-01-02T00:00:00Z | new-name |
+       When I POST ingest reembed for the delta repo
+       Then ingest delta status for the last run becomes "completed"
+       And ingest roots for the delta repo should have name "new-name"
+     ```
 
 28. [ ] Implement the step definitions for the delta feature:
    - Docs to read (repeat; do not skip):
+     - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
      - https://cucumber.io/docs/cucumber/api/ (Before/After/BeforeAll/AfterAll)
      - https://docs.trychroma.com/ (collection.get + include metadatas)
    - Files to add:
      - `server/src/test/steps/ingest-delta-reembed.steps.ts`
+   - Files to read (copy patterns; do not reinvent server harness or polling):
+     - `server/src/test/steps/ingest-manage.steps.ts`
+     - `server/src/test/steps/ingest-status.steps.ts`
+     - `server/src/test/steps/ingest-roots.steps.ts`
+     - `server/src/test/support/chromaContainer.ts`
    - Requirements:
      - Query Chroma metadata (via `getVectorsCollection().get({ where, include: ['metadatas'] })`) to assert:
        - presence/absence of vectors for `{ root, relPath }`
@@ -1465,6 +1530,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Purpose: prevent infinite polling loops on no-op delta re-embeds.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest` (fake timers + mocks)
      - https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
@@ -1478,6 +1544,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Purpose: make skipped runs visible/understandable.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Requirements:
@@ -1489,6 +1556,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Purpose: ensure the form/buttons are not stuck disabled after no-op runs.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Requirements:
@@ -1500,6 +1568,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Purpose: ensure the page-level `useEffect` that runs after completion also runs for `skipped` (so the UI reflects latest roots/models after no-op re-embeds).
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest` (module mocking)
      - https://jestjs.io/docs/mock-functions
      - https://jestjs.io/docs/jest-object#jestmockmodulename-factory-options
    - Files to edit:
@@ -1512,6 +1581,56 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
        - Prefer mocking `client/src/components/ingest/IngestForm.tsx` to call `props.onStarted('run-1')` on mount.
      - Assertion:
        - Once the component renders with `activeRunId` and `status: 'skipped'`, `refetch` and `refresh` are each called exactly once.
+   - Copy/paste test skeleton (adapt imports to match test file style):
+     ```ts
+     const refresh = jest.fn();
+     const refetch = jest.fn();
+
+     jest.mock('../hooks/useIngestModels', () => ({
+       __esModule: true,
+       default: () => ({
+         models: [],
+         lockedModelId: null,
+         defaultModelId: null,
+         isLoading: false,
+         isError: false,
+         error: null,
+         refresh,
+       }),
+     }));
+
+     jest.mock('../hooks/useIngestRoots', () => ({
+       __esModule: true,
+       default: () => ({
+         roots: [],
+         lockedModelId: null,
+         isLoading: false,
+         isError: false,
+         error: null,
+         refetch,
+       }),
+     }));
+
+     jest.mock('../hooks/useIngestStatus', () => ({
+       __esModule: true,
+       default: (runId?: string) => ({
+         status: runId ? 'skipped' : null,
+         counts: null,
+         isLoading: false,
+         isCancelling: false,
+         error: null,
+         cancel: jest.fn(),
+       }),
+     }));
+
+     jest.mock('../components/ingest/IngestForm', () => ({
+       __esModule: true,
+       default: (props: { onStarted?: (runId: string) => void }) => {
+         props.onStarted?.('run-1');
+         return null;
+       },
+     }));
+     ```
 
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
@@ -1580,6 +1699,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Purpose: enforce the “single notice” requirement and prevent UI duplication regressions.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
      - https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
@@ -1592,6 +1712,7 @@ Reduce UI noise by showing the locked embedding model notice only once on the In
    - Purpose: preserve the safety constraint that prevents mixing embedding models.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -1716,11 +1837,26 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: keep the picker tests readable by centralizing repetitive mocking.
    - Docs to read (repeat; do not skip):
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest` (mocks + spies)
      - https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
      - Provide a small helper to enqueue successive `fetch` responses for directory navigation.
+   - Copy/paste helper outline:
+     ```ts
+     const enqueueFetchJson = (payloads: unknown[]) => {
+       const fetchSpy = jest.spyOn(global, 'fetch' as any);
+       for (const payload of payloads) {
+         fetchSpy.mockResolvedValueOnce({
+           ok: true,
+           status: 200,
+           json: async () => payload,
+         } as any);
+       }
+       return fetchSpy;
+     };
+     ```
 
 7. [ ] Client unit test: selecting a directory updates the Folder path input value:
    - Test type: Client unit (Jest + React Testing Library)
@@ -1728,6 +1864,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: prove the main happy path of the directory picker.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -1739,6 +1876,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: ensure navigation is server-backed and keeps state consistent.
    - Docs to read:
      - https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -1750,6 +1888,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: prevent navigation that would attempt to browse above the allowed base.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -1762,6 +1901,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: allow selecting the currently viewed directory.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:
@@ -1774,6 +1914,7 @@ Add a “Choose folder…” affordance to the Folder path field that opens a se
    - Purpose: ensure users can understand and recover from invalid navigation.
    - Docs to read:
      - https://testing-library.com/docs/react-testing-library/intro/
+     - Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/test/ingestForm.test.tsx`
    - Requirements:

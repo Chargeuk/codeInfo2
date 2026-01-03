@@ -780,7 +780,7 @@ Create a pure “delta planner” that compares the discovered on-disk file list
 
 ### 4. Server delta re-embed (file-level replacement) + legacy upgrade
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -807,7 +807,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
 
 #### Subtasks
 
-1. [ ] Read the current ingest flow so delta changes are applied upstream (not bolted on downstream):
+1. [x] Read the current ingest flow so delta changes are applied upstream (not bolted on downstream):
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (filters + delete semantics)
      - https://nodejs.org/api/crypto.html (hashing primitives)
@@ -819,7 +819,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `server/src/ingest/chromaClient.ts`
      - `server/src/routes/ingestReembed.ts`
 
-2. [ ] Update `reembed()` so it no longer performs a root-wide **vector** delete before starting (delta needs existing vectors):
+2. [x] Update `reembed()` so it no longer performs a root-wide **vector** delete before starting (delta needs existing vectors):
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete semantics; we are intentionally *not* deleting root vectors up front)
    - Files to edit:
@@ -834,7 +834,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Do not attempt to "dedupe roots" at write time in this story (deleting metadata is risky and can hide useful history).
        - Instead, keep the roots listing stable by deduping the `/ingest/roots` response by `path` (see subtask 10).
 
-3. [ ] Remove the current re-embed early-return so delta can process deletions even when discovery returns zero eligible files:
+3. [x] Remove the current re-embed early-return so delta can process deletions even when discovery returns zero eligible files:
    - Docs to read (repeat; do not skip):
      - https://nodejs.org/api/fs.html (discovery can legitimately yield 0 eligible files)
    - Files to edit:
@@ -843,7 +843,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Today, `processRun` returns early for re-embed when `files.length === 0`.
      - Delta re-embed must still be able to detect that *previously ingested* files were deleted (including "all files deleted"), so it must still load the `ingest_files` index and compute deletions.
 
-4. [ ] Load the previous per-file index and compute hashes for the newly discovered files:
+4. [x] Load the previous per-file index and compute hashes for the newly discovered files:
    - Docs to read (repeat; do not skip):
      - Context7 `/automattic/mongoose/9.0.1` (querying + connection guards)
      - https://nodejs.org/api/crypto.html (SHA-256)
@@ -857,7 +857,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - If Mongo is unavailable and `listIngestFilesByRoot(root)` returns `null`, delta cannot run.
        - In that case: fall back to a full re-embed behavior (legacy-style root delete + full ingest) and **skip** writing `ingest_files` updates (because Mongo is still unavailable).
 
-5. [ ] Compute the delta plan and decide the "work to perform" set:
+5. [x] Compute the delta plan and decide the "work to perform" set:
    - Docs to read (repeat; do not skip):
      - https://nodejs.org/api/test.html (how we’ll validate this with tests)
    - Files to edit:
@@ -871,7 +871,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `unchanged`: same relPath and hash
        - `deleted`: in Mongo index but no longer on disk
 
-6. [ ] Implement the no-op ("nothing changed") behavior for delta re-embed:
+6. [x] Implement the no-op ("nothing changed") behavior for delta re-embed:
    - Docs to read (repeat; do not skip):
      - https://nodejs.org/api/test.html
    - Files to edit:
@@ -883,7 +883,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Required message content (so the UI is understandable):
        - Include the root path (or root id) and state why it skipped (e.g., "No changes detected").
 
-7. [ ] Implement deletions-only delta runs (no new embeddings required):
+7. [x] Implement deletions-only delta runs (no new embeddings required):
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete with `where`)
    - Files to edit:
@@ -900,7 +900,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      }
      ```
 
-8. [ ] Embed only the `added + changed` files (unchanged files are not re-embedded):
+8. [x] Embed only the `added + changed` files (unchanged files are not re-embedded):
    - Docs to read (repeat; do not skip):
      - https://nodejs.org/api/fs.html (reading file contents)
      - https://nodejs.org/api/crypto.html (file hashing)
@@ -917,7 +917,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      // work is the ONLY set of files that should be embedded in delta mode.
      ```
 
-9. [ ] After new vectors are successfully written, apply post-write deletes for changed/deleted files:
+9. [x] After new vectors are successfully written, apply post-write deletes for changed/deleted files:
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (metadata `where` filtering)
    - Files to edit:
@@ -936,7 +936,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      });
      ```
 
-10. [ ] Implement `/ingest/roots` response dedupe by root `path` (prevents duplicate rows in the UI):
+10. [x] Implement `/ingest/roots` response dedupe by root `path` (prevents duplicate rows in the UI):
    - Purpose: keep the roots table stable without risky write-time deletes.
    - Docs to read:
      - https://nodejs.org/api/test.html
@@ -953,7 +953,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      // if lastIngestAt is missing, keep the later runId entry (string compare is fine for IDs)
      ```
 
-11. [ ] Unit test: dedupe keeps the most recent entry by `lastIngestAt` when multiple paths are duplicated:
+11. [x] Unit test: dedupe keeps the most recent entry by `lastIngestAt` when multiple paths are duplicated:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
    - Purpose: ensure UI shows the latest ingest activity for a path.
@@ -965,7 +965,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Create two root entries with the same `path` but different `lastIngestAt`.
      - Assert the deduped output keeps the one with the later `lastIngestAt`.
 
-12. [ ] Unit test: dedupe falls back to `runId` ordering when `lastIngestAt` is missing:
+12. [x] Unit test: dedupe falls back to `runId` ordering when `lastIngestAt` is missing:
    - Test type: Server unit (node:test)
    - Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`
    - Purpose: keep deterministic selection even when timestamps are absent.
@@ -977,7 +977,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Create two root entries with the same `path` and no `lastIngestAt`.
      - Assert the deduped output keeps the one with the later `runId`.
 
-13. [ ] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
+13. [x] Ensure the per-file index is written/maintained for both initial ingest and re-embed:
    - Docs to read (repeat; do not skip):
      - Context7 `/automattic/mongoose/9.0.1` (bulkWrite, deleteMany)
    - Files to edit:
@@ -994,7 +994,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Reminder of exact document shape in `ingest_files` (do not improvise fields):
        - `{ root: string, relPath: string, fileHash: string, updatedAt: Date }`
 
-14. [ ] Implement "legacy root upgrade" behavior:
+14. [x] Implement "legacy root upgrade" behavior:
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete all by metadata filter)
    - Files to edit:
@@ -1010,7 +1010,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Reminder: legacy upgrade is only for the case where Mongo is connected and the index is empty.
        - If Mongo is disconnected (`listIngestFilesByRoot` returns `null`), treat it as a degraded mode and do not attempt to update `ingest_files`.
 
-15. [ ] Ensure run cancellation remains safe and does not corrupt older vectors:
+15. [x] Ensure run cancellation remains safe and does not corrupt older vectors:
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete with `where: { runId }`)
    - Files to edit:
@@ -1019,7 +1019,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Cancel must delete only `{ runId }` vectors (existing behavior) and must not delete vectors for unchanged files.
      - Do not update `ingest_files` until the run is in a successful terminal state (completed or skipped).
 
-16. [ ] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
+16. [x] Add Mongo Testcontainers support for Cucumber delta scenarios (hook + cucumber registration):
    - Docs to read (repeat; do not skip):
      - Context7 `/testcontainers/testcontainers-node` (GenericContainer + Wait)
      - https://cucumber.io/docs/guides/
@@ -1048,7 +1048,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
       - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
       - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
 
-17. [ ] Add the Cucumber feature file scaffold for delta semantics (tagging rules + shared background):
+17. [x] Add the Cucumber feature file scaffold for delta semantics (tagging rules + shared background):
    - Test type: Cucumber feature (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: define the acceptance-level behavior of delta re-embed in a way that exercises the real HTTP API + Chroma (and Mongo where tagged).
@@ -1086,7 +1086,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
          And ingest delta vectors for "a.ts" have the latest fileHash
      ```
 
-18. [ ] Cucumber scenario: @mongo Changed file replacement updates vectors and `ingest_files`:
+18. [x] Cucumber scenario: @mongo Changed file replacement updates vectors and `ingest_files`:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure changed files are replaced without deleting vectors up-front.
@@ -1103,7 +1103,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - vectors for the new hash exist
        - `ingest_files` row for the relPath is updated
 
-19. [ ] Cucumber scenario: @mongo Deleted file cleanup removes vectors and `ingest_files` row:
+19. [x] Cucumber scenario: @mongo Deleted file cleanup removes vectors and `ingest_files` row:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure deletions are applied even if no re-embedding is required.
@@ -1119,7 +1119,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - vectors for the deleted relPath are removed
        - `ingest_files` row for the relPath is removed
 
-20. [ ] Cucumber scenario: @mongo Added file ingest inserts vectors and `ingest_files` row:
+20. [x] Cucumber scenario: @mongo Added file ingest inserts vectors and `ingest_files` row:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure newly added files are embedded and indexed.
@@ -1134,7 +1134,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - vectors exist for the newly added relPath
        - `ingest_files` row for the relPath is inserted
 
-21. [ ] Cucumber scenario: @mongo Unchanged file untouched keeps vectors and `ingest_files` stable:
+21. [x] Cucumber scenario: @mongo Unchanged file untouched keeps vectors and `ingest_files` stable:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure delta does not churn vectors when no changes exist.
@@ -1149,7 +1149,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - vectors remain for the unchanged relPath (same fileHash)
        - `ingest_files` row remains unchanged
 
-22. [ ] Cucumber scenario: @mongo Corner case “all files deleted” still cleans up and completes:
+22. [x] Cucumber scenario: @mongo Corner case “all files deleted” still cleans up and completes:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure deletion detection works when discovery returns zero eligible files.
@@ -1166,7 +1166,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `ingest_files` rows for the root are removed
        - run ends in a terminal state and status polling completes
 
-23. [ ] Cucumber scenario: @mongo Corner case “no-op re-embed” returns `skipped` with a clear message:
+23. [x] Cucumber scenario: @mongo Corner case “no-op re-embed” returns `skipped` with a clear message:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure no-op delta runs are detectable by the UI.
@@ -1182,7 +1182,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - run ends with `state: 'skipped'`
        - message indicates no changes (must not be empty)
 
-24. [ ] Cucumber scenario: @mongo Corner case “deletions-only re-embed” message must not claim “No changes detected”:
+24. [x] Cucumber scenario: @mongo Corner case “deletions-only re-embed” message must not claim “No changes detected”:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: avoid misleading UX when deletions occurred.
@@ -1197,7 +1197,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - vectors are deleted for removed relPaths
        - run message is not “No changes detected”
 
-25. [ ] Cucumber scenario: No-Mongo corner case “re-embed works when Mongo is disconnected”:
+25. [x] Cucumber scenario: No-Mongo corner case “re-embed works when Mongo is disconnected”:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure the server does not crash/hang when Mongo is unavailable.
@@ -1212,7 +1212,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Run completes in a terminal state (completed/skipped).
      - The server does not crash/hang due to Mongo being unavailable.
 
-26. [ ] Cucumber scenario: @mongo Legacy root upgrade deletes old vectors when `ingest_files` is empty and repopulates the index:
+26. [x] Cucumber scenario: @mongo Legacy root upgrade deletes old vectors when `ingest_files` is empty and repopulates the index:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: prove the “legacy root upgrade” branch is real and prevents duplicate vectors when migrating existing roots.
@@ -1247,7 +1247,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        And ingest_files contains at least 1 row for the delta repo root
      ```
 
-27. [ ] Cucumber scenario: Re-embed selects the most recent root metadata entry when duplicates exist:
+27. [x] Cucumber scenario: Re-embed selects the most recent root metadata entry when duplicates exist:
    - Test type: Cucumber scenario (server integration)
    - Location: `server/src/test/features/ingest-delta-reembed.feature`
    - Purpose: ensure `reembed(rootPath)` uses the latest `name/description/model` when multiple root entries exist for the same root.
@@ -1278,7 +1278,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        And ingest roots for the delta repo should have name "new-name"
      ```
 
-28. [ ] Implement the step definitions for the delta feature:
+28. [x] Implement the step definitions for the delta feature:
    - Docs to read (repeat; do not skip):
      - https://cucumber.io/docs/guides/
      - https://cucumber.io/docs/guides/10-minute-tutorial/ (mental model for steps)
@@ -1308,7 +1308,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - A step/assertion to confirm there are **zero** vectors matching `{ runId: <priorRunId> }` after a legacy-upgrade re-embed.
      - The test must not rely on manual inspection.
 
-29. [ ] Add server log entries (visible in the Logs page) that prove delta re-embed branches are being hit:
+29. [x] Add server log entries (visible in the Logs page) that prove delta re-embed branches are being hit:
    - Purpose: allow manual verification to confirm the server executed the intended branch (delta/no-op/deletions-only/legacy upgrade) without guessing.
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
@@ -1329,7 +1329,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `message`: `0000020 ingest roots dedupe applied`
        - `context`: include `{ before, after }` counts
 
-30. [ ] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
+30. [x] Update `design.md` to reflect the new delta re-embed behavior (including Mermaid diagrams):
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -1356,7 +1356,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
            J --> K[Update ingest_files]\n(upsert added/changed, delete deleted)
        ```
 
-31. [ ] Update `projectStructure.md` to include all new server files added in this task:
+31. [x] Update `projectStructure.md` to include all new server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1368,26 +1368,26 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - `server/src/test/steps/ingest-delta-reembed.steps.ts`
        - `server/src/test/unit/ingest-roots-dedupe.test.ts`
 
-32. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+32. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (delta re-embed behavior smoke):
+8. [x] Manual Playwright-MCP check (delta re-embed behavior smoke):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
@@ -1404,11 +1404,20 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - Confirm the roots endpoint dedupe ran at least once by searching logs for:
        - `0000020 ingest roots dedupe applied`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-03: Updated `reembed()` selection to pick the newest root metadata (prefers `lastIngestAt`, then `runId`), removed the upfront root-wide vector delete, and added a `0000020 ingest reembed metadata selected` server log entry.
+- 2026-01-03: Implemented delta mode decisions inside `processRun()` (delta vs legacy upgrade vs degraded full) and added required log entries for mode selection + delta plan counts.
+- 2026-01-03: Implemented delta no-op and deletions-only terminal behavior so re-embed can skip/clean without embedding, while still recording a roots entry for the run.
+- 2026-01-03: Implemented file-level replacement semantics: embed only added/changed files, then post-write delete old hashes for changed files and delete vectors for deleted files.
+- 2026-01-03: Updated `ingest_files` repo upserts to explicitly maintain `updatedAt`/`createdAt` during bulk writes.
+- 2026-01-03: Implemented `/ingest/roots` response dedupe by `path` (prefers newest `lastIngestAt`, then `runId`) with unit coverage and a `0000020 ingest roots dedupe applied` log entry.
+- 2026-01-03: Added `@mongo` Cucumber infrastructure via Testcontainers `GenericContainer('mongo:8')`, with global disconnect-per-scenario and tagged connect hooks to keep No-Mongo scenarios deterministic.
+- 2026-01-03: Added Cucumber acceptance coverage for delta re-embed modes (changed/add/delete/no-op/deletions-only/all-deleted), plus No-Mongo degraded-mode and legacy-upgrade scenarios.
+- 2026-01-03: Updated `design.md` and `projectStructure.md` to document delta re-embed behavior, decision flow, and new test/support files.
+- 2026-01-03: Compose smoke: verified no-op re-embed returns `skipped` with the new log entries, and deletions-only re-embed returns `skipped` with a non-no-op message; confirmed `/ingest/roots` dedupe logs via duplicate metadata entries.
 
 ---
 

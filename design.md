@@ -842,6 +842,7 @@ sequenceDiagram
 ### Ingest roots listing
 
 - Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
+- Response is de-duplicated by `path` to keep the UI stable when multiple metadata entries exist for the same root; the server keeps the most recent entry (prefers `lastIngestAt` when present, otherwise falls back to `runId` ordering).
 - Response shape:
   ```json
   {
@@ -866,10 +867,50 @@ sequenceDiagram
 ### Ingest cancel / re-embed / remove flows
 
 - Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
-- Re-embed: `POST /ingest/reembed/:root` deletes existing vectors/metadata for the root, then starts a new ingest using the stored model/name/description. Returns `202 {runId}` or `404` if the root is unknown; respects the existing model lock and single-flight guard.
+- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root *metadata* entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
 - Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
 - Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
+
+### Delta re-embed (file-level replacement)
+
+- A per-file MongoDB index (`ingest_files`) stores `{ root, relPath, fileHash }` and is used to plan delta work without scanning Chroma metadata.
+- Decision modes for a re-embed:
+  - **Delta** (`ingest_files` has rows): embed only `added + changed` files, then delete vectors for `deleted` files and delete older vectors for changed files using `{ fileHash: { $ne: newHash } }`.
+  - **Legacy upgrade** (Mongo connected but `ingest_files` has zero rows): delete all vectors for `{ root }` and perform a full ingest to repopulate `ingest_files`.
+  - **Degraded full** (Mongo disconnected): fall back to a full re-embed (delete vectors for `{ root }` then ingest all discovered files) and skip `ingest_files` updates.
+- Safety guarantee: changed files are replaced by writing new vectors first (tagged with the current `runId`), then deleting older vectors after the run succeeds. Cancellation deletes only `{ runId }` vectors, leaving older vectors intact.
+
+```mermaid
+flowchart TD
+  A[POST /ingest/reembed/:root] --> B{Mongo connected?}
+  B -- no --> C[Degraded mode: full re-embed\n(no ingest_files updates)]
+  B -- yes --> D{ingest_files has rows for root?}
+  D -- no --> E[Legacy upgrade\n(delete root vectors + full ingest + populate ingest_files)]
+  D -- yes --> F[Delta plan\n(added/changed/unchanged/deleted)]
+  F --> G{Any added/changed/deleted?}
+  G -- no --> H[Mark run skipped\n(message: no changes)]
+  G -- yes --> I[Write new vectors for added/changed]
+  I --> J[Delete old vectors for changed\n+ delete vectors for deleted]
+  J --> K[Update ingest_files\n(upsert added/changed, delete deleted)]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Chroma
+  participant Mongo
+
+  Client->>Server: POST /ingest/reembed/:root
+  Server->>Chroma: Read roots metadata (select newest)
+  Server->>Chroma: Delete roots metadata for {root}
+  Server-->>Client: 202 {runId}
+  loop Poll
+    Client->>Server: GET /ingest/status/:runId
+    Server-->>Client: {state, counts, message}
+  end
+```
 
 ### Ingest dry-run + cleanup guarantees
 

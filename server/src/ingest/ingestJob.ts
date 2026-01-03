@@ -25,6 +25,13 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
+import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
+import {
+  clearIngestFilesByRoot,
+  deleteIngestFilesByRelPaths,
+  listIngestFilesByRoot,
+  upsertIngestFiles,
+} from '../mongo/repo.js';
 
 export type IngestJobInput = {
   path: string;
@@ -97,6 +104,43 @@ async function embedText(modelKey: string, text: string): Promise<number[]> {
   return result.embedding;
 }
 
+async function resolveRootEmbeddingDim(params: {
+  existingRootDim?: number;
+  vectorDim?: number;
+  modelKey: string;
+}): Promise<number> {
+  if (params.existingRootDim && params.existingRootDim > 0) {
+    return params.existingRootDim;
+  }
+  if (params.vectorDim && params.vectorDim > 1) {
+    return params.vectorDim;
+  }
+
+  try {
+    const vectors = await getVectorsCollection();
+    const raw = await (
+      vectors as unknown as {
+        get: (opts: { include?: string[]; limit?: number }) => Promise<{
+          embeddings?: number[][];
+        }>;
+      }
+    ).get({ include: ['embeddings'], limit: 1 });
+    const dim = raw.embeddings?.[0]?.length;
+    if (dim && dim > 0) return dim;
+  } catch {
+    // ignore
+  }
+
+  try {
+    const probe = await embedText(params.modelKey, 'dimension probe');
+    if (probe.length > 0) return probe.length;
+  } catch {
+    // ignore
+  }
+
+  return 1;
+}
+
 async function processRun(runId: string, input: IngestJobInput) {
   const status = jobs.get(runId);
   if (!status) return;
@@ -129,31 +173,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     const ingestConfig = resolveConfig();
     const { files, root } = await discoverFiles(startPath, ingestConfig);
     jobInputs.set(runId, { ...input, root });
-    if (files.length === 0) {
-      if (operation === 'reembed') {
-        const skipMessage = `No changes detected for ${startPath}`;
-        const counts = { files: 0, chunks: 0, embedded: 0 };
-        jobs.set(runId, {
-          runId,
-          state: 'skipped',
-          counts,
-          message: skipMessage,
-          lastError: null,
-        });
-        logLifecycle('info', 'ingest skipped', {
-          runId,
-          operation,
-          path: startPath,
-          root,
-          model,
-          name,
-          description,
-          state: 'skipped',
-          counts,
-        });
-        ingestLock.release(runId);
-        return;
-      }
+    if (files.length === 0 && operation !== 'reembed') {
       const errorMsg = `No eligible files found in ${startPath}`;
       jobs.set(runId, {
         runId,
@@ -177,15 +197,76 @@ async function processRun(runId: string, input: IngestJobInput) {
       ingestLock.release(runId);
       return;
     }
-    const counts = { files: files.length, chunks: 0, embedded: 0 };
-    const fileTotal = files.length;
+
+    type DeltaMode = 'delta' | 'legacy_upgrade' | 'degraded_full' | null;
+    let deltaMode: DeltaMode = null;
+    let deltaPlan: ReturnType<typeof buildDeltaPlan> | null | undefined = null;
+    let previousIndex:
+      | Awaited<ReturnType<typeof listIngestFilesByRoot>>
+      | undefined;
+    let discoveredWithHashes: DiscoveredFileHash[] | null = null;
+
+    if (operation === 'reembed') {
+      previousIndex = await listIngestFilesByRoot(root);
+      if (previousIndex === null) {
+        deltaMode = 'degraded_full';
+        logLifecycle('info', '0000020 ingest delta mode decided', {
+          root,
+          mode: deltaMode,
+        });
+      } else {
+        discoveredWithHashes = await Promise.all(
+          files.map(async (file) => ({
+            absPath: file.absPath,
+            relPath: file.relPath,
+            fileHash: await hashFile(file.absPath),
+          })),
+        );
+
+        if (previousIndex.length === 0) {
+          deltaMode = 'legacy_upgrade';
+          logLifecycle('info', '0000020 ingest delta mode decided', {
+            root,
+            mode: deltaMode,
+          });
+        } else {
+          deltaMode = 'delta';
+          deltaPlan = buildDeltaPlan({
+            previous: previousIndex,
+            discovered: discoveredWithHashes,
+          });
+          logLifecycle('info', '0000020 ingest delta mode decided', {
+            root,
+            mode: deltaMode,
+          });
+          logLifecycle('info', '0000020 ingest delta plan summary', {
+            root,
+            added: deltaPlan.added.length,
+            changed: deltaPlan.changed.length,
+            deleted: deltaPlan.deleted.length,
+            unchanged: deltaPlan.unchanged.length,
+          });
+        }
+      }
+    }
+
+    const workFiles: { absPath: string; relPath: string; fileHash?: string }[] =
+      operation === 'reembed' && deltaMode === 'delta' && deltaPlan
+        ? [...deltaPlan.added, ...deltaPlan.changed]
+        : files;
+
+    const counts = { files: workFiles.length, chunks: 0, embedded: 0 };
+    const fileTotal = workFiles.length;
     const startedAt = Date.now();
     let lastFileRelPath: string | undefined;
     jobs.set(runId, {
       ...status,
       state: 'embedding',
       counts,
-      message: `Embedding ${files.length} files`,
+      message:
+        operation === 'reembed' && deltaMode === 'delta'
+          ? `Embedding ${workFiles.length} changed/new files`
+          : `Embedding ${workFiles.length} files`,
       currentFile: undefined,
       fileIndex: 0,
       fileTotal,
@@ -210,6 +291,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     const metadatasBatch: Record<string, unknown>[] = [];
     let vectorDim = 1;
     let filesSinceFlush = 0;
+    const fileHashesByRelPath = new Map<string, string>();
 
     const clearBatch = () => {
       idsBatch.length = 0;
@@ -268,7 +350,134 @@ async function processRun(runId: string, input: IngestJobInput) {
       });
     };
 
-    for (const [idx, file] of files.entries()) {
+    if (operation === 'reembed') {
+      if (deltaMode === 'degraded_full') {
+        await deleteVectors({ where: { root } });
+      } else if (deltaMode === 'legacy_upgrade') {
+        await deleteVectors({ where: { root } });
+        await deleteRoots({ where: { root } });
+      } else if (deltaMode === 'delta' && deltaPlan) {
+        const workCount =
+          deltaPlan.added.length +
+          deltaPlan.changed.length +
+          deltaPlan.deleted.length;
+        if (workCount === 0) {
+          const skipMessage = `No changes detected for ${root}`;
+          jobs.set(runId, {
+            runId,
+            state: 'skipped',
+            counts,
+            message: skipMessage,
+            lastError: null,
+            currentFile: undefined,
+            fileIndex: 0,
+            fileTotal,
+            percent: 100,
+            etaMs: 0,
+          });
+
+          const rootEmbeddingDim = await resolveRootEmbeddingDim({
+            existingRootDim,
+            vectorDim,
+            modelKey: model,
+          });
+          const rootMetadata: Metadata = {
+            runId,
+            root,
+            name,
+            model,
+            files: counts.files,
+            chunks: counts.chunks,
+            embedded: counts.embedded,
+            state: 'skipped',
+            lastIngestAt: new Date().toISOString(),
+            ingestedAtMs,
+          };
+          if (description) rootMetadata.description = description;
+          await roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          });
+          logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
+          logLifecycle('info', 'ingest skipped', {
+            runId,
+            operation,
+            path: startPath,
+            root,
+            model,
+            name,
+            description,
+            state: 'skipped',
+            counts,
+          });
+          await deleteVectorsCollectionIfEmpty();
+          ingestLock.release(runId);
+          return;
+        }
+
+        if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
+          logLifecycle('info', '0000020 ingest delta deletions-only', {
+            root,
+            deleted: deltaPlan.deleted.length,
+          });
+
+          for (const file of deltaPlan.deleted) {
+            await deleteVectors({
+              where: { $and: [{ root }, { relPath: file.relPath }] },
+            });
+          }
+
+          await deleteIngestFilesByRelPaths({
+            root,
+            relPaths: deltaPlan.deleted.map((f) => f.relPath),
+          });
+
+          jobs.set(runId, {
+            runId,
+            state: 'skipped',
+            counts,
+            message: `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`,
+            lastError: null,
+            currentFile: undefined,
+            fileIndex: 0,
+            fileTotal,
+            percent: 100,
+            etaMs: 0,
+          });
+
+          const rootEmbeddingDim = await resolveRootEmbeddingDim({
+            existingRootDim,
+            vectorDim,
+            modelKey: model,
+          });
+          const rootMetadata: Metadata = {
+            runId,
+            root,
+            name,
+            model,
+            files: counts.files,
+            chunks: counts.chunks,
+            embedded: counts.embedded,
+            state: 'skipped',
+            lastIngestAt: new Date().toISOString(),
+            ingestedAtMs,
+          };
+          if (description) rootMetadata.description = description;
+          await roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          });
+
+          await deleteVectorsCollectionIfEmpty();
+          ingestLock.release(runId);
+          return;
+        }
+      }
+    }
+
+    for (const [idx, file] of workFiles.entries()) {
       const fileIndex = idx + 1;
       progressSnapshot(fileIndex, file.relPath);
       if (cancelledRuns.has(runId)) {
@@ -287,7 +496,11 @@ async function processRun(runId: string, input: IngestJobInput) {
         await deleteVectors({ where: { runId } });
         await deleteRoots({ where: { root } });
         await deleteVectorsCollectionIfEmpty();
-        const rootEmbeddingDim = existingRootDim || vectorDim || 1;
+        const rootEmbeddingDim = await resolveRootEmbeddingDim({
+          existingRootDim,
+          vectorDim,
+          modelKey: model,
+        });
         const cancelMetadata: Metadata = {
           runId,
           root,
@@ -331,7 +544,12 @@ async function processRun(runId: string, input: IngestJobInput) {
           .embedding.model(model)) as unknown as EmbeddingModel,
         ingestConfig,
       );
-      const fileHash = await hashFile(file.absPath);
+
+      const fileHash =
+        typeof file.fileHash === 'string' && file.fileHash.length > 0
+          ? file.fileHash
+          : await hashFile(file.absPath);
+      fileHashesByRelPath.set(file.relPath, fileHash);
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
         const embedding = await embedText(model, chunk.text);
@@ -370,13 +588,37 @@ async function processRun(runId: string, input: IngestJobInput) {
 
     await flushBatch();
 
+    if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
+      for (const file of deltaPlan.changed) {
+        await deleteVectors({
+          where: {
+            $and: [
+              { root },
+              { relPath: file.relPath },
+              { fileHash: { $ne: file.fileHash } },
+            ],
+          },
+        });
+      }
+
+      for (const file of deltaPlan.deleted) {
+        await deleteVectors({
+          where: { $and: [{ root }, { relPath: file.relPath }] },
+        });
+      }
+    }
+
     if (counts.embedded === 0) {
       await deleteVectorsCollectionIfEmpty();
     }
 
     const resultState =
       !dryRun && counts.embedded === 0 ? 'skipped' : 'completed';
-    const rootEmbeddingDim = existingRootDim || vectorDim || 1;
+    const rootEmbeddingDim = await resolveRootEmbeddingDim({
+      existingRootDim,
+      vectorDim,
+      modelKey: model,
+    });
     const rootMetadata: Metadata = {
       runId,
       root,
@@ -396,6 +638,47 @@ async function processRun(runId: string, input: IngestJobInput) {
       embeddings: [Array(rootEmbeddingDim).fill(0)],
       metadatas: [rootMetadata],
     });
+
+    if (!dryRun && operation === 'start') {
+      await clearIngestFilesByRoot(root);
+      await upsertIngestFiles({
+        root,
+        files: files
+          .map((file) => ({
+            relPath: file.relPath,
+            fileHash: fileHashesByRelPath.get(file.relPath),
+          }))
+          .filter((row): row is { relPath: string; fileHash: string } =>
+            Boolean(row.fileHash),
+          ),
+      });
+    }
+
+    if (!dryRun && operation === 'reembed') {
+      if (deltaMode === 'legacy_upgrade') {
+        await clearIngestFilesByRoot(root);
+        await upsertIngestFiles({
+          root,
+          files:
+            discoveredWithHashes?.map((file) => ({
+              relPath: file.relPath,
+              fileHash: file.fileHash,
+            })) ?? [],
+        });
+      } else if (deltaMode === 'delta' && deltaPlan) {
+        await upsertIngestFiles({
+          root,
+          files: [...deltaPlan.added, ...deltaPlan.changed].map((file) => ({
+            relPath: file.relPath,
+            fileHash: file.fileHash,
+          })),
+        });
+        await deleteIngestFilesByRelPaths({
+          root,
+          relPaths: deltaPlan.deleted.map((file) => file.relPath),
+        });
+      }
+    }
 
     jobs.set(runId, {
       runId,
@@ -534,8 +817,10 @@ export async function cancelRun(runId: string) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
-    const rootEmbeddingDim =
-      existingRootDim && existingRootDim > 0 ? existingRootDim : 1;
+    const rootEmbeddingDim = await resolveRootEmbeddingDim({
+      existingRootDim,
+      modelKey: input?.model ?? '',
+    });
 
     const cancelMetadata: Metadata = {
       runId,
@@ -558,7 +843,7 @@ export async function cancelRun(runId: string) {
 
     await roots.add({
       ids: [runId],
-      embeddings: [Array(Math.max(1, rootEmbeddingDim || 1)).fill(0)],
+      embeddings: [Array(rootEmbeddingDim).fill(0)],
       metadatas: [cancelMetadata],
     });
   }
@@ -596,20 +881,73 @@ export async function reembed(rootPath: string, d: Deps) {
   const raw = await (
     roots as unknown as {
       get: (opts: { include?: string[] }) => Promise<{
+        ids?: string[];
         metadatas?: Record<string, unknown>[];
       }>;
     }
   ).get({ include: ['metadatas'] });
   const metas = raw.metadatas ?? [];
-  const matchIdx = metas.findIndex(
-    (m) => (m as Record<string, unknown>).root === rootPath,
-  );
-  if (matchIdx === -1) {
+  const ids = raw.ids ?? [];
+  const matches = metas
+    .map((meta, idx) => ({ meta, id: ids[idx] }))
+    .filter(
+      (entry) => (entry.meta as Record<string, unknown>).root === rootPath,
+    );
+  if (matches.length === 0) {
     const err = new Error('NOT_FOUND');
     (err as { code?: string }).code = 'NOT_FOUND';
     throw err;
   }
-  const meta = metas[matchIdx] as Record<string, unknown>;
+
+  const best = matches.reduce(
+    (acc, entry) => {
+      const m = (entry.meta ?? {}) as Record<string, unknown>;
+      const tsRaw =
+        typeof m.lastIngestAt === 'string' ? Date.parse(m.lastIngestAt) : NaN;
+      const ts = Number.isFinite(tsRaw) ? tsRaw : 0;
+      const accTsRaw = acc.lastIngestAt ? Date.parse(acc.lastIngestAt) : NaN;
+      const accTs = Number.isFinite(accTsRaw) ? accTsRaw : 0;
+      const entryRunId = typeof entry.id === 'string' ? entry.id : '';
+      const accRunId = acc.runId;
+
+      if (ts > accTs) {
+        return {
+          meta: m,
+          runId: entryRunId,
+          lastIngestAt:
+            typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
+        };
+      }
+      if (ts === accTs && entryRunId > accRunId) {
+        return {
+          meta: m,
+          runId: entryRunId,
+          lastIngestAt:
+            typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
+        };
+      }
+      return acc;
+    },
+    {
+      meta: (matches[0]?.meta ?? {}) as Record<string, unknown>,
+      runId:
+        typeof matches[0]?.id === 'string' ? (matches[0]?.id as string) : '',
+      lastIngestAt:
+        typeof (matches[0]?.meta as Record<string, unknown>)?.lastIngestAt ===
+        'string'
+          ? ((matches[0]?.meta as Record<string, unknown>)
+              ?.lastIngestAt as string)
+          : null,
+    },
+  );
+
+  logLifecycle('info', '0000020 ingest reembed metadata selected', {
+    root: rootPath,
+    selectedLastIngestAt: best.lastIngestAt,
+    selectedRunId: best.runId,
+  });
+
+  const meta = best.meta;
   const name = (meta.name as string) ?? 'repo';
   const description =
     typeof meta.description === 'string' || meta.description === null
@@ -617,9 +955,7 @@ export async function reembed(rootPath: string, d: Deps) {
       : null;
   const model = (meta.model as string) ?? '';
 
-  await deleteVectors({ where: { root: rootPath } });
   await deleteRoots({ where: { root: rootPath } });
-  await deleteVectorsCollectionIfEmpty();
 
   return startIngest(
     {

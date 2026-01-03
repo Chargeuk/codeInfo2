@@ -380,6 +380,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
 - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
 - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
+- server/src/test/support/mongoContainer.ts — Cucumber hooks starting Mongo (tagged `@mongo`) via Testcontainers
+- server/src/test/features/ingest-delta-reembed.feature — delta re-embed scenarios (changed/add/delete/no-op/legacy/degraded)
+- server/src/test/steps/ingest-delta-reembed.steps.ts — step defs for delta re-embed scenarios
+- server/src/test/unit/ingest-roots-dedupe.test.ts — unit coverage for `/ingest/roots` response dedupe
 - server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
 - server/src/test/unit/repo-conversations-agent-filter.test.ts — repo query coverage for `agentName=__none__` and exact agent filters
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`

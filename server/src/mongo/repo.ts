@@ -454,12 +454,16 @@ export async function upsertIngestFiles(params: {
 
   const { root, files } = params;
   if (files.length === 0) return { ok: true };
+  const now = new Date();
 
   await IngestFileModel.bulkWrite(
     files.map((file) => ({
       updateOne: {
         filter: { root, relPath: file.relPath },
-        update: { $set: { fileHash: file.fileHash } },
+        update: {
+          $set: { fileHash: file.fileHash, updatedAt: now },
+          $setOnInsert: { createdAt: now },
+        },
         upsert: true,
       },
     })),

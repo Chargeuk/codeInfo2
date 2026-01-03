@@ -226,6 +226,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, agentName?, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
+â”‚     â”‚  â”œâ”€ ingestFile.ts — per-file hash index schema/model for delta ingest decisions
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp/ — Express MCP v1 endpoint (POST /mcp) exposing ingest tools to agent clients
 â”‚     â”‚  â””â”€ server.ts — Express MCP v1 router (initialize/tools/resources); uses mcpCommon helpers while preserving wire formats, tool schemas, and domain error mapping
@@ -319,6 +320,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
+â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
 â”‚           â”œâ”€ mcp-common-dispatch.test.ts â€” unit tests for shared MCP dispatcher routing/verbatim payload behavior
 â”‚           â”œâ”€ mcp2-router-initialize.test.ts â€” MCP v2 initialize handshake protocol/serverInfo coverage

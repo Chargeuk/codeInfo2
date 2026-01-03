@@ -60,13 +60,20 @@ export default function ChatPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const drawerWidth = 320;
-  const [drawerOpen, setDrawerOpen] = useState<boolean>(!isMobile);
-  const lastIsMobileRef = useRef(isMobile);
-  const didBreakpointChange = lastIsMobileRef.current !== isMobile;
-  if (didBreakpointChange) {
-    lastIsMobileRef.current = isMobile;
-  }
-  const drawerOpenResolved = didBreakpointChange ? !isMobile : drawerOpen;
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
+    isMobile ? false : true,
+  );
+  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+
+  useEffect(() => {
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+      return;
+    }
+
+    setDesktopDrawerOpen(true);
+  }, [isMobile]);
 
   const {
     providers,
@@ -172,10 +179,6 @@ export default function ChatPage() {
 
   const chatColumnRef = useRef<HTMLDivElement | null>(null);
   const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
-
-  useLayoutEffect(() => {
-    setDrawerOpen(!isMobile);
-  }, [isMobile]);
 
   useLayoutEffect(() => {
     const updateOffset = () => {
@@ -527,7 +530,7 @@ export default function ChatPage() {
     setConversation(conversation, { clearMessages: true });
     setActiveConversationId(conversation);
     if (isMobile) {
-      setDrawerOpen(false);
+      setMobileDrawerOpen(false);
     }
     setTimeout(() => {
       console.info('[chat-history] post-select scheduled', {
@@ -998,54 +1001,60 @@ export default function ChatPage() {
             minHeight: 0,
           }}
         >
-          <Drawer
-            key={isMobile ? 'mobile' : 'desktop'}
-            open={drawerOpenResolved}
-            onClose={() => setDrawerOpen(false)}
-            variant={isMobile ? 'temporary' : 'persistent'}
-            data-testid="conversation-drawer"
-            sx={{
-              width: isMobile
-                ? undefined
-                : drawerOpenResolved
-                  ? drawerWidth
-                  : 0,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: drawerWidth,
-                mt: drawerTopOffset,
-                height: drawerHeight,
-              },
-            }}
-          >
-            <Box
-              id="conversation-drawer"
-              data-testid="conversation-list"
-              sx={{ width: drawerWidth, height: '100%' }}
+          {(!isMobile || drawerOpen) && (
+            <Drawer
+              key={isMobile ? 'mobile' : 'desktop'}
+              open={drawerOpen}
+              onClose={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(false);
+                  return;
+                }
+
+                setDesktopDrawerOpen(false);
+              }}
+              variant={isMobile ? 'temporary' : 'persistent'}
+              ModalProps={{ keepMounted: false }}
+              data-testid="conversation-drawer"
+              sx={{
+                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                  width: drawerWidth,
+                  mt: drawerTopOffset,
+                  height: drawerHeight,
+                },
+              }}
             >
-              <ConversationList
-                conversations={conversations}
-                selectedId={activeConversationId}
-                isLoading={conversationsLoading}
-                isError={conversationsError}
-                error={conversationsErrorMessage}
-                hasMore={conversationsHasMore}
-                filterState={filterState}
-                mongoConnected={mongoConnected}
-                disabled={persistenceUnavailable || persistenceLoading}
-                onSelect={handleSelectConversation}
-                onFilterChange={setFilterState}
-                onArchive={handleArchive}
-                onRestore={handleRestore}
-                onBulkArchive={bulkArchive}
-                onBulkRestore={bulkRestore}
-                onBulkDelete={bulkDelete}
-                onLoadMore={loadMoreConversations}
-                onRefresh={refreshConversations}
-                onRetry={refreshConversations}
-              />
-            </Box>
-          </Drawer>
+              <Box
+                id="conversation-drawer"
+                data-testid="conversation-list"
+                sx={{ width: drawerWidth, height: '100%' }}
+              >
+                <ConversationList
+                  conversations={conversations}
+                  selectedId={activeConversationId}
+                  isLoading={conversationsLoading}
+                  isError={conversationsError}
+                  error={conversationsErrorMessage}
+                  hasMore={conversationsHasMore}
+                  filterState={filterState}
+                  mongoConnected={mongoConnected}
+                  disabled={persistenceUnavailable || persistenceLoading}
+                  onSelect={handleSelectConversation}
+                  onFilterChange={setFilterState}
+                  onArchive={handleArchive}
+                  onRestore={handleRestore}
+                  onBulkArchive={bulkArchive}
+                  onBulkRestore={bulkRestore}
+                  onBulkDelete={bulkDelete}
+                  onLoadMore={loadMoreConversations}
+                  onRefresh={refreshConversations}
+                  onRetry={refreshConversations}
+                />
+              </Box>
+            </Drawer>
+          )}
 
           <Box
             data-testid="chat-column"
@@ -1074,8 +1083,15 @@ export default function ChatPage() {
                     <IconButton
                       aria-label="Toggle conversations"
                       aria-controls="conversation-drawer"
-                      aria-expanded={drawerOpenResolved}
-                      onClick={() => setDrawerOpen((prev) => !prev)}
+                      aria-expanded={drawerOpen}
+                      onClick={() => {
+                        if (isMobile) {
+                          setMobileDrawerOpen((prev) => !prev);
+                          return;
+                        }
+
+                        setDesktopDrawerOpen((prev) => !prev);
+                      }}
                       size="small"
                       data-testid="conversation-drawer-toggle"
                     >

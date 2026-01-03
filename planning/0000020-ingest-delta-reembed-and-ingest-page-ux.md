@@ -403,7 +403,7 @@ Introduce a MongoDB collection (`ingest_files`) that stores a lightweight per-fi
 ### 2. MongoDB per-file index repository helpers (safe when Mongo is unavailable)
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: 2ad58ce
 
 #### Overview
 

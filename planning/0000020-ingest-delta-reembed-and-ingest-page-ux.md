@@ -681,15 +681,18 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `server/src/ingest/chromaClient.ts`
      - `server/src/routes/ingestReembed.ts`
 
-2. [ ] Update `reembed()` so it no longer performs a root-wide delete before starting:
+2. [ ] Update `reembed()` so it no longer performs a root-wide **vector** delete before starting (delta needs existing vectors):
    - Docs to read (repeat; do not skip):
      - https://docs.trychroma.com/ (delete semantics; we are intentionally *not* deleting root vectors up front)
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - `reembed(rootPath)` must still validate the root exists in the roots collection (as today).
+     - If multiple root metadata entries exist for the same `rootPath`, select the most recent entry (prefer `lastIngestAt` desc) when choosing the `name/description/model` to re-embed with.
+       - Reason: the roots collection can contain multiple entries for the same `root` (e.g., repeated ingests), and picking the first match can use stale metadata.
      - It must start the ingest run with `operation: 'reembed'` and allow `processRun()` to decide full vs delta.
-     - Do not delete vectors up front.
+     - Do not call `deleteVectors({ where: { root: rootPath } })` up front.
+     - It is OK to delete root metadata entries (`deleteRoots({ where: { root: rootPath } })`) up front (current behavior) to avoid duplicates; this does **not** delete vectors.
      - Do not attempt to "dedupe roots" at write time in this story (deleting metadata is risky and can hide useful history).
        - Instead, keep the roots listing stable by deduping the `/ingest/roots` response by `path` (see subtask 10).
 
@@ -889,9 +892,13 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `server/cucumber.js`
    - Requirements:
      - In `server/src/test/support/mongoContainer.ts`, use a `@mongo` tag and a `Before({ tags: '@mongo' }, ...)` hook to start a Mongo Testcontainers instance only for these scenarios.
-     - Update `server/cucumber.js` to require `src/test/support/mongoContainer.ts` (alongside `chromaContainer.ts`) so the hooks are registered.
-     - Important: this repo does **not** currently include `@testcontainers/mongodb`, so do not use `MongoDBContainer`.
-       - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
+      - Important: to keep the plan’s “No-Mongo” scenario real and deterministic, ensure Mongo is **disconnected** at the start of every scenario unless the scenario is tagged `@mongo`.
+        - KISS approach:
+          - Add a global `Before` hook that calls `disconnectMongo()` if connected (ignore errors).
+          - Add `Before({ tags: '@mongo' }, ...)` to connect for `@mongo` scenarios.
+      - Update `server/cucumber.js` to require `src/test/support/mongoContainer.ts` (alongside `chromaContainer.ts`) so the hooks are registered.
+      - Important: this repo does **not** currently include `@testcontainers/mongodb`, so do not use `MongoDBContainer`.
+        - Use `GenericContainer('mongo:8')` from the existing `testcontainers` dependency.
        - Configure it explicitly for reliability:
          - `.withExposedPorts(27017)`
          - `.withWaitStrategy(Wait.forLogMessage(/Waiting for connections/))`
@@ -899,9 +906,9 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
        - Construct a connection string like:
          - `mongodb://<host>:<mappedPort>/db?directConnection=true`
        - Set `process.env.MONGO_URI` to the container URI and call `connectMongo(process.env.MONGO_URI)` during the hook.
-       - De-risk: start the container lazily once and reuse it across all `@mongo` scenarios (like the existing Chroma compose setup) instead of starting/stopping per scenario.
-       - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
-       - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
+      - De-risk: start the container lazily once and reuse it across all `@mongo` scenarios (like the existing Chroma compose setup) instead of starting/stopping per scenario.
+      - Clear the `ingest_files` collection (or at least the relevant `root`) in a `Before` hook so scenarios stay isolated.
+      - Ensure `disconnectMongo()` and container stop happen in an `AfterAll` hook.
 
 17. [ ] Add the Cucumber feature file scaffold for delta semantics (tagging rules + shared background):
    - Test type: Cucumber feature (server integration)
@@ -1032,6 +1039,7 @@ Implement delta re-ingest for `POST /ingest/reembed/:root` using the Mongo `inge
      - `server/src/test/features/ingest-delta-reembed.feature`
    - Requirements:
      - Do not start the Mongo container for this scenario (do not tag `@mongo`).
+     - Ensure the global Mongo hook leaves Mongoose disconnected for this scenario (readyState must not be `1`).
      - Run completes in a terminal state (completed/skipped).
      - The server does not crash/hang due to Mongo being unavailable.
 
@@ -1395,7 +1403,19 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
        - re-enables form/table actions
        - triggers `refetchRoots()` and `refresh()` when a run ends as `skipped`
 
-4. [ ] Client unit test: polling stops when ingest status returns `state: 'skipped'`:
+4. [ ] Update `ActiveRunCard` so `skipped` is a supported terminal status (chip + cancel button):
+   - Docs to read:
+     - https://react.dev/reference/react/useEffect
+   - Files to edit:
+     - `client/src/components/ingest/ActiveRunCard.tsx`
+   - Purpose:
+     - Ensure the Active ingest card can display `skipped` and treats it as terminal (no Cancel button).
+   - Requirements:
+     - Add `'skipped'` to the `status` union.
+     - Add a `statusColor` mapping for `skipped` (use a non-error color, e.g. `warning` or `info`).
+     - Include `skipped` in the terminal-state check.
+
+5. [ ] Client unit test: polling stops when ingest status returns `state: 'skipped'`:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestStatus.test.tsx`
    - Purpose: prevent infinite polling loops on no-op delta re-embeds.
@@ -1408,7 +1428,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
      - Add a test similar to “polls until completed then stops”, but with the terminal response returning `state: 'skipped'`.
      - Assert polling stops after the `skipped` response.
 
-5. [ ] Client unit test: the UI renders a `skipped` status label:
+6. [ ] Client unit test: the UI renders a `skipped` status label:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestStatus.test.tsx`
    - Purpose: make skipped runs visible/understandable.
@@ -1419,7 +1439,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Requirements:
      - Assert the run status label includes “skipped” (or the exact text used by the UI).
 
-6. [ ] Client unit test: the UI re-enables actions after a `skipped` terminal state:
+7. [ ] Client unit test: the UI re-enables actions after a `skipped` terminal state:
    - Test type: Client unit (Jest + React Testing Library)
    - Location: `client/src/test/ingestStatus.test.tsx`
    - Purpose: ensure the form/buttons are not stuck disabled after no-op runs.
@@ -1430,7 +1450,7 @@ Ensure the client correctly treats the server’s ingest status state `skipped` 
    - Requirements:
      - Assert form/buttons are enabled after the skipped response.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix failures with repo scripts.
    - Docs to read:
      - https://docs.npmjs.com/cli/v10/commands/npm-run-script
 

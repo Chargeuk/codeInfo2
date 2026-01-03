@@ -370,6 +370,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 
 - Added ingest routes/tests:
   - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId
+  - server/src/routes/ingestDirs.ts — GET /ingest/dirs directory picker listing
   - server/src/ingest/chromaClient.ts — Chroma client helpers and lock metadata
   - server/src/ingest/ingestJob.ts — ingest orchestrator, status tracking, embedding flow
   - server/src/test/features/ingest-start.feature — ingest start/status scenarios
@@ -384,6 +385,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/features/ingest-delta-reembed.feature — delta re-embed scenarios (changed/add/delete/no-op/legacy/degraded)
 - server/src/test/steps/ingest-delta-reembed.steps.ts — step defs for delta re-embed scenarios
 - server/src/test/unit/ingest-roots-dedupe.test.ts — unit coverage for `/ingest/roots` response dedupe
+- server/src/test/unit/ingest-dirs-router.test.ts — unit coverage for `/ingest/dirs` response contract and edge cases
 - server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
 - server/src/test/unit/repo-conversations-agent-filter.test.ts — repo query coverage for `agentName=__none__` and exact agent filters
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`

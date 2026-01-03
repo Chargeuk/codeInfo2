@@ -1453,7 +1453,7 @@ Add a small server endpoint that lists child directories under a single allowed 
      - `server/src/ingest/pathMap.ts`
      - `server/src/test/unit/pathMap.test.ts`
 
-2. [ ] Implement the directory listing route:
+2. [x] Implement the directory listing route:
    - Docs to read (repeat; do not skip):
      - Context7 `/expressjs/express/v5.1.0` (async route handlers)
      - https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
@@ -1497,7 +1497,7 @@ Add a small server endpoint that lists child directories under a single allowed 
      });
      ```
 
-3. [ ] Mount the router in the server:
+3. [x] Mount the router in the server:
    - Docs to read:
      - Context7 `/expressjs/express/v5.1.0` (Router mounting)
    - Files to edit:
@@ -1505,7 +1505,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Mount the router at `/` like other ingest routes.
 
-4. [ ] Create the server unit test suite for `GET /ingest/dirs`:
+4. [x] Create the server unit test suite for `GET /ingest/dirs`:
    - Test type: Server unit (node:test + SuperTest)
    - Purpose: validate edge cases and error handling without relying on a real filesystem outside the test temp directory.
    - Docs to read (repeat; do not skip):
@@ -1517,7 +1517,7 @@ Add a small server endpoint that lists child directories under a single allowed 
      - Create a temp directory tree.
      - Set `process.env.HOST_INGEST_DIR` to the temp base for the test.
 
-5. [ ] Unit test: default request (no `path` query) lists child directories under the base:
+5. [x] Unit test: default request (no `path` query) lists child directories under the base:
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: confirm the simplest happy path for the directory picker.
@@ -1528,7 +1528,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - `GET /ingest/dirs` returns `200` and includes `dirs` with only directory names.
 
-6. [ ] Unit test: `path=` (empty string) behaves like omitted path (lists base):
+6. [x] Unit test: `path=` (empty string) behaves like omitted path (lists base):
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: avoid ambiguous client behavior when the query string is present but blank.
@@ -1539,7 +1539,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - `GET /ingest/dirs?path=` returns `200` and lists the base.
 
-7. [ ] Unit test: `path=   ` (whitespace) behaves like omitted path (lists base):
+7. [x] Unit test: `path=   ` (whitespace) behaves like omitted path (lists base):
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: ensure the API is resilient to UI trimming/formatting issues.
@@ -1550,7 +1550,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - `GET /ingest/dirs?path=%20%20%20` returns `200` and lists the base.
 
-8. [ ] Unit test: non-string `path` query behaves like omitted path (lists base):
+8. [x] Unit test: non-string `path` query behaves like omitted path (lists base):
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: avoid hard-to-debug crashes if clients send repeated query keys.
@@ -1561,7 +1561,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Send a request like `GET /ingest/dirs?path=a&path=b` and assert it lists the base.
 
-9. [ ] Unit test: returned `dirs` are sorted ascending:
+9. [x] Unit test: returned `dirs` are sorted ascending:
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: keep the UI stable and predictable.
@@ -1572,7 +1572,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Create directories out of order and assert response `dirs` is sorted.
 
-10. [ ] Unit test: `OUTSIDE_BASE` for a `path` outside the base:
+10. [x] Unit test: `OUTSIDE_BASE` for a `path` outside the base:
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: enforce lexical containment and protect the server from browsing arbitrary FS paths.
@@ -1583,7 +1583,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Request a path outside base and assert `400` with `{ status:'error', code:'OUTSIDE_BASE' }`.
 
-11. [ ] Unit test: `NOT_FOUND` for a missing path:
+11. [x] Unit test: `NOT_FOUND` for a missing path:
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: ensure the UI can show a meaningful error if the directory disappears.
@@ -1594,7 +1594,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Request a non-existent path inside base and assert `404` with `{ status:'error', code:'NOT_FOUND' }`.
 
-12. [ ] Unit test: `NOT_DIRECTORY` when `path` points at a file:
+12. [x] Unit test: `NOT_DIRECTORY` when `path` points at a file:
    - Test type: Server unit (node:test + SuperTest)
    - Location: `server/src/test/unit/ingest-dirs-router.test.ts`
    - Purpose: ensure the API does not return an invalid list response for files.
@@ -1605,7 +1605,7 @@ Add a small server endpoint that lists child directories under a single allowed 
    - Requirements:
      - Request a file path inside base and assert `400` with `{ status:'error', code:'NOT_DIRECTORY' }`.
 
-13. [ ] Update `design.md` with the `GET /ingest/dirs` endpoint contract and a Mermaid flow diagram:
+13. [x] Update `design.md` with the `GET /ingest/dirs` endpoint contract and a Mermaid flow diagram:
    - Docs to read (repeat; do not skip):
      - https://www.markdownguide.org/basic-syntax/
      - Context7 `/mermaid-js/mermaid`
@@ -1630,7 +1630,7 @@ Add a small server endpoint that lists child directories under a single allowed 
            K --> L[200 { base, path, dirs[] }]
          ```
 
-14. [ ] Add server log entries (visible in the Logs page) for directory browsing so the UI can be verified by logs:
+14. [x] Add server log entries (visible in the Logs page) for directory browsing so the UI can be verified by logs:
    - Purpose: allow manual verification to confirm the endpoint was hit and what it returned.
    - Files to edit:
      - `server/src/routes/ingestDirs.ts`
@@ -1643,7 +1643,7 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `0000020 ingest dirs list error`
          - context must include: `{ base, path, code }` where `code` matches the response (`OUTSIDE_BASE|NOT_FOUND|NOT_DIRECTORY`)
 
-15. [ ] Update `projectStructure.md` with any new server files added in this task:
+15. [x] Update `projectStructure.md` with any new server files added in this task:
    - Docs to read:
      - https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1653,41 +1653,56 @@ Add a small server endpoint that lists child directories under a single allowed 
        - `server/src/routes/ingestDirs.ts`
        - `server/src/test/unit/ingest-dirs-router.test.ts`
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 
-5. [ ] `npm run e2e`
+5. [x] `npm run e2e`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Note: if you need a clean rebuild, use `npm run compose:build:clean`.
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 
-8. [ ] Manual Playwright-MCP check (`GET /ingest/dirs` endpoint contract):
+8. [x] Manual Playwright-MCP check (`GET /ingest/dirs` endpoint contract):
    - Docs to read:
      - Context7 `/microsoft/playwright`
    - Checks:
      - Load `http://localhost:5010/ingest/dirs` in the browser and confirm response contains `{ base, path, dirs }`.
-     - Load `http://localhost:5010/ingest/dirs?path=/does-not-exist` and confirm `{ status:'error', code:'NOT_FOUND' }`.
+    - Load `http://localhost:5010/ingest/dirs?path=<base>/does-not-exist` (must be lexically inside `base`) and confirm `{ status:'error', code:'NOT_FOUND' }`.
      - Load `http://localhost:5001/logs` and confirm **server** logs include (triggered by the requests above):
        - `0000020 ingest dirs list start`
        - `0000020 ingest dirs list success`
        - `0000020 ingest dirs list error`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - (2026-01-03) Marked Task 5 as in progress; reviewed existing ingest route patterns, shared path validation (`mapHostWorkingFolderToWorkdir`), and unit test conventions (node:test + SuperTest).
+- (2026-01-03) Added `GET /ingest/dirs` route (`server/src/routes/ingestDirs.ts`) with lexical base validation via `mapHostWorkingFolderToWorkdir`, plus `NOT_FOUND` and `NOT_DIRECTORY` handling and sorted immediate child directory names.
+- (2026-01-03) Mounted the new router in `server/src/index.ts` alongside the other ingest routes.
+- (2026-01-03) Added required `logStore.append` entries for directory browse start/success/error with the exact message strings specified in the task.
+- (2026-01-03) Added server unit tests (`server/src/test/unit/ingest-dirs-router.test.ts`) covering default/blank/whitespace/non-string query handling, sorted output, and all error codes (`OUTSIDE_BASE`, `NOT_FOUND`, `NOT_DIRECTORY`).
+- (2026-01-03) Documented the new `/ingest/dirs` contract and validation flow in `design.md` and recorded new files in `projectStructure.md`.
+- (2026-01-03) Verified formatting via `npm run format:check --workspaces` (ran `npm run format --workspace server` to fix) and ran `npm run lint --workspaces`.
+- (2026-01-03) Testing: `npm run build --workspace server`.
+- (2026-01-03) Testing: `npm run build --workspace client`.
+- (2026-01-03) Testing: `npm run test --workspace server`.
+- (2026-01-03) Testing: `npm run test --workspace client`.
+- (2026-01-03) Testing: `npm run e2e`.
+- (2026-01-03) Testing: `npm run compose:build`.
+- (2026-01-03) Testing: `npm run compose:up`.
+- (2026-01-03) Testing: verified `GET /ingest/dirs` and error contract using `curl` against `http://host.docker.internal:5010` and confirmed the required server log entries exist via `GET /logs?source=server&text=0000020%20ingest%20dirs`.
+- (2026-01-03) Testing: `npm run compose:down`.
 
 ---
 

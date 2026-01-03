@@ -791,6 +791,37 @@ sequenceDiagram
 
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
 
+### Ingest directory picker (server-backed)
+
+- Endpoint: `GET /ingest/dirs?path=<absolute server path>`.
+- Base path: `HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
+- Response (success):
+
+```json
+{ "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }
+```
+
+- Response (error):
+
+```json
+{ "status": "error", "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY" }
+```
+
+```mermaid
+flowchart TD
+  A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+  B --> C{path provided?}
+  C -- no/blank --> D[List base]
+  C -- yes --> E[Validate inside base (lexical)]
+  E -- outside --> F[400 OUTSIDE_BASE]
+  E -- ok --> G{exists?}
+  G -- no --> H[404 NOT_FOUND]
+  G -- yes --> I{isDirectory?}
+  I -- no --> J[400 NOT_DIRECTORY]
+  I -- yes --> K[readdir withFileTypes]\nfilter dirs\nsort
+  K --> L[200 { base, path, dirs[] }]
+```
+
 ### Ingest start/status flow
 
 ```mermaid

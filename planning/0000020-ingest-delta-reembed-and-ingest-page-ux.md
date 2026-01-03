@@ -18,6 +18,9 @@ Today, ingest (and re-embed) behaves like a full rebuild of a folder’s embeddi
 
 We want to introduce a **delta re-ingest** mechanism driven by **file content hashes** so that when a user requests a re-ingest, the server only re-embeds files that are new or have changed, and removes embeddings for files that have been deleted.
 
+Glossary:
+- **root**: the ingest root id/name stored for a folder and used as the collection namespace in ingest metadata (the same value returned by `GET /ingest/roots`).
+
 To make deletions/changes fast and avoid scanning chunk metadata in Chroma, we will introduce a lightweight **per-file index stored in MongoDB** (collection `ingest_files`) keyed by `{ root, relPath }` and storing `fileHash` (plus a minimal `updatedAt` for debugging). This index is used to:
 - detect deleted files (present in the index but not found on disk),
 - detect changed files (hash differs), and
@@ -37,6 +40,73 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 
 ---
 
+## Message Contracts
+
+### Directory picker (new endpoint)
+
+**Request**
+- `GET /ingest/dirs?path=<absolute server path>`
+- `path` is optional; when omitted, the base defaults to `HOST_INGEST_DIR` (or `/data`).
+- Lexical base validation only (no realpath containment checks). Paths that escape via symlink are allowed if accessible.
+
+**Response (success)**
+```json
+{
+  "base": "/data",
+  "path": "/data/projects",
+  "dirs": ["repo-a", "repo-b"]
+}
+```
+
+**Response (error)**
+```json
+{
+  "status": "error",
+  "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY"
+}
+```
+
+---
+
+### Mongo per-file index (collection `ingest_files`)
+
+**Document shape**
+```json
+{
+  "root": "repo-name",
+  "relPath": "src/file.ts",
+  "fileHash": "sha256-hex",
+  "updatedAt": "2026-01-03T00:00:00.000Z"
+}
+```
+
+**Indexes**
+- Unique: `{ root: 1, relPath: 1 }`
+- Non-unique: `{ root: 1 }`
+
+---
+
+### Vector metadata (Chroma)
+
+Each chunk includes:
+```json
+{
+  "root": "repo-name",
+  "relPath": "src/file.ts",
+  "fileHash": "sha256-hex",
+  "runId": "r1",
+  "chunkHash": "sha256-hex",
+  "chunkIndex": 0,
+  "tokenCount": 123
+}
+```
+
+Notes:
+- Deletes for file replacement use Chroma `where` metadata filters over `{ root, relPath, fileHash }`.
+- `runId` is used to clean up in-progress vectors on cancel.
+
+---
+
 ## Acceptance Criteria
 
 - Re-ingest supports an incremental/delta mode that:
@@ -48,6 +118,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
 - Each embedded chunk has metadata sufficient to attribute it to a specific file:
   - Store `relPath` (POSIX, relative to the ingested root) including filename.
   - Store a file hash (SHA-256) for diffing.
+- Deletes for file-level replacement use Chroma metadata filters (the `where` filter) over `{ root, relPath, fileHash }`.
 - A per-file index is persisted in **MongoDB** and is the primary source of truth for delta decisions:
   - Collection name: `ingest_files`.
   - It is keyed by `{ root, relPath }` and stores `fileHash` and `updatedAt`.
@@ -63,6 +134,7 @@ This story aims to reduce re-ingest time and compute cost while keeping the inge
   - The Folder path remains editable as a text field, and there is an additional “Choose folder…” mechanism that updates the field value when used.
     - The “Choose folder…” UX is implemented as a **server-backed directory picker modal** limited to `HOST_INGEST_DIR` (default `/data`), and selecting a folder updates the text field with the server-readable path.
     - The directory picker endpoint lists child directories under the base path and rejects only lexically out-of-base paths; symlink escapes are allowed if the path resolves and is accessible.
+    - Endpoint response shape example: `{ "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }` with errors returning `{ "status": "error", "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY" }`.
     - The directory picker is backed by a simple server endpoint that lists child directories under the allowed base and rejects paths outside that base; the UI displays directory names and writes the server-readable path into the input.
 
 ---

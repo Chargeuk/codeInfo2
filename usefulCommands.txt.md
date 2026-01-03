@@ -10,7 +10,7 @@ Are there any sections in this story that are not defined in a way that a junior
 
 Does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed?
 
-Please create tasks for this story, ensuring that each task is detailed enough for a junior developer to work through without the insup of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
+Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked seperately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
 
 Tasks:
 can you check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the

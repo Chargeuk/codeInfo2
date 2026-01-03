@@ -9,7 +9,12 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required."]
+      "content": ["Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked seperately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. If it is already tasked up, then just state this, and give an overview of the tasks. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required. Commit after making any changes."]
     },
     {
       "type": "message",

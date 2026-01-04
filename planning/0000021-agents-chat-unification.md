@@ -372,6 +372,10 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
    - Start a new Agents conversation and send an instruction with a client-supplied `conversationId` (new id not yet persisted).
    - Confirm the run completes successfully (no `archived`/`agent_mismatch`/`agent_run_failed` error) and the transcript renders.
    - Execute an Agent command run from the same new conversation id and confirm it also completes.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T1] agents.run mustExist resolved`
+     - `DEV-0000021[T1] agents.commands mustExist resolved`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -603,6 +607,11 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
    - Open Agents in two browser contexts (two tabs or two windows).
    - Start an Agents run in context A and confirm context B shows the initiating user message immediately (run-start parity) and then receives streaming transcript updates.
    - Confirm the final assistant status transitions to the correct completed state and the conversation appears in the sidebar.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T2] agents.inflight created`
+     - `DEV-0000021[T2] agents.ws user_turn published`
+     - `DEV-0000021[T2] agents.chat.run flags include inflightId`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -714,6 +723,10 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
    - Start an Agents run and click Stop while the run is still streaming.
    - Confirm the run stops promptly and the transcript shows a stopped final state (not a generic failure).
    - Confirm starting a new run after stopping works (no stuck “RUN_IN_PROGRESS” state).
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T3] ws cancel_inflight received`
+     - `DEV-0000021[T3] inflight aborted`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -968,6 +981,12 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Start an Agents run and confirm the transcript renders using the Chat WS pipeline (user turn appears, then streaming assistant output, then final).
    - Refresh the page mid-run (or open another tab) and confirm the transcript is recoverable via WS snapshot/hydration (no duplicated/missing bubbles).
    - With Mongo disabled (or server reporting `mongoConnected=false`), confirm sending still works (stateless streaming) and archive controls remain disabled.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T4] agents.ws subscribe_conversation`
+     - `DEV-0000021[T4] agents.ws event user_turn`
+     - `DEV-0000021[T4] agents.ws event inflight_snapshot`
+     - `DEV-0000021[T4] agents.ws event turn_final`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1172,6 +1191,10 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
    - Run an Agent instruction that triggers tool calls and confirm tools render with the same Parameters/Result accordions as Chat.
    - Confirm citations render in the same default-closed citations accordion under assistant bubbles (and are stable across refresh).
    - Confirm assistant status chips match Chat behavior (Processing → Complete, or Failed/Stopped when applicable).
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T5] agents.ws event tool_event`
+     - `DEV-0000021[T5] agents.transcript citations ready`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1309,6 +1332,11 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
    - Start an Agents run and click Stop immediately; confirm the HTTP request aborts and the WS `cancel_inflight` also fires (no long tail streaming).
    - Confirm Stop is still enabled/functional even when Mongo is disconnected (WS cancel should not be gated on persistence).
    - Confirm the UI returns to an idle state after stopping and the user can Send again.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T6] agents.stop clicked`
+     - `DEV-0000021[T6] agents.http abort signaled`
+     - `DEV-0000021[T6] agents.ws cancel_inflight sent`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1464,6 +1492,11 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
    - Open two browser contexts for the same agent; create/run a conversation in context A.
    - Confirm the Agents sidebar in context B updates via WS (`conversation_upsert`/`conversation_delete`) without refresh and remains filtered to the selected agent.
    - Confirm deleting/archiving (where supported) updates the sidebar live and does not break selection.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T7] agents.ws subscribe_sidebar`
+     - `DEV-0000021[T7] agents.sidebar conversation_upsert`
+     - `DEV-0000021[T7] agents.sidebar conversation_delete`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1658,6 +1691,10 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Desktop: confirm left Drawer is persistent at width 320 and the transcript/controls match the Chat layout.
    - Mobile viewport: confirm Drawer switches to temporary, can be opened/closed, and content remains usable.
    - Confirm “New conversation”, “Send”, “Stop”, agent selection, and command execution are accessible and do not cause layout overflow.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T8] agents.layout drawer variant`
+     - `DEV-0000021[T8] agents.layout drawer toggle`
+   - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
 9. [ ] `npm run compose:down`
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)

@@ -45,10 +45,9 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 - Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical?
 - Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds?
-- After unification, should the Agents UI rely exclusively on WS transcript events, or keep the current REST `segments` response as a fallback for non-WS clients/tests?
-- Should command execution display be treated as a special tool segment or continue to render command metadata as a separate note?
-- With citations enabled on Agents, should citations render only when vector search tool results are present (same as Chat), or should agents ever synthesize citations from other data?
-- How should “Stop” behave for agent runs once the unified WS path is in place (cancel inflight + abort fetch, or only one)?
+- After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback?
+- Given the chat view must remain unchanged, how should agent-specific command metadata be represented without UI changes (drop it, or map it into existing tool/event data)?
+- How should “Stop” behave for agent runs once the unified WS path is in place (match Chat: cancel inflight + abort fetch)?
 - Which legacy Agents server path code is intended to be removed once the unified flow is live (UI-only cleanup vs removal of any duplicate orchestration code paths)?
 - Are there any agent-specific banners/warnings that must remain in the controls area (e.g., disabled agent warnings)?
 

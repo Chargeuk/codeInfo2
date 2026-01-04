@@ -440,7 +440,29 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - In the test, start listening for events *before* starting the run (to avoid missing early frames).
      - Add a `waitForEvent` for `type === 'user_turn'` and assert it arrives.
 
-6. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
+6. [ ] Server integration test: agent run passes `inflightId` into `chat.run(...)` flags:
+   - Test type:
+     - node:test integration test (server)
+   - Test location:
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Description:
+     - Ensures the Agents run path includes `inflightId` in the flags object passed to `ChatInterface.run(...)`.
+   - Purpose:
+     - Prevents regressions where turn persistence cannot call `markInflightPersisted(...)` because `inflightId` was not provided.
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Requirements:
+     - Add a separate test case (do not overload the existing WS transcript test).
+     - Use a `ChatInterface` test double that captures the `flags` parameter passed into `execute(...)`.
+     - Start an agent run with a known deterministic `inflightId`.
+     - Assert the captured flags contain:
+       - `inflightId` equal to the requested inflight id.
+       - `source` equal to the provided source (e.g. `'REST'`).
+     - Keep the test fast: no WS server is required for this check; it only validates the `chat.run(...)` call contract.
+
+7. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagram syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -453,7 +475,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - server publishes `user_turn` immediately
        - then `inflight_snapshot` / deltas / `turn_final`.
 
-7. [ ] Run lint/format verification:
+8. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -655,6 +677,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `mongoConnected: true`
        - sending calls the Agents REST endpoint but transcript comes from WS.
      - Emit `user_turn`/`assistant_delta`/`turn_final` and assert the transcript renders.
+       - Explicitly assert the user bubble renders from `user_turn` (if `user_turn` is ignored, the test must fail).
+     - Assert the outgoing `POST /agents/:agentName/run` request body includes a non-empty `conversationId`.
      - Ensure the test would fail if the page incorrectly appended `result.segments` in realtime mode:
        - include a distinctive `segments: [{ type: 'answer', text: 'SEGMENT_SHOULD_NOT_RENDER' }]` in the REST response.
        - assert `SEGMENT_SHOULD_NOT_RENDER` is **not** visible after the run completes.
@@ -714,7 +738,29 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
      - Assert the segment content renders in the transcript even though no WS events are emitted.
 
-7. [ ] Update `projectStructure.md` with the new client test file added in this task:
+7. [ ] Client RTL test (Jest + Testing Library): command Execute includes a client-generated `conversationId` when none is selected (realtime-enabled mode):
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Description:
+     - When `mongoConnected: true` and there is no active/selected conversation, clicking Execute must still send `conversationId` in the request body.
+   - Purpose:
+     - Ensures command runs can subscribe to WS early and receive `user_turn`/deltas even though the REST endpoint responds only after completion.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Requirements:
+     - Use a realtime-enabled setup (`GET /health` → `{ mongoConnected: true }`).
+     - Do not pre-populate any conversation selection before clicking Execute.
+     - Capture the JSON request body sent to `POST /agents/:agentName/commands/run`.
+     - Assert it includes:
+       - `commandName: <selected command>`
+       - `conversationId: <non-empty string>`
+
+8. [ ] Update `projectStructure.md` with the new client test file added in this task:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -723,7 +769,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Add:
        - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
 
-8. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
+9. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
    - Documentation to read:
      - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
@@ -739,7 +785,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `useChatStream` (state/merge)
        - `useConversationTurns` (history hydration)
 
-9. [ ] Run full lint/format verification:
+10. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`

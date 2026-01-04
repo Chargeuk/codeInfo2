@@ -175,6 +175,7 @@ Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_infli
 - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
 - `ws` package docs: https://github.com/websockets/ws
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Markdown guide (only for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -209,7 +210,14 @@ Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_infli
      - `design.md`
      - `readme.md`
 
-5. [ ] Run lint/format verification:
+5. [ ] Update `projectStructure.md` with the new server test file:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new file path:
+       - `server/src/test/integration/agents-run-ws-cancel.test.ts`
+
+6. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -260,7 +268,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - Forward `user_turn`, `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, `turn_final` to `handleWsEvent(...)`.
        - Forward `inflight_snapshot` to `hydrateInflightSnapshot(...)`.
      - Remove `liveInflight` state and all logic that manually appends deltas/tool events.
-     - Keep agent-specific command metadata note behavior if it exists today (render from persisted turn `command` metadata).
+     - Do not render any Agents-only transcript elements (e.g., command step metadata notes); transcript rendering must match Chat.
 
 3. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
    - Files to edit:
@@ -269,8 +277,18 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Prefer extracting a shared transcript component under `client/src/components/chat/` and using it in both Chat and Agents, rather than copy/paste.
      - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
      - Citations must render inside the same default-closed citations accordion used by Chat.
+     - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
 
-4. [ ] Update client tests for streaming parity:
+4. [ ] Remove the Agents-only command metadata transcript note:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Files to edit or delete:
+     - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+   - Requirements:
+     - Remove the “Command run: … (step/total)” note from the transcript UI.
+     - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
+
+5. [ ] Update client tests for streaming parity:
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
@@ -278,21 +296,11 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Continue asserting deltas render.
      - Assert `turn_final` transitions the assistant status to complete/failed.
 
-5. [ ] Update `projectStructure.md` for any new test/component files added in this story:
+6. [ ] Update `projectStructure.md` for any new test/component files added in this story:
    - Files to edit:
      - `projectStructure.md`
 
-6. [ ] Run full lint/format verification:
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
-   - Files to edit:
-     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
-   - Requirements:
-     - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
-
-4. [ ] Run lint/format verification:
+7. [ ] Run full lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -398,6 +406,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Mock an Agents page session.
      - Emit a `conversation_upsert` WS event with `agentName: 'a1'` and confirm it appears in the sidebar.
      - Emit a second `conversation_upsert` for a different `agentName` and confirm it is ignored.
+     - Emit an upsert with a newer `lastMessageAt` and confirm it reorders to the top.
 
 4. [ ] Update `projectStructure.md` with any new test files added:
    - Files to edit:
@@ -459,12 +468,28 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Ensure the tests locate the conversation list and controls in their new positions.
      - Keep assertions focused on behavior (not pixel layout).
 
-4. [ ] Update documentation to match the new Agents UI layout:
+4. [ ] Validate all existing Agents control behaviors still work after the layout refactor:
+   - Files to read:
+     - `client/src/pages/AgentsPage.tsx`
+   - Tests to run/update (selectors + expectations only; do not change semantics):
+     - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+     - `client/src/test/agentsPage.commandsList.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Required behaviors (must match today’s Agents page):
+     - Agent change refreshes commands and clears `working_folder`.
+     - “New conversation” clears transcript state and clears `working_folder`.
+     - Send/Execute are disabled when persistence is unavailable (`mongoConnected=false`).
+     - RUN_IN_PROGRESS conflicts still surface the same friendly error.
+
+5. [ ] Update documentation to match the new Agents UI layout:
    - Files to edit:
      - `design.md`
      - `readme.md`
 
-5. [ ] Run lint/format verification:
+6. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 

@@ -1110,7 +1110,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 ### 5. Client: align Agents transcript UI with Chat transcript UI
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits:
 
 #### Overview

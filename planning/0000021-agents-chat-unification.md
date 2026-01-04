@@ -51,12 +51,17 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 ## Research Findings (MCP + Web)
 
 - **Server parity gap:** agent runs already use `ChatInterface` + `attachChatStreamBridge` but do not emit `user_turn` (and do not set up chat-style inflight metadata) in `server/src/agents/service.ts`; `/chat` explicitly creates inflight state and publishes `user_turn` in `server/src/routes/chat.ts`. This is the primary upstream gap to close for WS parity.
+- **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agent runs do not populate this registry today, so late subscribers won’t get a catch-up snapshot until the flow is unified.
+- **Cancel/stop:** WS `cancel_inflight` handling lives in `server/src/ws/server.ts` and chat cancellation tests; the Agents UI currently only aborts the REST call in `client/src/pages/AgentsPage.tsx` and does not issue `cancel_inflight`, so server-side runs won’t stop unless unified.
+- **Agents buffering:** agent runs buffer `segments` and return them only when complete (via McpResponder), rather than streaming tool/token deltas; unified orchestration must either bypass or dual-wire this buffered path.
 - **Client divergence:** the Agents UI currently builds its own inflight aggregation and transcript rendering in `client/src/pages/AgentsPage.tsx`, while Chat uses `useChatStream` + `useChatWs` + `useConversationTurns`. This is the main source of duplicate logic and drift.
 - **Abort/stop semantics:** client-side aborts rely on `AbortController` (fetch rejects with `AbortError`), so server-side cancellation must still be explicit via the unified WS `cancel_inflight` flow.
 - **WebSocket health:** the `ws` library recommends ping/pong + termination to detect dead connections; our WS server already uses a heartbeat, which aligns with keeping a single WS path for both Chat and Agents.
 - **Protocol choice:** WebSockets are bidirectional while SSE is server-to-client only; maintaining WS for both Chat and Agents keeps cancel-inflight and tool event flows unified.
+- **External confirmation:** WebSocket-vs-SSE comparisons (WebSocket.org, LogRocket) confirm SSE is unidirectional while WebSockets are bidirectional, reinforcing the WS-only unification decision.
+- **Legacy streaming helper:** `server/src/chatStream.ts` still exists for older streaming paths; ensure Agents does not use it once WS unification is complete.
 - **DeepWiki note:** the repo is not indexed in DeepWiki yet (“Repository not found”), so code references are confirmed locally; once indexed, re-check for any agent-specific design notes.
-- **CodeInfo note:** the code-info MCP appears to be indexed against a different repo namespace (“CodeInfo2Planning”) and returned mismatched paths, so local files are treated as the source of truth for this story.
+- **CodeInfo note (updated):** code_info MCP can access the correct repo when given the explicit path; it confirms WS emission/inflight registry locations and the current Agents UI divergence.
 
 ---
 

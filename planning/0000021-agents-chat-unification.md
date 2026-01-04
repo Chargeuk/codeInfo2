@@ -264,18 +264,25 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Requirements:
      - Instantiate `useChatStream` with fixed `provider='codex'` and a safe fallback `model` string (Agents should not expose provider/model controls).
      - Important: Agents “Send” must continue to call the Agents REST endpoints (via `client/src/api/agents.ts`), not `useChatStream.send()` (which posts to `/chat`). `useChatStream` is used here only for WS transcript state + hydration helpers.
+     - Important: Agents runs must always have a known `conversationId` **before** starting the request so the page can subscribe to WS and receive early `user_turn`/deltas.
+       - When `activeConversationId` is empty (new conversation), generate a client-side id (use the same `crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)` fallback the file already uses).
+       - Immediately set it as `activeConversationId` and subscribe to the conversation over WS, then include it in the request payload for both Send (`POST /agents/:agentName/run`) and Execute command (`POST /agents/:agentName/commands/run`).
+       - Do not rely on the server generating a conversation id, because the Agents REST endpoints only respond once the run is complete; without a pre-known id, the UI cannot subscribe early and will miss the initial stream frames.
      - When selecting a conversation, call `setConversation(conversationId, { clearMessages: true })` and hydrate history using `hydrateHistory(...)` with turns from `useConversationTurns`.
      - Wire WebSocket transcript events into `useChatStream`:
        - Forward `user_turn`, `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, `turn_final` to `handleWsEvent(...)`.
        - Forward `inflight_snapshot` to `hydrateInflightSnapshot(...)`.
      - Remove `liveInflight` state and all logic that manually appends deltas/tool events.
      - Do not render any Agents-only transcript elements (e.g., command step metadata notes); transcript rendering must match Chat.
+     - Persistence-unavailable fallback (must keep existing functionality):
+       - When `mongoConnected === false` (realtime disabled), keep using the existing segment-based rendering for Send (`result.segments` → assistant bubble) because WS transcript events will not arrive.
+       - Commands are already disabled in this mode; ensure that remains true.
 
 3. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-     - Prefer extracting a shared transcript component under `client/src/components/chat/` and using it in both Chat and Agents, rather than copy/paste.
+     - Do not change ChatPage transcript UI in this story. Instead, copy the Chat transcript UI patterns into AgentsPage and keep test ids consistent with Chat where applicable (e.g., `data-testid="citations-accordion"`, `data-testid="citations-toggle"`, `data-testid="citations"`).
      - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
      - Citations must render inside the same default-closed citations accordion used by Chat.
      - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
@@ -342,10 +349,11 @@ Update the Agents Stop behavior to match Chat: send `cancel_inflight` over WebSo
 2. [ ] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-   - Requirements:
-     - Use `getInflightId()` from the chat transcript state (from Task 3) when available.
-     - Call `cancelInflight(activeConversationId, inflightId)` before aborting.
-     - Keep current behavior of aborting the request (AbortController).
+    - Requirements:
+      - Always abort the in-flight HTTP request via `AbortController` (immediate UI response).
+      - Additionally, when `activeConversationId` and `getInflightId()` are both available, call `cancelInflight(activeConversationId, inflightId)`.
+      - If the inflight id is not yet known (user clicks Stop immediately), aborting the request alone is still required.
+      - When realtime is disabled (`mongoConnected === false`), do not attempt to send `cancel_inflight` over WS.
 
 3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
    - Files to edit:
@@ -459,7 +467,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Implement the same Drawer open state behavior as Chat (mobile vs desktop).
      - Render `ConversationList` inside the Drawer with `variant="agents"` and agent-scoped conversations.
      - Place agent-specific controls in the control bar area above the transcript.
-     - Prefer extracting a shared layout component under `client/src/components/chat/` and using it in both Chat and Agents, rather than copy/paste.
+     - Do not refactor ChatPage layout in this story; copy the layout pattern into AgentsPage.
 
 3. [ ] Update/extend client tests to match the new layout:
    - Files to edit:

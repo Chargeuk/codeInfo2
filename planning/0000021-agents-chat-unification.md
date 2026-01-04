@@ -263,6 +263,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Instantiate `useChatStream` with fixed `provider='codex'` and a safe fallback `model` string (Agents should not expose provider/model controls).
+     - Important: Agents “Send” must continue to call the Agents REST endpoints (via `client/src/api/agents.ts`), not `useChatStream.send()` (which posts to `/chat`). `useChatStream` is used here only for WS transcript state + hydration helpers.
      - When selecting a conversation, call `setConversation(conversationId, { clearMessages: true })` and hydrate history using `hydrateHistory(...)` with turns from `useConversationTurns`.
      - Wire WebSocket transcript events into `useChatStream`:
        - Forward `user_turn`, `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, `turn_final` to `handleWsEvent(...)`.

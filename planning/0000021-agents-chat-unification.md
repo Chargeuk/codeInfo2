@@ -809,7 +809,7 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 ### 4. Client: switch Agents transcript state to the Chat WS pipeline
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: a6605c4
 
 #### Overview
 

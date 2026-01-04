@@ -22,6 +22,8 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 **Approach (preferred):** Rebuild the Agents page by reusing the Chat page layout/components and the shared chat WebSocket transcript logic, and route agent runs through the same server orchestration used by `/chat`. This keeps the UI/WS behavior identical and allows removal of the legacy Agents UI state handling and any duplicate agent-run server paths.
 
+**Output clarity:** The new Agents page should look and behave exactly like Chat (same layout + transcript UI), with only the controls swapped to agent-specific inputs. The old Agents UI implementation and any server code paths that bypass the unified run orchestration should be deleted.
+
 ---
 
 ## Acceptance Criteria
@@ -31,12 +33,15 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 - Agents show the same transcript UI features as Chat: status chip (Processing/Complete/Failed), tool blocks with parameters + result accordions, and citations rendered in the same citations accordion under assistant bubbles.
 - The Agents sidebar updates via WebSocket `conversation_upsert` / `conversation_delete` events the same way as Chat (subscribed with `subscribe_sidebar`), filtered to the active agent and sorted in the same order.
 - Agent-specific controls replace Chat provider/model controls without losing functionality: agent dropdown, command dropdown + execute, working folder input, Send/Stop, and New conversation all behave as they do today on the Agents page.
+- The legacy Agents UI logic (custom inflight aggregation, bespoke transcript rendering) is removed, and the Agents page uses the same Chat transcript components/hooks.
+- Any server-side Agents run path that bypasses the shared run orchestration is removed; both `/chat` and `/agents` use the same orchestration for WS events.
 
 ---
 
 ## Out Of Scope
 
 - Redesigning the Chat page UI.
+- Changing Chat view behavior or visuals (Agents must inherit Chat behavior without modifying it unless absolutely necessary).
 - Changing backend agent execution semantics beyond what is needed for WS parity.
 - Introducing new provider types or non-Codex agents.
 - Adding new agent commands or altering existing command content.
@@ -59,7 +64,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 - **No new storage shapes are required.** Existing conversation/turn persistence remains unchanged.
 - **No new WS event types are required.** Agents will emit the same existing WS v1 events as Chat (`user_turn`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`).
-- **No new REST fields are required.** `/agents/:agentName/run` continues to accept `instruction`, optional `conversationId`, and optional `working_folder` and returns `segments` for fallback/non-WS use.
+- **No new REST fields are required.** `/agents/:agentName/run` continues to accept `instruction`, optional `conversationId`, and optional `working_folder` and returns `segments` for fallback/non-WS use (the UI should not depend on these segments).
 
 ---
 

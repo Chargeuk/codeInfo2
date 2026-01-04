@@ -321,12 +321,12 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Remove:
        - (none)
 
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -509,12 +509,12 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - server publishes `user_turn` immediately
        - then `inflight_snapshot` / deltas / `turn_final`.
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -595,12 +595,12 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - Remove:
        - (none)
 
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run test --workspace server`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -825,12 +825,12 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `useChatStream` (state/merge)
        - `useConversationTurns` (history hydration)
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1006,12 +1006,12 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Remove (if deleted by this task):
        - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1120,12 +1120,12 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
        - if `conversationId` + `inflightId` exist, client sends WS `cancel_inflight`
        - server aborts inflight and emits `turn_final: stopped`.
 
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1252,12 +1252,12 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Remove:
        - (none)
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1425,12 +1425,12 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update the expected transcript container test id if it changes (prefer keeping Chat-parity ids).
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace client`
-4. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
 
 ---
 
@@ -1490,18 +1490,18 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 5. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
 6. [ ] Write a pull request summary comment covering all tasks and major changes.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
-1. [ ] `npm run lint --workspaces`
-2. [ ] `npm run format:check --workspaces`
-3. [ ] `npm run build --workspace server`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run compose:build:clean`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run test --workspace client`
-8. [ ] `npm run test:unit --workspace server`
-9. [ ] `npm run test:integration --workspace server`
-10. [ ] `npm run e2e:test`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run test:unit --workspace server`
+7. [ ] `npm run test:integration --workspace server`
+8. [ ] `npm run e2e:test`
 
 #### Implementation notes
 

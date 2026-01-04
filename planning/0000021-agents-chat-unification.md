@@ -1741,6 +1741,9 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
    - Verify every Acceptance Criteria item directly in the UI (Agents layout parity, transcript parity, sidebar live updates, stop/cancel behavior).
    - Regression pass: verify Chat page still behaves identically (sidebar, transcript rendering, tool/citation accordions, stop/cancel).
    - Capture any required screenshots in `test-results/screenshots/` per `planning/plan_format.md`.
+   - Open `/logs` and search for these entries (copy/paste the message text):
+     - `DEV-0000021[T9] agents.unification ready`
+   - Confirm the entry appears when navigating to Agents (proves the unified AgentsPage build is running).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

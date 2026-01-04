@@ -44,11 +44,12 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 ## Questions
 
 - Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical?
+- Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical? **Answer:** Yes — unify both paths behind a single run-orchestration flow to avoid drift and duplicate maintenance.
 - Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds? **Answer:** Yes — reusing the chat run flow means `user_turn` should be emitted as part of the unified server path.
-- After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback?
-- Given the chat view must remain unchanged, how should agent-specific command metadata be represented without UI changes (drop it, or map it into existing tool/event data)?
-- How should “Stop” behave for agent runs once the unified WS path is in place (match Chat: cancel inflight + abort fetch)?
-- Which legacy Agents server path code is intended to be removed once the unified flow is live (UI-only cleanup vs removal of any duplicate orchestration code paths)?
+- After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback? **Answer:** Yes — render from WS only; keep REST segments as a fallback for non-WS clients/tests.
+- Given the chat view must remain unchanged, how should agent-specific command metadata be represented without UI changes (drop it, or map it into existing tool/event data)? **Answer:** Drop bespoke command metadata UI unless it can be represented via existing tool/event data that the current chat view already renders.
+- How should “Stop” behave for agent runs once the unified WS path is in place (match Chat: cancel inflight + abort fetch)? **Answer:** Match Chat — cancel inflight via WS and abort the HTTP request for immediate UI response.
+- Which legacy Agents server path code is intended to be removed once the unified flow is live (UI-only cleanup vs removal of any duplicate orchestration code paths)? **Answer:** Remove legacy agent-run server paths that bypass the unified orchestration/WS flow; keep only the unified run path and simplify client-side Agents code accordingly.
 - Are there any agent-specific banners/warnings that must remain in the controls area (e.g., disabled agent warnings)?
 
 ---

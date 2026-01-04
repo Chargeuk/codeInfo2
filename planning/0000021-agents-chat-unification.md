@@ -93,6 +93,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 - Supertest (Express route testing): Context7 `/ladjs/supertest`
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 
@@ -283,7 +284,22 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Add a test that calls `runAgentCommandRunner({ conversationId: 'c1', ... })` and captures the params passed into `runAgentInstructionUnlocked(...)`.
      - Assert the runner does **not** set `mustExist: true` just because `conversationId` was provided (it should be omitted or `false`), so a new conversation id can be created on first use.
 
-13. [ ] Update `projectStructure.md` with the new/updated server test files:
+13. [ ] Update `design.md` with the new Agents conversationId flow and why the server must accept client-provided ids:
+   - Documentation to read:
+     - Mermaid diagrams (Markdown code block + sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add or update a short “Agents run (conversationId contract)” section that states:
+       - client may generate `conversationId` up front
+       - server must create the conversation when a new id is provided (do not require pre-existence)
+       - reason: Agents REST run is synchronous; WS must be subscribed before the request starts
+     - Add a Mermaid `sequenceDiagram` showing:
+       - client connects WS → `subscribe_conversation(conversationId)`
+       - client POSTs `/agents/:agentName/run` with the same `conversationId`
+       - server creates conversation if missing, then streams via WS.
+
+14. [ ] Update `projectStructure.md` with the new/updated server test files:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -291,7 +307,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
    - Requirements:
      - Add any new server test file paths created in this task under the correct tree sections.
 
-14. [ ] Run lint/format verification:
+15. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -322,6 +338,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 - Node.js `AbortController` / `AbortSignal` (how abort flows propagate through async work): https://nodejs.org/api/globals.html#class-abortcontroller
 - `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 
@@ -408,7 +425,18 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - In the test, start listening for events *before* starting the run (to avoid missing early frames).
      - Add a `waitForEvent` for `type === 'user_turn'` and assert it arrives.
 
-6. [ ] Run lint/format verification:
+6. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
+   - Documentation to read:
+     - Mermaid diagrams (sequence diagram syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid `sequenceDiagram` titled like “Agents run (WS start events)” showing:
+       - `createInflight` occurs first
+       - server publishes `user_turn` immediately
+       - then `inflight_snapshot` / deltas / `turn_final`.
+
+7. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -534,6 +562,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 - Testing Library queries: https://testing-library.com/docs/queries/about/
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 
@@ -673,7 +702,21 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Add:
        - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
 
-8. [ ] Run full lint/format verification:
+8. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
+   - Documentation to read:
+     - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid `flowchart` describing the client decision path:
+       - if `mongoConnected === false`: render REST `segments` (single instruction only)
+       - else: use WS transcript events only and ignore REST `segments`.
+     - Include the key hooks/components by name:
+       - `useChatWs` (transport)
+       - `useChatStream` (state/merge)
+       - `useConversationTurns` (history hydration)
+
+9. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -876,6 +919,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 - Jest (test runner + mocking): Context7 `/jestjs/jest`
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 
@@ -941,7 +985,19 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - Assert the request abort signal becomes aborted.
      - Assert the WS mock recorded **no** `{ type: 'cancel_inflight', ... }` messages.
 
-5. [ ] Run lint/format verification:
+5. [ ] Update `design.md` with the Stop/cancel flow (Agents parity with Chat):
+   - Documentation to read:
+     - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid `sequenceDiagram` showing:
+       - user clicks Stop
+       - client aborts fetch via `AbortController`
+       - if `conversationId` + `inflightId` exist, client sends WS `cancel_inflight`
+       - server aborts inflight and emits `turn_final: stopped`.
+
+6. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -975,6 +1031,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library queries: https://testing-library.com/docs/queries/about/
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 
@@ -1038,13 +1095,24 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Emit a `conversation_upsert` for an agent conversation and assert it renders.
      - Emit a `conversation_delete` for that `conversationId` and assert it is removed from the sidebar.
 
-5. [ ] Update `projectStructure.md` with any new test files added:
+5. [ ] Update `design.md` with the sidebar WS subscription flow (Chat parity):
+   - Documentation to read:
+     - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid `sequenceDiagram` that shows:
+       - client WS `subscribe_sidebar`
+       - server emits `conversation_upsert` and `conversation_delete`
+       - client filters by `agentName` before applying to Agents sidebar.
+
+6. [ ] Update `projectStructure.md` with any new test files added:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
 
-6. [ ] Run lint/format verification:
+7. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -1244,6 +1312,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 - Playwright: Context7 `/microsoft/playwright.dev`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
 
 #### Subtasks
 

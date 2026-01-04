@@ -50,11 +50,11 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ## Research Findings (MCP + Web)
 
-- **Server parity gap:** agent runs already use `ChatInterface` + `attachChatStreamBridge` but do not emit `user_turn` (and do not set up chat-style inflight metadata) in `server/src/agents/service.ts`; `/chat` explicitly creates inflight state and publishes `user_turn` in `server/src/routes/chat.ts`. This is the primary upstream gap to close for WS parity.
-- **WS emission location:** `publishUserTurn` and related WS events are centralized in `server/src/ws/server.ts`; the agents run path does not call these today, so WS transcript events won’t exist without unification.
-- **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agent runs do not populate this registry today, so late subscribers won’t get a catch-up snapshot until the flow is unified.
-- **Cancel/stop:** WS `cancel_inflight` handling lives in `server/src/ws/server.ts` and chat cancellation tests; the Agents UI currently only aborts the REST call in `client/src/pages/AgentsPage.tsx` and does not issue `cancel_inflight`, so server-side runs won’t stop unless unified.
-- **Agents buffering:** agent runs buffer `segments` and return them only when complete (via McpResponder), rather than streaming tool/token deltas; unified orchestration must either bypass or dual-wire this buffered path.
+- **Server parity gap (primary):** agent runs already use `ChatInterface` + `attachChatStreamBridge` and already create an inflight entry, but they do not emit the chat-style WS `user_turn` event and they create inflight state without the chat metadata (`provider`, `model`, `source`, `userTurn`). `/chat` explicitly sets inflight metadata and publishes `user_turn` in `server/src/routes/chat.ts`.
+- **WS emission location:** `publishUserTurn` and related WS events are centralized in `server/src/ws/server.ts`.
+- **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agents already create inflight state today, but without a `user_turn` event the UI still can’t render a user bubble in a chat-parity transcript.
+- **Cancel/stop:** WS `cancel_inflight` handling lives in `server/src/ws/server.ts` and chat cancellation tests; the Agents UI currently only aborts the REST call in `client/src/pages/AgentsPage.tsx` and does not issue `cancel_inflight`, so server-side runs won’t stop unless the UI is updated to send `cancel_inflight`.
+- **Agents buffering:** agent runs return `segments` only when complete (via `McpResponder`), but the same runs already publish WS deltas via `attachChatStreamBridge`; the UI should treat REST `segments` as fallback only.
 - **Client divergence:** the Agents UI currently builds its own inflight aggregation and transcript rendering in `client/src/pages/AgentsPage.tsx`, while Chat uses `useChatStream` + `useChatWs` + `useConversationTurns`. This is the main source of duplicate logic and drift.
 - **Abort/stop semantics:** client-side aborts rely on `AbortController` (fetch rejects with `AbortError`), so server-side cancellation must still be explicit via the unified WS `cancel_inflight` flow.
 - **WebSocket health:** the `ws` library recommends ping/pong + termination to detect dead connections; our WS server already uses a heartbeat, which aligns with keeping a single WS path for both Chat and Agents.
@@ -74,20 +74,405 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ---
 
-## Questions
+# Tasks
 
-- Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical? **Answer:** Yes — unify both paths behind a single run-orchestration flow to avoid drift and duplicate maintenance.
-- Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds? **Answer:** Yes — reusing the chat run flow means `user_turn` should be emitted as part of the unified server path.
-- After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback? **Answer:** Yes — render from WS only; keep REST segments as a fallback for non-WS clients/tests.
-- Given the chat view must remain unchanged, how should agent-specific command metadata be represented without UI changes (drop it, or map it into existing tool/event data)? **Answer:** Drop the bespoke command metadata UI entirely (simplest; aligns with “Chat view unchanged”).
-- How should “Stop” behave for agent runs once the unified WS path is in place (match Chat: cancel inflight + abort fetch)? **Answer:** Match Chat — cancel inflight via WS and abort the HTTP request for immediate UI response.
-- Which legacy Agents server path code is intended to be removed once the unified flow is live (UI-only cleanup vs removal of any duplicate orchestration code paths)? **Answer:** Remove any agent-run server path that does not go through the shared run orchestration (single path/KISS).
-- Are there any agent-specific banners/warnings that must remain in the controls area (e.g., disabled agent warnings)? **Answer:** Keep only what exists today (disabled agent + warnings), placed within the new Chat-based layout.
+### 1. Server: publish `user_turn` + full inflight metadata for agent runs
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Ensure agent runs emit the same WebSocket transcript “run start” signal as Chat by publishing a `user_turn` event and creating inflight state with the same metadata fields used by `/chat`. This is the upstream prerequisite for the Agents UI to reuse the Chat WS transcript logic without bespoke client-side workarounds.
+
+#### Documentation Locations
+
+- Node.js `AbortController` / `AbortSignal` (how abort flows propagate through async work): https://nodejs.org/api/globals.html#class-abortcontroller
+- `ws` package docs (server-side WebSocket message handling patterns): https://github.com/websockets/ws
+- Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Read the current Chat vs Agents run-start flow so changes are minimal and consistent:
+   - Files to read:
+     - `server/src/routes/chat.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Requirements:
+     - Identify the exact fields passed to `createInflight(...)` in `/chat`.
+     - Confirm where `/chat` calls `publishUserTurn(...)`.
+
+2. [ ] Update `runAgentInstructionUnlocked` to create inflight state with chat-style metadata:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Replace the minimal inflight creation call with a full call that includes:
+       - `provider: 'codex'`
+       - `model: modelId`
+       - `source: params.source`
+       - `userTurn: { content: params.instruction, createdAt: <iso string> }`
+     - Keep existing `externalSignal` wiring (`params.signal`).
+
+3. [ ] Publish `user_turn` for agent runs at run start (server-side), matching the Chat run contract:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Import and call `publishUserTurn(...)` from `server/src/ws/server.ts` immediately after inflight creation.
+     - Ensure `createdAt` is an ISO string and non-empty.
+
+4. [ ] Ensure the inflight id is propagated consistently into persistence bookkeeping:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Pass `inflightId` into `chat.run(...)` flags so `ChatInterface` can mark inflight persistence (`markInflightPersisted`) consistently with `/chat`.
+
+5. [ ] Server integration test: agent runs publish `user_turn` over WS at run start:
+   - Files to edit:
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Requirements:
+     - Extend the existing test to wait for and assert a `user_turn` event:
+       - `conversationId` matches
+       - `inflightId` matches
+       - `content` equals the submitted instruction
+       - `createdAt` is a non-empty string
+     - Keep the existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
+
+6. [ ] Update documentation to reflect that agent runs emit `user_turn`:
+   - Files to edit:
+     - `design.md`
+     - `readme.md`
+
+7. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- 
 
 ---
 
-# Implementation Plan
+### 2. Server: `cancel_inflight` stops agent runs and yields `turn_final: stopped`
 
-## Instructions
+- Task Status: **__to_do__**
+- Git Commits:
 
-Tasks will be added after the above questions are resolved and the exact scope is confirmed.
+#### Overview
+
+Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_inflight` WS message aborts the in-flight agent run and results in a terminal `turn_final` with status `stopped`. This enables the Agents UI to implement a Chat-parity Stop button.
+
+#### Documentation Locations
+
+- Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+- `ws` package docs: https://github.com/websockets/ws
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Read the existing WS cancellation logic and the chat cancellation test patterns:
+   - Files to read:
+     - `server/src/ws/server.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+     - `server/src/test/features/chat_cancellation.feature`
+     - `server/src/test/steps/chat_cancellation.steps.ts`
+
+2. [ ] Ensure agent runs are cancellable via inflight AbortSignal:
+   - Files to read:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Confirm `chat.run(...)` is supplied `signal: getInflight(conversationId)?.abortController.signal`.
+     - Ensure inflight ids are consistent across `createInflight(...)`, WS events, and `chat.run(...)` flags.
+
+3. [ ] Add server integration coverage for cancelling an agent run via WS:
+   - Files to add:
+     - `server/src/test/integration/agents-run-ws-cancel.test.ts`
+   - Requirements:
+     - Start an agent run via `runAgentInstructionUnlocked(...)` using a deterministic `inflightId`.
+     - Subscribe to the conversation over WS and wait for an initial snapshot/delta.
+     - Send `{ type: 'cancel_inflight', conversationId, inflightId }`.
+     - Assert a `turn_final` event arrives with `status === 'stopped'`.
+     - Assert the run promise resolves (no hang) and all servers/sockets are cleaned up.
+
+4. [ ] Update documentation to reflect Stop parity for Agents:
+   - Files to edit:
+     - `design.md`
+     - `readme.md`
+
+5. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Client: Agents transcript uses the Chat WS transcript pipeline (no bespoke inflight)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Remove bespoke inflight aggregation from the Agents page and reuse the same WebSocket transcript pipeline used by Chat (`useChatWs` + `useChatStream.handleWsEvent` + `useConversationTurns`). This makes tool/citation rendering and status semantics match Chat and eliminates drift between the two pages.
+
+#### Documentation Locations
+
+- React hooks (avoiding duplicated derived state): https://react.dev/learn/you-might-not-need-an-effect
+- WebSocket (event-driven UI): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- MUI MCP docs (accordions + chips used by the chat transcript UI): MUI MCP `@mui/material`
+
+#### Subtasks
+
+1. [ ] Read the Chat WS transcript pipeline end-to-end:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+
+2. [ ] Refactor AgentsPage to use `useChatStream` for transcript state (messages/tools/citations):
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Instantiate `useChatStream` with fixed `provider='codex'` and a safe fallback `model` string (Agents should not expose provider/model controls).
+     - When selecting a conversation, call `setConversation(conversationId, { clearMessages: true })` and hydrate history using `hydrateHistory(...)` with turns from `useConversationTurns`.
+     - Wire WebSocket transcript events into `useChatStream`:
+       - Forward `user_turn`, `assistant_delta`, `analysis_delta`, `tool_event`, `stream_warning`, `turn_final` to `handleWsEvent(...)`.
+       - Forward `inflight_snapshot` to `hydrateInflightSnapshot(...)`.
+     - Remove `liveInflight` state and all logic that manually appends deltas/tool events.
+     - Keep agent-specific command metadata note behavior if it exists today (render from persisted turn `command` metadata).
+
+3. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Prefer extracting a shared transcript component under `client/src/components/chat/` and using it in both Chat and Agents, rather than copy/paste.
+     - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
+     - Citations must render inside the same default-closed citations accordion used by Chat.
+
+4. [ ] Update client tests for streaming parity:
+   - Files to edit:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Requirements:
+     - Emit a `user_turn` WS event and assert a user bubble renders.
+     - Continue asserting deltas render.
+     - Assert `turn_final` transitions the assistant status to complete/failed.
+
+5. [ ] Update `projectStructure.md` for any new test/component files added in this story:
+   - Files to edit:
+     - `projectStructure.md`
+
+6. [ ] Run full lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - Requirements:
+     - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
+
+4. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Update the Agents Stop behavior to match Chat: send `cancel_inflight` over WebSocket using the active conversation + inflight id, and also abort the in-flight HTTP request for immediate UI responsiveness.
+
+#### Documentation Locations
+
+- React hooks (refs + effects for request lifecycle): https://react.dev/reference/react/useRef and https://react.dev/reference/react/useEffect
+- WebSocket (client message contract): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+
+#### Subtasks
+
+1. [ ] Read ChatPage Stop behavior and how it gets the inflight id:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+
+2. [ ] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Use `getInflightId()` from the chat transcript state (from Task 3) when available.
+     - Call `cancelInflight(activeConversationId, inflightId)` before aborting.
+     - Keep current behavior of aborting the request (AbortController).
+
+3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - Requirements:
+     - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
+
+4. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar WS feed and applying `conversation_upsert` / `conversation_delete` events to the Agents conversation list, filtered to the currently selected agent.
+
+#### Documentation Locations
+
+- React hooks (useEffect patterns for subscriptions): https://react.dev/reference/react/useEffect
+- WebSocket (event-driven UI): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+
+#### Subtasks
+
+1. [ ] Read how ChatPage wires sidebar WS updates and filters out agent conversations:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/test/chatSidebar.test.tsx`
+
+2. [ ] Update AgentsPage to subscribe to sidebar events and apply them to the agent-scoped conversation list:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Call `subscribeSidebar()` on mount (when persistence is available), and `unsubscribeSidebar()` on unmount.
+     - On WS `conversation_upsert`, apply the event only when `event.conversation.agentName === selectedAgentName`.
+     - On WS `conversation_delete`, remove the conversation by id.
+     - Use `useConversations(...).applyWsUpsert` / `applyWsDelete` rather than rebuilding list logic.
+
+3. [ ] Client test: Agents sidebar reflects WS `conversation_upsert` events for the active agent:
+   - Files to add:
+     - `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Requirements:
+     - Mock an Agents page session.
+     - Emit a `conversation_upsert` WS event with `agentName: 'a1'` and confirm it appears in the sidebar.
+     - Emit a second `conversation_upsert` for a different `agentName` and confirm it is ignored.
+
+4. [ ] Update `projectStructure.md` with any new test files added:
+   - Files to edit:
+     - `projectStructure.md`
+
+5. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 6. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Rebuild the Agents page to match the Chat page layout exactly: left Drawer conversation sidebar (temporary on mobile, persistent on desktop, width 320), a controls area above the transcript, and the transcript in a scrolling panel. Only the control inputs should differ (agent + command + working_folder vs provider/model).
+
+#### Documentation Locations
+
+- MUI MCP docs:
+  - `Drawer` (temporary/persistent patterns)
+  - `useMediaQuery` (responsive mode switching)
+  - `Paper`, `Stack`, `Container` (layout primitives)
+
+#### Subtasks
+
+1. [ ] Read the current ChatPage layout and the current AgentsPage layout:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+
+2. [ ] Rebuild the AgentsPage outer layout to mirror Chat:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Remove the current “two column Paper” layout.
+     - Implement the same Drawer open state behavior as Chat (mobile vs desktop).
+     - Render `ConversationList` inside the Drawer with `variant="agents"` and agent-scoped conversations.
+     - Place agent-specific controls in the control bar area above the transcript.
+     - Prefer extracting a shared layout component under `client/src/components/chat/` and using it in both Chat and Agents, rather than copy/paste.
+
+3. [ ] Update/extend client tests to match the new layout:
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsList.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Requirements:
+     - Ensure the tests locate the conversation list and controls in their new positions.
+     - Keep assertions focused on behavior (not pixel layout).
+
+4. [ ] Update documentation to match the new Agents UI layout:
+   - Files to edit:
+     - `design.md`
+     - `readme.md`
+
+5. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 

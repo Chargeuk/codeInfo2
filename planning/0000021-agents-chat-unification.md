@@ -50,6 +50,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ## Research Findings (MCP + Web)
 
+- **Dependency versions (confirmed in repo install):** React `19.2.0`, React Router `7.9.6`, MUI `6.5.0`, Vite `7.2.4`, Node `22.21.1`, TypeScript `5.9.3`, Express `5.1.0`, Mongoose `9.0.1`, ws `8.18.3`.
 - **Server parity gap (primary):** agent runs already use `ChatInterface` + `attachChatStreamBridge` and already create an inflight entry, but they do not emit the chat-style WS `user_turn` event and they create inflight state without the chat metadata (`provider`, `model`, `source`, `userTurn`). `/chat` explicitly sets inflight metadata and publishes `user_turn` in `server/src/routes/chat.ts`.
 - **WS emission location:** `publishUserTurn` and related WS events are centralized in `server/src/ws/server.ts`.
 - **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agents already create inflight state today, but without a `user_turn` event the UI still can’t render a user bubble in a chat-parity transcript.
@@ -249,7 +250,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 - React hooks (avoiding duplicated derived state): https://react.dev/learn/you-might-not-need-an-effect
 - WebSocket (event-driven UI): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- MUI MCP docs (accordions + chips used by the chat transcript UI): MUI MCP `@mui/material`
+- MUI MCP docs (accordions used by the chat transcript UI):
+  - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
 
 #### Subtasks
 
@@ -455,9 +457,11 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 #### Documentation Locations
 
 - MUI MCP docs:
-  - `Drawer` (temporary/persistent patterns)
-  - `useMediaQuery` (responsive mode switching)
-  - `Paper`, `Stack`, `Container` (layout primitives)
+  - `Drawer` API (temporary/persistent variants + `ModalProps`)
+    - https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+  - `useMediaQuery` (theme breakpoints + SSR notes)
+    - https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
+  - Layout primitives (`Paper`, `Stack`, `Container`)
 
 #### Subtasks
 

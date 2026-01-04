@@ -51,6 +51,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 ## Research Findings (MCP + Web)
 
 - **Server parity gap:** agent runs already use `ChatInterface` + `attachChatStreamBridge` but do not emit `user_turn` (and do not set up chat-style inflight metadata) in `server/src/agents/service.ts`; `/chat` explicitly creates inflight state and publishes `user_turn` in `server/src/routes/chat.ts`. This is the primary upstream gap to close for WS parity.
+- **WS emission location:** `publishUserTurn` and related WS events are centralized in `server/src/ws/server.ts`; the agents run path does not call these today, so WS transcript events won’t exist without unification.
 - **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agent runs do not populate this registry today, so late subscribers won’t get a catch-up snapshot until the flow is unified.
 - **Cancel/stop:** WS `cancel_inflight` handling lives in `server/src/ws/server.ts` and chat cancellation tests; the Agents UI currently only aborts the REST call in `client/src/pages/AgentsPage.tsx` and does not issue `cancel_inflight`, so server-side runs won’t stop unless unified.
 - **Agents buffering:** agent runs buffer `segments` and return them only when complete (via McpResponder), rather than streaming tool/token deltas; unified orchestration must either bypass or dual-wire this buffered path.

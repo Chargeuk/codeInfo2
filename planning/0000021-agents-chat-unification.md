@@ -91,6 +91,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 #### Documentation Locations
 
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -193,7 +194,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 #### Documentation Locations
 
 - Node.js `AbortController` / `AbortSignal` (how abort flows propagate through async work): https://nodejs.org/api/globals.html#class-abortcontroller
-- `ws` package docs (server-side WebSocket message handling patterns): https://github.com/websockets/ws
+- `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
 
 #### Subtasks
@@ -201,7 +202,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 1. [ ] Read the current Chat vs Agents run-start flow so changes are minimal and consistent:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-     - `ws` package docs: https://github.com/websockets/ws
+     - `ws` docs (heartbeat / terminate vs close): Context7 `/websockets/ws/8_18_3`
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/routes/chat.ts`
@@ -234,7 +235,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 3. [ ] Publish `user_turn` at run start:
    - Documentation to read:
-     - `ws` package docs: https://github.com/websockets/ws
+     - `ws` docs (message send patterns): Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
@@ -301,8 +302,9 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 #### Documentation Locations
 
 - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-- `ws` package docs: https://github.com/websockets/ws
+- `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Cucumber guides (Gherkin + steps overview): https://cucumber.io/docs/guides/
 - Markdown guide (only for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -310,8 +312,9 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 1. [ ] Read the existing WS cancellation logic and the chat cancellation test patterns:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
-     - `ws` package docs: https://github.com/websockets/ws
+     - `ws` docs (heartbeat / terminate vs close): Context7 `/websockets/ws/8_18_3`
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Cucumber guides (feature files + steps): https://cucumber.io/docs/guides/10-minute-tutorial/
    - Files to read:
      - `server/src/ws/server.ts`
      - `server/src/chat/inflightRegistry.ts`
@@ -380,8 +383,11 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 - React hooks (avoiding duplicated derived state): https://react.dev/learn/you-might-not-need-an-effect
 - WebSocket (event-driven UI): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- `crypto.randomUUID()` (client-side conversation id generation): https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
 - MUI MCP docs (accordions used by the chat transcript UI):
   - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+- Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library queries: https://testing-library.com/docs/queries/about/
 
 #### Subtasks
 
@@ -473,6 +479,8 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 - MUI MCP docs (accordions used by the chat transcript UI):
   - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+- MUI MCP docs (status chip used by the chat transcript UI):
+  - https://llms.mui.com/material-ui/6.4.12/api/chip.md
 
 #### Subtasks
 
@@ -542,6 +550,8 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 - React hooks (refs + effects for request lifecycle): https://react.dev/reference/react/useRef and https://react.dev/reference/react/useEffect
 - WebSocket (client message contract): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- AbortController (fetch abort semantics): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- Testing Library user events: https://testing-library.com/docs/user-event/intro/
 
 #### Subtasks
 
@@ -611,6 +621,8 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 - React hooks (useEffect patterns for subscriptions): https://react.dev/reference/react/useEffect
 - WebSocket (event-driven UI): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- Testing Library queries: https://testing-library.com/docs/queries/about/
+- Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -692,6 +704,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
     - `Paper` API: https://llms.mui.com/material-ui/6.4.12/api/paper.md
     - `Stack` API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
     - `Container` API: https://llms.mui.com/material-ui/6.4.12/api/container.md
+- React (components and hooks): https://react.dev/reference/react
+- Testing Library queries: https://testing-library.com/docs/queries/about/
 
 #### Subtasks
 
@@ -777,8 +791,9 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
+- Docker (images/build): Context7 `/docker/docs`
+- Docker Compose (service lifecycle): Context7 `/docker/compose`
+- Playwright: Context7 `/microsoft/playwright.dev`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
 

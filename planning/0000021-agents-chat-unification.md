@@ -61,10 +61,15 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 - **Abort/stop semantics:** client-side aborts rely on `AbortController` (fetch rejects with `AbortError`), so server-side cancellation must still be explicit via the unified WS `cancel_inflight` flow.
 - **WebSocket health:** the `ws` library recommends ping/pong + termination to detect dead connections; our WS server already uses a heartbeat, which aligns with keeping a single WS path for both Chat and Agents.
 - **Protocol choice:** WebSockets are bidirectional while SSE is server-to-client only; maintaining WS for both Chat and Agents keeps cancel-inflight and tool event flows unified.
-- **External confirmation:** WebSocket-vs-SSE comparisons (WebSocket.org, LogRocket) confirm SSE is unidirectional while WebSockets are bidirectional, reinforcing the WS-only unification decision.
+- **External confirmation:** WebSocket-vs-SSE comparisons confirm SSE is unidirectional while WebSockets are bidirectional, reinforcing the WS-only unification decision:
+  - MDN: Server-sent events (SSE): https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events
+  - MDN: WebSockets: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+  - LogRocket: SSE vs WebSockets: https://blog.logrocket.com/server-sent-events-vs-websockets/
 - **Legacy streaming helper:** `server/src/chatStream.ts` still exists for older streaming paths; ensure Agents does not use it once WS unification is complete.
 - **DeepWiki note:** the repo is not indexed in DeepWiki yet (“Repository not found”), so code references are confirmed locally; once indexed, re-check for any agent-specific design notes.
-- **CodeInfo note (updated):** code_info MCP can access the correct repo when given the explicit path; it confirms WS emission/inflight registry locations and the current Agents UI divergence.
+- **CodeInfo note (updated):** code_info MCP indexing is incomplete and can miss key server files (and occasionally surfaces results from a separate `CodeInfo2Planning` ingest). Treat local `rg`/file reads as the source of truth for implementation details.
+- **Mermaid docs note:** the repo uses Mermaid `11.12.1`, but Context7’s Mermaid versions only include `v11_0_0`. Tasks that require Mermaid diagrams include both Context7 (required) and the official Mermaid syntax pages.
+- **MUI docs note:** the repo installs MUI `6.5.0`, but the MUI MCP server currently exposes `6.4.12` as the nearest available v6 docs. Tasks reference those MUI MCP URLs for component APIs.
 
 ---
 
@@ -94,6 +99,10 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 - Supertest (Express route testing): Context7 `/ladjs/supertest`
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 
 #### Subtasks
 
@@ -287,6 +296,8 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 13. [ ] Update `design.md` with the new Agents conversationId flow and why the server must accept client-provided ids:
    - Documentation to read:
      - Mermaid diagrams (Markdown code block + sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -339,6 +350,10 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 - `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 
 #### Subtasks
 
@@ -428,6 +443,8 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 6. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagram syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -563,6 +580,10 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 
 #### Subtasks
 
@@ -705,6 +726,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 8. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
    - Documentation to read:
      - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
+     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -920,6 +943,10 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 
 #### Subtasks
 
@@ -988,6 +1015,8 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 5. [ ] Update `design.md` with the Stop/cancel flow (Agents parity with Chat):
    - Documentation to read:
      - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -1032,6 +1061,10 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 - Testing Library queries: https://testing-library.com/docs/queries/about/
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 
 #### Subtasks
 
@@ -1098,6 +1131,8 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 5. [ ] Update `design.md` with the sidebar WS subscription flow (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+     - Mermaid diagrams (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Sequence Diagrams
    - Files to edit:
      - `design.md`
    - Requirements:
@@ -1313,6 +1348,10 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official):
+  - https://mermaid.js.org/syntax/sequenceDiagram.html
+  - https://mermaid.js.org/syntax/flowchart.html
+- Mermaid docs (DeepWiki): `mermaid-js/mermaid` → Diagram Types → Flowchart Diagrams / Sequence Diagrams
 - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks

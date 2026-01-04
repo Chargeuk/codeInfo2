@@ -54,6 +54,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
+â”‚     â”‚     â”œâ”€ DirectoryPickerDialog.tsx — server-backed directory picker modal for Folder path
+â”‚     â”‚     â”œâ”€ ingestDirsApi.ts — typed fetch helper for GET /ingest/dirs
 â”‚     â”‚     â”œâ”€ RootsTable.tsx — embedded roots table with bulk/row actions and lock chip
 â”‚     â”‚     â””â”€ RootDetailsDrawer.tsx — drawer showing root metadata, counts, include/exclude lists
 â”‚     â”œâ”€ logging/
@@ -226,6 +228,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, agentName?, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
+â”‚     â”‚  â”œâ”€ ingestFile.ts — per-file hash index schema/model for delta ingest decisions
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp/ — Express MCP v1 endpoint (POST /mcp) exposing ingest tools to agent clients
 â”‚     â”‚  â””â”€ server.ts — Express MCP v1 router (initialize/tools/resources); uses mcpCommon helpers while preserving wire formats, tool schemas, and domain error mapping
@@ -257,6 +260,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
 â”‚     â”‚  â”œâ”€ discovery.ts â€” git-aware file discovery with exclude/include and text check
 â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
+â”‚     â”‚  â”œâ”€ deltaPlan.ts â€” pure delta planner for added/changed/deleted files (no IO)
 â”‚     â”‚  â”œâ”€ pathMap.ts — maps container ingest paths to host paths for tooling responses
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
@@ -319,6 +323,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
+â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
+â”‚           â”œâ”€ ingest-files-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in ingest_files repo helpers
+â”‚           â”œâ”€ ingest-delta-plan.test.ts â€” unit coverage for delta planning categorization logic
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
 â”‚           â”œâ”€ mcp-common-dispatch.test.ts â€” unit tests for shared MCP dispatcher routing/verbatim payload behavior
 â”‚           â”œâ”€ mcp2-router-initialize.test.ts â€” MCP v2 initialize handshake protocol/serverInfo coverage
@@ -365,6 +372,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 
 - Added ingest routes/tests:
   - server/src/routes/ingestStart.ts — POST /ingest/start and GET /ingest/status/:runId
+  - server/src/routes/ingestDirs.ts — GET /ingest/dirs directory picker listing
   - server/src/ingest/chromaClient.ts — Chroma client helpers and lock metadata
   - server/src/ingest/ingestJob.ts — ingest orchestrator, status tracking, embedding flow
   - server/src/test/features/ingest-start.feature — ingest start/status scenarios
@@ -375,6 +383,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/steps/ingest-roots-metadata.steps.ts — step defs for roots metadata
 - server/src/test/compose/docker-compose.chroma.yml — manual Chroma debug compose (port 18000)
 - server/src/test/support/chromaContainer.ts — Cucumber hooks starting Chroma via Testcontainers
+- server/src/test/support/mongoContainer.ts — Cucumber hooks starting Mongo (tagged `@mongo`) via Testcontainers
+- server/src/test/features/ingest-delta-reembed.feature — delta re-embed scenarios (changed/add/delete/no-op/legacy/degraded)
+- server/src/test/steps/ingest-delta-reembed.steps.ts — step defs for delta re-embed scenarios
+- server/src/test/unit/ingest-roots-dedupe.test.ts — unit coverage for `/ingest/roots` response dedupe
+- server/src/test/unit/ingest-dirs-router.test.ts — unit coverage for `/ingest/dirs` response contract and edge cases
 - server/src/test/unit/repo-persistence-source.test.ts — defaults source to REST and preserves MCP
 - server/src/test/unit/repo-conversations-agent-filter.test.ts — repo query coverage for `agentName=__none__` and exact agent filters
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`

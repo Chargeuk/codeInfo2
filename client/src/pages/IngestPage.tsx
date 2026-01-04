@@ -7,7 +7,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import IngestForm from '../components/ingest/IngestForm';
 import RootDetailsDrawer from '../components/ingest/RootDetailsDrawer';
@@ -15,8 +15,10 @@ import RootsTable from '../components/ingest/RootsTable';
 import useIngestModels from '../hooks/useIngestModels';
 import useIngestRoots, { type IngestRoot } from '../hooks/useIngestRoots';
 import useIngestStatus from '../hooks/useIngestStatus';
+import { createLogger } from '../logging/logger';
 
 export default function IngestPage() {
+  const log = useMemo(() => createLogger('client'), []);
   const {
     models,
     lockedModelId,
@@ -38,29 +40,53 @@ export default function IngestPage() {
   const [detailRoot, setDetailRoot] = useState<IngestRoot | undefined>();
   const status = useIngestStatus(activeRunId);
 
+  const terminalStates = useMemo(
+    () => new Set(['completed', 'cancelled', 'error', 'skipped']),
+    [],
+  );
+  const lastFinishedRef = useRef<string | null>(null);
+
+  const locked = lockedModelId ?? rootsLockedModelId;
+
   const isRunActive = useMemo(
     () =>
       Boolean(
-        activeRunId &&
-          status.status &&
-          !['completed', 'cancelled', 'error'].includes(status.status),
+        activeRunId && status.status && !terminalStates.has(status.status),
       ),
-    [activeRunId, status.status],
+    [activeRunId, status.status, terminalStates],
   );
 
   useEffect(() => {
+    lastFinishedRef.current = null;
+  }, [activeRunId]);
+
+  useEffect(() => {
+    if (!locked) return;
+    log('info', '0000020 ingest lock notice displayed', {
+      lockedModelId: locked,
+    });
+  }, [locked, log]);
+
+  useEffect(() => {
     if (!activeRunId) return;
-    if (
-      status.status &&
-      ['completed', 'cancelled', 'error'].includes(status.status)
-    ) {
-      // run finished; no extra action needed yet
+    if (!status.status) return;
+    if (terminalStates.has(status.status)) {
+      const key = `${activeRunId}:${status.status}`;
+      if (lastFinishedRef.current === key) return;
+      lastFinishedRef.current = key;
+
+      log('info', '0000020 ingest run finished', {
+        runId: activeRunId,
+        state: status.status,
+      });
+
+      log('info', '0000020 ingest run refresh triggered', {
+        runId: activeRunId,
+      });
       void refetchRoots();
       void refresh();
     }
-  }, [activeRunId, status.status, refetchRoots, refresh]);
-
-  const locked = lockedModelId ?? rootsLockedModelId;
+  }, [activeRunId, status.status, refetchRoots, refresh, terminalStates, log]);
 
   return (
     <Container sx={{ py: 3 }}>
@@ -82,18 +108,18 @@ export default function IngestPage() {
         ) : null}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
-          {locked ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Embedding model locked to {locked}
-            </Alert>
-          ) : null}
-
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
             <Typography variant="h6" sx={{ flex: 1 }}>
               Start a new ingest
             </Typography>
             {isLoading ? <CircularProgress size={20} /> : null}
           </Stack>
+
+          {locked ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Embedding model locked to {locked}
+            </Alert>
+          ) : null}
 
           <IngestForm
             models={models}

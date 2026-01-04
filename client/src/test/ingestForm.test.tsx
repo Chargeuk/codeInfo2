@@ -4,14 +4,30 @@ import IngestForm from '../components/ingest/IngestForm';
 
 describe('IngestForm', () => {
   const mockFetch = jest.fn();
+  const originalMode = process.env.MODE;
 
   beforeAll(() => {
+    process.env.MODE = 'test';
     global.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  afterAll(() => {
+    process.env.MODE = originalMode;
   });
 
   beforeEach(() => {
     mockFetch.mockReset();
   });
+
+  const enqueueFetchJson = (payloads: unknown[]) => {
+    for (const payload of payloads) {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => payload,
+      });
+    }
+  };
 
   const models = [
     { id: 'embed-1', displayName: 'Embed One' },
@@ -34,7 +50,7 @@ describe('IngestForm', () => {
     expect(screen.getByText(/name is required/i)).toBeInTheDocument();
   });
 
-  it('disables model select and shows lock banner when locked', () => {
+  it('does not render lock banner inside the form when locked', () => {
     render(
       <IngestForm
         models={models}
@@ -44,8 +60,18 @@ describe('IngestForm', () => {
     );
 
     expect(
-      screen.getByText(/embedding model locked to locked-model/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/embedding model locked to locked-model/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables model select when lockedModelId is provided', () => {
+    render(
+      <IngestForm
+        models={models}
+        lockedModelId="locked-model"
+        onStarted={jest.fn()}
+      />,
+    );
     const select = screen.getByRole('combobox', { name: /embedding model/i });
     expect(select).toBeDisabled();
   });
@@ -116,5 +142,135 @@ describe('IngestForm', () => {
     expect(await screen.findByTestId('submit-error')).toHaveTextContent(
       /boom/i,
     );
+  });
+
+  it('selecting a directory updates the Folder path input value', async () => {
+    enqueueFetchJson([
+      { base: '/data', path: '/data', dirs: ['projects'] },
+      { base: '/data', path: '/data/projects', dirs: [] },
+    ]);
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    const projects = await screen.findByRole('button', { name: 'projects' });
+    fireEvent.click(projects);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /use this folder/i }),
+      ).toBeEnabled(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /use this folder/i }));
+
+    expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data/projects');
+  });
+
+  it('clicking a directory triggers a second fetch for the new path', async () => {
+    enqueueFetchJson([
+      { base: '/data', path: '/data', dirs: ['projects'] },
+      { base: '/data', path: '/data/projects', dirs: [] },
+    ]);
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    const projects = await screen.findByRole('button', { name: 'projects' });
+    fireEvent.click(projects);
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    const secondUrl = String(mockFetch.mock.calls[1][0]);
+    expect(secondUrl).toContain('/ingest/dirs');
+    expect(secondUrl).toContain('path=%2Fdata%2Fprojects');
+  });
+
+  it('"Up" is not available at base and appears after navigating', async () => {
+    enqueueFetchJson([
+      { base: '/data', path: '/data', dirs: ['projects'] },
+      { base: '/data', path: '/data/projects', dirs: [] },
+    ]);
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    await screen.findByRole('button', { name: 'projects' });
+    expect(
+      screen.queryByRole('button', { name: /up/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'projects' }));
+
+    expect(
+      await screen.findByRole('button', { name: /up/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('"Use this folder" sets the current path even without clicking a child directory', async () => {
+    enqueueFetchJson([{ base: '/data', path: '/data', dirs: ['projects'] }]);
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /use this folder/i }),
+      ).toBeEnabled(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /use this folder/i }));
+
+    expect(screen.getByLabelText(/folder path/i)).toHaveValue('/data');
+  });
+
+  it('error path displays an error message when server returns OUTSIDE_BASE', async () => {
+    enqueueFetchJson([{ status: 'error', code: 'OUTSIDE_BASE' }]);
+
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/tmp' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /choose folder/i }));
+
+    expect(
+      await screen.findByText(/unable to list directories \(outside_base\)/i),
+    ).toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import DirectoryPickerDialog from './DirectoryPickerDialog';
 
 const serverBase =
   (typeof import.meta !== 'undefined' &&
@@ -48,6 +49,7 @@ export default function IngestForm({
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const isFormDisabled = disabled || isSubmitting;
 
   const modelOptions = useMemo(() => {
@@ -132,27 +134,31 @@ export default function IngestForm({
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={2}>
-        {lockedModelId ? (
-          <Alert severity="info">
-            Embedding model locked to {lockedModelId}
-          </Alert>
-        ) : null}
-
-        <TextField
-          label="Folder path"
-          name="path"
-          value={path}
-          onChange={(e) => {
-            setPath(e.target.value);
-            if (errors.path) updateFieldError('path', e.target.value);
-          }}
-          onBlur={(e) => updateFieldError('path', e.target.value)}
-          required
-          fullWidth
-          disabled={isFormDisabled}
-          error={Boolean(errors.path)}
-          helperText={errors.path}
-        />
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <TextField
+            label="Folder path"
+            name="path"
+            value={path}
+            onChange={(e) => {
+              setPath(e.target.value);
+              if (errors.path) updateFieldError('path', e.target.value);
+            }}
+            onBlur={(e) => updateFieldError('path', e.target.value)}
+            required
+            fullWidth
+            disabled={isFormDisabled}
+            error={Boolean(errors.path)}
+            helperText={errors.path}
+            sx={{ flex: 1 }}
+          />
+          <Button
+            variant="outlined"
+            onClick={() => setDirPickerOpen(true)}
+            disabled={isFormDisabled}
+          >
+            Choose folder…
+          </Button>
+        </Stack>
 
         <TextField
           label="Display name"
@@ -244,6 +250,17 @@ export default function IngestForm({
           ) : null}
         </Stack>
       </Stack>
+
+      <DirectoryPickerDialog
+        open={dirPickerOpen}
+        path={path}
+        onClose={() => setDirPickerOpen(false)}
+        onPick={(picked) => {
+          setPath(picked);
+          if (errors.path) updateFieldError('path', picked);
+          setDirPickerOpen(false);
+        }}
+      />
     </Box>
   );
 }

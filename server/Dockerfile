@@ -39,7 +39,16 @@ RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
 WORKDIR /app/server
 ENV HUSKY=0
-RUN apt-get update && apt-get install -y curl git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    jq \
+    ripgrep \
+    fd-find \
+    bat \
+    tree \
+    less \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common

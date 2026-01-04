@@ -791,6 +791,63 @@ sequenceDiagram
 
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
 
+### Ingest directory picker (server-backed)
+
+- Endpoint: `GET /ingest/dirs?path=<absolute server path>`.
+- Base path: `HOST_INGEST_DIR` (default `/data`). When `path` is omitted or blank/whitespace, the server lists the base.
+- Response (success):
+
+```json
+{ "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }
+```
+
+- Response (error):
+
+```json
+{ "status": "error", "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY" }
+```
+
+```mermaid
+flowchart TD
+  A[GET /ingest/dirs?path=...] --> B[Derive base from HOST_INGEST_DIR or /data]
+  B --> C{path provided?}
+  C -- no/blank --> D[List base]
+  C -- yes --> E[Validate inside base (lexical)]
+  E -- outside --> F[400 OUTSIDE_BASE]
+  E -- ok --> G{exists?}
+  G -- no --> H[404 NOT_FOUND]
+  G -- yes --> I{isDirectory?}
+  I -- no --> J[400 NOT_DIRECTORY]
+  I -- yes --> K[readdir withFileTypes]\nfilter dirs\nsort
+  K --> L[200 { base, path, dirs[] }]
+```
+
+#### Directory picker UX flow (client)
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as Client UI (IngestForm + DirectoryPickerDialog)
+  participant API as Server API
+
+  User->>UI: Click "Choose folder…"
+  UI->>API: GET /ingest/dirs (or ?path=<current>)
+  API-->>UI: 200 { base, path, dirs[] }
+  UI-->>User: Show directory list
+
+  User->>UI: Click a directory
+  UI->>API: GET /ingest/dirs?path=<clicked>
+  API-->>UI: 200 { base, path, dirs[] }
+
+  User->>UI: Click "Use this folder"
+  UI-->>User: Folder path field updated
+
+  Note over UI,API: Error case
+  UI->>API: GET /ingest/dirs?path=<outside>
+  API-->>UI: 400 { status:'error', code:'OUTSIDE_BASE' }
+  UI-->>User: Show error state
+```
+
 ### Ingest start/status flow
 
 ```mermaid
@@ -842,6 +899,7 @@ sequenceDiagram
 ### Ingest roots listing
 
 - Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
+- Response is de-duplicated by `path` to keep the UI stable when multiple metadata entries exist for the same root; the server keeps the most recent entry (prefers `lastIngestAt` when present, otherwise falls back to `runId` ordering).
 - Response shape:
   ```json
   {
@@ -866,10 +924,55 @@ sequenceDiagram
 ### Ingest cancel / re-embed / remove flows
 
 - Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
-- Re-embed: `POST /ingest/reembed/:root` deletes existing vectors/metadata for the root, then starts a new ingest using the stored model/name/description. Returns `202 {runId}` or `404` if the root is unknown; respects the existing model lock and single-flight guard.
+- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root *metadata* entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
 - Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
 - Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
+
+### Delta re-embed (file-level replacement)
+
+- A per-file MongoDB index (`ingest_files`) stores `{ root, relPath, fileHash }` and is used to plan delta work without scanning Chroma metadata.
+- Decision modes for a re-embed:
+  - **Delta** (`ingest_files` has rows): embed only `added + changed` files, then delete vectors for `deleted` files and delete older vectors for changed files using `{ fileHash: { $ne: newHash } }`.
+  - **Legacy upgrade** (Mongo connected but `ingest_files` has zero rows): delete all vectors for `{ root }` and perform a full ingest to repopulate `ingest_files`.
+  - **Degraded full** (Mongo disconnected): fall back to a full re-embed (delete vectors for `{ root }` then ingest all discovered files) and skip `ingest_files` updates.
+- Safety guarantee: changed files are replaced by writing new vectors first (tagged with the current `runId`), then deleting older vectors after the run succeeds. Cancellation deletes only `{ runId }` vectors, leaving older vectors intact.
+- Status/messaging:
+  - **No-op** (no added/changed/deleted): the run is marked `skipped` with a clear “No changes detected …” message.
+  - **Deletions-only** (deleted > 0 but no added/changed): the server deletes vectors + `ingest_files` rows for the deleted relPaths and marks the run `skipped` with a “Removed vectors for N deleted file(s)” message (so it does not claim “No changes detected”).
+
+```mermaid
+flowchart TD
+  A[POST /ingest/reembed/:root] --> B{Mongo connected?}
+  B -- no --> C[Degraded mode: full re-embed\n(no ingest_files updates)]
+  B -- yes --> D{ingest_files has rows for root?}
+  D -- no --> E[Legacy upgrade\n(delete root vectors + full ingest + populate ingest_files)]
+  D -- yes --> F[Delta plan\n(added/changed/unchanged/deleted)]
+  F --> G{Any added/changed/deleted?}
+  G -- no --> H[Mark run skipped\n(message: no changes)]
+  G -- yes --> I{Added/changed?}
+  I -- no --> J[Deletions-only\n(delete vectors + ingest_files for deleted)\nmark skipped with deletion message]
+  I -- yes --> K[Write new vectors for added/changed]
+  K --> L[Delete old vectors for changed\n+ delete vectors for deleted]
+  L --> M[Update ingest_files\n(upsert added/changed, delete deleted)]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Chroma
+  participant Mongo
+
+  Client->>Server: POST /ingest/reembed/:root
+  Server->>Chroma: Read roots metadata (select newest)
+  Server->>Chroma: Delete roots metadata for {root}
+  Server-->>Client: 202 {runId}
+  loop Poll
+    Client->>Server: GET /ingest/status/:runId
+    Server-->>Client: {state, counts, message}
+  end
+```
 
 ### Ingest dry-run + cleanup guarantees
 

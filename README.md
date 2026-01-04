@@ -354,14 +354,27 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   ```json
   {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
   {"runId":"r1","state":"completed","counts":{"files":3,"chunks":12,"embedded":12}}
+  {"runId":"r1","state":"skipped","counts":{"files":0},"message":"No changes detected"}
   {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
   ```
 - Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
 
+### Ingest directory picker
+
+- GET `/ingest/dirs?path=<absolute server path>` lists child directories under the configured base path.
+  - Base defaults to `HOST_INGEST_DIR` (falls back to `/data`).
+  - Response: `{ "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }`.
+  - Errors: `{ "status": "error", "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY" }`.
+- The `/ingest` UI uses this endpoint for the “Choose folder…” modal; the Folder path field remains editable.
+
 ### Ingest cancel / re-embed / remove
 
 - POST `/ingest/cancel/{runId}` cancels the active ingest run, purges any partial vectors tagged with the runId, updates the roots entry to `cancelled`, and responds `{ "status": "ok", "cleanup": "complete" }`. Example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`.
-- POST `/ingest/reembed/{root}` re-runs ingest for the stored root path (deletes existing vectors/metadata for that root first). Respects the existing model lock and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
+- POST `/ingest/reembed/{root}` re-runs ingest for the stored root path in **delta** mode using per-file SHA-256 hashes stored in Mongo (`ingest_files`).
+  - Unchanged files are skipped (existing vectors remain intact).
+  - Deleted files have their vectors removed.
+  - Legacy roots (no `ingest_files` records) fall back to a full rebuild (delete all vectors, then re-ingest).
+  - Respects the existing model lock and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
 - POST `/ingest/remove/{root}` deletes vectors and root metadata for the given root; if the vectors collection becomes empty, the locked model is cleared. Responds `{ status: 'ok', unlocked: boolean }`.
 - Single-flight: concurrent ingest/re-embed/remove requests return `429 {code:'BUSY'}` while a run is active. Cancel is allowed to break an active run; the lock is released after cancellation completes.
 

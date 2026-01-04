@@ -27,6 +27,12 @@ args    = ["-y", "mcp-remote", "http://localhost:5011/mcp", "--debug"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+startup_timeout_sec = 60
+tool_timeout_sec = 3600
+
 [projects]
 [projects."/data"]
 trust_level = "trusted"

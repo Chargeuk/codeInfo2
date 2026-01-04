@@ -17,7 +17,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
 
@@ -50,6 +50,11 @@ export default function LogsPage() {
   const [sourceFilters, setSourceFilters] = useState<string[]>([]);
   const [live, setLive] = useState(true);
   const logger = useMemo(() => createLogger('client'), []);
+
+  useEffect(() => {
+    logger('info', '0000020 logs page opened', { route: '/logs' });
+  }, [logger]);
+
   const apiBase =
     (typeof import.meta !== 'undefined' &&
       (import.meta as ImportMeta).env?.VITE_API_URL) ??

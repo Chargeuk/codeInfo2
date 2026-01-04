@@ -415,7 +415,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 ### 2. Server: emit chat-parity run-start WS events for agent runs
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: 7d91851
 
 #### Overview
 

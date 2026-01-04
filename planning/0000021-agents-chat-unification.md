@@ -1313,6 +1313,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides: https://cucumber.io/docs/guides/
 - Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -1353,12 +1354,33 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
    - Purpose:
      - Confirm the final UI (Agents parity with Chat layout + streaming) works in a browser.
 
-8. [ ] Update documentation (single pass to reduce merge conflicts):
-   - `README.md`
-   - `design.md`
-   - `projectStructure.md`
-9. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
-10. [ ] Write a pull request summary comment covering all tasks and major changes.
+8. [ ] Update documentation: `README.md`
+   - Document:
+     - `README.md` (repo root)
+   - Purpose:
+     - Ensure setup/run instructions still match the final implementation after Agents/Chat unification.
+   - Description:
+     - Update any sections that reference Agents UI behavior, WS streaming, stop/cancel behavior, or prerequisites.
+
+9. [ ] Update documentation: `design.md`
+   - Document:
+     - `design.md` (repo root)
+   - Purpose:
+     - Ensure architecture + flows remain accurate after implementing the story.
+   - Description:
+     - Validate all Mermaid diagrams added/updated in earlier tasks are present, render, and reflect the final code.
+     - Add any missing diagram(s) only if the implementation diverged.
+
+10. [ ] Update documentation: `projectStructure.md`
+    - Document:
+      - `projectStructure.md` (repo root)
+    - Purpose:
+      - Keep the file tree and test listings accurate after adding/removing files in this story.
+    - Description:
+      - Ensure every new/removed file referenced in Tasks 1–8 is reflected in the tree.
+
+11. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
+12. [ ] Write a pull request summary comment covering all tasks and major changes.
 
 #### Testing
 

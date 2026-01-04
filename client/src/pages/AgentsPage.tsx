@@ -11,6 +11,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   FormControl,
   InputLabel,
   MenuItem,
@@ -102,6 +103,8 @@ export default function AgentsPage() {
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
     {},
   );
+
+  const citationsReadyLoggedRef = useRef<string | null>(null);
 
   const runControllerRef = useRef<AbortController | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -290,6 +293,17 @@ export default function AgentsPage() {
             });
           }
 
+          if (transcriptEvent.type === 'tool_event') {
+            log('info', 'DEV-0000021[T5] agents.ws event tool_event', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+              toolName: transcriptEvent.event?.name,
+              stage: transcriptEvent.event?.stage,
+              eventType: transcriptEvent.event?.type,
+            });
+          }
+
           handleWsEvent(transcriptEvent);
           return;
         }
@@ -301,6 +315,26 @@ export default function AgentsPage() {
 
   const wsTranscriptReady =
     mongoConnected !== false && wsConnectionState === 'open';
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      citationsReadyLoggedRef.current = null;
+      return;
+    }
+
+    if (citationsReadyLoggedRef.current === activeConversationId) return;
+
+    const hasCitations = messages.some(
+      (message) => (message.citations?.length ?? 0) > 0,
+    );
+    if (!hasCitations) return;
+
+    citationsReadyLoggedRef.current = activeConversationId;
+    log('info', 'DEV-0000021[T5] agents.transcript citations ready', {
+      conversationId: activeConversationId,
+      inflightId: getInflightId(),
+    });
+  }, [activeConversationId, getInflightId, log, messages]);
 
   useEffect(() => {
     if (persistenceUnavailable) return;
@@ -421,6 +455,7 @@ export default function AgentsPage() {
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            command: turn.command,
             createdAt: turn.createdAt,
           }) satisfies ChatMessage,
       ),
@@ -761,7 +796,11 @@ export default function AgentsPage() {
           streamStatus: 'failed',
           createdAt: new Date().toISOString(),
         };
-        hydrateHistory(nextConversationId, [...messages, errorMessage], 'replace');
+        hydrateHistory(
+          nextConversationId,
+          [...messages, errorMessage],
+          'replace',
+        );
         return;
       }
 
@@ -774,7 +813,11 @@ export default function AgentsPage() {
         streamStatus: 'failed',
         createdAt: new Date().toISOString(),
       };
-      hydrateHistory(nextConversationId, [...messages, errorMessage], 'replace');
+      hydrateHistory(
+        nextConversationId,
+        [...messages, errorMessage],
+        'replace',
+      );
     } finally {
       if (runControllerRef.current === controller) {
         runControllerRef.current = null;
@@ -815,6 +858,7 @@ export default function AgentsPage() {
       defaultExpanded={false}
       disableGutters
       data-testid="tool-params-accordion"
+      id={`params-${accordionId}`}
     >
       <AccordionSummary
         expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -835,10 +879,10 @@ export default function AgentsPage() {
             p: 1,
             overflowX: 'auto',
             fontSize: '0.8rem',
-            m: 0,
+            lineHeight: 1.4,
           }}
         >
-          {JSON.stringify(params ?? null, null, 2)}
+          {JSON.stringify(params ?? {}, null, 2)}
         </Box>
       </AccordionDetails>
     </Accordion>
@@ -849,6 +893,7 @@ export default function AgentsPage() {
       defaultExpanded={false}
       disableGutters
       data-testid="tool-result-accordion"
+      id={`result-${accordionId}`}
     >
       <AccordionSummary
         expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -869,14 +914,274 @@ export default function AgentsPage() {
             p: 1,
             overflowX: 'auto',
             fontSize: '0.8rem',
-            m: 0,
+            lineHeight: 1.4,
           }}
         >
-          {JSON.stringify(payload ?? null, null, 2)}
+          {JSON.stringify(payload ?? {}, null, 2)}
         </Box>
       </AccordionDetails>
     </Accordion>
   );
+
+  type RepoEntry = {
+    id: string;
+    description?: string | null;
+    containerPath?: string;
+    hostPath?: string;
+    hostPathWarning?: string;
+    lastIngestAt?: string | null;
+    modelId?: string;
+    counts?: { files?: number; chunks?: number; embedded?: number };
+    lastError?: string | null;
+  };
+
+  type VectorFile = {
+    hostPath: string;
+    highestMatch: number | null;
+    chunkCount: number;
+    lineCount: number | null;
+    hostPathWarning?: string;
+    repo?: string;
+    modelId?: string;
+  };
+
+  const renderRepoList = (repos: RepoEntry[]) => (
+    <Stack spacing={1} data-testid="tool-repo-list">
+      {repos.map((repo) => (
+        <Accordion
+          key={repo.id}
+          disableGutters
+          data-testid="tool-repo-item"
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
+            <Typography variant="body2" fontWeight={600}>
+              {repo.id}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={0.5}>
+              {repo.description && (
+                <Typography variant="body2" color="text.secondary">
+                  {repo.description}
+                </Typography>
+              )}
+              {repo.hostPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Host path: {repo.hostPath}
+                </Typography>
+              )}
+              {repo.containerPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Container path: {repo.containerPath}
+                </Typography>
+              )}
+              {repo.hostPathWarning && (
+                <Typography variant="caption" color="warning.main">
+                  Warning: {repo.hostPathWarning}
+                </Typography>
+              )}
+              {repo.counts && (
+                <Typography variant="caption" color="text.secondary">
+                  Files: {repo.counts.files ?? 0} · Chunks:{' '}
+                  {repo.counts.chunks ?? 0} · Embedded:{' '}
+                  {repo.counts.embedded ?? 0}
+                </Typography>
+              )}
+              {typeof repo.lastIngestAt === 'string' && repo.lastIngestAt && (
+                <Typography variant="caption" color="text.secondary">
+                  Last ingest: {repo.lastIngestAt}
+                </Typography>
+              )}
+              {repo.modelId && (
+                <Typography variant="caption" color="text.secondary">
+                  Model: {repo.modelId}
+                </Typography>
+              )}
+              {repo.lastError && (
+                <Typography variant="caption" color="error.main">
+                  Last error: {repo.lastError}
+                </Typography>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </Stack>
+  );
+
+  const renderVectorFiles = (files: VectorFile[]) => {
+    const sorted = [...files].sort((a, b) =>
+      a.hostPath.localeCompare(b.hostPath),
+    );
+    return (
+      <Stack spacing={1} data-testid="tool-file-list">
+        {sorted.map((file) => {
+          const summaryParts = [
+            file.hostPath,
+            `match ${file.highestMatch === null ? '—' : file.highestMatch.toFixed(2)}`,
+            `chunks ${file.chunkCount}`,
+            `lines ${file.lineCount === null ? '—' : file.lineCount}`,
+          ];
+          return (
+            <Accordion
+              key={file.hostPath}
+              disableGutters
+              data-testid="tool-file-item"
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
+              >
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  sx={{ wordBreak: 'break-all' }}
+                >
+                  {summaryParts.join(' · ')}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Highest match:{' '}
+                    {file.highestMatch === null
+                      ? '—'
+                      : file.highestMatch.toFixed(3)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Chunk count: {file.chunkCount}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total lines:{' '}
+                    {file.lineCount === null ? '—' : file.lineCount}
+                  </Typography>
+                  {file.repo && (
+                    <Typography variant="caption" color="text.secondary">
+                      Repo: {file.repo}
+                    </Typography>
+                  )}
+                  {file.modelId && (
+                    <Typography variant="caption" color="text.secondary">
+                      Model: {file.modelId}
+                    </Typography>
+                  )}
+                  {file.hostPathWarning && (
+                    <Typography variant="caption" color="warning.main">
+                      Warning: {file.hostPathWarning}
+                    </Typography>
+                  )}
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Stack>
+    );
+  };
+
+  const renderToolContent = (tool: ToolCall, toggleKey: string) => {
+    const payload = (tool.payload ?? {}) as Record<string, unknown>;
+    const repos = Array.isArray((payload as { repos?: unknown }).repos)
+      ? ((payload as { repos: RepoEntry[] }).repos as RepoEntry[])
+      : [];
+
+    const files = Array.isArray((payload as { files?: unknown }).files)
+      ? ((payload as { files: VectorFile[] }).files as VectorFile[])
+      : [];
+
+    const trimmedError = tool.errorTrimmed ?? null;
+    const fullError = tool.errorFull;
+
+    const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
+    const hasRepos =
+      tool.name === 'ListIngestedRepositories' && repos.length > 0;
+
+    return (
+      <Stack spacing={1} mt={0.5} data-testid="tool-details">
+        <Typography variant="caption" color="text.secondary">
+          Status: {tool.status}
+        </Typography>
+        {trimmedError && (
+          <Stack spacing={0.5}>
+            <Typography
+              variant="body2"
+              color="error.main"
+              data-testid="tool-error-trimmed"
+            >
+              {trimmedError.code ? `${trimmedError.code}: ` : ''}
+              {trimmedError.message ?? 'Error'}
+            </Typography>
+            {fullError && (
+              <Box>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => toggleToolError(toggleKey)}
+                  data-testid="tool-error-toggle"
+                  aria-expanded={!!toolErrorOpen[toggleKey]}
+                  sx={{ textTransform: 'none', minWidth: 0, p: 0 }}
+                >
+                  {toolErrorOpen[toggleKey]
+                    ? 'Hide full error'
+                    : 'Show full error'}
+                </Button>
+                <Collapse
+                  in={!!toolErrorOpen[toggleKey]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box
+                    component="pre"
+                    mt={0.5}
+                    px={1}
+                    py={0.5}
+                    data-testid="tool-error-full"
+                    sx={{
+                      bgcolor: 'grey.100',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      fontSize: '0.8rem',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {JSON.stringify(fullError, null, 2)}
+                  </Box>
+                </Collapse>
+              </Box>
+            )}
+          </Stack>
+        )}
+
+        {renderParamsAccordion(tool.parameters, toggleKey)}
+        {renderResultAccordion(tool.payload, toggleKey)}
+
+        {hasRepos && renderRepoList(repos)}
+        {hasVectorFiles && renderVectorFiles(files)}
+
+        {!hasRepos && !hasVectorFiles && tool.payload && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+            data-testid="tool-payload"
+          >
+            {JSON.stringify(tool.payload)}
+          </Typography>
+        )}
+      </Stack>
+    );
+  };
 
   return (
     <Stack spacing={2} data-testid="agents-page">
@@ -1346,139 +1651,158 @@ export default function AgentsPage() {
                                         />
                                       )}
                                       <Typography
-                                        variant="body2"
-                                        fontWeight={700}
+                                        variant="caption"
+                                        color="text.primary"
+                                        sx={{ flex: 1 }}
+                                        data-testid="tool-name"
                                       >
-                                        {tool.name || 'Tool'}
+                                        {(tool.name ?? 'Tool') +
+                                          ' · ' +
+                                          statusLabel}
                                       </Typography>
-                                      <Chip
-                                        size="small"
-                                        variant="outlined"
-                                        label={statusLabel}
-                                        color={
-                                          tool.status === 'error'
-                                            ? 'error'
-                                            : tool.status === 'done'
-                                              ? 'success'
-                                              : 'default'
-                                        }
-                                      />
                                       <Button
                                         size="small"
                                         variant="text"
                                         onClick={() => toggleTool(toggleKey)}
+                                        disabled={isRequesting}
                                         data-testid="tool-toggle"
+                                        aria-expanded={isOpen}
+                                        aria-controls={`tool-${toggleKey}-details`}
                                         sx={{
                                           textTransform: 'none',
                                           minWidth: 0,
                                           p: 0,
                                         }}
                                       >
-                                        {isOpen ? 'Hide' : 'Show'}
+                                        {isOpen
+                                          ? 'Hide details'
+                                          : 'Show details'}
                                       </Button>
-                                      {tool.status === 'error' && (
-                                        <Button
-                                          size="small"
-                                          variant="text"
-                                          onClick={() =>
-                                            toggleToolError(toggleKey)
-                                          }
-                                          data-testid="tool-error-toggle"
-                                          sx={{
-                                            textTransform: 'none',
-                                            minWidth: 0,
-                                            p: 0,
-                                          }}
-                                        >
-                                          Error
-                                        </Button>
-                                      )}
                                     </Stack>
 
-                                    <Accordion
-                                      expanded={isOpen}
-                                      onChange={() => toggleTool(toggleKey)}
-                                      disableGutters
-                                      sx={{
-                                        display: isOpen ? 'block' : 'none',
-                                      }}
+                                    <Collapse
+                                      in={isOpen}
+                                      timeout="auto"
+                                      unmountOnExit
+                                      id={`tool-${toggleKey}-details`}
                                     >
-                                      <AccordionSummary
-                                        expandIcon={<ExpandMoreIcon />}
-                                      >
-                                        <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                        >
-                                          {tool.name || 'Tool details'}
-                                        </Typography>
-                                      </AccordionSummary>
-                                      <AccordionDetails>
-                                        <Stack spacing={1}>
-                                          {renderParamsAccordion(
-                                            tool.parameters,
-                                            toggleKey,
-                                          )}
-                                          {renderResultAccordion(
-                                            tool.payload,
-                                            toggleKey,
-                                          )}
-                                          {tool.status === 'error' &&
-                                            tool.errorTrimmed && (
-                                              <Alert
-                                                severity="error"
-                                                data-testid="tool-error"
-                                              >
-                                                {JSON.stringify(
-                                                  tool.errorTrimmed,
-                                                )}
-                                              </Alert>
-                                            )}
-                                        </Stack>
-                                      </AccordionDetails>
-                                    </Accordion>
-
-                                    {tool.status === 'error' &&
-                                      tool.errorFull && (
-                                        <Collapse
-                                          in={!!toolErrorOpen[toggleKey]}
-                                          timeout="auto"
-                                          unmountOnExit
-                                        >
-                                          <Box mt={0.5}>
-                                            <Box
-                                              component="pre"
-                                              sx={{
-                                                bgcolor: 'grey.100',
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                p: 1,
-                                                overflowX: 'auto',
-                                                fontSize: '0.8rem',
-                                                m: 0,
-                                              }}
-                                            >
-                                              {JSON.stringify(
-                                                tool.errorFull ?? null,
-                                                null,
-                                                2,
-                                              )}
-                                            </Box>
-                                          </Box>
-                                        </Collapse>
-                                      )}
+                                      {renderToolContent(tool, toggleKey)}
+                                    </Collapse>
                                   </Box>
                                 );
                               })}
 
-                              {message.think && (
+                              {message.role === 'assistant' &&
+                                (message.citations?.length ?? 0) > 0 && (
+                                  <Accordion
+                                    disableGutters
+                                    elevation={0}
+                                    defaultExpanded={false}
+                                    sx={{
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      borderRadius: 1,
+                                      bgcolor: 'grey.50',
+                                      mt: 1,
+                                    }}
+                                    data-testid="citations-accordion"
+                                  >
+                                    <AccordionSummary
+                                      expandIcon={
+                                        <ExpandMoreIcon fontSize="small" />
+                                      }
+                                      aria-controls="citations-panel"
+                                      id="citations-summary"
+                                      data-testid="citations-toggle"
+                                    >
+                                      <Typography
+                                        variant="body2"
+                                        fontWeight={600}
+                                      >
+                                        Citations (
+                                        {message.citations?.length ?? 0})
+                                      </Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails id="citations-panel">
+                                      <Stack
+                                        spacing={1}
+                                        data-testid="citations"
+                                      >
+                                        {message.citations?.map(
+                                          (citation, idx) => {
+                                            const pathLabel = `${citation.repo}/${citation.relPath}`;
+                                            const hostSuffix = citation.hostPath
+                                              ? ` (${citation.hostPath})`
+                                              : '';
+                                            return (
+                                              <Box
+                                                key={`${citation.chunkId ?? idx}-${citation.relPath}`}
+                                                sx={{
+                                                  border: '1px solid',
+                                                  borderColor: 'divider',
+                                                  borderRadius: 1,
+                                                  p: 1,
+                                                  bgcolor: 'background.paper',
+                                                }}
+                                              >
+                                                <Typography
+                                                  variant="caption"
+                                                  color="text.secondary"
+                                                  title={
+                                                    citation.hostPath ??
+                                                    pathLabel
+                                                  }
+                                                  sx={{
+                                                    display: 'block',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    maxWidth: '100%',
+                                                  }}
+                                                  data-testid="citation-path"
+                                                >
+                                                  {pathLabel}
+                                                  {hostSuffix}
+                                                </Typography>
+                                                <Typography
+                                                  variant="body2"
+                                                  color="text.primary"
+                                                  style={{
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                  }}
+                                                  sx={{
+                                                    whiteSpace: 'pre-wrap',
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                  }}
+                                                  data-testid="citation-chunk"
+                                                >
+                                                  {citation.chunk}
+                                                </Typography>
+                                              </Box>
+                                            );
+                                          },
+                                        )}
+                                      </Stack>
+                                    </AccordionDetails>
+                                  </Accordion>
+                                )}
+
+                              {(message.thinkStreaming || message.think) && (
                                 <Box mt={1}>
                                   <Stack
                                     direction="row"
                                     alignItems="center"
                                     gap={0.5}
                                   >
+                                    {message.thinkStreaming && (
+                                      <CircularProgress
+                                        size={12}
+                                        color="inherit"
+                                        data-testid="think-spinner"
+                                      />
+                                    )}
                                     <Typography
                                       variant="caption"
                                       color="text.secondary"
@@ -1501,37 +1825,18 @@ export default function AgentsPage() {
                                       {thinkOpen[message.id] ? 'Hide' : 'Show'}
                                     </Button>
                                   </Stack>
-                                  <Box mt={0.5}>
-                                    <Accordion
-                                      expanded={!!thinkOpen[message.id]}
-                                      onChange={() => toggleThink(message.id)}
-                                      disableGutters
-                                      sx={{
-                                        display: thinkOpen[message.id]
-                                          ? 'block'
-                                          : 'none',
-                                      }}
-                                    >
-                                      <AccordionSummary
-                                        expandIcon={<ExpandMoreIcon />}
-                                      >
-                                        <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                        >
-                                          Thought process
-                                        </Typography>
-                                      </AccordionSummary>
-                                      <AccordionDetails>
-                                        <Box color="text.secondary">
-                                          <Markdown
-                                            content={message.think ?? ''}
-                                            data-testid="think-content"
-                                          />
-                                        </Box>
-                                      </AccordionDetails>
-                                    </Accordion>
-                                  </Box>
+                                  <Collapse
+                                    in={!!thinkOpen[message.id]}
+                                    timeout="auto"
+                                    unmountOnExit
+                                  >
+                                    <Box mt={0.5} color="text.secondary">
+                                      <Markdown
+                                        content={message.think ?? ''}
+                                        data-testid="think-content"
+                                      />
+                                    </Box>
+                                  </Collapse>
                                 </Box>
                               )}
                             </Stack>

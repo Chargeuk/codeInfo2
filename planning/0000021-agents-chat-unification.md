@@ -1131,7 +1131,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 #### Subtasks
 
-1. [ ] Read the Chat transcript UI patterns to copy into Agents:
+1. [x] Read the Chat transcript UI patterns to copy into Agents:
    - Documentation to read:
      - MUI Accordion docs: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Files to read:
@@ -1142,7 +1142,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
        - citations accordion (`data-testid="citations-accordion"`)
        - thought process accordion
 
-2. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
+2. [x] Update Agents transcript rendering to use the same tool + citations UI as Chat:
    - Documentation to read:
      - MUI Accordion docs: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Files to edit:
@@ -1169,7 +1169,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Prefer copying the existing ChatPage JSX in small blocks and wiring it to the `ChatMessage` shape produced by `useChatStream`.
      - Avoid creating new shared components in this story unless necessary to keep changes small.
 
-3. [ ] Remove the Agents-only command metadata transcript note:
+3. [x] Remove the Agents-only command metadata transcript note:
    - Documentation to read:
      - None (repo-local change).
    - Files to edit:
@@ -1180,7 +1180,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Remove the “Command run: … (step/total)” note from the transcript UI.
      - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
 
-4. [ ] Client test: citations accordion renders under assistant bubbles (Agents parity with Chat):
+4. [x] Client test: citations accordion renders under assistant bubbles (Agents parity with Chat):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1211,7 +1211,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
        - The accordion is collapsed by default
        - Expanding shows `data-testid="citation-path"` and `data-testid="citation-chunk"`.
 
-5. [ ] Client test: thought process (analysis_delta / assistantThink) accordion behavior matches Chat:
+5. [x] Client test: thought process (analysis_delta / assistantThink) accordion behavior matches Chat:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1233,7 +1233,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Emit an inflight snapshot with `assistantThink` and/or emit `analysis_delta` events.
      - Assert `think-toggle` exists, is closed by default, and reveals `think-content` when clicked.
 
-6. [ ] Client test: tool Parameters/Result accordions render for tool events:
+6. [x] Client test: tool Parameters/Result accordions render for tool events:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1254,7 +1254,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Emit a `tool_event` with a `tool-result` including `parameters` and `result`.
      - Assert `data-testid="tool-params-accordion"` and `data-testid="tool-result-accordion"` render and are collapsed by default.
 
-7. [ ] Client test: status chip shows Failed when `turn_final.status === 'failed'`:
+7. [x] Client test: status chip shows Failed when `turn_final.status === 'failed'`:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1275,7 +1275,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Emit an inflight snapshot + assistant delta, then emit `turn_final` with `status: 'failed'`.
      - Assert the visible status chip contains `Failed` (and does not contain `Complete`).
 
-8. [ ] Update `projectStructure.md` with files added/removed in this task:
+8. [x] Update `projectStructure.md` with files added/removed in this task:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1289,18 +1289,18 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Remove (if deleted by this task):
        - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Run an Agent instruction that triggers tool calls and confirm tools render with the same Parameters/Result accordions as Chat.
    - Confirm citations render in the same default-closed citations accordion under assistant bubbles (and are stable across refresh).
    - Confirm assistant status chips match Chat behavior (Processing → Complete, or Failed/Stopped when applicable).
@@ -1308,11 +1308,27 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - `DEV-0000021[T5] agents.ws event tool_event`
      - `DEV-0000021[T5] agents.transcript citations ready`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed `client/src/pages/ChatPage.tsx` transcript rendering blocks for tool details toggling, the default-collapsed citations accordion (`citations-accordion`/`citations-toggle`/`citations`), and the “Thought process” Collapse+toggle pattern.
+- `client/src/pages/AgentsPage.tsx` now renders tool rows using the Chat-style “Show details” toggle + Collapse, adds the citations accordion under assistant bubbles (Chat test ids), and aligns the thought process section to the Chat Collapse pattern (including `think-spinner`).
+- Added Agents client log lines required for manual verification: logs `DEV-0000021[T5] agents.ws event tool_event` when receiving WS tool events and `DEV-0000021[T5] agents.transcript citations ready` when citations first appear for the active conversation.
+- Removed the obsolete `client/src/test/agentsPage.commandMetadataRender.test.tsx` coverage after confirming the command-metadata bubble note is no longer rendered (while preserving `turn.command` hydration in transcript state).
+- Added new RTL parity tests for Agents transcript UI: citations accordion (`client/src/test/agentsPage.citations.test.tsx`), reasoning toggle (`client/src/test/agentsPage.reasoning.test.tsx`), tool params/result accordions (`client/src/test/agentsPage.toolsUi.test.tsx`), and failed status chip (`client/src/test/agentsPage.statusChip.test.tsx`).
+- Updated `projectStructure.md` to include the new Agents transcript tests and to remove the deleted `client/src/test/agentsPage.commandMetadataRender.test.tsx` entry.
+- Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`, then clean).
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: exercised Agents transcript UI against `http://host.docker.internal:5001/agents` and confirmed tool rows + Parameters/Result accordions render, citations accordion renders (default closed), and `/logs` contains `DEV-0000021[T5] agents.ws event tool_event` + `DEV-0000021[T5] agents.transcript citations ready`.
+- Extended `client/src/hooks/useChatStream.ts` citation extraction to support tool payloads that provide `segments` with `vector_summary.files` (e.g., `codebase_question` tool results), enabling citations parity for Agents runs even when `VectorSearch` isn’t available.
+- Testing: `npm run compose:down`.
 
 ---
 

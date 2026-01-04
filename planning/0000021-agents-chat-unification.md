@@ -79,14 +79,78 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 # Tasks
 
-### 1. Server: publish `user_turn` + full inflight metadata for agent runs
+### 1. Server: allow client-supplied `conversationId` for new Agents runs
 
 - Task Status: **__to_do__**
 - Git Commits:
 
 #### Overview
 
-Ensure agent runs emit the same WebSocket transcript “run start” signal as Chat by publishing a `user_turn` event and creating inflight state with the same metadata fields used by `/chat`. This is the upstream prerequisite for the Agents UI to reuse the Chat WS transcript logic without bespoke client-side workarounds.
+Enable the Agents UI to generate a `conversationId` up front (so it can subscribe to WS early) by ensuring that providing `conversationId` does **not** force the conversation to already exist. This must apply to both single instruction runs and multi-step command runs.
+
+#### Documentation Locations
+
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Read how agent runs and command runs decide whether a conversation must exist:
+   - Files to read:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+
+2. [ ] Update agent run orchestration to allow “new conversation with provided id”:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - In `runAgentInstruction(...)`, stop passing `mustExist: Boolean(params.conversationId)` into `runAgentInstructionUnlocked(...)`.
+     - Keep existing protections:
+       - archived conversations must still error (410)
+       - agent mismatch must still error
+
+3. [ ] Update agent command orchestration to allow “new conversation with provided id”:
+   - Files to edit:
+     - `server/src/agents/commandsRunner.ts`
+   - Requirements:
+     - Stop deriving `mustExist` from `Boolean(params.conversationId)`.
+     - Commands must be able to run with a client-supplied id that doesn’t exist yet.
+
+4. [ ] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
+   - Files to add:
+     - `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+   - Requirements:
+     - Call `runAgentInstruction(...)` (not `...Unlocked`) with a non-empty `conversationId` that does not exist.
+     - Assert the run succeeds and returns the same `conversationId`.
+
+5. [ ] Update `projectStructure.md` with the new server test file:
+   - Files to edit:
+     - `projectStructure.md`
+
+6. [ ] Run lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Server: emit chat-parity run-start WS events for agent runs
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Make agent runs follow the same run-start contract as `/chat`: create inflight state with full metadata, publish a `user_turn` WS event immediately, and propagate `inflightId` into `chat.run(...)` flags so persistence bookkeeping remains consistent.
 
 #### Documentation Locations
 
@@ -106,59 +170,46 @@ Ensure agent runs emit the same WebSocket transcript “run start” signal as C
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
 
-2. [ ] Allow client-supplied `conversationId` to start a new agent conversation (required for early WS subscription):
-   - Files to edit:
-     - `server/src/agents/service.ts`
-     - `server/src/agents/commandsRunner.ts`
-   - Requirements:
-     - Update `runAgentInstruction(...)` so it does **not** set `mustExist` based on “conversationId was provided”.
-       - Agents must match `/chat`: if the provided `conversationId` does not exist yet, create it.
-       - Keep the existing protections: archived conversations must still 410, and agent mismatch must still error.
-       - Concrete change: stop passing `mustExist: Boolean(params.conversationId)` into `runAgentInstructionUnlocked(...)`.
-     - Update command runs (`runAgentCommandRunner` → `runAgentInstructionUnlocked`) so a client-supplied `conversationId` can also start a new command conversation.
-       - Concrete change: stop deriving `mustExist` from `Boolean(params.conversationId)`; omit `mustExist` entirely (or set it to `false`).
-
-3. [ ] Update `runAgentInstructionUnlocked` to create inflight state with chat-style metadata:
+2. [ ] Create inflight state with chat-style metadata:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Mirror the `/chat` run-start metadata in `createInflight(...)`:
+     - Mirror `/chat` run-start metadata in `createInflight(...)`:
        - `provider: 'codex'`
        - `model: modelId`
        - `source: params.source`
        - `userTurn: { content: params.instruction, createdAt: <iso string> }`
      - Keep existing `externalSignal` wiring (`params.signal`).
 
-4. [ ] Publish `user_turn` for agent runs at run start (server-side), matching the Chat run contract:
+3. [ ] Publish `user_turn` at run start:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Import and call `publishUserTurn(...)` from `server/src/ws/server.ts` immediately after inflight creation (and before attaching the stream bridge), using the same `createdAt` ISO timestamp stored in the inflight userTurn.
-     - Ensure `createdAt` is an ISO string and non-empty.
+     - Call `publishUserTurn(...)` immediately after inflight creation (and before attaching the stream bridge), using the same `createdAt` stored in `userTurn`.
 
-5. [ ] Ensure the inflight id is propagated consistently into persistence bookkeeping:
+4. [ ] Propagate `inflightId` into `chat.run(...)` flags:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Pass `inflightId` into `chat.run(...)` flags so `ChatInterface` can mark inflight persistence (`markInflightPersisted`) consistently with `/chat`.
+     - Pass `inflightId` so `ChatInterface` can run `markInflightPersisted(...)` consistently with `/chat`.
 
-6. [ ] Server integration test: agent runs publish `user_turn` over WS at run start:
+5. [ ] Server integration test: agent run publishes `user_turn` over WS before deltas:
    - Files to edit:
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
    - Requirements:
-     - Extend the existing test to wait for and assert a `user_turn` event:
+     - Extend the existing test to assert `user_turn`:
        - `conversationId` matches
        - `inflightId` matches
        - `content` equals the submitted instruction
        - `createdAt` is a non-empty string
-     - Keep the existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
+     - Keep existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
 
-7. [ ] Update documentation to reflect that agent runs emit `user_turn`:
+6. [ ] Update documentation to reflect Agents run-start parity:
    - Files to edit:
      - `design.md`
      - `readme.md`
 
-8. [ ] Run lint/format verification:
+7. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -173,7 +224,7 @@ Ensure agent runs emit the same WebSocket transcript “run start” signal as C
 
 ---
 
-### 2. Server: `cancel_inflight` stops agent runs and yields `turn_final: stopped`
+### 3. Server: cancellation test coverage for Agents (`cancel_inflight`)
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -237,14 +288,14 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 
 ---
 
-### 3. Client: Agents transcript uses the Chat WS transcript pipeline (no bespoke inflight)
+### 4. Client: switch Agents transcript state to the Chat WS pipeline
 
 - Task Status: **__to_do__**
 - Git Commits:
 
 #### Overview
 
-Remove bespoke inflight aggregation from the Agents page and reuse the same WebSocket transcript pipeline used by Chat (`useChatWs` + `useChatStream.handleWsEvent` + `useConversationTurns`). This makes tool/citation rendering and status semantics match Chat and eliminates drift between the two pages.
+Remove bespoke inflight aggregation from the Agents page and reuse the same WebSocket transcript pipeline used by Chat (`useChatWs` + `useChatStream.handleWsEvent` + `useConversationTurns`). This makes transcript state (user turn, assistant deltas, tool events, status) consistent before the UI/layout parity refactors.
 
 #### Documentation Locations
 
@@ -287,37 +338,15 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - When realtime is enabled (`mongoConnected !== false`), do **not** append an assistant message from `result.segments`.
        - Treat the REST response as a completion signal only; the transcript should come entirely from WS events.
 
-3. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
-   - Files to edit:
-     - `client/src/pages/AgentsPage.tsx`
-   - Requirements:
-     - Do not change ChatPage transcript UI in this story. Instead, copy the Chat transcript UI patterns into AgentsPage and keep test ids consistent with Chat where applicable (e.g., `data-testid="citations-accordion"`, `data-testid="citations-toggle"`, `data-testid="citations"`).
-     - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
-     - Citations must render inside the same default-closed citations accordion used by Chat.
-     - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
-
-4. [ ] Remove the Agents-only command metadata transcript note:
-   - Files to edit:
-     - `client/src/pages/AgentsPage.tsx`
-   - Files to edit or delete:
-     - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
-   - Requirements:
-     - Remove the “Command run: … (step/total)” note from the transcript UI.
-     - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
-
-5. [ ] Update client tests for streaming parity:
+3. [ ] Update client tests for WS pipeline adoption:
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Emit a `user_turn` WS event and assert a user bubble renders.
-     - Continue asserting deltas render.
-     - Assert `turn_final` transitions the assistant status to complete/failed.
+     - Emit deltas and assert assistant content updates.
+     - Emit `turn_final` and assert assistant status transitions.
 
-6. [ ] Update `projectStructure.md` for any new test/component files added in this story:
-   - Files to edit:
-     - `projectStructure.md`
-
-7. [ ] Run full lint/format verification:
+4. [ ] Run full lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -332,14 +361,67 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 ---
 
-### 4. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
+### 5. Client: align Agents transcript UI with Chat transcript UI
 
 - Task Status: **__to_do__**
 - Git Commits:
 
 #### Overview
 
-Update the Agents Stop behavior to match Chat: send `cancel_inflight` over WebSocket using the active conversation + inflight id, and also abort the in-flight HTTP request for immediate UI responsiveness.
+Make Agents transcript rendering match Chat: same status chip behavior, same tool Parameters/Result accordions, same default-closed citations accordion, and the same “Thought process” accordion. Remove the Agents-only command metadata note while keeping `turn.command` persistence unchanged.
+
+#### Documentation Locations
+
+- MUI MCP docs (accordions used by the chat transcript UI):
+  - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+
+#### Subtasks
+
+1. [ ] Read the Chat transcript UI patterns to copy into Agents:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+
+2. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Do not change ChatPage transcript UI in this story. Instead, copy the Chat transcript UI patterns into AgentsPage and keep test ids consistent with Chat where applicable (e.g., `data-testid="citations-accordion"`, `data-testid="citations-toggle"`, `data-testid="citations"`).
+     - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
+     - Citations must render inside the same default-closed citations accordion used by Chat.
+     - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
+
+3. [ ] Remove the Agents-only command metadata transcript note:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Files to edit or delete:
+     - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+   - Requirements:
+     - Remove the “Command run: … (step/total)” note from the transcript UI.
+     - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
+
+4. [ ] Run full lint/format verification:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 6. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP request, and when possible also send `cancel_inflight` over WebSocket using the active conversation + inflight id.
 
 #### Documentation Locations
 
@@ -385,7 +467,7 @@ Update the Agents Stop behavior to match Chat: send `cancel_inflight` over WebSo
 
 ---
 
-### 5. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
+### 7. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -445,7 +527,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 ---
 
-### 6. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
+### 8. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
 
 - Task Status: **__to_do__**
 - Git Commits:

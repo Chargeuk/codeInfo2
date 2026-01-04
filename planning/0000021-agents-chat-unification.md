@@ -26,11 +26,11 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ## Acceptance Criteria
 
-- The Agents page uses the same layout structure as the Chat page (drawer sidebar + controls + transcript column).
-- The Agents transcript uses the same WebSocket transcript logic as Chat (no custom inflight aggregation on the client).
-- Agents show the same transcript UI features as Chat, including tool blocks, status chips, and citations.
-- The Agents sidebar updates via WebSocket conversation upserts/deletes the same way as Chat, scoped to the active agent.
-- Agent-specific controls (agent selection, command execution, working folder) replace the Chat provider/model controls without regressing functionality.
+- The Agents page uses the same layout structure as the Chat page: a left Drawer sidebar (mobile = temporary, desktop = persistent, width 320), a controls area above the transcript, and a transcript column inside a scrolling panel.
+- The Agents transcript uses the same WebSocket transcript logic as Chat (the same WS handler/hooks such as `useChatWs` + `useChatStream.handleWsEvent` or a shared equivalent), with no bespoke inflight aggregation state on the client.
+- Agents show the same transcript UI features as Chat: status chip (Processing/Complete/Failed), tool blocks with parameters + result accordions, and citations rendered in the same citations accordion under assistant bubbles.
+- The Agents sidebar updates via WebSocket `conversation_upsert` / `conversation_delete` events the same way as Chat (subscribed with `subscribe_sidebar`), filtered to the active agent and sorted in the same order.
+- Agent-specific controls replace Chat provider/model controls without losing functionality: agent dropdown, command dropdown + execute, working folder input, Send/Stop, and New conversation all behave as they do today on the Agents page.
 
 ---
 

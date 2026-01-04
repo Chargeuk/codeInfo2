@@ -1335,7 +1335,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 ### 6. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: 7472ebd
 
 #### Overview
 

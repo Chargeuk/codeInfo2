@@ -55,6 +55,14 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ---
 
+## Message Contracts & Storage Shapes
+
+- **No new storage shapes are required.** Existing conversation/turn persistence remains unchanged.
+- **No new WS event types are required.** Agents will emit the same existing WS v1 events as Chat (`user_turn`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`).
+- **No new REST fields are required.** `/agents/:agentName/run` continues to accept `instruction`, optional `conversationId`, and optional `working_folder` and returns `segments` for fallback/non-WS use.
+
+---
+
 ## Questions
 
 - Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical? **Answer:** Yes — unify both paths behind a single run-orchestration flow to avoid drift and duplicate maintenance.

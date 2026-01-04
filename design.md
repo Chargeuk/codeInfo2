@@ -132,6 +132,23 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  participant User
+  participant Client as Agents UI
+  participant Server
+
+  User->>Client: Click Stop
+  Client->>Client: AbortController.abort() (in-flight HTTP run)
+
+  opt inflightId known
+    Client->>Server: WS cancel_inflight(conversationId, inflightId)
+    Note over Server: AbortController aborts provider run
+  end
+
+  Server-->>Client: WS turn_final (status=stopped)
+```
+
+```mermaid
+sequenceDiagram
   participant Client
   participant Server
   participant Repo as Repo (Mongo)

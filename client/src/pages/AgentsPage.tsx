@@ -354,6 +354,32 @@ export default function AgentsPage() {
     setIsRunning(false);
   }, []);
 
+  const handleStopClick = useCallback(() => {
+    const inflightId = getInflightId();
+    log('info', 'DEV-0000021[T6] agents.stop clicked', {
+      conversationId: activeConversationId,
+      inflightId,
+    });
+
+    stop();
+
+    log('info', 'DEV-0000021[T6] agents.http abort signaled', {
+      conversationId: activeConversationId,
+      inflightId,
+    });
+
+    if (activeConversationId && inflightId) {
+      cancelInflight(activeConversationId, inflightId);
+      log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
+        conversationId: activeConversationId,
+        inflightId,
+      });
+    }
+
+    setInput(lastSentRef.current);
+    inputRef.current?.focus();
+  }, [activeConversationId, cancelInflight, getInflightId, log, stop]);
+
   const makeClientConversationId = () =>
     crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
@@ -1266,19 +1292,7 @@ export default function AgentsPage() {
                 <Button
                   type="button"
                   variant="outlined"
-                  onClick={() => {
-                    const inflightId = getInflightId();
-                    if (
-                      wsTranscriptReady &&
-                      activeConversationId &&
-                      inflightId
-                    ) {
-                      cancelInflight(activeConversationId, inflightId);
-                    }
-                    stop();
-                    setInput(lastSentRef.current);
-                    inputRef.current?.focus();
-                  }}
+                  onClick={handleStopClick}
                   disabled={!showStop}
                   data-testid="agent-stop"
                 >

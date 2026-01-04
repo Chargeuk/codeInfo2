@@ -1334,7 +1334,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 ### 6. Client: Agents Stop uses WS `cancel_inflight` + abort request (Chat parity)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -1357,7 +1357,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 #### Subtasks
 
-1. [ ] Read ChatPage Stop behavior and how it gets the inflight id:
+1. [x] Read ChatPage Stop behavior and how it gets the inflight id:
    - Documentation to read:
      - React `useRef`: https://react.dev/reference/react/useRef
      - React `useEffect`: https://react.dev/reference/react/useEffect
@@ -1371,7 +1371,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - How Chat obtains `conversationId` and `inflightId` at stop time.
      - How Chat sends `cancel_inflight` and how it aborts requests.
 
-2. [ ] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
+2. [x] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
    - Documentation to read:
      - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1398,7 +1398,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
            - `DEV-0000021[T6] agents.ws cancel_inflight sent` (only when both ids are available)
          - Include `conversationId` in `context`; include `inflightId` when known.
 
-3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
+3. [x] Client test: Stop sends a `cancel_inflight` WS message:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1414,7 +1414,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
    - Requirements:
      - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
 
-4. [ ] Client test: Stop clicked before inflight id is known does not send `cancel_inflight` (but still aborts HTTP):
+4. [x] Client test: Stop clicked before inflight id is known does not send `cancel_inflight` (but still aborts HTTP):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1432,7 +1432,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - Assert the request abort signal becomes aborted.
      - Assert the WS mock recorded **no** `{ type: 'cancel_inflight', ... }` messages.
 
-5. [ ] Update `design.md` with the Stop/cancel flow (Agents parity with Chat):
+5. [x] Update `design.md` with the Stop/cancel flow (Agents parity with Chat):
    - Documentation to read:
      - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -1446,18 +1446,18 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
        - if `conversationId` + `inflightId` exist, client sends WS `cancel_inflight`
        - server aborts inflight and emits `turn_final: stopped`.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Start an Agents run and click Stop immediately; confirm the HTTP request aborts and the WS `cancel_inflight` also fires (no long tail streaming).
    - Confirm Stop is still enabled/functional even when Mongo is disconnected (WS cancel should not be gated on persistence).
    - Confirm the UI returns to an idle state after stopping and the user can Send again.
@@ -1466,11 +1466,24 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - `DEV-0000021[T6] agents.http abort signaled`
      - `DEV-0000021[T6] agents.ws cancel_inflight sent`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-04: Reviewed Chat stop flow (`ChatPage.tsx` + `useChatWs.cancelInflight` + `useChatStream.getInflightId`). Chat sends `cancel_inflight` only when both `conversationId` and `inflightId` exist, then updates UI via `stop({ showStatusBubble: true })`.
+- 2026-01-04: Updated Agents Stop click handler to always abort the in-flight HTTP request first, then (when both ids are available) send WS `cancel_inflight` and emit the required log lines (`DEV-0000021[T6] ...`).
+- 2026-01-04: Added Jest coverage for Stop sending `cancel_inflight` when an inflight id exists, and for the early-stop case where only the HTTP abort fires.
+- 2026-01-04: Added a Mermaid sequence diagram in `design.md` documenting the Agents Stop flow (HTTP abort first, optional WS `cancel_inflight`, and server `turn_final: stopped`).
+- 2026-01-04: Ran `npm run lint --workspaces` (clean; server has existing import/order warnings) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2026-01-04: Verified server builds outside Docker (`npm run build --workspace server`).
+- 2026-01-04: Verified client builds outside Docker (`npm run build --workspace client`).
+- 2026-01-04: Ran server test suite (`npm run test --workspace server`).
+- 2026-01-04: Ran client test suite (`npm run test --workspace client`).
+- 2026-01-04: Ran end-to-end Playwright suite (`npm run e2e`).
+- 2026-01-04: Verified Docker Compose images build (`npm run compose:build`).
+- 2026-01-04: Verified Docker Compose stack starts (`npm run compose:up`).
+- 2026-01-04: Manual check (headless Playwright): ran an Agents instruction, clicked Stop after `Processing` appeared, and confirmed `/logs` contains the required `DEV-0000021[T6]` entries with matching `conversationId`/`inflightId`. Also repeated with Mongo stopped (`mongoConnected=false`) to confirm Stop still aborts and returns UI to idle.
+- 2026-01-04: Shut down the Docker Compose stack after verification (`npm run compose:down`).
 
 ---
 

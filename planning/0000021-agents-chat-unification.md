@@ -86,8 +86,8 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ### 1. Server: allow client-supplied `conversationId` for new Agents runs
 
-- Task Status: **__to_do__**
-- Git Commits:
+- Task Status: **__done__**
+- Git Commits: ccd9772
 
 #### Overview
 
@@ -106,7 +106,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 #### Subtasks
 
-1. [ ] Read how agent runs and command runs decide whether a conversation must exist:
+1. [x] Read how agent runs and command runs decide whether a conversation must exist:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
@@ -121,7 +121,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
    - Output of this subtask:
      - A short note in this task’s Implementation notes summarizing the exact “mustExist” behavior you found and the functions/lines you’ll change.
 
-2. [ ] Update agent run orchestration to allow “new conversation with provided id”:
+2. [x] Update agent run orchestration to allow “new conversation with provided id”:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
@@ -154,7 +154,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
            - `mustExist` (the exact value being passed into `runAgentInstructionUnlocked(...)`)
 
 
-3. [ ] Update agent command orchestration to allow “new conversation with provided id”:
+3. [x] Update agent command orchestration to allow “new conversation with provided id”:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
@@ -188,7 +188,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
            - `mustExist` (the exact value passed down into `runAgentInstructionUnlocked(...)`)
 
 
-4. [ ] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
+4. [x] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
    - Test type:
      - node:test integration test (server)
    - Test location:
@@ -212,7 +212,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
        - `result.conversationId === providedConversationId`
        - `result.agentName === agentName`
 
-5. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `CONVERSATION_ARCHIVED` to `410`:
+5. [x] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `CONVERSATION_ARCHIVED` to `410`:
    - Description:
      - When the service returns `{ code: 'CONVERSATION_ARCHIVED' }`, the router must respond with `410 { error: 'archived' }`.
    - Purpose:
@@ -226,7 +226,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Use the existing `buildApp({ runAgentInstruction })` helper and stub `runAgentInstruction` to throw `{ code: 'CONVERSATION_ARCHIVED' }`.
      - Assert `res.status === 410` and `res.body` deep-equals `{ error: 'archived' }`.
 
-6. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `AGENT_MISMATCH` to `400`:
+6. [x] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `AGENT_MISMATCH` to `400`:
    - Description:
      - When the service returns `{ code: 'AGENT_MISMATCH' }`, the router must respond with `400 { error: 'agent_mismatch' }`.
    - Purpose:
@@ -240,7 +240,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Stub `runAgentInstruction` to throw `{ code: 'AGENT_MISMATCH' }`.
      - Assert `res.status === 400` and `res.body` deep-equals `{ error: 'agent_mismatch' }`.
 
-7. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `CODEX_UNAVAILABLE` to `503`:
+7. [x] Server unit test (node:test + Supertest): `/agents/:agentName/run` maps `CODEX_UNAVAILABLE` to `503`:
    - Description:
      - When the service returns `{ code: 'CODEX_UNAVAILABLE', reason }`, the router must respond with `503 { error: 'codex_unavailable', reason }`.
    - Purpose:
@@ -254,7 +254,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Stub `runAgentInstruction` to throw `{ code: 'CODEX_UNAVAILABLE', reason: 'no auth.json' }`.
      - Assert `res.status === 503` and `res.body` contains `{ error: 'codex_unavailable', reason: 'no auth.json' }`.
 
-8. [ ] Server change: align `/agents/:agentName/commands/run` error mapping with `/agents/:agentName/run`:
+8. [x] Server change: align `/agents/:agentName/commands/run` error mapping with `/agents/:agentName/run`:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Supertest (Express route testing): Context7 `/ladjs/supertest`
@@ -270,7 +270,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
        - `AGENT_MISMATCH` → `400 { error: 'agent_mismatch' }`
        - `CODEX_UNAVAILABLE` → `503 { error: 'codex_unavailable', reason }`
 
-9. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `CONVERSATION_ARCHIVED` to `410`:
+9. [x] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `CONVERSATION_ARCHIVED` to `410`:
    - Description:
      - When `runAgentCommand` throws `{ code: 'CONVERSATION_ARCHIVED' }`, the router must respond with `410 { error: 'archived' }`.
    - Purpose:
@@ -284,7 +284,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Stub `runAgentCommand` to throw `{ code: 'CONVERSATION_ARCHIVED' }`.
      - Assert `res.status === 410` and `res.body` deep-equals `{ error: 'archived' }`.
 
-10. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `AGENT_MISMATCH` to `400`:
+10. [x] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `AGENT_MISMATCH` to `400`:
     - Description:
       - When `runAgentCommand` throws `{ code: 'AGENT_MISMATCH' }`, the router must respond with `400 { error: 'agent_mismatch' }`.
     - Purpose:
@@ -298,7 +298,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
       - Stub `runAgentCommand` to throw `{ code: 'AGENT_MISMATCH' }`.
       - Assert `res.status === 400` and `res.body` deep-equals `{ error: 'agent_mismatch' }`.
 
-11. [ ] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `CODEX_UNAVAILABLE` to `503`:
+11. [x] Server unit test (node:test + Supertest): `/agents/:agentName/commands/run` maps `CODEX_UNAVAILABLE` to `503`:
     - Description:
       - When `runAgentCommand` throws `{ code: 'CODEX_UNAVAILABLE', reason }`, the router must respond with `503 { error: 'codex_unavailable', reason }`.
     - Purpose:
@@ -312,7 +312,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
       - Stub `runAgentCommand` to throw `{ code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' }`.
       - Assert `res.status === 503` and `res.body` contains `{ error: 'codex_unavailable', reason: 'missing codex config' }`.
 
-12. [ ] Server unit test (node:test): command runs must allow a client-supplied `conversationId` to be *new*:
+12. [x] Server unit test (node:test): command runs must allow a client-supplied `conversationId` to be *new*:
    - Test type:
      - node:test unit test (server)
    - Test location:
@@ -329,7 +329,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Add a test that calls `runAgentCommandRunner({ conversationId: 'c1', ... })` and captures the params passed into `runAgentInstructionUnlocked(...)`.
      - Assert the runner does **not** set `mustExist: true` just because `conversationId` was provided (it should be omitted or `false`), so a new conversation id can be created on first use.
 
-13. [ ] Update `design.md` with the new Agents conversationId flow and why the server must accept client-provided ids:
+13. [x] Update `design.md` with the new Agents conversationId flow and why the server must accept client-provided ids:
    - Documentation to read:
      - Mermaid diagrams (Markdown code block + sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -346,7 +346,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
        - client POSTs `/agents/:agentName/run` with the same `conversationId`
        - server creates conversation if missing, then streams via WS.
 
-14. [ ] Update `projectStructure.md` with the new/updated server test files:
+14. [x] Update `projectStructure.md` with the new/updated server test files:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -357,18 +357,18 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Remove:
        - (none)
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Start a new Agents conversation and send an instruction with a client-supplied `conversationId` (new id not yet persisted).
    - Confirm the run completes successfully (no `archived`/`agent_mismatch`/`agent_run_failed` error) and the transcript renders.
    - Execute an Agent command run from the same new conversation id and confirm it also completes.
@@ -376,11 +376,39 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - `DEV-0000021[T1] agents.run mustExist resolved`
      - `DEV-0000021[T1] agents.commands mustExist resolved`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Current behavior: `runAgentInstruction(...)` sets `mustExist: Boolean(params.conversationId)` when calling `runAgentInstructionUnlocked(...)`, which causes a client-supplied-but-new id to throw `AGENT_NOT_FOUND` via `if (params.mustExist && isNewConversation)` in `server/src/agents/service.ts`.
+- Current behavior: `runAgentCommandRunner(...)` sets `const mustExist = Boolean(params.conversationId);` and passes it to `runAgentInstructionUnlocked(...)` for each command step, so a new client-supplied id is rejected the same way.
+- Change: `server/src/agents/service.ts` now always passes `mustExist: false` into `runAgentInstructionUnlocked(...)` so a client-supplied id can create a new conversation (archived + agent mismatch protections remain enforced inside `runAgentInstructionUnlocked(...)`).
+- Added required logs: `server/src/agents/service.ts` appends `DEV-0000021[T1] agents.run mustExist resolved` once per run with `{ agentName, source, conversationId, clientProvidedConversationId, mustExist }`.
+- Change: `server/src/agents/commandsRunner.ts` now always uses `mustExist = false` so a client-supplied id can be new on first command run.
+- Added required logs: `server/src/agents/commandsRunner.ts` appends `DEV-0000021[T1] agents.commands mustExist resolved` once per command run with `{ agentName, commandName, conversationId, clientProvidedConversationId, mustExist }`.
+- Added integration coverage: `server/src/test/integration/agents-run-client-conversation-id.test.ts` calls `runAgentInstruction(...)` with a client-supplied conversation id that does not exist yet (memory persistence) and asserts the run succeeds and returns the same id.
+- Added unit coverage: `server/src/test/unit/agents-router-run.test.ts` now asserts `CONVERSATION_ARCHIVED` maps to `410 { error: 'archived' }`.
+- Added unit coverage: `server/src/test/unit/agents-router-run.test.ts` now asserts `AGENT_MISMATCH` maps to `400 { error: 'agent_mismatch' }`.
+- Added unit coverage: `server/src/test/unit/agents-router-run.test.ts` now asserts `CODEX_UNAVAILABLE` maps to `503 { error: 'codex_unavailable', reason }`.
+- Change: `server/src/routes/agentsCommands.ts` now maps `CONVERSATION_ARCHIVED` → 410, `AGENT_MISMATCH` → 400, and `CODEX_UNAVAILABLE` → 503 to match `/agents/:agentName/run`.
+- Added unit coverage: `server/src/test/unit/agents-commands-router-run.test.ts` now asserts `CONVERSATION_ARCHIVED` maps to `410 { error: 'archived' }`.
+- Added unit coverage: `server/src/test/unit/agents-commands-router-run.test.ts` now asserts `AGENT_MISMATCH` maps to `400 { error: 'agent_mismatch' }`.
+- Added unit coverage: `server/src/test/unit/agents-commands-router-run.test.ts` now asserts `CODEX_UNAVAILABLE` maps to `503 { error: 'codex_unavailable', reason }`.
+- Added unit coverage: `server/src/test/unit/agent-commands-runner.test.ts` now asserts a client-supplied `conversationId` does not force `mustExist: true` in `runAgentInstructionUnlocked(...)`.
+- Docs: `design.md` now documents the Agents “conversationId contract” (client generates id up front, server creates conversation on first use) and includes a WS-first sequence diagram.
+- Docs: `projectStructure.md` now includes `server/src/test/integration/agents-run-client-conversation-id.test.ts`.
+- Validation: `npm run lint --workspaces` passes (existing import-order warnings remain in unrelated files).
+- Validation: `npm run format:check --workspaces` passes after running `npm run format --workspace server`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual verification (host.docker.internal): subscribed to `ws://host.docker.internal:5010/ws` for a new id, then called `POST /agents/planning_agent/run` with `conversationId=manual-t1-1767548777522-264683146fda4` and observed `turn_final { status: 'ok' }`.
+- Manual verification (host.docker.internal): executed `POST /agents/planning_agent/commands/run` with `{ commandName: 'smoke', conversationId: manual-t1-1767548777522-264683146fda4 }` and confirmed `/logs?text=DEV-0000021[T1]` contains both required log entries with `clientProvidedConversationId: true` and `mustExist: false`.
+- Testing: `npm run compose:down`.
 
 ---
 

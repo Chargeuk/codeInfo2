@@ -688,7 +688,10 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
     - https://llms.mui.com/material-ui/6.4.12/api/drawer.md
   - `useMediaQuery` (theme breakpoints + SSR notes)
     - https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
-  - Layout primitives (`Paper`, `Stack`, `Container`)
+  - Layout primitives:
+    - `Paper` API: https://llms.mui.com/material-ui/6.4.12/api/paper.md
+    - `Stack` API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
+    - `Container` API: https://llms.mui.com/material-ui/6.4.12/api/container.md
 
 #### Subtasks
 

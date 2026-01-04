@@ -43,9 +43,20 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 
 ---
 
+## Research Findings (MCP + Web)
+
+- **Server parity gap:** agent runs already use `ChatInterface` + `attachChatStreamBridge` but do not emit `user_turn` (and do not set up chat-style inflight metadata) in `server/src/agents/service.ts`; `/chat` explicitly creates inflight state and publishes `user_turn` in `server/src/routes/chat.ts`. This is the primary upstream gap to close for WS parity.
+- **Client divergence:** the Agents UI currently builds its own inflight aggregation and transcript rendering in `client/src/pages/AgentsPage.tsx`, while Chat uses `useChatStream` + `useChatWs` + `useConversationTurns`. This is the main source of duplicate logic and drift.
+- **Abort/stop semantics:** client-side aborts rely on `AbortController` (fetch rejects with `AbortError`), so server-side cancellation must still be explicit via the unified WS `cancel_inflight` flow.
+- **WebSocket health:** the `ws` library recommends ping/pong + termination to detect dead connections; our WS server already uses a heartbeat, which aligns with keeping a single WS path for both Chat and Agents.
+- **Protocol choice:** WebSockets are bidirectional while SSE is server-to-client only; maintaining WS for both Chat and Agents keeps cancel-inflight and tool event flows unified.
+- **DeepWiki note:** the repo is not indexed in DeepWiki yet (“Repository not found”), so code references are confirmed locally; once indexed, re-check for any agent-specific design notes.
+- **CodeInfo note:** the code-info MCP appears to be indexed against a different repo namespace (“CodeInfo2Planning”) and returned mismatched paths, so local files are treated as the source of truth for this story.
+
+---
+
 ## Questions
 
-- Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical?
 - Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical? **Answer:** Yes — unify both paths behind a single run-orchestration flow to avoid drift and duplicate maintenance.
 - Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds? **Answer:** Yes — reusing the chat run flow means `user_turn` should be emitted as part of the unified server path.
 - After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback? **Answer:** Yes — render from WS only; keep REST segments as a fallback for non-WS clients/tests.

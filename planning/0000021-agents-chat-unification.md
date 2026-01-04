@@ -316,7 +316,10 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add any new server test file paths created in this task under the correct tree sections.
+     - Add:
+       - `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+     - Remove:
+       - (none)
 
 15. [ ] Run lint/format verification:
    - Documentation to read:
@@ -562,6 +565,8 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
    - Requirements:
      - Add the new file path:
        - `server/src/test/integration/agents-run-ws-cancel.test.ts`
+     - Remove:
+       - (none)
 
 4. [ ] Run lint/format verification:
    - Documentation to read:
@@ -760,7 +765,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `commandName: <selected command>`
        - `conversationId: <non-empty string>`
 
-8. [ ] Update `projectStructure.md` with the new client test file added in this task:
+8. [ ] Update `projectStructure.md` with files added/removed in this task:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -768,6 +773,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Requirements:
      - Add:
        - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+     - Remove:
+       - (none)
 
 9. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
    - Documentation to read:
@@ -1192,6 +1199,11 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
+   - Requirements:
+     - Add:
+       - `client/src/test/agentsPage.sidebarWs.test.tsx`
+     - Remove:
+       - (none)
 
 7. [ ] Run lint/format verification:
    - Documentation to read:

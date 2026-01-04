@@ -519,6 +519,29 @@ sequenceDiagram
   Svc-->>Client: { agentName, conversationId, modelId, segments }
 ```
 
+### Agents run (conversationId contract)
+
+- The client may generate a `conversationId` up front so it can subscribe to WebSocket events before starting the run.
+- The server must accept a client-supplied `conversationId` even when it does not exist yet, and create the conversation on first use (do not require pre-existence).
+- This is required because `POST /agents/:agentName/run` is synchronous: the response only returns once the run completes, but the transcript must stream over WebSocket while the run is in progress.
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WebSocket server
+  participant API as REST route\nPOST /agents/:agentName/run
+  participant Svc as Agents service\nrunAgentInstruction()
+  participant Store as Conversation store
+
+  UI->>WS: connect
+  UI->>WS: subscribe_conversation(conversationId)
+  UI->>API: POST { conversationId, instruction, working_folder? }
+  API->>Svc: runAgentInstruction(...)
+  Svc->>Store: create Conversation if missing
+  Note over Svc,WS: stream transcript events over WS\n(user_turn, inflight_snapshot, assistant_delta, turn_final)
+  API-->>UI: 200 { agentName, conversationId, modelId, segments }
+```
+
 ### POST /agents/:agentName/run (REST)
 
 - Request body:

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
 import { loadAgentCommandFile } from './commandsLoader.js';
@@ -98,6 +99,7 @@ export async function runAgentCommandRunner(
 
   const command = parsed.command;
   const totalSteps = command.items.length;
+  const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
 
   if (!tryAcquireConversationLock(conversationId)) {
@@ -107,7 +109,21 @@ export async function runAgentCommandRunner(
     );
   }
 
-  const mustExist = Boolean(params.conversationId);
+  const mustExist = false;
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T1] agents.commands mustExist resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      clientProvidedConversationId,
+      mustExist,
+    },
+  });
 
   let modelId = 'gpt-5.1-codex-max';
   const logger = params.logger ?? (baseLogger as LoggerLike);

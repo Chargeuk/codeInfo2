@@ -190,6 +190,38 @@ describe('agent commands runner (v1)', () => {
     await first;
   });
 
+  test('client-supplied conversationId does not force mustExist=true', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+
+    await writeCommandFile({
+      agentHome,
+      commandName: 'single',
+      jsonText: JSON.stringify({
+        Description: 'Single',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+    });
+
+    let observedMustExist: boolean | undefined;
+
+    await runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'single',
+      conversationId: 'c1',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        assert.equal(params.conversationId, 'c1');
+        observedMustExist = params.mustExist;
+        return { modelId: 'm1' };
+      },
+    });
+
+    assert.notEqual(observedMustExist, true);
+  });
+
   test("instruction passed to each step equals content.join('\\n') (with trimmed content)", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
     const agentHome = path.join(tmpDir, 'a1');

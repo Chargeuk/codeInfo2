@@ -20,6 +20,7 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
@@ -196,6 +197,7 @@ async function ensureAgentConversation(params: {
 export async function runAgentInstruction(
   params: RunAgentInstructionParams,
 ): Promise<RunAgentInstructionResult> {
+  const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
   if (!tryAcquireConversationLock(conversationId)) {
     throw toRunAgentError(
@@ -204,11 +206,26 @@ export async function runAgentInstruction(
     );
   }
 
+  const mustExist = false;
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T1] agents.run mustExist resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      source: params.source,
+      conversationId,
+      clientProvidedConversationId,
+      mustExist,
+    },
+  });
+
   try {
     return await runAgentInstructionUnlocked({
       ...params,
       conversationId,
-      mustExist: Boolean(params.conversationId),
+      mustExist,
     });
   } finally {
     releaseConversationLock(conversationId);

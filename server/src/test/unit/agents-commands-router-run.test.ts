@@ -100,6 +100,54 @@ test("POST /agents/:agentName/commands/run maps COMMAND_NOT_FOUND to 404 { error
   assert.deepEqual(res.body, { error: 'not_found' });
 });
 
+test("POST /agents/:agentName/commands/run maps CONVERSATION_ARCHIVED to 410 { error: 'archived' }", async () => {
+  const res = await request(
+    buildApp({
+      runAgentCommand: async () => {
+        throw { code: 'CONVERSATION_ARCHIVED' };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 410);
+  assert.deepEqual(res.body, { error: 'archived' });
+});
+
+test("POST /agents/:agentName/commands/run maps AGENT_MISMATCH to 400 { error: 'agent_mismatch' }", async () => {
+  const res = await request(
+    buildApp({
+      runAgentCommand: async () => {
+        throw { code: 'AGENT_MISMATCH' };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, { error: 'agent_mismatch' });
+});
+
+test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async () => {
+  const res = await request(
+    buildApp({
+      runAgentCommand: async () => {
+        throw { code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan' });
+
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, {
+    error: 'codex_unavailable',
+    reason: 'missing codex config',
+  });
+});
+
 test('POST /agents/:agentName/commands/run maps COMMAND_INVALID to 400 + code', async () => {
   const res = await request(
     buildApp({

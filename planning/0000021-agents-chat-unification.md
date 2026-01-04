@@ -136,6 +136,24 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - After this change, a brand-new id should flow through the existing “new conversation” path in `runAgentInstructionUnlocked(...)` (the code that calls `ensureAgentConversation(...)` when there is no existing conversation).
      - Do not change the REST request/response shape.
 
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add a server log entry that appears in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/agents/service.ts`
+       - Requirements:
+         - Import `append` from `../logStore.js` and emit an info-level entry **once per run** (right after `conversationId` is resolved and before invoking `runAgentInstructionUnlocked(...)`).
+         - Use **this exact** message string so tests can search it reliably:
+           - `DEV-0000021[T1] agents.run mustExist resolved`
+         - Include a context object containing at least:
+           - `agentName`
+           - `source`
+           - `conversationId`
+           - `clientProvidedConversationId` (boolean)
+           - `mustExist` (the exact value being passed into `runAgentInstructionUnlocked(...)`)
+
+
 3. [ ] Update agent command orchestration to allow “new conversation with provided id”:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
@@ -151,6 +169,24 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
        ```
        and remove/neutralize it.
      - Ensure `runAgentInstructionUnlocked(...)` gets called with `mustExist` omitted or `false` for command steps.
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add a server log entry that appears in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/agents/commandsRunner.ts`
+       - Requirements:
+         - Import `append` from `../logStore.js` and emit an info-level entry **once per command-run** (before the first command step is executed).
+         - Use **this exact** message string so tests can search it reliably:
+           - `DEV-0000021[T1] agents.commands mustExist resolved`
+         - Include a context object containing at least:
+           - `agentName`
+           - `commandName`
+           - `conversationId`
+           - `clientProvidedConversationId` (boolean)
+           - `mustExist` (the exact value passed down into `runAgentInstructionUnlocked(...)`)
+
 
 4. [ ] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
    - Test type:
@@ -417,6 +453,17 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        });
        ```
 
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add a server log entry that appears in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/agents/service.ts`
+       - Requirements:
+         - Immediately after `createInflight(...)`, emit an info-level entry with:
+           - `message: 'DEV-0000021[T2] agents.inflight created'`
+           - `context` containing at least: `conversationId`, `inflightId`, `provider`, `model`, `source`, and `userTurnCreatedAt` (the same `nowIso`).
+
 3. [ ] Publish `user_turn` at run start:
    - Documentation to read:
      - `ws` docs (message send patterns): Context7 `/websockets/ws/8_18_3`
@@ -443,6 +490,17 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
    - Expected behavior:
      - A WS client subscribed to the conversation should receive a `user_turn` event before the first `assistant_delta`.
 
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add a server log entry that appears in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/agents/service.ts`
+       - Requirements:
+         - Immediately after `publishUserTurn(...)`, emit an info-level entry with:
+           - `message: 'DEV-0000021[T2] agents.ws user_turn published'`
+           - `context` containing at least: `conversationId`, `inflightId`, and `createdAt` (the same `nowIso`).
+
 4. [ ] Propagate `inflightId` into `chat.run(...)` flags:
    - Documentation to read:
      - None (repo-local semantics).
@@ -458,6 +516,17 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
          ```ts
          await chat.run(message, { provider: 'codex', inflightId, signal, source, ... }, conversationId, modelId);
          ```
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add a server log entry that appears in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/agents/service.ts`
+       - Requirements:
+         - Immediately before invoking `chat.run(...)`, emit an info-level entry with:
+           - `message: 'DEV-0000021[T2] agents.chat.run flags include inflightId'`
+           - `context` containing at least: `conversationId`, `inflightId`, and `flagsInflightId` (the exact value passed into the flags object).
 
 5. [ ] Server integration test: agent run publishes `user_turn` over WS before deltas:
    - Test type:
@@ -577,6 +646,21 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
    - What to confirm:
      - `cancel_inflight` calls `abortInflight({ conversationId, inflightId })`.
      - When the provider sees the abort signal, the stream bridge publishes `turn_final` with `status: 'stopped'`.
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add server log entries that appear in the in-app Logs page (`/logs`) by appending to the log store.
+       - Files to read:
+         - `server/src/logStore.ts`
+       - Files to edit:
+         - `server/src/ws/server.ts`
+         - `server/src/chat/inflightRegistry.ts`
+       - Requirements:
+         - When a WS `cancel_inflight` message is received and validated, emit:
+           - `message: 'DEV-0000021[T3] ws cancel_inflight received'`
+           - `context` containing at least: `conversationId`, `inflightId`
+         - When `abortInflight(...)` actually aborts the inflight controller, emit:
+           - `message: 'DEV-0000021[T3] inflight aborted'`
+           - `context` containing at least: `conversationId`, `inflightId`
 
 2. [ ] Add server integration coverage for cancelling an agent run via WS:
    - Test type:
@@ -714,6 +798,20 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Keep the existing REST call functions (`runAgentInstruction`, `runAgentCommand`) but change the post-response behavior:
        - realtime enabled: do not append assistant bubble from `segments`
        - realtime disabled: continue to append assistant bubble from `segments`
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add client log entries (forwarded to `/logs`) to confirm the Agents page is using the Chat WS pipeline.
+       - Files to read:
+         - `client/src/logging/logger.ts`
+       - Files to edit:
+         - `client/src/pages/AgentsPage.tsx`
+       - Requirements:
+         - Use `createLogger('client')` (as used elsewhere in the repo) and emit these **exact** messages during a realtime-enabled run:
+           - `DEV-0000021[T4] agents.ws subscribe_conversation` (when subscribing to WS for the conversation id)
+           - `DEV-0000021[T4] agents.ws event user_turn` (when receiving `user_turn`)
+           - `DEV-0000021[T4] agents.ws event inflight_snapshot` (when receiving `inflight_snapshot`)
+           - `DEV-0000021[T4] agents.ws event turn_final` (when receiving `turn_final`)
+         - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
 
 3. [ ] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
    - Test type:
@@ -922,6 +1020,19 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
      - Citations must render inside the same default-closed citations accordion used by Chat.
      - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add client log entries (forwarded to `/logs`) to confirm tool/citation events are being received and processed for Agents.
+       - Files to read:
+         - `client/src/logging/logger.ts`
+       - Files to edit:
+         - `client/src/pages/AgentsPage.tsx`
+       - Requirements:
+         - Use `createLogger('client')` and emit these **exact** messages:
+           - `DEV-0000021[T5] agents.ws event tool_event` (when receiving a WS `tool_event`)
+           - `DEV-0000021[T5] agents.transcript citations ready` (when the transcript state contains at least 1 citation for the current conversation)
+         - Include `conversationId` and `inflightId` in `context` where available; for tool events include `toolName`/`stage` if present.
+
    - De-risk guidance:
      - Prefer copying the existing ChatPage JSX in small blocks and wiring it to the `ChatMessage` shape produced by `useChatStream`.
      - Avoid creating new shared components in this story unless necessary to keep changes small.
@@ -1122,6 +1233,19 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - Only call `cancelInflight(conversationId, inflightId)` when both ids are non-empty.
        - Note: `useChatWs.cancelInflight(...)` is intentionally **not** gated by realtime/persistence, so it remains valid even when `mongoConnected === false`.
 
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add client log entries (forwarded to `/logs`) to confirm Stop triggers both HTTP abort and WS cancel when possible.
+       - Files to read:
+         - `client/src/logging/logger.ts`
+       - Files to edit:
+         - `client/src/pages/AgentsPage.tsx`
+       - Requirements:
+         - Use `createLogger('client')` and emit these **exact** messages on Stop:
+           - `DEV-0000021[T6] agents.stop clicked`
+           - `DEV-0000021[T6] agents.http abort signaled`
+           - `DEV-0000021[T6] agents.ws cancel_inflight sent` (only when both ids are available)
+         - Include `conversationId` in `context`; include `inflightId` when known.
+
 3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
    - Test type:
      - Jest + React Testing Library (client)
@@ -1244,6 +1368,19 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - On WS `conversation_upsert`, apply the event only when `event.conversation.agentName === selectedAgentName`.
      - On WS `conversation_delete`, remove the conversation by id.
      - Use `useConversations(...).applyWsUpsert` / `applyWsDelete` rather than rebuilding list logic.
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add client log entries (forwarded to `/logs`) to confirm sidebar WS subscription and updates are happening.
+       - Files to read:
+         - `client/src/logging/logger.ts`
+       - Files to edit:
+         - `client/src/pages/AgentsPage.tsx`
+       - Requirements:
+         - Use `createLogger('client')` and emit these **exact** messages:
+           - `DEV-0000021[T7] agents.ws subscribe_sidebar` (when subscribing)
+           - `DEV-0000021[T7] agents.sidebar conversation_upsert` (when applying an upsert for the active agent)
+           - `DEV-0000021[T7] agents.sidebar conversation_delete` (when applying a delete)
+         - Include `selectedAgentName` and `conversationId` (where applicable) in `context`.
 
 3. [ ] Client test: Agents sidebar reflects WS `conversation_upsert` events for the active agent:
    - Test type:
@@ -1392,6 +1529,17 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Use `useMediaQuery(theme.breakpoints.down('sm'))` to set `isMobile`.
      - Use `<Drawer variant={isMobile ? 'temporary' : 'persistent'} ...>`.
      - Keep the sidebar inside the Drawer as `ConversationList`.
+
+   - Log lines to add (required for Manual Playwright-MCP check):
+     - Add client log entries (forwarded to `/logs`) to confirm layout parity behaviors (Drawer variant and toggling).
+       - Files to read:
+         - `client/src/logging/logger.ts`
+       - Files to edit:
+         - `client/src/pages/AgentsPage.tsx`
+       - Requirements:
+         - Use `createLogger('client')` and emit these **exact** messages:
+           - `DEV-0000021[T8] agents.layout drawer variant` (when computing the Drawer `variant`, include `isMobile` and `variant` in context)
+           - `DEV-0000021[T8] agents.layout drawer toggle` (when the user opens/closes the Drawer on mobile, include `open` boolean in context)
 
 3. [ ] Client RTL test update (Jest + Testing Library): commands list still renders and is selectable after layout change:
    - Test type:
@@ -1568,7 +1716,17 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 5. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
 6. [ ] Write a pull request summary comment covering all tasks and major changes.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a final client log marker so QA can confirm the unified Agents page is running:
+   - Files to read:
+     - `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Use `createLogger('client')` and emit **this exact** message once on Agents page mount:
+       - `DEV-0000021[T9] agents.unification ready`
+     - Include `selectedAgentName` (if available) and `activeConversationId` (if available) in `context`.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

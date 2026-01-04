@@ -95,40 +95,78 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 #### Subtasks
 
 1. [ ] Read how agent runs and command runs decide whether a conversation must exist:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/routes/agentsRun.ts`
      - `server/src/routes/agentsCommands.ts`
      - `server/src/agents/service.ts`
      - `server/src/agents/commandsRunner.ts`
+   - What to look for:
+     - In `server/src/agents/service.ts`, locate `runAgentInstruction(...)` and confirm it currently sets `mustExist` based on whether `conversationId` was provided.
+     - In `server/src/agents/commandsRunner.ts`, locate `runAgentCommandRunner(...)` and confirm it derives `mustExist` from `Boolean(params.conversationId)`.
+     - In `server/src/routes/agentsRun.ts`, confirm that the REST handler is synchronous (responds after the run is complete), which is why the UI must subscribe to WS before starting the run.
+   - Output of this subtask:
+     - A short note in this task’s Implementation notes summarizing the exact “mustExist” behavior you found and the functions/lines you’ll change.
 
 2. [ ] Update agent run orchestration to allow “new conversation with provided id”:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
      - In `runAgentInstruction(...)`, stop passing `mustExist: Boolean(params.conversationId)` into `runAgentInstructionUnlocked(...)`.
+       - Goal: a client-supplied `conversationId` should be allowed to create a new conversation (matching `/chat` semantics).
      - Keep existing protections:
        - archived conversations must still error (410)
        - agent mismatch must still error
+   - Concrete implementation guidance:
+     - After this change, a brand-new id should flow through the existing “new conversation” path in `runAgentInstructionUnlocked(...)` (the code that calls `ensureAgentConversation(...)` when there is no existing conversation).
+     - Do not change the REST request/response shape.
 
 3. [ ] Update agent command orchestration to allow “new conversation with provided id”:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/agents/commandsRunner.ts`
    - Requirements:
      - Stop deriving `mustExist` from `Boolean(params.conversationId)`.
      - Commands must be able to run with a client-supplied id that doesn’t exist yet.
+   - Concrete implementation guidance:
+     - Look for something like:
+       ```ts
+       const mustExist = Boolean(params.conversationId);
+       ```
+       and remove/neutralize it.
+     - Ensure `runAgentInstructionUnlocked(...)` gets called with `mustExist` omitted or `false` for command steps.
 
 4. [ ] Server integration test: client-supplied `conversationId` works even when the conversation does not exist yet:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to add:
      - `server/src/test/integration/agents-run-client-conversation-id.test.ts`
    - Requirements:
      - Call `runAgentInstruction(...)` (not `...Unlocked`) with a non-empty `conversationId` that does not exist.
      - Assert the run succeeds and returns the same `conversationId`.
+   - Test scaffolding guidance:
+     - Copy the environment setup pattern used by `server/src/test/integration/agents-run-ws-stream.test.ts` (it sets `CODEINFO_CODEX_AGENT_HOME` to the repo’s `codex_agents/` folder).
+     - Provide a `chatFactory` test double so the test does not depend on real Codex.
+       - Minimal: a `ChatInterface` subclass that emits `final` + `complete`.
+     - Assert the returned object contains:
+       - `result.conversationId === providedConversationId`
+       - `result.agentName === agentName`
 
 5. [ ] Update `projectStructure.md` with the new server test file:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
+   - Requirements:
+     - Add the new test file under the `server/src/test/integration/` tree section.
 
 6. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -161,6 +199,10 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 #### Subtasks
 
 1. [ ] Read the current Chat vs Agents run-start flow so changes are minimal and consistent:
+   - Documentation to read:
+     - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+     - `ws` package docs: https://github.com/websockets/ws
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/routes/chat.ts`
      - `server/src/agents/service.ts`
@@ -169,8 +211,14 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - What to copy exactly from `/chat`:
+     - `createInflight({ provider, model, source, userTurn })`
+     - `publishUserTurn({ conversationId, inflightId, content, createdAt })`
+     - passing `inflightId` into `chat.run(..., flags)`
 
 2. [ ] Create inflight state with chat-style metadata:
+   - Documentation to read:
+     - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
@@ -180,20 +228,37 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `source: params.source`
        - `userTurn: { content: params.instruction, createdAt: <iso string> }`
      - Keep existing `externalSignal` wiring (`params.signal`).
+   - Concrete implementation guidance:
+     - In `runAgentInstructionUnlocked(...)`, generate a single `nowIso = new Date().toISOString()` and use it for both `createInflight.userTurn.createdAt` and the later `publishUserTurn.createdAt`.
+     - Use the agent run’s `modelId` (resolved from config) for the inflight `model` field.
 
 3. [ ] Publish `user_turn` at run start:
+   - Documentation to read:
+     - `ws` package docs: https://github.com/websockets/ws
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
      - Call `publishUserTurn(...)` immediately after inflight creation (and before attaching the stream bridge), using the same `createdAt` stored in `userTurn`.
+   - Expected behavior:
+     - A WS client subscribed to the conversation should receive a `user_turn` event before the first `assistant_delta`.
 
 4. [ ] Propagate `inflightId` into `chat.run(...)` flags:
+   - Documentation to read:
+     - None (repo-local semantics).
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
      - Pass `inflightId` so `ChatInterface` can run `markInflightPersisted(...)` consistently with `/chat`.
+   - Concrete implementation guidance:
+     - Add `inflightId` to the flags object passed into `chat.run(...)`.
+       - Example shape (do not copy blindly; match existing style):
+         ```ts
+         await chat.run(message, { provider: 'codex', inflightId, signal, source, ... }, conversationId, modelId);
+         ```
 
 5. [ ] Server integration test: agent run publishes `user_turn` over WS before deltas:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
    - Requirements:
@@ -203,8 +268,13 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `content` equals the submitted instruction
        - `createdAt` is a non-empty string
      - Keep existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
+   - Test authoring guidance:
+     - In the test, start listening for events *before* starting the run (to avoid missing early frames).
+     - Add a `waitForEvent` for `type === 'user_turn'` and assert it arrives.
 
 6. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -238,6 +308,10 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 #### Subtasks
 
 1. [ ] Read the existing WS cancellation logic and the chat cancellation test patterns:
+   - Documentation to read:
+     - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+     - `ws` package docs: https://github.com/websockets/ws
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/ws/server.ts`
      - `server/src/chat/inflightRegistry.ts`
@@ -245,8 +319,13 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `server/src/test/features/chat_cancellation.feature`
      - `server/src/test/steps/chat_cancellation.steps.ts`
+   - What to confirm:
+     - `cancel_inflight` calls `abortInflight({ conversationId, inflightId })`.
+     - When the provider sees the abort signal, the stream bridge publishes `turn_final` with `status: 'stopped'`.
 
 2. [ ] Add server integration coverage for cancelling an agent run via WS:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to add:
      - `server/src/test/integration/agents-run-ws-cancel.test.ts`
    - Requirements:
@@ -255,8 +334,16 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - Send `{ type: 'cancel_inflight', conversationId, inflightId }`.
      - Assert a `turn_final` event arrives with `status === 'stopped'`.
      - Assert the run promise resolves (no hang) and all servers/sockets are cleaned up.
+   - Test scaffolding guidance:
+     - Use the same `attachWs(...)` + `connectWs(...)` helpers as `agents-run-ws-stream.test.ts`.
+     - Use a `ChatInterface` test double that:
+       - emits a few deltas slowly, and
+       - checks `flags.signal.aborted` and emits an `error` when aborted.
+     - Expectation: after sending `cancel_inflight`, you should get `turn_final.status === 'stopped'`.
 
 3. [ ] Update `projectStructure.md` with the new server test file:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
@@ -264,6 +351,8 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
        - `server/src/test/integration/agents-run-ws-cancel.test.ts`
 
 4. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -297,6 +386,10 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 #### Subtasks
 
 1. [ ] Read the Chat WS transcript pipeline end-to-end:
+   - Documentation to read:
+     - React hooks patterns: https://react.dev/learn/you-might-not-need-an-effect
+     - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - MUI Accordion docs: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatWs.ts`
@@ -304,8 +397,14 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - What to extract:
+     - The exact `useChatStream` methods AgentsPage must call (`setConversation`, `hydrateHistory`, `hydrateInflightSnapshot`, `handleWsEvent`, `getInflightId`).
+     - Which WS event types are forwarded to `handleWsEvent(...)`.
 
 2. [ ] Refactor AgentsPage to use `useChatStream` for transcript state (messages/tools/citations):
+   - Documentation to read:
+     - React hooks patterns: https://react.dev/learn/you-might-not-need-an-effect
+     - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -327,8 +426,16 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Realtime-enabled behavior (must avoid duplicate assistant bubbles):
        - When realtime is enabled (`mongoConnected !== false`), do **not** append an assistant message from `result.segments`.
        - Treat the REST response as a completion signal only; the transcript should come entirely from WS events.
+   - Concrete implementation guidance (high level):
+     - Replace bespoke `messages/liveInflight` state with `useChatStream(...).messages`.
+     - Replace bespoke WS `onEvent` reducer with `handleWsEvent(event)` and `hydrateInflightSnapshot(...)`.
+     - Keep the existing REST call functions (`runAgentInstruction`, `runAgentCommand`) but change the post-response behavior:
+       - realtime enabled: do not append assistant bubble from `segments`
+       - realtime disabled: continue to append assistant bubble from `segments`
 
 3. [ ] Update client tests for WS pipeline adoption:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
@@ -337,6 +444,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Emit `turn_final` and assert assistant status transitions.
 
 4. [ ] Run full lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -368,10 +477,19 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 #### Subtasks
 
 1. [ ] Read the Chat transcript UI patterns to copy into Agents:
+   - Documentation to read:
+     - MUI Accordion docs: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
+   - What to identify:
+     - The exact JSX blocks that render:
+       - tool accordions (Parameters/Result + status)
+       - citations accordion (`data-testid="citations-accordion"`)
+       - thought process accordion
 
 2. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
+   - Documentation to read:
+     - MUI Accordion docs: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -379,8 +497,13 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Tool blocks must render with the same Parameters + Result accordions and the same status chip semantics.
      - Citations must render inside the same default-closed citations accordion used by Chat.
      - The “Thought process” (think/reasoning) accordion must behave the same way as Chat.
+   - De-risk guidance:
+     - Prefer copying the existing ChatPage JSX in small blocks and wiring it to the `ChatMessage` shape produced by `useChatStream`.
+     - Avoid creating new shared components in this story unless necessary to keep changes small.
 
 3. [ ] Remove the Agents-only command metadata transcript note:
+   - Documentation to read:
+     - None (repo-local change).
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Files to edit or delete:
@@ -390,6 +513,8 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
 
 4. [ ] Run full lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -421,13 +546,22 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 #### Subtasks
 
 1. [ ] Read ChatPage Stop behavior and how it gets the inflight id:
+   - Documentation to read:
+     - React `useRef`: https://react.dev/reference/react/useRef
+     - React `useEffect`: https://react.dev/reference/react/useEffect
+     - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - What to identify:
+     - How Chat obtains `conversationId` and `inflightId` at stop time.
+     - How Chat sends `cancel_inflight` and how it aborts requests.
 
 2. [ ] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
+   - Documentation to read:
+     - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -435,14 +569,21 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - Additionally, when `activeConversationId` and `getInflightId()` are both available, call `cancelInflight(activeConversationId, inflightId)`.
      - If the inflight id is not yet known (user clicks Stop immediately), aborting the request alone is still required.
      - When realtime is disabled (`mongoConnected === false`), do not attempt to send `cancel_inflight` over WS.
+   - Concrete implementation guidance:
+     - Always call the existing `stop()` / abort logic first.
+     - Only call `cancelInflight(conversationId, inflightId)` when both ids are non-empty and realtime is enabled.
 
 3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
+   - Documentation to read:
+     - Testing Library user events: https://testing-library.com/docs/user-event/intro/
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
    - Requirements:
      - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
 
 4. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -474,13 +615,21 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 #### Subtasks
 
 1. [ ] Read how ChatPage wires sidebar WS updates and filters out agent conversations:
+   - Documentation to read:
+     - React `useEffect`: https://react.dev/reference/react/useEffect
+     - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useConversations.ts`
      - `client/src/test/chatSidebar.test.tsx`
+   - What to copy:
+     - Calling `subscribeSidebar()` on mount and `unsubscribeSidebar()` on unmount.
+     - Applying `conversation_upsert` / `conversation_delete` events via `applyWsUpsert` / `applyWsDelete`.
 
 2. [ ] Update AgentsPage to subscribe to sidebar events and apply them to the agent-scoped conversation list:
+   - Documentation to read:
+     - React `useEffect`: https://react.dev/reference/react/useEffect
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -490,6 +639,8 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Use `useConversations(...).applyWsUpsert` / `applyWsDelete` rather than rebuilding list logic.
 
 3. [ ] Client test: Agents sidebar reflects WS `conversation_upsert` events for the active agent:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.sidebarWs.test.tsx`
    - Requirements:
@@ -499,10 +650,14 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Emit an upsert with a newer `lastMessageAt` and confirm it reorders to the top.
 
 4. [ ] Update `projectStructure.md` with any new test files added:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
 
 5. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -538,11 +693,21 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 #### Subtasks
 
 1. [ ] Read the current ChatPage layout and the current AgentsPage layout:
+   - Documentation to read:
+     - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+     - MUI useMediaQuery: https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
+   - What to identify:
+     - Which `Drawer` `variant` is used on mobile vs desktop.
+     - The drawer width (expected 320).
+     - The toggle test ids (e.g. `conversation-drawer-toggle`).
 
 2. [ ] Rebuild the AgentsPage outer layout to mirror Chat:
+   - Documentation to read:
+     - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+     - MUI useMediaQuery: https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -552,8 +717,14 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Render `ConversationList` inside the Drawer with `variant="agents"` and agent-scoped conversations.
      - Place agent-specific controls in the control bar area above the transcript.
      - Do not refactor ChatPage layout in this story; copy the layout pattern into AgentsPage.
+   - Concrete implementation guidance:
+     - Use `useMediaQuery(theme.breakpoints.down('sm'))` to set `isMobile`.
+     - Use `<Drawer variant={isMobile ? 'temporary' : 'persistent'} ...>`.
+     - Keep the sidebar inside the Drawer as `ConversationList`.
 
 3. [ ] Update/extend client tests to match the new layout:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
@@ -562,6 +733,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Keep assertions focused on behavior (not pixel layout).
 
 4. [ ] Validate all existing Agents control behaviors still work after the layout refactor:
+   - Documentation to read:
+     - None (repo-local semantics).
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
    - Tests to run/update (selectors + expectations only; do not change semantics):
@@ -578,6 +751,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - RUN_IN_PROGRESS conflicts still surface the same friendly error.
 
 5. [ ] Run lint/format verification:
+   - Documentation to read:
+     - None (repo-local commands).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -607,6 +782,8 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 #### Subtasks
 
 1. [ ] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
+   - Documentation to read:
+     - This story’s Acceptance Criteria section (at the top of this file).
 2. [ ] Run clean builds:
    - `npm run build --workspace server`
    - `npm run build --workspace client`

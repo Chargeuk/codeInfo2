@@ -11,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -28,10 +31,24 @@ const routes = [
   },
 ];
 
+function emitWsEvent(event: Record<string, unknown>) {
+  const wsRegistry = (
+    globalThis as unknown as {
+      __wsMock?: { last: () => { _receive: (data: unknown) => void } | null };
+    }
+  ).__wsMock;
+  const ws = wsRegistry?.last();
+  if (!ws) throw new Error('No WebSocket instance; did AgentsPage mount?');
+  act(() => {
+    ws._receive(event);
+  });
+}
+
 describe('Agents page - agent change', () => {
   it('aborts an in-flight run and resets to new conversation state', async () => {
     let abortTriggered = false;
     const runBodies: Record<string, unknown>[] = [];
+    let a1ConversationId: string | null = null;
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -45,13 +62,25 @@ describe('Agents page - agent change', () => {
           } as Response);
         }
 
-        if (target.includes('/agents') && !target.includes('/run')) {
+        if (
+          target.includes('/agents') &&
+          !target.includes('/commands') &&
+          !target.includes('/run')
+        ) {
           return Promise.resolve({
             ok: true,
             status: 200,
             json: async () => ({
               agents: [{ name: 'a1' }, { name: 'a2' }],
             }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/') && target.includes('/commands')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ commands: [] }),
           } as Response);
         }
 
@@ -64,6 +93,16 @@ describe('Agents page - agent change', () => {
         }
 
         if (target.includes('/agents/a1/run')) {
+          if (init?.body) {
+            const parsed = JSON.parse(init.body.toString()) as Record<
+              string,
+              unknown
+            >;
+            a1ConversationId =
+              typeof parsed.conversationId === 'string'
+                ? parsed.conversationId
+                : null;
+          }
           const signal = init?.signal as AbortSignal | undefined;
           return new Promise((_resolve, reject) => {
             const rejectAbort = () => {
@@ -120,6 +159,17 @@ describe('Agents page - agent change', () => {
       await userEvent.click(send);
     });
 
+    await waitFor(() => expect(a1ConversationId).toBeTruthy());
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'user_turn',
+      conversationId: a1ConversationId,
+      seq: 1,
+      inflightId: 'i1',
+      content: 'Do work',
+      createdAt: '2025-01-01T00:00:00.000Z',
+    });
+
     await waitFor(() => expect(stop).toBeEnabled());
     expect(screen.getByText('Do work')).toBeInTheDocument();
 
@@ -145,6 +195,8 @@ describe('Agents page - agent change', () => {
     });
 
     await waitFor(() => expect(runBodies.length).toBeGreaterThan(0));
-    expect(runBodies[0]).not.toHaveProperty('conversationId');
+    expect(runBodies[0]).toHaveProperty('conversationId');
+    expect(runBodies[0].conversationId).toEqual(expect.any(String));
+    expect((runBodies[0].conversationId as string).length).toBeGreaterThan(0);
   });
 });

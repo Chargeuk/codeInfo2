@@ -29,7 +29,7 @@ const routes = [
 ];
 
 describe('Agents page - command metadata render', () => {
-  it('renders the per-turn “Command run … (step/total)” note in bubbles', async () => {
+  it('does not render the per-turn “Command run … (step/total)” note in bubbles', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const target = typeof url === 'string' ? url : url.toString();
 
@@ -131,9 +131,6 @@ describe('Agents page - command metadata render', () => {
       expect(screen.getByText('Saved answer')).toBeInTheDocument(),
     );
 
-    const notes = await screen.findAllByTestId('command-run-note');
-    expect(
-      notes.some((node) => node.textContent?.includes('improve_plan (2/12)')),
-    ).toBe(true);
+    expect(screen.queryByTestId('command-run-note')).toBeNull();
   });
 });

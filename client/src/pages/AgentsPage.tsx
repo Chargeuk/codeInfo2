@@ -38,15 +38,19 @@ import {
 } from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
-import type { ChatMessage, ToolCall } from '../hooks/useChatStream';
+import useChatStream, {
+  type ChatMessage,
+  type ToolCall,
+} from '../hooks/useChatStream';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import { createLogger } from '../logging/logger';
 import useChatWs, {
   type ChatWsServerEvent,
-  type ChatWsToolEvent,
+  type ChatWsTranscriptEvent,
 } from '../hooks/useChatWs';
 
 export default function AgentsPage() {
@@ -73,111 +77,19 @@ export default function AgentsPage() {
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [selectedCommandName, setSelectedCommandName] = useState('');
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [agentModelId, setAgentModelId] = useState<string>('unknown');
+  const {
+    messages,
+    setConversation,
+    hydrateHistory,
+    hydrateInflightSnapshot,
+    handleWsEvent,
+    getInflightId,
+  } = useChatStream(agentModelId, 'codex');
 
-  type LiveInflight = {
-    conversationId: string;
-    inflightId: string;
-    assistantText: string;
-    assistantThink: string;
-    toolEvents: ChatWsToolEvent[];
-    status: 'processing' | 'complete' | 'failed';
-    startedAt?: string;
-  };
-
-  const [liveInflight, setLiveInflight] = useState<LiveInflight | null>(null);
-  const orderedMessages = useMemo<ChatMessage[]>(
+  const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
     [messages],
-  );
-
-  const inflightMessage = useMemo<ChatMessage | null>(() => {
-    if (!liveInflight) return null;
-
-    const normalizeCallId = (raw: unknown) => {
-      if (typeof raw === 'string' && raw.trim()) return raw;
-      if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
-      return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
-    };
-
-    const toolsById = new Map<string, ToolCall>();
-    const segments: NonNullable<ChatMessage['segments']> = [
-      {
-        id: 'inflight-' + liveInflight.inflightId + '-text',
-        kind: 'text',
-        content: liveInflight.assistantText,
-      },
-    ];
-
-    for (const ev of liveInflight.toolEvents) {
-      const id = normalizeCallId(ev.callId);
-      const existing = toolsById.get(id);
-
-      if (ev.type === 'tool-request') {
-        const tool: ToolCall = {
-          id,
-          name: ev.name,
-          status: 'requesting',
-          parameters: ev.parameters,
-          stage: ev.stage,
-        };
-        toolsById.set(id, { ...(existing ?? tool), ...tool });
-      } else {
-        const status: ToolCall['status'] =
-          ev.stage === 'error' || ev.errorTrimmed || ev.errorFull
-            ? 'error'
-            : 'done';
-        const tool: ToolCall = {
-          id,
-          name: ev.name ?? existing?.name,
-          status,
-          parameters: ev.parameters,
-          payload: ev.result,
-          stage: ev.stage,
-          errorTrimmed:
-            ev.errorTrimmed && typeof ev.errorTrimmed === 'object'
-              ? (ev.errorTrimmed as { code?: string; message?: string })
-              : null,
-          errorFull: ev.errorFull,
-        };
-        toolsById.set(id, { ...(existing ?? tool), ...tool });
-      }
-
-      const tool = toolsById.get(id);
-      if (tool) {
-        segments.push({
-          id: 'inflight-' + liveInflight.inflightId + '-' + id,
-          kind: 'tool',
-          tool,
-        });
-        segments.push({
-          id: 'inflight-' + liveInflight.inflightId + '-' + id + '-after',
-          kind: 'text',
-          content: '',
-        });
-      }
-    }
-
-    return {
-      id: 'inflight-' + liveInflight.inflightId,
-      role: 'assistant',
-      content: liveInflight.assistantText,
-      think: liveInflight.assistantThink || undefined,
-      thinkStreaming:
-        liveInflight.status === 'processing' &&
-        liveInflight.assistantThink.length > 0,
-      tools: Array.from(toolsById.values()),
-      segments,
-      streamStatus: liveInflight.status,
-      ...(liveInflight.status === 'failed' ? { kind: 'error' as const } : {}),
-      createdAt: liveInflight.startedAt ?? new Date().toISOString(),
-    };
-  }, [liveInflight]);
-
-  const displayMessages = useMemo(
-    () =>
-      inflightMessage ? [...orderedMessages, inflightMessage] : orderedMessages,
-    [inflightMessage, orderedMessages],
   );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -200,119 +112,7 @@ export default function AgentsPage() {
     usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
 
-  const { subscribeConversation, unsubscribeConversation } = useChatWs({
-    realtimeEnabled: mongoConnected !== false,
-    onEvent: (event: ChatWsServerEvent) => {
-      if (mongoConnected === false) return;
-      if (!activeConversationId) return;
-      switch (event.type) {
-        case 'inflight_snapshot':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight({
-            conversationId: event.conversationId,
-            inflightId: event.inflight.inflightId,
-            assistantText: event.inflight.assistantText,
-            assistantThink: event.inflight.assistantThink,
-            toolEvents: event.inflight.toolEvents ?? [],
-            status: 'processing',
-            startedAt: event.inflight.startedAt,
-          });
-          return;
-        case 'assistant_delta':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  assistantText: prev.assistantText + event.delta,
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'analysis_delta':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  assistantThink: prev.assistantThink + event.delta,
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'tool_event':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  toolEvents: [...prev.toolEvents, event.event],
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'turn_final':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) => {
-            if (!prev || prev.conversationId !== event.conversationId)
-              return prev;
-            const nextStatus =
-              event.status === 'failed' ? 'failed' : 'complete';
-            const nextText =
-              event.status === 'failed' &&
-              event.error?.message &&
-              !prev.assistantText.trim()
-                ? event.error.message
-                : prev.assistantText;
-            return {
-              ...prev,
-              inflightId: event.inflightId,
-              assistantText: nextText,
-              status: nextStatus,
-            };
-          });
-          return;
-        default:
-          return;
-      }
-    },
-  });
-
-  useEffect(() => {
-    setLiveInflight(null);
-  }, [activeConversationId]);
-
-  useEffect(() => {
-    if (persistenceUnavailable) return;
-    if (!activeConversationId) return;
-    subscribeConversation(activeConversationId);
-    return () => unsubscribeConversation(activeConversationId);
-  }, [
-    activeConversationId,
-    persistenceUnavailable,
-    subscribeConversation,
-    unsubscribeConversation,
-  ]);
-
-  useEffect(() => {
-    if (!liveInflight) return;
-    if (liveInflight.status === 'processing') return;
-    const matching = messages.some(
-      (msg) =>
-        msg.role === 'assistant' &&
-        msg.streamStatus === 'complete' &&
-        msg.content.trim() === liveInflight.assistantText.trim(),
-    );
-    if (matching) {
-      setLiveInflight(null);
-    }
-  }, [liveInflight, messages]);
+  const log = useMemo(() => createLogger('client'), []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -412,20 +212,14 @@ export default function AgentsPage() {
     refresh: refreshConversations,
   } = useConversations({ agentName: effectiveAgentName });
 
-  const knownConversationIds = useMemo(
-    () => new Set(conversations.map((c) => c.conversationId)),
-    [conversations],
-  );
-
-  const shouldLoadTurns = Boolean(
-    activeConversationId &&
-      !persistenceUnavailable &&
-      knownConversationIds.has(activeConversationId),
-  );
+  const turnsConversationId = persistenceUnavailable
+    ? undefined
+    : activeConversationId;
 
   const {
     lastPage,
     lastMode,
+    inflight: inflightSnapshot,
     isLoading: turnsLoading,
     isError: turnsError,
     error: turnsErrorMessage,
@@ -433,7 +227,92 @@ export default function AgentsPage() {
     loadOlder,
     refresh: refreshTurns,
     reset: resetTurns,
-  } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
+  } = useConversationTurns(turnsConversationId);
+
+  const refreshSnapshots = useCallback(async () => {
+    if (persistenceUnavailable) return;
+    await Promise.all([
+      refreshConversations(),
+      activeConversationId ? refreshTurns() : Promise.resolve(),
+    ]);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+  ]);
+
+  const {
+    connectionState: wsConnectionState,
+    subscribeConversation,
+    unsubscribeConversation,
+    cancelInflight,
+  } = useChatWs({
+    realtimeEnabled: mongoConnected !== false,
+    modelId: agentModelId,
+    onReconnectBeforeResubscribe: async () => {
+      if (mongoConnected === false) return;
+      await refreshSnapshots();
+    },
+    onEvent: (event: ChatWsServerEvent) => {
+      switch (event.type) {
+        case 'user_turn':
+        case 'inflight_snapshot':
+        case 'assistant_delta':
+        case 'analysis_delta':
+        case 'tool_event':
+        case 'stream_warning':
+        case 'turn_final': {
+          const transcriptEvent = event as ChatWsTranscriptEvent;
+
+          if (transcriptEvent.type === 'user_turn') {
+            log('info', 'DEV-0000021[T4] agents.ws event user_turn', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+            });
+          }
+
+          if (transcriptEvent.type === 'inflight_snapshot') {
+            log('info', 'DEV-0000021[T4] agents.ws event inflight_snapshot', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflight.inflightId,
+              modelId: agentModelId,
+            });
+          }
+
+          if (transcriptEvent.type === 'turn_final') {
+            log('info', 'DEV-0000021[T4] agents.ws event turn_final', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+              status: transcriptEvent.status,
+            });
+          }
+
+          handleWsEvent(transcriptEvent);
+          return;
+        }
+        default:
+          return;
+      }
+    },
+  });
+
+  const wsTranscriptReady =
+    mongoConnected !== false && wsConnectionState === 'open';
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (!activeConversationId) return;
+    subscribeConversation(activeConversationId);
+    return () => unsubscribeConversation(activeConversationId);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    subscribeConversation,
+    unsubscribeConversation,
+  ]);
 
   const stop = useCallback(() => {
     runControllerRef.current?.abort();
@@ -441,11 +320,15 @@ export default function AgentsPage() {
     setIsRunning(false);
   }, []);
 
+  const makeClientConversationId = () =>
+    crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+
   const resetConversation = useCallback(() => {
     stop();
     resetTurns();
     setActiveConversationId(undefined);
-    setMessages([]);
+    setConversation(makeClientConversationId(), { clearMessages: true });
+    setAgentModelId('unknown');
     setWorkingFolder('');
     setInput('');
     lastSentRef.current = '';
@@ -453,7 +336,7 @@ export default function AgentsPage() {
     setToolOpen({});
     setToolErrorOpen({});
     void refreshConversations();
-  }, [refreshConversations, resetTurns, stop]);
+  }, [refreshConversations, resetTurns, setConversation, stop]);
 
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {
@@ -461,6 +344,7 @@ export default function AgentsPage() {
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
       setSelectedCommandName('');
+      setAgentModelId('unknown');
       resetConversation();
     },
     [resetConversation, selectedAgentName],
@@ -529,10 +413,12 @@ export default function AgentsPage() {
       items.map(
         (turn) =>
           ({
-            id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
+            id:
+              typeof turn.turnId === 'string' && turn.turnId.trim().length > 0
+                ? `turn-${turn.turnId}`
+                : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
-            ...(turn.command ? { command: turn.command } : {}),
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
             createdAt: turn.createdAt,
@@ -542,28 +428,49 @@ export default function AgentsPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const lastInflightHydratedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!activeConversationId || !lastMode) return;
-    const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
+    const oldest = lastPage?.[0]?.createdAt ?? 'none';
+    const newest = lastPage?.[lastPage.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${lastMode}-${oldest}-${newest}-${lastPage.length}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
 
     if (lastMode === 'replace') {
-      setMessages(mapTurnsToMessages(lastPage));
+      if (lastPage.length === 0 && messages.length > 0) {
+        return;
+      }
+      hydrateHistory(
+        activeConversationId,
+        mapTurnsToMessages(lastPage),
+        'replace',
+      );
       return;
     }
     if (lastMode === 'prepend' && lastPage.length > 0) {
-      setMessages((prev) => {
-        const next = [...mapTurnsToMessages(lastPage), ...prev];
-        const seen = new Set<string>();
-        return next.filter((msg) => {
-          if (seen.has(msg.id)) return false;
-          seen.add(msg.id);
-          return true;
-        });
-      });
+      hydrateHistory(
+        activeConversationId,
+        mapTurnsToMessages(lastPage),
+        'prepend',
+      );
     }
-  }, [activeConversationId, lastMode, lastPage, mapTurnsToMessages]);
+  }, [
+    activeConversationId,
+    hydrateHistory,
+    lastMode,
+    lastPage,
+    mapTurnsToMessages,
+    messages.length,
+  ]);
+
+  useEffect(() => {
+    if (!activeConversationId || !inflightSnapshot) return;
+    const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
+    if (lastInflightHydratedRef.current === inflightKey) return;
+    lastInflightHydratedRef.current = inflightKey;
+    hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
+  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
 
   useEffect(() => {
     if (lastMode !== 'prepend') {
@@ -590,7 +497,13 @@ export default function AgentsPage() {
     if (conversationId === activeConversationId) return;
     stop();
     resetTurns();
-    setMessages([]);
+    setConversation(conversationId, { clearMessages: true });
+    const summary = conversations.find(
+      (conversation) => conversation.conversationId === conversationId,
+    );
+    if (summary?.model) {
+      setAgentModelId(summary.model);
+    }
     setActiveConversationId(conversationId);
     setThinkOpen({});
     setToolOpen({});
@@ -656,38 +569,73 @@ export default function AgentsPage() {
     const trimmed = input.trim();
     if (!trimmed || !selectedAgentName || isRunning) return;
 
+    const wsAvailableForThisRun = wsTranscriptReady;
+
     stop();
     const controller = new AbortController();
     runControllerRef.current = controller;
     setIsRunning(true);
     lastSentRef.current = trimmed;
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-      role: 'user',
-      content: trimmed,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
     setInput('');
+
+    const nextConversationId =
+      activeConversationId && activeConversationId.trim().length > 0
+        ? activeConversationId
+        : makeClientConversationId();
+    const isNewConversation = nextConversationId !== activeConversationId;
+
+    if (isNewConversation) {
+      setConversation(nextConversationId, { clearMessages: true });
+      setActiveConversationId(nextConversationId);
+      setThinkOpen({});
+      setToolOpen({});
+      setToolErrorOpen({});
+      setAgentModelId('unknown');
+    }
+
+    let nextHistory: ChatMessage[] = isNewConversation ? [] : messages;
+    if (!wsAvailableForThisRun) {
+      const userMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'user',
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+      };
+      nextHistory = [...nextHistory, userMessage];
+      hydrateHistory(nextConversationId, nextHistory, 'replace');
+    } else {
+      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+        conversationId: nextConversationId,
+        inflightId: getInflightId(),
+        modelId: agentModelId,
+        wsConnectionState,
+      });
+      subscribeConversation(nextConversationId);
+    }
 
     try {
       const result = await runAgentInstruction({
         agentName: selectedAgentName,
         instruction: trimmed,
         working_folder: workingFolder.trim() || undefined,
-        conversationId: activeConversationId,
+        conversationId: nextConversationId,
         signal: controller.signal,
       });
       setActiveConversationId(result.conversationId);
+      if (result.modelId) {
+        setAgentModelId(result.modelId);
+      }
 
-      const extracted = extractSegments(result.segments);
-      const assistantMessage = buildAgentAssistantMessage({
-        answerText: extracted.answerText || '',
-        thinkingText: extracted.thinkingText,
-        vectorSummary: extracted.vectorSummary,
-      });
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (!wsAvailableForThisRun) {
+        const extracted = extractSegments(result.segments);
+        const assistantMessage = buildAgentAssistantMessage({
+          answerText: extracted.answerText || '',
+          thinkingText: extracted.thinkingText,
+          vectorSummary: extracted.vectorSummary,
+        });
+        nextHistory = [...nextHistory, assistantMessage];
+        hydrateHistory(result.conversationId, nextHistory, 'replace');
+      }
       void refreshConversations();
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
@@ -700,33 +648,37 @@ export default function AgentsPage() {
         err.status === 409 &&
         err.code === 'RUN_IN_PROGRESS'
       ) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-            role: 'assistant',
-            content:
-              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
-            kind: 'error',
-            streamStatus: 'failed',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        const errorMessage: ChatMessage = {
+          id: makeClientConversationId(),
+          role: 'assistant',
+          content:
+            'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        };
+        hydrateHistory(
+          nextConversationId,
+          [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+          'replace',
+        );
         return;
       }
       const message =
         (err as Error).message || 'Failed to run agent instruction.';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      const errorMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'assistant',
+        content: message,
+        kind: 'error',
+        streamStatus: 'failed',
+        createdAt: new Date().toISOString(),
+      };
+      hydrateHistory(
+        nextConversationId,
+        [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+        'replace',
+      );
     } finally {
       if (runControllerRef.current === controller) {
         runControllerRef.current = null;
@@ -740,10 +692,17 @@ export default function AgentsPage() {
       !selectedAgentName ||
       !selectedCommandName ||
       isRunning ||
-      persistenceUnavailable
+      persistenceUnavailable ||
+      !wsTranscriptReady
     ) {
       return;
     }
+
+    const nextConversationId =
+      activeConversationId && activeConversationId.trim().length > 0
+        ? activeConversationId
+        : makeClientConversationId();
+    const isNewConversation = nextConversationId !== activeConversationId;
 
     stop();
     const controller = new AbortController();
@@ -751,24 +710,38 @@ export default function AgentsPage() {
     setIsRunning(true);
 
     try {
+      if (isNewConversation) {
+        setConversation(nextConversationId, { clearMessages: true });
+        setActiveConversationId(nextConversationId);
+        setThinkOpen({});
+        setToolOpen({});
+        setToolErrorOpen({});
+        setAgentModelId('unknown');
+      }
+
+      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+        conversationId: nextConversationId,
+        inflightId: getInflightId(),
+        modelId: agentModelId,
+        wsConnectionState,
+      });
+      subscribeConversation(nextConversationId);
+
       const result = await runAgentCommand({
         agentName: selectedAgentName,
         commandName: selectedCommandName,
         working_folder: workingFolder.trim() || undefined,
-        conversationId: activeConversationId,
+        conversationId: nextConversationId,
         signal: controller.signal,
       });
 
-      const isSameConversation = result.conversationId === activeConversationId;
+      if (result.modelId) {
+        setAgentModelId(result.modelId);
+      }
+
       await refreshConversations();
       setActiveConversationId(result.conversationId);
-      setMessages([]);
-      resetTurns();
       lastHydratedRef.current = null;
-
-      if (isSameConversation && shouldLoadTurns) {
-        await refreshTurns();
-      }
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
         return;
@@ -779,33 +752,29 @@ export default function AgentsPage() {
         err.status === 409 &&
         err.code === 'RUN_IN_PROGRESS'
       ) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-            role: 'assistant',
-            content:
-              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
-            kind: 'error',
-            streamStatus: 'failed',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        const errorMessage: ChatMessage = {
+          id: makeClientConversationId(),
+          role: 'assistant',
+          content:
+            'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        };
+        hydrateHistory(nextConversationId, [...messages, errorMessage], 'replace');
         return;
       }
 
       const message = (err as Error).message || 'Failed to run agent command.';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      const errorMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'assistant',
+        content: message,
+        kind: 'error',
+        streamStatus: 'failed',
+        createdAt: new Date().toISOString(),
+      };
+      hydrateHistory(nextConversationId, [...messages, errorMessage], 'replace');
     } finally {
       if (runControllerRef.current === controller) {
         runControllerRef.current = null;
@@ -817,11 +786,17 @@ export default function AgentsPage() {
     isRunning,
     persistenceUnavailable,
     refreshConversations,
-    refreshTurns,
-    resetTurns,
     selectedAgentName,
     selectedCommandName,
-    shouldLoadTurns,
+    setConversation,
+    log,
+    messages,
+    wsConnectionState,
+    wsTranscriptReady,
+    subscribeConversation,
+    getInflightId,
+    agentModelId,
+    hydrateHistory,
     stop,
     workingFolder,
   ]);
@@ -987,6 +962,14 @@ export default function AgentsPage() {
                   type="button"
                   variant="outlined"
                   onClick={() => {
+                    const inflightId = getInflightId();
+                    if (
+                      wsTranscriptReady &&
+                      activeConversationId &&
+                      inflightId
+                    ) {
+                      cancelInflight(activeConversationId, inflightId);
+                    }
                     stop();
                     setInput(lastSentRef.current);
                     inputRef.current?.focus();
@@ -1076,6 +1059,7 @@ export default function AgentsPage() {
                   !selectedCommandName ||
                   isRunning ||
                   persistenceUnavailable ||
+                  !wsTranscriptReady ||
                   controlsDisabled ||
                   selectedAgent?.disabled
                 }
@@ -1092,6 +1076,14 @@ export default function AgentsPage() {
                 >
                   Commands require conversation history (Mongo) to display
                   multi-step results.
+                </Typography>
+              ) : !wsTranscriptReady ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="agent-command-ws-note"
+                >
+                  Commands require an open WebSocket connection.
                 </Typography>
               ) : null}
             </Stack>
@@ -1257,22 +1249,6 @@ export default function AgentsPage() {
                             }}
                           >
                             <Stack spacing={1}>
-                              {message.command ? (
-                                <Typography
-                                  variant="caption"
-                                  data-testid="command-run-note"
-                                  sx={{
-                                    lineHeight: 1.2,
-                                    color: isUser
-                                      ? 'rgba(255,255,255,0.75)'
-                                      : 'text.secondary',
-                                  }}
-                                >
-                                  Command run: {message.command.name} (
-                                  {message.command.stepIndex}/
-                                  {message.command.totalSteps})
-                                </Typography>
-                              ) : null}
                               {message.role === 'assistant' &&
                                 message.streamStatus && (
                                   <Chip

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
@@ -47,7 +47,36 @@ function emitWsEvent(event: Record<string, unknown>) {
   ).__wsMock;
   const ws = wsRegistry?.last();
   if (!ws) throw new Error('No WebSocket instance; did AgentsPage mount?');
-  ws._receive(event);
+  act(() => {
+    ws._receive(event);
+  });
+}
+
+async function waitForSubscribe(conversationId: string) {
+  await waitFor(() => {
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: { instances?: Array<{ sent: string[] }> };
+      }
+    ).__wsMock;
+    const sent = (wsRegistry?.instances ?? []).flatMap((socket) => socket.sent);
+    const messages = sent
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    expect(
+      messages.some(
+        (msg) =>
+          msg?.type === 'subscribe_conversation' &&
+          msg?.conversationId === conversationId,
+      ),
+    ).toBe(true);
+  });
 }
 
 describe('AgentsPage live transcript (WS)', () => {
@@ -156,6 +185,317 @@ describe('AgentsPage live transcript (WS)', () => {
     );
     expect(screen.getByTestId('agent-transcript')).toBeInTheDocument();
     expect(screen.getByTestId('tool-row')).toBeInTheDocument();
+  });
+
+  it('ignores transcript WS events for other conversations', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, opts?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        }
+
+        if (target.includes('/agents/a1/commands')) {
+          return mockJsonResponse({ commands: [] });
+        }
+
+        if (
+          target.includes('/conversations') &&
+          target.includes('agentName=a1')
+        ) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'c1',
+                title: 'First agent conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                lastMessageAt: '2025-01-01T00:00:00.000Z',
+                archived: false,
+              },
+              {
+                conversationId: 'c2',
+                title: 'Second agent conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                lastMessageAt: '2025-01-02T00:00:00.000Z',
+                archived: false,
+              },
+            ],
+            nextCursor: null,
+          });
+        }
+
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/agents/a1/run') && opts?.method === 'POST') {
+          return mockJsonResponse({ status: 'ok' });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Second agent conversation');
+    await user.click(screen.getByText('First agent conversation'));
+    await waitForSubscribe('c1');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c2',
+      seq: 1,
+      inflightId: 'i2',
+      delta: 'SHOULD_NOT_APPEAR',
+    });
+
+    expect(screen.queryByText('SHOULD_NOT_APPEAR')).toBeNull();
+  });
+
+  it('late turn_final for an older inflight does not override a newer run', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, opts?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        }
+
+        if (target.includes('/agents/a1/commands')) {
+          return mockJsonResponse({ commands: [] });
+        }
+
+        if (
+          target.includes('/conversations') &&
+          target.includes('agentName=a1')
+        ) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'c1',
+                title: 'Agent conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                lastMessageAt: '2025-01-01T00:00:00.000Z',
+                archived: false,
+              },
+            ],
+            nextCursor: null,
+          });
+        }
+
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/agents/a1/run') && opts?.method === 'POST') {
+          return mockJsonResponse({ status: 'ok' });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Agent conversation');
+    await user.click(screen.getByText('Agent conversation'));
+    await waitForSubscribe('c1');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'Run A',
+    });
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 3,
+      inflight: {
+        inflightId: 'i2',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:10.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 4,
+      inflightId: 'i2',
+      delta: 'Run B',
+    });
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId: 'c1',
+      seq: 5,
+      inflightId: 'i1',
+      status: 'ok',
+    });
+
+    const bubbleB = await screen.findByText('Run B');
+    const bubbleNode = bubbleB.closest('[data-testid="chat-bubble"]');
+    if (!bubbleNode) {
+      throw new Error('Missing chat-bubble wrapper for Run B');
+    }
+    expect(within(bubbleNode).getByTestId('status-chip')).toHaveTextContent(
+      'Processing',
+    );
+  });
+
+  it('multiple inflight snapshots in one command run create separate assistant bubbles', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, opts?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return mockJsonResponse({ mongoConnected: true });
+        }
+
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return mockJsonResponse({ agents: [{ name: 'a1' }] });
+        }
+
+        if (target.includes('/agents/a1/commands')) {
+          return mockJsonResponse({ commands: [] });
+        }
+
+        if (
+          target.includes('/conversations') &&
+          target.includes('agentName=a1')
+        ) {
+          return mockJsonResponse({
+            items: [
+              {
+                conversationId: 'c1',
+                title: 'Agent conversation',
+                provider: 'codex',
+                model: 'gpt-5.2',
+                lastMessageAt: '2025-01-01T00:00:00.000Z',
+                archived: false,
+              },
+            ],
+            nextCursor: null,
+          });
+        }
+
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          return mockJsonResponse({ items: [] });
+        }
+
+        if (target.includes('/agents/a1/run') && opts?.method === 'POST') {
+          return mockJsonResponse({ status: 'ok' });
+        }
+
+        return mockJsonResponse({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Agent conversation');
+    await user.click(screen.getByText('Agent conversation'));
+    await waitForSubscribe('c1');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:00.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'Step 1',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId: 'c1',
+      seq: 3,
+      inflightId: 'i1',
+      status: 'ok',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 4,
+      inflight: {
+        inflightId: 'i2',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2025-01-01T00:00:10.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 5,
+      inflightId: 'i2',
+      delta: 'Step 2',
+    });
+
+    await screen.findByText('Step 1');
+    await screen.findByText('Step 2');
+
+    const assistantBubbles = screen
+      .getAllByTestId('chat-bubble')
+      .filter((node) => node.getAttribute('data-role') === 'assistant');
+    expect(assistantBubbles.length).toBe(2);
   });
 
   it('unsubscribes from the previous conversation on switch', async () => {

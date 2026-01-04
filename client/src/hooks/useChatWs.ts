@@ -153,6 +153,7 @@ type UseChatWsParams = {
   onEvent?: (event: WsServerEvent) => void;
   onReconnectBeforeResubscribe?: () => Promise<void> | void;
   realtimeEnabled?: boolean;
+  modelId?: string;
 };
 
 type UseChatWsState = {
@@ -190,6 +191,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   const onReconnectBeforeResubscribeRef = useRef<
     UseChatWsParams['onReconnectBeforeResubscribe']
   >(params?.onReconnectBeforeResubscribe);
+  const modelIdRef = useRef<string | undefined>(params?.modelId);
   const realtimeEnabled = params?.realtimeEnabled !== false;
   const [connectionState, setConnectionState] =
     useState<ChatWsConnectionState>('connecting');
@@ -197,6 +199,10 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   useEffect(() => {
     onEventRef.current = params?.onEvent;
   }, [params?.onEvent]);
+
+  useEffect(() => {
+    modelIdRef.current = params?.modelId;
+  }, [params?.modelId]);
 
   useEffect(() => {
     onReconnectBeforeResubscribeRef.current =
@@ -450,6 +456,17 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
           inflightId: msg.inflightId,
           seq: msg.seq,
         });
+
+        const route =
+          typeof window !== 'undefined' ? window.location.pathname : '';
+        if (route.startsWith('/agents')) {
+          log('info', 'DEV-0000021[T4] agents.ws event turn_final', {
+            conversationId: msg.conversationId,
+            inflightId: msg.inflightId,
+            modelId: modelIdRef.current ?? 'unknown',
+            status: msg.status,
+          });
+        }
       }
 
       onEventRef.current?.(msg);

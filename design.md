@@ -1356,6 +1356,39 @@ sequenceDiagram
   UI->>WS: close (unmount)
 ```
 
+### Agents transcript pipeline (client)
+
+- Agents use the same WebSocket transcript merge logic as Chat:
+  - `useChatWs` provides transport + subscription.
+  - `useChatStream` owns transcript state and merges WS frames (`handleWsEvent`).
+  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available.
+- Decision rule:
+  - If `mongoConnected === false`, Agents fall back to rendering the REST response `segments` (single-instruction runs only).
+  - Otherwise, Agents rely on WS transcript frames and treat the REST response as a completion signal (REST `segments` are ignored).
+
+```mermaid
+flowchart TD
+  Health[GET /health] --> Conn{mongoConnected?}
+
+  Conn -->|false| Fallback[Realtime disabled]
+  Fallback --> RunREST[POST /agents/:agentName/run]
+  RunREST --> Segments[Render REST segments -> assistant bubble]
+
+  Conn -->|true| Realtime[Realtime enabled]
+  Realtime --> WS[useChatWs: connect + subscribe_conversation(conversationId)]
+  WS --> RunREST2[POST /agents/:agentName/run]
+  RunREST2 -->|ignore segments| RESTDone[REST response = completion signal]
+  WS --> WSEvents[WS transcript events]
+  WSEvents --> Stream[useChatStream.handleWsEvent]
+
+  Realtime --> Turns[useConversationTurns: history + inflight snapshot]
+  Turns --> Hydrate[useChatStream.hydrateHistory + hydrateInflightSnapshot]
+
+  Segments --> UI[Transcript UI]
+  Stream --> UI
+  Hydrate --> UI
+```
+
 ### Client streaming logs (WS observability)
 
 - The Chat UI emits explicit `chat.ws.client_*` log entries from the WebSocket hook so end-to-end streaming can be verified via the `/logs` store.

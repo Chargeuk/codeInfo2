@@ -103,11 +103,14 @@ describe('Agents page - command execute refresh + turns hydration', () => {
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toMatchObject({ commandName: 'improve_plan' });
+    expect(typeof runBodies[0].conversationId).toBe('string');
+    expect((runBodies[0].conversationId as string).length).toBeGreaterThan(0);
   });
 
   it('successful execute refreshes conversations and hydrates turns for the new conversation', async () => {
     const user = userEvent.setup();
     let agentConversationsFetchCount = 0;
+    let lastConversationId: string | null = null;
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -121,10 +124,20 @@ describe('Agents page - command execute refresh + turns hydration', () => {
 
         if (target.includes('/agents/a1/commands/run')) {
           expect(init?.method).toBe('POST');
+          if (init?.body) {
+            const parsed = JSON.parse(init.body.toString()) as Record<
+              string,
+              unknown
+            >;
+            lastConversationId =
+              typeof parsed.conversationId === 'string'
+                ? parsed.conversationId
+                : null;
+          }
           return okJson({
             agentName: 'a1',
             commandName: 'improve_plan',
-            conversationId: 'c2',
+            conversationId: lastConversationId ?? 'c2',
             modelId: 'gpt-5.1-codex-max',
           });
         }
@@ -152,7 +165,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
               agentConversationsFetchCount >= 2
                 ? [
                     {
-                      conversationId: 'c2',
+                      conversationId: lastConversationId ?? 'c2',
                       title: 'New',
                       provider: 'codex',
                       model: 'gpt-5.1-codex-max',
@@ -163,11 +176,21 @@ describe('Agents page - command execute refresh + turns hydration', () => {
           });
         }
 
-        if (target.includes('/conversations/c2/turns')) {
+        if (target.includes('/conversations/') && target.includes('/turns')) {
+          const match = target.match(/\/conversations\/([^/]+)\/turns/);
+          const conversationId = match?.[1]
+            ? decodeURIComponent(match[1])
+            : null;
+          if (!lastConversationId && conversationId) {
+            lastConversationId = conversationId;
+          }
+          if (!conversationId || conversationId !== lastConversationId) {
+            return okJson({ items: [] });
+          }
           return okJson({
             items: [
               {
-                conversationId: 'c2',
+                conversationId: lastConversationId,
                 role: 'assistant',
                 content: 'Hydrated answer',
                 model: 'gpt-5.1-codex-max',
@@ -176,7 +199,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
                 createdAt: '2025-01-01T00:00:02.000Z',
               },
               {
-                conversationId: 'c2',
+                conversationId: lastConversationId,
                 role: 'user',
                 content: 'Hydrated question',
                 model: 'gpt-5.1-codex-max',
@@ -209,11 +232,13 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 
+    await waitFor(() => expect(lastConversationId).toBeTruthy());
+
     await waitFor(() =>
       expect(
         mockFetch.mock.calls.some(([callUrl]) =>
           (typeof callUrl === 'string' ? callUrl : callUrl.toString()).includes(
-            '/conversations/c2/turns',
+            `/conversations/${String(lastConversationId)}/turns`,
           ),
         ),
       ).toBe(true),

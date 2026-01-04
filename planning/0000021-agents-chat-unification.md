@@ -808,7 +808,7 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 
 ### 4. Client: switch Agents transcript state to the Chat WS pipeline
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -835,7 +835,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 #### Subtasks
 
-1. [ ] Read the Chat WS transcript pipeline end-to-end:
+1. [x] Read the Chat WS transcript pipeline end-to-end:
    - Documentation to read:
      - React hooks patterns: https://react.dev/learn/you-might-not-need-an-effect
      - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -851,7 +851,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - The exact `useChatStream` methods AgentsPage must call (`setConversation`, `hydrateHistory`, `hydrateInflightSnapshot`, `handleWsEvent`, `getInflightId`).
      - Which WS event types are forwarded to `handleWsEvent(...)`.
 
-2. [ ] Refactor AgentsPage to use `useChatStream` for transcript state (messages/tools/citations):
+2. [x] Refactor AgentsPage to use `useChatStream` for transcript state (messages/tools/citations):
    - Documentation to read:
      - React hooks patterns: https://react.dev/learn/you-might-not-need-an-effect
      - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -902,7 +902,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
         - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
         - Include `modelId` in the log context (use the same model id passed into `useChatStream`).
 
-3. [ ] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
+3. [x] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -931,7 +931,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - include a distinctive `segments: [{ type: 'answer', text: 'SEGMENT_SHOULD_NOT_RENDER' }]` in the REST response.
        - assert `SEGMENT_SHOULD_NOT_RENDER` is **not** visible after the run completes.
 
-4. [ ] Client RTL test (Jest + Testing Library): ignore WS transcript events for other conversations:
+4. [x] Client RTL test (Jest + Testing Library): ignore WS transcript events for other conversations:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -950,7 +950,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Emit an `assistant_delta` event for conversation `c2`.
      - Assert the `c2` delta text never appears.
 
-5. [ ] Client RTL test (Jest + Testing Library): late `turn_final` for an older inflight must not overwrite a newer run:
+5. [x] Client RTL test (Jest + Testing Library): late `turn_final` for an older inflight must not overwrite a newer run:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -970,7 +970,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Emit a late `turn_final` for `inflightId: 'i1'`.
      - Assert the UI still reflects run B’s inflight id/status.
 
-6. [ ] Client RTL test (Jest + Testing Library): WS-unavailable mode still renders REST segments (fallback path):
+6. [x] Client RTL test (Jest + Testing Library): WS-unavailable mode still renders REST segments (fallback path):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -993,7 +993,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
      - Assert the segment content renders in the transcript even though no WS events are emitted.
 
-7. [ ] Client RTL test (Jest + Testing Library): multiple inflight snapshots in a single command run create separate assistant bubbles:
+7. [x] Client RTL test (Jest + Testing Library): multiple inflight snapshots in a single command run create separate assistant bubbles:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1011,7 +1011,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Emit a second `inflight_snapshot` for `i2` and a second `assistant_delta`.
      - Assert the transcript shows **two** assistant bubbles (one per inflight).
 
-8. [ ] Client RTL test (Jest + Testing Library): command Execute includes a client-generated `conversationId` when none is selected (realtime-enabled mode):
+8. [x] Client RTL test (Jest + Testing Library): command Execute includes a client-generated `conversationId` when none is selected (realtime-enabled mode):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1035,7 +1035,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `commandName: <selected command>`
        - `conversationId: <non-empty string>`
 
-9. [ ] Update `projectStructure.md` with files added/removed in this task:
+9. [x] Update `projectStructure.md` with files added/removed in this task:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1046,7 +1046,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Remove:
        - (none)
 
-10. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
+10. [x] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
    - Documentation to read:
      - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
@@ -1062,18 +1062,18 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `useChatStream` (state/merge)
        - `useConversationTurns` (history hydration)
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Start an Agents run and confirm the transcript renders using the Chat WS pipeline (user turn appears, then streaming assistant output, then final).
    - Refresh the page mid-run (or open another tab) and confirm the transcript is recoverable via WS snapshot/hydration (no duplicated/missing bubbles).
    - With WS unavailable (realtime disabled or WS disconnected), confirm sending still works via REST segments and archive controls remain disabled.
@@ -1083,11 +1083,28 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - `DEV-0000021[T4] agents.ws event inflight_snapshot`
      - `DEV-0000021[T4] agents.ws event turn_final`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed the Chat WS pipeline (`useChatWs` + `useChatStream.handleWsEvent`) and the history hydration flow (`useConversationTurns` → `useChatStream.hydrateHistory` / `hydrateInflightSnapshot`) to mirror the same contract in Agents.
+- `client/src/pages/AgentsPage.tsx` now uses `useChatStream` for transcript state and WS event merging, generates a client-side `conversationId` before runs, and avoids rendering REST `segments` when WS is open (realtime mode).
+- Updated `client/src/test/agentsPage.run.test.tsx` to model realtime mode: it asserts the client sends a non-empty `conversationId`, renders user/assistant bubbles from WS frames, and does not render REST `segments`.
+- Extended `client/src/test/agentsPage.streaming.test.tsx` to assert cross-conversation WS transcript frames are ignored by Agents.
+- Added WS ordering coverage in `client/src/test/agentsPage.streaming.test.tsx` so a late `turn_final` for an older inflight does not clobber a newer in-progress inflight.
+- Added `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx` to prove WS-unavailable (mongoConnected=false) mode still renders REST `segments` for single instruction runs.
+- Expanded `client/src/test/agentsPage.streaming.test.tsx` to cover multi-inflight runs emitting multiple `inflight_snapshot` events and asserting the transcript shows separate assistant bubbles.
+- Updated `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx` to assert command Execute includes a non-empty client-generated `conversationId` when no conversation is selected.
+- Updated `projectStructure.md` to include `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx` and refreshed the description for `client/src/test/agentsPage.run.test.tsx`.
+- Updated `design.md` with an Agents transcript pipeline flowchart covering WS vs REST segments behavior and calling out `useChatWs`, `useChatStream`, and `useConversationTurns`.
+- Ran `npm run lint --workspaces` (clean) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Testing: `npm run compose:down`.
+- Manual check: used `http://host.docker.internal:5001/agents` and verified the Logs page shows the required Task 4 WS pipeline log lines; verified `inflight_snapshot` by subscribing from a second tab during an in-flight run.
+- Fix: hardened `client/src/logging/transport.ts` to flush any queued logs that were added while a previous `/logs` POST was in flight.
 
 ---
 

@@ -55,6 +55,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 - **Inflight snapshots:** WS `inflight_snapshot` is sourced from `server/src/chat/inflightRegistry.ts` and published by the WS server; agents already create inflight state today, but without a `user_turn` event the UI still can’t render a user bubble in a chat-parity transcript.
 - **Cancel/stop:** WS `cancel_inflight` handling lives in `server/src/ws/server.ts` and chat cancellation tests; the Agents UI currently only aborts the REST call in `client/src/pages/AgentsPage.tsx` and does not issue `cancel_inflight`, so server-side runs won’t stop unless the UI is updated to send `cancel_inflight`.
 - **Agents buffering:** agent runs return `segments` only when complete (via `McpResponder`), but the same runs already publish WS deltas via `attachChatStreamBridge`; the UI should treat REST `segments` as fallback only.
+- **Client-generated `conversationId` prerequisite:** the Agents REST endpoints respond only once a run is complete, but WS transcript frames can start immediately. Therefore the Agents UI must know `conversationId` before starting a run so it can subscribe early. This requires the server to accept a client-supplied `conversationId` even when it does not exist yet (create it), rather than treating “conversationId present” as “conversation must already exist”.
 - **Client divergence:** the Agents UI currently builds its own inflight aggregation and transcript rendering in `client/src/pages/AgentsPage.tsx`, while Chat uses `useChatStream` + `useChatWs` + `useConversationTurns`. This is the main source of duplicate logic and drift.
 - **Abort/stop semantics:** client-side aborts rely on `AbortController` (fetch rejects with `AbortError`), so server-side cancellation must still be explicit via the unified WS `cancel_inflight` flow.
 - **WebSocket health:** the `ws` library recommends ping/pong + termination to detect dead connections; our WS server already uses a heartbeat, which aligns with keeping a single WS path for both Chat and Agents.
@@ -71,6 +72,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 - **No new storage shapes are required.** Existing conversation/turn persistence remains unchanged.
 - **No new WS event types are required.** Agents will emit the same existing WS v1 events as Chat (`user_turn`, `inflight_snapshot`, `assistant_delta`, `analysis_delta`, `tool_event`, `turn_final`).
 - **No new REST fields are required.** `/agents/:agentName/run` continues to accept `instruction`, optional `conversationId`, and optional `working_folder` and returns `segments` for fallback/non-WS use (the UI should not depend on these segments).
+- **Important server behavior:** when `conversationId` is supplied for Agents runs, the server must create the conversation if it does not exist (matching `/chat` semantics), so the client can safely generate an id up front for early WS subscription.
 
 ---
 
@@ -102,35 +104,44 @@ Ensure agent runs emit the same WebSocket transcript “run start” signal as C
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
-   - Requirements:
-     - Identify the exact fields passed to `createInflight(...)` in `/chat`.
-     - Confirm where `/chat` calls `publishUserTurn(...)`.
 
-2. [ ] Update `runAgentInstructionUnlocked` to create inflight state with chat-style metadata:
+2. [ ] Allow client-supplied `conversationId` to start a new agent conversation (required for early WS subscription):
+   - Files to edit:
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+   - Requirements:
+     - Update `runAgentInstruction(...)` so it does **not** set `mustExist` based on “conversationId was provided”.
+       - Agents must match `/chat`: if the provided `conversationId` does not exist yet, create it.
+       - Keep the existing protections: archived conversations must still 410, and agent mismatch must still error.
+       - Concrete change: stop passing `mustExist: Boolean(params.conversationId)` into `runAgentInstructionUnlocked(...)`.
+     - Update command runs (`runAgentCommandRunner` → `runAgentInstructionUnlocked`) so a client-supplied `conversationId` can also start a new command conversation.
+       - Concrete change: stop deriving `mustExist` from `Boolean(params.conversationId)`; omit `mustExist` entirely (or set it to `false`).
+
+3. [ ] Update `runAgentInstructionUnlocked` to create inflight state with chat-style metadata:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Replace the minimal inflight creation call with a full call that includes:
+     - Mirror the `/chat` run-start metadata in `createInflight(...)`:
        - `provider: 'codex'`
        - `model: modelId`
        - `source: params.source`
        - `userTurn: { content: params.instruction, createdAt: <iso string> }`
      - Keep existing `externalSignal` wiring (`params.signal`).
 
-3. [ ] Publish `user_turn` for agent runs at run start (server-side), matching the Chat run contract:
+4. [ ] Publish `user_turn` for agent runs at run start (server-side), matching the Chat run contract:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
-     - Import and call `publishUserTurn(...)` from `server/src/ws/server.ts` immediately after inflight creation.
+     - Import and call `publishUserTurn(...)` from `server/src/ws/server.ts` immediately after inflight creation (and before attaching the stream bridge), using the same `createdAt` ISO timestamp stored in the inflight userTurn.
      - Ensure `createdAt` is an ISO string and non-empty.
 
-4. [ ] Ensure the inflight id is propagated consistently into persistence bookkeeping:
+5. [ ] Ensure the inflight id is propagated consistently into persistence bookkeeping:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
      - Pass `inflightId` into `chat.run(...)` flags so `ChatInterface` can mark inflight persistence (`markInflightPersisted`) consistently with `/chat`.
 
-5. [ ] Server integration test: agent runs publish `user_turn` over WS at run start:
+6. [ ] Server integration test: agent runs publish `user_turn` over WS at run start:
    - Files to edit:
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
    - Requirements:
@@ -141,12 +152,12 @@ Ensure agent runs emit the same WebSocket transcript “run start” signal as C
        - `createdAt` is a non-empty string
      - Keep the existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
 
-6. [ ] Update documentation to reflect that agent runs emit `user_turn`:
+7. [ ] Update documentation to reflect that agent runs emit `user_turn`:
    - Files to edit:
      - `design.md`
      - `readme.md`
 
-7. [ ] Run lint/format verification:
+8. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -168,7 +179,7 @@ Ensure agent runs emit the same WebSocket transcript “run start” signal as C
 
 #### Overview
 
-Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_inflight` WS message aborts the in-flight agent run and results in a terminal `turn_final` with status `stopped`. This enables the Agents UI to implement a Chat-parity Stop button.
+Agent runs already share the same cancellation mechanism as Chat (`cancel_inflight` → `abortInflight` → inflight `AbortController.signal` passed into `chat.run(...)`, then the stream bridge publishes `turn_final: stopped`). This task adds missing agent-specific integration coverage so we don’t regress.
 
 #### Documentation Locations
 
@@ -188,14 +199,7 @@ Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_infli
      - `server/src/test/features/chat_cancellation.feature`
      - `server/src/test/steps/chat_cancellation.steps.ts`
 
-2. [ ] Ensure agent runs are cancellable via inflight AbortSignal:
-   - Files to read:
-     - `server/src/agents/service.ts`
-   - Requirements:
-     - Confirm `chat.run(...)` is supplied `signal: getInflight(conversationId)?.abortController.signal`.
-     - Ensure inflight ids are consistent across `createInflight(...)`, WS events, and `chat.run(...)` flags.
-
-3. [ ] Add server integration coverage for cancelling an agent run via WS:
+2. [ ] Add server integration coverage for cancelling an agent run via WS:
    - Files to add:
      - `server/src/test/integration/agents-run-ws-cancel.test.ts`
    - Requirements:
@@ -205,19 +209,19 @@ Match Chat’s cancellation behavior for Agents by ensuring that a `cancel_infli
      - Assert a `turn_final` event arrives with `status === 'stopped'`.
      - Assert the run promise resolves (no hang) and all servers/sockets are cleaned up.
 
-4. [ ] Update documentation to reflect Stop parity for Agents:
+3. [ ] Update documentation to reflect Stop parity for Agents:
    - Files to edit:
      - `design.md`
      - `readme.md`
 
-5. [ ] Update `projectStructure.md` with the new server test file:
+4. [ ] Update `projectStructure.md` with the new server test file:
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
      - Add the new file path:
        - `server/src/test/integration/agents-run-ws-cancel.test.ts`
 
-6. [ ] Run lint/format verification:
+5. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -264,9 +268,9 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Requirements:
      - Instantiate `useChatStream` with fixed `provider='codex'` and a safe fallback `model` string (Agents should not expose provider/model controls).
      - Important: Agents “Send” must continue to call the Agents REST endpoints (via `client/src/api/agents.ts`), not `useChatStream.send()` (which posts to `/chat`). `useChatStream` is used here only for WS transcript state + hydration helpers.
-     - Important: Agents runs must always have a known `conversationId` **before** starting the request so the page can subscribe to WS and receive early `user_turn`/deltas.
+     - Important (realtime-enabled mode): Agents runs must have a known `conversationId` **before** starting the request so the page can subscribe to WS and receive early `user_turn`/deltas.
        - When `activeConversationId` is empty (new conversation), generate a client-side id (use the same `crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)` fallback the file already uses).
-       - Immediately set it as `activeConversationId` and subscribe to the conversation over WS, then include it in the request payload for both Send (`POST /agents/:agentName/run`) and Execute command (`POST /agents/:agentName/commands/run`).
+       - Immediately call `setConversation(newConversationId, { clearMessages: true })`, set it as `activeConversationId`, and subscribe to the conversation over WS, then include it in the request payload for both Send (`POST /agents/:agentName/run`) and Execute command (`POST /agents/:agentName/commands/run`).
        - Do not rely on the server generating a conversation id, because the Agents REST endpoints only respond once the run is complete; without a pre-known id, the UI cannot subscribe early and will miss the initial stream frames.
      - When selecting a conversation, call `setConversation(conversationId, { clearMessages: true })` and hydrate history using `hydrateHistory(...)` with turns from `useConversationTurns`.
      - Wire WebSocket transcript events into `useChatStream`:
@@ -277,6 +281,9 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Persistence-unavailable fallback (must keep existing functionality):
        - When `mongoConnected === false` (realtime disabled), keep using the existing segment-based rendering for Send (`result.segments` → assistant bubble) because WS transcript events will not arrive.
        - Commands are already disabled in this mode; ensure that remains true.
+     - Realtime-enabled behavior (must avoid duplicate assistant bubbles):
+       - When realtime is enabled (`mongoConnected !== false`), do **not** append an assistant message from `result.segments`.
+       - Treat the REST response as a completion signal only; the transcript should come entirely from WS events.
 
 3. [ ] Update Agents transcript rendering to use the same tool + citations UI as Chat:
    - Files to edit:
@@ -349,11 +356,11 @@ Update the Agents Stop behavior to match Chat: send `cancel_inflight` over WebSo
 2. [ ] Update AgentsPage Stop to send WS `cancel_inflight` in addition to aborting fetch:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-    - Requirements:
-      - Always abort the in-flight HTTP request via `AbortController` (immediate UI response).
-      - Additionally, when `activeConversationId` and `getInflightId()` are both available, call `cancelInflight(activeConversationId, inflightId)`.
-      - If the inflight id is not yet known (user clicks Stop immediately), aborting the request alone is still required.
-      - When realtime is disabled (`mongoConnected === false`), do not attempt to send `cancel_inflight` over WS.
+   - Requirements:
+     - Always abort the in-flight HTTP request via `AbortController` (immediate UI response and required to stop multi-step command runs).
+     - Additionally, when `activeConversationId` and `getInflightId()` are both available, call `cancelInflight(activeConversationId, inflightId)`.
+     - If the inflight id is not yet known (user clicks Stop immediately), aborting the request alone is still required.
+     - When realtime is disabled (`mongoConnected === false`), do not attempt to send `cancel_inflight` over WS.
 
 3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
    - Files to edit:

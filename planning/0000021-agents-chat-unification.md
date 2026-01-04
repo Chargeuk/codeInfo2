@@ -381,6 +381,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 2. [ ] Create inflight state with chat-style metadata:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
+     - WebSocket server publish helpers (where `publishUserTurn` is defined): Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
@@ -393,20 +394,54 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
    - Concrete implementation guidance:
      - In `runAgentInstructionUnlocked(...)`, generate a single `nowIso = new Date().toISOString()` and use it for both `createInflight.userTurn.createdAt` and the later `publishUserTurn.createdAt`.
      - Use the agent run’s `modelId` (resolved from config) for the inflight `model` field.
+     - Replace the existing inflight creation call:
+       ```ts
+       createInflight({ conversationId, inflightId, externalSignal: params.signal });
+       ```
+       with a chat-parity call (keep the same `externalSignal` wiring):
+       ```ts
+       createInflight({
+         conversationId,
+         inflightId,
+         provider: 'codex',
+         model: modelId,
+         source: params.source,
+         userTurn: { content: params.instruction, createdAt: nowIso },
+         externalSignal: params.signal,
+       });
+       ```
 
 3. [ ] Publish `user_turn` at run start:
    - Documentation to read:
      - `ws` docs (message send patterns): Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/agents/service.ts`
+   - Files to read:
+     - `server/src/ws/server.ts`
    - Requirements:
      - Call `publishUserTurn(...)` immediately after inflight creation (and before attaching the stream bridge), using the same `createdAt` stored in `userTurn`.
+   - Concrete implementation guidance:
+     - Add a direct import (keep `.js` extension to match the repo’s ESM style):
+       ```ts
+       import { publishUserTurn } from '../ws/server.js';
+       ```
+     - Immediately after `createInflight(...)`, add:
+       ```ts
+       publishUserTurn({
+         conversationId,
+         inflightId,
+         content: params.instruction,
+         createdAt: nowIso,
+       });
+       ```
    - Expected behavior:
      - A WS client subscribed to the conversation should receive a `user_turn` event before the first `assistant_delta`.
 
 4. [ ] Propagate `inflightId` into `chat.run(...)` flags:
    - Documentation to read:
      - None (repo-local semantics).
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterface.ts`
    - Files to edit:
      - `server/src/agents/service.ts`
    - Requirements:
@@ -677,6 +712,9 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Testing Library user events: https://testing-library.com/docs/user-event/intro/
    - Files to edit:
      - `client/src/test/agentsPage.run.test.tsx`
+   - Files to read:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+     - `client/src/test/chatPage.stream.test.tsx`
    - Requirements:
      - Change the test to explicitly model the new contract:
        - `mongoConnected: true`
@@ -698,6 +736,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Purpose:
      - Prevent cross-contamination when the server emits multiple conversation streams.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
@@ -716,6 +755,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Purpose:
      - Prevent incorrect status chips (Complete/Failed/Stopped) due to late/out-of-order frames.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
@@ -735,9 +775,12 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Purpose:
      - Preserve the non-realtime fallback UX after switching Agents to the Chat WS pipeline.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+   - Files to read:
+     - `client/src/test/agentsPage.run.test.tsx`
    - Requirements:
      - Mock `GET /health` → `{ mongoConnected: false }`.
      - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
@@ -756,6 +799,8 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Jest: Context7 `/jestjs/jest`
      - Testing Library user events: https://testing-library.com/docs/user-event/intro/
    - Files to edit:
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Files to read:
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Requirements:
      - Use a realtime-enabled setup (`GET /health` → `{ mongoConnected: true }`).
@@ -878,9 +923,13 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
    - Purpose:
      - Ensures Agents transcript UI matches Chat for citations (critical to “tools parity”).
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library user events: https://testing-library.com/docs/user-event/intro/
    - Files to add:
      - `client/src/test/agentsPage.citations.test.tsx`
+   - Files to read:
+     - `client/src/test/chatPage.citations.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Copy the approach from `client/src/test/chatPage.citations.test.tsx`, but mount `AgentsPage`.
      - Mock Agents fetch endpoints:
@@ -905,9 +954,13 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
    - Purpose:
      - Ensures Agents reasoning UX matches Chat and avoids accidental always-open “thinking” disclosure.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.reasoning.test.tsx`
+   - Files to read:
+     - `client/src/test/chatPage.reasoning.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Copy the approach from `client/src/test/chatPage.reasoning.test.tsx`, but mount `AgentsPage`.
      - Emit an inflight snapshot with `assistantThink` and/or emit `analysis_delta` events.
@@ -923,9 +976,13 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
    - Purpose:
      - Ensures Agents tool block UI matches Chat, including default collapsed state.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Files to read:
+     - `client/src/test/chatPage.toolDetails.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Emit a `tool_event` with a `tool-result` including `parameters` and `result`.
      - Assert `data-testid="tool-params-accordion"` and `data-testid="tool-result-accordion"` render and are collapsed by default.
@@ -940,9 +997,13 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
    - Purpose:
      - Prevents regressions where failed runs appear as Complete/Processing and confuse users.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.statusChip.test.tsx`
+   - Files to read:
+     - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Emit an inflight snapshot + assistant delta, then emit `turn_final` with `status: 'failed'`.
      - Assert the visible status chip contains `Failed` (and does not contain `Complete`).
@@ -1137,8 +1198,11 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 2. [ ] Update AgentsPage to subscribe to sidebar events and apply them to the agent-scoped conversation list:
    - Documentation to read:
      - React `useEffect`: https://react.dev/reference/react/useEffect
+     - Jest (for WS message assertions in later subtasks): Context7 `/jestjs/jest`
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
    - Requirements:
      - Call `subscribeSidebar()` on mount (when persistence is available), and `unsubscribeSidebar()` on unmount.
      - On WS `conversation_upsert`, apply the event only when `event.conversation.agentName === selectedAgentName`.
@@ -1155,9 +1219,13 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
    - Purpose:
      - Ensures Agents sidebar stays in sync with server-side conversation updates (Chat parity).
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to add:
      - `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Files to read:
+     - `client/src/test/chatSidebar.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Mock an Agents page session.
      - Emit a `conversation_upsert` WS event with `agentName: 'a1'` and confirm it appears in the sidebar.
@@ -1174,9 +1242,12 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
    - Purpose:
      - Prevents stale/phantom conversations after deletions.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Files to read:
+     - `client/src/test/chatSidebar.test.tsx`
    - Requirements:
      - Emit a `conversation_upsert` for an agent conversation and assert it renders.
      - Emit a `conversation_delete` for that `conversationId` and assert it is removed from the sidebar.
@@ -1290,6 +1361,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Ensure agent command selection remains functional after moving controls into the new Chat-parity layout.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.commandsList.test.tsx`
@@ -1306,6 +1378,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Ensure the post-command “refresh turns” behavior still happens after the layout refactor.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
@@ -1322,6 +1395,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Prevent regressions in the multi-tab conflict UX.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.conflict.test.tsx`
@@ -1338,6 +1412,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Prevent commands from becoming clickable when history is unavailable.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx`
@@ -1354,6 +1429,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Prevent regressions in stopping multi-step command runs.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library user events: https://testing-library.com/docs/user-event/intro/
    - Files to edit:
      - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
@@ -1370,6 +1446,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Purpose:
      - Ensure WS transcript rendering stays functional after layout refactor.
    - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`

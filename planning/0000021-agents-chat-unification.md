@@ -683,7 +683,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 ### 3. Server: cancellation test coverage for Agents (`cancel_inflight`)
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: da3a93d
 
 #### Overview
 

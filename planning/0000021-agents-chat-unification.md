@@ -414,7 +414,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 ### 2. Server: emit chat-parity run-start WS events for agent runs
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -434,7 +434,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 #### Subtasks
 
-1. [ ] Read the current Chat vs Agents run-start flow so changes are minimal and consistent:
+1. [x] Read the current Chat vs Agents run-start flow so changes are minimal and consistent:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
      - `ws` docs (heartbeat / terminate vs close): Context7 `/websockets/ws/8_18_3`
@@ -452,7 +452,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - `publishUserTurn({ conversationId, inflightId, content, createdAt })`
      - passing `inflightId` into `chat.run(..., flags)`
 
-2. [ ] Create inflight state with chat-style metadata:
+2. [x] Create inflight state with chat-style metadata:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
      - WebSocket server publish helpers (where `publishUserTurn` is defined): Context7 `/websockets/ws/8_18_3`
@@ -496,7 +496,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
            - `message: 'DEV-0000021[T2] agents.inflight created'`
            - `context` containing at least: `conversationId`, `inflightId`, `provider`, `model`, `source`, and `userTurnCreatedAt` (the same `nowIso`).
 
-3. [ ] Publish `user_turn` at run start:
+3. [x] Publish `user_turn` at run start:
    - Documentation to read:
      - `ws` docs (message send patterns): Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -533,7 +533,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
            - `message: 'DEV-0000021[T2] agents.ws user_turn published'`
            - `context` containing at least: `conversationId`, `inflightId`, and `createdAt` (the same `nowIso`).
 
-4. [ ] Propagate `inflightId` into `chat.run(...)` flags:
+4. [x] Propagate `inflightId` into `chat.run(...)` flags:
    - Documentation to read:
      - None (repo-local semantics).
    - Files to read:
@@ -560,7 +560,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
            - `message: 'DEV-0000021[T2] agents.chat.run flags include inflightId'`
            - `context` containing at least: `conversationId`, `inflightId`, and `flagsInflightId` (the exact value passed into the flags object).
 
-5. [ ] Server integration test: agent run publishes `user_turn` over WS before deltas:
+5. [x] Server integration test: agent run publishes `user_turn` over WS before deltas:
    - Test type:
      - node:test integration test (server)
    - Test location:
@@ -585,7 +585,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - In the test, start listening for events *before* starting the run (to avoid missing early frames).
      - Add a `waitForEvent` for `type === 'user_turn'` and assert it arrives.
 
-6. [ ] Server integration test: agent run passes `inflightId` into `chat.run(...)` flags:
+6. [x] Server integration test: agent run passes `inflightId` into `chat.run(...)` flags:
    - Test type:
      - node:test integration test (server)
    - Test location:
@@ -607,7 +607,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `source` equal to the provided source (e.g. `'REST'`).
      - Keep the test fast: no WS server is required for this check; it only validates the `chat.run(...)` call contract.
 
-7. [ ] Remove any legacy Agents-only server path that bypasses the shared run orchestration:
+7. [x] Remove any legacy Agents-only server path that bypasses the shared run orchestration:
    - Documentation to read:
      - None (repo-local audit).
    - Files to scan:
@@ -619,7 +619,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - If any such code exists and is now redundant after Tasks 1–2, remove it and update any imports/tests.
      - If no such code exists, note that explicitly in this task’s Implementation notes.
 
-8. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
+8. [x] Update `design.md` with the Agents run-start WS contract (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagram syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -632,18 +632,18 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - server publishes `user_turn` immediately
        - then `inflight_snapshot` / deltas / `turn_final`.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Open Agents in two browser contexts (two tabs or two windows).
    - Start an Agents run in context A and confirm context B shows the initiating user message immediately (run-start parity) and then receives streaming transcript updates.
    - Confirm the final assistant status transitions to the correct completed state and the conversation appears in the sidebar.
@@ -652,11 +652,30 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
      - `DEV-0000021[T2] agents.ws user_turn published`
      - `DEV-0000021[T2] agents.chat.run flags include inflightId`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Docs used: `ws` heartbeat guidance (ping/pong + `terminate()` for dead peers) to align any WS publish/start-ordering assumptions.
+- Gotchas: publish `user_turn` before the first `assistant_delta` (and ideally before stream bridge attaches) and reuse a single `createdAt` for inflight + WS event so client transcript ordering is deterministic.
+- Gotchas: pass `inflightId` into `chat.run(..., flags)` so `ChatInterface` can mark inflight persistence (`markInflightPersisted`) and keep run bookkeeping consistent.
+- Current Chat run-start: `/chat` calls `createInflight(...)` → `publishUserTurn(...)` → `attachChatStreamBridge(...)` → `chat.run(...)`.
+- Server change: `server/src/agents/service.ts` now mirrors `/chat` run-start ordering and metadata.
+- Added required logs (for manual check): `DEV-0000021[T2] agents.inflight created`, `DEV-0000021[T2] agents.ws user_turn published`, `DEV-0000021[T2] agents.chat.run flags include inflightId`.
+- Tests: `server/src/test/integration/agents-run-ws-stream.test.ts` now asserts `user_turn` (including `seq` ordering vs the first `assistant_delta`) and includes a fast flags-only test for `inflightId` propagation.
+- Audit: no additional Agents-only streaming/transcript plumbing exists outside `chat.run(...)` + `attachChatStreamBridge(...)`.
+- Docs: `design.md` now includes an “Agents run (WS start events)” Mermaid sequence diagram documenting the createInflight → user_turn → snapshot/deltas/final ordering.
+- Validation: `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` pass.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual verification (host.docker.internal): created conversation `manual-t2-1767551049587-a3a7742c0c96e`, observed `user_turn` (seq 1) before first `assistant_delta` (seq 4) across two independent subscribers, then `turn_final { status: 'ok' }` with `inflightId=e2fd4a3e-d58c-4111-9a6b-4e2eca536845`.
+- Manual verification (host.docker.internal): confirmed `/logs?text=DEV-0000021[T2]` contains `DEV-0000021[T2] agents.inflight created`, `DEV-0000021[T2] agents.ws user_turn published`, and `DEV-0000021[T2] agents.chat.run flags include inflightId` for the same `conversationId`/`inflightId`.
+- Testing: `npm run compose:down`.
 
 ---
 

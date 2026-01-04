@@ -27,6 +27,7 @@ import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
+import { publishUserTurn } from '../ws/server.js';
 
 import { loadAgentCommandSummary } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
@@ -357,7 +358,51 @@ export async function runAgentInstructionUnlocked(params: {
   );
 
   const inflightId = params.inflightId ?? crypto.randomUUID();
-  createInflight({ conversationId, inflightId, externalSignal: params.signal });
+  const nowIso = new Date().toISOString();
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'codex',
+    model: modelId,
+    source: params.source,
+    userTurn: { content: params.instruction, createdAt: nowIso },
+    externalSignal: params.signal,
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T2] agents.inflight created',
+    timestamp: nowIso,
+    source: 'server',
+    context: {
+      conversationId,
+      inflightId,
+      provider: 'codex',
+      model: modelId,
+      source: params.source,
+      userTurnCreatedAt: nowIso,
+    },
+  });
+
+  publishUserTurn({
+    conversationId,
+    inflightId,
+    content: params.instruction,
+    createdAt: nowIso,
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T2] agents.ws user_turn published',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      conversationId,
+      inflightId,
+      createdAt: nowIso,
+      contentLen: params.instruction.length,
+    },
+  });
 
   const bridge = attachChatStreamBridge({
     conversationId,
@@ -374,10 +419,26 @@ export async function runAgentInstructionUnlocked(params: {
   chat.on('error', (ev) => responder.handle(ev));
 
   try {
+    append({
+      level: 'info',
+      message: 'DEV-0000021[T2] agents.chat.run flags include inflightId',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        conversationId,
+        inflightId,
+        flagsInflightId: inflightId,
+        provider: 'codex',
+        model: modelId,
+        source: params.source,
+      },
+    });
+
     await chat.run(
       params.instruction,
       {
         provider: 'codex',
+        inflightId,
         threadId,
         useConfigDefaults: true,
         codexHome: agent.home,

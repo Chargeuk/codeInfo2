@@ -542,6 +542,30 @@ sequenceDiagram
   API-->>UI: 200 { agentName, conversationId, modelId, segments }
 ```
 
+### Agents run (WS start events)
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WebSocket server
+  participant API as REST route\nPOST /agents/:agentName/run
+  participant Svc as Agents service\nrunAgentInstructionUnlocked()
+  participant Inflight as InflightRegistry
+  participant Bridge as chatStreamBridge
+  participant Chat as ChatInterface\n(provider=codex)
+
+  UI->>WS: subscribe_conversation(conversationId)
+  UI->>API: POST { conversationId, instruction, inflightId? }
+  API->>Svc: runAgentInstructionUnlocked(...)
+  Svc->>Inflight: createInflight(provider/model/source/userTurn)
+  Svc->>WS: publish user_turn (createdAt from inflight)
+  Svc->>Bridge: attachChatStreamBridge(conversationId, inflightId)
+  Bridge->>WS: publish inflight_snapshot
+  Svc->>Chat: chat.run(instruction, flags.inflightId)
+  Chat-->>Bridge: assistant_delta / tool events / final
+  Bridge->>WS: publish assistant_delta ... turn_final
+```
+
 ### POST /agents/:agentName/run (REST)
 
 - Request body:

@@ -204,12 +204,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `createdAt` is a non-empty string
      - Keep existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
 
-6. [ ] Update documentation to reflect Agents run-start parity:
-   - Files to edit:
-     - `design.md`
-     - `readme.md`
-
-7. [ ] Run lint/format verification:
+6. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -261,19 +256,14 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - Assert a `turn_final` event arrives with `status === 'stopped'`.
      - Assert the run promise resolves (no hang) and all servers/sockets are cleaned up.
 
-3. [ ] Update documentation to reflect Stop parity for Agents:
-   - Files to edit:
-     - `design.md`
-     - `readme.md`
-
-4. [ ] Update `projectStructure.md` with the new server test file:
+3. [ ] Update `projectStructure.md` with the new server test file:
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
      - Add the new file path:
        - `server/src/test/integration/agents-run-ws-cancel.test.ts`
 
-5. [ ] Run lint/format verification:
+4. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -557,7 +547,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Remove the current “two column Paper” layout.
-     - Implement the same Drawer open state behavior as Chat (mobile vs desktop).
+     - Implement the same Drawer open state behavior as Chat (mobile vs desktop) using `Drawer` variants (`temporary` on mobile, `persistent` on desktop) and `useMediaQuery(theme.breakpoints.down('sm'))`.
+     - De-risk note: do not introduce additional “Drawer alignment” complexity (e.g. measuring dynamic top offsets) unless an existing test depends on it.
      - Render `ConversationList` inside the Drawer with `variant="agents"` and agent-scoped conversations.
      - Place agent-specific controls in the control bar area above the transcript.
      - Do not refactor ChatPage layout in this story; copy the layout pattern into AgentsPage.
@@ -586,12 +577,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - Send/Execute are disabled when persistence is unavailable (`mongoConnected=false`).
      - RUN_IN_PROGRESS conflicts still surface the same friendly error.
 
-5. [ ] Update documentation to match the new Agents UI layout:
-   - Files to edit:
-     - `design.md`
-     - `readme.md`
-
-6. [ ] Run lint/format verification:
+5. [ ] Run lint/format verification:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -599,6 +585,51 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
+
+---
+
+### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+De-risk the story by doing a full end-to-end verification pass once all other tasks are complete. This task must confirm the acceptance criteria explicitly, run clean builds, run tests, validate Docker startup, ensure docs are consistent, and produce a PR summary.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
+2. [ ] Run clean builds:
+   - `npm run build --workspace server`
+   - `npm run build --workspace client`
+3. [ ] Run a clean Docker build and ensure Compose boots:
+   - `npm run compose:build:clean`
+   - `npm run compose:up`
+4. [ ] Run automated tests:
+   - `npm run test --workspace client`
+   - `npm run test --workspace server`
+   - `npm run e2e:test` (if environment supports it)
+5. [ ] Update documentation (single pass to reduce merge conflicts):
+   - `README.md`
+   - `design.md`
+   - `projectStructure.md`
+6. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
+7. [ ] Write a pull request summary comment covering all tasks and major changes.
+
+#### Testing
+
+1. [ ] Run the client Jest tests.
+2. [ ] Run the server Cucumber tests.
+3. [ ] Restart the Docker environment.
+4. [ ] Run the e2e tests.
 
 #### Implementation notes
 

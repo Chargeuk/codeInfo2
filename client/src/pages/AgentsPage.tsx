@@ -149,6 +149,11 @@ export default function AgentsPage() {
   }, []);
 
   const effectiveAgentName = selectedAgentName || '__none__';
+  const selectedAgentNameRef = useRef<string>(selectedAgentName);
+
+  useEffect(() => {
+    selectedAgentNameRef.current = selectedAgentName;
+  }, [selectedAgentName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -213,6 +218,8 @@ export default function AgentsPage() {
     hasMore: conversationsHasMore,
     loadMore: loadMoreConversations,
     refresh: refreshConversations,
+    applyWsUpsert,
+    applyWsDelete,
   } = useConversations({ agentName: effectiveAgentName });
 
   const turnsConversationId = persistenceUnavailable
@@ -247,6 +254,8 @@ export default function AgentsPage() {
 
   const {
     connectionState: wsConnectionState,
+    subscribeSidebar,
+    unsubscribeSidebar,
     subscribeConversation,
     unsubscribeConversation,
     cancelInflight,
@@ -259,6 +268,36 @@ export default function AgentsPage() {
     },
     onEvent: (event: ChatWsServerEvent) => {
       switch (event.type) {
+        case 'conversation_upsert': {
+          const conversationAgentName = event.conversation.agentName;
+          if (conversationAgentName !== selectedAgentName) return;
+
+          applyWsUpsert({
+            conversationId: event.conversation.conversationId,
+            title: event.conversation.title,
+            provider: event.conversation.provider,
+            model: event.conversation.model,
+            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
+            lastMessageAt: event.conversation.lastMessageAt,
+            archived: event.conversation.archived,
+            flags: event.conversation.flags,
+            agentName: event.conversation.agentName,
+          });
+
+          log('info', 'DEV-0000021[T7] agents.sidebar conversation_upsert', {
+            selectedAgentName,
+            conversationId: event.conversation.conversationId,
+          });
+          return;
+        }
+        case 'conversation_delete': {
+          applyWsDelete(event.conversationId);
+          log('info', 'DEV-0000021[T7] agents.sidebar conversation_delete', {
+            selectedAgentName,
+            conversationId: event.conversationId,
+          });
+          return;
+        }
         case 'user_turn':
         case 'inflight_snapshot':
         case 'assistant_delta':
@@ -315,6 +354,15 @@ export default function AgentsPage() {
 
   const wsTranscriptReady =
     mongoConnected !== false && wsConnectionState === 'open';
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    subscribeSidebar();
+    log('info', 'DEV-0000021[T7] agents.ws subscribe_sidebar', {
+      selectedAgentName: selectedAgentNameRef.current,
+    });
+    return () => unsubscribeSidebar();
+  }, [log, persistenceUnavailable, subscribeSidebar, unsubscribeSidebar]);
 
   useEffect(() => {
     if (!activeConversationId) {

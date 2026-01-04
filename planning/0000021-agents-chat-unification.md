@@ -1489,7 +1489,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 ### 7. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -1512,7 +1512,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 #### Subtasks
 
-1. [ ] Read how ChatPage wires sidebar WS updates and filters out agent conversations:
+1. [x] Read how ChatPage wires sidebar WS updates and filters out agent conversations:
    - Documentation to read:
      - React `useEffect`: https://react.dev/reference/react/useEffect
      - WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -1525,7 +1525,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Calling `subscribeSidebar()` on mount and `unsubscribeSidebar()` on unmount.
      - Applying `conversation_upsert` / `conversation_delete` events via `applyWsUpsert` / `applyWsDelete`.
 
-2. [ ] Update AgentsPage to subscribe to sidebar events and apply them to the agent-scoped conversation list:
+2. [x] Update AgentsPage to subscribe to sidebar events and apply them to the agent-scoped conversation list:
    - Documentation to read:
      - React `useEffect`: https://react.dev/reference/react/useEffect
      - Jest (for WS message assertions in later subtasks): Context7 `/jestjs/jest`
@@ -1552,7 +1552,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
            - `DEV-0000021[T7] agents.sidebar conversation_delete` (when applying a delete)
          - Include `selectedAgentName` and `conversationId` (where applicable) in `context`.
 
-3. [ ] Client test: Agents sidebar reflects WS `conversation_upsert` events for the active agent:
+3. [x] Client test: Agents sidebar reflects WS `conversation_upsert` events for the active agent:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1575,7 +1575,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Emit a second `conversation_upsert` for a different `agentName` and confirm it is ignored.
      - Emit an upsert with a newer `lastMessageAt` and confirm it reorders to the top.
 
-4. [ ] Client test: Agents sidebar removes items on WS `conversation_delete`:
+4. [x] Client test: Agents sidebar removes items on WS `conversation_delete`:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1595,7 +1595,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Emit a `conversation_upsert` for an agent conversation and assert it renders.
      - Emit a `conversation_delete` for that `conversationId` and assert it is removed from the sidebar.
 
-5. [ ] Update `design.md` with the sidebar WS subscription flow (Chat parity):
+5. [x] Update `design.md` with the sidebar WS subscription flow (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagrams): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -1608,7 +1608,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
        - server emits `conversation_upsert` and `conversation_delete`
        - client filters by `agentName` before applying to Agents sidebar.
 
-6. [ ] Update `projectStructure.md` with any new test files added:
+6. [x] Update `projectStructure.md` with any new test files added:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1619,18 +1619,18 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Remove:
        - (none)
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Open two browser contexts for the same agent; create/run a conversation in context A.
    - Confirm the Agents sidebar in context B updates via WS (`conversation_upsert`/`conversation_delete`) without refresh and remains filtered to the selected agent.
    - Confirm deleting/archiving (where supported) updates the sidebar live and does not break selection.
@@ -1639,11 +1639,25 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - `DEV-0000021[T7] agents.sidebar conversation_upsert`
      - `DEV-0000021[T7] agents.sidebar conversation_delete`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- 2026-01-04: Read Chat sidebar WS wiring: `useChatWs.subscribeSidebar()` on mount (when persistence enabled), `unsubscribeSidebar()` on unmount; `conversation_upsert` applies via `useConversations.applyWsUpsert` while ignoring agent-scoped conversations; `conversation_delete` applies via `applyWsDelete`.
+- 2026-01-04: Updated `AgentsPage` to subscribe/unsubscribe sidebar WS feed when persistence is available, apply `conversation_upsert` only when `agentName === selectedAgentName`, apply `conversation_delete` by id, and emit required client log lines (`DEV-0000021[T7] ...`).
+- 2026-01-04: Added Jest coverage for Agents sidebar WS events (`conversation_upsert` filtering + ordering, `conversation_delete` removal) in `client/src/test/agentsPage.sidebarWs.test.tsx`.
+- 2026-01-04: Updated `design.md` with an Agents sidebar WS subscription sequence diagram showing `subscribe_sidebar` and `conversation_upsert`/`conversation_delete` handling with agent-name filtering.
+- 2026-01-04: Updated `projectStructure.md` to include the new client test file `client/src/test/agentsPage.sidebarWs.test.tsx`.
+- 2026-01-04: Ran `npm run lint --workspaces` (clean; server has existing import/order warnings) and `npm run format:check --workspaces` (fixed via `npm run format --workspace client`).
+- 2026-01-04: Testing: `npm run build --workspace server`.
+- 2026-01-04: Testing: `npm run build --workspace client`.
+- 2026-01-04: Testing: `npm run test --workspace server`.
+- 2026-01-04: Testing: `npm run test --workspace client`.
+- 2026-01-04: Testing: `npm run e2e`.
+- 2026-01-04: Testing: `npm run compose:build`.
+- 2026-01-04: Testing: `npm run compose:up`.
+- 2026-01-04: Manual check (Playwright, using `http://host.docker.internal:5001` + `http://host.docker.internal:5010`): verified Agents sidebar receives `conversation_upsert` + `conversation_delete` over `subscribe_sidebar` (agent-filtered), and `/logs` contains the required `DEV-0000021[T7]` client log lines including the exercised `conversationId`.
+- 2026-01-04: Testing: `npm run compose:down`.
 
 ---
 

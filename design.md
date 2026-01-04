@@ -1333,7 +1333,7 @@ flowchart LR
 - Each browser tab mounts a single WebSocket connection while the page is active.
 - When persistence is available (`mongoConnected !== false`):
   - Chat page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the visible transcript only.
-  - Agents page subscribes only to `subscribe_conversation(activeConversationId)` for the selected agent conversation.
+  - Agents page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the selected agent conversation.
 - Switching conversations sends `unsubscribe_conversation(old)` then `subscribe_conversation(new)`; **unsubscribing never cancels a run**.
 - Unmounting the page closes the socket after unsubscribing; **navigation never cancels a run**.
 - Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes **both** the sidebar snapshot and the active conversation turns snapshot via REST before resubscribing.
@@ -1371,6 +1371,31 @@ sequenceDiagram
   end
 
   UI->>WS: close (unmount)
+```
+
+### Agents sidebar WS feed (agent-filtered)
+
+- The Agents sidebar stays live by subscribing to the shared `subscribe_sidebar` feed.
+- `conversation_upsert` events are applied only when `conversation.agentName === selectedAgentName`.
+- `conversation_delete` events remove by `conversationId` (no-op if the item is not in the current sidebar list).
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WS (/ws)
+  participant Store as Sidebar state (useConversations)
+
+  UI->>WS: subscribe_sidebar
+
+  WS-->>UI: conversation_upsert(conv agentName=a1)
+  alt conv.agentName matches selectedAgentName
+    UI->>Store: applyWsUpsert(conv)
+  else other agent
+    UI-->>UI: ignore
+  end
+
+  WS-->>UI: conversation_delete(conversationId)
+  UI->>Store: applyWsDelete(conversationId)
 ```
 
 ### Agents transcript pipeline (client)

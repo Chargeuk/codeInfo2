@@ -92,6 +92,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 - Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
+- Supertest (Express route testing): Context7 `/ladjs/supertest`
 
 #### Subtasks
 
@@ -157,15 +158,54 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
        - `result.conversationId === providedConversationId`
        - `result.agentName === agentName`
 
-5. [ ] Update `projectStructure.md` with the new server test file:
+5. [ ] Server unit tests: keep existing Agents run error mappings stable (archived / agent mismatch / codex unavailable):
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Supertest (Express route testing): Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/test/unit/agents-router-run.test.ts`
+   - Requirements:
+     - Add 3 focused tests that exercise the router’s error mapping (using the existing `buildApp({ runAgentInstruction })` pattern):
+       - When the service throws `{ code: 'CONVERSATION_ARCHIVED' }`, assert HTTP `410` and `{ error: 'archived' }`.
+       - When the service throws `{ code: 'AGENT_MISMATCH' }`, assert HTTP `400` and `{ error: 'agent_mismatch' }`.
+       - When the service throws `{ code: 'CODEX_UNAVAILABLE', reason: '...' }`, assert HTTP `503` and `{ error: 'codex_unavailable', reason: '...' }`.
+     - Keep these tests self-contained (no real agent discovery / no Codex).
+
+6. [ ] Server: align `/agents/:agentName/commands/run` error mapping with `/agents/:agentName/run`:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Supertest (Express route testing): Context7 `/ladjs/supertest`
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Why this is needed (concrete):
+     - `runAgentCommand(...)` ultimately calls `runAgentInstructionUnlocked(...)`, which can throw `CONVERSATION_ARCHIVED`, `AGENT_MISMATCH`, or `CODEX_UNAVAILABLE`.
+     - Today the commands router does not include/match these codes in its error union, so these cases will fall through to a `500` and break parity.
+   - Requirements:
+     - Extend the commands router error union + mapping so these codes return the same HTTP + payload as `/agents/:agentName/run`:
+       - `CONVERSATION_ARCHIVED` → `410 { error: 'archived' }`
+       - `AGENT_MISMATCH` → `400 { error: 'agent_mismatch' }`
+       - `CODEX_UNAVAILABLE` → `503 { error: 'codex_unavailable', reason }`
+     - Add matching unit tests in `server/src/test/unit/agents-commands-router-run.test.ts` by stubbing `runAgentCommand` to throw those codes.
+
+7. [ ] Server unit test: command runs must allow a client-supplied `conversationId` to be *new*:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/agent-commands-runner.test.ts`
+   - Requirements:
+     - Add a test that calls `runAgentCommandRunner({ conversationId: 'c1', ... })` and captures the params passed into `runAgentInstructionUnlocked(...)`.
+     - Assert the runner does **not** set `mustExist: true` just because `conversationId` was provided (it should be omitted or `false`), so a new conversation id can be created on first use.
+
+8. [ ] Update `projectStructure.md` with the new/updated server test files:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Requirements:
-     - Add the new test file under the `server/src/test/integration/` tree section.
+     - Add any new server test file paths created in this task under the correct tree sections.
 
-6. [ ] Run lint/format verification:
+9. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -268,6 +308,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `inflightId` matches
        - `content` equals the submitted instruction
        - `createdAt` is a non-empty string
+     - Assert ordering (corner case): the `user_turn` event is observed before the first `assistant_delta` for the same `(conversationId, inflightId)`.
      - Keep existing assertions for `inflight_snapshot`, `assistant_delta`, and `turn_final`.
    - Test authoring guidance:
      - In the test, start listening for events *before* starting the run (to avoid missing early frames).
@@ -386,8 +427,10 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 - `crypto.randomUUID()` (client-side conversation id generation): https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
 - MUI MCP docs (accordions used by the chat transcript UI):
   - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+- Jest (test runner + mocking): Context7 `/jestjs/jest`
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library queries: https://testing-library.com/docs/queries/about/
+- Testing Library user events: https://testing-library.com/docs/user-event/intro/
 
 #### Subtasks
 
@@ -439,17 +482,44 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - realtime enabled: do not append assistant bubble from `segments`
        - realtime disabled: continue to append assistant bubble from `segments`
 
-3. [ ] Update client tests for WS pipeline adoption:
+3. [ ] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+     - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+   - Files to edit:
+     - `client/src/test/agentsPage.run.test.tsx`
+   - Requirements:
+     - Change the test to explicitly model the new contract:
+       - `mongoConnected: true`
+       - sending calls the Agents REST endpoint but transcript comes from WS.
+     - Emit `user_turn`/`assistant_delta`/`turn_final` and assert the transcript renders.
+     - Ensure the test would fail if the page incorrectly appended `result.segments` in realtime mode:
+       - include a distinctive `segments: [{ type: 'answer', text: 'SEGMENT_SHOULD_NOT_RENDER' }]` in the REST response.
+       - assert `SEGMENT_SHOULD_NOT_RENDER` is **not** visible after the run completes.
+
+4. [ ] Update client tests: WS event handling edge cases (corner cases that must not regress):
    - Documentation to read:
      - Testing Library queries: https://testing-library.com/docs/queries/about/
    - Files to edit:
      - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
-     - Emit a `user_turn` WS event and assert a user bubble renders.
-     - Emit deltas and assert assistant content updates.
-     - Emit `turn_final` and assert assistant status transitions.
+     - Add a test that confirms WS transcript events for a different `conversationId` are ignored (no cross-contamination).
+       - Example: active conversation is `c1`; emit `assistant_delta` for `c2`; assert `c2` text never appears.
+     - Add a test that confirms a late `turn_final` for an older `inflightId` does not overwrite a newer active run.
+       - Use the same pattern as the Chat stream tests: start run A, then run B, then emit late final for A, ensure status/content reflect B.
 
-4. [ ] Run full lint/format verification:
+5. [ ] Update client tests: persistence-unavailable mode still renders REST segments (fallback path):
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Files to add:
+     - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+   - Requirements:
+     - Mock `GET /health` → `{ mongoConnected: false }`.
+     - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
+     - Assert the segment content renders in the transcript even though no WS events are emitted.
+
+6. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -481,6 +551,10 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
   - https://llms.mui.com/material-ui/6.4.12/components/accordion.md
 - MUI MCP docs (status chip used by the chat transcript UI):
   - https://llms.mui.com/material-ui/6.4.12/api/chip.md
+- Jest (test runner + mocking): Context7 `/jestjs/jest`
+- Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library queries: https://testing-library.com/docs/queries/about/
+- Testing Library user events: https://testing-library.com/docs/user-event/intro/
 
 #### Subtasks
 
@@ -520,7 +594,54 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Remove the “Command run: … (step/total)” note from the transcript UI.
      - Keep persistence/storage of `turn.command` unchanged (other consumers may rely on it).
 
-4. [ ] Run full lint/format verification:
+4. [ ] Client test: citations accordion renders under assistant bubbles (Agents parity with Chat):
+   - Documentation to read:
+     - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+   - Files to add:
+     - `client/src/test/agentsPage.citations.test.tsx`
+   - Requirements:
+     - Copy the approach from `client/src/test/chatPage.citations.test.tsx`, but mount `AgentsPage`.
+     - Mock Agents fetch endpoints:
+       - `GET /health` → `{ mongoConnected: true }`
+       - `GET /agents` → one enabled agent
+       - `GET /agents/:agentName/commands` → empty
+       - `GET /conversations?agentName=...` and `GET /conversations/:id/turns` → minimal payloads
+       - `POST /agents/:agentName/run` → success response (segments can be empty)
+     - Emit WS events for an inflight tool-result that contains VectorSearch-style citations (same shape as Chat tests).
+     - Assert:
+       - `data-testid="citations-toggle"` shows `Citations (1)`
+       - The accordion is collapsed by default
+       - Expanding shows `data-testid="citation-path"` and `data-testid="citation-chunk"`.
+
+5. [ ] Client test: thought process (analysis_delta / assistantThink) accordion behavior matches Chat:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Files to add:
+     - `client/src/test/agentsPage.reasoning.test.tsx`
+   - Requirements:
+     - Copy the approach from `client/src/test/chatPage.reasoning.test.tsx`, but mount `AgentsPage`.
+     - Emit an inflight snapshot with `assistantThink` and/or emit `analysis_delta` events.
+     - Assert `think-toggle` exists, is closed by default, and reveals `think-content` when clicked.
+
+6. [ ] Client test: tool Parameters/Result accordions render for tool events:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Files to add:
+     - `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Requirements:
+     - Emit a `tool_event` with a `tool-result` including `parameters` and `result`.
+     - Assert `data-testid="tool-params-accordion"` and `data-testid="tool-result-accordion"` render and are collapsed by default.
+
+7. [ ] Client test: status chip shows Failed when `turn_final.status === 'failed'`:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Files to add:
+     - `client/src/test/agentsPage.statusChip.test.tsx`
+   - Requirements:
+     - Emit an inflight snapshot + assistant delta, then emit `turn_final` with `status: 'failed'`.
+     - Assert the visible status chip contains `Failed` (and does not contain `Complete`).
+
+8. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -578,10 +699,10 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
      - Always abort the in-flight HTTP request via `AbortController` (immediate UI response and required to stop multi-step command runs).
      - Additionally, when `activeConversationId` and `getInflightId()` are both available, call `cancelInflight(activeConversationId, inflightId)`.
      - If the inflight id is not yet known (user clicks Stop immediately), aborting the request alone is still required.
-     - When realtime is disabled (`mongoConnected === false`), do not attempt to send `cancel_inflight` over WS.
    - Concrete implementation guidance:
      - Always call the existing `stop()` / abort logic first.
-     - Only call `cancelInflight(conversationId, inflightId)` when both ids are non-empty and realtime is enabled.
+     - Only call `cancelInflight(conversationId, inflightId)` when both ids are non-empty.
+       - Note: `useChatWs.cancelInflight(...)` is intentionally **not** gated by realtime/persistence, so it remains valid even when `mongoConnected === false`.
 
 3. [ ] Client test: Stop sends a `cancel_inflight` WS message:
    - Documentation to read:
@@ -591,7 +712,17 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
    - Requirements:
      - Assert the WS mock recorded a message `{ type: 'cancel_inflight', conversationId, inflightId }`.
 
-4. [ ] Run lint/format verification:
+4. [ ] Client test: Stop clicked before inflight id is known does not send `cancel_inflight` (but still aborts HTTP):
+   - Documentation to read:
+     - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - Requirements:
+     - Trigger a command execute request and immediately click Stop *before* emitting any WS `inflight_snapshot`/`user_turn` that would populate an inflight id.
+     - Assert the request abort signal becomes aborted.
+     - Assert the WS mock recorded **no** `{ type: 'cancel_inflight', ... }` messages.
+
+5. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -661,13 +792,22 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Emit a second `conversation_upsert` for a different `agentName` and confirm it is ignored.
      - Emit an upsert with a newer `lastMessageAt` and confirm it reorders to the top.
 
-4. [ ] Update `projectStructure.md` with any new test files added:
+4. [ ] Client test: Agents sidebar removes items on WS `conversation_delete`:
+   - Documentation to read:
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Files to edit:
+     - `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Requirements:
+     - Emit a `conversation_upsert` for an agent conversation and assert it renders.
+     - Emit a `conversation_delete` for that `conversationId` and assert it is removed from the sidebar.
+
+5. [ ] Update `projectStructure.md` with any new test files added:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
 
-5. [ ] Run lint/format verification:
+6. [ ] Run lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`

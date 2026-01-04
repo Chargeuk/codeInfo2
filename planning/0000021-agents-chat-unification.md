@@ -18,6 +18,8 @@ Today the Chat page and the Agents page serve similar purposes (history sidebar,
 
 We want the Agents page to use the same layout, components, and WebSocket transcript logic as the Chat page so the user experience is consistent and stable. Agent-specific controls (agent selection, command execution, working folder) should replace the Chat provider/model controls, but the transcript rendering, tool/citation handling, and sidebar behavior should mirror Chat.
 
+We also plan to unify the backend execution/streaming path so both Chat and Agents runs flow through the same server-side orchestration for WebSocket events (including `user_turn`, `inflight_snapshot`, tool events, and `turn_final`). This avoids maintaining two nearly identical pipelines and prevents drift where one path emits events or state updates the other does not. Once the new Agents page is in place, the legacy Agents UI logic and any legacy server-side Agents run path that bypasses the unified streaming flow will be removed so there is only one end-to-end path to maintain.
+
 ---
 
 ## Acceptance Criteria
@@ -54,4 +56,3 @@ We want the Agents page to use the same layout, components, and WebSocket transc
 ## Instructions
 
 Tasks will be added after the above questions are resolved and the exact scope is confirmed.
-

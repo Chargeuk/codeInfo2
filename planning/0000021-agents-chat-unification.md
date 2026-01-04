@@ -579,7 +579,19 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - `source` equal to the provided source (e.g. `'REST'`).
      - Keep the test fast: no WS server is required for this check; it only validates the `chat.run(...)` call contract.
 
-7. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
+7. [ ] Remove any legacy Agents-only server path that bypasses the shared run orchestration:
+   - Documentation to read:
+     - None (repo-local audit).
+   - Files to scan:
+     - `server/src/agents/`
+     - `server/src/routes/`
+     - `server/src/chat/`
+   - Requirements:
+     - Search for any Agents-only streaming or transcript plumbing that does **not** use the shared `chat.run(...)` + `chatStreamBridge` path (for example: bespoke SSE handlers, duplicate WS emitters, or standalone transcript aggregators).
+     - If any such code exists and is now redundant after Tasks 1–2, remove it and update any imports/tests.
+     - If no such code exists, note that explicitly in this task’s Implementation notes.
+
+8. [ ] Update `design.md` with the Agents run-start WS contract (Chat parity):
    - Documentation to read:
      - Mermaid diagrams (sequence diagram syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid sequence diagram syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -592,7 +604,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - server publishes `user_turn` immediately
        - then `inflight_snapshot` / deltas / `turn_final`.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -788,6 +800,10 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Instantiate `useChatStream` with fixed `provider='codex'` and a safe fallback `model` string (Agents should not expose provider/model controls).
+     - Replace the “safe fallback” once the real model is known:
+       - Store `agentModelId` in state.
+       - When a run or command response returns `modelId`, update `agentModelId` and pass it into `useChatStream`.
+       - Reset `agentModelId` when the selected agent changes or when “New conversation” is clicked.
      - Important: Agents “Send” must continue to call the Agents REST endpoints (via `client/src/api/agents.ts`), not `useChatStream.send()` (which posts to `/chat`). `useChatStream` is used here only for WS transcript state + hydration helpers.
      - Important (realtime-enabled mode): Agents runs must have a known `conversationId` **before** starting the request so the page can subscribe to WS and receive early `user_turn`/deltas.
        - When `activeConversationId` is empty (new conversation), generate a client-side id (use the same `crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)` fallback the file already uses).
@@ -799,11 +815,11 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - Forward `inflight_snapshot` to `hydrateInflightSnapshot(...)`.
      - Remove `liveInflight` state and all logic that manually appends deltas/tool events.
      - Do not render any Agents-only transcript elements (e.g., command step metadata notes); transcript rendering must match Chat.
-     - Persistence-unavailable fallback (must keep existing functionality):
-       - When `mongoConnected === false` (realtime disabled), keep using the existing segment-based rendering for Send (`result.segments` → assistant bubble) because WS transcript events will not arrive.
+     - WS-unavailable fallback (must keep existing functionality):
+       - When WS is unavailable (either `realtimeEnabled === false` **or** the WS `connectionState` is not `open`), keep using the existing segment-based rendering for Send (`result.segments` → assistant bubble) because WS transcript events will not arrive.
        - Commands are already disabled in this mode; ensure that remains true.
      - Realtime-enabled behavior (must avoid duplicate assistant bubbles):
-       - When realtime is enabled (`mongoConnected !== false`), do **not** append an assistant message from `result.segments`.
+       - When realtime is enabled **and** the WS connection is `open`, do **not** append an assistant message from `result.segments`.
        - Treat the REST response as a completion signal only; the transcript should come entirely from WS events.
    - Concrete implementation guidance (high level):
      - Replace bespoke `messages/liveInflight` state with `useChatStream(...).messages`.
@@ -819,12 +835,13 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - Files to edit:
          - `client/src/pages/AgentsPage.tsx`
        - Requirements:
-         - Use `createLogger('client')` (as used elsewhere in the repo) and emit these **exact** messages during a realtime-enabled run:
-           - `DEV-0000021[T4] agents.ws subscribe_conversation` (when subscribing to WS for the conversation id)
-           - `DEV-0000021[T4] agents.ws event user_turn` (when receiving `user_turn`)
-           - `DEV-0000021[T4] agents.ws event inflight_snapshot` (when receiving `inflight_snapshot`)
-           - `DEV-0000021[T4] agents.ws event turn_final` (when receiving `turn_final`)
-         - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
+       - Use `createLogger('client')` (as used elsewhere in the repo) and emit these **exact** messages during a realtime-enabled run:
+         - `DEV-0000021[T4] agents.ws subscribe_conversation` (when subscribing to WS for the conversation id)
+          - `DEV-0000021[T4] agents.ws event user_turn` (when receiving `user_turn`)
+          - `DEV-0000021[T4] agents.ws event inflight_snapshot` (when receiving `inflight_snapshot`)
+          - `DEV-0000021[T4] agents.ws event turn_final` (when receiving `turn_final`)
+        - Each log must include `conversationId` in `context`, and the transcript events must also include `inflightId` (where present).
+        - Include `modelId` in the log context (use the same model id passed into `useChatStream`).
 
 3. [ ] Update client tests: realtime-enabled mode relies on WS events (and ignores REST `segments`):
    - Test type:
@@ -894,13 +911,13 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Emit a late `turn_final` for `inflightId: 'i1'`.
      - Assert the UI still reflects run B’s inflight id/status.
 
-6. [ ] Client RTL test (Jest + Testing Library): persistence-unavailable mode still renders REST segments (fallback path):
+6. [ ] Client RTL test (Jest + Testing Library): WS-unavailable mode still renders REST segments (fallback path):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
      - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
    - Description:
-     - When `mongoConnected === false`, Agents should still render the REST response `segments` for single-instruction runs.
+     - When WS is unavailable (realtime disabled or connection not open), Agents should still render the REST response `segments` for single-instruction runs.
    - Purpose:
      - Preserve the non-realtime fallback UX after switching Agents to the Chat WS pipeline.
    - Documentation to read:
@@ -911,11 +928,31 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
    - Files to read:
      - `client/src/test/agentsPage.run.test.tsx`
    - Requirements:
-     - Mock `GET /health` → `{ mongoConnected: false }`.
+     - Force WS to be unavailable:
+       - Either mock `GET /health` → `{ mongoConnected: false }` (disables realtime), **or**
+       - Configure the WS mock to never reach `connectionState: 'open'` (if the harness supports this).
      - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
      - Assert the segment content renders in the transcript even though no WS events are emitted.
 
-7. [ ] Client RTL test (Jest + Testing Library): command Execute includes a client-generated `conversationId` when none is selected (realtime-enabled mode):
+7. [ ] Client RTL test (Jest + Testing Library): multiple inflight snapshots in a single command run create separate assistant bubbles:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/agentsPage.streaming.test.tsx`
+   - Description:
+     - Simulate a multi-step command run where the server emits more than one inflight snapshot (`inflightId: i1` then `inflightId: i2`).
+   - Purpose:
+     - Ensures the transcript does not clobber earlier steps and that `useChatStream` correctly resets for each inflight.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library queries: https://testing-library.com/docs/queries/about/
+   - Requirements:
+     - Start with a selected conversation.
+     - Emit `inflight_snapshot` for `i1`, then `assistant_delta`, then `turn_final`.
+     - Emit a second `inflight_snapshot` for `i2` and a second `assistant_delta`.
+     - Assert the transcript shows **two** assistant bubbles (one per inflight).
+
+8. [ ] Client RTL test (Jest + Testing Library): command Execute includes a client-generated `conversationId` when none is selected (realtime-enabled mode):
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -939,7 +976,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `commandName: <selected command>`
        - `conversationId: <non-empty string>`
 
-8. [ ] Update `projectStructure.md` with files added/removed in this task:
+9. [ ] Update `projectStructure.md` with files added/removed in this task:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -950,7 +987,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Remove:
        - (none)
 
-9. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
+10. [ ] Update `design.md` to document the Agents client transcript pipeline (Chat WS reuse):
    - Documentation to read:
      - Mermaid diagrams (flowchart syntax): Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid flowchart syntax (official): https://mermaid.js.org/syntax/flowchart.html
@@ -966,7 +1003,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `useChatStream` (state/merge)
        - `useConversationTurns` (history hydration)
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -980,7 +1017,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 8. [ ] Manual Playwright-MCP check:
    - Start an Agents run and confirm the transcript renders using the Chat WS pipeline (user turn appears, then streaming assistant output, then final).
    - Refresh the page mid-run (or open another tab) and confirm the transcript is recoverable via WS snapshot/hydration (no duplicated/missing bubbles).
-   - With Mongo disabled (or server reporting `mongoConnected=false`), confirm sending still works (stateless streaming) and archive controls remain disabled.
+   - With WS unavailable (realtime disabled or WS disconnected), confirm sending still works via REST segments and archive controls remain disabled.
    - Open `/logs` and search for these entries (copy/paste the message text):
      - `DEV-0000021[T4] agents.ws subscribe_conversation`
      - `DEV-0000021[T4] agents.ws event user_turn`

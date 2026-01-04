@@ -133,6 +133,15 @@ export class McpResponder {
       this.transientReconnectLastMessage = message;
       return;
     }
+
+    const lower = message.toLowerCase();
+    if (lower.includes('abort') || lower.includes('stop')) {
+      if (!this.answerText.trim().length) {
+        this.answerText = 'Stopped';
+      }
+      return;
+    }
+
     this.errorMessage = message;
   }
 }

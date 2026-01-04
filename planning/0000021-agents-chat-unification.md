@@ -406,6 +406,7 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 - Testing: `npm run e2e`.
 - Testing: `npm run compose:build`.
 - Testing: `npm run compose:up`.
+- Testing: `npm run compose:down`.
 - Manual verification (host.docker.internal): subscribed to `ws://host.docker.internal:5010/ws` for a new id, then called `POST /agents/planning_agent/run` with `conversationId=manual-t1-1767548777522-264683146fda4` and observed `turn_final { status: 'ok' }`.
 - Manual verification (host.docker.internal): executed `POST /agents/planning_agent/commands/run` with `{ commandName: 'smoke', conversationId: manual-t1-1767548777522-264683146fda4 }` and confirmed `/logs?text=DEV-0000021[T1]` contains both required log entries with `clientProvidedConversationId: true` and `mustExist: false`.
 - Testing: `npm run compose:down`.
@@ -681,7 +682,7 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 ### 3. Server: cancellation test coverage for Agents (`cancel_inflight`)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -698,7 +699,7 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 
 #### Subtasks
 
-1. [ ] Read the existing WS cancellation logic and the chat cancellation test patterns:
+1. [x] Read the existing WS cancellation logic and the chat cancellation test patterns:
    - Documentation to read:
      - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
      - `ws` docs (heartbeat / terminate vs close): Context7 `/websockets/ws/8_18_3`
@@ -730,7 +731,7 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
            - `message: 'DEV-0000021[T3] inflight aborted'`
            - `context` containing at least: `conversationId`, `inflightId`
 
-2. [ ] Add server integration coverage for cancelling an agent run via WS:
+2. [x] Add server integration coverage for cancelling an agent run via WS:
    - Test type:
      - node:test integration test (server)
    - Test location:
@@ -756,7 +757,7 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
        - checks `flags.signal.aborted` and emits an `error` when aborted.
      - Expectation: after sending `cancel_inflight`, you should get `turn_final.status === 'stopped'`.
 
-3. [ ] Update `projectStructure.md` with the new server test file:
+3. [x] Update `projectStructure.md` with the new server test file:
    - Documentation to read:
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -767,18 +768,18 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - Remove:
        - (none)
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Start an Agents run and click Stop while the run is still streaming.
    - Confirm the run stops promptly and the transcript shows a stopped final state (not a generic failure).
    - Confirm starting a new run after stopping works (no stuck “RUN_IN_PROGRESS” state).
@@ -786,12 +787,23 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - `DEV-0000021[T3] ws cancel_inflight received`
      - `DEV-0000021[T3] inflight aborted`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Added T3 log lines: `DEV-0000021[T3] ws cancel_inflight received` (WS handler) and `DEV-0000021[T3] inflight aborted` (AbortController aborted).
+- Added `server/src/test/integration/agents-run-ws-cancel.test.ts` to cover cancelling an agent run via WS and asserting `turn_final.status === 'stopped'`.
+- Updated `projectStructure.md` to list the new integration test.
+- Validation: `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` pass (after `npm run format --workspace server`).
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client`.
+- Testing: `npm run test --workspace server` (took ~5m).
+- Testing: `npm run test --workspace client`.
+- Testing: `npm run e2e`.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual verification (host.docker.internal): started `/agents/coding_agent/run` with `conversationId=manual-t3-1767552898649-24f1a37a`, observed WS `inflight_snapshot.inflightId=2729172a-308c-46b6-850c-2e0945e9f83d`, sent `cancel_inflight`, and observed `turn_final.status === 'stopped'` plus both required log messages in `/logs?text=DEV-0000021[T3]`.
 - 
-
 ---
 
 ### 4. Client: switch Agents transcript state to the Chat WS pipeline

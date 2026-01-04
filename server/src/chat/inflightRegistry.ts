@@ -1,3 +1,6 @@
+import { append } from '../logStore.js';
+import { baseLogger } from '../logger.js';
+
 export type ToolEvent =
   | {
       type: 'tool-request';
@@ -154,7 +157,28 @@ export function abortInflight(params: {
   if (!state) return { ok: false, reason: 'INFLIGHT_NOT_FOUND' };
   if (state.inflightId !== params.inflightId)
     return { ok: false, reason: 'INFLIGHT_MISMATCH' };
+  const alreadyAborted = state.abortController.signal.aborted;
   state.abortController.abort();
+  if (!alreadyAborted) {
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000021[T3] inflight aborted',
+      timestamp,
+      source: 'server',
+      context: {
+        conversationId: params.conversationId,
+        inflightId: params.inflightId,
+      },
+    });
+    baseLogger.info(
+      {
+        conversationId: params.conversationId,
+        inflightId: params.inflightId,
+      },
+      'DEV-0000021[T3] inflight aborted',
+    );
+  }
   return {
     ok: true,
     signal: state.abortController.signal,

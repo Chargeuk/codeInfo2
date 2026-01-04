@@ -1490,7 +1490,7 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 ### 7. Client: Agents sidebar updates via WS (`subscribe_sidebar`)
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: 7992b39
 
 #### Overview
 

@@ -44,7 +44,7 @@ We also plan to unify the backend execution/streaming path so both Chat and Agen
 ## Questions
 
 - Should we create a shared server-side “run orchestration” helper used by both `/chat` and `/agents`, so WS event emission and inflight handling are identical?
-- Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds?
+- Should agent runs publish a `user_turn` WS event (server-side) so the unified transcript logic renders the user bubble without client-side workarounds? **Answer:** Yes — reusing the chat run flow means `user_turn` should be emitted as part of the unified server path.
 - After unification, should the Agents UI rely exclusively on WS transcript events, with the REST `segments` response kept only as a non-UI fallback?
 - Given the chat view must remain unchanged, how should agent-specific command metadata be represented without UI changes (drop it, or map it into existing tool/event data)?
 - How should “Stop” behave for agent runs once the unified WS path is in place (match Chat: cancel inflight + abort fetch)?

@@ -326,7 +326,17 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Start a new Agents conversation and send an instruction with a client-supplied `conversationId` (new id not yet persisted).
+   - Confirm the run completes successfully (no `archived`/`agent_mismatch`/`agent_run_failed` error) and the transcript renders.
+   - Execute an Agent command run from the same new conversation id and confirm it also completes.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -514,7 +524,17 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Open Agents in two browser contexts (two tabs or two windows).
+   - Start an Agents run in context A and confirm context B shows the initiating user message immediately (run-start parity) and then receives streaming transcript updates.
+   - Confirm the final assistant status transitions to the correct completed state and the conversation appears in the sidebar.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -600,7 +620,17 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Start an Agents run and click Stop while the run is still streaming.
+   - Confirm the run stops promptly and the transcript shows a stopped final state (not a generic failure).
+   - Confirm starting a new run after stopping works (no stuck “RUN_IN_PROGRESS” state).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -829,8 +859,18 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Start an Agents run and confirm the transcript renders using the Chat WS pipeline (user turn appears, then streaming assistant output, then final).
+   - Refresh the page mid-run (or open another tab) and confirm the transcript is recoverable via WS snapshot/hydration (no duplicated/missing bubbles).
+   - With Mongo disabled (or server reporting `mongoConnected=false`), confirm sending still works (stateless streaming) and archive controls remain disabled.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1010,8 +1050,18 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Run an Agent instruction that triggers tool calls and confirm tools render with the same Parameters/Result accordions as Chat.
+   - Confirm citations render in the same default-closed citations accordion under assistant bubbles (and are stable across refresh).
+   - Confirm assistant status chips match Chat behavior (Processing → Complete, or Failed/Stopped when applicable).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1124,8 +1174,18 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Start an Agents run and click Stop immediately; confirm the HTTP request aborts and the WS `cancel_inflight` also fires (no long tail streaming).
+   - Confirm Stop is still enabled/functional even when Mongo is disconnected (WS cancel should not be gated on persistence).
+   - Confirm the UI returns to an idle state after stopping and the user can Send again.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1256,8 +1316,18 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Open two browser contexts for the same agent; create/run a conversation in context A.
+   - Confirm the Agents sidebar in context B updates via WS (`conversation_upsert`/`conversation_delete`) without refresh and remains filtered to the selected agent.
+   - Confirm deleting/archiving (where supported) updates the sidebar live and does not break selection.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1429,10 +1499,18 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-
----
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Desktop: confirm left Drawer is persistent at width 320 and the transcript/controls match the Chat layout.
+   - Mobile viewport: confirm Drawer switches to temporary, can be opened/closed, and content remains usable.
+   - Confirm “New conversation”, “Send”, “Stop”, agent selection, and command execution are accessible and do not cause layout overflow.
+9. [ ] `npm run compose:down`
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
@@ -1496,12 +1574,16 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run test:unit --workspace server`
-7. [ ] `npm run test:integration --workspace server`
-8. [ ] `npm run e2e:test`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
+   - Verify every Acceptance Criteria item directly in the UI (Agents layout parity, transcript parity, sidebar live updates, stop/cancel behavior).
+   - Regression pass: verify Chat page still behaves identically (sidebar, transcript rendering, tool/citation accordions, stop/cancel).
+   - Capture any required screenshots in `test-results/screenshots/` per `planning/plan_format.md`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

@@ -321,16 +321,12 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
      - Remove:
        - (none)
 
-15. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -513,16 +509,12 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
        - server publishes `user_turn` immediately
        - then `inflight_snapshot` / deltas / `turn_final`.
 
-8. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -603,16 +595,12 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
      - Remove:
        - (none)
 
-4. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run test --workspace server`
 
 #### Implementation notes
 
@@ -837,16 +825,12 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
        - `useChatStream` (state/merge)
        - `useConversationTurns` (history hydration)
 
-10. [ ] Run full lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1022,16 +1006,12 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Remove (if deleted by this task):
        - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
 
-9. [ ] Run full lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1140,16 +1120,12 @@ Update the Agents Stop behavior to match Chat: always abort the in-flight HTTP r
        - if `conversationId` + `inflightId` exist, client sends WS `cancel_inflight`
        - server aborts inflight and emits `turn_final: stopped`.
 
-6. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1276,16 +1252,12 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
      - Remove:
        - (none)
 
-7. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run test --workspace client`
 
 #### Implementation notes
 
@@ -1453,16 +1425,12 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update the expected transcript container test id if it changes (prefer keeping Chat-parity ids).
 
-9. [ ] Run lint/format verification:
-   - Documentation to read:
-     - None (repo-local commands).
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace client`
+4. [ ] `npm run test --workspace client`
 
 ---
 
@@ -1494,41 +1462,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 1. [ ] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
    - Documentation to read:
      - This story’s Acceptance Criteria section (at the top of this file).
-2. [ ] Run clean builds:
-   - `npm run build --workspace server`
-   - `npm run build --workspace client`
-3. [ ] Run a clean Docker build and ensure Compose boots:
-   - `npm run compose:build:clean`
-   - `npm run compose:up`
-4. [ ] Run client unit/integration tests (Jest):
-   - Test type: Jest (client)
-   - Command:
-     - `npm run test --workspace client`
-   - Purpose:
-     - Validate AgentsPage refactors didn’t break existing client behavior.
-
-5. [ ] Run server unit/integration tests (node:test):
-   - Test type: node:test (server)
-   - Command:
-     - `npm run test:unit --workspace server`
-   - Purpose:
-     - Validate REST/WS contract changes (agents/chat parity) without relying on Cucumber features.
-
-6. [ ] Run server BDD tests (Cucumber):
-   - Test type: Cucumber (server)
-   - Command:
-     - `npm run test:integration --workspace server`
-   - Purpose:
-     - Ensure the chat/WS behavior and cancellation flows remain correct end-to-end.
-
-7. [ ] Run end-to-end tests (Playwright):
-   - Test type: Playwright (e2e)
-   - Command:
-     - `npm run e2e:test` (if environment supports it)
-   - Purpose:
-     - Confirm the final UI (Agents parity with Chat layout + streaming) works in a browser.
-
-8. [ ] Update documentation: `README.md`
+2. [ ] Update documentation: `README.md`
    - Document:
      - `README.md` (repo root)
    - Purpose:
@@ -1536,7 +1470,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
    - Description:
      - Update any sections that reference Agents UI behavior, WS streaming, stop/cancel behavior, or prerequisites.
 
-9. [ ] Update documentation: `design.md`
+3. [ ] Update documentation: `design.md`
    - Document:
      - `design.md` (repo root)
    - Purpose:
@@ -1545,7 +1479,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
      - Validate all Mermaid diagrams added/updated in earlier tasks are present, render, and reflect the final code.
      - Add any missing diagram(s) only if the implementation diverged.
 
-10. [ ] Update documentation: `projectStructure.md`
+4. [ ] Update documentation: `projectStructure.md`
     - Document:
       - `projectStructure.md` (repo root)
     - Purpose:
@@ -1553,15 +1487,21 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
     - Description:
       - Ensure every new/removed file referenced in Tasks 1–8 is reflected in the tree.
 
-11. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
-12. [ ] Write a pull request summary comment covering all tasks and major changes.
+5. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
+6. [ ] Write a pull request summary comment covering all tasks and major changes.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] `npm run test:integration --workspace server`
-4. [ ] `npm run e2e:test`
+1. [ ] `npm run lint --workspaces`
+2. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run build --workspace server`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run compose:build:clean`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run test --workspace client`
+8. [ ] `npm run test:unit --workspace server`
+9. [ ] `npm run test:integration --workspace server`
+10. [ ] `npm run e2e:test`
 
 #### Implementation notes
 

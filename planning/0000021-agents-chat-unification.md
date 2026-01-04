@@ -533,6 +533,7 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library queries: https://testing-library.com/docs/queries/about/
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+- Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -663,7 +664,16 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
      - Mock `POST /agents/:agentName/run` to return a response containing a distinctive segment answer like `SEGMENT_FALLBACK_OK`.
      - Assert the segment content renders in the transcript even though no WS events are emitted.
 
-7. [ ] Run full lint/format verification:
+7. [ ] Update `projectStructure.md` with the new client test file added in this task:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add:
+       - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+
+8. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`
@@ -699,6 +709,7 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Testing Library queries: https://testing-library.com/docs/queries/about/
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
+- Markdown guide (basic syntax, for updating docs/tree): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -817,7 +828,21 @@ Make Agents transcript rendering match Chat: same status chip behavior, same too
      - Emit an inflight snapshot + assistant delta, then emit `turn_final` with `status: 'failed'`.
      - Assert the visible status chip contains `Failed` (and does not contain `Complete`).
 
-8. [ ] Run full lint/format verification:
+8. [ ] Update `projectStructure.md` with files added/removed in this task:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add:
+       - `client/src/test/agentsPage.citations.test.tsx`
+       - `client/src/test/agentsPage.reasoning.test.tsx`
+       - `client/src/test/agentsPage.toolsUi.test.tsx`
+       - `client/src/test/agentsPage.statusChip.test.tsx`
+     - Remove (if deleted by this task):
+       - `client/src/test/agentsPage.commandMetadataRender.test.tsx`
+
+9. [ ] Run full lint/format verification:
    - Documentation to read:
      - None (repo-local commands).
    - `npm run lint --workspaces`

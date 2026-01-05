@@ -537,18 +537,23 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Call `safeSend(ws, event)`.
      - Keep `seq` per socket (use the same `nextIngestSeq(ws)` introduced in Task 1).
 
-3. [ ] Centralize ingest status writes so WS updates are emitted:
+3. [ ] Add a status publish helper:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Introduce a tiny helper (example name): `setStatusAndPublish(runId, nextStatus)`.
        - It must call `jobs.set(runId, nextStatus)`.
        - It must call `broadcastIngestUpdate(nextStatus)`.
+     - Keep existing REST behavior unchanged.
+
+4. [ ] Replace status writes with the publish helper:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
      - Replace every `jobs.set(runId, ...)` that represents a user-visible status/progress change with the helper.
        - This includes the initial `queued` status set in `startIngest(...)`.
        - This includes progress updates inside `progressSnapshot(...)`.
        - This includes terminal states: `completed`, `skipped`, `cancelled`, `error`.
-     - Keep existing REST behavior unchanged.
 
    - Must-not-miss details (repeat from acceptance criteria):
      - There must be **no polling fallback** on the client. This means server WS updates are the only realtime source.
@@ -565,13 +570,13 @@ This task completes the server-side realtime path for ingest by wiring status up
        }
        ```
 
-4. [ ] Ensure cancel flows publish a final update:
+5. [ ] Ensure cancel flows publish a final update:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts` (`cancelRun`)
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
-5. [ ] Add server unit test coverage for ingest updates:
+6. [ ] Add server unit test coverage for ingest updates:
    - Test type:
      - node:test unit test (server)
    - Test location:
@@ -595,7 +600,7 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Call `__setStatusAndPublishForTest(...)` again with `state: 'completed'`.
      - Wait for a second `ingest_update` and assert `seq` increased.
 
-6. [ ] Run repo lint/format checks:
+7. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -830,25 +835,36 @@ This task does not change the Ingest page layout yet; it only changes how status
      - `client/src/hooks/useChatWs.ts` (new ingest event types to consume)
      - `client/src/test/support/mockWebSocket.ts` (WS mocking)
 
-2. [ ] Replace polling with WS subscription (no `/ingest/status/:runId` fetches):
+2. [ ] Remove polling + update hook signature/state:
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
      - Remove polling/timers and any fetches to `/ingest/status/:runId`.
      - Remove the `runId` parameter from the hook signature.
-    - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot` / `ingest_update`.
-      - Only handle these two event types; ignore everything else.
-    - Subscribe to ingest only while the hook is mounted:
-      - Call `subscribeIngest()` in a `useEffect(..., [])`.
-      - Call `unsubscribeIngest()` in the cleanup function.
-      - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
-    - Expose a minimal, predictable API for the page:
-      - `status: ChatWsIngestStatus | null`
-      - `connectionState: ChatWsConnectionState` (from `useChatWs`)
-      - Preserve existing cancel/error affordances for the UI:
-        - Keep `isCancelling` and `cancel()` (rest cancel endpoint).
-        - Keep `error` for cancel failures only (no polling error state).
-        - Derive `isLoading` from `connectionState === 'connecting'` so ActiveRunCard can disable the cancel button while WS connects.
+     - Store status as `ChatWsIngestStatus | null` (WS-driven state).
+
+3. [ ] Wire WS subscription + event handling:
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Requirements:
+     - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot` / `ingest_update`.
+       - Only handle these two event types; ignore everything else.
+     - Subscribe to ingest only while the hook is mounted:
+       - Call `subscribeIngest()` in a `useEffect(..., [])`.
+       - Call `unsubscribeIngest()` in the cleanup function.
+       - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
+
+4. [ ] Expose a minimal, predictable WS-driven API:
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Requirements:
+     - Return the core fields:
+       - `status: ChatWsIngestStatus | null`
+       - `connectionState: ChatWsConnectionState` (from `useChatWs`)
+     - Preserve existing cancel/error affordances for the UI:
+       - Keep `isCancelling` and `cancel()` (rest cancel endpoint).
+       - Keep `error` for cancel failures only (no polling error state).
+       - Derive `isLoading` from `connectionState === 'connecting'` so ActiveRunCard can disable the cancel button while WS connects.
 
    - Must-not-miss details (repeat from acceptance criteria):
      - WS-only: there is **no polling fallback**.
@@ -879,7 +895,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      }
      ```
 
-3. [ ] Keep cancel behavior via REST (server unchanged):
+5. [ ] Keep cancel behavior via REST (server unchanged):
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
@@ -891,7 +907,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Reuse the existing `serverBase` constant for building URLs.
      - Prefer not to optimistically mutate `status` on success; allow the server’s `ingest_update` to drive the final state.
 
-4. [ ] Update existing ingest status tests to WS-driven behavior:
+6. [ ] Update existing ingest status tests to WS-driven behavior:
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
      - `client/src/test/ingestStatus.progress.test.tsx`
@@ -918,14 +934,14 @@ This task does not change the Ingest page layout yet; it only changes how status
        - `data-testid="ingest-current-file"` updates.
        - Percent and ETA text updates.
 
-5. [ ] Documentation update (task-local):
+7. [ ] Documentation update (task-local):
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-6. [ ] Run repo lint/format checks:
+8. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -962,29 +978,28 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - `client/src/hooks/useIngestStatus.ts`
      - `client/src/components/ingest/ActiveRunCard.tsx`
 
-2. [ ] Update Ingest page to use the WS-based `useIngestStatus()`:
+2. [ ] Remove local run tracking and derive active status from WS:
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
      - Remove the `activeRunId` state from the page. The ingest run ID must come from WebSocket `status.runId` (global stream; no runId filters).
-      - The page must render ingest progress from WS only.
-      - If WS is unavailable (connection state is `closed`), show a clear error UI state (and do not start polling).
-        - While the connection is `connecting`, show a non-error “Connecting…” state.
-      - Preserve disabled-state behavior:
-        - Disable `IngestForm` + `RootsTable` actions while an active run is in progress, derived from the WS status (non-terminal states only).
-      - “No last run summary” rule:
-        - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
-        - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
-      - Keep cancel functionality working using the existing REST endpoint (`POST /ingest/cancel/:runId`) using the WS status’ `runId`.
-      - Preserve existing “refresh roots/models after completion” behavior:
-        - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
-        - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
-      - Because `activeRunId` is removed, keep component integration compiling by either:
-        - Passing a no-op `onStarted` / `onRunStarted` callback, **or**
-        - Making those callbacks optional if you adjust the component prop types.
-        - Do **not** re-introduce local runId tracking in the page.
-     - Ensure page-scoped updates:
-       - Only subscribe while `/ingest` is mounted (this should naturally happen if only `IngestPage` mounts `useIngestStatus()`).
+     - The page must render ingest progress from WS only.
+     - “No last run summary” rule:
+       - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
+       - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
+
+3. [ ] Preserve page behavior for active runs:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Requirements:
+     - Preserve disabled-state behavior:
+       - Disable `IngestForm` + `RootsTable` actions while an active run is in progress, derived from the WS status (non-terminal states only).
+     - Keep cancel functionality working using the existing REST endpoint (`POST /ingest/cancel/:runId`) using the WS status’ `runId`.
+     - Preserve existing “refresh roots/models after completion” behavior:
+       - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
+       - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
+    - Ensure page-scoped updates:
+      - Only subscribe while `/ingest` is mounted (this should naturally happen if only `IngestPage` mounts `useIngestStatus()`).
 
    - Must-not-miss details (repeat from acceptance criteria):
      - WS-only: there must be **no** `/ingest/status/:runId` timer in this page.
@@ -1003,11 +1018,25 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Render the `ActiveRunCard` only when `active !== null`.
      - Keep refresh-on-terminal logic, but trigger it off WS state transitions:
        - Use a `useRef<string | null>` to ensure refresh runs only once per `runId:state`.
-     - For reliability in tests/e2e, add a stable test id for the active status chip:
-       - File to edit: `client/src/components/ingest/ActiveRunCard.tsx`
-       - Add `data-testid="ingest-status-chip"` to the status `Chip`.
 
-3. [ ] Add explicit WS connection UI states:
+4. [ ] Keep start callbacks wired without local run state:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+     - `client/src/components/ingest/IngestForm.tsx`
+     - `client/src/components/ingest/RootsTable.tsx`
+   - Requirements:
+     - Because `activeRunId` is removed, keep component integration compiling by either:
+       - Passing a no-op `onStarted` / `onRunStarted` callback, **or**
+       - Making those callbacks optional if you adjust the component prop types.
+       - Do **not** re-introduce local runId tracking in the page.
+
+5. [ ] Add a stable status chip test id:
+   - Files to edit:
+     - `client/src/components/ingest/ActiveRunCard.tsx`
+   - Requirements:
+     - Add `data-testid="ingest-status-chip"` to the status `Chip`.
+
+6. [ ] Add explicit WS connection UI states:
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
@@ -1017,7 +1046,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - `data-testid="ingest-ws-connecting"`
        - `data-testid="ingest-ws-unavailable"`
 
-4. [ ] Add/update Ingest page tests (page-level):
+7. [ ] Add/update Ingest page tests (page-level):
    - Files to edit/add:
      - Prefer updating the existing IngestPage coverage inside `client/src/test/ingestStatus.test.tsx`.
    - Requirements:
@@ -1035,14 +1064,14 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - Assert on `data-testid="ingest-status-chip"`.
        - Assert `Active ingest` heading is absent when idle.
 
-5. [ ] Documentation update (task-local):
+8. [ ] Documentation update (task-local):
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-6. [ ] Run repo lint/format checks:
+9. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 

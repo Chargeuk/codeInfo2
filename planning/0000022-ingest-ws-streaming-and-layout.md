@@ -430,7 +430,14 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest` and `/chat`, confirm the app loads without console errors and existing pages still render after WS message-type changes.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -594,7 +601,14 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the UI remains stable (no crashes) while the server now returns active snapshots.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -764,7 +778,14 @@ This task completes the server-side realtime path for ingest by wiring status up
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest` in two tabs and confirm no regressions while server broadcast logic is active (page renders, no JS errors).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1036,8 +1057,15 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/chat` and `/agents`, send a message, and confirm WS transcripts still stream correctly after `useChatWs` changes.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1269,8 +1297,15 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1476,8 +1511,15 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest`, verify no last-run summary when idle, and confirm WS error/connecting banners appear for closed/connecting states.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1574,8 +1616,15 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `/ingest` and confirm the page uses full-width layout (no horizontal clipping of the roots table).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1700,21 +1749,22 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 
 #### Testing
 
-1. [ ] Build the server: `npm run build --workspace server`
-2. [ ] Build the client: `npm run build --workspace client`
-3. [ ] Run server tests: `npm run test --workspace server`
-4. [ ] Run client tests: `npm run test --workspace client`
-5. [ ] Perform a clean docker build: `npm run compose:build`
-6. [ ] Start docker compose: `npm run compose:up`
-7. [ ] Run e2e tests: `npm run e2e`
-8. [ ] Manual multi-tab verification:
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check:
    - Open `/ingest` in two browser tabs.
    - Start an ingest run in tab A.
    - Confirm tab B immediately receives a snapshot + subsequent progress updates (no refresh required).
    - Navigate tab B away from `/ingest` and confirm it stops receiving ingest updates.
    - Return tab B to `/ingest` and confirm it receives a fresh snapshot.
    - Confirm the UI shows an explicit error if the WS connection is down (no polling fallback).
-9. [ ] Shut down compose: `npm run compose:down`
+   - Capture screenshots for regressions per `plan_format.md` requirements.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

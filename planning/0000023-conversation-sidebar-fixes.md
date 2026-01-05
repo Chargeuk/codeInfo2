@@ -134,14 +134,23 @@ This task is limited to wiring existing client hooks/components. It does not cha
      - Assert bulk actions render and the Delete button appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render (use existing `data-testid` hooks).
 
-4. [ ] Documentation update (task-local):
+4. [ ] Review/update existing Agents tests impacted by the new sidebar controls:
+   - Files to read/edit (as needed):
+     - `client/src/test/agentsPage.list.test.tsx`
+     - `client/src/test/agentsPage.sidebarWs.test.tsx`
+     - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+   - Requirements:
+     - Adjust snapshots/assertions that assumed the sidebar lacked filters or bulk controls.
+     - Ensure existing tests still pass with the expanded sidebar UI.
+
+5. [ ] Documentation update (task-local):
    - Files to edit:
      - `planning/0000023-conversation-sidebar-fixes.md` (this file)
    - Requirements:
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-5. [ ] Run repo lint/format checks:
+6. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -183,6 +192,7 @@ Align left/right padding across the sidebar header, filter tabs, and conversatio
    - Requirements:
      - Apply `px: 1.5` to the header/filters container so it matches row padding.
      - Ensure bulk action bar uses the same left/right padding as rows.
+     - Align the footer row (`Load more`/loading) to the same left/right padding.
      - Add a stable test id to the header container (e.g., `data-testid="conversation-header"`) to support layout assertions.
 
 3. [ ] Add/update alignment checks in e2e:
@@ -254,6 +264,7 @@ Eliminate the horizontal scrollbar in the sidebar by fixing overflow at the corr
    - Requirements:
      - Mock `/conversations` to return at least one long-titled conversation.
      - Assert `scrollWidth <= clientWidth` for the drawer paper and list panel (`data-testid="conversation-list"`).
+     - Run the assertion once at desktop width and once at a mobile-width viewport.
 
 4. [ ] Documentation update (task-local):
    - Files to edit:

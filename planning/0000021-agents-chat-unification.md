@@ -1998,3 +1998,103 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
   - `test-results/screenshots/0000021-9-chat.png`
   - `test-results/screenshots/0000021-9-logs.png`
   ```
+
+---
+
+### 10. Simplify snapshots: always full history + inflight (no pagination), client replace-only
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Eliminate partial snapshot behavior by making the turns snapshot API return the full persisted conversation history plus any in-flight data on every request. The client should always replace transcript state from that full snapshot and should not maintain separate “append/prepend” branching. This removes the current class of bugs where re-entering during a stream shows only the latest in-flight response.
+
+#### Documentation Locations
+
+- Express routes + pagination patterns (reference only): https://expressjs.com/en/guide/routing.html
+- React hooks (useEffect/useMemo consistency): https://react.dev/reference/react
+- Jest (test runner + mocking): Context7 `/jestjs/jest`
+- Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
+- Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Confirm current turns snapshot logic and pagination usage:
+   - Documentation to read:
+     - Express routing: https://expressjs.com/en/guide/routing.html
+   - Files to read:
+     - `server/src/routes/conversations.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - What to identify:
+     - Where `limit`, `cursor`, and `includeInflight` are handled.
+     - How inflight turns are merged and how `nextCursor` is set.
+
+2. [ ] Server: remove pagination from turns snapshot and always return full history + inflight:
+   - Documentation to read:
+     - Express routing: https://expressjs.com/en/guide/routing.html
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Ignore `limit` and `cursor` in `GET /conversations/:id/turns`.
+     - Always return the full persisted history, merged with any inflight snapshot turns.
+     - Always include the `inflight` block when a run is active (no `includeInflight` parameter).
+     - Remove `nextCursor` from the response (or return `null` consistently).
+
+3. [ ] Client: simplify transcript hydration to replace-only:
+   - Documentation to read:
+     - React hooks: https://react.dev/reference/react
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Always request full snapshots (no `cursor`, no `limit`, no `includeInflight`).
+     - Remove replace/append branching and “load older” logic.
+     - Always replace transcript state with the full snapshot returned.
+     - Maintain inflight hydration for the in-progress run.
+
+4. [ ] Update tests to reflect full snapshot behavior:
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Files to edit:
+     - `server/src/test/integration/conversations.turns.test.ts`
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+     - `client/src/test/chatTurnsLazyLoad.test.tsx` (remove or rewrite if pagination removed)
+   - Requirements:
+     - Remove pagination expectations (`limit`, `nextCursor`) from snapshot tests.
+     - Add explicit coverage that snapshots always include full history + inflight.
+
+5. [ ] Update documentation to match new snapshot contract:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+     - `README.md`
+   - Requirements:
+     - Document the new snapshot contract (“full history + inflight always”).
+     - Remove references to pagination/cursors for turns snapshots.
+
+6. [ ] Update `projectStructure.md` if tests are added/removed.
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual UI check: navigate away/back during an in-flight run; full prior transcript should remain visible.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 

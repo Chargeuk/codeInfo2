@@ -1,4 +1,4 @@
-# Story 0000022 – Ingest WS streaming + full‑width layout
+# Story 0000022 - Ingest WS streaming + full‑width layout
 
 ## Implementation Plan Instructions
 

@@ -264,6 +264,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - Add `WsIngestSnapshotEvent` and `WsIngestUpdateEvent` types matching the “Message Contracts & State Shapes (exact)” section of this story.
      - Ensure both event types include `{ protocolVersion: 'v1', type, seq, status }`.
      - `status` must be `IngestJobStatus | null` (same shape as REST `/ingest/status/:runId`).
+     - Add both event types to the `WsServerEvent` union so server publishing helpers can use them safely.
 
    - Must-not-miss details (repeat from story contracts):
      - Snapshot server → client message (exact keys):
@@ -1310,7 +1311,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
            ? ingest.status
            : null;
        ```
-     - Render the `ActiveRunCard` only when `active !== null`.
+    - Render the `ActiveRunCard` only when `active !== null` and pass `runId={active.runId}` so logs/cancel wiring remains intact.
      - Keep refresh-on-terminal logic, but trigger it off WS state transitions:
        - Use a `useRef<string | null>` to ensure refresh runs only once per `runId:state`.
 
@@ -1322,10 +1323,10 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - `client/src/components/ingest/IngestForm.tsx`
      - `client/src/components/ingest/RootsTable.tsx`
    - Requirements:
-     - Because `activeRunId` is removed, keep component integration compiling by either:
-       - Passing a no-op `onStarted` / `onRunStarted` callback, **or**
-       - Making those callbacks optional if you adjust the component prop types.
-       - Do **not** re-introduce local runId tracking in the page.
+    - Because `activeRunId` is removed:
+      - `RootsTable`’s `onRunStarted` is already optional — you can omit it entirely.
+      - `IngestForm`’s `onStarted` is required today — either pass a no-op or make the prop optional.
+      - Do **not** re-introduce local runId tracking in the page.
 
 5. [ ] Add a stable status chip test id:
    - Documentation to read:

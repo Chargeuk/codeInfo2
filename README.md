@@ -67,7 +67,7 @@ codex_agents/<agentName>/
       "agents": [
         {
           "name": "coding_agent",
-          "description": "# My agent\\n\\nSome details...",
+          "description": "# My agent\n\nSome details...",
           "warnings": []
         }
       ]
@@ -80,7 +80,18 @@ codex_agents/<agentName>/
     - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Say hello","working_folder":"/host/base/repo"}' | jq`
   - Continue an existing agent conversation (server `conversationId`, not the Codex thread id):
     - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Continue","conversationId":"<conversationId>"}' | jq`
+  - Example response (202):
+    ```json
+    {
+      "status": "started",
+      "agentName": "coding_agent",
+      "conversationId": "<conversationId>",
+      "inflightId": "<inflightId>",
+      "modelId": "<modelId>"
+    }
+    ```
   - Notes:
+    - Agents runs return HTTP `202` immediately and continue executing in the background; transcript updates arrive over WebSocket. Navigating away does **not** cancel the run. Use **Stop** (WS `cancel_inflight`) to cancel.
     - `working_folder` (optional) requests the working directory for this run and must be an absolute path (POSIX or Windows).
     - Resolution order: mapped candidate (host path under `HOST_INGEST_DIR` -> joined into `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`), then literal fallback, else error.
     - Stable error codes for invalid_request: `WORKING_FOLDER_INVALID` (not absolute/invalid input) and `WORKING_FOLDER_NOT_FOUND` (neither candidate directory exists).
@@ -132,6 +143,7 @@ codex_agents/<agentName>/
     - Example response:
       ```json
       {
+        "status": "started",
         "agentName": "coding_agent",
         "commandName": "improve_plan",
         "conversationId": "<conversationId>",
@@ -142,6 +154,7 @@ codex_agents/<agentName>/
       - Missing agent/command returns 404 `{ "error": "not_found" }`.
       - Validation errors return 400 `{ "error": "invalid_request", "code": "COMMAND_INVALID" | "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND", "message": "..." }`.
       - Concurrent runs return 409 `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`.
+
 
 ### Agents MCP (JSON-RPC)
 

@@ -100,12 +100,9 @@ describe('Agents page - run conflict handling', () => {
     await waitFor(() => expect(execute).toBeEnabled());
     await user.click(execute);
 
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          /This conversation already has a run in progress in another tab\/window/i,
-        ),
-      ).toBeInTheDocument(),
+    const banner = await screen.findByTestId('agents-run-error');
+    expect(banner).toHaveTextContent(
+      /This conversation already has a run in progress in another tab\/window/i,
     );
   });
 
@@ -155,12 +152,9 @@ describe('Agents page - run conflict handling', () => {
     await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
     await user.click(screen.getByTestId('agent-send'));
 
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          /This conversation already has a run in progress in another tab\/window/i,
-        ),
-      ).toBeInTheDocument(),
+    const banner = await screen.findByTestId('agents-run-error');
+    expect(banner).toHaveTextContent(
+      /This conversation already has a run in progress in another tab\/window/i,
     );
   });
 });

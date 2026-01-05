@@ -380,6 +380,26 @@ Enable the Agents UI to generate a `conversationId` up front (so it can subscrib
 
 #### Implementation notes
 
+- Testing 2: `npm run build --workspace client` passed (`vite build`).
+- Testing 1: `npm run build --workspace server` passed (`tsc -b`).
+- Subtask 26: Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` (clean after `npm run format --workspaces`).
+- Subtask 25: Updated `projectStructure.md` to include the new Agents page test files and refreshed outdated test descriptions impacted by WS-only async runs.
+- Subtask 24: Updated `README.md` Agents REST API section to document `202 started` responses, background execution, and explicit cancellation (Stop / WS `cancel_inflight`).
+- Subtask 23: Updated `design.md` with async Agents REST diagrams (202 start + background WS streaming) and added an async command-run section showing multi-step execution and cancellation via `cancel_inflight`.
+- Subtask 22: Added `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` to assert navigating away does not send `cancel_inflight`, and that returning + resubscribing resumes transcript updates via WS events.
+- Subtask 21: Updated `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx` to assert WS-only behavior (shows a realtime banner and disables Send on WS disconnect) instead of rendering REST segment fallbacks.
+- Subtask 20: Updated `client/src/test/agentsPage.commandsRun.abort.test.tsx` to align with async starts: Stop no longer aborts the HTTP request; it only sends WS `cancel_inflight` once an inflight id is known.
+- Subtask 19: Added `client/src/test/agentsPage.run.commandError.test.tsx` to cover command start failures (404/409) rendering an error banner and leaving the run stopped.
+- Subtask 18: Added `client/src/test/agentsPage.run.instructionError.test.tsx` to cover instruction start failures (404/409) rendering an error banner and leaving the run stopped.
+- Subtask 17: Updated `client/src/test/agentsPage.run.test.tsx` mocks for `202 { status:'started', inflightId }` and kept assertions WS events drive transcript rendering (no REST segments).
+- Subtasks 10-16: Verified start-error mapping coverage via the updated router unit tests (`agents-router-run` + `agents-commands-router-run`), ensuring these errors return 4xx/409 instead of `202 started`.
+- Subtask 9: Added unit coverage for multi-step command cancellation via `abortAgentCommandRun(...)` in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
+- Subtasks 7-8: Updated server route unit tests to match async REST behavior: `server/src/test/unit/agents-router-run.test.ts` and `server/src/test/unit/agents-commands-router-run.test.ts` now assert `202` + `status:'started'` payloads and no longer assert request-bound abort semantics.
+- Subtask 6: Refactored `client/src/pages/AgentsPage.tsx` to be WS-only for transcript updates: removed REST `segments` fallback and all request-bound AbortController logic; start requests are short-lived and do not cancel server runs. Send/Execute now require an open WebSocket connection, and Stop cancels via WS `cancel_inflight` only.
+- Subtask 5: Updated `client/src/api/agents.ts` to parse the new async `202` start payloads: instruction runs now return `{ status:'started', conversationId, inflightId, modelId }` (no `segments`), and command runs return `{ status:'started', conversationId, commandName, modelId }`.
+- Subtask 4: Added command-level cancellation: `server/src/agents/commandsRunner.ts` now tracks a per-conversation `AbortController` for command runs and checks it before each step; `server/src/ws/server.ts` calls `abortAgentCommandRun(conversationId)` when `cancel_inflight` succeeds so remaining command steps stop (in addition to aborting the current inflight step).
+- Subtask 3: Implemented async start for command runs: `server/src/routes/agentsCommands.ts` now returns `202 { status:'started', agentName, commandName, conversationId, modelId }` and no longer binds the run to request abort/close; `server/src/agents/service.ts` adds `startAgentCommand(...)` which preflights command + conversation errors, acquires the conversation lock, then starts `runAgentCommandRunner(...)` in the background while keeping the lock held until completion.
+- Subtask 2: Implemented async start for instruction runs: `server/src/routes/agentsRun.ts` now returns `202 { status:'started', agentName, conversationId, inflightId, modelId }` and no longer wires request abort/close into an AbortController; `server/src/agents/service.ts` adds `startAgentInstruction(...)` which holds the conversation lock while kicking off `runAgentInstructionUnlocked(...)` in the background.
 - Current behavior: `runAgentInstruction(...)` sets `mustExist: Boolean(params.conversationId)` when calling `runAgentInstructionUnlocked(...)`, which causes a client-supplied-but-new id to throw `AGENT_NOT_FOUND` via `if (params.mustExist && isNewConversation)` in `server/src/agents/service.ts`.
 - Current behavior: `runAgentCommandRunner(...)` sets `const mustExist = Boolean(params.conversationId);` and passes it to `runAgentInstructionUnlocked(...)` for each command step, so a new client-supplied id is rejected the same way.
 - Change: `server/src/agents/service.ts` now always passes `mustExist: false` into `runAgentInstructionUnlocked(...)` so a client-supplied id can create a new conversation (archived + agent mismatch protections remain enforced inside `runAgentInstructionUnlocked(...)`).
@@ -2291,7 +2311,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 ### 11. Agents: decouple run lifecycle from HTTP request (async 202 + background)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -2311,7 +2331,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
 
 #### Subtasks
 
-1. [ ] Read current Agents run lifecycle and abort wiring (server + client):
+1. [x] Read current Agents run lifecycle and abort wiring (server + client):
    - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
@@ -2332,7 +2352,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Summarize the current “sync” behavior and why it stops on navigation.
      - Paste the current response shapes (example JSON) so the delta is obvious.
 
-2. [ ] Server: make `/agents/:agentName/run` async (return 202, continue in background):
+2. [x] Server: make `/agents/:agentName/run` async (return 202, continue in background):
    - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
@@ -2360,7 +2380,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
        - Kicks off `runAgentInstructionUnlocked(...)` in an async `void` task that logs failures and cleans up inflight.
      - Update `routes/agentsRun.ts` to call `startAgentInstruction(...)` instead of awaiting `runAgentInstruction(...)`.
 
-3. [ ] Server: make `/agents/:agentName/commands/run` async (return 202, continue in background):
+3. [x] Server: make `/agents/:agentName/commands/run` async (return 202, continue in background):
    - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
@@ -2386,7 +2406,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Add a `startAgentCommand(...)` helper that starts `runAgentCommandRunner(...)` in the background and returns the start payload immediately.
      - Keep the current per-step command metadata (`stepIndex`, `totalSteps`) intact so WS transcripts remain correct.
 
-4. [ ] Server: ensure explicit cancellation stops command runs (no implicit HTTP abort):
+4. [x] Server: ensure explicit cancellation stops command runs (no implicit HTTP abort):
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
      - WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -2408,7 +2428,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - In `server/src/ws/server.ts`, when handling `cancel_inflight`, call `abortAgentCommandRun(conversationId)` so remaining command steps are stopped.
      - Keep `cancel_inflight` behavior for non-command runs unchanged.
 
-5. [ ] Client: update Agents REST API response shapes (async 202 start payloads):
+5. [x] Client: update Agents REST API response shapes (async 202 start payloads):
    - Documentation to read (repeat even if already read):
      - React hooks: https://react.dev/reference/react
    - Files to edit:
@@ -2418,7 +2438,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - `runAgentCommand(...)` must accept `{ status:'started', conversationId, agentName, commandName, modelId }`.
      - Remove any dependence on `segments` from REST responses (REST segments are no longer returned).
 
-6. [ ] Client: Agents page should be WS-only and no longer cancel on navigation:
+6. [x] Client: Agents page should be WS-only and no longer cancel on navigation:
    - Documentation to read (repeat even if already read):
      - React hooks: https://react.dev/reference/react
    - Files to edit:
@@ -2434,7 +2454,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Delete `extractSegments(...)` and any `hydrateHistory(...segments...)` calls.
      - Ensure `stop()` only clears local UI state and sends `cancel_inflight` when requested.
 
-7. [ ] Server unit test: `/agents/:agentName/run` returns 202 immediately and is not aborted by disconnect:
+7. [x] Server unit test: `/agents/:agentName/run` returns 202 immediately and is not aborted by disconnect:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2447,7 +2467,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Confirms instruction runs are decoupled from HTTP lifecycle.
 
-8. [ ] Server unit test: `/agents/:agentName/commands/run` returns 202 immediately and is not aborted by disconnect:
+8. [x] Server unit test: `/agents/:agentName/commands/run` returns 202 immediately and is not aborted by disconnect:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2460,7 +2480,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Confirms command runs are decoupled from HTTP lifecycle.
 
-9. [ ] Server unit test: command runner stops remaining steps when WS cancel is sent:
+9. [x] Server unit test: command runner stops remaining steps when WS cancel is sent:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2472,7 +2492,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Ensures explicit WS cancellation stops multi-step command runs.
 
-10. [ ] Server unit test: instruction run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
+10. [x] Server unit test: instruction run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2485,7 +2505,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the missing-agent error path for instruction runs.
 
-11. [ ] Server unit test: instruction run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
+11. [x] Server unit test: instruction run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2498,7 +2518,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the archived-conversation error path for instruction runs.
 
-12. [ ] Server unit test: instruction run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
+12. [x] Server unit test: instruction run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2511,7 +2531,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the concurrent-run error path for instruction runs.
 
-13. [ ] Server unit test: command run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
+13. [x] Server unit test: command run error `AGENT_NOT_FOUND` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2524,7 +2544,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the missing-agent error path for command runs.
 
-14. [ ] Server unit test: command run error `COMMAND_NOT_FOUND` returns 4xx and does not start a background run:
+14. [x] Server unit test: command run error `COMMAND_NOT_FOUND` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2537,7 +2557,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the missing-command error path for command runs.
 
-15. [ ] Server unit test: command run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
+15. [x] Server unit test: command run error `CONVERSATION_ARCHIVED` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2550,7 +2570,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the archived-conversation error path for command runs.
 
-16. [ ] Server unit test: command run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
+16. [x] Server unit test: command run error `RUN_IN_PROGRESS` returns 4xx and does not start a background run:
    - Documentation to read (repeat even if already read):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -2563,7 +2583,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers the concurrent-run error path for command runs.
 
-17. [ ] Client Jest test: Agents run uses async start response + WS-only transcript:
+17. [x] Client Jest test: Agents run uses async start response + WS-only transcript:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2577,7 +2597,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Ensures the new start response is handled correctly and transcript is WS-driven.
 
-18. [ ] Client Jest test: instruction start error shows a visible error state:
+18. [x] Client Jest test: instruction start error shows a visible error state:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2591,7 +2611,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers client-side error handling for instruction start failures.
 
-19. [ ] Client Jest test: command start error shows a visible error state:
+19. [x] Client Jest test: command start error shows a visible error state:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2605,7 +2625,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Covers client-side error handling for command start failures.
 
-20. [ ] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
+20. [x] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2619,7 +2639,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Confirms explicit cancellation still works without request-bound abort.
 
-21. [ ] Client Jest test: remove REST segments fallback coverage (WS-only):
+21. [x] Client Jest test: remove REST segments fallback coverage (WS-only):
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2632,7 +2652,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Keeps the test suite aligned with the WS-only design.
 
-22. [ ] Client Jest test: navigating away does not stop command execution:
+22. [x] Client Jest test: navigating away does not stop command execution:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2645,7 +2665,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Guarantees the “navigate away and come back” parity with Chat.
 
-23. [ ] Documentation update: design + flow diagram for async Agents runs:
+23. [x] Documentation update: design + flow diagram for async Agents runs:
    - Documentation to read (repeat even if already read):
      - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -2658,7 +2678,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
        - `cancel_inflight` is the **only** cancellation path.
      - Explicitly call out command-run multi-step behavior and cancellation signal.
 
-24. [ ] Documentation update: note async Agents run behavior in README:
+24. [x] Documentation update: note async Agents run behavior in README:
    - Documentation to read (repeat even if already read):
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2667,7 +2687,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Update the Agents REST API section to note `202` responses and background execution.
      - Mention that navigation away does not cancel runs; cancellation is explicit via Stop.
 
-25. [ ] Update `projectStructure.md` if any new files are added:
+25. [x] Update `projectStructure.md` if any new files are added:
    - Documentation to read (repeat even if already read):
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2675,7 +2695,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Requirements:
      - If you add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` (or any other new files), add them here **after** the file is created.
 
-26. [ ] Run lint/format checks (must be last subtask):
+26. [x] Run lint/format checks (must be last subtask):
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
    - `npm run lint --workspaces`
@@ -2686,16 +2706,49 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Manually resolve any remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual UI check: start a command run, navigate away, return, and verify it continues without interruption (no “operation aborted”).
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual UI check: start a command run, navigate away, return, and verify it continues without interruption (no “operation aborted”).
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Subtask 1: Confirmed Agents REST runs are request-bound today: both `POST /agents/:agentName/run` and `POST /agents/:agentName/commands/run` wire `req.on('aborted')`/`res.on('close')` into an `AbortController`, pass `signal` into the service, and `createInflight({ externalSignal })` aborts the inflight when the request closes (e.g. navigation away).
+- Testing: `npm run compose:down` OK.
+
+- Manual UI check: ran a headless Playwright script inside `codeinfo2-server-1` against `http://host.docker.internal:5001/agents`, executed `planning_agent/improve_plan`, navigated away/back, and confirmed no “operation aborted” message (`MANUAL_UI_CHECK_OK`).
+
+- Testing: `npm run compose:up` OK.
+
+- Testing: `npm run compose:build` OK.
+
+- Testing: `npm run e2e` OK.
+
+- Testing: `npm run test --workspace client` OK.
+
+- Testing: `npm run test --workspace server` OK.
+
+- Current success response shapes (sync):
+  - Instruction run (`200`):
+    ```json
+    {
+      "agentName": "coding_agent",
+      "conversationId": "<uuid>",
+      "modelId": "<modelId>",
+      "segments": [{ "type": "answer", "text": "..." }]
+    }
+    ```
+  - Command run (`200`):
+    ```json
+    {
+      "agentName": "coding_agent",
+      "commandName": "improve_plan",
+      "conversationId": "<uuid>",
+      "modelId": "<modelId>"
+    }
+    ```

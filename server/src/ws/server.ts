@@ -3,6 +3,8 @@ import type http from 'node:http';
 
 import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
+import { abortAgentCommandRun } from '../agents/commandsRunner.js';
+
 import {
   abortInflight,
   bumpSeq,
@@ -408,6 +410,10 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           conversationId: message.conversationId,
           inflightId: message.inflightId,
         });
+
+        if (cancelled.ok) {
+          abortAgentCommandRun(message.conversationId);
+        }
 
         if (!cancelled.ok) {
           publishTurnFinal({

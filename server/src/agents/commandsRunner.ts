@@ -16,6 +16,14 @@ import { getErrorMessage, isTransientReconnect } from './transientReconnect.js';
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 500;
 
+const commandAbortByConversationId = new Map<string, AbortController>();
+
+export function abortAgentCommandRun(conversationId: string) {
+  const controller = commandAbortByConversationId.get(conversationId);
+  if (!controller) return;
+  controller.abort();
+}
+
 type LoggerLike = {
   info: (obj: Record<string, unknown>, msg: string) => void;
   warn: (obj: Record<string, unknown>, msg: string) => void;
@@ -27,6 +35,7 @@ export type RunAgentCommandRunnerParams = {
   agentHome: string;
   commandName: string;
   conversationId?: string;
+  lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
@@ -102,14 +111,27 @@ export async function runAgentCommandRunner(
   const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
 
-  if (!tryAcquireConversationLock(conversationId)) {
-    throw toCommandRunnerError(
-      'RUN_IN_PROGRESS',
-      'A run is already in progress for this conversation.',
-    );
+  const lockAlreadyHeld = Boolean(params.lockAlreadyHeld);
+  let lockAcquired = lockAlreadyHeld;
+
+  if (!lockAlreadyHeld) {
+    if (!tryAcquireConversationLock(conversationId)) {
+      throw toCommandRunnerError(
+        'RUN_IN_PROGRESS',
+        'A run is already in progress for this conversation.',
+      );
+    }
+    lockAcquired = true;
   }
 
   const mustExist = false;
+
+  const commandAbortController = new AbortController();
+  commandAbortByConversationId.set(conversationId, commandAbortController);
+
+  const combinedSignal = params.signal
+    ? AbortSignal.any([params.signal, commandAbortController.signal])
+    : commandAbortController.signal;
 
   append({
     level: 'info',
@@ -130,7 +152,7 @@ export async function runAgentCommandRunner(
 
   try {
     for (let i = 0; i < totalSteps; i++) {
-      if (params.signal?.aborted) break;
+      if (combinedSignal.aborted) break;
 
       const item = command.items[i];
       const instruction = item.content.join('\n');
@@ -150,14 +172,14 @@ export async function runAgentCommandRunner(
             conversationId,
             mustExist,
             command: stepMeta,
-            signal: params.signal,
+            signal: combinedSignal,
             source: params.source,
           }),
         isRetryableError: (err) =>
           isTransientReconnect(getErrorMessage(err) ?? null),
         maxAttempts: MAX_ATTEMPTS,
         baseDelayMs: BASE_DELAY_MS,
-        signal: params.signal,
+        signal: combinedSignal,
         sleep: params.sleep,
         onRetry: ({ attempt, maxAttempts, error, delayMs }) => {
           logger.warn(
@@ -213,6 +235,9 @@ export async function runAgentCommandRunner(
       modelId,
     };
   } finally {
-    releaseConversationLock(conversationId);
+    commandAbortByConversationId.delete(conversationId);
+    if (lockAcquired) {
+      releaseConversationLock(conversationId);
+    }
   }
 }

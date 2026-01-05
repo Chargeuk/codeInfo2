@@ -10,12 +10,13 @@ beforeEach(() => {
   mockFetch.mockReset();
   mockFetch.mockResolvedValue({
     ok: true,
-    status: 200,
+    status: 202,
     json: async () => ({
+      status: 'started',
       agentName: 'coding_agent',
       conversationId: 'c1',
+      inflightId: 'i1',
       modelId: 'gpt-5.1-codex-max',
-      segments: [],
     }),
   } as unknown as Response);
 });

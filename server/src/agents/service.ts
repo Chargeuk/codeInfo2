@@ -29,7 +29,10 @@ import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
 import { publishUserTurn } from '../ws/server.js';
 
-import { loadAgentCommandSummary } from './commandsLoader.js';
+import {
+  loadAgentCommandFile,
+  loadAgentCommandSummary,
+} from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
 import { readAgentModelId } from './config.js';
 import { discoverAgents } from './discovery.js';
@@ -195,6 +198,114 @@ async function ensureAgentConversation(params: {
   });
 }
 
+export async function startAgentInstruction(
+  params: Omit<RunAgentInstructionParams, 'signal'>,
+): Promise<{ conversationId: string; inflightId: string; modelId: string }> {
+  const clientProvidedConversationId = Boolean(params.conversationId);
+  const conversationId = params.conversationId ?? crypto.randomUUID();
+  const inflightId = params.inflightId ?? crypto.randomUUID();
+
+  if (!tryAcquireConversationLock(conversationId)) {
+    throw toRunAgentError(
+      'RUN_IN_PROGRESS',
+      'A run is already in progress for this conversation.',
+    );
+  }
+
+  const mustExist = false;
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T1] agents.run mustExist resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      source: params.source,
+      conversationId,
+      clientProvidedConversationId,
+      mustExist,
+    },
+  });
+
+  let modelId = 'gpt-5.1-codex-max';
+
+  try {
+    const discovered = await discoverAgents();
+    const agent = discovered.find((item) => item.name === params.agentName);
+    if (!agent) {
+      throw toRunAgentError('AGENT_NOT_FOUND');
+    }
+
+    const detection = detectCodexForHome(agent.home);
+    if (!detection.available) {
+      throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
+    }
+
+    const existingConversation = await getConversation(conversationId);
+    const isNewConversation = !existingConversation;
+    if (mustExist && isNewConversation) {
+      throw toRunAgentError('AGENT_NOT_FOUND');
+    }
+    if (existingConversation?.archivedAt) {
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    }
+    if (
+      existingConversation &&
+      (existingConversation.agentName ?? '') !== params.agentName
+    ) {
+      throw toRunAgentError('AGENT_MISMATCH');
+    }
+
+    const configuredModelId = await readAgentModelId(agent.configPath);
+    modelId =
+      configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
+
+    const title =
+      params.instruction.trim().slice(0, 80) || 'Untitled conversation';
+
+    if (isNewConversation) {
+      await ensureAgentConversation({
+        conversationId,
+        agentName: params.agentName,
+        modelId,
+        title,
+        source: params.source,
+      });
+    }
+
+    // Validate working folder before we return 202 so the client receives a
+    // deterministic 4xx rather than a background failure.
+    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+  } catch (err) {
+    releaseConversationLock(conversationId);
+    throw err;
+  }
+
+  void (async () => {
+    try {
+      await runAgentInstructionUnlocked({
+        ...params,
+        conversationId,
+        mustExist,
+        inflightId,
+        // Intentionally omit any request-bound signal; cancellation happens only
+        // via explicit WS cancel_inflight.
+        signal: undefined,
+      });
+    } catch (err) {
+      baseLogger.error(
+        { agentName: params.agentName, conversationId, inflightId, err },
+        'agents run failed (background)',
+      );
+    } finally {
+      releaseConversationLock(conversationId);
+    }
+  })();
+
+  return { conversationId, inflightId, modelId };
+}
+
 export async function runAgentInstruction(
   params: RunAgentInstructionParams,
 ): Promise<RunAgentInstructionResult> {
@@ -230,6 +341,137 @@ export async function runAgentInstruction(
     });
   } finally {
     releaseConversationLock(conversationId);
+  }
+}
+
+function isSafeAgentCommandName(raw: string): boolean {
+  const name = raw.trim();
+  if (!name) return false;
+  if (name.includes('/') || name.includes('\\')) return false;
+  if (name.includes('..')) return false;
+  return true;
+}
+
+export async function startAgentCommand(params: {
+  agentName: string;
+  commandName: string;
+  conversationId?: string;
+  working_folder?: string;
+  source: 'REST' | 'MCP';
+}): Promise<{
+  agentName: string;
+  commandName: string;
+  conversationId: string;
+  modelId: string;
+}> {
+  const discovered = await discoverAgents();
+  const agent = discovered.find((item) => item.name === params.agentName);
+  if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
+
+  if (!isSafeAgentCommandName(params.commandName)) {
+    throw toRunAgentError('COMMAND_INVALID');
+  }
+
+  const commandName = params.commandName.trim();
+  const conversationId = params.conversationId ?? crypto.randomUUID();
+
+  if (!tryAcquireConversationLock(conversationId)) {
+    throw toRunAgentError(
+      'RUN_IN_PROGRESS',
+      'A run is already in progress for this conversation.',
+    );
+  }
+
+  let backgroundScheduled = false;
+  let modelId = 'gpt-5.1-codex-max';
+
+  try {
+    const detection = detectCodexForHome(agent.home);
+    if (!detection.available) {
+      throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
+    }
+
+    // Validate command file before returning 202 so errors map cleanly to 4xx.
+    const commandsDir = path.join(agent.home, 'commands');
+    const commandFilePath = path.join(commandsDir, commandName + '.json');
+    const commandStat = await fs.stat(commandFilePath).catch((error) => {
+      if ((error as { code?: string }).code === 'ENOENT') return null;
+      throw error;
+    });
+    if (!commandStat?.isFile()) {
+      throw toRunAgentError('COMMAND_NOT_FOUND');
+    }
+
+    const parsed = await loadAgentCommandFile({ filePath: commandFilePath });
+    if (!parsed.ok) {
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+
+    const existingConversation = await getConversation(conversationId);
+    const isNewConversation = !existingConversation;
+    if (existingConversation?.archivedAt) {
+      throw toRunAgentError('CONVERSATION_ARCHIVED');
+    }
+    if (
+      existingConversation &&
+      (existingConversation.agentName ?? '') !== params.agentName
+    ) {
+      throw toRunAgentError('AGENT_MISMATCH');
+    }
+
+    const configuredModelId = await readAgentModelId(agent.configPath);
+    modelId =
+      configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
+
+    const firstInstruction = parsed.command.items[0]?.content?.join('\n') ?? '';
+    const title =
+      firstInstruction.trim().slice(0, 80) || 'Command: ' + commandName;
+
+    if (isNewConversation) {
+      await ensureAgentConversation({
+        conversationId,
+        agentName: params.agentName,
+        modelId,
+        title,
+        source: params.source,
+      });
+    }
+
+    await resolveWorkingFolderWorkingDirectory(params.working_folder);
+
+    backgroundScheduled = true;
+
+    void (async () => {
+      try {
+        await runAgentCommandRunner({
+          agentName: params.agentName,
+          agentHome: agent.home,
+          commandName,
+          conversationId,
+          working_folder: params.working_folder,
+          signal: undefined,
+          source: params.source,
+          runAgentInstructionUnlocked,
+          lockAlreadyHeld: true,
+        });
+      } catch (err) {
+        baseLogger.error(
+          { agentName: params.agentName, commandName, conversationId, err },
+          'agents command run failed (background)',
+        );
+      }
+    })();
+
+    return {
+      agentName: params.agentName,
+      commandName,
+      conversationId,
+      modelId,
+    };
+  } finally {
+    if (!backgroundScheduled) {
+      releaseConversationLock(conversationId);
+    }
   }
 }
 

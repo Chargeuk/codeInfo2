@@ -45,8 +45,7 @@ function emitWsEvent(event: Record<string, unknown>) {
 }
 
 describe('Agents page - agent change', () => {
-  it('aborts an in-flight run and resets to new conversation state', async () => {
-    let abortTriggered = false;
+  it('resets to new conversation state on agent change (without aborting server runs)', async () => {
     const runBodies: Record<string, unknown>[] = [];
     let a1ConversationId: string | null = null;
 
@@ -103,20 +102,17 @@ describe('Agents page - agent change', () => {
                 ? parsed.conversationId
                 : null;
           }
-          const signal = init?.signal as AbortSignal | undefined;
-          return new Promise((_resolve, reject) => {
-            const rejectAbort = () => {
-              abortTriggered = true;
-              const err = new Error('aborted');
-              (err as Error & { name: string }).name = 'AbortError';
-              reject(err);
-            };
-            if (signal?.aborted) {
-              rejectAbort();
-              return;
-            }
-            signal?.addEventListener('abort', rejectAbort, { once: true });
-          });
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'a1',
+              conversationId: a1ConversationId ?? 'c1',
+              inflightId: 'i1',
+              modelId: 'gpt-5.1-codex-max',
+            }),
+          } as Response);
         }
 
         if (target.includes('/agents/a2/run')) {
@@ -125,12 +121,13 @@ describe('Agents page - agent change', () => {
           }
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: 202,
             json: async () => ({
+              status: 'started',
               agentName: 'a2',
               conversationId: 'new-convo',
+              inflightId: 'i2',
               modelId: 'gpt-5.1-codex-max',
-              segments: [{ type: 'answer', text: 'ok' }],
             }),
           } as Response);
         }
@@ -145,6 +142,15 @@ describe('Agents page - agent change', () => {
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
 
     const workingFolder = await screen.findByRole('textbox', {
       name: 'working_folder',
@@ -180,7 +186,6 @@ describe('Agents page - agent change', () => {
       await userEvent.click(option);
     });
 
-    await waitFor(() => expect(abortTriggered).toBe(true));
     await waitFor(() => expect(screen.queryByText('Do work')).toBeNull());
     await waitFor(() =>
       expect(

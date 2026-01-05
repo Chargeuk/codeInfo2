@@ -120,13 +120,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
 |     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
-|     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page renders REST segments when WS/realtime is unavailable
+|     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
+|     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows error banner when command start fails
+|     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
+|     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page shows realtime banner + disables Send when WS is unavailable
 |     |     |- agentsPage.commandsList.test.tsx ? Agents page command dropdown refresh, disabled entries, labels, and description display
 |     |     |- agentsPage.commandsRun.refreshTurns.test.tsx ? Agents page command execute triggers run, then refreshes conversations and hydrates turns
 |     |     |- agentsPage.commandsRun.conflict.test.tsx ? Agents page surfaces RUN_IN_PROGRESS conflicts for command execute and normal send
 |     |     |- agentsPage.commandsRun.persistenceDisabled.test.tsx ? Agents page disables command execute when mongoConnected is false
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
-|     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop aborts an in-flight command execute request
+|     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
@@ -464,7 +467,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
 - client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send
 - client/src/test/agentsPage.commandsRun.persistenceDisabled.test.tsx — Agents page disables command execution when persistence is unavailable (mongoConnected=false)
-- client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop aborts an in-flight command execution request
+- client/src/test/agentsPage.commandsRun.abort.test.tsx — Agents page Stop sends WS cancel_inflight (does not abort async start request)
 - client/src/test/agentsPage.streaming.test.tsx — Agents page renders live WS transcript updates and unsubscribes on conversation switch
 - client/src/test/agentsPage.sidebarWs.test.tsx — Agents page sidebar applies subscribe_sidebar conversation_upsert/delete with agentName filtering + ordering
 - client/src/test/agentsPage.citations.test.tsx — Agents transcript renders default-collapsed citations accordion under assistant bubbles

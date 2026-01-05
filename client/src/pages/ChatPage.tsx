@@ -170,7 +170,6 @@ export default function ChatPage() {
     {},
   );
   const transcriptRef = useRef<HTMLDivElement | null>(null);
-  const prevScrollHeightRef = useRef<number>(0);
   const knownConversationIds = useMemo(
     () => new Set(conversations.map((c) => c.conversationId)),
     [conversations],
@@ -211,14 +210,11 @@ export default function ChatPage() {
     turnsConversationId && knownConversationIds.has(turnsConversationId),
   );
   const {
-    lastPage,
-    lastMode,
+    turns,
     inflight: inflightSnapshot,
     isLoading: turnsLoading,
     isError: turnsError,
     error: turnsErrorMessage,
-    hasMore: turnsHasMore,
-    loadOlder,
     refresh: refreshTurns,
     reset: resetTurns,
   } = useConversationTurns(turnsConversationId, { autoFetch: turnsAutoFetch });
@@ -296,9 +292,8 @@ export default function ChatPage() {
       knownIds: Array.from(knownConversationIds),
       turnsConversationId,
       turnsAutoFetch,
-      lastMode,
-      lastPageCount: lastPage.length,
-      lastPageFirst: lastPage[0]?.createdAt,
+      turnsCount: turns.length,
+      turnsOldest: turns[0]?.createdAt,
       messageCount: messages.length,
     };
     if (typeof window !== 'undefined') {
@@ -312,8 +307,7 @@ export default function ChatPage() {
     persistenceUnavailable,
     turnsAutoFetch,
     turnsConversationId,
-    lastMode,
-    lastPage,
+    turns,
     messages.length,
   ]);
 
@@ -431,18 +425,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (lastMode !== 'prepend') {
-      prevScrollHeightRef.current = transcriptRef.current?.scrollHeight ?? 0;
-      return;
-    }
-    const node = transcriptRef.current;
-    if (!node) return;
-    const prevHeight = prevScrollHeightRef.current || 0;
-    const newHeight = node.scrollHeight;
-    node.scrollTop = newHeight - prevHeight + node.scrollTop;
-  }, [lastMode, messages]);
-
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = input.trim();
@@ -550,14 +532,7 @@ export default function ChatPage() {
     void refreshConversations();
   };
 
-  const handleTranscriptScroll = () => {
-    const node = transcriptRef.current;
-    if (!node) return;
-    if (node.scrollTop < 200 && turnsHasMore && !turnsLoading) {
-      prevScrollHeightRef.current = node.scrollHeight;
-      void loadOlder();
-    }
-  };
+  const handleTranscriptScroll = () => {};
 
   const mapToolCalls = useCallback((toolCalls: unknown): ToolCall[] => {
     const calls =
@@ -621,41 +596,20 @@ export default function ChatPage() {
   const lastInflightHydratedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!activeConversationId || !lastMode) return;
-    const oldest = lastPage?.[0]?.createdAt ?? 'none';
-    const newest = lastPage?.[lastPage.length - 1]?.createdAt ?? 'none';
-    const key = `${activeConversationId}-${lastMode}-${oldest}-${newest}-${lastPage.length}`;
+    if (!activeConversationId) return;
+    const oldest = turns?.[0]?.createdAt ?? 'none';
+    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
     console.info('[chat-history] hydrating turns', {
       activeConversationId,
-      mode: lastMode,
-      count: lastPage.length,
-      first: lastPage[0]?.createdAt,
-      last: lastPage[lastPage.length - 1]?.createdAt,
+      count: turns.length,
+      first: turns[0]?.createdAt,
+      last: turns[turns.length - 1]?.createdAt,
     });
-    if (lastMode === 'replace') {
-      hydrateHistory(
-        activeConversationId,
-        mapTurnsToMessages(lastPage),
-        'replace',
-      );
-      return;
-    }
-    if (lastMode === 'prepend' && lastPage.length > 0) {
-      hydrateHistory(
-        activeConversationId,
-        mapTurnsToMessages(lastPage),
-        'prepend',
-      );
-    }
-  }, [
-    activeConversationId,
-    hydrateHistory,
-    lastMode,
-    lastPage,
-    mapTurnsToMessages,
-  ]);
+    hydrateHistory(activeConversationId, mapTurnsToMessages(turns), 'replace');
+  }, [activeConversationId, hydrateHistory, mapTurnsToMessages, turns]);
 
   useEffect(() => {
     if (!activeConversationId || !inflightSnapshot) return;

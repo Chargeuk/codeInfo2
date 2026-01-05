@@ -48,38 +48,25 @@ export type InflightSnapshot = {
 
 type ApiResponse = {
   items?: StoredTurn[];
-  nextCursor?: string;
   inflight?: InflightSnapshot;
 };
 
-type Mode = 'replace' | 'prepend';
-
 type State = {
   turns: StoredTurn[];
-  lastPage: StoredTurn[];
-  lastMode: Mode | null;
   inflight: InflightSnapshot | null;
   isLoading: boolean;
   isError: boolean;
   error?: string;
-  hasMore: boolean;
-  loadOlder: () => Promise<void>;
   refresh: () => Promise<void>;
   reset: () => void;
 };
-
-const PAGE_SIZE = 50;
 
 export function useConversationTurns(
   conversationId?: string,
   options?: { autoFetch?: boolean },
 ): State {
   const [turns, setTurns] = useState<StoredTurn[]>([]);
-  const [lastPage, setLastPage] = useState<StoredTurn[]>([]);
-  const [lastMode, setLastMode] = useState<Mode | null>(null);
   const [inflight, setInflight] = useState<InflightSnapshot | null>(null);
-  const cursorRef = useRef<string | undefined>(undefined);
-  const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -127,129 +114,82 @@ export function useConversationTurns(
     });
   }, []);
 
-  const fetchPage = useCallback(
-    async (mode: Mode = 'replace') => {
-      if (!conversationId) {
-        // Debug: no conversation selected; ensure state resets
-        console.info('[turns] reset (no conversationId)');
+  const fetchSnapshot = useCallback(async () => {
+    if (!conversationId) {
+      // Debug: no conversation selected; ensure state resets
+      console.info('[turns] reset (no conversationId)');
+      setTurns([]);
+      setInflight(null);
+      return;
+    }
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setIsLoading(true);
+    try {
+      console.info('[turns] fetch start', { conversationId });
+      const res = await fetch(
+        new URL(
+          `/conversations/${conversationId}/turns`,
+          serverBase,
+        ).toString(),
+        { signal: controller.signal },
+      );
+      if (res.status === 404) {
         setTurns([]);
-        setLastPage([]);
-        setLastMode(null);
         setInflight(null);
-        setHasMore(false);
-        return;
-      }
-      controllerRef.current?.abort();
-      const controller = new AbortController();
-      controllerRef.current = controller;
-      setIsLoading(true);
-      try {
-        console.info('[turns] fetch start', {
-          conversationId,
-          mode,
-          cursor: cursorRef.current,
-        });
-        const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
-        const cursorToUse = mode === 'prepend' ? cursorRef.current : undefined;
-        if (mode === 'prepend' && cursorToUse) {
-          search.set('cursor', cursorToUse);
-        }
-        if (mode === 'replace') {
-          search.set('includeInflight', 'true');
-        }
-        const res = await fetch(
-          new URL(
-            `/conversations/${conversationId}/turns?${search.toString()}`,
-            serverBase,
-          ).toString(),
-          { signal: controller.signal },
-        );
-        if (res.status === 404) {
-          setTurns([]);
-          setLastPage([]);
-          setLastMode(null);
-          setInflight(null);
-          setHasMore(false);
-          setIsError(false);
-          setError(undefined);
-          return;
-        }
-        if (!res.ok) {
-          throw new Error(`Failed to load conversation turns (${res.status})`);
-        }
-        const data = (await res.json()) as ApiResponse;
-        const items = Array.isArray(data.items) ? data.items : [];
-        const chronological = sortChronological(items.slice().reverse());
-        setLastPage(chronological);
-        setLastMode(mode);
-        if (mode === 'replace') {
-          setInflight(data.inflight ?? null);
-        }
-        setHasMore(Boolean(data.nextCursor));
-        cursorRef.current = data.nextCursor;
-        setTurns((prev) => {
-          const merged =
-            mode === 'prepend' ? [...chronological, ...prev] : chronological;
-          return dedupeTurns(merged);
-        });
-        console.info('[turns] fetch success', {
-          conversationId,
-          mode,
-          pageCount: chronological.length,
-          inflight: data.inflight
-            ? {
-                inflightId: data.inflight.inflightId,
-                seq: data.inflight.seq,
-              }
-            : null,
-          hasMore: Boolean(data.nextCursor),
-          nextCursor: data.nextCursor,
-        });
         setIsError(false);
         setError(undefined);
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
-        setIsError(true);
-        setError((err as Error).message);
-      } finally {
-        if (controllerRef.current === controller) {
-          controllerRef.current = null;
-        }
-        setIsLoading(false);
+        return;
       }
-    },
-    [conversationId, dedupeTurns, sortChronological],
-  );
+      if (!res.ok) {
+        throw new Error(`Failed to load conversation turns (${res.status})`);
+      }
+      const data = (await res.json()) as ApiResponse;
+      const items = Array.isArray(data.items) ? data.items : [];
+      const chronological = sortChronological(items.slice().reverse());
+      setInflight(data.inflight ?? null);
+      setTurns(dedupeTurns(chronological));
+      console.info('[turns] fetch success', {
+        conversationId,
+        count: chronological.length,
+        inflight: data.inflight
+          ? {
+              inflightId: data.inflight.inflightId,
+              seq: data.inflight.seq,
+            }
+          : null,
+      });
+      setIsError(false);
+      setError(undefined);
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+      setIsError(true);
+      setError((err as Error).message);
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
+      setIsLoading(false);
+    }
+  }, [conversationId, dedupeTurns, sortChronological]);
 
   useEffect(() => {
     setTurns([]);
-    setLastPage([]);
-    setLastMode(null);
     setInflight(null);
-    cursorRef.current = undefined;
-    setHasMore(false);
     if (!conversationId) return;
     if (!autoFetch) return;
-    void fetchPage('replace');
+    void fetchSnapshot();
     return () => controllerRef.current?.abort();
-  }, [autoFetch, conversationId, fetchPage]);
-
-  const loadOlder = useCallback(async () => {
-    if (!hasMore || isLoading) return;
-    await fetchPage('prepend');
-  }, [fetchPage, hasMore, isLoading]);
+  }, [autoFetch, conversationId, fetchSnapshot]);
 
   const refresh = useCallback(async () => {
-    await fetchPage('replace');
-  }, [fetchPage]);
+    await fetchSnapshot();
+  }, [fetchSnapshot]);
 
   const reset = useCallback(() => {
     setTurns([]);
-    setLastPage([]);
-    setLastMode(null);
     setInflight(null);
-    cursorRef.current = undefined;
-    setHasMore(false);
     setIsError(false);
     setError(undefined);
     controllerRef.current?.abort();
@@ -258,30 +198,14 @@ export function useConversationTurns(
   return useMemo(
     () => ({
       turns,
-      lastPage,
-      lastMode,
       inflight,
       isLoading,
       isError,
       error,
-      hasMore,
-      loadOlder,
       refresh,
       reset,
     }),
-    [
-      turns,
-      lastPage,
-      lastMode,
-      inflight,
-      isLoading,
-      isError,
-      error,
-      hasMore,
-      loadOlder,
-      refresh,
-      reset,
-    ],
+    [turns, inflight, isLoading, isError, error, refresh, reset],
   );
 }
 

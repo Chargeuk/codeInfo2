@@ -669,13 +669,23 @@ export function useChatStream(
             });
             if (!match) return true;
             if (match.streamStatus === 'processing') {
-              replacements.set(match.id, { ...match, ...entry, id: match.id });
+              replacements.set(match.id, {
+                ...match,
+                ...entry,
+                id: match.id,
+                segments: entry.segments,
+              });
               if (entry.streamStatus && entry.streamStatus !== 'processing') {
                 shouldResetInflight = true;
               }
               return false;
             }
-            replacements.set(match.id, { ...match, ...entry, id: match.id });
+            replacements.set(match.id, {
+              ...match,
+              ...entry,
+              id: match.id,
+              segments: entry.segments,
+            });
             return false;
           });
           if (replacements.size > 0) {

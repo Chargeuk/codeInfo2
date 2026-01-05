@@ -474,7 +474,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/chatSidebar.test.tsx — Chat sidebar bulk-selection coverage (filter reset, reorder stability, delete confirm, persistence gating) + ChatPage agent upsert ignore
 - client/src/test/useChatWs.test.ts — hook-level coverage for chat WebSocket connect/reconnect/seq gating and disabled realtime mode
 - client/src/test/support/mockWebSocket.ts — shared deterministic JSDOM WebSocket mock used by WS-driven client tests
-- client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` re-fetching the newest page in `replace` mode
+- client/src/test/useConversationTurns.refresh.test.ts — unit coverage for `useConversationTurns.refresh()` replace-only snapshots + error case retains prior turns
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
+- client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events

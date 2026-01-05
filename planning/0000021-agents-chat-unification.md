@@ -2003,7 +2003,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 ### 10. Simplify snapshots: always full history + inflight (no pagination), client replace-only
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -2020,7 +2020,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 #### Subtasks
 
-1. [ ] Confirm current turns snapshot logic and pagination usage (server path + tests):
+1. [x] Confirm current turns snapshot logic and pagination usage (server path + tests):
    - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
@@ -2036,7 +2036,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
    - Output required in Implementation notes:
      - Summarize the current response shape (items + optional inflight + nextCursor) and where the merge/dedupe happens.
 
-2. [ ] Server: remove pagination and ALWAYS return full DB history + inflight:
+2. [x] Server: remove pagination and ALWAYS return full DB history + inflight:
    - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
@@ -2061,7 +2061,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
    - Required acceptance check:
      - The response must include **full DB history + inflight** for every call (no partial page).
 
-3. [ ] Client: simplify to replace‑only full snapshot hydration:
+3. [x] Client: simplify to replace‑only full snapshot hydration:
    - Documentation to read (repeat even if already read):
      - React hooks: https://react.dev/reference/react
      - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
@@ -2081,7 +2081,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
    - Required UI behavior:
      - Navigating away/back during streaming should retain all prior turns plus the current inflight.
 
-4. [ ] Server integration test update: turns snapshot always returns full history + inflight:
+4. [x] Server integration test update: turns snapshot always returns full history + inflight:
    - Test type:
      - node:test integration (server)
    - Test location:
@@ -2095,7 +2095,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Server integration test: inflight-only snapshot (no persisted turns):
+5. [x] Server integration test: inflight-only snapshot (no persisted turns):
    - Test type:
      - node:test integration (server)
    - Test location:
@@ -2109,7 +2109,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-6. [ ] Server integration test: no inflight, full history (multi-turn):
+6. [x] Server integration test: no inflight, full history (multi-turn):
    - Test type:
      - node:test integration (server)
    - Test location:
@@ -2123,7 +2123,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Server integration test: inflight + persisted dedupe/order:
+7. [x] Server integration test: inflight + persisted dedupe/order:
    - Test type:
      - node:test integration (server)
    - Test location:
@@ -2137,7 +2137,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-8. [ ] Client unit test update: refresh always replaces with full snapshot:
+8. [x] Client unit test update: refresh always replaces with full snapshot:
    - Test type:
      - Jest (client)
    - Test location:
@@ -2150,7 +2150,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-9. [ ] Client test update/removal: remove pagination “load older” behavior:
+9. [x] Client test update/removal: remove pagination “load older” behavior:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -2163,7 +2163,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-10. [ ] Client RTL test: navigate away/back during inflight retains full history:
+10. [x] Client RTL test: navigate away/back during inflight retains full history:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -2176,7 +2176,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-11. [ ] Client unit test: turns fetch error does not clear transcript:
+11. [x] Client unit test: turns fetch error does not clear transcript:
    - Test type:
      - Jest (client)
    - Test location:
@@ -2189,7 +2189,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-12. [ ] Update docs to match the new snapshot contract **and add/adjust Mermaid flow diagrams when architecture/flow changes**:
+12. [x] Update docs to match the new snapshot contract **and add/adjust Mermaid flow diagrams when architecture/flow changes**:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams (spec + examples): Context7 `/mermaid-js/mermaid/v11_0_0`
@@ -2201,7 +2201,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Remove all references to pagination/cursors/nextCursor for turns snapshots.
      - Add/update a Mermaid diagram in `design.md` that reflects the new full-snapshot flow (client refresh → server full history + inflight → client replace-only hydration).
 
-13. [ ] Update `projectStructure.md` for any test additions/removals **after all add/remove-file subtasks (4–11) are complete**:
+13. [x] Update `projectStructure.md` for any test additions/removals **after all add/remove-file subtasks (4–11) are complete**:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2210,7 +2210,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Add any new tests you create.
      - Remove any deleted pagination-related tests.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
    - If either fails, rerun with:
@@ -2220,16 +2220,34 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual UI check: navigate away/back during an in-flight run; full prior transcript should remain visible.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual UI check: navigate away/back during an in-flight run; full prior transcript should remain visible.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Docs used: Express routing docs for endpoint contract shape; React hooks docs to keep snapshot hydration effects stable; Jest/RTL docs for updating tests once pagination is removed.
+- Gotchas: keep inflight tool/think streaming working while removing pagination (full history items must not create duplicate inflight assistant bubbles); update existing tests that stub `nextCursor`/`includeInflight` so they match the new full-snapshot contract.
+- Current snapshot contract (pre-change): `GET /conversations/:id/turns` returns `{ items, nextCursor?, inflight? }` where `items` is newest-first paginated DB turns (`listTurns({ conversationId, limit, cursor })`) merged with `snapshotInflightTurns(conversationId)` via `mergeInflightTurns(...)` in `server/src/chat/inflightRegistry.ts`. The route sorts merged results newest-first with deterministic tie-breakers; `nextCursor` is present only when the page is "full"; top-level `inflight` is only included when `includeInflight=true`.
+- Server snapshot contract (post-change): `GET /conversations/:id/turns` now ignores query params entirely and always returns `{ items, inflight? }` where `items` includes the full newest-first DB history via `listAllTurns(conversationId)` plus `snapshotInflightTurns(conversationId)` merged/deduped and then stably sorted; `inflight` is always included when an inflight run exists.
+- Client snapshot hydration (post-change): `useConversationTurns` now performs a single fetch of `/conversations/:id/turns` (no query params) and always replaces local turn state from the returned full snapshot; ChatPage/AgentsPage remove load-older/prepend behavior and always call `hydrateHistory(..., 'replace')` with the full turn list.
+- Server integration tests updated/added in `server/src/test/integration/conversations.turns.test.ts` to assert (a) full-history responses ignore pagination query params, (b) inflight-only snapshots include both merged items and top-level inflight payload, (c) multi-turn persisted history returns without inflight, and (d) inflight merge dedupes by turnId while preserving newest-first ordering.
+- Client tests updated: `client/src/test/useConversationTurns.refresh.test.ts` now asserts replace-only refresh + no query params and adds an error-retains-transcript case; removed pagination test `client/src/test/chatTurnsLazyLoad.test.tsx`; added `client/src/test/chatPage.inflightNavigate.test.tsx` to cover the mid-stream navigate-away/back bug.
+- Docs updated: `design.md` and `README.md` now describe the turns snapshot API as full-history + inflight (no pagination) and include a Mermaid diagram showing replace-only hydration + inflight snapshot application.
+- `projectStructure.md` updated to include `client/src/test/chatPage.inflightNavigate.test.tsx` and refresh-test description changes.
+- Verified formatting with `npm run format:check --workspaces` (after running `npm run format --workspaces`) and ran `npm run lint --workspaces`.
+- Testing: `npm run build --workspace server` OK.
+- Testing: `npm run build --workspace client` OK.
+- Testing: `npm run test --workspace server` OK.
+- Testing: `npm run test --workspace client` OK.
+- Testing: `npm run e2e` OK.
+- Testing: `npm run compose:build` OK.
+- Testing: `npm run compose:up` OK.
+- Manual UI check: used a headless Playwright script against `http://host.docker.internal:5001` to send two messages, navigate away/back mid-run, re-select the conversation, and confirm both user turns remained visible (`MANUAL_UI_CHECK_OK`).
+- Testing: `npm run compose:down` OK.

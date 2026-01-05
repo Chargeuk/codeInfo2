@@ -32,7 +32,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, optional `agentName` (when a conversation belongs to an agent), `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
-- Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
+- Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
@@ -219,7 +219,23 @@ flowchart LR
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
 - `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
 - Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.
-- `GET /conversations/:id/turns?includeInflight=true` additionally returns an `inflight` snapshot (when present) containing `{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }` for detailed tool/thinking hydration.
+- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }`).
+- Snapshot hydration flow (replace-only, full history every time):
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Mongo
+
+  Client->>Server: GET /conversations/:id/turns
+  Server->>Mongo: load all persisted turns
+  Server-->>Client: { items: full history + inflight turns, inflight?: snapshot }
+  Client->>Client: hydrateHistory(replace)
+  opt inflight present
+    Client->>Client: hydrateInflightSnapshot(inflight)
+  end
+```
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.

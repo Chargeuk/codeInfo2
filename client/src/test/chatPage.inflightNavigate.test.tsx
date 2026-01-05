@@ -19,16 +19,20 @@ beforeEach(() => {
 
 const { default: App } = await import('../App');
 const { default: ChatPage } = await import('../pages/ChatPage');
+const { default: HomePage } = await import('../pages/HomePage');
 
 const routes = [
   {
     path: '/',
     element: <App />,
-    children: [{ path: 'chat', element: <ChatPage /> }],
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'chat', element: <ChatPage /> },
+    ],
   },
 ];
 
-test('hydrates inflight snapshot from turns refresh and continues streaming', async () => {
+test('navigating away/back during inflight keeps persisted history + inflight', async () => {
   const turnsPayload = {
     items: [
       {
@@ -44,12 +48,22 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
       {
         conversationId: 'c1',
         role: 'user',
-        content: 'hello',
+        content: 'In-flight user',
         model: 'm1',
         provider: 'lmstudio',
         toolCalls: null,
         status: 'ok',
         createdAt: '2025-01-01T00:00:00.000Z',
+      },
+      {
+        conversationId: 'c1',
+        role: 'assistant',
+        content: 'Past reply',
+        model: 'm1',
+        provider: 'lmstudio',
+        toolCalls: null,
+        status: 'ok',
+        createdAt: '2024-12-31T00:00:00.000Z',
       },
     ],
     inflight: {
@@ -104,10 +118,40 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
     expect(debug?.turnsCount).toBeGreaterThan(0);
   });
 
+  expect(await screen.findByText('Past reply')).toBeInTheDocument();
   const assistantTexts = screen
     .getAllByTestId('assistant-markdown')
     .map((node) => node.textContent ?? '');
   expect(assistantTexts.join('\n')).toContain('Snapshot partial');
+
+  await act(async () => {
+    await router.navigate('/');
+    await router.navigate('/chat');
+  });
+
+  const rowAfter = await screen.findByTestId('conversation-row');
+  await waitFor(() => expect(rowAfter).toBeEnabled());
+  await user.click(rowAfter);
+
+  await waitFor(() => {
+    const debug = (
+      window as unknown as { __chatDebug?: { activeConversationId?: string } }
+    ).__chatDebug;
+    expect(debug?.activeConversationId).toBe('c1');
+  });
+
+  await waitFor(() => {
+    const debug = (
+      window as unknown as { __chatDebug?: { turnsCount?: number } }
+    ).__chatDebug;
+    expect(debug?.turnsCount).toBeGreaterThan(0);
+  });
+
+  expect(await screen.findByText('Past reply')).toBeInTheDocument();
+  const assistantTextsAfter = screen
+    .getAllByTestId('assistant-markdown')
+    .map((node) => node.textContent ?? '');
+  expect(assistantTextsAfter.join('\n')).toContain('Snapshot partial');
 
   await act(async () => {
     harness.emitAssistantDelta({
@@ -117,7 +161,7 @@ test('hydrates inflight snapshot from turns refresh and continues streaming', as
     });
   });
 
-  await waitFor(() => {
-    expect(screen.getByText('Snapshot partial + delta')).toBeInTheDocument();
-  });
+  expect(
+    await screen.findByText('Snapshot partial + delta'),
+  ).toBeInTheDocument();
 });

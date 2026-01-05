@@ -1894,10 +1894,10 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 #### Subtasks
 
-1. [ ] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
+1. [x] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
    - Documentation to read:
      - This story’s Acceptance Criteria section (at the top of this file).
-2. [ ] Update documentation: `README.md`
+2. [x] Update documentation: `README.md`
    - Document:
      - `README.md` (repo root)
    - Purpose:
@@ -1905,7 +1905,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
    - Description:
      - Update any sections that reference Agents UI behavior, WS streaming, stop/cancel behavior, or prerequisites.
 
-3. [ ] Update documentation: `design.md`
+3. [x] Update documentation: `design.md`
    - Document:
      - `design.md` (repo root)
    - Purpose:
@@ -1914,7 +1914,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
      - Validate all Mermaid diagrams added/updated in earlier tasks are present, render, and reflect the final code.
      - Add any missing diagram(s) only if the implementation diverged.
 
-4. [ ] Update documentation: `projectStructure.md`
+4. [x] Update documentation: `projectStructure.md`
     - Document:
       - `projectStructure.md` (repo root)
     - Purpose:
@@ -1925,7 +1925,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 5. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
 6. [ ] Write a pull request summary comment covering all tasks and major changes.
 
-7. [ ] Add a final client log marker so QA can confirm the unified Agents page is running:
+7. [x] Add a final client log marker so QA can confirm the unified Agents page is running:
    - Files to read:
      - `client/src/logging/logger.ts`
    - Files to edit:
@@ -1935,7 +1935,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
        - `DEV-0000021[T9] agents.unification ready`
      - Include `selectedAgentName` (if available) and `activeConversationId` (if available) in `context`.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1957,4 +1957,9 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 #### Implementation notes
 
-- 
+- (T9.1) Verified Acceptance Criteria against the current Agents/Chat implementation; no gaps found (layout parity via Drawer + transcript column, WS transcript handling via shared `useChatWs` + `useChatStream`, sidebar updates via WS upsert/delete filtered by `agentName`, stop/cancel parity).
+- (T9.2) Updated `README.md` Client section to include an explicit Agents page description (layout parity + WS-driven transcript + agent-scoped history).
+- (T9.3) Reviewed `design.md` for Agents/Chat unification coverage (WS transcript pipeline, REST routes, and Mermaid diagrams); no changes required for Task 9.
+- (T9.4) Verified `projectStructure.md` already reflects the new Agents/WS files and server tests added in Tasks 1–8; no tree updates required for Task 9.
+- (T9.7) Added final Agents-page mount log marker `DEV-0000021[T9] agents.unification ready` (once per page load) with `selectedAgentName` + `activeConversationId` context.
+- (T9.8) Ran `npm run lint --workspaces` (warnings only in untouched files) and `npm run format:check --workspaces` (clean).

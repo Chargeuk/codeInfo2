@@ -154,6 +154,19 @@ export default function AgentsPage() {
 
   const log = useMemo(() => createLogger('client'), []);
 
+  const unificationReadyLoggedRef = useRef(false);
+
+  useEffect(() => {
+    if (unificationReadyLoggedRef.current) return;
+    if (!selectedAgentName) return;
+
+    unificationReadyLoggedRef.current = true;
+    log('info', 'DEV-0000021[T9] agents.unification ready', {
+      selectedAgentName,
+      activeConversationId,
+    });
+  }, [activeConversationId, log, selectedAgentName]);
+
   useEffect(() => {
     const variant = isMobile ? 'temporary' : 'persistent';
     log('info', 'DEV-0000021[T8] agents.layout drawer variant', {

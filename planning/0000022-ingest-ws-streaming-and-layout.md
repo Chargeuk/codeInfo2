@@ -583,22 +583,21 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Prefer adding a focused test in `server/src/test/unit/ws-server.test.ts`.
    - Requirements:
      - Connect a WS client, send `subscribe_ingest`, then mutate ingest status using test helpers.
-     - Assert an `ingest_update` message is received with the updated `status.state`.
-     - Assert `seq` increases on subsequent updates.
+    - Assert an `ingest_update` message is received with the updated `status.state`.
+    - (Optional, only if low effort) assert `seq` increases on a second update.
 
    - Concrete implementation guidance:
-     - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
-       - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
-       - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
-       - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper).
-     - In the WS test, call `__setStatusAndPublishForTest(...)` twice and assert that two `ingest_update` frames arrive with increasing `seq`.
+    - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
+      - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
+      - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
+      - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper).
+    - In the WS test, call `__setStatusAndPublishForTest(...)` at least once and assert the update arrives. Use a second call only if you decide to cover seq.
 
    - Example WS test outline:
      - Send `subscribe_ingest`.
      - Call `__setStatusAndPublishForTest('run-1', { runId: 'run-1', state: 'embedding', counts: { files: 1, chunks: 1, embedded: 0 } })`.
      - Wait for an `ingest_update` event.
-     - Call `__setStatusAndPublishForTest(...)` again with `state: 'completed'`.
-     - Wait for a second `ingest_update` and assert `seq` increased.
+    - (Optional) call `__setStatusAndPublishForTest(...)` again with `state: 'completed'` and assert `seq` increased.
 
 7. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
@@ -1050,12 +1049,12 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Files to edit/add:
      - Prefer updating the existing IngestPage coverage inside `client/src/test/ingestStatus.test.tsx`.
    - Requirements:
-     - Add tests that assert:
-       - Snapshot renders immediately when received.
-       - No “Active ingest” UI is rendered when `status === null`.
-       - `connectionState === 'closed'` shows the explicit error state.
-       - `connectionState === 'connecting'` shows a non-error connecting state.
-       - Terminal state triggers a roots/models refresh once and then the active run UI is hidden.
+    - Add tests that assert (focus on acceptance criteria):
+      - Snapshot renders immediately when received.
+      - No “Active ingest” UI is rendered when `status === null`.
+      - `connectionState === 'closed'` shows the explicit error state.
+      - `connectionState === 'connecting'` shows a non-error connecting state.
+    - (Optional, if low effort) add coverage that terminal state triggers a roots/models refresh once and hides the active run UI.
 
    - Concrete test guidance (high-level):
      - Use the WS mock to inject `ingest_snapshot` / `ingest_update` into the mounted page.

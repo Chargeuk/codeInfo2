@@ -515,8 +515,11 @@ This task completes the server-side realtime path for ingest by wiring status up
      - `server/src/ws/server.ts`
    - Requirements:
      - Add a `broadcastIngestUpdate(status)` implementation (follow the existing `publish*` patterns in `server/src/ws/server.ts`).
-     - It must send `{ type: 'ingest_update', status, seq }` to all sockets returned by `socketsSubscribedToIngest()`.
-     - `seq` must be bumped per socket (monotonic per socket) the same way `ingest_snapshot` is sent.
+      - Reuse existing WS send patterns:
+        - Mirror `server/src/ws/sidebar.ts` broadcast loop (stringify once, skip non-open sockets).
+        - Use `safeSend(...)` where appropriate instead of creating a new send utility.
+      - It must send `{ type: 'ingest_update', status, seq }` to all sockets returned by `socketsSubscribedToIngest()`.
+      - `seq` must be bumped per socket (monotonic per socket) the same way `ingest_snapshot` is sent.
 
    - Must-not-miss details (repeat from acceptance criteria + contracts):
      - Single global stream: do not filter by `runId` in the subscription message.
@@ -638,9 +641,10 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
-     - Add new outbound helpers:
-       - `subscribeIngest(): void`
-       - `unsubscribeIngest(): void`
+     - Reuse the existing `useChatWs` connection/reconnect/pending queue; do **not** create a new WS hook or a second socket.
+      - Add new outbound helpers:
+        - `subscribeIngest(): void`
+        - `unsubscribeIngest(): void`
      - Track ingest subscription state in a ref (mirrors sidebar subscription handling).
      - On reconnect (socket re-open), if ingest is subscribed, automatically re-send `subscribe_ingest`.
 

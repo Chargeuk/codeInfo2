@@ -205,10 +205,10 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 #### Documentation Locations
 
-- `ws` (WebSocket server for Node, version `8.18.3`): Context7 `/websockets/ws/8_18_3`
-- `ws` DeepWiki (`noServer` / `handleUpgrade` patterns): DeepWiki `websockets/ws`
-- Node.js test runner (node:test): https://nodejs.org/api/test.html
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- `ws` (WebSocket server for Node, v8.18.3): Context7 `/websockets/ws/8_18_3` — confirms `WebSocketServer({ noServer: true })`, `handleUpgrade(...)`, and connection events needed for server-side subscribe/unsubscribe handling.
+- `ws` DeepWiki: `websockets/ws` — corroborates noServer/handleUpgrade + heartbeat guidance used in the WS server lifecycle.
+- Node.js test runner (node:test): https://nodejs.org/api/test.html — matches the unit test runner used in server WS tests.
+- WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — clarifies client message shape expectations and WebSocket event semantics.
 
 #### Subtasks
 
@@ -437,7 +437,9 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 
 #### Documentation Locations
 
-- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- `ws` (WebSocket server for Node, v8.18.3): Context7 `/websockets/ws/8_18_3` — ensures the subscribe handler changes stay aligned with ws server behavior.
+- `ws` DeepWiki: `websockets/ws` — validates noServer/handleUpgrade usage already present in the WS server.
+- Node.js test runner (node:test): https://nodejs.org/api/test.html — used for the unit test updates in this task.
 
 #### Subtasks
 
@@ -526,8 +528,9 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 #### Documentation Locations
 
-- `ws` (WebSocket server for Node, version `8.18.3`): Context7 `/websockets/ws/8_18_3`
-- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- `ws` (WebSocket server for Node, v8.18.3): Context7 `/websockets/ws/8_18_3` — provides the broadcast/send patterns and heartbeat notes that match this task’s WS updates.
+- `ws` DeepWiki: `websockets/ws` — confirms recommended ping/pong heartbeat and server patterns used in our WS server.
+- Node.js test runner (node:test): https://nodejs.org/api/test.html — used for the new WS unit test coverage.
 
 #### Subtasks
 
@@ -667,12 +670,10 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 #### Documentation Locations
 
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React hooks (cleanup/unmount semantics via `useEffect`): https://react.dev/reference/react/useEffect
-- React Router (nested routes + route elements): Context7 `/remix-run/react-router/react-router_7.9.4`
-- Jest timer mocks (fake timers + advancing timers):
-  - Context7 `/websites/jestjs_io_next` (Timer Mocks)
-  - https://jestjs.io/docs/timer-mocks
+- WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms client-side WebSocket interface/events for `useChatWs`.
+- React `useEffect` docs: https://react.dev/reference/react/useEffect — validates subscribe/unsubscribe cleanup behavior for hooks.
+- React Router v7.9.4: Context7 `/remix-run/react-router/react-router_7.9.4` — aligns with the routing APIs used in the client.
+- Jest timer mocks: Context7 `/websites/jestjs_io_next` (Timer Mocks) + https://jestjs.io/docs/timer-mocks — used for fake timer patterns in `useChatWs` tests.
 
 #### Subtasks
 
@@ -878,8 +879,8 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 #### Documentation Locations
 
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React hooks (cleanup/unmount semantics via `useEffect`): https://react.dev/reference/react/useEffect
+- WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms WebSocket event semantics for ingest status updates.
+- React `useEffect` docs: https://react.dev/reference/react/useEffect — validates hook cleanup for subscribe/unsubscribe.
 
 #### Subtasks
 
@@ -1040,15 +1041,15 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 #### Documentation Locations
 
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React Router (route mount/unmount semantics): https://reactrouter.com/start/library/routing
+- WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms client WebSocket lifecycle used by the ingest page state.
+- React Router (routing semantics): Context7 `/remix-run/react-router/react-router_7.9.4` — aligns with the router setup used in the app.
 
 #### Subtasks
 
 1. [ ] Read current ingest page behavior:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-     - React Router: https://reactrouter.com/start/library/routing
+     - React Router: Context7 `/remix-run/react-router/react-router_7.9.4`
    - Files to read:
      - `client/src/pages/IngestPage.tsx`
      - `client/src/hooks/useIngestStatus.ts`
@@ -1189,8 +1190,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 #### Documentation Locations
 
-- MUI Container API (repo uses `@mui/material ^6.4.1`; closest MUI MCP docs version is `6.4.12`):
-  - MUI MCP `@mui/material@6.4.12` → Container API (includes `MuiContainer-maxWidthLg` CSS class info)
+- MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md — confirms `maxWidth={false}` behavior and `MuiContainer-maxWidthLg` class for full-width layout checks.
 
 #### Subtasks
 
@@ -1267,11 +1267,13 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
+- Docker Compose docs: https://docs.docker.com/compose/ — confirms Compose CLI usage and lifecycle commands referenced in testing steps.
+- Playwright Test docs: Context7 `/microsoft/playwright` — validates `@playwright/test` runner usage for e2e verification.
+- Playwright website: https://playwright.dev/docs/intro — supplements the runner overview with CLI examples used in final checks.
+- Husky docs: https://typicode.github.io/husky/ — confirms hook behavior relevant when running repo lint/format commands.
+- Mermaid syntax reference: https://mermaid.js.org/intro/syntax-reference — used when updating mermaid diagrams in `design.md`.
+- Jest docs (timers + test runner): Context7 `/websites/jestjs_io_next` — validates Jest usage for client tests.
+- Cucumber guides: https://cucumber.io/docs/guides/ — required reference for server cucumber tests in the final verification.
 
 #### Subtasks
 

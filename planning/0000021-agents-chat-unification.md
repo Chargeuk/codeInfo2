@@ -1664,7 +1664,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 ### 8. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: af10adb
 
 #### Overview
 

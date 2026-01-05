@@ -1570,17 +1570,35 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Single global stream
    - Full-width Ingest layout
 
-2. [ ] Ensure docs are up to date:
+2. [ ] Update `README.md` if commands or behavior changed:
    - Files to read:
      - `README.md`
+   - Files to edit:
+     - `README.md`
+   - Description & purpose:
+     - Document any new/changed commands or user-visible behavior introduced by this story.
+   - Requirements:
+     - Only update if the ingest WS flow or UI changes alter documented usage.
+
+3. [ ] Update `design.md` with ingest WS notes/diagram if missing:
+   - Files to read:
      - `design.md`
+   - Files to edit:
+     - `design.md`
+   - Description & purpose:
+     - Keep architecture documentation consistent with the new ingest WS flows.
+   - Requirements:
+     - Include/confirm any diagrams added in Tasks 1–6 are reflected and coherent here.
+
+4. [ ] Update `projectStructure.md` for file additions/removals:
+   - Files to read:
      - `projectStructure.md`
    - Files to edit:
-     - `README.md` (only if behavior/commands changed)
-     - `design.md` (add ingest WS notes/diagram if missing)
-     - `projectStructure.md` (add/remove files created/deleted in this story)
+     - `projectStructure.md`
+   - Description & purpose:
+     - Ensure the repository tree reflects any new test files or deleted artifacts from this story.
 
-3. [ ] Update e2e ingest tests to reflect “no last-run summary” + WS streaming:
+5. [ ] Update e2e ingest tests to reflect “no last-run summary” + WS streaming:
    - Documentation to read:
      - Playwright: Context7 `/microsoft/playwright`
    - Test type:
@@ -1598,7 +1616,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
        - Continue using existing test ids: `start-ingest`, `submit-error`, and `roots-lock-chip`.
      - Keep the existing progress assertions (current file changes, percent/ETA changes) but ensure they happen while the Active ingest panel is visible.
 
-4. [ ] Documentation update (task-local):
+6. [ ] Documentation update (task-local):
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1610,13 +1628,13 @@ Run the full validation checklist, confirm every acceptance criterion, update do
        - and how “no last-run summary” is enforced.
      - Record the commit hash(es) in this task’s Git Commits.
 
-5. [ ] Run repo lint/format checks:
+7. [ ] Run repo lint/format checks:
    - Documentation to read:
      - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
-6. [ ] Create a PR summary comment:
+8. [ ] Create a PR summary comment:
    - Files to read:
      - `planning/plan_format.md`
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.

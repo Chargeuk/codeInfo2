@@ -2081,21 +2081,46 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
    - Required UI behavior:
      - Navigating away/back during streaming should retain all prior turns plus the current inflight.
 
-4. [ ] Update tests to reflect full-snapshot behavior (no pagination):
+4. [ ] Server integration test update: turns snapshot always returns full history + inflight:
+   - Test type:
+     - node:test integration (server)
+   - Test location:
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - Description:
+     - Update the turns snapshot tests to remove pagination expectations (`limit`, `cursor`, `nextCursor`) and assert full history + inflight are always present.
+   - Purpose:
+     - Ensures the server snapshot contract is full-history + inflight with no pagination.
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit (or delete if obsolete):
-     - `server/src/test/integration/conversations.turns.test.ts`
-     - `client/src/test/useConversationTurns.refresh.test.ts`
-     - `client/src/test/chatTurnsLazyLoad.test.tsx` (remove or rewrite — pagination should be gone)
-   - Required test updates:
-     - Remove expectations for `limit`, `cursor`, `nextCursor`, and “load older”.
-     - Add explicit assertions that snapshots always include full history + inflight:
-       - DB turns count > 1 still present after refresh.
-       - Inflight data appears without needing a flag.
 
-5. [ ] Update docs to match the new snapshot contract:
+5. [ ] Client unit test update: refresh always replaces with full snapshot:
+   - Test type:
+     - Jest (client)
+   - Test location:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Description:
+     - Remove pagination assumptions and assert refresh returns full history + inflight (no cursor/nextCursor).
+   - Purpose:
+     - Confirms client refresh uses full snapshot and replace-only behavior.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+6. [ ] Client test update/removal: remove pagination “load older” behavior:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/chatTurnsLazyLoad.test.tsx`
+   - Description:
+     - Delete this test or rewrite it to confirm no pagination/load-older is exposed.
+   - Purpose:
+     - Ensures client no longer exposes paginated lazy-load when snapshots are full-history.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+7. [ ] Update docs to match the new snapshot contract:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2105,7 +2130,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - State that `/conversations/:id/turns` returns **full history + inflight** always.
      - Remove all references to pagination/cursors/nextCursor for turns snapshots.
 
-6. [ ] Update `projectStructure.md` for any test additions/removals:
+8. [ ] Update `projectStructure.md` for any test additions/removals:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2114,7 +2139,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Add any new tests you create.
      - Remove any deleted pagination-related tests.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
    - If either fails, rerun with:

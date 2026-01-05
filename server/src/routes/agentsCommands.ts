@@ -1,11 +1,11 @@
 import { Router, json } from 'express';
 
-import { listAgentCommands, runAgentCommand } from '../agents/service.js';
+import { listAgentCommands, startAgentCommand } from '../agents/service.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
 type Deps = {
   listAgentCommands: typeof listAgentCommands;
-  runAgentCommand: typeof runAgentCommand;
+  startAgentCommand: typeof startAgentCommand;
 };
 
 type AgentCommandsBody = {
@@ -71,7 +71,7 @@ const validateRunBody = (
 export function createAgentsCommandsRouter(
   deps: Deps = {
     listAgentCommands,
-    runAgentCommand,
+    startAgentCommand,
   },
 ) {
   const router = Router();
@@ -129,26 +129,15 @@ export function createAgentsCommandsRouter(
         .json({ error: 'invalid_request', message: (err as Error).message });
     }
 
-    const controller = new AbortController();
-    const handleDisconnect = () => {
-      if (controller.signal.aborted) return;
-      controller.abort();
-    };
-    req.on('aborted', handleDisconnect);
-    res.on('close', () => {
-      if (res.writableEnded) return;
-      handleDisconnect();
-    });
-
     try {
-      const result = await deps.runAgentCommand({
+      const result = await deps.startAgentCommand({
         agentName,
         commandName: parsedBody.commandName,
         conversationId: parsedBody.conversationId,
         working_folder: parsedBody.working_folder,
-        signal: controller.signal,
         source: 'REST',
       });
+
       baseLogger.info(
         {
           requestId,
@@ -156,9 +145,16 @@ export function createAgentsCommandsRouter(
           commandName: result.commandName,
           conversationId: result.conversationId,
         },
-        'agents command run',
+        'agents command run started',
       );
-      return res.json(result);
+
+      return res.status(202).json({
+        status: 'started',
+        agentName,
+        commandName: result.commandName,
+        conversationId: result.conversationId,
+        modelId: result.modelId,
+      });
     } catch (err) {
       if (isAgentCommandsError(err)) {
         if (

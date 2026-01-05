@@ -10,8 +10,9 @@ beforeEach(() => {
   mockFetch.mockReset();
   mockFetch.mockResolvedValue({
     ok: true,
-    status: 200,
+    status: 202,
     json: async () => ({
+      status: 'started',
       agentName: 'planning_agent',
       commandName: 'smoke',
       conversationId: 'c1',

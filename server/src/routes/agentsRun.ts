@@ -1,12 +1,10 @@
 import { Router, json } from 'express';
-import {
-  runAgentInstruction,
-  type RunAgentInstructionResult,
-} from '../agents/service.js';
+
+import { startAgentInstruction } from '../agents/service.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 
 type Deps = {
-  runAgentInstruction: typeof runAgentInstruction;
+  startAgentInstruction: typeof startAgentInstruction;
 };
 
 type AgentRunBody = {
@@ -68,7 +66,7 @@ const validateBody = (
 
 export function createAgentsRunRouter(
   deps: Deps = {
-    runAgentInstruction,
+    startAgentInstruction,
   },
 ) {
   const router = Router();
@@ -101,31 +99,32 @@ export function createAgentsRunRouter(
         .json({ error: 'invalid_request', message: (err as Error).message });
     }
 
-    const controller = new AbortController();
-    const handleDisconnect = () => {
-      if (controller.signal.aborted) return;
-      controller.abort();
-    };
-    req.on('aborted', handleDisconnect);
-    res.on('close', () => {
-      if (res.writableEnded) return;
-      handleDisconnect();
-    });
-
     try {
-      const result: RunAgentInstructionResult = await deps.runAgentInstruction({
+      const result = await deps.startAgentInstruction({
         agentName,
         instruction: parsedBody.instruction,
         working_folder: parsedBody.working_folder,
         conversationId: parsedBody.conversationId,
-        signal: controller.signal,
         source: 'REST',
       });
+
       baseLogger.info(
-        { requestId, agentName, conversationId: result.conversationId },
-        'agents run',
+        {
+          requestId,
+          agentName,
+          conversationId: result.conversationId,
+          inflightId: result.inflightId,
+        },
+        'agents run started',
       );
-      return res.json(result);
+
+      return res.status(202).json({
+        status: 'started',
+        agentName,
+        conversationId: result.conversationId,
+        inflightId: result.inflightId,
+        modelId: result.modelId,
+      });
     } catch (err) {
       if (isAgentRunError(err)) {
         if (err.code === 'AGENT_NOT_FOUND') {

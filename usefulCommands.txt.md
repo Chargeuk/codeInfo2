@@ -16,6 +16,8 @@ Are there any sections in this story that are not defined in a way that a junior
 
 Is everything in the planning consistent, or are there some contradictions, especially across the various sections? If so, please resolve and remove the contradictions based on what we know we actually want.
 
+Without actually tasking up, do you feel this story is detailed enough to be tasked up by someone? If not, please make the required changes to the plan.
+
 Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked seperately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
 
 Tasks:

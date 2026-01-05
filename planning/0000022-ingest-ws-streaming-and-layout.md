@@ -215,6 +215,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 1. [ ] Read existing WS server patterns so changes mirror Chat/Agents:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
+       - Confirm `WebSocketServer({ noServer: true })` + `handleUpgrade(...)` is the supported pattern, and ping/pong heartbeats are recommended for dead-connection detection.
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/ws/types.ts` (parse/validation + event type shapes)
@@ -840,6 +841,7 @@ This task does not change the Ingest page layout yet; it only changes how status
     - Subscribe to ingest only while the hook is mounted:
       - Call `subscribeIngest()` in a `useEffect(..., [])`.
       - Call `unsubscribeIngest()` in the cleanup function.
+      - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
     - Expose a minimal, predictable API for the page:
       - `status: ChatWsIngestStatus | null`
       - `connectionState: ChatWsConnectionState` (from `useChatWs`)
@@ -1084,6 +1086,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Ensure the page is full-width (no centered/narrow maxWidth).
      - Keep spacing consistent with the rest of the app.
      - Do not redesign components; width-only change.
+     - MUI Container defaults `maxWidth="lg"`; using `maxWidth={false}` removes the `MuiContainer-maxWidthLg` class (verified in MUI 6.4.x docs).
 
    - Concrete implementation guidance:
      - Mirror the other pages in this repo (Chat/Agents):

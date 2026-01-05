@@ -2251,3 +2251,273 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 - Testing: `npm run compose:up` OK.
 - Manual UI check: used a headless Playwright script against `http://host.docker.internal:5001` to send two messages, navigate away/back mid-run, re-select the conversation, and confirm both user turns remained visible (`MANUAL_UI_CHECK_OK`).
 - Testing: `npm run compose:down` OK.
+
+---
+
+### 11. Agents: decouple run lifecycle from HTTP request (async 202 + background)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Agents runs are still tied to a long-lived HTTP request, which means navigating away (or any network interruption) aborts the run. This task changes both instruction runs and command runs to behave like Chat: return `202` immediately and continue processing in the background. The only cancellation path should be explicit (`cancel_inflight`), and multiple browsers should be able to observe the same run without stopping it.
+
+#### Documentation Locations
+
+- Express routing (response lifecycle + 202 responses): https://expressjs.com/en/guide/routing.html
+- Node.js HTTP request/response lifecycle (aborted/close semantics): Context7 `/websites/nodejs_api`
+- WebSocket API (browser): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React hooks (useEffect/useMemo): https://react.dev/reference/react
+- Jest (test runner + mocking): Context7 `/jestjs/jest`
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- Mermaid diagrams (spec + examples): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+
+#### Subtasks
+
+1. [ ] Read current Agents run lifecycle and abort wiring (server + client):
+   - Documentation to read:
+     - Express routing: https://expressjs.com/en/guide/routing.html
+     - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
+   - Files to read:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/api/agents.ts`
+   - What to locate:
+     - `AbortController` wiring (`req.on('aborted')` / `res.on('close')`).
+     - The current REST response shapes (segments + modelId).
+     - Where `cancel_inflight` is sent from the client.
+     - Where `createInflight(...)` is called for Agents runs.
+   - Output required in Implementation notes:
+     - Summarize the current “sync” behavior and why it stops on navigation.
+
+2. [ ] Server: make `/agents/:agentName/run` async (return 202, continue in background):
+   - Documentation to read:
+     - Express routing: https://expressjs.com/en/guide/routing.html
+     - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
+   - Files to edit:
+     - `server/src/routes/agentsRun.ts`
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Return immediately with HTTP `202` and a payload similar to `/chat`:
+       - `status: 'started'`
+       - `conversationId`
+       - `inflightId`
+       - `agentName`
+       - `modelId`
+     - **Do not** abort the run when the client disconnects (remove `req.on('aborted')` / `res.on('close')` AbortController wiring for this route).
+     - Start the actual run in the background (fire-and-forget) and log errors if it fails.
+     - Keep the existing `RUN_IN_PROGRESS`, `AGENT_NOT_FOUND`, `AGENT_MISMATCH`, `CONVERSATION_ARCHIVED` semantics intact.
+   - Concrete implementation guidance:
+     - Introduce a `startAgentInstruction(...)` helper in `server/src/agents/service.ts` that:
+       - Creates inflight state + publishes `user_turn`.
+       - Returns `{ conversationId, inflightId, modelId }` immediately.
+       - Kicks off `runAgentInstructionUnlocked(...)` in an async `void` task that logs failures and cleans up inflight.
+     - Update `routes/agentsRun.ts` to call `startAgentInstruction(...)` instead of awaiting `runAgentInstruction(...)`.
+
+3. [ ] Server: make `/agents/:agentName/commands/run` async (return 202, continue in background):
+   - Documentation to read:
+     - Express routing: https://expressjs.com/en/guide/routing.html
+     - Node.js HTTP lifecycle: Context7 `/websites/nodejs_api`
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Return immediately with HTTP `202` and a payload:
+       - `status: 'started'`
+       - `conversationId`
+       - `agentName`
+       - `commandName`
+       - `modelId`
+     - **Do not** abort the command run when the client disconnects.
+     - The command runner must continue across multiple steps even if no client is subscribed.
+     - Ensure the conversation lock is still held until the command finishes (release in `finally`).
+   - Concrete implementation guidance:
+     - Add a `startAgentCommand(...)` helper that starts `runAgentCommandRunner(...)` in the background and returns the start payload immediately.
+     - Keep the current per-step command metadata (`stepIndex`, `totalSteps`) intact so WS transcripts remain correct.
+
+4. [ ] Server: ensure explicit cancellation stops command runs (no implicit HTTP abort):
+   - Documentation to read:
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/chat/inflightRegistry.ts`
+   - Requirements:
+     - When the user clicks Stop (WS `cancel_inflight`), the **current step** should stop (already true).
+     - The **remaining steps** must also stop (this requires a command-level abort flag, because `params.signal` will no longer be a request signal).
+   - Concrete implementation guidance:
+     - Add a per-conversation command-run abort controller (or “stop flag”) in `commandsRunner.ts`.
+     - Expose a helper like `abortAgentCommandRun(conversationId)` and call it from the WS `cancel_inflight` handler **when the inflight turn is part of a command run**.
+     - Ensure `runAgentCommandRunner(...)` checks this signal before starting each new step.
+
+5. [ ] Client: update Agents REST API response shapes (async 202 start payloads):
+   - Documentation to read:
+     - React hooks: https://react.dev/reference/react
+   - Files to edit:
+     - `client/src/api/agents.ts`
+   - Requirements:
+     - `runAgentInstruction(...)` must accept the new `{ status:'started', conversationId, inflightId, modelId }` payload.
+     - `runAgentCommand(...)` must accept `{ status:'started', conversationId, agentName, commandName, modelId }`.
+     - Remove any dependence on `segments` from REST responses.
+
+6. [ ] Client: Agents page should be WS-only and no longer cancel on navigation:
+   - Documentation to read:
+     - React hooks: https://react.dev/reference/react
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Remove the REST “segments fallback” branch (always rely on WS transcript).
+     - Do not abort a run when navigating away or switching conversations; only Stop should cancel.
+     - `isRunning` must be derived from WS/inflight state, not from REST request completion.
+     - Disable Send/Execute when WS is unavailable, and display a clear error banner (matching Chat’s realtime behavior).
+
+7. [ ] Server unit test: `/agents/:agentName/run` returns 202 immediately and is not aborted by disconnect:
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/agents-router-run.test.ts`
+   - Description:
+     - Update the tests to assert a `202` response and a `status: 'started'` payload.
+     - Remove/replace any test that expects abort on request close.
+   - Purpose:
+     - Confirms instruction runs are decoupled from HTTP lifecycle.
+   - Documentation to read:
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+8. [ ] Server unit test: `/agents/:agentName/commands/run` returns 202 immediately and is not aborted by disconnect:
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Description:
+     - Update the tests to assert a `202` response and a `status: 'started'` payload.
+     - Remove/replace any test that expects abort on request close.
+   - Purpose:
+     - Confirms command runs are decoupled from HTTP lifecycle.
+   - Documentation to read:
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+9. [ ] Server unit test: command runner stops remaining steps when WS cancel is sent:
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
+   - Description:
+     - Update/extend the test to verify a command run halts future steps after cancellation (not just the current step).
+   - Purpose:
+     - Ensures explicit WS cancellation stops multi-step command runs.
+   - Documentation to read:
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+10. [ ] Client Jest test: Agents run uses async start response + WS-only transcript:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/agentsPage.run.test.tsx`
+   - Description:
+     - Update mocks to return `{ status:'started', conversationId, inflightId, modelId }`.
+     - Assert the UI waits for WS transcript events instead of REST segments.
+   - Purpose:
+     - Ensures the new start response is handled correctly and transcript is WS-driven.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+11. [ ] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+   - Description:
+     - Update expectations so the HTTP request is **not** aborted (it returns immediately).
+     - Assert `cancel_inflight` is still sent on Stop.
+   - Purpose:
+     - Confirms explicit cancellation still works without request-bound abort.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+12. [ ] Client Jest test: remove REST segments fallback coverage (WS-only):
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/agentsPage.persistenceFallbackSegments.test.tsx`
+   - Description:
+     - Replace fallback assertions with “WS required” behavior (expect an error banner when WS is unavailable).
+   - Purpose:
+     - Keeps the test suite aligned with the WS-only design.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+13. [ ] Client Jest test: navigating away does not stop command execution:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - Add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+   - Description:
+     - Start a command run, unmount the component, then re-mount and verify the WS transcript continues and the run still completes.
+   - Purpose:
+     - Guarantees the “navigate away and come back” parity with Chat.
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+14. [ ] Documentation update: design + flow diagram for async Agents runs:
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add/update a Mermaid sequence diagram showing:
+       - `POST /agents/:agent/run` returns `202` immediately.
+       - Background run continues and publishes WS events.
+       - `cancel_inflight` is the **only** cancellation path.
+     - Explicitly call out command-run multi-step behavior and cancellation signal.
+   - Documentation to read:
+     - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
+
+15. [ ] Documentation update: note async Agents run behavior in README:
+   - Files to edit:
+     - `README.md`
+   - Requirements:
+     - Update the Agents REST API section to note `202` responses and background execution.
+     - Mention that navigation away does not cancel runs; cancellation is explicit via Stop.
+
+16. [ ] Update `projectStructure.md` if any new files are added:
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - If you add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` (or any other new files), add them here **after** the file is created.
+
+17. [ ] Run lint/format checks (must be last subtask):
+   - Documentation to read:
+     - Jest: Context7 `/jestjs/jest`
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, rerun with:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Manually resolve any remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual UI check: start a command run, navigate away, return, and verify it continues without interruption (no “operation aborted”).
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)

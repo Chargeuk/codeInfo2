@@ -2261,7 +2261,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 #### Overview
 
-Agents runs are still tied to a long-lived HTTP request, which means navigating away (or any network interruption) aborts the run. This task changes both instruction runs and command runs to behave like Chat: return `202` immediately and continue processing in the background. The only cancellation path should be explicit (`cancel_inflight`), and multiple browsers should be able to observe the same run without stopping it.
+Agents runs are still tied to a long-lived HTTP request, which means navigating away (or any network interruption) aborts the run. This task changes both instruction runs and command runs to behave like Chat: return `202` immediately and continue processing in the background. The REST “segments” fallback becomes invalid under async runs, so it must be removed entirely and the Agents page must be WS-only for transcript updates. The only cancellation path should be explicit (`cancel_inflight`), and multiple browsers should be able to observe the same run without stopping it.
 
 #### Documentation Locations
 
@@ -2374,6 +2374,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Remove the REST “segments fallback” branch (always rely on WS transcript).
+     - REST fallback must be fully removed (no legacy segments rendering or tests).
      - Do not abort a run when navigating away or switching conversations; only Stop should cancel.
      - `isRunning` must be derived from WS/inflight state, not from REST request completion.
      - Disable Send/Execute when WS is unavailable, and display a clear error banner (matching Chat’s realtime behavior).

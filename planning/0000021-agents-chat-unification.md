@@ -2004,7 +2004,7 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 ### 10. Simplify snapshots: always full history + inflight (no pagination), client replace-only
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: 2aa8a84
 
 #### Overview
 

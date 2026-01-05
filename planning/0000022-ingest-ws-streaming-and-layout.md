@@ -420,12 +420,17 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - Add a Mermaid sequence diagram for `subscribe_ingest` → `ingest_snapshot` (placeholder/null status) flow.
      - Keep diagrams minimal and aligned with existing design.md style.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
+   - Files to read:
+     - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -571,20 +576,25 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Seed terminal statuses only; verify `null` result.
 
 10. [ ] Update `design.md` with ingest active-status selection flow:
+   - Documentation to read:
+     - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid flowchart or sequence showing lock owner + jobs map fallback logic for `getActiveStatus()`.
+     - Note the “no last-run summary” rule when all runs are terminal.
+
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
-      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
-    - Files to edit:
-      - `design.md`
-    - Requirements:
-      - Add a Mermaid flowchart or sequence showing lock owner + jobs map fallback logic for `getActiveStatus()`.
-      - Note the “no last-run summary” rule when all runs are terminal.
+      - ESLint CLI (Context7): `/eslint/eslint`
+      - Prettier CLI (Context7): `/prettier/prettier`
+    - Files to read:
+      - `package.json` (root linting/formatting commands + fix scripts)
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -736,20 +746,25 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Must call the same internal `setStatusAndPublish(...)` used in production.
 
 9. [ ] Update `design.md` with ingest update broadcast flow:
+   - Documentation to read:
+     - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid sequence showing `setStatusAndPublish(...)` → `broadcastIngestUpdate` → subscribed sockets.
+     - Call out per-socket `seq` behavior in diagram notes.
+
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
-      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
-    - Files to edit:
-      - `design.md`
-    - Requirements:
-      - Add a Mermaid sequence showing `setStatusAndPublish(...)` → `broadcastIngestUpdate` → subscribed sockets.
-      - Call out per-socket `seq` behavior in diagram notes.
+      - ESLint CLI (Context7): `/eslint/eslint`
+      - Prettier CLI (Context7): `/prettier/prettier`
+    - Files to read:
+      - `package.json` (root linting/formatting commands + fix scripts)
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1012,12 +1027,17 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
       - Add a Mermaid sequence showing `useChatWs` connect → `subscribe_ingest` → reconnect resubscribe behavior.
       - Note that ingest events bypass chat seq gating.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read:
+      - ESLint CLI (Context7): `/eslint/eslint`
+      - Prettier CLI (Context7): `/prettier/prettier`
+    - Files to read:
+      - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1240,12 +1260,17 @@ This task does not change the Ingest page layout yet; it only changes how status
       - Add a Mermaid sequence showing `useIngestStatus` subscribing and handling `ingest_snapshot` / `ingest_update` events.
       - Note that polling was removed and WS is the only source of status.
 
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read:
+      - ESLint CLI (Context7): `/eslint/eslint`
+      - Prettier CLI (Context7): `/prettier/prettier`
+    - Files to read:
+      - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1442,16 +1467,17 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
       - Add a Mermaid diagram showing WS connection states (connecting/open/closed) and UI rendering rules (no last-run summary).
       - Call out the refresh-on-terminal behavior in the diagram notes.
 
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read:
+      - ESLint CLI (Context7): `/eslint/eslint`
+      - Prettier CLI (Context7): `/prettier/prettier`
+    - Files to read:
+      - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces`
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-4. [ ] `npm run format:check --workspaces`
-   - Documentation to read:
-     - Prettier CLI (Context7): `/prettier/prettier`
 
 #### Implementation notes
 
@@ -1539,12 +1565,17 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
+   - Files to read:
+     - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces`
-4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1660,29 +1691,30 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.
    - Mention what was removed (polling), and what the explicit failure mode is (WS error state).
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
+   - Files to read:
+     - `package.json` (root linting/formatting commands + fix scripts)
+
 #### Testing
 
 1. [ ] Build the server: `npm run build --workspace server`
 2. [ ] Build the client: `npm run build --workspace client`
 3. [ ] Run server tests: `npm run test --workspace server`
 4. [ ] Run client tests: `npm run test --workspace client`
-5. [ ] Run lint checks: `npm run lint --workspaces`
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-6. [ ] Run formatting check: `npm run format:check --workspaces`
-   - Documentation to read:
-     - Prettier CLI (Context7): `/prettier/prettier`
-7. [ ] Perform a clean docker build: `npm run compose:build`
-8. [ ] Start docker compose: `npm run compose:up`
-9. [ ] Run e2e tests: `npm run e2e`
-10. [ ] Manual multi-tab verification:
+5. [ ] Perform a clean docker build: `npm run compose:build`
+6. [ ] Start docker compose: `npm run compose:up`
+7. [ ] Run e2e tests: `npm run e2e`
+8. [ ] Manual multi-tab verification:
    - Open `/ingest` in two browser tabs.
    - Start an ingest run in tab A.
    - Confirm tab B immediately receives a snapshot + subsequent progress updates (no refresh required).
    - Navigate tab B away from `/ingest` and confirm it stops receiving ingest updates.
    - Return tab B to `/ingest` and confirm it receives a fresh snapshot.
    - Confirm the UI shows an explicit error if the WS connection is down (no polling fallback).
-11. [ ] Shut down compose: `npm run compose:down`
+9. [ ] Shut down compose: `npm run compose:down`
 
 #### Implementation notes
 

@@ -2437,7 +2437,33 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Ensures explicit WS cancellation stops multi-step command runs.
 
-10. [ ] Client Jest test: Agents run uses async start response + WS-only transcript:
+10. [ ] Server unit test: instruction run error cases return correct status and do not start a background run:
+   - Documentation to read (repeat even if already read):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/agents-router-run.test.ts`
+   - Description:
+     - Add coverage for `AGENT_NOT_FOUND`, `CONVERSATION_ARCHIVED`, and `RUN_IN_PROGRESS` (assert 4xx + error payload).
+     - Verify no background task is started when these errors occur.
+   - Purpose:
+     - Covers error paths for instruction runs so failure behavior is explicit.
+
+11. [ ] Server unit test: command run error cases return correct status and do not start a background run:
+   - Documentation to read (repeat even if already read):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/agents-commands-router-run.test.ts`
+   - Description:
+     - Add coverage for `AGENT_NOT_FOUND`, `COMMAND_NOT_FOUND`, `CONVERSATION_ARCHIVED`, and `RUN_IN_PROGRESS` (assert 4xx + error payload).
+     - Verify no background task is started when these errors occur.
+   - Purpose:
+     - Covers error paths for command runs so failure behavior is explicit.
+
+12. [ ] Client Jest test: Agents run uses async start response + WS-only transcript:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2451,7 +2477,21 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Ensures the new start response is handled correctly and transcript is WS-driven.
 
-11. [ ] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
+13. [ ] Client Jest test: Agents run start errors show a visible error state:
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - Add `client/src/test/agentsPage.run.error.test.tsx`
+   - Description:
+     - Mock `runAgentInstruction` and `runAgentCommand` to return 4xx errors (agent not found / run in progress).
+     - Assert the Agents page shows an error banner or toast and `isRunning` remains false.
+   - Purpose:
+     - Covers client-side error handling for failed start requests.
+
+14. [ ] Client Jest test: Stop sends `cancel_inflight` but does not abort the start request:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2465,7 +2505,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Confirms explicit cancellation still works without request-bound abort.
 
-12. [ ] Client Jest test: remove REST segments fallback coverage (WS-only):
+15. [ ] Client Jest test: remove REST segments fallback coverage (WS-only):
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2478,7 +2518,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Keeps the test suite aligned with the WS-only design.
 
-13. [ ] Client Jest test: navigating away does not stop command execution:
+16. [ ] Client Jest test: navigating away does not stop command execution:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -2491,7 +2531,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Purpose:
      - Guarantees the “navigate away and come back” parity with Chat.
 
-14. [ ] Documentation update: design + flow diagram for async Agents runs:
+17. [ ] Documentation update: design + flow diagram for async Agents runs:
    - Documentation to read (repeat even if already read):
      - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
      - Mermaid syntax: https://mermaid.js.org/syntax/sequenceDiagram.html
@@ -2504,7 +2544,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
        - `cancel_inflight` is the **only** cancellation path.
      - Explicitly call out command-run multi-step behavior and cancellation signal.
 
-15. [ ] Documentation update: note async Agents run behavior in README:
+18. [ ] Documentation update: note async Agents run behavior in README:
    - Documentation to read (repeat even if already read):
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2513,7 +2553,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
      - Update the Agents REST API section to note `202` responses and background execution.
      - Mention that navigation away does not cancel runs; cancellation is explicit via Stop.
 
-16. [ ] Update `projectStructure.md` if any new files are added:
+19. [ ] Update `projectStructure.md` if any new files are added:
    - Documentation to read (repeat even if already read):
      - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2521,7 +2561,7 @@ Agents runs are still tied to a long-lived HTTP request, which means navigating 
    - Requirements:
      - If you add `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx` (or any other new files), add them here **after** the file is created.
 
-17. [ ] Run lint/format checks (must be last subtask):
+20. [ ] Run lint/format checks (must be last subtask):
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
    - `npm run lint --workspaces`

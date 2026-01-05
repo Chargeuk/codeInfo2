@@ -2015,6 +2015,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 - Express routes + pagination patterns (reference only): https://expressjs.com/en/guide/routing.html
 - React hooks (useEffect/useMemo consistency): https://react.dev/reference/react
 - Jest (test runner + mocking): Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
 - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
 - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
 

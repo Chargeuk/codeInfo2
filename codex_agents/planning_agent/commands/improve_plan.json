@@ -59,7 +59,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Does all the functionality, including happy apth, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
+      "content": ["Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Commit after making any changes."]
     },
     {
       "type": "message",

@@ -58,7 +58,7 @@ The experience should mirror Chat/Agents: updates only flow while the page is mo
 This story is well‑scoped for a single iteration: it focuses on two user‑visible problems (live ingest visibility across tabs and page width/layout) and reuses existing infra (shared `/ws` stack + existing ingest status model). The scope stays tightly bound to the Ingest page and does not require changes to ingest backend logic or data models.
 
 **Scope boundaries (explicit)**
-- **Will change:** Ingest progress delivery switches from polling to WS; Ingest page layout becomes full width.
+- **Will change:** Ingest progress delivery switches from polling to WS; Ingest page layout becomes full‑width.
 - **Will not change:** ingest backend logic, persistence formats, or feature set (no new ingest capabilities).
 - **Single path:** the only realtime path is WS (polling is removed, no fallback branch).
 

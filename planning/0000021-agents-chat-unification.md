@@ -2312,7 +2312,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 ### 11. Agents: decouple run lifecycle from HTTP request (async 202 + background)
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: eb7c187
 
 #### Overview
 

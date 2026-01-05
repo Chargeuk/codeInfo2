@@ -408,8 +408,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      ```
 
 8. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -497,8 +497,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
        - Use existing helpers in `server/src/ingest/ingestJob.ts`: `__resetIngestJobsForTest()` + `__setStatusForTest()`.
 
 5. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -638,8 +638,8 @@ This task completes the server-side realtime path for ingest by wiring status up
     - (Optional) call `__setStatusAndPublishForTest(...)` again with `state: 'completed'` and assert `seq` increased.
 
 7. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -840,8 +840,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      ```
 
 5. [ ] Documentation update (task-local):
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -849,8 +849,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Record the commit hash(es) in this task’s Git Commits.
 
 6. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1004,8 +1004,8 @@ This task does not change the Ingest page layout yet; it only changes how status
        - Percent and ETA text updates.
 
 7. [ ] Documentation update (task-local):
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1013,8 +1013,8 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Record the commit hash(es) in this task’s Git Commits.
 
 8. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1153,8 +1153,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - Assert `Active ingest` heading is absent when idle.
 
 8. [ ] Documentation update (task-local):
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1162,8 +1162,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Record the commit hash(es) in this task’s Git Commits.
 
 9. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1231,8 +1231,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
 4. [ ] Documentation update (task-local):
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1240,8 +1240,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Record the commit hash(es) in this task’s Git Commits.
 
 5. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1276,8 +1276,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 #### Subtasks
 
 1. [ ] Confirm the acceptance criteria explicitly (write down results in Implementation notes):
-   - Documentation to read:
-     - Story acceptance criteria at the top of this plan.
+   - Files to read:
+     - `planning/0000022-ingest-ws-streaming-and-layout.md` (Acceptance Criteria section)
    - Live updates via WS only (no polling timers)
    - Snapshot on subscribe
    - Page-scoped updates (unsubscribes when navigating away)
@@ -1287,7 +1287,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Full-width Ingest layout
 
 2. [ ] Ensure docs are up to date:
-   - Documentation to read:
+   - Files to read:
      - `README.md`
      - `design.md`
      - `projectStructure.md`
@@ -1311,8 +1311,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Keep the existing progress assertions (current file changes, percent/ETA changes) but ensure they happen while the Active ingest panel is visible.
 
 4. [ ] Documentation update (task-local):
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1329,8 +1329,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - `npm run format:check --workspaces`
 
 6. [ ] Create a PR summary comment:
-   - Documentation to read:
-     - Story plan format: `planning/plan_format.md`
+   - Files to read:
+     - `planning/plan_format.md`
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.
    - Mention what was removed (polling), and what the explicit failure mode is (WS error state).
 

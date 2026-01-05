@@ -442,7 +442,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 #### Overview
 
-Extend the existing `useChatWs` WebSocket transport so it can subscribe to ingest and pass ingest events through the same socket/reconnect/seq-gating pipeline.
+Extend the existing `useChatWs` WebSocket transport so it can subscribe to ingest and pass ingest events through the same socket + reconnect pipeline.
 
 This task intentionally does **not** change the Ingest page or ingest status hook yet; it only makes the shared WS transport capable of ingest.
 
@@ -472,13 +472,14 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Track ingest subscription state in a ref (mirrors sidebar subscription handling).
      - On reconnect (socket re-open), if ingest is subscribed, automatically re-send `subscribe_ingest`.
 
-3. [ ] Add ingest event typing + seq gating:
+3. [ ] Add ingest event typing (do not change seq gating):
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
      - Extend the inbound event typing to include `ingest_snapshot` and `ingest_update` events.
-     - Update the seq-gating key logic so ingest events use a stable key (e.g. `'ingest'`) and are gated.
-     - Reset seq gating for the ingest key when a new socket is created (so `seq: 1` snapshots after reconnect are accepted), without changing chat transcript seq behavior.
+     - Do not change `useChatWs` seq-gating behavior for these ingest events.
+       - Rationale: `useChatWs` is shared by Chat and Agents; minimizing changes here reduces regression risk.
+       - Ingest events do not include `conversationId`, so they will naturally bypass the existing seq-gating logic.
      - Ensure Chat/Agents behavior remains unchanged.
 
 4. [ ] Add/adjust `useChatWs` tests:
@@ -487,7 +488,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Requirements:
      - Add a test: calling `subscribeIngest()` sends an outbound `subscribe_ingest` message.
      - Add a test: after a reconnect, if ingest was subscribed, a new socket re-sends `subscribe_ingest`.
-     - Add a test: ingest events are seq-gated on a stable key (e.g. `'ingest'`) and stale/out-of-order frames are ignored.
+     - Do not add ingest-specific seq-gating tests (we intentionally do not gate ingest events client-side).
 
 5. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
@@ -537,8 +538,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Subscribe to ingest only while the hook is mounted (call `subscribeIngest()` in an effect and `unsubscribeIngest()` in cleanup).
      - Expose:
        - `status: IngestStatusPayload | null` (null means no active run)
-       - `connectionState`
-       - `isError` / `error` for “WS unavailable” UI.
+       - `connectionState` (caller uses this to show the required “WS unavailable” error UI state).
      - Keep `cancel()` using existing REST `POST /ingest/cancel/:runId`.
        - It must use the current WS `status?.runId`.
 
@@ -594,7 +594,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Remove the `activeRunId` state from the page. The ingest run ID must come from WebSocket `status.runId` (global stream; no runId filters).
      - The page must render ingest progress from WS only.
-     - If WS is unavailable / closes, show a clear error UI state (and do not start polling).
+     - If WS is unavailable (WS connection state is not `open`), show a clear error UI state (and do not start polling).
      - “No last run summary” rule:
        - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
        - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
@@ -612,7 +612,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Add tests that assert:
        - Snapshot renders immediately when received.
        - No “Active ingest” UI is rendered when `status === null`.
-       - WS closed/error shows the explicit error state.
+       - `connectionState !== 'open'` shows the explicit error state.
        - Terminal state triggers a roots/models refresh once and then the active run UI is hidden.
 
 4. [ ] Run repo lint/format checks:

@@ -189,23 +189,25 @@ type IngestStatusPayload = {
 
 ## Tasks
 
-### 1. Server: WS protocol + ingest subscription + snapshot-on-subscribe
+### 1. Server: ingest WS message types + subscribe/unsubscribe + placeholder snapshot
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Add new WebSocket v1 message types for ingest (`subscribe_ingest`, `unsubscribe_ingest`) and implement the server-side subscription + snapshot behavior so an Ingest page can subscribe and immediately receive `ingest_snapshot` (or `status: null` when no run is active).
+Add new WebSocket v1 message types for ingest (`subscribe_ingest`, `unsubscribe_ingest`) and implement server-side subscription handling so an Ingest page can subscribe and immediately receive an `ingest_snapshot`.
 
-This task does **not** broadcast ingest progress changes yet (that is Task 2). It only establishes the protocol, validation/parsing, per-socket subscription tracking, and snapshot sending.
+This task intentionally starts with a **placeholder snapshot** (`status: null` always) so the protocol/parsing/subscription plumbing can be implemented and tested in isolation. Task 2 will make the snapshot accurately reflect the active ingest run.
+
+This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 #### Documentation Locations
 
 - `ws` (WebSocket server for Node, version `8.18.3`): Context7 `/websockets/ws/8_18_3`
-- `ws` DeepWiki (noServer/handleUpgrade patterns): DeepWiki `websockets/ws`
-- Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
-- WebSocket browser API (for understanding client expectations): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- `ws` DeepWiki (`noServer` / `handleUpgrade` patterns): DeepWiki `websockets/ws`
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
 #### Subtasks
 
@@ -244,50 +246,36 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
      - Add `subscribeIngest(ws)`, `unsubscribeIngest(ws)`, and `socketsSubscribedToIngest()` helpers.
      - Ensure `unregisterSocket(ws)` clears state (existing behavior) and does not leak subscriptions.
 
-5. [ ] Reuse existing WS server helpers to implement ingest seq + snapshot sending:
+5. [ ] Add per-socket ingest `seq` and a snapshot send helper:
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
      - Reuse existing `safeSend(ws, event)` in `server/src/ws/server.ts`.
-     - Add a per-socket `seq` counter for ingest events (monotonic on a given socket), e.g. `WeakMap<WebSocket, number>` scoped to the WS server.
-     - Add a small local helper inside `server/src/ws/server.ts` (or a tiny exported helper next to other publish functions) to build/send `ingest_snapshot` with `seq`.
-     - Do not add a new WS module for this unless it becomes unavoidable; keep it KISS by following the existing `publish*` patterns in `server/src/ws/server.ts`.
+     - Add a per-socket `seq` counter for ingest events (monotonic per socket), e.g. `WeakMap<WebSocket, number>` scoped to the WS server.
+     - Add a small helper to send `ingest_snapshot` with per-socket `seq`.
 
-6. [ ] Implement “snapshot on subscribe” in the WS server:
+6. [ ] Handle `subscribe_ingest` / `unsubscribe_ingest` in the WS server:
    - Files to edit:
      - `server/src/ws/server.ts`
-     - `server/src/ingest/ingestJob.ts`
    - Requirements:
-     - Add a new export in `server/src/ingest/ingestJob.ts`: `getActiveStatus(): IngestJobStatus | null`.
-       - “Active” means: any run currently in a non-terminal state (`queued` | `scanning` | `embedding`).
-       - Do **not** rely only on the ingest lock being held, because the lock has a TTL and may expire while a long ingest is still running.
-       - Implementation guidance (KISS + deterministic):
-         - If the lock is held and `currentOwner()` maps to a non-terminal status, return that first.
-         - Otherwise, scan the `jobs` map and return the first non-terminal status (Map iteration order is stable).
-       - If no run is active, return `null` (no last-run summary).
-     - In `server/src/ws/server.ts`, handle `subscribe_ingest`:
+     - On `subscribe_ingest`:
        - Mark the socket as subscribed via the registry.
-       - Immediately send `ingest_snapshot` using `getActiveStatus()` (can be `null`).
-       - Use the per-socket ingest `seq` logic implemented in `server/src/ws/server.ts` so `seq` is per-socket.
-     - Handle `unsubscribe_ingest` by clearing the socket’s ingest subscription.
+       - Immediately send `ingest_snapshot` with `status: null` (placeholder; Task 2 replaces this).
+     - On `unsubscribe_ingest`:
+       - Clear the socket’s ingest subscription.
 
-7. [ ] Server unit tests for ingest snapshot behavior:
+7. [ ] Server unit test: subscribe yields placeholder snapshot:
    - Test type:
      - node:test unit test (server)
    - Test location:
      - Prefer adding to `server/src/test/unit/ws-server.test.ts`.
    - Requirements:
      - Add a test: sending `subscribe_ingest` yields an `ingest_snapshot` message.
-     - Add a test: when no run is active, the snapshot contains `status: null`.
-     - Add a test: when a run is active, the snapshot contains `status.runId === <runId>`.
-       - Use existing test-only helpers in ingest (`__setStatusForTest`, `__resetIngestJobsForTest`) to seed a non-terminal status.
-       - Do not require acquiring the ingest lock in tests (the active-run decision is based on non-terminal states).
-
+     - Assert the snapshot contains `status: null`.
    - Concrete implementation guidance:
-     - Reuse the existing WS test helper in `server/src/test/support/wsClient.ts` to avoid duplicating connection/event-wait logic:
-       - `connectWs(...)`, `sendJson(...)`, `waitForEvent(...)`, `closeWs(...)`.
+     - Reuse `server/src/test/support/wsClient.ts` helpers: `connectWs(...)`, `sendJson(...)`, `waitForEvent(...)`, `closeWs(...)`.
 
-8. [ ] Run repo lint/format checks for this change:
+8. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -302,7 +290,70 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
 
 ---
 
-### 2. Server: broadcast ingest progress/status changes over WS (`ingest_update`)
+### 2. Server: determine active ingest status for snapshots (`getActiveStatus`)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement `getActiveStatus()` so `ingest_snapshot` reflects the current active ingest run (and returns `null` if no run is active). Update the WS subscribe handler to use this function.
+
+This task is deliberately separate from WS protocol plumbing (Task 1) and from broadcasting updates (Task 3).
+
+#### Documentation Locations
+
+- Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+#### Subtasks
+
+1. [ ] Read the ingest job state storage and lock behavior:
+   - Files to read:
+     - `server/src/ingest/ingestJob.ts` (in-memory `jobs` map + states)
+     - `server/src/ingest/lock.ts` (lock owner + TTL)
+
+2. [ ] Implement `getActiveStatus()`:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Requirements:
+     - Export `getActiveStatus(): IngestJobStatus | null`.
+     - “Active” means: any run currently in a non-terminal state (`queued` | `scanning` | `embedding`).
+     - Do **not** rely only on the ingest lock being held, because the lock has a TTL and may expire while a long ingest is still running.
+     - Implementation guidance (KISS + deterministic):
+       - If the lock is held and `currentOwner()` maps to a non-terminal status, return that first.
+       - Otherwise, scan the `jobs` map and return the first non-terminal status (Map iteration order is stable).
+     - If no run is active, return `null` (no last-run summary).
+
+3. [ ] Update WS subscribe handler to use `getActiveStatus()`:
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Requirements:
+     - On `subscribe_ingest`, send `ingest_snapshot` with `status: getActiveStatus()`.
+
+4. [ ] Update server unit tests:
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Keep the `status: null` snapshot test (no active run).
+     - Add a test: when a non-terminal status is seeded, the snapshot contains that `status.runId`.
+       - Use existing helpers in `server/src/ingest/ingestJob.ts`: `__resetIngestJobsForTest()` + `__setStatusForTest()`.
+
+5. [ ] Run repo lint/format checks:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 3. Server: broadcast ingest progress/status changes over WS (`ingest_update`)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -311,11 +362,11 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
 
 Broadcast `ingest_update` messages whenever the server-side ingest status changes, so any subscribed Ingest page receives progress updates in real time.
 
-This task completes the server-side realtime path for ingest by wiring status updates in `ingestJob.ts` into the WS ingest stream created in Task 1.
+This task completes the server-side realtime path for ingest by wiring status updates in `ingestJob.ts` into the WS ingest stream created in Tasks 1–2.
 
 #### Documentation Locations
 
-- `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
+- `ws` (WebSocket server for Node, version `8.18.3`): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
 #### Subtasks
@@ -325,15 +376,15 @@ This task completes the server-side realtime path for ingest by wiring status up
      - `server/src/ingest/ingestJob.ts` (all `jobs.set(...)` call sites)
      - `server/src/routes/ingestStart.ts` and `server/src/routes/ingestCancel.ts` (existing REST control surface)
 
-2. [ ] Implement WS broadcasting helper usage:
+2. [ ] Implement WS broadcast helper:
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
-     - Add a `broadcastIngestUpdate(status)` implementation (following the existing `publish*` patterns in `server/src/ws/server.ts`).
+     - Add a `broadcastIngestUpdate(status)` implementation (follow the existing `publish*` patterns in `server/src/ws/server.ts`).
      - It must send `{ type: 'ingest_update', status, seq }` to all sockets returned by `socketsSubscribedToIngest()`.
      - `seq` must be bumped per socket (monotonic per socket) the same way `ingest_snapshot` is sent.
 
-3. [ ] Centralize ingest status writes to guarantee WS updates are emitted:
+3. [ ] Centralize ingest status writes so WS updates are emitted:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -341,6 +392,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - It must call `jobs.set(runId, nextStatus)`.
        - It must call `broadcastIngestUpdate(nextStatus)`.
      - Replace every `jobs.set(runId, ...)` that represents a user-visible status/progress change with the helper.
+       - This includes the initial `queued` status set in `startIngest(...)`.
        - This includes progress updates inside `progressSnapshot(...)`.
        - This includes terminal states: `completed`, `skipped`, `cancelled`, `error`.
      - Keep existing REST behavior unchanged.
@@ -351,7 +403,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
-5. [ ] Add server unit/integration test coverage for ingest updates:
+5. [ ] Add server unit test coverage for ingest updates:
    - Test type:
      - node:test unit test (server)
    - Test location:
@@ -365,10 +417,10 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
        - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
        - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
-       - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper), so the test truly validates that “status changes produce WS updates”.
+       - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper).
      - In the WS test, call `__setStatusAndPublishForTest(...)` twice and assert that two `ingest_update` frames arrive with increasing `seq`.
 
-6. [ ] Run repo lint/format checks for this change:
+6. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -383,16 +435,16 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 ---
 
-### 3. Client: reuse `useChatWs` transport + refactor ingest status hook to WS
+### 4. Client: extend `useChatWs` with ingest subscription + ingest event types
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Reuse the existing `useChatWs` WebSocket transport (connect/reconnect, pending queue, seq gating) for ingest, and refactor the existing ingest status hook to be WS-driven.
+Extend the existing `useChatWs` WebSocket transport so it can subscribe to ingest and pass ingest events through the same socket/reconnect/seq-gating pipeline.
 
-This task should avoid creating a brand new WebSocket implementation. The new ingest status hook will subscribe/unsubscribe to ingest via `useChatWs` and expose `status` from `ingest_snapshot`/`ingest_update` plus a clear connection/error state for the UI.
+This task intentionally does **not** change the Ingest page or ingest status hook yet; it only makes the shared WS transport capable of ingest.
 
 #### Documentation Locations
 
@@ -401,7 +453,6 @@ This task should avoid creating a brand new WebSocket implementation. The new in
 - Jest timer mocks (fake timers + advancing timers):
   - Context7 `/websites/jestjs_io_next` (Timer Mocks)
   - https://jestjs.io/docs/timer-mocks
-- React Testing Library (React 19 compatible): https://testing-library.com/docs/react-testing-library/intro/
 
 #### Subtasks
 
@@ -410,10 +461,8 @@ This task should avoid creating a brand new WebSocket implementation. The new in
      - `client/src/hooks/useChatWs.ts` (connect/reconnect/subscription patterns)
      - `client/src/test/support/mockWebSocket.ts` (WS mocking)
      - `client/src/test/useChatWs.test.ts` (hook tests)
-     - `client/src/test/support/mockChatWs.ts` (WS emit helpers with `seq`)
-     - `e2e/support/mockChatWs.ts` (Playwright WebSocketRoute pattern)
 
-2. [ ] Extend `useChatWs` to support ingest subscriptions and ingest event types:
+2. [ ] Extend `useChatWs` outbound API for ingest:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
@@ -422,38 +471,25 @@ This task should avoid creating a brand new WebSocket implementation. The new in
        - `unsubscribeIngest(): void`
      - Track ingest subscription state in a ref (mirrors sidebar subscription handling).
      - On reconnect (socket re-open), if ingest is subscribed, automatically re-send `subscribe_ingest`.
-     - Extend the inbound event typing to include:
-       - `ingest_snapshot` and `ingest_update` events.
+
+3. [ ] Add ingest event typing + seq gating:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+   - Requirements:
+     - Extend the inbound event typing to include `ingest_snapshot` and `ingest_update` events.
      - Update the seq-gating key logic so ingest events use a stable key (e.g. `'ingest'`) and are gated.
      - Reset seq gating for the ingest key when a new socket is created (so `seq: 1` snapshots after reconnect are accepted), without changing chat transcript seq behavior.
      - Ensure Chat/Agents behavior remains unchanged.
 
-3. [ ] Refactor the existing ingest status hook to be WS-driven:
+4. [ ] Add/adjust `useChatWs` tests:
    - Files to edit:
-     - `client/src/hooks/useIngestStatus.ts`
+     - `client/src/test/useChatWs.test.ts`
    - Requirements:
-     - Remove polling/timers and any fetches to `/ingest/status/:runId`.
-     - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot`/`ingest_update` and store the latest status.
-     - Subscribe to ingest only while the hook is mounted (call `subscribeIngest()` in an effect and `unsubscribeIngest()` in cleanup).
-     - Expose:
-       - `status: IngestStatusPayload | null` (null means no active run)
-       - `connectionState`
-       - `isError`/`error` for “WS unavailable” UI.
-     - Keep `cancel()` in this hook using existing REST `POST /ingest/cancel/:runId`.
-       - It must use the current WS `status?.runId` (not a runId param).
-     - Update the hook API (signature + return shape) and update all callers/tests accordingly.
+     - Add a test: calling `subscribeIngest()` sends an outbound `subscribe_ingest` message.
+     - Add a test: after a reconnect, if ingest was subscribed, a new socket re-sends `subscribe_ingest`.
+     - Add a test: ingest events are seq-gated on a stable key (e.g. `'ingest'`) and stale/out-of-order frames are ignored.
 
-4. [ ] Add/adjust hook tests:
-   - Files to edit:
-     - Prefer updating existing tests that reference `useIngestStatus`:
-       - `client/src/test/ingestStatus.test.tsx`
-       - `client/src/test/ingestStatus.progress.test.tsx`
-   - Requirements:
-     - Replace polling assertions with WS event assertions using `client/src/test/support/mockWebSocket.ts`.
-     - Add a minimal test that verifies re-subscribe after reconnect by closing the mock socket and ensuring `subscribe_ingest` is sent on the next socket.
-     - Ensure `seq` gating works for ingest events.
-
-4. [ ] Run repo lint/format checks for this change:
+5. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -468,14 +504,76 @@ This task should avoid creating a brand new WebSocket implementation. The new in
 
 ---
 
-### 4. Client: switch Ingest page to WS-only progress (remove polling + “last run” UI)
+### 5. Client: refactor `useIngestStatus` to be WS-driven (remove polling)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Make `/ingest` use WebSockets only for ingest progress and status. Remove timer polling entirely and update UI rules so the “Active run” card only appears while a run is active.
+Refactor the existing ingest status hook to use WebSocket `ingest_snapshot` / `ingest_update` events instead of polling `/ingest/status/:runId`.
+
+This task does not change the Ingest page layout yet; it only changes how status is sourced.
+
+#### Documentation Locations
+
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+- React hooks (cleanup/unmount semantics via `useEffect`): https://react.dev/reference/react/useEffect
+
+#### Subtasks
+
+1. [ ] Read current polling hook behavior:
+   - Files to read:
+     - `client/src/hooks/useIngestStatus.ts`
+     - `client/src/components/ingest/ActiveRunCard.tsx` (data it expects)
+
+2. [ ] Update `useIngestStatus` API and implementation:
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Requirements:
+     - Remove polling/timers and any fetches to `/ingest/status/:runId`.
+     - Remove the `runId` parameter from the hook.
+     - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot` / `ingest_update` and store the latest status.
+     - Subscribe to ingest only while the hook is mounted (call `subscribeIngest()` in an effect and `unsubscribeIngest()` in cleanup).
+     - Expose:
+       - `status: IngestStatusPayload | null` (null means no active run)
+       - `connectionState`
+       - `isError` / `error` for “WS unavailable” UI.
+     - Keep `cancel()` using existing REST `POST /ingest/cancel/:runId`.
+       - It must use the current WS `status?.runId`.
+
+3. [ ] Update existing ingest status tests to WS-driven behavior:
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+     - `client/src/test/ingestStatus.progress.test.tsx`
+   - Requirements:
+     - Remove polling assertions and fetch mocking.
+     - Replace with WS event assertions using `client/src/test/support/mockWebSocket.ts`.
+     - Ensure cancel still calls the REST endpoint with the current `status.runId`.
+
+4. [ ] Run repo lint/format checks:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 6. Client: switch Ingest page to WS-only run UI (no last-run summary)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story’s UI rules: show only an active run (no last-run summary), and show an explicit error when WS is unavailable.
 
 #### Documentation Locations
 
@@ -484,17 +582,16 @@ Make `/ingest` use WebSockets only for ingest progress and status. Remove timer 
 
 #### Subtasks
 
-1. [ ] Read current ingest page + polling hook usage:
+1. [ ] Read current ingest page behavior:
    - Files to read:
      - `client/src/pages/IngestPage.tsx`
      - `client/src/hooks/useIngestStatus.ts`
      - `client/src/components/ingest/ActiveRunCard.tsx`
 
-2. [ ] Update Ingest page to use the WS hook:
+2. [ ] Update Ingest page to use the WS-based `useIngestStatus()`:
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
-     - Replace `useIngestStatus(activeRunId)` with the refactored WS-based `useIngestStatus()`.
      - Remove the `activeRunId` state from the page. The ingest run ID must come from WebSocket `status.runId` (global stream; no runId filters).
      - The page must render ingest progress from WS only.
      - If WS is unavailable / closes, show a clear error UI state (and do not start polling).
@@ -505,28 +602,20 @@ Make `/ingest` use WebSockets only for ingest progress and status. Remove timer 
      - Preserve existing “refresh roots/models after completion” behavior:
        - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
        - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
+     - Ensure page-scoped updates:
+       - Only subscribe while `/ingest` is mounted (this should naturally happen if only `IngestPage` mounts `useIngestStatus()`).
 
-3. [ ] Remove polling usage so it cannot regress:
-   - Files to edit:
-     - `client/src/hooks/useIngestStatus.ts`
-     - `client/src/pages/IngestPage.tsx`
+3. [ ] Add/update Ingest page tests (page-level):
+   - Files to edit/add:
+     - Add a focused `IngestPage` test file if one does not exist yet.
    - Requirements:
-     - Ensure no code path starts a timer that calls `/ingest/status/:runId`.
-
-4. [ ] Replace polling-based tests with WS-based tests:
-   - Files to edit/delete/add:
-     - `client/src/test/ingestStatus.test.tsx`
-     - `client/src/test/ingestStatus.progress.test.tsx`
-     - (Add a focused IngestPage WS test if needed)
-   - Requirements:
-     - Remove tests that assert polling/timers.
      - Add tests that assert:
        - Snapshot renders immediately when received.
        - No “Active ingest” UI is rendered when `status === null`.
        - WS closed/error shows the explicit error state.
        - Terminal state triggers a roots/models refresh once and then the active run UI is hidden.
 
-5. [ ] Run repo lint/format checks for this change:
+4. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -541,7 +630,7 @@ Make `/ingest` use WebSockets only for ingest progress and status. Remove timer 
 
 ---
 
-### 5. Client: full-width Ingest layout
+### 7. Client: full-width Ingest layout
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -577,7 +666,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - Practical approach: assert the rendered container does not include the `MuiContainer-maxWidthLg` class.
        - Note: `MuiContainer-maxWidthLg` is the documented global class for `maxWidth="lg"` in MUI Container API (v6.4.x).
 
-4. [ ] Run repo lint/format checks for this change:
+4. [ ] Run repo lint/format checks:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -592,7 +681,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 ---
 
-### 6. Final verification: acceptance criteria, full test/build matrix, docs, PR comment
+### 8. Final verification: acceptance criteria, full test/build matrix, docs, PR comment
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**

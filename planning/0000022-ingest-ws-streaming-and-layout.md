@@ -412,6 +412,9 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      ```
 
 8. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -575,6 +578,9 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Seed terminal statuses only; verify `null` result.
 
 10. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -744,6 +750,9 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Must call the same internal `setStatusAndPublish(...)` used in production.
 
 9. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -1005,6 +1014,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Assert the handler receives the exact event object.
 
 9. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1014,6 +1025,9 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Record the commit hash(es) in this task’s Git Commits.
 
 10. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -1235,6 +1249,8 @@ This task does not change the Ingest page layout yet; it only changes how status
        ```
 
 12. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1244,6 +1260,9 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Record the commit hash(es) in this task’s Git Commits.
 
 13. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -1439,6 +1458,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Use `data-testid="ingest-status-chip"` and absence of “Active ingest” heading as stable selectors.
 
 12. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1448,6 +1469,9 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Record the commit hash(es) in this task’s Git Commits.
 
 13. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -1531,6 +1555,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
 4. [ ] Update `projectStructure.md` for any added/removed files:
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
@@ -1541,6 +1567,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - This subtask must run after all file-adding subtasks in this task.
 
 5. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1550,6 +1578,9 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Record the commit hash(es) in this task’s Git Commits.
 
 6. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -1588,6 +1619,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 #### Subtasks
 
 1. [ ] Confirm the acceptance criteria explicitly (write down results in Implementation notes):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (Acceptance Criteria section)
    - Live updates via WS only (no polling timers)
@@ -1599,6 +1632,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Full-width Ingest layout
 
 2. [ ] Update `README.md` if commands or behavior changed:
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `README.md`
    - Files to edit:
@@ -1609,6 +1644,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Only update if the ingest WS flow or UI changes alter documented usage.
 
 3. [ ] Update `design.md` with ingest WS notes/diagram if missing:
+   - Documentation to read:
+     - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to read:
      - `design.md`
    - Files to edit:
@@ -1619,6 +1656,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Include/confirm any diagrams added in Tasks 1–6 are reflected and coherent here.
 
 4. [ ] Update `projectStructure.md` for file additions/removals:
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
@@ -1645,6 +1684,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Keep the existing progress assertions (current file changes, percent/ETA changes) but ensure they happen while the Active ingest panel is visible.
 
 6. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1658,11 +1699,16 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 
 7. [ ] Run repo lint/format checks:
    - Documentation to read:
-     - Root linting/formatting commands are defined in `package.json`.
+     - ESLint CLI (Context7): `/eslint/eslint`
+     - Prettier CLI (Context7): `/prettier/prettier`
+   - Files to read:
+     - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
 8. [ ] Create a PR summary comment:
+   - Documentation to read:
+     - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
      - `planning/plan_format.md`
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.

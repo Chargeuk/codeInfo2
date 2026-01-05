@@ -699,6 +699,9 @@ Agent runs already share the same cancellation mechanism as Chat (`cancel_inflig
 
 #### Documentation Locations
 
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+
 - Node.js `AbortController` / `AbortSignal`: https://nodejs.org/api/globals.html#class-abortcontroller
 - `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
@@ -1126,6 +1129,9 @@ Remove bespoke inflight aggregation from the Agents page and reuse the same WebS
 Make Agents transcript rendering match Chat: same status chip behavior, same tool Parameters/Result accordions, same default-closed citations accordion, and the same “Thought process” accordion. Remove the Agents-only command metadata note while keeping `turn.command` persistence unchanged.
 
 #### Documentation Locations
+
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
 
 - MUI MCP docs (accordions used by the chat transcript UI):
   - https://llms.mui.com/material-ui/6.4.12/components/accordion.md

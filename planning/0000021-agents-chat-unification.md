@@ -1663,7 +1663,7 @@ Bring Agents sidebar behavior to parity with Chat by subscribing to the sidebar 
 
 ### 8. Client: rebuild Agents page layout to match Chat (Drawer + controls + transcript)
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -1689,7 +1689,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 #### Subtasks
 
-1. [ ] Read the current ChatPage layout and the current AgentsPage layout:
+1. [x] Read the current ChatPage layout and the current AgentsPage layout:
    - Documentation to read:
      - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
      - MUI useMediaQuery: https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
@@ -1701,7 +1701,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - The drawer width (expected 320).
      - The toggle test ids (e.g. `conversation-drawer-toggle`).
 
-2. [ ] Rebuild the AgentsPage outer layout to mirror Chat:
+2. [x] Rebuild the AgentsPage outer layout to mirror Chat:
    - Documentation to read:
      - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
      - MUI useMediaQuery: https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md
@@ -1730,7 +1730,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
            - `DEV-0000021[T8] agents.layout drawer variant` (when computing the Drawer `variant`, include `isMobile` and `variant` in context)
            - `DEV-0000021[T8] agents.layout drawer toggle` (when the user opens/closes the Drawer on mobile, include `open` boolean in context)
 
-3. [ ] Client RTL test update (Jest + Testing Library): commands list still renders and is selectable after layout change:
+3. [x] Client RTL test update (Jest + Testing Library): commands list still renders and is selectable after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1747,7 +1747,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update DOM queries to find the command select + options and confirm selection still updates the description.
 
-4. [ ] Client RTL test update (Jest + Testing Library): command run refresh-turns flow still works after layout change:
+4. [x] Client RTL test update (Jest + Testing Library): command run refresh-turns flow still works after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1764,7 +1764,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Keep behavioral assertions unchanged; update only selectors/element locations.
 
-5. [ ] Client RTL test update (Jest + Testing Library): RUN_IN_PROGRESS conflict still shows the friendly message after layout change:
+5. [x] Client RTL test update (Jest + Testing Library): RUN_IN_PROGRESS conflict still shows the friendly message after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1781,7 +1781,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update selectors for the execute/send buttons if their DOM placement changed.
 
-6. [ ] Client RTL test update (Jest + Testing Library): persistence disabled mode still disables Execute after layout change:
+6. [x] Client RTL test update (Jest + Testing Library): persistence disabled mode still disables Execute after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1798,7 +1798,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update selectors only; keep test semantics unchanged.
 
-7. [ ] Client RTL test update (Jest + Testing Library): abort/Stop behavior test still finds Stop button after layout change:
+7. [x] Client RTL test update (Jest + Testing Library): abort/Stop behavior test still finds Stop button after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1815,7 +1815,7 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update selectors/queries to locate Stop in its new position (if moved).
 
-8. [ ] Client RTL test update (Jest + Testing Library): WS transcript test still finds transcript area after layout change:
+8. [x] Client RTL test update (Jest + Testing Library): WS transcript test still finds transcript area after layout change:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -1832,18 +1832,18 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
    - Requirements:
      - Update the expected transcript container test id if it changes (prefer keeping Chat-parity ids).
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Desktop: confirm left Drawer is persistent at width 320 and the transcript/controls match the Chat layout.
    - Mobile viewport: confirm Drawer switches to temporary, can be opened/closed, and content remains usable.
    - Confirm “New conversation”, “Send”, “Stop”, agent selection, and command execution are accessible and do not cause layout overflow.
@@ -1851,7 +1851,23 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
      - `DEV-0000021[T8] agents.layout drawer variant`
      - `DEV-0000021[T8] agents.layout drawer toggle`
    - Confirm the log entries include the same `conversationId`/`inflightId` you just exercised (where applicable).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
+
+#### Implementation notes
+
+- 2026-01-04: Reviewed `ChatPage.tsx` and `AgentsPage.tsx` to identify the Chat drawer parity pattern (mobile temporary vs desktop persistent), expected width (320), and test ids (`conversation-drawer-toggle`).
+- 2026-01-04: Rebuilt `client/src/pages/AgentsPage.tsx` outer layout to match Chat: responsive `Drawer` sidebar (320px) + `conversation-drawer-toggle` control + transcript panel separated from controls; added required client log markers for drawer variant + mobile toggle.
+- 2026-01-04: Updated Agents RTL tests for layout parity; main change was aligning transcript selector from `agent-transcript` to Chat-parity `chat-transcript` in `client/src/test/agentsPage.streaming.test.tsx`.
+- 2026-01-04: Verified formatting + linting for this task (`npm run lint --workspaces`, `npm run format:check --workspaces`); fixed a JSX wrapper mismatch and ran Prettier on `client/src/pages/AgentsPage.tsx`.
+- 2026-01-04: Testing: `npm run build --workspace server` passed.
+- 2026-01-04: Testing: `npm run build --workspace client` passed.
+- 2026-01-04: Testing: `npm run test --workspace server` passed.
+- 2026-01-04: Testing: `npm run test --workspace client` passed.
+- 2026-01-04: Testing: `npm run e2e` passed.
+- 2026-01-04: Testing: `npm run compose:build` passed.
+- 2026-01-04: Testing: `npm run compose:up` passed.
+- 2026-01-04: Manual UI verification against Compose (`http://host.docker.internal:5001/agents`) confirmed Drawer width 320 on desktop and temporary Drawer behavior on mobile; `/logs` shows `DEV-0000021[T8] agents.layout drawer variant` + `DEV-0000021[T8] agents.layout drawer toggle`. Evidence: `test-results/screenshots/0000021-08-agents-desktop.png`, `test-results/screenshots/0000021-08-agents-mobile.png`.
+- 2026-01-04: Testing: `npm run compose:down` passed.
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 

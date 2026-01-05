@@ -183,7 +183,7 @@ describe('AgentsPage live transcript (WS)', () => {
     await waitFor(() =>
       expect(screen.getByText(/Hello from agent WS/i)).toBeInTheDocument(),
     );
-    expect(screen.getByTestId('agent-transcript')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-transcript')).toBeInTheDocument();
     expect(screen.getByTestId('tool-row')).toBeInTheDocument();
   });
 

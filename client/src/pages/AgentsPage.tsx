@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import MenuIcon from '@mui/icons-material/Menu';
 import {
   Accordion,
   AccordionDetails,
@@ -12,7 +13,10 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Container,
+  Drawer,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -20,12 +24,15 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -55,6 +62,15 @@ import useChatWs, {
 } from '../hooks/useChatWs';
 
 export default function AgentsPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const drawerWidth = 320;
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
+    isMobile ? false : true,
+  );
+  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+
   const [agents, setAgents] = useState<
     Array<{
       name: string;
@@ -111,11 +127,49 @@ export default function AgentsPage() {
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const prevScrollHeightRef = useRef<number>(0);
 
+  const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
+
   const { mongoConnected, isLoading: persistenceLoading } =
     usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
 
+  useLayoutEffect(() => {
+    const updateOffset = () => {
+      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
+      setDrawerTopOffsetPx(top);
+    };
+
+    updateOffset();
+    window.addEventListener('resize', updateOffset);
+    return () => window.removeEventListener('resize', updateOffset);
+  }, [isMobile, persistenceUnavailable, agentsError, agentsLoading]);
+
+  const drawerTopOffset =
+    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
+  const drawerHeight =
+    drawerTopOffsetPx > 0
+      ? `calc(100% - ${drawerTopOffsetPx}px)`
+      : `calc(100% - ${theme.spacing(3)})`;
+
   const log = useMemo(() => createLogger('client'), []);
+
+  useEffect(() => {
+    const variant = isMobile ? 'temporary' : 'persistent';
+    log('info', 'DEV-0000021[T8] agents.layout drawer variant', {
+      isMobile,
+      variant,
+    });
+  }, [isMobile, log]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+      return;
+    }
+
+    setDesktopDrawerOpen(true);
+  }, [isMobile]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -1258,661 +1312,791 @@ export default function AgentsPage() {
   };
 
   return (
-    <Stack spacing={2} data-testid="agents-page">
-      <Typography variant="h4">Agents</Typography>
+    <Container
+      maxWidth={false}
+      data-testid="agents-page"
+      sx={{
+        pt: 3,
+        pb: 6,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
+    >
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        {agentsError && (
+          <Alert severity="error" data-testid="agents-error">
+            {agentsError}
+          </Alert>
+        )}
 
-      {agentsError && (
-        <Alert severity="error" data-testid="agents-error">
-          {agentsError}
-        </Alert>
-      )}
+        {mongoConnected === false && (
+          <Alert severity="warning" data-testid="agents-persistence-banner">
+            Conversation persistence is currently unavailable. History and
+            conversation continuation may be limited until MongoDB is reachable.
+          </Alert>
+        )}
 
-      {mongoConnected === false && (
-        <Alert severity="warning" data-testid="agents-persistence-banner">
-          Conversation persistence is currently unavailable. History and
-          conversation continuation may be limited until MongoDB is reachable.
-        </Alert>
-      )}
-
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        sx={{ minHeight: 560 }}
-      >
-        <Paper
-          variant="outlined"
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems="stretch"
           sx={{
-            width: { xs: '100%', md: 340 },
-            p: 1.5,
-            height: { md: 'auto' },
+            width: '100%',
+            minWidth: 0,
+            overflowX: 'hidden',
+            flex: 1,
+            minHeight: 0,
           }}
         >
-          <ConversationList
-            conversations={conversations}
-            selectedId={activeConversationId}
-            isLoading={conversationsLoading}
-            isError={conversationsError}
-            error={conversationsErrorMessage}
-            hasMore={conversationsHasMore}
-            filterState={filterState}
-            mongoConnected={mongoConnected}
-            disabled={controlsDisabled}
-            variant="agents"
-            onSelect={handleSelectConversation}
-            onFilterChange={setFilterState}
-            onArchive={() => {}}
-            onRestore={() => {}}
-            onLoadMore={loadMoreConversations}
-            onRefresh={refreshConversations}
-            onRetry={refreshConversations}
-          />
-        </Paper>
-
-        <Paper variant="outlined" sx={{ flex: 1, p: 2 }}>
-          <Stack spacing={2} component="form" onSubmit={handleSubmit}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1}
-              alignItems={{ xs: 'stretch', sm: 'center' }}
-            >
-              <FormControl
-                fullWidth
-                size="small"
-                disabled={agentsLoading || !!agentsError}
-              >
-                <InputLabel id="agent-select-label">Agent</InputLabel>
-                <Select
-                  labelId="agent-select-label"
-                  label="Agent"
-                  value={selectedAgentName}
-                  onChange={handleAgentChange}
-                  inputProps={{ 'data-testid': 'agent-select' }}
-                >
-                  {agents.map((agent) => (
-                    <MenuItem key={agent.name} value={agent.name}>
-                      {agent.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={handleStopClick}
-                  disabled={!showStop}
-                  data-testid="agent-stop"
-                >
-                  Stop
-                </Button>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={() => {
-                    resetConversation();
-                    inputRef.current?.focus();
-                  }}
-                  disabled={agentsLoading}
-                  data-testid="agent-new-conversation"
-                >
-                  New conversation
-                </Button>
-              </Stack>
-            </Stack>
-
-            {commandsError ? (
-              <Alert severity="error" data-testid="agent-commands-error">
-                {commandsError}
-              </Alert>
-            ) : null}
-
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={
-                controlsDisabled ||
-                isRunning ||
-                selectedAgent?.disabled ||
-                commandsLoading
-              }
-            >
-              <InputLabel id="agent-command-select-label">Command</InputLabel>
-              <Select
-                labelId="agent-command-select-label"
-                label="Command"
-                value={selectedCommandName}
-                onChange={handleCommandChange}
-                inputProps={{ 'data-testid': 'agent-command-select' }}
-              >
-                <MenuItem value="" disabled>
-                  Select a command
-                </MenuItem>
-                {commands.map((cmd) => (
-                  <MenuItem
-                    key={cmd.name}
-                    value={cmd.name}
-                    disabled={cmd.disabled}
-                    data-testid={`agent-command-option-${cmd.name}`}
-                  >
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2">
-                        {cmd.name.replace(/_/g, ' ')}
-                      </Typography>
-                      {cmd.disabled ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Invalid command file
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="agent-command-description"
-            >
-              {selectedCommandDescription}
-            </Typography>
-
-            <Stack spacing={0.75} alignItems="flex-start">
-              <Button
-                type="button"
-                variant="contained"
-                disabled={
-                  !selectedCommandName ||
-                  isRunning ||
-                  persistenceUnavailable ||
-                  !wsTranscriptReady ||
-                  controlsDisabled ||
-                  selectedAgent?.disabled
+          {(!isMobile || drawerOpen) && (
+            <Drawer
+              key={isMobile ? 'mobile' : 'desktop'}
+              open={drawerOpen}
+              onClose={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(false);
+                  log('info', 'DEV-0000021[T8] agents.layout drawer toggle', {
+                    open: false,
+                  });
+                  return;
                 }
-                onClick={handleExecuteCommand}
-                data-testid="agent-command-execute"
+
+                setDesktopDrawerOpen(false);
+              }}
+              variant={isMobile ? 'temporary' : 'persistent'}
+              ModalProps={{ keepMounted: false }}
+              data-testid="conversation-drawer"
+              sx={{
+                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                  width: drawerWidth,
+                  mt: drawerTopOffset,
+                  height: drawerHeight,
+                },
+              }}
+            >
+              <Box
+                id="conversation-drawer"
+                data-testid="conversation-list"
+                sx={{ width: drawerWidth, height: '100%' }}
               >
-                Execute command
-              </Button>
-              {persistenceUnavailable ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  data-testid="agent-command-persistence-note"
-                >
-                  Commands require conversation history (Mongo) to display
-                  multi-step results.
-                </Typography>
-              ) : !wsTranscriptReady ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  data-testid="agent-command-ws-note"
-                >
-                  Commands require an open WebSocket connection.
-                </Typography>
-              ) : null}
-            </Stack>
+                <ConversationList
+                  conversations={conversations}
+                  selectedId={activeConversationId}
+                  isLoading={conversationsLoading}
+                  isError={conversationsError}
+                  error={conversationsErrorMessage}
+                  hasMore={conversationsHasMore}
+                  filterState={filterState}
+                  mongoConnected={mongoConnected}
+                  disabled={controlsDisabled}
+                  variant="agents"
+                  onSelect={handleSelectConversation}
+                  onFilterChange={setFilterState}
+                  onArchive={() => {}}
+                  onRestore={() => {}}
+                  onLoadMore={loadMoreConversations}
+                  onRefresh={refreshConversations}
+                  onRetry={refreshConversations}
+                />
+              </Box>
+            </Drawer>
+          )}
 
-            {selectedAgent?.warnings?.length ? (
-              <Alert severity="warning" data-testid="agent-warnings">
-                {selectedAgent.warnings.join('\n')}
-              </Alert>
-            ) : null}
+          <Box
+            data-testid="chat-column"
+            ref={chatColumnRef}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              flex: '1 1 0%',
+              minHeight: 0,
+            }}
+          >
+            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+              <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
+                <Stack spacing={2} component="form" onSubmit={handleSubmit}>
+                  <Stack direction="row" justifyContent="flex-start">
+                    <IconButton
+                      aria-label="Toggle conversations"
+                      aria-controls="conversation-drawer"
+                      aria-expanded={drawerOpen}
+                      onClick={() => {
+                        if (isMobile) {
+                          setMobileDrawerOpen((prev) => {
+                            const next = !prev;
+                            log(
+                              'info',
+                              'DEV-0000021[T8] agents.layout drawer toggle',
+                              {
+                                open: next,
+                              },
+                            );
+                            return next;
+                          });
+                          return;
+                        }
 
-            {selectedAgent?.disabled ? (
-              <Alert severity="warning" data-testid="agent-disabled">
-                This agent is currently disabled.
-              </Alert>
-            ) : null}
+                        setDesktopDrawerOpen((prev) => !prev);
+                      }}
+                      size="small"
+                      data-testid="conversation-drawer-toggle"
+                    >
+                      <MenuIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                  >
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={agentsLoading || !!agentsError}
+                    >
+                      <InputLabel id="agent-select-label">Agent</InputLabel>
+                      <Select
+                        labelId="agent-select-label"
+                        label="Agent"
+                        value={selectedAgentName}
+                        onChange={handleAgentChange}
+                        inputProps={{ 'data-testid': 'agent-select' }}
+                      >
+                        {agents.map((agent) => (
+                          <MenuItem key={agent.name} value={agent.name}>
+                            {agent.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
 
-            {agentDescription ? (
+                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={handleStopClick}
+                        disabled={!showStop}
+                        data-testid="agent-stop"
+                      >
+                        Stop
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={() => {
+                          resetConversation();
+                          inputRef.current?.focus();
+                        }}
+                        disabled={agentsLoading}
+                        data-testid="agent-new-conversation"
+                      >
+                        New conversation
+                      </Button>
+                    </Stack>
+                  </Stack>
+
+                  {commandsError ? (
+                    <Alert severity="error" data-testid="agent-commands-error">
+                      {commandsError}
+                    </Alert>
+                  ) : null}
+
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    disabled={
+                      controlsDisabled ||
+                      isRunning ||
+                      selectedAgent?.disabled ||
+                      commandsLoading
+                    }
+                  >
+                    <InputLabel id="agent-command-select-label">
+                      Command
+                    </InputLabel>
+                    <Select
+                      labelId="agent-command-select-label"
+                      label="Command"
+                      value={selectedCommandName}
+                      onChange={handleCommandChange}
+                      inputProps={{ 'data-testid': 'agent-command-select' }}
+                    >
+                      <MenuItem value="" disabled>
+                        Select a command
+                      </MenuItem>
+                      {commands.map((cmd) => (
+                        <MenuItem
+                          key={cmd.name}
+                          value={cmd.name}
+                          disabled={cmd.disabled}
+                          data-testid={`agent-command-option-${cmd.name}`}
+                        >
+                          <Stack spacing={0.25}>
+                            <Typography variant="body2">
+                              {cmd.name.replace(/_/g, ' ')}
+                            </Typography>
+                            {cmd.disabled ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Invalid command file
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="agent-command-description"
+                  >
+                    {selectedCommandDescription}
+                  </Typography>
+
+                  <Stack spacing={0.75} alignItems="flex-start">
+                    <Button
+                      type="button"
+                      variant="contained"
+                      disabled={
+                        !selectedCommandName ||
+                        isRunning ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady ||
+                        controlsDisabled ||
+                        selectedAgent?.disabled
+                      }
+                      onClick={handleExecuteCommand}
+                      data-testid="agent-command-execute"
+                    >
+                      Execute command
+                    </Button>
+                    {persistenceUnavailable ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid="agent-command-persistence-note"
+                      >
+                        Commands require conversation history (Mongo) to display
+                        multi-step results.
+                      </Typography>
+                    ) : !wsTranscriptReady ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid="agent-command-ws-note"
+                      >
+                        Commands require an open WebSocket connection.
+                      </Typography>
+                    ) : null}
+                  </Stack>
+
+                  {selectedAgent?.warnings?.length ? (
+                    <Alert severity="warning" data-testid="agent-warnings">
+                      {selectedAgent.warnings.join('\n')}
+                    </Alert>
+                  ) : null}
+
+                  {selectedAgent?.disabled ? (
+                    <Alert severity="warning" data-testid="agent-disabled">
+                      This agent is currently disabled.
+                    </Alert>
+                  ) : null}
+
+                  {agentDescription ? (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 1.5 }}
+                      data-testid="agent-description"
+                    >
+                      <Markdown content={agentDescription} />
+                    </Paper>
+                  ) : null}
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="working_folder"
+                    placeholder="Absolute host path (optional)"
+                    value={workingFolder}
+                    onChange={(event) => setWorkingFolder(event.target.value)}
+                    disabled={
+                      controlsDisabled || isRunning || selectedAgent?.disabled
+                    }
+                    inputProps={{ 'data-testid': 'agent-working-folder' }}
+                  />
+
+                  <TextField
+                    inputRef={inputRef}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    label="Instruction"
+                    placeholder="Type your instruction"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    disabled={
+                      controlsDisabled || isRunning || selectedAgent?.disabled
+                    }
+                    inputProps={{ 'data-testid': 'agent-input' }}
+                  />
+
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={
+                        controlsDisabled ||
+                        isRunning ||
+                        !selectedAgentName ||
+                        !input.trim() ||
+                        Boolean(selectedAgent?.disabled)
+                      }
+                      data-testid="agent-send"
+                    >
+                      Send
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Box>
               <Paper
                 variant="outlined"
-                sx={{ p: 1.5 }}
-                data-testid="agent-description"
+                sx={{
+                  p: 2,
+                  flex: '1 1 0%',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
               >
-                <Markdown content={agentDescription} />
-              </Paper>
-            ) : null}
-
-            <TextField
-              fullWidth
-              size="small"
-              label="working_folder"
-              placeholder="Absolute host path (optional)"
-              value={workingFolder}
-              onChange={(event) => setWorkingFolder(event.target.value)}
-              disabled={
-                controlsDisabled || isRunning || selectedAgent?.disabled
-              }
-              inputProps={{ 'data-testid': 'agent-working-folder' }}
-            />
-
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              multiline
-              minRows={2}
-              label="Instruction"
-              placeholder="Type your instruction"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              disabled={
-                controlsDisabled || isRunning || selectedAgent?.disabled
-              }
-              inputProps={{ 'data-testid': 'agent-input' }}
-            />
-
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={
-                  controlsDisabled ||
-                  isRunning ||
-                  !selectedAgentName ||
-                  !input.trim() ||
-                  Boolean(selectedAgent?.disabled)
-                }
-                data-testid="agent-send"
-              >
-                Send
-              </Button>
-            </Stack>
-
-            <Paper variant="outlined" sx={{ p: 1.5, minHeight: 260 }}>
-              <Box
-                ref={transcriptRef}
-                onScroll={handleTranscriptScroll}
-                sx={{ maxHeight: 520, overflowY: 'auto' }}
-                data-testid="agent-transcript"
-              >
-                <Stack spacing={1} sx={{ minHeight: 240 }}>
-                  {turnsLoading && (
-                    <Typography
-                      color="text.secondary"
-                      variant="caption"
-                      sx={{ px: 0.5 }}
-                    >
-                      Loading history...
-                    </Typography>
-                  )}
-                  {turnsError && (
-                    <Alert severity="warning" data-testid="agent-turns-error">
-                      {turnsErrorMessage ??
-                        'Failed to load conversation history.'}
-                    </Alert>
-                  )}
-                  {displayMessages.length === 0 && (
-                    <Typography color="text.secondary">
-                      Transcript will appear here once you send an instruction.
-                    </Typography>
-                  )}
-
-                  {displayMessages.map((message) => {
-                    const alignSelf =
-                      message.role === 'user' ? 'flex-end' : 'flex-start';
-                    const isErrorBubble = message.kind === 'error';
-                    const isStatusBubble = message.kind === 'status';
-                    const isUser = message.role === 'user';
-                    const baseSegments = message.segments?.length
-                      ? message.segments
-                      : ([
-                          {
-                            id: `${message.id}-text`,
-                            kind: 'text' as const,
-                            content: message.content ?? '',
-                          },
-                          ...(message.tools?.map((tool) => ({
-                            id: `${message.id}-${tool.id}`,
-                            kind: 'tool' as const,
-                            tool,
-                          })) ?? []),
-                        ] as const);
-                    const segments = baseSegments;
-
-                    return (
-                      <Stack
-                        key={message.id}
-                        alignItems={
-                          alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'
-                        }
+                <Box
+                  ref={transcriptRef}
+                  onScroll={handleTranscriptScroll}
+                  data-testid="chat-transcript"
+                  style={{
+                    flex: '1 1 0%',
+                    minHeight: 0,
+                    overflowY: 'auto',
+                  }}
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    pr: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  <Stack spacing={1} sx={{ minHeight: 0 }}>
+                    {turnsLoading && (
+                      <Typography
+                        color="text.secondary"
+                        variant="caption"
+                        sx={{ px: 0.5 }}
                       >
-                        <Box
-                          sx={{
-                            maxWidth: { xs: '100%', sm: '80%' },
-                            alignSelf,
-                          }}
+                        Loading history...
+                      </Typography>
+                    )}
+                    {turnsError && (
+                      <Alert severity="warning" data-testid="agent-turns-error">
+                        {turnsErrorMessage ??
+                          'Failed to load conversation history.'}
+                      </Alert>
+                    )}
+                    {displayMessages.length === 0 && (
+                      <Typography color="text.secondary">
+                        Transcript will appear here once you send an
+                        instruction.
+                      </Typography>
+                    )}
+
+                    {displayMessages.map((message) => {
+                      const alignSelf =
+                        message.role === 'user' ? 'flex-end' : 'flex-start';
+                      const isErrorBubble = message.kind === 'error';
+                      const isStatusBubble = message.kind === 'status';
+                      const isUser = message.role === 'user';
+                      const baseSegments = message.segments?.length
+                        ? message.segments
+                        : ([
+                            {
+                              id: `${message.id}-text`,
+                              kind: 'text' as const,
+                              content: message.content ?? '',
+                            },
+                            ...(message.tools?.map((tool) => ({
+                              id: `${message.id}-${tool.id}`,
+                              kind: 'tool' as const,
+                              tool,
+                            })) ?? []),
+                          ] as const);
+                      const segments = baseSegments;
+
+                      return (
+                        <Stack
+                          key={message.id}
+                          alignItems={
+                            alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'
+                          }
                         >
-                          <Paper
-                            variant="outlined"
-                            data-testid="chat-bubble"
-                            data-role={message.role}
-                            data-kind={message.kind ?? 'normal'}
+                          <Box
                             sx={{
-                              p: 1.5,
-                              borderRadius: '14px',
-                              bgcolor: isErrorBubble
-                                ? 'error.light'
-                                : isStatusBubble
-                                  ? 'info.light'
-                                  : isUser
-                                    ? 'primary.main'
-                                    : 'background.paper',
-                              color: isErrorBubble
-                                ? 'error.contrastText'
-                                : isStatusBubble
-                                  ? 'info.dark'
-                                  : isUser
-                                    ? 'primary.contrastText'
-                                    : 'text.primary',
-                              borderColor: isErrorBubble
-                                ? 'error.main'
-                                : isStatusBubble
-                                  ? 'info.main'
-                                  : undefined,
+                              maxWidth: { xs: '100%', sm: '80%' },
+                              alignSelf,
                             }}
                           >
-                            <Stack spacing={1}>
-                              {message.role === 'assistant' &&
-                                message.streamStatus && (
-                                  <Chip
-                                    size="small"
-                                    variant="outlined"
-                                    color={
-                                      message.streamStatus === 'complete'
-                                        ? 'success'
-                                        : message.streamStatus === 'failed'
-                                          ? 'error'
-                                          : 'default'
-                                    }
-                                    icon={
-                                      message.streamStatus === 'complete' ? (
-                                        <CheckCircleOutlineIcon fontSize="small" />
-                                      ) : message.streamStatus === 'failed' ? (
-                                        <ErrorOutlineIcon fontSize="small" />
-                                      ) : (
-                                        <CircularProgress size={14} />
-                                      )
-                                    }
-                                    label={
-                                      message.streamStatus === 'complete'
-                                        ? 'Complete'
-                                        : message.streamStatus === 'failed'
-                                          ? 'Failed'
-                                          : 'Processing'
-                                    }
-                                    data-testid="status-chip"
-                                    sx={{ alignSelf: 'flex-start' }}
-                                  />
-                                )}
+                            <Paper
+                              variant="outlined"
+                              data-testid="chat-bubble"
+                              data-role={message.role}
+                              data-kind={message.kind ?? 'normal'}
+                              sx={{
+                                p: 1.5,
+                                borderRadius: '14px',
+                                bgcolor: isErrorBubble
+                                  ? 'error.light'
+                                  : isStatusBubble
+                                    ? 'info.light'
+                                    : isUser
+                                      ? 'primary.main'
+                                      : 'background.paper',
+                                color: isErrorBubble
+                                  ? 'error.contrastText'
+                                  : isStatusBubble
+                                    ? 'info.dark'
+                                    : isUser
+                                      ? 'primary.contrastText'
+                                      : 'text.primary',
+                                borderColor: isErrorBubble
+                                  ? 'error.main'
+                                  : isStatusBubble
+                                    ? 'info.main'
+                                    : undefined,
+                              }}
+                            >
+                              <Stack spacing={1}>
+                                {message.role === 'assistant' &&
+                                  message.streamStatus && (
+                                    <Chip
+                                      size="small"
+                                      variant="outlined"
+                                      color={
+                                        message.streamStatus === 'complete'
+                                          ? 'success'
+                                          : message.streamStatus === 'failed'
+                                            ? 'error'
+                                            : 'default'
+                                      }
+                                      icon={
+                                        message.streamStatus === 'complete' ? (
+                                          <CheckCircleOutlineIcon fontSize="small" />
+                                        ) : message.streamStatus ===
+                                          'failed' ? (
+                                          <ErrorOutlineIcon fontSize="small" />
+                                        ) : (
+                                          <CircularProgress size={14} />
+                                        )
+                                      }
+                                      label={
+                                        message.streamStatus === 'complete'
+                                          ? 'Complete'
+                                          : message.streamStatus === 'failed'
+                                            ? 'Failed'
+                                            : 'Processing'
+                                      }
+                                      data-testid="status-chip"
+                                      sx={{ alignSelf: 'flex-start' }}
+                                    />
+                                  )}
 
-                              {segments.map((segment) => {
-                                if (segment.kind === 'text') {
-                                  if (message.role === 'assistant') {
+                                {segments.map((segment) => {
+                                  if (segment.kind === 'text') {
+                                    if (message.role === 'assistant') {
+                                      return (
+                                        <Markdown
+                                          key={segment.id}
+                                          content={segment.content ?? ''}
+                                          data-testid="assistant-markdown"
+                                        />
+                                      );
+                                    }
                                     return (
-                                      <Markdown
+                                      <Typography
                                         key={segment.id}
-                                        content={segment.content ?? ''}
-                                        data-testid="assistant-markdown"
-                                      />
+                                        variant="body2"
+                                        data-testid="user-text"
+                                      >
+                                        {segment.content || ' '}
+                                      </Typography>
                                     );
                                   }
+
+                                  const tool = segment.tool;
+                                  const isRequesting =
+                                    tool.status === 'requesting';
+                                  const isError = tool.status === 'error';
+                                  const toggleKey = `${message.id}-${tool.id}`;
+                                  const isOpen = !!toolOpen[toggleKey];
+                                  const statusLabel =
+                                    tool.status === 'error'
+                                      ? 'Failed'
+                                      : tool.status === 'done'
+                                        ? 'Success'
+                                        : 'Running';
+
                                   return (
-                                    <Typography
+                                    <Box
                                       key={segment.id}
-                                      variant="body2"
-                                      data-testid="user-text"
+                                      data-testid="tool-row"
                                     >
-                                      {segment.content || ' '}
-                                    </Typography>
+                                      <Stack
+                                        direction="row"
+                                        alignItems="center"
+                                        spacing={1}
+                                        sx={{ mb: isRequesting ? 0 : 0.25 }}
+                                        data-testid="tool-call-summary"
+                                      >
+                                        {isRequesting ? (
+                                          <HourglassTopIcon
+                                            fontSize="small"
+                                            color="action"
+                                            data-testid="tool-spinner"
+                                          />
+                                        ) : isError ? (
+                                          <ErrorOutlineIcon
+                                            fontSize="small"
+                                            color="error"
+                                            aria-label="Tool failed"
+                                          />
+                                        ) : (
+                                          <CheckCircleOutlineIcon
+                                            fontSize="small"
+                                            color="success"
+                                            aria-label="Tool succeeded"
+                                          />
+                                        )}
+                                        <Typography
+                                          variant="caption"
+                                          color="text.primary"
+                                          sx={{ flex: 1 }}
+                                          data-testid="tool-name"
+                                        >
+                                          {(tool.name ?? 'Tool') +
+                                            ' · ' +
+                                            statusLabel}
+                                        </Typography>
+                                        <Button
+                                          size="small"
+                                          variant="text"
+                                          onClick={() => toggleTool(toggleKey)}
+                                          disabled={isRequesting}
+                                          data-testid="tool-toggle"
+                                          aria-expanded={isOpen}
+                                          aria-controls={`tool-${toggleKey}-details`}
+                                          sx={{
+                                            textTransform: 'none',
+                                            minWidth: 0,
+                                            p: 0,
+                                          }}
+                                        >
+                                          {isOpen
+                                            ? 'Hide details'
+                                            : 'Show details'}
+                                        </Button>
+                                      </Stack>
+
+                                      <Collapse
+                                        in={isOpen}
+                                        timeout="auto"
+                                        unmountOnExit
+                                        id={`tool-${toggleKey}-details`}
+                                      >
+                                        {renderToolContent(tool, toggleKey)}
+                                      </Collapse>
+                                    </Box>
                                   );
-                                }
+                                })}
 
-                                const tool = segment.tool;
-                                const isRequesting =
-                                  tool.status === 'requesting';
-                                const isError = tool.status === 'error';
-                                const toggleKey = `${message.id}-${tool.id}`;
-                                const isOpen = !!toolOpen[toggleKey];
-                                const statusLabel =
-                                  tool.status === 'error'
-                                    ? 'Failed'
-                                    : tool.status === 'done'
-                                      ? 'Success'
-                                      : 'Running';
+                                {message.role === 'assistant' &&
+                                  (message.citations?.length ?? 0) > 0 && (
+                                    <Accordion
+                                      disableGutters
+                                      elevation={0}
+                                      defaultExpanded={false}
+                                      sx={{
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        bgcolor: 'grey.50',
+                                        mt: 1,
+                                      }}
+                                      data-testid="citations-accordion"
+                                    >
+                                      <AccordionSummary
+                                        expandIcon={
+                                          <ExpandMoreIcon fontSize="small" />
+                                        }
+                                        aria-controls="citations-panel"
+                                        id="citations-summary"
+                                        data-testid="citations-toggle"
+                                      >
+                                        <Typography
+                                          variant="body2"
+                                          fontWeight={600}
+                                        >
+                                          Citations (
+                                          {message.citations?.length ?? 0})
+                                        </Typography>
+                                      </AccordionSummary>
+                                      <AccordionDetails id="citations-panel">
+                                        <Stack
+                                          spacing={1}
+                                          data-testid="citations"
+                                        >
+                                          {message.citations?.map(
+                                            (citation, idx) => {
+                                              const pathLabel = `${citation.repo}/${citation.relPath}`;
+                                              const hostSuffix =
+                                                citation.hostPath
+                                                  ? ` (${citation.hostPath})`
+                                                  : '';
+                                              return (
+                                                <Box
+                                                  key={`${citation.chunkId ?? idx}-${citation.relPath}`}
+                                                  sx={{
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1,
+                                                    p: 1,
+                                                    bgcolor: 'background.paper',
+                                                  }}
+                                                >
+                                                  <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                    title={
+                                                      citation.hostPath ??
+                                                      pathLabel
+                                                    }
+                                                    sx={{
+                                                      display: 'block',
+                                                      overflow: 'hidden',
+                                                      textOverflow: 'ellipsis',
+                                                      whiteSpace: 'nowrap',
+                                                      maxWidth: '100%',
+                                                    }}
+                                                    data-testid="citation-path"
+                                                  >
+                                                    {pathLabel}
+                                                    {hostSuffix}
+                                                  </Typography>
+                                                  <Typography
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    style={{
+                                                      overflowWrap: 'anywhere',
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                    sx={{
+                                                      whiteSpace: 'pre-wrap',
+                                                      overflowWrap: 'anywhere',
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                    data-testid="citation-chunk"
+                                                  >
+                                                    {citation.chunk}
+                                                  </Typography>
+                                                </Box>
+                                              );
+                                            },
+                                          )}
+                                        </Stack>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
 
-                                return (
-                                  <Box key={segment.id} data-testid="tool-row">
+                                {(message.thinkStreaming || message.think) && (
+                                  <Box mt={1}>
                                     <Stack
                                       direction="row"
                                       alignItems="center"
-                                      spacing={1}
-                                      sx={{ mb: isRequesting ? 0 : 0.25 }}
-                                      data-testid="tool-call-summary"
+                                      gap={0.5}
                                     >
-                                      {isRequesting ? (
-                                        <HourglassTopIcon
-                                          fontSize="small"
-                                          color="action"
-                                          data-testid="tool-spinner"
-                                        />
-                                      ) : isError ? (
-                                        <ErrorOutlineIcon
-                                          fontSize="small"
-                                          color="error"
-                                          aria-label="Tool failed"
-                                        />
-                                      ) : (
-                                        <CheckCircleOutlineIcon
-                                          fontSize="small"
-                                          color="success"
-                                          aria-label="Tool succeeded"
+                                      {message.thinkStreaming && (
+                                        <CircularProgress
+                                          size={12}
+                                          color="inherit"
+                                          data-testid="think-spinner"
                                         />
                                       )}
                                       <Typography
                                         variant="caption"
-                                        color="text.primary"
-                                        sx={{ flex: 1 }}
-                                        data-testid="tool-name"
+                                        color="text.secondary"
                                       >
-                                        {(tool.name ?? 'Tool') +
-                                          ' · ' +
-                                          statusLabel}
+                                        Thought process
                                       </Typography>
                                       <Button
                                         size="small"
                                         variant="text"
-                                        onClick={() => toggleTool(toggleKey)}
-                                        disabled={isRequesting}
-                                        data-testid="tool-toggle"
-                                        aria-expanded={isOpen}
-                                        aria-controls={`tool-${toggleKey}-details`}
+                                        onClick={() => toggleThink(message.id)}
+                                        data-testid="think-toggle"
+                                        aria-label="Toggle thought process"
+                                        aria-expanded={!!thinkOpen[message.id]}
                                         sx={{
                                           textTransform: 'none',
                                           minWidth: 0,
                                           p: 0,
                                         }}
                                       >
-                                        {isOpen
-                                          ? 'Hide details'
-                                          : 'Show details'}
+                                        {thinkOpen[message.id]
+                                          ? 'Hide'
+                                          : 'Show'}
                                       </Button>
                                     </Stack>
-
                                     <Collapse
-                                      in={isOpen}
+                                      in={!!thinkOpen[message.id]}
                                       timeout="auto"
                                       unmountOnExit
-                                      id={`tool-${toggleKey}-details`}
                                     >
-                                      {renderToolContent(tool, toggleKey)}
+                                      <Box mt={0.5} color="text.secondary">
+                                        <Markdown
+                                          content={message.think ?? ''}
+                                          data-testid="think-content"
+                                        />
+                                      </Box>
                                     </Collapse>
                                   </Box>
-                                );
-                              })}
-
-                              {message.role === 'assistant' &&
-                                (message.citations?.length ?? 0) > 0 && (
-                                  <Accordion
-                                    disableGutters
-                                    elevation={0}
-                                    defaultExpanded={false}
-                                    sx={{
-                                      border: '1px solid',
-                                      borderColor: 'divider',
-                                      borderRadius: 1,
-                                      bgcolor: 'grey.50',
-                                      mt: 1,
-                                    }}
-                                    data-testid="citations-accordion"
-                                  >
-                                    <AccordionSummary
-                                      expandIcon={
-                                        <ExpandMoreIcon fontSize="small" />
-                                      }
-                                      aria-controls="citations-panel"
-                                      id="citations-summary"
-                                      data-testid="citations-toggle"
-                                    >
-                                      <Typography
-                                        variant="body2"
-                                        fontWeight={600}
-                                      >
-                                        Citations (
-                                        {message.citations?.length ?? 0})
-                                      </Typography>
-                                    </AccordionSummary>
-                                    <AccordionDetails id="citations-panel">
-                                      <Stack
-                                        spacing={1}
-                                        data-testid="citations"
-                                      >
-                                        {message.citations?.map(
-                                          (citation, idx) => {
-                                            const pathLabel = `${citation.repo}/${citation.relPath}`;
-                                            const hostSuffix = citation.hostPath
-                                              ? ` (${citation.hostPath})`
-                                              : '';
-                                            return (
-                                              <Box
-                                                key={`${citation.chunkId ?? idx}-${citation.relPath}`}
-                                                sx={{
-                                                  border: '1px solid',
-                                                  borderColor: 'divider',
-                                                  borderRadius: 1,
-                                                  p: 1,
-                                                  bgcolor: 'background.paper',
-                                                }}
-                                              >
-                                                <Typography
-                                                  variant="caption"
-                                                  color="text.secondary"
-                                                  title={
-                                                    citation.hostPath ??
-                                                    pathLabel
-                                                  }
-                                                  sx={{
-                                                    display: 'block',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    maxWidth: '100%',
-                                                  }}
-                                                  data-testid="citation-path"
-                                                >
-                                                  {pathLabel}
-                                                  {hostSuffix}
-                                                </Typography>
-                                                <Typography
-                                                  variant="body2"
-                                                  color="text.primary"
-                                                  style={{
-                                                    overflowWrap: 'anywhere',
-                                                    wordBreak: 'break-word',
-                                                  }}
-                                                  sx={{
-                                                    whiteSpace: 'pre-wrap',
-                                                    overflowWrap: 'anywhere',
-                                                    wordBreak: 'break-word',
-                                                  }}
-                                                  data-testid="citation-chunk"
-                                                >
-                                                  {citation.chunk}
-                                                </Typography>
-                                              </Box>
-                                            );
-                                          },
-                                        )}
-                                      </Stack>
-                                    </AccordionDetails>
-                                  </Accordion>
                                 )}
-
-                              {(message.thinkStreaming || message.think) && (
-                                <Box mt={1}>
-                                  <Stack
-                                    direction="row"
-                                    alignItems="center"
-                                    gap={0.5}
-                                  >
-                                    {message.thinkStreaming && (
-                                      <CircularProgress
-                                        size={12}
-                                        color="inherit"
-                                        data-testid="think-spinner"
-                                      />
-                                    )}
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Thought process
-                                    </Typography>
-                                    <Button
-                                      size="small"
-                                      variant="text"
-                                      onClick={() => toggleThink(message.id)}
-                                      data-testid="think-toggle"
-                                      aria-label="Toggle thought process"
-                                      aria-expanded={!!thinkOpen[message.id]}
-                                      sx={{
-                                        textTransform: 'none',
-                                        minWidth: 0,
-                                        p: 0,
-                                      }}
-                                    >
-                                      {thinkOpen[message.id] ? 'Hide' : 'Show'}
-                                    </Button>
-                                  </Stack>
-                                  <Collapse
-                                    in={!!thinkOpen[message.id]}
-                                    timeout="auto"
-                                    unmountOnExit
-                                  >
-                                    <Box mt={0.5} color="text.secondary">
-                                      <Markdown
-                                        content={message.think ?? ''}
-                                        data-testid="think-content"
-                                      />
-                                    </Box>
-                                  </Collapse>
-                                </Box>
-                              )}
-                            </Stack>
-                          </Paper>
-                        </Box>
-                      </Stack>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            </Paper>
-          </Stack>
-        </Paper>
+                              </Stack>
+                            </Paper>
+                          </Box>
+                        </Stack>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              </Paper>
+            </Stack>
+          </Box>
+        </Stack>
       </Stack>
-    </Stack>
+    </Container>
   );
 }

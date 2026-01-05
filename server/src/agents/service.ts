@@ -20,12 +20,14 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import type { TurnCommandMetadata } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
+import { publishUserTurn } from '../ws/server.js';
 
 import { loadAgentCommandSummary } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
@@ -196,6 +198,7 @@ async function ensureAgentConversation(params: {
 export async function runAgentInstruction(
   params: RunAgentInstructionParams,
 ): Promise<RunAgentInstructionResult> {
+  const clientProvidedConversationId = Boolean(params.conversationId);
   const conversationId = params.conversationId ?? crypto.randomUUID();
   if (!tryAcquireConversationLock(conversationId)) {
     throw toRunAgentError(
@@ -204,11 +207,26 @@ export async function runAgentInstruction(
     );
   }
 
+  const mustExist = false;
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T1] agents.run mustExist resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      source: params.source,
+      conversationId,
+      clientProvidedConversationId,
+      mustExist,
+    },
+  });
+
   try {
     return await runAgentInstructionUnlocked({
       ...params,
       conversationId,
-      mustExist: Boolean(params.conversationId),
+      mustExist,
     });
   } finally {
     releaseConversationLock(conversationId);
@@ -340,7 +358,51 @@ export async function runAgentInstructionUnlocked(params: {
   );
 
   const inflightId = params.inflightId ?? crypto.randomUUID();
-  createInflight({ conversationId, inflightId, externalSignal: params.signal });
+  const nowIso = new Date().toISOString();
+  createInflight({
+    conversationId,
+    inflightId,
+    provider: 'codex',
+    model: modelId,
+    source: params.source,
+    userTurn: { content: params.instruction, createdAt: nowIso },
+    externalSignal: params.signal,
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T2] agents.inflight created',
+    timestamp: nowIso,
+    source: 'server',
+    context: {
+      conversationId,
+      inflightId,
+      provider: 'codex',
+      model: modelId,
+      source: params.source,
+      userTurnCreatedAt: nowIso,
+    },
+  });
+
+  publishUserTurn({
+    conversationId,
+    inflightId,
+    content: params.instruction,
+    createdAt: nowIso,
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV-0000021[T2] agents.ws user_turn published',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      conversationId,
+      inflightId,
+      createdAt: nowIso,
+      contentLen: params.instruction.length,
+    },
+  });
 
   const bridge = attachChatStreamBridge({
     conversationId,
@@ -357,10 +419,26 @@ export async function runAgentInstructionUnlocked(params: {
   chat.on('error', (ev) => responder.handle(ev));
 
   try {
+    append({
+      level: 'info',
+      message: 'DEV-0000021[T2] agents.chat.run flags include inflightId',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        conversationId,
+        inflightId,
+        flagsInflightId: inflightId,
+        provider: 'codex',
+        model: modelId,
+        source: params.source,
+      },
+    });
+
     await chat.run(
       params.instruction,
       {
         provider: 'codex',
+        inflightId,
         threadId,
         useConfigDefaults: true,
         codexHome: agent.home,

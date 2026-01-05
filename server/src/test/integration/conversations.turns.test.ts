@@ -24,7 +24,7 @@ const appWith = (
   return app;
 };
 
-test('lists turns newest-first and returns nextCursor when full', async () => {
+test('returns full turn history newest-first (ignores pagination query)', async () => {
   const turns: TurnSummary[] = [
     {
       turnId: 't2',
@@ -55,15 +55,16 @@ test('lists turns newest-first and returns nextCursor when full', async () => {
   const res = await request(
     appWith({
       findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-      listTurns: async (params) => ({ items: turns.slice(0, params.limit) }),
+      listAllTurns: async () => ({ items: turns }),
     }),
   )
-    .get('/conversations/c1/turns?limit=1')
+    .get('/conversations/c1/turns?limit=1&cursor=2025-01-01T00:00:00.000Z')
     .expect(200);
 
   assert.equal(res.body.items[0].content, 'hi');
   assert.equal(typeof res.body.items[0].turnId, 'string');
-  assert.equal(res.body.nextCursor, turns[0].createdAt.toISOString());
+  assert.equal(res.body.items.length, 2);
+  assert.equal('nextCursor' in res.body, false);
 });
 
 test('returns not_found when conversation is missing', async () => {
@@ -73,7 +74,7 @@ test('returns not_found when conversation is missing', async () => {
   assert.equal(res.body.error, 'not_found');
 });
 
-test('optionally includes inflight snapshot when requested', async () => {
+test('inflight-only snapshot returns inflight items and inflight payload', async () => {
   createInflight({
     conversationId: 'c1',
     inflightId: 'i1',
@@ -109,10 +110,10 @@ test('optionally includes inflight snapshot when requested', async () => {
     const res = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: [] }),
+        listAllTurns: async () => ({ items: [] }),
       }),
     )
-      .get('/conversations/c1/turns?includeInflight=true')
+      .get('/conversations/c1/turns')
       .expect(200);
 
     assert.equal(Array.isArray(res.body.items), true);
@@ -137,36 +138,143 @@ test('optionally includes inflight snapshot when requested', async () => {
   }
 });
 
-test('always merges inflight turns into snapshot items (includeInflight omitted)', async () => {
+test('returns full history when no inflight exists', async () => {
+  const turns: TurnSummary[] = [
+    {
+      turnId: 't4',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'second assistant',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T10:01:00Z'),
+    },
+    {
+      turnId: 't3',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'second user',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T10:00:00Z'),
+    },
+    {
+      turnId: 't2',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'first assistant',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T09:01:00Z'),
+    },
+    {
+      turnId: 't1',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'first user',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T09:00:00Z'),
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      listAllTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c1/turns')
+    .expect(200);
+
+  assert.equal(res.body.items.length, 4);
+  assert.equal(res.body.items[0].content, 'second assistant');
+  assert.equal(res.body.items[3].content, 'first user');
+  assert.equal(res.body.inflight, undefined);
+});
+
+test('dedupes inflight merge by turnId and preserves newest-first ordering', async () => {
+  const userCreatedAt = new Date('2025-01-01T00:00:00.000Z').toISOString();
   createInflight({
     conversationId: 'c1',
     inflightId: 'i1',
     provider: 'lmstudio',
     model: 'llama',
     source: 'REST',
-    userTurn: {
-      content: 'hello',
-      createdAt: new Date('2025-01-01T00:00:00.000Z').toISOString(),
-    },
+    userTurn: { content: 'inflight user', createdAt: userCreatedAt },
   });
-  appendAssistantDelta({ conversationId: 'c1', inflightId: 'i1', delta: 'Hi' });
+  markInflightPersisted({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    role: 'user',
+    turnId: 't-user',
+  });
+  appendAssistantDelta({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    delta: 'inflight assistant',
+  });
+  markInflightPersisted({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    role: 'assistant',
+    turnId: 't-assistant',
+  });
+
+  const persisted: TurnSummary[] = [
+    {
+      turnId: 't-assistant',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'persisted assistant',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T00:00:00.500Z'),
+    },
+    {
+      turnId: 't-user',
+      conversationId: 'c1',
+      role: 'user',
+      content: 'persisted user',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date(userCreatedAt),
+    },
+  ];
 
   try {
     const res = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: [] }),
+        listAllTurns: async () => ({ items: persisted }),
       }),
     )
       .get('/conversations/c1/turns')
       .expect(200);
 
-    assert.equal(res.body.inflight, undefined);
     assert.equal(res.body.items.length, 2);
+    assert.equal(res.body.items[0].turnId, 't-assistant');
     assert.equal(res.body.items[0].role, 'assistant');
-    assert.equal(res.body.items[0].content, 'Hi');
+    assert.equal(res.body.items[1].turnId, 't-user');
     assert.equal(res.body.items[1].role, 'user');
-    assert.equal(res.body.items[1].content, 'hello');
   } finally {
     cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
   }
@@ -204,7 +312,7 @@ test('keeps inflight merged after final until persistence completes, then stops 
     const resBefore = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: persistedUserOnly }),
+        listAllTurns: async () => ({ items: persistedUserOnly }),
       }),
     )
       .get('/conversations/c1/turns')
@@ -235,7 +343,7 @@ test('keeps inflight merged after final until persistence completes, then stops 
     const resAfter = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: persistedBoth }),
+        listAllTurns: async () => ({ items: persistedBoth }),
       }),
     )
       .get('/conversations/c1/turns?includeInflight=true')
@@ -280,7 +388,7 @@ test('orders same-timestamp turns deterministically (assistant before user)', as
   const res = await request(
     appWith({
       findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-      listTurns: async () => ({ items: turns }),
+      listAllTurns: async () => ({ items: turns }),
     }),
   )
     .get('/conversations/c1/turns')
@@ -334,7 +442,7 @@ test('dedupes inflight merge by turnId even when createdAt differs', async () =>
     const res = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: persisted }),
+        listAllTurns: async () => ({ items: persisted }),
       }),
     )
       .get('/conversations/c1/turns')
@@ -392,7 +500,7 @@ test('fallback dedupe does not drop distinct turns when turnId is missing', asyn
     const res = await request(
       appWith({
         findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
-        listTurns: async () => ({ items: persisted }),
+        listAllTurns: async () => ({ items: persisted }),
       }),
     )
       .get('/conversations/c1/turns')

@@ -313,6 +313,30 @@ export async function listTurns(
   return { items };
 }
 
+export async function listAllTurns(
+  conversationId: string,
+): Promise<{ items: TurnSummary[] }> {
+  const docs = (await TurnModel.find({ conversationId })
+    .sort({ createdAt: -1, _id: -1 })
+    .lean()) as Array<Turn & { _id?: unknown }>;
+
+  const items: TurnSummary[] = docs.map((doc) => ({
+    turnId: String(doc._id ?? ''),
+    conversationId: doc.conversationId,
+    role: doc.role,
+    content: doc.content,
+    model: doc.model,
+    provider: doc.provider,
+    source: (doc as Turn).source ?? 'REST',
+    toolCalls: doc.toolCalls ?? null,
+    status: doc.status,
+    command: doc.command,
+    createdAt: doc.createdAt,
+  }));
+
+  return { items };
+}
+
 type ConversationLite = { _id: string; archivedAt?: Date | null };
 
 export type BulkConversationConflict = {

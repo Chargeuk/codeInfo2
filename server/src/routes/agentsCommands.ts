@@ -16,9 +16,12 @@ type AgentCommandsBody = {
 
 type AgentCommandsError =
   | { code: 'AGENT_NOT_FOUND' }
+  | { code: 'CONVERSATION_ARCHIVED' }
+  | { code: 'AGENT_MISMATCH' }
   | { code: 'COMMAND_NOT_FOUND' }
   | { code: 'COMMAND_INVALID'; reason?: string }
   | { code: 'RUN_IN_PROGRESS'; reason?: string }
+  | { code: 'CODEX_UNAVAILABLE'; reason?: string }
   | { code: 'WORKING_FOLDER_INVALID'; reason?: string }
   | { code: 'WORKING_FOLDER_NOT_FOUND'; reason?: string };
 
@@ -164,6 +167,12 @@ export function createAgentsCommandsRouter(
         ) {
           return res.status(404).json({ error: 'not_found' });
         }
+        if (err.code === 'CONVERSATION_ARCHIVED') {
+          return res.status(410).json({ error: 'archived' });
+        }
+        if (err.code === 'AGENT_MISMATCH') {
+          return res.status(400).json({ error: 'agent_mismatch' });
+        }
         if (err.code === 'COMMAND_INVALID') {
           return res.status(400).json({
             error: 'invalid_request',
@@ -179,6 +188,11 @@ export function createAgentsCommandsRouter(
               err.reason ??
               'A run is already in progress for this conversation.',
           });
+        }
+        if (err.code === 'CODEX_UNAVAILABLE') {
+          return res
+            .status(503)
+            .json({ error: 'codex_unavailable', reason: err.reason });
         }
         if (
           err.code === 'WORKING_FOLDER_INVALID' ||

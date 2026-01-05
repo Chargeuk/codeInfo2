@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import MenuIcon from '@mui/icons-material/Menu';
 import {
   Accordion,
   AccordionDetails,
@@ -11,7 +12,11 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Collapse,
+  Container,
+  Drawer,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -19,12 +24,15 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material/Select';
+import { useTheme } from '@mui/material/styles';
 import {
   FormEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -38,18 +46,31 @@ import {
 } from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
-import type { ChatMessage, ToolCall } from '../hooks/useChatStream';
+import useChatStream, {
+  type ChatMessage,
+  type ToolCall,
+} from '../hooks/useChatStream';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import { createLogger } from '../logging/logger';
 import useChatWs, {
   type ChatWsServerEvent,
-  type ChatWsToolEvent,
+  type ChatWsTranscriptEvent,
 } from '../hooks/useChatWs';
 
 export default function AgentsPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const drawerWidth = 320;
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
+    isMobile ? false : true,
+  );
+  const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
+
   const [agents, setAgents] = useState<
     Array<{
       name: string;
@@ -73,111 +94,19 @@ export default function AgentsPage() {
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [selectedCommandName, setSelectedCommandName] = useState('');
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [agentModelId, setAgentModelId] = useState<string>('unknown');
+  const {
+    messages,
+    setConversation,
+    hydrateHistory,
+    hydrateInflightSnapshot,
+    handleWsEvent,
+    getInflightId,
+  } = useChatStream(agentModelId, 'codex');
 
-  type LiveInflight = {
-    conversationId: string;
-    inflightId: string;
-    assistantText: string;
-    assistantThink: string;
-    toolEvents: ChatWsToolEvent[];
-    status: 'processing' | 'complete' | 'failed';
-    startedAt?: string;
-  };
-
-  const [liveInflight, setLiveInflight] = useState<LiveInflight | null>(null);
-  const orderedMessages = useMemo<ChatMessage[]>(
+  const displayMessages = useMemo<ChatMessage[]>(
     () => [...messages].reverse(),
     [messages],
-  );
-
-  const inflightMessage = useMemo<ChatMessage | null>(() => {
-    if (!liveInflight) return null;
-
-    const normalizeCallId = (raw: unknown) => {
-      if (typeof raw === 'string' && raw.trim()) return raw;
-      if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
-      return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
-    };
-
-    const toolsById = new Map<string, ToolCall>();
-    const segments: NonNullable<ChatMessage['segments']> = [
-      {
-        id: 'inflight-' + liveInflight.inflightId + '-text',
-        kind: 'text',
-        content: liveInflight.assistantText,
-      },
-    ];
-
-    for (const ev of liveInflight.toolEvents) {
-      const id = normalizeCallId(ev.callId);
-      const existing = toolsById.get(id);
-
-      if (ev.type === 'tool-request') {
-        const tool: ToolCall = {
-          id,
-          name: ev.name,
-          status: 'requesting',
-          parameters: ev.parameters,
-          stage: ev.stage,
-        };
-        toolsById.set(id, { ...(existing ?? tool), ...tool });
-      } else {
-        const status: ToolCall['status'] =
-          ev.stage === 'error' || ev.errorTrimmed || ev.errorFull
-            ? 'error'
-            : 'done';
-        const tool: ToolCall = {
-          id,
-          name: ev.name ?? existing?.name,
-          status,
-          parameters: ev.parameters,
-          payload: ev.result,
-          stage: ev.stage,
-          errorTrimmed:
-            ev.errorTrimmed && typeof ev.errorTrimmed === 'object'
-              ? (ev.errorTrimmed as { code?: string; message?: string })
-              : null,
-          errorFull: ev.errorFull,
-        };
-        toolsById.set(id, { ...(existing ?? tool), ...tool });
-      }
-
-      const tool = toolsById.get(id);
-      if (tool) {
-        segments.push({
-          id: 'inflight-' + liveInflight.inflightId + '-' + id,
-          kind: 'tool',
-          tool,
-        });
-        segments.push({
-          id: 'inflight-' + liveInflight.inflightId + '-' + id + '-after',
-          kind: 'text',
-          content: '',
-        });
-      }
-    }
-
-    return {
-      id: 'inflight-' + liveInflight.inflightId,
-      role: 'assistant',
-      content: liveInflight.assistantText,
-      think: liveInflight.assistantThink || undefined,
-      thinkStreaming:
-        liveInflight.status === 'processing' &&
-        liveInflight.assistantThink.length > 0,
-      tools: Array.from(toolsById.values()),
-      segments,
-      streamStatus: liveInflight.status,
-      ...(liveInflight.status === 'failed' ? { kind: 'error' as const } : {}),
-      createdAt: liveInflight.startedAt ?? new Date().toISOString(),
-    };
-  }, [liveInflight]);
-
-  const displayMessages = useMemo(
-    () =>
-      inflightMessage ? [...orderedMessages, inflightMessage] : orderedMessages,
-    [inflightMessage, orderedMessages],
   );
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -191,128 +120,68 @@ export default function AgentsPage() {
     {},
   );
 
+  const citationsReadyLoggedRef = useRef<string | null>(null);
+
   const runControllerRef = useRef<AbortController | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
-  const prevScrollHeightRef = useRef<number>(0);
+
+  const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState<number>(0);
 
   const { mongoConnected, isLoading: persistenceLoading } =
     usePersistenceStatus();
   const persistenceUnavailable = mongoConnected === false;
 
-  const { subscribeConversation, unsubscribeConversation } = useChatWs({
-    realtimeEnabled: mongoConnected !== false,
-    onEvent: (event: ChatWsServerEvent) => {
-      if (mongoConnected === false) return;
-      if (!activeConversationId) return;
-      switch (event.type) {
-        case 'inflight_snapshot':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight({
-            conversationId: event.conversationId,
-            inflightId: event.inflight.inflightId,
-            assistantText: event.inflight.assistantText,
-            assistantThink: event.inflight.assistantThink,
-            toolEvents: event.inflight.toolEvents ?? [],
-            status: 'processing',
-            startedAt: event.inflight.startedAt,
-          });
-          return;
-        case 'assistant_delta':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  assistantText: prev.assistantText + event.delta,
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'analysis_delta':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  assistantThink: prev.assistantThink + event.delta,
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'tool_event':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) =>
-            prev && prev.conversationId === event.conversationId
-              ? {
-                  ...prev,
-                  inflightId: event.inflightId,
-                  toolEvents: [...prev.toolEvents, event.event],
-                  status: 'processing',
-                }
-              : prev,
-          );
-          return;
-        case 'turn_final':
-          if (event.conversationId !== activeConversationId) return;
-          setLiveInflight((prev) => {
-            if (!prev || prev.conversationId !== event.conversationId)
-              return prev;
-            const nextStatus =
-              event.status === 'failed' ? 'failed' : 'complete';
-            const nextText =
-              event.status === 'failed' &&
-              event.error?.message &&
-              !prev.assistantText.trim()
-                ? event.error.message
-                : prev.assistantText;
-            return {
-              ...prev,
-              inflightId: event.inflightId,
-              assistantText: nextText,
-              status: nextStatus,
-            };
-          });
-          return;
-        default:
-          return;
-      }
-    },
-  });
+  useLayoutEffect(() => {
+    const updateOffset = () => {
+      const top = chatColumnRef.current?.getBoundingClientRect().top ?? 0;
+      setDrawerTopOffsetPx(top);
+    };
+
+    updateOffset();
+    window.addEventListener('resize', updateOffset);
+    return () => window.removeEventListener('resize', updateOffset);
+  }, [isMobile, persistenceUnavailable, agentsError, agentsLoading]);
+
+  const drawerTopOffset =
+    drawerTopOffsetPx > 0 ? `${drawerTopOffsetPx}px` : theme.spacing(3);
+  const drawerHeight =
+    drawerTopOffsetPx > 0
+      ? `calc(100% - ${drawerTopOffsetPx}px)`
+      : `calc(100% - ${theme.spacing(3)})`;
+
+  const log = useMemo(() => createLogger('client'), []);
+
+  const unificationReadyLoggedRef = useRef(false);
 
   useEffect(() => {
-    setLiveInflight(null);
-  }, [activeConversationId]);
+    if (unificationReadyLoggedRef.current) return;
+    if (!selectedAgentName) return;
+
+    unificationReadyLoggedRef.current = true;
+    log('info', 'DEV-0000021[T9] agents.unification ready', {
+      selectedAgentName,
+      activeConversationId,
+    });
+  }, [activeConversationId, log, selectedAgentName]);
 
   useEffect(() => {
-    if (persistenceUnavailable) return;
-    if (!activeConversationId) return;
-    subscribeConversation(activeConversationId);
-    return () => unsubscribeConversation(activeConversationId);
-  }, [
-    activeConversationId,
-    persistenceUnavailable,
-    subscribeConversation,
-    unsubscribeConversation,
-  ]);
+    const variant = isMobile ? 'temporary' : 'persistent';
+    log('info', 'DEV-0000021[T8] agents.layout drawer variant', {
+      isMobile,
+      variant,
+    });
+  }, [isMobile, log]);
 
   useEffect(() => {
-    if (!liveInflight) return;
-    if (liveInflight.status === 'processing') return;
-    const matching = messages.some(
-      (msg) =>
-        msg.role === 'assistant' &&
-        msg.streamStatus === 'complete' &&
-        msg.content.trim() === liveInflight.assistantText.trim(),
-    );
-    if (matching) {
-      setLiveInflight(null);
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+      return;
     }
-  }, [liveInflight, messages]);
+
+    setDesktopDrawerOpen(true);
+  }, [isMobile]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -346,6 +215,11 @@ export default function AgentsPage() {
   }, []);
 
   const effectiveAgentName = selectedAgentName || '__none__';
+  const selectedAgentNameRef = useRef<string>(selectedAgentName);
+
+  useEffect(() => {
+    selectedAgentNameRef.current = selectedAgentName;
+  }, [selectedAgentName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -410,30 +284,180 @@ export default function AgentsPage() {
     hasMore: conversationsHasMore,
     loadMore: loadMoreConversations,
     refresh: refreshConversations,
+    applyWsUpsert,
+    applyWsDelete,
   } = useConversations({ agentName: effectiveAgentName });
 
-  const knownConversationIds = useMemo(
-    () => new Set(conversations.map((c) => c.conversationId)),
-    [conversations],
-  );
-
-  const shouldLoadTurns = Boolean(
-    activeConversationId &&
-      !persistenceUnavailable &&
-      knownConversationIds.has(activeConversationId),
-  );
+  const turnsConversationId = persistenceUnavailable
+    ? undefined
+    : activeConversationId;
 
   const {
-    lastPage,
-    lastMode,
+    turns,
+    inflight: inflightSnapshot,
     isLoading: turnsLoading,
     isError: turnsError,
     error: turnsErrorMessage,
-    hasMore: turnsHasMore,
-    loadOlder,
     refresh: refreshTurns,
     reset: resetTurns,
-  } = useConversationTurns(shouldLoadTurns ? activeConversationId : undefined);
+  } = useConversationTurns(turnsConversationId);
+
+  const refreshSnapshots = useCallback(async () => {
+    if (persistenceUnavailable) return;
+    await Promise.all([
+      refreshConversations(),
+      activeConversationId ? refreshTurns() : Promise.resolve(),
+    ]);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    refreshConversations,
+    refreshTurns,
+  ]);
+
+  const {
+    connectionState: wsConnectionState,
+    subscribeSidebar,
+    unsubscribeSidebar,
+    subscribeConversation,
+    unsubscribeConversation,
+    cancelInflight,
+  } = useChatWs({
+    realtimeEnabled: mongoConnected !== false,
+    modelId: agentModelId,
+    onReconnectBeforeResubscribe: async () => {
+      if (mongoConnected === false) return;
+      await refreshSnapshots();
+    },
+    onEvent: (event: ChatWsServerEvent) => {
+      switch (event.type) {
+        case 'conversation_upsert': {
+          const conversationAgentName = event.conversation.agentName;
+          if (conversationAgentName !== selectedAgentName) return;
+
+          applyWsUpsert({
+            conversationId: event.conversation.conversationId,
+            title: event.conversation.title,
+            provider: event.conversation.provider,
+            model: event.conversation.model,
+            source: event.conversation.source === 'MCP' ? 'MCP' : 'REST',
+            lastMessageAt: event.conversation.lastMessageAt,
+            archived: event.conversation.archived,
+            flags: event.conversation.flags,
+            agentName: event.conversation.agentName,
+          });
+
+          log('info', 'DEV-0000021[T7] agents.sidebar conversation_upsert', {
+            selectedAgentName,
+            conversationId: event.conversation.conversationId,
+          });
+          return;
+        }
+        case 'conversation_delete': {
+          applyWsDelete(event.conversationId);
+          log('info', 'DEV-0000021[T7] agents.sidebar conversation_delete', {
+            selectedAgentName,
+            conversationId: event.conversationId,
+          });
+          return;
+        }
+        case 'user_turn':
+        case 'inflight_snapshot':
+        case 'assistant_delta':
+        case 'analysis_delta':
+        case 'tool_event':
+        case 'stream_warning':
+        case 'turn_final': {
+          const transcriptEvent = event as ChatWsTranscriptEvent;
+
+          if (transcriptEvent.type === 'user_turn') {
+            log('info', 'DEV-0000021[T4] agents.ws event user_turn', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+            });
+          }
+
+          if (transcriptEvent.type === 'inflight_snapshot') {
+            log('info', 'DEV-0000021[T4] agents.ws event inflight_snapshot', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflight.inflightId,
+              modelId: agentModelId,
+            });
+          }
+
+          if (transcriptEvent.type === 'turn_final') {
+            log('info', 'DEV-0000021[T4] agents.ws event turn_final', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+              status: transcriptEvent.status,
+            });
+          }
+
+          if (transcriptEvent.type === 'tool_event') {
+            log('info', 'DEV-0000021[T5] agents.ws event tool_event', {
+              conversationId: transcriptEvent.conversationId,
+              inflightId: transcriptEvent.inflightId,
+              modelId: agentModelId,
+              toolName: transcriptEvent.event?.name,
+              stage: transcriptEvent.event?.stage,
+              eventType: transcriptEvent.event?.type,
+            });
+          }
+
+          handleWsEvent(transcriptEvent);
+          return;
+        }
+        default:
+          return;
+      }
+    },
+  });
+
+  const wsTranscriptReady =
+    mongoConnected !== false && wsConnectionState === 'open';
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    subscribeSidebar();
+    log('info', 'DEV-0000021[T7] agents.ws subscribe_sidebar', {
+      selectedAgentName: selectedAgentNameRef.current,
+    });
+    return () => unsubscribeSidebar();
+  }, [log, persistenceUnavailable, subscribeSidebar, unsubscribeSidebar]);
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      citationsReadyLoggedRef.current = null;
+      return;
+    }
+
+    if (citationsReadyLoggedRef.current === activeConversationId) return;
+
+    const hasCitations = messages.some(
+      (message) => (message.citations?.length ?? 0) > 0,
+    );
+    if (!hasCitations) return;
+
+    citationsReadyLoggedRef.current = activeConversationId;
+    log('info', 'DEV-0000021[T5] agents.transcript citations ready', {
+      conversationId: activeConversationId,
+      inflightId: getInflightId(),
+    });
+  }, [activeConversationId, getInflightId, log, messages]);
+
+  useEffect(() => {
+    if (persistenceUnavailable) return;
+    if (!activeConversationId) return;
+    subscribeConversation(activeConversationId);
+    return () => unsubscribeConversation(activeConversationId);
+  }, [
+    activeConversationId,
+    persistenceUnavailable,
+    subscribeConversation,
+    unsubscribeConversation,
+  ]);
 
   const stop = useCallback(() => {
     runControllerRef.current?.abort();
@@ -441,11 +465,41 @@ export default function AgentsPage() {
     setIsRunning(false);
   }, []);
 
+  const handleStopClick = useCallback(() => {
+    const inflightId = getInflightId();
+    log('info', 'DEV-0000021[T6] agents.stop clicked', {
+      conversationId: activeConversationId,
+      inflightId,
+    });
+
+    stop();
+
+    log('info', 'DEV-0000021[T6] agents.http abort signaled', {
+      conversationId: activeConversationId,
+      inflightId,
+    });
+
+    if (activeConversationId && inflightId) {
+      cancelInflight(activeConversationId, inflightId);
+      log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
+        conversationId: activeConversationId,
+        inflightId,
+      });
+    }
+
+    setInput(lastSentRef.current);
+    inputRef.current?.focus();
+  }, [activeConversationId, cancelInflight, getInflightId, log, stop]);
+
+  const makeClientConversationId = () =>
+    crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+
   const resetConversation = useCallback(() => {
     stop();
     resetTurns();
     setActiveConversationId(undefined);
-    setMessages([]);
+    setConversation(makeClientConversationId(), { clearMessages: true });
+    setAgentModelId('unknown');
     setWorkingFolder('');
     setInput('');
     lastSentRef.current = '';
@@ -453,7 +507,7 @@ export default function AgentsPage() {
     setToolOpen({});
     setToolErrorOpen({});
     void refreshConversations();
-  }, [refreshConversations, resetTurns, stop]);
+  }, [refreshConversations, resetTurns, setConversation, stop]);
 
   const handleAgentChange = useCallback(
     (event: SelectChangeEvent<string>) => {
@@ -461,6 +515,7 @@ export default function AgentsPage() {
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
       setSelectedCommandName('');
+      setAgentModelId('unknown');
       resetConversation();
     },
     [resetConversation, selectedAgentName],
@@ -529,12 +584,15 @@ export default function AgentsPage() {
       items.map(
         (turn) =>
           ({
-            id: `${turn.createdAt}-${turn.role}-${turn.provider}`,
+            id:
+              typeof turn.turnId === 'string' && turn.turnId.trim().length > 0
+                ? `turn-${turn.turnId}`
+                : `${turn.createdAt}-${turn.role}-${turn.provider}`,
             role: turn.role === 'system' ? 'assistant' : turn.role,
             content: turn.content,
-            ...(turn.command ? { command: turn.command } : {}),
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            command: turn.command,
             createdAt: turn.createdAt,
           }) satisfies ChatMessage,
       ),
@@ -542,55 +600,50 @@ export default function AgentsPage() {
   );
 
   const lastHydratedRef = useRef<string | null>(null);
+  const lastInflightHydratedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!activeConversationId || !lastMode) return;
-    const key = `${activeConversationId}-${lastMode}-${lastPage?.[0]?.createdAt ?? 'none'}`;
+    if (!activeConversationId) return;
+    const oldest = turns?.[0]?.createdAt ?? 'none';
+    const newest = turns?.[turns.length - 1]?.createdAt ?? 'none';
+    const key = `${activeConversationId}-${oldest}-${newest}-${turns.length}`;
     if (lastHydratedRef.current === key) return;
     lastHydratedRef.current = key;
 
-    if (lastMode === 'replace') {
-      setMessages(mapTurnsToMessages(lastPage));
+    if (turns.length === 0 && messages.length > 0 && turnsLoading) {
       return;
     }
-    if (lastMode === 'prepend' && lastPage.length > 0) {
-      setMessages((prev) => {
-        const next = [...mapTurnsToMessages(lastPage), ...prev];
-        const seen = new Set<string>();
-        return next.filter((msg) => {
-          if (seen.has(msg.id)) return false;
-          seen.add(msg.id);
-          return true;
-        });
-      });
-    }
-  }, [activeConversationId, lastMode, lastPage, mapTurnsToMessages]);
+
+    hydrateHistory(activeConversationId, mapTurnsToMessages(turns), 'replace');
+  }, [
+    activeConversationId,
+    hydrateHistory,
+    mapTurnsToMessages,
+    messages.length,
+    turns,
+    turnsLoading,
+  ]);
 
   useEffect(() => {
-    if (lastMode !== 'prepend') {
-      prevScrollHeightRef.current = transcriptRef.current?.scrollHeight ?? 0;
-      return;
-    }
-    const node = transcriptRef.current;
-    if (!node) return;
-    const prevHeight = prevScrollHeightRef.current || 0;
-    const newHeight = node.scrollHeight;
-    node.scrollTop = newHeight - prevHeight + node.scrollTop;
-  }, [lastMode, messages]);
+    if (!activeConversationId || !inflightSnapshot) return;
+    const inflightKey = `${activeConversationId}-${inflightSnapshot.inflightId}-${inflightSnapshot.seq}`;
+    if (lastInflightHydratedRef.current === inflightKey) return;
+    lastInflightHydratedRef.current = inflightKey;
+    hydrateInflightSnapshot(activeConversationId, inflightSnapshot);
+  }, [activeConversationId, hydrateInflightSnapshot, inflightSnapshot]);
 
-  const handleTranscriptScroll = () => {
-    const node = transcriptRef.current;
-    if (!node) return;
-    if (node.scrollTop < 200 && turnsHasMore && !turnsLoading) {
-      prevScrollHeightRef.current = node.scrollHeight;
-      void loadOlder();
-    }
-  };
+  const handleTranscriptScroll = () => {};
 
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
     stop();
     resetTurns();
-    setMessages([]);
+    setConversation(conversationId, { clearMessages: true });
+    const summary = conversations.find(
+      (conversation) => conversation.conversationId === conversationId,
+    );
+    if (summary?.model) {
+      setAgentModelId(summary.model);
+    }
     setActiveConversationId(conversationId);
     setThinkOpen({});
     setToolOpen({});
@@ -656,38 +709,73 @@ export default function AgentsPage() {
     const trimmed = input.trim();
     if (!trimmed || !selectedAgentName || isRunning) return;
 
+    const wsAvailableForThisRun = wsTranscriptReady;
+
     stop();
     const controller = new AbortController();
     runControllerRef.current = controller;
     setIsRunning(true);
     lastSentRef.current = trimmed;
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-      role: 'user',
-      content: trimmed,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
     setInput('');
+
+    const nextConversationId =
+      activeConversationId && activeConversationId.trim().length > 0
+        ? activeConversationId
+        : makeClientConversationId();
+    const isNewConversation = nextConversationId !== activeConversationId;
+
+    if (isNewConversation) {
+      setConversation(nextConversationId, { clearMessages: true });
+      setActiveConversationId(nextConversationId);
+      setThinkOpen({});
+      setToolOpen({});
+      setToolErrorOpen({});
+      setAgentModelId('unknown');
+    }
+
+    let nextHistory: ChatMessage[] = isNewConversation ? [] : messages;
+    if (!wsAvailableForThisRun) {
+      const userMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'user',
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+      };
+      nextHistory = [...nextHistory, userMessage];
+      hydrateHistory(nextConversationId, nextHistory, 'replace');
+    } else {
+      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+        conversationId: nextConversationId,
+        inflightId: getInflightId(),
+        modelId: agentModelId,
+        wsConnectionState,
+      });
+      subscribeConversation(nextConversationId);
+    }
 
     try {
       const result = await runAgentInstruction({
         agentName: selectedAgentName,
         instruction: trimmed,
         working_folder: workingFolder.trim() || undefined,
-        conversationId: activeConversationId,
+        conversationId: nextConversationId,
         signal: controller.signal,
       });
       setActiveConversationId(result.conversationId);
+      if (result.modelId) {
+        setAgentModelId(result.modelId);
+      }
 
-      const extracted = extractSegments(result.segments);
-      const assistantMessage = buildAgentAssistantMessage({
-        answerText: extracted.answerText || '',
-        thinkingText: extracted.thinkingText,
-        vectorSummary: extracted.vectorSummary,
-      });
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (!wsAvailableForThisRun) {
+        const extracted = extractSegments(result.segments);
+        const assistantMessage = buildAgentAssistantMessage({
+          answerText: extracted.answerText || '',
+          thinkingText: extracted.thinkingText,
+          vectorSummary: extracted.vectorSummary,
+        });
+        nextHistory = [...nextHistory, assistantMessage];
+        hydrateHistory(result.conversationId, nextHistory, 'replace');
+      }
       void refreshConversations();
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
@@ -700,33 +788,37 @@ export default function AgentsPage() {
         err.status === 409 &&
         err.code === 'RUN_IN_PROGRESS'
       ) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-            role: 'assistant',
-            content:
-              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
-            kind: 'error',
-            streamStatus: 'failed',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        const errorMessage: ChatMessage = {
+          id: makeClientConversationId(),
+          role: 'assistant',
+          content:
+            'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        };
+        hydrateHistory(
+          nextConversationId,
+          [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+          'replace',
+        );
         return;
       }
       const message =
         (err as Error).message || 'Failed to run agent instruction.';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      const errorMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'assistant',
+        content: message,
+        kind: 'error',
+        streamStatus: 'failed',
+        createdAt: new Date().toISOString(),
+      };
+      hydrateHistory(
+        nextConversationId,
+        [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+        'replace',
+      );
     } finally {
       if (runControllerRef.current === controller) {
         runControllerRef.current = null;
@@ -740,10 +832,17 @@ export default function AgentsPage() {
       !selectedAgentName ||
       !selectedCommandName ||
       isRunning ||
-      persistenceUnavailable
+      persistenceUnavailable ||
+      !wsTranscriptReady
     ) {
       return;
     }
+
+    const nextConversationId =
+      activeConversationId && activeConversationId.trim().length > 0
+        ? activeConversationId
+        : makeClientConversationId();
+    const isNewConversation = nextConversationId !== activeConversationId;
 
     stop();
     const controller = new AbortController();
@@ -751,24 +850,38 @@ export default function AgentsPage() {
     setIsRunning(true);
 
     try {
+      if (isNewConversation) {
+        setConversation(nextConversationId, { clearMessages: true });
+        setActiveConversationId(nextConversationId);
+        setThinkOpen({});
+        setToolOpen({});
+        setToolErrorOpen({});
+        setAgentModelId('unknown');
+      }
+
+      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+        conversationId: nextConversationId,
+        inflightId: getInflightId(),
+        modelId: agentModelId,
+        wsConnectionState,
+      });
+      subscribeConversation(nextConversationId);
+
       const result = await runAgentCommand({
         agentName: selectedAgentName,
         commandName: selectedCommandName,
         working_folder: workingFolder.trim() || undefined,
-        conversationId: activeConversationId,
+        conversationId: nextConversationId,
         signal: controller.signal,
       });
 
-      const isSameConversation = result.conversationId === activeConversationId;
+      if (result.modelId) {
+        setAgentModelId(result.modelId);
+      }
+
       await refreshConversations();
       setActiveConversationId(result.conversationId);
-      setMessages([]);
-      resetTurns();
       lastHydratedRef.current = null;
-
-      if (isSameConversation && shouldLoadTurns) {
-        await refreshTurns();
-      }
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
         return;
@@ -779,33 +892,37 @@ export default function AgentsPage() {
         err.status === 409 &&
         err.code === 'RUN_IN_PROGRESS'
       ) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-            role: 'assistant',
-            content:
-              'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
-            kind: 'error',
-            streamStatus: 'failed',
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        const errorMessage: ChatMessage = {
+          id: makeClientConversationId(),
+          role: 'assistant',
+          content:
+            'This conversation already has a run in progress in another tab/window. Please wait for it to finish or press Abort in the other tab.',
+          kind: 'error',
+          streamStatus: 'failed',
+          createdAt: new Date().toISOString(),
+        };
+        hydrateHistory(
+          nextConversationId,
+          [...messages, errorMessage],
+          'replace',
+        );
         return;
       }
 
       const message = (err as Error).message || 'Failed to run agent command.';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-          role: 'assistant',
-          content: message,
-          kind: 'error',
-          streamStatus: 'failed',
-          createdAt: new Date().toISOString(),
-        },
-      ]);
+      const errorMessage: ChatMessage = {
+        id: makeClientConversationId(),
+        role: 'assistant',
+        content: message,
+        kind: 'error',
+        streamStatus: 'failed',
+        createdAt: new Date().toISOString(),
+      };
+      hydrateHistory(
+        nextConversationId,
+        [...messages, errorMessage],
+        'replace',
+      );
     } finally {
       if (runControllerRef.current === controller) {
         runControllerRef.current = null;
@@ -817,11 +934,17 @@ export default function AgentsPage() {
     isRunning,
     persistenceUnavailable,
     refreshConversations,
-    refreshTurns,
-    resetTurns,
     selectedAgentName,
     selectedCommandName,
-    shouldLoadTurns,
+    setConversation,
+    log,
+    messages,
+    wsConnectionState,
+    wsTranscriptReady,
+    subscribeConversation,
+    getInflightId,
+    agentModelId,
+    hydrateHistory,
     stop,
     workingFolder,
   ]);
@@ -840,6 +963,7 @@ export default function AgentsPage() {
       defaultExpanded={false}
       disableGutters
       data-testid="tool-params-accordion"
+      id={`params-${accordionId}`}
     >
       <AccordionSummary
         expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -860,10 +984,10 @@ export default function AgentsPage() {
             p: 1,
             overflowX: 'auto',
             fontSize: '0.8rem',
-            m: 0,
+            lineHeight: 1.4,
           }}
         >
-          {JSON.stringify(params ?? null, null, 2)}
+          {JSON.stringify(params ?? {}, null, 2)}
         </Box>
       </AccordionDetails>
     </Accordion>
@@ -874,6 +998,7 @@ export default function AgentsPage() {
       defaultExpanded={false}
       disableGutters
       data-testid="tool-result-accordion"
+      id={`result-${accordionId}`}
     >
       <AccordionSummary
         expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -894,682 +1019,1061 @@ export default function AgentsPage() {
             p: 1,
             overflowX: 'auto',
             fontSize: '0.8rem',
-            m: 0,
+            lineHeight: 1.4,
           }}
         >
-          {JSON.stringify(payload ?? null, null, 2)}
+          {JSON.stringify(payload ?? {}, null, 2)}
         </Box>
       </AccordionDetails>
     </Accordion>
   );
 
-  return (
-    <Stack spacing={2} data-testid="agents-page">
-      <Typography variant="h4">Agents</Typography>
+  type RepoEntry = {
+    id: string;
+    description?: string | null;
+    containerPath?: string;
+    hostPath?: string;
+    hostPathWarning?: string;
+    lastIngestAt?: string | null;
+    modelId?: string;
+    counts?: { files?: number; chunks?: number; embedded?: number };
+    lastError?: string | null;
+  };
 
-      {agentsError && (
-        <Alert severity="error" data-testid="agents-error">
-          {agentsError}
-        </Alert>
-      )}
+  type VectorFile = {
+    hostPath: string;
+    highestMatch: number | null;
+    chunkCount: number;
+    lineCount: number | null;
+    hostPathWarning?: string;
+    repo?: string;
+    modelId?: string;
+  };
 
-      {mongoConnected === false && (
-        <Alert severity="warning" data-testid="agents-persistence-banner">
-          Conversation persistence is currently unavailable. History and
-          conversation continuation may be limited until MongoDB is reachable.
-        </Alert>
-      )}
-
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        sx={{ minHeight: 560 }}
-      >
-        <Paper
-          variant="outlined"
-          sx={{
-            width: { xs: '100%', md: 340 },
-            p: 1.5,
-            height: { md: 'auto' },
-          }}
+  const renderRepoList = (repos: RepoEntry[]) => (
+    <Stack spacing={1} data-testid="tool-repo-list">
+      {repos.map((repo) => (
+        <Accordion
+          key={repo.id}
+          disableGutters
+          data-testid="tool-repo-item"
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
         >
-          <ConversationList
-            conversations={conversations}
-            selectedId={activeConversationId}
-            isLoading={conversationsLoading}
-            isError={conversationsError}
-            error={conversationsErrorMessage}
-            hasMore={conversationsHasMore}
-            filterState={filterState}
-            mongoConnected={mongoConnected}
-            disabled={controlsDisabled}
-            variant="agents"
-            onSelect={handleSelectConversation}
-            onFilterChange={setFilterState}
-            onArchive={() => {}}
-            onRestore={() => {}}
-            onLoadMore={loadMoreConversations}
-            onRefresh={refreshConversations}
-            onRetry={refreshConversations}
-          />
-        </Paper>
-
-        <Paper variant="outlined" sx={{ flex: 1, p: 2 }}>
-          <Stack spacing={2} component="form" onSubmit={handleSubmit}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1}
-              alignItems={{ xs: 'stretch', sm: 'center' }}
-            >
-              <FormControl
-                fullWidth
-                size="small"
-                disabled={agentsLoading || !!agentsError}
-              >
-                <InputLabel id="agent-select-label">Agent</InputLabel>
-                <Select
-                  labelId="agent-select-label"
-                  label="Agent"
-                  value={selectedAgentName}
-                  onChange={handleAgentChange}
-                  inputProps={{ 'data-testid': 'agent-select' }}
-                >
-                  {agents.map((agent) => (
-                    <MenuItem key={agent.name} value={agent.name}>
-                      {agent.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={() => {
-                    stop();
-                    setInput(lastSentRef.current);
-                    inputRef.current?.focus();
-                  }}
-                  disabled={!showStop}
-                  data-testid="agent-stop"
-                >
-                  Stop
-                </Button>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  onClick={() => {
-                    resetConversation();
-                    inputRef.current?.focus();
-                  }}
-                  disabled={agentsLoading}
-                  data-testid="agent-new-conversation"
-                >
-                  New conversation
-                </Button>
-              </Stack>
-            </Stack>
-
-            {commandsError ? (
-              <Alert severity="error" data-testid="agent-commands-error">
-                {commandsError}
-              </Alert>
-            ) : null}
-
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={
-                controlsDisabled ||
-                isRunning ||
-                selectedAgent?.disabled ||
-                commandsLoading
-              }
-            >
-              <InputLabel id="agent-command-select-label">Command</InputLabel>
-              <Select
-                labelId="agent-command-select-label"
-                label="Command"
-                value={selectedCommandName}
-                onChange={handleCommandChange}
-                inputProps={{ 'data-testid': 'agent-command-select' }}
-              >
-                <MenuItem value="" disabled>
-                  Select a command
-                </MenuItem>
-                {commands.map((cmd) => (
-                  <MenuItem
-                    key={cmd.name}
-                    value={cmd.name}
-                    disabled={cmd.disabled}
-                    data-testid={`agent-command-option-${cmd.name}`}
-                  >
-                    <Stack spacing={0.25}>
-                      <Typography variant="body2">
-                        {cmd.name.replace(/_/g, ' ')}
-                      </Typography>
-                      {cmd.disabled ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Invalid command file
-                        </Typography>
-                      ) : null}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              data-testid="agent-command-description"
-            >
-              {selectedCommandDescription}
+          <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />}>
+            <Typography variant="body2" fontWeight={600}>
+              {repo.id}
             </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={0.5}>
+              {repo.description && (
+                <Typography variant="body2" color="text.secondary">
+                  {repo.description}
+                </Typography>
+              )}
+              {repo.hostPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Host path: {repo.hostPath}
+                </Typography>
+              )}
+              {repo.containerPath && (
+                <Typography variant="caption" color="text.secondary">
+                  Container path: {repo.containerPath}
+                </Typography>
+              )}
+              {repo.hostPathWarning && (
+                <Typography variant="caption" color="warning.main">
+                  Warning: {repo.hostPathWarning}
+                </Typography>
+              )}
+              {repo.counts && (
+                <Typography variant="caption" color="text.secondary">
+                  Files: {repo.counts.files ?? 0} · Chunks:{' '}
+                  {repo.counts.chunks ?? 0} · Embedded:{' '}
+                  {repo.counts.embedded ?? 0}
+                </Typography>
+              )}
+              {typeof repo.lastIngestAt === 'string' && repo.lastIngestAt && (
+                <Typography variant="caption" color="text.secondary">
+                  Last ingest: {repo.lastIngestAt}
+                </Typography>
+              )}
+              {repo.modelId && (
+                <Typography variant="caption" color="text.secondary">
+                  Model: {repo.modelId}
+                </Typography>
+              )}
+              {repo.lastError && (
+                <Typography variant="caption" color="error.main">
+                  Last error: {repo.lastError}
+                </Typography>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </Stack>
+  );
 
-            <Stack spacing={0.75} alignItems="flex-start">
-              <Button
-                type="button"
-                variant="contained"
-                disabled={
-                  !selectedCommandName ||
-                  isRunning ||
-                  persistenceUnavailable ||
-                  controlsDisabled ||
-                  selectedAgent?.disabled
-                }
-                onClick={handleExecuteCommand}
-                data-testid="agent-command-execute"
+  const renderVectorFiles = (files: VectorFile[]) => {
+    const sorted = [...files].sort((a, b) =>
+      a.hostPath.localeCompare(b.hostPath),
+    );
+    return (
+      <Stack spacing={1} data-testid="tool-file-list">
+        {sorted.map((file) => {
+          const summaryParts = [
+            file.hostPath,
+            `match ${file.highestMatch === null ? '—' : file.highestMatch.toFixed(2)}`,
+            `chunks ${file.chunkCount}`,
+            `lines ${file.lineCount === null ? '—' : file.lineCount}`,
+          ];
+          return (
+            <Accordion
+              key={file.hostPath}
+              disableGutters
+              data-testid="tool-file-item"
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon fontSize="small" />}
               >
-                Execute command
-              </Button>
-              {persistenceUnavailable ? (
                 <Typography
                   variant="body2"
-                  color="text.secondary"
-                  data-testid="agent-command-persistence-note"
+                  fontWeight={600}
+                  sx={{ wordBreak: 'break-all' }}
                 >
-                  Commands require conversation history (Mongo) to display
-                  multi-step results.
+                  {summaryParts.join(' · ')}
                 </Typography>
-              ) : null}
-            </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Highest match:{' '}
+                    {file.highestMatch === null
+                      ? '—'
+                      : file.highestMatch.toFixed(3)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Chunk count: {file.chunkCount}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Total lines:{' '}
+                    {file.lineCount === null ? '—' : file.lineCount}
+                  </Typography>
+                  {file.repo && (
+                    <Typography variant="caption" color="text.secondary">
+                      Repo: {file.repo}
+                    </Typography>
+                  )}
+                  {file.modelId && (
+                    <Typography variant="caption" color="text.secondary">
+                      Model: {file.modelId}
+                    </Typography>
+                  )}
+                  {file.hostPathWarning && (
+                    <Typography variant="caption" color="warning.main">
+                      Warning: {file.hostPathWarning}
+                    </Typography>
+                  )}
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Stack>
+    );
+  };
 
-            {selectedAgent?.warnings?.length ? (
-              <Alert severity="warning" data-testid="agent-warnings">
-                {selectedAgent.warnings.join('\n')}
-              </Alert>
-            ) : null}
+  const renderToolContent = (tool: ToolCall, toggleKey: string) => {
+    const payload = (tool.payload ?? {}) as Record<string, unknown>;
+    const repos = Array.isArray((payload as { repos?: unknown }).repos)
+      ? ((payload as { repos: RepoEntry[] }).repos as RepoEntry[])
+      : [];
 
-            {selectedAgent?.disabled ? (
-              <Alert severity="warning" data-testid="agent-disabled">
-                This agent is currently disabled.
-              </Alert>
-            ) : null}
+    const files = Array.isArray((payload as { files?: unknown }).files)
+      ? ((payload as { files: VectorFile[] }).files as VectorFile[])
+      : [];
 
-            {agentDescription ? (
+    const trimmedError = tool.errorTrimmed ?? null;
+    const fullError = tool.errorFull;
+
+    const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
+    const hasRepos =
+      tool.name === 'ListIngestedRepositories' && repos.length > 0;
+
+    return (
+      <Stack spacing={1} mt={0.5} data-testid="tool-details">
+        <Typography variant="caption" color="text.secondary">
+          Status: {tool.status}
+        </Typography>
+        {trimmedError && (
+          <Stack spacing={0.5}>
+            <Typography
+              variant="body2"
+              color="error.main"
+              data-testid="tool-error-trimmed"
+            >
+              {trimmedError.code ? `${trimmedError.code}: ` : ''}
+              {trimmedError.message ?? 'Error'}
+            </Typography>
+            {fullError && (
+              <Box>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => toggleToolError(toggleKey)}
+                  data-testid="tool-error-toggle"
+                  aria-expanded={!!toolErrorOpen[toggleKey]}
+                  sx={{ textTransform: 'none', minWidth: 0, p: 0 }}
+                >
+                  {toolErrorOpen[toggleKey]
+                    ? 'Hide full error'
+                    : 'Show full error'}
+                </Button>
+                <Collapse
+                  in={!!toolErrorOpen[toggleKey]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box
+                    component="pre"
+                    mt={0.5}
+                    px={1}
+                    py={0.5}
+                    data-testid="tool-error-full"
+                    sx={{
+                      bgcolor: 'grey.100',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      fontSize: '0.8rem',
+                      overflowX: 'auto',
+                    }}
+                  >
+                    {JSON.stringify(fullError, null, 2)}
+                  </Box>
+                </Collapse>
+              </Box>
+            )}
+          </Stack>
+        )}
+
+        {renderParamsAccordion(tool.parameters, toggleKey)}
+        {renderResultAccordion(tool.payload, toggleKey)}
+
+        {hasRepos && renderRepoList(repos)}
+        {hasVectorFiles && renderVectorFiles(files)}
+
+        {!hasRepos && !hasVectorFiles && tool.payload && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+            sx={{
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+            data-testid="tool-payload"
+          >
+            {JSON.stringify(tool.payload)}
+          </Typography>
+        )}
+      </Stack>
+    );
+  };
+
+  return (
+    <Container
+      maxWidth={false}
+      data-testid="agents-page"
+      sx={{
+        pt: 3,
+        pb: 6,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
+    >
+      <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        {agentsError && (
+          <Alert severity="error" data-testid="agents-error">
+            {agentsError}
+          </Alert>
+        )}
+
+        {mongoConnected === false && (
+          <Alert severity="warning" data-testid="agents-persistence-banner">
+            Conversation persistence is currently unavailable. History and
+            conversation continuation may be limited until MongoDB is reachable.
+          </Alert>
+        )}
+
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          alignItems="stretch"
+          sx={{
+            width: '100%',
+            minWidth: 0,
+            overflowX: 'hidden',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          {(!isMobile || drawerOpen) && (
+            <Drawer
+              key={isMobile ? 'mobile' : 'desktop'}
+              open={drawerOpen}
+              onClose={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(false);
+                  log('info', 'DEV-0000021[T8] agents.layout drawer toggle', {
+                    open: false,
+                  });
+                  return;
+                }
+
+                setDesktopDrawerOpen(false);
+              }}
+              variant={isMobile ? 'temporary' : 'persistent'}
+              ModalProps={{ keepMounted: false }}
+              data-testid="conversation-drawer"
+              sx={{
+                width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                  width: drawerWidth,
+                  mt: drawerTopOffset,
+                  height: drawerHeight,
+                },
+              }}
+            >
+              <Box
+                id="conversation-drawer"
+                data-testid="conversation-list"
+                sx={{ width: drawerWidth, height: '100%' }}
+              >
+                <ConversationList
+                  conversations={conversations}
+                  selectedId={activeConversationId}
+                  isLoading={conversationsLoading}
+                  isError={conversationsError}
+                  error={conversationsErrorMessage}
+                  hasMore={conversationsHasMore}
+                  filterState={filterState}
+                  mongoConnected={mongoConnected}
+                  disabled={controlsDisabled}
+                  variant="agents"
+                  onSelect={handleSelectConversation}
+                  onFilterChange={setFilterState}
+                  onArchive={() => {}}
+                  onRestore={() => {}}
+                  onLoadMore={loadMoreConversations}
+                  onRefresh={refreshConversations}
+                  onRetry={refreshConversations}
+                />
+              </Box>
+            </Drawer>
+          )}
+
+          <Box
+            data-testid="chat-column"
+            ref={chatColumnRef}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
+            style={{
+              minWidth: 0,
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              flex: '1 1 0%',
+              minHeight: 0,
+            }}
+          >
+            <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+              <Box data-testid="chat-controls" style={{ flex: '0 0 auto' }}>
+                <Stack spacing={2} component="form" onSubmit={handleSubmit}>
+                  <Stack direction="row" justifyContent="flex-start">
+                    <IconButton
+                      aria-label="Toggle conversations"
+                      aria-controls="conversation-drawer"
+                      aria-expanded={drawerOpen}
+                      onClick={() => {
+                        if (isMobile) {
+                          setMobileDrawerOpen((prev) => {
+                            const next = !prev;
+                            log(
+                              'info',
+                              'DEV-0000021[T8] agents.layout drawer toggle',
+                              {
+                                open: next,
+                              },
+                            );
+                            return next;
+                          });
+                          return;
+                        }
+
+                        setDesktopDrawerOpen((prev) => !prev);
+                      }}
+                      size="small"
+                      data-testid="conversation-drawer-toggle"
+                    >
+                      <MenuIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                  >
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={agentsLoading || !!agentsError}
+                    >
+                      <InputLabel id="agent-select-label">Agent</InputLabel>
+                      <Select
+                        labelId="agent-select-label"
+                        label="Agent"
+                        value={selectedAgentName}
+                        onChange={handleAgentChange}
+                        inputProps={{ 'data-testid': 'agent-select' }}
+                      >
+                        {agents.map((agent) => (
+                          <MenuItem key={agent.name} value={agent.name}>
+                            {agent.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={handleStopClick}
+                        disabled={!showStop}
+                        data-testid="agent-stop"
+                      >
+                        Stop
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={() => {
+                          resetConversation();
+                          inputRef.current?.focus();
+                        }}
+                        disabled={agentsLoading}
+                        data-testid="agent-new-conversation"
+                      >
+                        New conversation
+                      </Button>
+                    </Stack>
+                  </Stack>
+
+                  {commandsError ? (
+                    <Alert severity="error" data-testid="agent-commands-error">
+                      {commandsError}
+                    </Alert>
+                  ) : null}
+
+                  <FormControl
+                    fullWidth
+                    size="small"
+                    disabled={
+                      controlsDisabled ||
+                      isRunning ||
+                      selectedAgent?.disabled ||
+                      commandsLoading
+                    }
+                  >
+                    <InputLabel id="agent-command-select-label">
+                      Command
+                    </InputLabel>
+                    <Select
+                      labelId="agent-command-select-label"
+                      label="Command"
+                      value={selectedCommandName}
+                      onChange={handleCommandChange}
+                      inputProps={{ 'data-testid': 'agent-command-select' }}
+                    >
+                      <MenuItem value="" disabled>
+                        Select a command
+                      </MenuItem>
+                      {commands.map((cmd) => (
+                        <MenuItem
+                          key={cmd.name}
+                          value={cmd.name}
+                          disabled={cmd.disabled}
+                          data-testid={`agent-command-option-${cmd.name}`}
+                        >
+                          <Stack spacing={0.25}>
+                            <Typography variant="body2">
+                              {cmd.name.replace(/_/g, ' ')}
+                            </Typography>
+                            {cmd.disabled ? (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Invalid command file
+                              </Typography>
+                            ) : null}
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="agent-command-description"
+                  >
+                    {selectedCommandDescription}
+                  </Typography>
+
+                  <Stack spacing={0.75} alignItems="flex-start">
+                    <Button
+                      type="button"
+                      variant="contained"
+                      disabled={
+                        !selectedCommandName ||
+                        isRunning ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady ||
+                        controlsDisabled ||
+                        selectedAgent?.disabled
+                      }
+                      onClick={handleExecuteCommand}
+                      data-testid="agent-command-execute"
+                    >
+                      Execute command
+                    </Button>
+                    {persistenceUnavailable ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid="agent-command-persistence-note"
+                      >
+                        Commands require conversation history (Mongo) to display
+                        multi-step results.
+                      </Typography>
+                    ) : !wsTranscriptReady ? (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        data-testid="agent-command-ws-note"
+                      >
+                        Commands require an open WebSocket connection.
+                      </Typography>
+                    ) : null}
+                  </Stack>
+
+                  {selectedAgent?.warnings?.length ? (
+                    <Alert severity="warning" data-testid="agent-warnings">
+                      {selectedAgent.warnings.join('\n')}
+                    </Alert>
+                  ) : null}
+
+                  {selectedAgent?.disabled ? (
+                    <Alert severity="warning" data-testid="agent-disabled">
+                      This agent is currently disabled.
+                    </Alert>
+                  ) : null}
+
+                  {agentDescription ? (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 1.5 }}
+                      data-testid="agent-description"
+                    >
+                      <Markdown content={agentDescription} />
+                    </Paper>
+                  ) : null}
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="working_folder"
+                    placeholder="Absolute host path (optional)"
+                    value={workingFolder}
+                    onChange={(event) => setWorkingFolder(event.target.value)}
+                    disabled={
+                      controlsDisabled || isRunning || selectedAgent?.disabled
+                    }
+                    inputProps={{ 'data-testid': 'agent-working-folder' }}
+                  />
+
+                  <TextField
+                    inputRef={inputRef}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    label="Instruction"
+                    placeholder="Type your instruction"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    disabled={
+                      controlsDisabled || isRunning || selectedAgent?.disabled
+                    }
+                    inputProps={{ 'data-testid': 'agent-input' }}
+                  />
+
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={
+                        controlsDisabled ||
+                        isRunning ||
+                        !selectedAgentName ||
+                        !input.trim() ||
+                        Boolean(selectedAgent?.disabled)
+                      }
+                      data-testid="agent-send"
+                    >
+                      Send
+                    </Button>
+                  </Stack>
+                </Stack>
+              </Box>
               <Paper
                 variant="outlined"
-                sx={{ p: 1.5 }}
-                data-testid="agent-description"
+                sx={{
+                  p: 2,
+                  flex: '1 1 0%',
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
               >
-                <Markdown content={agentDescription} />
-              </Paper>
-            ) : null}
-
-            <TextField
-              fullWidth
-              size="small"
-              label="working_folder"
-              placeholder="Absolute host path (optional)"
-              value={workingFolder}
-              onChange={(event) => setWorkingFolder(event.target.value)}
-              disabled={
-                controlsDisabled || isRunning || selectedAgent?.disabled
-              }
-              inputProps={{ 'data-testid': 'agent-working-folder' }}
-            />
-
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              multiline
-              minRows={2}
-              label="Instruction"
-              placeholder="Type your instruction"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              disabled={
-                controlsDisabled || isRunning || selectedAgent?.disabled
-              }
-              inputProps={{ 'data-testid': 'agent-input' }}
-            />
-
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={
-                  controlsDisabled ||
-                  isRunning ||
-                  !selectedAgentName ||
-                  !input.trim() ||
-                  Boolean(selectedAgent?.disabled)
-                }
-                data-testid="agent-send"
-              >
-                Send
-              </Button>
-            </Stack>
-
-            <Paper variant="outlined" sx={{ p: 1.5, minHeight: 260 }}>
-              <Box
-                ref={transcriptRef}
-                onScroll={handleTranscriptScroll}
-                sx={{ maxHeight: 520, overflowY: 'auto' }}
-                data-testid="agent-transcript"
-              >
-                <Stack spacing={1} sx={{ minHeight: 240 }}>
-                  {turnsLoading && (
-                    <Typography
-                      color="text.secondary"
-                      variant="caption"
-                      sx={{ px: 0.5 }}
-                    >
-                      Loading history...
-                    </Typography>
-                  )}
-                  {turnsError && (
-                    <Alert severity="warning" data-testid="agent-turns-error">
-                      {turnsErrorMessage ??
-                        'Failed to load conversation history.'}
-                    </Alert>
-                  )}
-                  {displayMessages.length === 0 && (
-                    <Typography color="text.secondary">
-                      Transcript will appear here once you send an instruction.
-                    </Typography>
-                  )}
-
-                  {displayMessages.map((message) => {
-                    const alignSelf =
-                      message.role === 'user' ? 'flex-end' : 'flex-start';
-                    const isErrorBubble = message.kind === 'error';
-                    const isStatusBubble = message.kind === 'status';
-                    const isUser = message.role === 'user';
-                    const baseSegments = message.segments?.length
-                      ? message.segments
-                      : ([
-                          {
-                            id: `${message.id}-text`,
-                            kind: 'text' as const,
-                            content: message.content ?? '',
-                          },
-                          ...(message.tools?.map((tool) => ({
-                            id: `${message.id}-${tool.id}`,
-                            kind: 'tool' as const,
-                            tool,
-                          })) ?? []),
-                        ] as const);
-                    const segments = baseSegments;
-
-                    return (
-                      <Stack
-                        key={message.id}
-                        alignItems={
-                          alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'
-                        }
+                <Box
+                  ref={transcriptRef}
+                  onScroll={handleTranscriptScroll}
+                  data-testid="chat-transcript"
+                  style={{
+                    flex: '1 1 0%',
+                    minHeight: 0,
+                    overflowY: 'auto',
+                  }}
+                  sx={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    pr: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  <Stack spacing={1} sx={{ minHeight: 0 }}>
+                    {turnsLoading && (
+                      <Typography
+                        color="text.secondary"
+                        variant="caption"
+                        sx={{ px: 0.5 }}
                       >
-                        <Box
-                          sx={{
-                            maxWidth: { xs: '100%', sm: '80%' },
-                            alignSelf,
-                          }}
+                        Loading history...
+                      </Typography>
+                    )}
+                    {turnsError && (
+                      <Alert severity="warning" data-testid="agent-turns-error">
+                        {turnsErrorMessage ??
+                          'Failed to load conversation history.'}
+                      </Alert>
+                    )}
+                    {displayMessages.length === 0 && (
+                      <Typography color="text.secondary">
+                        Transcript will appear here once you send an
+                        instruction.
+                      </Typography>
+                    )}
+
+                    {displayMessages.map((message) => {
+                      const alignSelf =
+                        message.role === 'user' ? 'flex-end' : 'flex-start';
+                      const isErrorBubble = message.kind === 'error';
+                      const isStatusBubble = message.kind === 'status';
+                      const isUser = message.role === 'user';
+                      const baseSegments = message.segments?.length
+                        ? message.segments
+                        : ([
+                            {
+                              id: `${message.id}-text`,
+                              kind: 'text' as const,
+                              content: message.content ?? '',
+                            },
+                            ...(message.tools?.map((tool) => ({
+                              id: `${message.id}-${tool.id}`,
+                              kind: 'tool' as const,
+                              tool,
+                            })) ?? []),
+                          ] as const);
+                      const segments = baseSegments;
+
+                      return (
+                        <Stack
+                          key={message.id}
+                          alignItems={
+                            alignSelf === 'flex-end' ? 'flex-end' : 'flex-start'
+                          }
                         >
-                          <Paper
-                            variant="outlined"
-                            data-testid="chat-bubble"
-                            data-role={message.role}
-                            data-kind={message.kind ?? 'normal'}
+                          <Box
                             sx={{
-                              p: 1.5,
-                              borderRadius: '14px',
-                              bgcolor: isErrorBubble
-                                ? 'error.light'
-                                : isStatusBubble
-                                  ? 'info.light'
-                                  : isUser
-                                    ? 'primary.main'
-                                    : 'background.paper',
-                              color: isErrorBubble
-                                ? 'error.contrastText'
-                                : isStatusBubble
-                                  ? 'info.dark'
-                                  : isUser
-                                    ? 'primary.contrastText'
-                                    : 'text.primary',
-                              borderColor: isErrorBubble
-                                ? 'error.main'
-                                : isStatusBubble
-                                  ? 'info.main'
-                                  : undefined,
+                              maxWidth: { xs: '100%', sm: '80%' },
+                              alignSelf,
                             }}
                           >
-                            <Stack spacing={1}>
-                              {message.command ? (
-                                <Typography
-                                  variant="caption"
-                                  data-testid="command-run-note"
-                                  sx={{
-                                    lineHeight: 1.2,
-                                    color: isUser
-                                      ? 'rgba(255,255,255,0.75)'
-                                      : 'text.secondary',
-                                  }}
-                                >
-                                  Command run: {message.command.name} (
-                                  {message.command.stepIndex}/
-                                  {message.command.totalSteps})
-                                </Typography>
-                              ) : null}
-                              {message.role === 'assistant' &&
-                                message.streamStatus && (
-                                  <Chip
-                                    size="small"
-                                    variant="outlined"
-                                    color={
-                                      message.streamStatus === 'complete'
-                                        ? 'success'
-                                        : message.streamStatus === 'failed'
-                                          ? 'error'
-                                          : 'default'
-                                    }
-                                    icon={
-                                      message.streamStatus === 'complete' ? (
-                                        <CheckCircleOutlineIcon fontSize="small" />
-                                      ) : message.streamStatus === 'failed' ? (
-                                        <ErrorOutlineIcon fontSize="small" />
-                                      ) : (
-                                        <CircularProgress size={14} />
-                                      )
-                                    }
-                                    label={
-                                      message.streamStatus === 'complete'
-                                        ? 'Complete'
-                                        : message.streamStatus === 'failed'
-                                          ? 'Failed'
-                                          : 'Processing'
-                                    }
-                                    data-testid="status-chip"
-                                    sx={{ alignSelf: 'flex-start' }}
-                                  />
-                                )}
+                            <Paper
+                              variant="outlined"
+                              data-testid="chat-bubble"
+                              data-role={message.role}
+                              data-kind={message.kind ?? 'normal'}
+                              sx={{
+                                p: 1.5,
+                                borderRadius: '14px',
+                                bgcolor: isErrorBubble
+                                  ? 'error.light'
+                                  : isStatusBubble
+                                    ? 'info.light'
+                                    : isUser
+                                      ? 'primary.main'
+                                      : 'background.paper',
+                                color: isErrorBubble
+                                  ? 'error.contrastText'
+                                  : isStatusBubble
+                                    ? 'info.dark'
+                                    : isUser
+                                      ? 'primary.contrastText'
+                                      : 'text.primary',
+                                borderColor: isErrorBubble
+                                  ? 'error.main'
+                                  : isStatusBubble
+                                    ? 'info.main'
+                                    : undefined,
+                              }}
+                            >
+                              <Stack spacing={1}>
+                                {message.role === 'assistant' &&
+                                  message.streamStatus && (
+                                    <Chip
+                                      size="small"
+                                      variant="outlined"
+                                      color={
+                                        message.streamStatus === 'complete'
+                                          ? 'success'
+                                          : message.streamStatus === 'failed'
+                                            ? 'error'
+                                            : 'default'
+                                      }
+                                      icon={
+                                        message.streamStatus === 'complete' ? (
+                                          <CheckCircleOutlineIcon fontSize="small" />
+                                        ) : message.streamStatus ===
+                                          'failed' ? (
+                                          <ErrorOutlineIcon fontSize="small" />
+                                        ) : (
+                                          <CircularProgress size={14} />
+                                        )
+                                      }
+                                      label={
+                                        message.streamStatus === 'complete'
+                                          ? 'Complete'
+                                          : message.streamStatus === 'failed'
+                                            ? 'Failed'
+                                            : 'Processing'
+                                      }
+                                      data-testid="status-chip"
+                                      sx={{ alignSelf: 'flex-start' }}
+                                    />
+                                  )}
 
-                              {segments.map((segment) => {
-                                if (segment.kind === 'text') {
-                                  if (message.role === 'assistant') {
+                                {segments.map((segment) => {
+                                  if (segment.kind === 'text') {
+                                    if (message.role === 'assistant') {
+                                      return (
+                                        <Markdown
+                                          key={segment.id}
+                                          content={segment.content ?? ''}
+                                          data-testid="assistant-markdown"
+                                        />
+                                      );
+                                    }
                                     return (
-                                      <Markdown
+                                      <Typography
                                         key={segment.id}
-                                        content={segment.content ?? ''}
-                                        data-testid="assistant-markdown"
-                                      />
+                                        variant="body2"
+                                        data-testid="user-text"
+                                      >
+                                        {segment.content || ' '}
+                                      </Typography>
                                     );
                                   }
+
+                                  const tool = segment.tool;
+                                  const isRequesting =
+                                    tool.status === 'requesting';
+                                  const isError = tool.status === 'error';
+                                  const toggleKey = `${message.id}-${tool.id}`;
+                                  const isOpen = !!toolOpen[toggleKey];
+                                  const statusLabel =
+                                    tool.status === 'error'
+                                      ? 'Failed'
+                                      : tool.status === 'done'
+                                        ? 'Success'
+                                        : 'Running';
+
                                   return (
-                                    <Typography
+                                    <Box
                                       key={segment.id}
-                                      variant="body2"
-                                      data-testid="user-text"
+                                      data-testid="tool-row"
                                     >
-                                      {segment.content || ' '}
-                                    </Typography>
-                                  );
-                                }
-
-                                const tool = segment.tool;
-                                const isRequesting =
-                                  tool.status === 'requesting';
-                                const isError = tool.status === 'error';
-                                const toggleKey = `${message.id}-${tool.id}`;
-                                const isOpen = !!toolOpen[toggleKey];
-                                const statusLabel =
-                                  tool.status === 'error'
-                                    ? 'Failed'
-                                    : tool.status === 'done'
-                                      ? 'Success'
-                                      : 'Running';
-
-                                return (
-                                  <Box key={segment.id} data-testid="tool-row">
-                                    <Stack
-                                      direction="row"
-                                      alignItems="center"
-                                      spacing={1}
-                                      sx={{ mb: isRequesting ? 0 : 0.25 }}
-                                      data-testid="tool-call-summary"
-                                    >
-                                      {isRequesting ? (
-                                        <HourglassTopIcon
-                                          fontSize="small"
-                                          color="action"
-                                          data-testid="tool-spinner"
-                                        />
-                                      ) : isError ? (
-                                        <ErrorOutlineIcon
-                                          fontSize="small"
-                                          color="error"
-                                          aria-label="Tool failed"
-                                        />
-                                      ) : (
-                                        <CheckCircleOutlineIcon
-                                          fontSize="small"
-                                          color="success"
-                                          aria-label="Tool succeeded"
-                                        />
-                                      )}
-                                      <Typography
-                                        variant="body2"
-                                        fontWeight={700}
+                                      <Stack
+                                        direction="row"
+                                        alignItems="center"
+                                        spacing={1}
+                                        sx={{ mb: isRequesting ? 0 : 0.25 }}
+                                        data-testid="tool-call-summary"
                                       >
-                                        {tool.name || 'Tool'}
-                                      </Typography>
-                                      <Chip
-                                        size="small"
-                                        variant="outlined"
-                                        label={statusLabel}
-                                        color={
-                                          tool.status === 'error'
-                                            ? 'error'
-                                            : tool.status === 'done'
-                                              ? 'success'
-                                              : 'default'
-                                        }
-                                      />
-                                      <Button
-                                        size="small"
-                                        variant="text"
-                                        onClick={() => toggleTool(toggleKey)}
-                                        data-testid="tool-toggle"
-                                        sx={{
-                                          textTransform: 'none',
-                                          minWidth: 0,
-                                          p: 0,
-                                        }}
-                                      >
-                                        {isOpen ? 'Hide' : 'Show'}
-                                      </Button>
-                                      {tool.status === 'error' && (
+                                        {isRequesting ? (
+                                          <HourglassTopIcon
+                                            fontSize="small"
+                                            color="action"
+                                            data-testid="tool-spinner"
+                                          />
+                                        ) : isError ? (
+                                          <ErrorOutlineIcon
+                                            fontSize="small"
+                                            color="error"
+                                            aria-label="Tool failed"
+                                          />
+                                        ) : (
+                                          <CheckCircleOutlineIcon
+                                            fontSize="small"
+                                            color="success"
+                                            aria-label="Tool succeeded"
+                                          />
+                                        )}
+                                        <Typography
+                                          variant="caption"
+                                          color="text.primary"
+                                          sx={{ flex: 1 }}
+                                          data-testid="tool-name"
+                                        >
+                                          {(tool.name ?? 'Tool') +
+                                            ' · ' +
+                                            statusLabel}
+                                        </Typography>
                                         <Button
                                           size="small"
                                           variant="text"
-                                          onClick={() =>
-                                            toggleToolError(toggleKey)
-                                          }
-                                          data-testid="tool-error-toggle"
+                                          onClick={() => toggleTool(toggleKey)}
+                                          disabled={isRequesting}
+                                          data-testid="tool-toggle"
+                                          aria-expanded={isOpen}
+                                          aria-controls={`tool-${toggleKey}-details`}
                                           sx={{
                                             textTransform: 'none',
                                             minWidth: 0,
                                             p: 0,
                                           }}
                                         >
-                                          Error
+                                          {isOpen
+                                            ? 'Hide details'
+                                            : 'Show details'}
                                         </Button>
-                                      )}
-                                    </Stack>
+                                      </Stack>
 
+                                      <Collapse
+                                        in={isOpen}
+                                        timeout="auto"
+                                        unmountOnExit
+                                        id={`tool-${toggleKey}-details`}
+                                      >
+                                        {renderToolContent(tool, toggleKey)}
+                                      </Collapse>
+                                    </Box>
+                                  );
+                                })}
+
+                                {message.role === 'assistant' &&
+                                  (message.citations?.length ?? 0) > 0 && (
                                     <Accordion
-                                      expanded={isOpen}
-                                      onChange={() => toggleTool(toggleKey)}
                                       disableGutters
+                                      elevation={0}
+                                      defaultExpanded={false}
                                       sx={{
-                                        display: isOpen ? 'block' : 'none',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        bgcolor: 'grey.50',
+                                        mt: 1,
                                       }}
+                                      data-testid="citations-accordion"
                                     >
                                       <AccordionSummary
-                                        expandIcon={<ExpandMoreIcon />}
+                                        expandIcon={
+                                          <ExpandMoreIcon fontSize="small" />
+                                        }
+                                        aria-controls="citations-panel"
+                                        id="citations-summary"
+                                        data-testid="citations-toggle"
                                       >
                                         <Typography
-                                          variant="caption"
-                                          color="text.secondary"
+                                          variant="body2"
+                                          fontWeight={600}
                                         >
-                                          {tool.name || 'Tool details'}
+                                          Citations (
+                                          {message.citations?.length ?? 0})
                                         </Typography>
                                       </AccordionSummary>
-                                      <AccordionDetails>
-                                        <Stack spacing={1}>
-                                          {renderParamsAccordion(
-                                            tool.parameters,
-                                            toggleKey,
+                                      <AccordionDetails id="citations-panel">
+                                        <Stack
+                                          spacing={1}
+                                          data-testid="citations"
+                                        >
+                                          {message.citations?.map(
+                                            (citation, idx) => {
+                                              const pathLabel = `${citation.repo}/${citation.relPath}`;
+                                              const hostSuffix =
+                                                citation.hostPath
+                                                  ? ` (${citation.hostPath})`
+                                                  : '';
+                                              return (
+                                                <Box
+                                                  key={`${citation.chunkId ?? idx}-${citation.relPath}`}
+                                                  sx={{
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1,
+                                                    p: 1,
+                                                    bgcolor: 'background.paper',
+                                                  }}
+                                                >
+                                                  <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                    title={
+                                                      citation.hostPath ??
+                                                      pathLabel
+                                                    }
+                                                    sx={{
+                                                      display: 'block',
+                                                      overflow: 'hidden',
+                                                      textOverflow: 'ellipsis',
+                                                      whiteSpace: 'nowrap',
+                                                      maxWidth: '100%',
+                                                    }}
+                                                    data-testid="citation-path"
+                                                  >
+                                                    {pathLabel}
+                                                    {hostSuffix}
+                                                  </Typography>
+                                                  <Typography
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    style={{
+                                                      overflowWrap: 'anywhere',
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                    sx={{
+                                                      whiteSpace: 'pre-wrap',
+                                                      overflowWrap: 'anywhere',
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                    data-testid="citation-chunk"
+                                                  >
+                                                    {citation.chunk}
+                                                  </Typography>
+                                                </Box>
+                                              );
+                                            },
                                           )}
-                                          {renderResultAccordion(
-                                            tool.payload,
-                                            toggleKey,
-                                          )}
-                                          {tool.status === 'error' &&
-                                            tool.errorTrimmed && (
-                                              <Alert
-                                                severity="error"
-                                                data-testid="tool-error"
-                                              >
-                                                {JSON.stringify(
-                                                  tool.errorTrimmed,
-                                                )}
-                                              </Alert>
-                                            )}
                                         </Stack>
                                       </AccordionDetails>
                                     </Accordion>
+                                  )}
 
-                                    {tool.status === 'error' &&
-                                      tool.errorFull && (
-                                        <Collapse
-                                          in={!!toolErrorOpen[toggleKey]}
-                                          timeout="auto"
-                                          unmountOnExit
-                                        >
-                                          <Box mt={0.5}>
-                                            <Box
-                                              component="pre"
-                                              sx={{
-                                                bgcolor: 'grey.100',
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                p: 1,
-                                                overflowX: 'auto',
-                                                fontSize: '0.8rem',
-                                                m: 0,
-                                              }}
-                                            >
-                                              {JSON.stringify(
-                                                tool.errorFull ?? null,
-                                                null,
-                                                2,
-                                              )}
-                                            </Box>
-                                          </Box>
-                                        </Collapse>
+                                {(message.thinkStreaming || message.think) && (
+                                  <Box mt={1}>
+                                    <Stack
+                                      direction="row"
+                                      alignItems="center"
+                                      gap={0.5}
+                                    >
+                                      {message.thinkStreaming && (
+                                        <CircularProgress
+                                          size={12}
+                                          color="inherit"
+                                          data-testid="think-spinner"
+                                        />
                                       )}
-                                  </Box>
-                                );
-                              })}
-
-                              {message.think && (
-                                <Box mt={1}>
-                                  <Stack
-                                    direction="row"
-                                    alignItems="center"
-                                    gap={0.5}
-                                  >
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Thought process
-                                    </Typography>
-                                    <Button
-                                      size="small"
-                                      variant="text"
-                                      onClick={() => toggleThink(message.id)}
-                                      data-testid="think-toggle"
-                                      aria-label="Toggle thought process"
-                                      aria-expanded={!!thinkOpen[message.id]}
-                                      sx={{
-                                        textTransform: 'none',
-                                        minWidth: 0,
-                                        p: 0,
-                                      }}
-                                    >
-                                      {thinkOpen[message.id] ? 'Hide' : 'Show'}
-                                    </Button>
-                                  </Stack>
-                                  <Box mt={0.5}>
-                                    <Accordion
-                                      expanded={!!thinkOpen[message.id]}
-                                      onChange={() => toggleThink(message.id)}
-                                      disableGutters
-                                      sx={{
-                                        display: thinkOpen[message.id]
-                                          ? 'block'
-                                          : 'none',
-                                      }}
-                                    >
-                                      <AccordionSummary
-                                        expandIcon={<ExpandMoreIcon />}
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
                                       >
-                                        <Typography
-                                          variant="caption"
-                                          color="text.secondary"
-                                        >
-                                          Thought process
-                                        </Typography>
-                                      </AccordionSummary>
-                                      <AccordionDetails>
-                                        <Box color="text.secondary">
-                                          <Markdown
-                                            content={message.think ?? ''}
-                                            data-testid="think-content"
-                                          />
-                                        </Box>
-                                      </AccordionDetails>
-                                    </Accordion>
+                                        Thought process
+                                      </Typography>
+                                      <Button
+                                        size="small"
+                                        variant="text"
+                                        onClick={() => toggleThink(message.id)}
+                                        data-testid="think-toggle"
+                                        aria-label="Toggle thought process"
+                                        aria-expanded={!!thinkOpen[message.id]}
+                                        sx={{
+                                          textTransform: 'none',
+                                          minWidth: 0,
+                                          p: 0,
+                                        }}
+                                      >
+                                        {thinkOpen[message.id]
+                                          ? 'Hide'
+                                          : 'Show'}
+                                      </Button>
+                                    </Stack>
+                                    <Collapse
+                                      in={!!thinkOpen[message.id]}
+                                      timeout="auto"
+                                      unmountOnExit
+                                    >
+                                      <Box mt={0.5} color="text.secondary">
+                                        <Markdown
+                                          content={message.think ?? ''}
+                                          data-testid="think-content"
+                                        />
+                                      </Box>
+                                    </Collapse>
                                   </Box>
-                                </Box>
-                              )}
-                            </Stack>
-                          </Paper>
-                        </Box>
-                      </Stack>
-                    );
-                  })}
-                </Stack>
-              </Box>
-            </Paper>
-          </Stack>
-        </Paper>
+                                )}
+                              </Stack>
+                            </Paper>
+                          </Box>
+                        </Stack>
+                      );
+                    })}
+                  </Stack>
+                </Box>
+              </Paper>
+            </Stack>
+          </Box>
+        </Stack>
       </Stack>
-    </Stack>
+    </Container>
   );
 }

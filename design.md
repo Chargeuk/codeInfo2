@@ -32,7 +32,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 - MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, optional `agentName` (when a conversation belongs to an agent), `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
-- Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination (conversations newest-first by `lastMessageAt`, turns newest-first by `createdAt`).
+- Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
@@ -132,6 +132,23 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+  participant User
+  participant Client as Agents UI
+  participant Server
+
+  User->>Client: Click Stop
+  Client->>Client: AbortController.abort() (in-flight HTTP run)
+
+  opt inflightId known
+    Client->>Server: WS cancel_inflight(conversationId, inflightId)
+    Note over Server: AbortController aborts provider run
+  end
+
+  Server-->>Client: WS turn_final (status=stopped)
+```
+
+```mermaid
+sequenceDiagram
   participant Client
   participant Server
   participant Repo as Repo (Mongo)
@@ -202,7 +219,23 @@ flowchart LR
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
 - `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
 - Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.
-- `GET /conversations/:id/turns?includeInflight=true` additionally returns an `inflight` snapshot (when present) containing `{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }` for detailed tool/thinking hydration.
+- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }`).
+- Snapshot hydration flow (replace-only, full history every time):
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Server
+  participant Mongo
+
+  Client->>Server: GET /conversations/:id/turns
+  Server->>Mongo: load all persisted turns
+  Server-->>Client: { items: full history + inflight turns, inflight?: snapshot }
+  Client->>Client: hydrateHistory(replace)
+  opt inflight present
+    Client->>Client: hydrateInflightSnapshot(inflight)
+  end
+```
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
@@ -517,6 +550,53 @@ sequenceDiagram
   Codex-->>Svc: streamed events (analysis/tool-result/final) + thread id
   Svc->>Mongo: $set flags.threadId (when emitted)
   Svc-->>Client: { agentName, conversationId, modelId, segments }
+```
+
+### Agents run (conversationId contract)
+
+- The client may generate a `conversationId` up front so it can subscribe to WebSocket events before starting the run.
+- The server must accept a client-supplied `conversationId` even when it does not exist yet, and create the conversation on first use (do not require pre-existence).
+- This is required because `POST /agents/:agentName/run` is synchronous: the response only returns once the run completes, but the transcript must stream over WebSocket while the run is in progress.
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WebSocket server
+  participant API as REST route\nPOST /agents/:agentName/run
+  participant Svc as Agents service\nrunAgentInstruction()
+  participant Store as Conversation store
+
+  UI->>WS: connect
+  UI->>WS: subscribe_conversation(conversationId)
+  UI->>API: POST { conversationId, instruction, working_folder? }
+  API->>Svc: runAgentInstruction(...)
+  Svc->>Store: create Conversation if missing
+  Note over Svc,WS: stream transcript events over WS\n(user_turn, inflight_snapshot, assistant_delta, turn_final)
+  API-->>UI: 200 { agentName, conversationId, modelId, segments }
+```
+
+### Agents run (WS start events)
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WebSocket server
+  participant API as REST route\nPOST /agents/:agentName/run
+  participant Svc as Agents service\nrunAgentInstructionUnlocked()
+  participant Inflight as InflightRegistry
+  participant Bridge as chatStreamBridge
+  participant Chat as ChatInterface\n(provider=codex)
+
+  UI->>WS: subscribe_conversation(conversationId)
+  UI->>API: POST { conversationId, instruction, inflightId? }
+  API->>Svc: runAgentInstructionUnlocked(...)
+  Svc->>Inflight: createInflight(provider/model/source/userTurn)
+  Svc->>WS: publish user_turn (createdAt from inflight)
+  Svc->>Bridge: attachChatStreamBridge(conversationId, inflightId)
+  Bridge->>WS: publish inflight_snapshot
+  Svc->>Chat: chat.run(instruction, flags.inflightId)
+  Chat-->>Bridge: assistant_delta / tool events / final
+  Bridge->>WS: publish assistant_delta ... turn_final
 ```
 
 ### POST /agents/:agentName/run (REST)
@@ -1269,7 +1349,7 @@ flowchart LR
 - Each browser tab mounts a single WebSocket connection while the page is active.
 - When persistence is available (`mongoConnected !== false`):
   - Chat page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the visible transcript only.
-  - Agents page subscribes only to `subscribe_conversation(activeConversationId)` for the selected agent conversation.
+  - Agents page subscribes to `subscribe_sidebar` plus `subscribe_conversation(activeConversationId)` for the selected agent conversation.
 - Switching conversations sends `unsubscribe_conversation(old)` then `subscribe_conversation(new)`; **unsubscribing never cancels a run**.
 - Unmounting the page closes the socket after unsubscribing; **navigation never cancels a run**.
 - Reconnect behavior: if the socket drops, the client reconnects with a small backoff and refreshes **both** the sidebar snapshot and the active conversation turns snapshot via REST before resubscribing.
@@ -1307,6 +1387,64 @@ sequenceDiagram
   end
 
   UI->>WS: close (unmount)
+```
+
+### Agents sidebar WS feed (agent-filtered)
+
+- The Agents sidebar stays live by subscribing to the shared `subscribe_sidebar` feed.
+- `conversation_upsert` events are applied only when `conversation.agentName === selectedAgentName`.
+- `conversation_delete` events remove by `conversationId` (no-op if the item is not in the current sidebar list).
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WS (/ws)
+  participant Store as Sidebar state (useConversations)
+
+  UI->>WS: subscribe_sidebar
+
+  WS-->>UI: conversation_upsert(conv agentName=a1)
+  alt conv.agentName matches selectedAgentName
+    UI->>Store: applyWsUpsert(conv)
+  else other agent
+    UI-->>UI: ignore
+  end
+
+  WS-->>UI: conversation_delete(conversationId)
+  UI->>Store: applyWsDelete(conversationId)
+```
+
+### Agents transcript pipeline (client)
+
+- Agents use the same WebSocket transcript merge logic as Chat:
+  - `useChatWs` provides transport + subscription.
+  - `useChatStream` owns transcript state and merges WS frames (`handleWsEvent`).
+  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available.
+- Decision rule:
+  - If `mongoConnected === false`, Agents fall back to rendering the REST response `segments` (single-instruction runs only).
+  - Otherwise, Agents rely on WS transcript frames and treat the REST response as a completion signal (REST `segments` are ignored).
+
+```mermaid
+flowchart TD
+  Health[GET /health] --> Conn{mongoConnected?}
+
+  Conn -->|false| Fallback[Realtime disabled]
+  Fallback --> RunREST[POST /agents/:agentName/run]
+  RunREST --> Segments[Render REST segments -> assistant bubble]
+
+  Conn -->|true| Realtime[Realtime enabled]
+  Realtime --> WS[useChatWs: connect + subscribe_conversation(conversationId)]
+  WS --> RunREST2[POST /agents/:agentName/run]
+  RunREST2 -->|ignore segments| RESTDone[REST response = completion signal]
+  WS --> WSEvents[WS transcript events]
+  WSEvents --> Stream[useChatStream.handleWsEvent]
+
+  Realtime --> Turns[useConversationTurns: history + inflight snapshot]
+  Turns --> Hydrate[useChatStream.hydrateHistory + hydrateInflightSnapshot]
+
+  Segments --> UI[Transcript UI]
+  Stream --> UI
+  Hydrate --> UI
 ```
 
 ### Client streaming logs (WS observability)

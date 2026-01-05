@@ -2,13 +2,17 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Planning:
-Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be?
+Do you have any remaining questions about what we want to aceive in this story or how it will be done?
 
-Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Then update the plan with your findings.
+Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be? If so please update all relevent planning sections to get them to where we need to be.
 
-Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive?
+Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Then update the plan with your findings.
+
+Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive? If so please update all relevent planning sections to get them to where we need to be.
 
 Does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed?
+
+Is everything in the planning consistent, or are there some contradictions, especially across the various sections? If so, please resolve and remove the contradictions based on what we know we actually want.
 
 Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked seperately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. 
 

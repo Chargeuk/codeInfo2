@@ -16,7 +16,7 @@ import {
   bulkRestoreConversations as defaultBulkRestoreConversations,
   createConversation as defaultCreateConversation,
   listConversations as defaultListConversations,
-  listTurns as defaultListTurns,
+  listAllTurns as defaultListAllTurns,
   restoreConversation as defaultRestoreConversation,
   type BulkConversationDeleteResult,
   type BulkConversationUpdateResult,
@@ -46,16 +46,6 @@ const createConversationSchema = z
 const archiveActionParamsSchema = z
   .object({
     id: z.string().min(1),
-  })
-  .strict();
-
-const listTurnsQuerySchema = z
-  .object({
-    limit: z.coerce.number().int().min(1).max(200).default(50),
-    cursor: z.string().datetime().optional(),
-    includeInflight: z
-      .union([z.literal('true'), z.literal('false')])
-      .optional(),
   })
   .strict();
 
@@ -92,7 +82,7 @@ type Deps = {
   createConversation: typeof defaultCreateConversation;
   archiveConversation: typeof defaultArchiveConversation;
   restoreConversation: typeof defaultRestoreConversation;
-  listTurns: typeof defaultListTurns;
+  listAllTurns: typeof defaultListAllTurns;
   appendTurn: typeof defaultAppendTurn;
   bulkArchiveConversations: typeof defaultBulkArchiveConversations;
   bulkRestoreConversations: typeof defaultBulkRestoreConversations;
@@ -106,7 +96,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     createConversation = defaultCreateConversation,
     archiveConversation = defaultArchiveConversation,
     restoreConversation = defaultRestoreConversation,
-    listTurns = defaultListTurns,
+    listAllTurns = defaultListAllTurns,
     appendTurn = defaultAppendTurn,
     bulkArchiveConversations = defaultBulkArchiveConversations,
     bulkRestoreConversations = defaultBulkRestoreConversations,
@@ -509,15 +499,11 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
 
   router.get('/conversations/:id/turns', async (req, res) => {
     const parsedParams = archiveActionParamsSchema.safeParse(req.params);
-    const parsedQuery = listTurnsQuerySchema.safeParse(req.query);
-    if (!parsedParams.success || !parsedQuery.success) {
+    if (!parsedParams.success) {
       return res.status(400).json({
         error: 'validation_error',
         details: {
-          params: parsedParams.success
-            ? undefined
-            : parsedParams.error.format(),
-          query: parsedQuery.success ? undefined : parsedQuery.error.format(),
+          params: parsedParams.error.format(),
         },
       });
     }
@@ -525,17 +511,10 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     const conversation = await findConversationById(parsedParams.data.id);
     if (!conversation) return res.status(404).json({ error: 'not_found' });
 
-    const { limit, cursor, includeInflight } = parsedQuery.data;
     try {
-      const { items: persistedItems } = await listTurns({
-        conversationId: parsedParams.data.id,
-        limit,
-        cursor,
-      });
-      const nextCursor =
-        persistedItems.length === limit
-          ? persistedItems[persistedItems.length - 1]?.createdAt.toISOString()
-          : undefined;
+      const { items: persistedItems } = await listAllTurns(
+        parsedParams.data.id,
+      );
 
       const inflightTurns = snapshotInflightTurns(parsedParams.data.id);
       const merged = mergeInflightTurns(persistedItems, inflightTurns);
@@ -587,12 +566,10 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         return bStable.localeCompare(aStable);
       });
 
-      const response: Record<string, unknown> = { items, nextCursor };
-      if (includeInflight === 'true') {
-        const inflight = snapshotInflight(parsedParams.data.id);
-        if (inflight) {
-          response.inflight = inflight;
-        }
+      const response: Record<string, unknown> = { items };
+      const inflight = snapshotInflight(parsedParams.data.id);
+      if (inflight) {
+        response.inflight = inflight;
       }
 
       res.json(response);

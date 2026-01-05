@@ -356,34 +356,95 @@ export function useChatStream(
   );
 
   const extractCitations = useCallback((result: unknown): ToolCitation[] => {
-    const payload =
+    const resultsPayload =
       result && typeof result === 'object' && 'results' in result
         ? (result as { results?: unknown }).results
         : undefined;
 
-    if (!Array.isArray(payload)) return [];
+    if (Array.isArray(resultsPayload)) {
+      const citationsFromResults = resultsPayload
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const i = item as Record<string, unknown>;
+          const repo = typeof i.repo === 'string' ? i.repo : undefined;
+          const relPath = typeof i.relPath === 'string' ? i.relPath : undefined;
+          const chunk = typeof i.chunk === 'string' ? i.chunk : undefined;
+          if (!repo || !relPath || !chunk) return null;
+          return {
+            repo,
+            relPath,
+            hostPath: typeof i.hostPath === 'string' ? i.hostPath : undefined,
+            containerPath:
+              typeof i.containerPath === 'string' ? i.containerPath : undefined,
+            score: typeof i.score === 'number' ? i.score : null,
+            chunk,
+            chunkId: typeof i.chunkId === 'string' ? i.chunkId : undefined,
+            modelId: typeof i.modelId === 'string' ? i.modelId : undefined,
+          } satisfies ToolCitation;
+        })
+        .filter(Boolean) as ToolCitation[];
 
-    return payload
-      .map((item) => {
-        if (!item || typeof item !== 'object') return null;
-        const i = item as Record<string, unknown>;
-        const repo = typeof i.repo === 'string' ? i.repo : undefined;
-        const relPath = typeof i.relPath === 'string' ? i.relPath : undefined;
-        const chunk = typeof i.chunk === 'string' ? i.chunk : undefined;
-        if (!repo || !relPath || !chunk) return null;
-        return {
-          repo,
-          relPath,
-          hostPath: typeof i.hostPath === 'string' ? i.hostPath : undefined,
-          containerPath:
-            typeof i.containerPath === 'string' ? i.containerPath : undefined,
-          score: typeof i.score === 'number' ? i.score : null,
-          chunk,
-          chunkId: typeof i.chunkId === 'string' ? i.chunkId : undefined,
-          modelId: typeof i.modelId === 'string' ? i.modelId : undefined,
-        } satisfies ToolCitation;
-      })
-      .filter(Boolean) as ToolCitation[];
+      if (citationsFromResults.length > 0) {
+        return citationsFromResults;
+      }
+    }
+
+    const segmentsPayload =
+      result && typeof result === 'object' && 'segments' in result
+        ? (result as { segments?: unknown }).segments
+        : undefined;
+
+    if (!Array.isArray(segmentsPayload)) return [];
+
+    const vectorSummaryCitations = segmentsPayload.flatMap((segment) => {
+      if (!segment || typeof segment !== 'object') return [];
+      const record = segment as Record<string, unknown>;
+      if (record.type !== 'vector_summary') return [];
+      const files = Array.isArray(record.files)
+        ? (record.files as unknown[])
+        : [];
+      return files
+        .map((file) => {
+          if (!file || typeof file !== 'object') return null;
+          const f = file as Record<string, unknown>;
+          const repo = typeof f.repo === 'string' ? f.repo : undefined;
+          const relPath =
+            typeof f.relPath === 'string'
+              ? f.relPath
+              : typeof f.path === 'string'
+                ? f.path
+                : undefined;
+          if (!repo || !relPath) return null;
+
+          const match = typeof f.match === 'number' ? f.match : null;
+          const chunks = typeof f.chunks === 'number' ? f.chunks : null;
+          const lines = typeof f.lines === 'number' ? f.lines : null;
+          const summaryParts = [
+            match === null ? null : `match ${match.toFixed(3)}`,
+            chunks === null ? null : `chunks ${chunks}`,
+            lines === null ? null : `lines ${lines}`,
+          ].filter(Boolean);
+
+          return {
+            repo,
+            relPath,
+            hostPath: typeof f.path === 'string' ? f.path : undefined,
+            score: match,
+            chunk:
+              summaryParts.length > 0
+                ? summaryParts.join(' · ')
+                : 'vector search match',
+            chunkId:
+              typeof f.path === 'string'
+                ? `${repo}:${f.path}`
+                : `${repo}:${relPath}`,
+            modelId: typeof f.modelId === 'string' ? f.modelId : undefined,
+          } satisfies ToolCitation;
+        })
+        .filter(Boolean) as ToolCitation[];
+    });
+
+    return vectorSummaryCitations;
   }, []);
 
   const applyToolEvent = useCallback(
@@ -608,13 +669,23 @@ export function useChatStream(
             });
             if (!match) return true;
             if (match.streamStatus === 'processing') {
-              replacements.set(match.id, { ...match, ...entry, id: match.id });
+              replacements.set(match.id, {
+                ...match,
+                ...entry,
+                id: match.id,
+                segments: entry.segments,
+              });
               if (entry.streamStatus && entry.streamStatus !== 'processing') {
                 shouldResetInflight = true;
               }
               return false;
             }
-            replacements.set(match.id, { ...match, ...entry, id: match.id });
+            replacements.set(match.id, {
+              ...match,
+              ...entry,
+              id: match.id,
+              segments: entry.segments,
+            });
             return false;
           });
           if (replacements.size > 0) {

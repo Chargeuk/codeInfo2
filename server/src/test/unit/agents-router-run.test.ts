@@ -51,6 +51,54 @@ test('POST /agents/:agentName/run maps unknown agent to 404', async () => {
   assert.deepEqual(res.body, { error: 'not_found' });
 });
 
+test('POST /agents/:agentName/run maps CONVERSATION_ARCHIVED to 410', async () => {
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async () => {
+        throw { code: 'CONVERSATION_ARCHIVED' };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 410);
+  assert.deepEqual(res.body, { error: 'archived' });
+});
+
+test('POST /agents/:agentName/run maps AGENT_MISMATCH to 400', async () => {
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async () => {
+        throw { code: 'AGENT_MISMATCH' };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, { error: 'agent_mismatch' });
+});
+
+test('POST /agents/:agentName/run maps CODEX_UNAVAILABLE to 503', async () => {
+  const res = await request(
+    buildApp({
+      runAgentInstruction: async () => {
+        throw { code: 'CODEX_UNAVAILABLE', reason: 'no auth.json' };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: 'hello' });
+
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.body, {
+    error: 'codex_unavailable',
+    reason: 'no auth.json',
+  });
+});
+
 test('POST /agents/:agentName/run returns a stable success payload shape', async () => {
   const res = await request(
     buildApp({

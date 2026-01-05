@@ -44,6 +44,9 @@ export async function flushQueue() {
     setTimeout(flushQueue, delay);
   } finally {
     inFlight = false;
+    if (queue.length > 0 && backoffIndex === 0) {
+      void flushQueue();
+    }
   }
 }
 

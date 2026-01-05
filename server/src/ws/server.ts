@@ -362,6 +362,28 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
       case 'cancel_inflight': {
         append({
           level: 'info',
+          message: 'DEV-0000021[T3] ws cancel_inflight received',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId: message.requestId,
+          context: {
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+          },
+        });
+        baseLogger.info(
+          {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId: message.inflightId,
+          },
+          'DEV-0000021[T3] ws cancel_inflight received',
+        );
+
+        append({
+          level: 'info',
           message: 'chat.stream.cancel',
           timestamp: new Date().toISOString(),
           source: 'server',

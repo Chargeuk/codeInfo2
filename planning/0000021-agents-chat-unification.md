@@ -2020,68 +2020,107 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
 
 #### Subtasks
 
-1. [ ] Confirm current turns snapshot logic and pagination usage:
-   - Documentation to read:
+1. [ ] Confirm current turns snapshot logic and pagination usage (server path + tests):
+   - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
-   - Files to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+   - Files to read (open these exact files):
      - `server/src/routes/conversations.ts`
      - `server/src/chat/inflightRegistry.ts`
+     - `server/src/mongo/repo.ts`
      - `server/src/test/integration/conversations.turns.test.ts`
-   - What to identify:
-     - Where `limit`, `cursor`, and `includeInflight` are handled.
-     - How inflight turns are merged and how `nextCursor` is set.
+   - What to locate (use `rg` for these exact strings):
+     - `includeInflight` (query parsing + response shape)
+     - `nextCursor` (pagination response)
+     - `listTurns(` (DB pagination)
+   - Output required in Implementation notes:
+     - Summarize the current response shape (items + optional inflight + nextCursor) and where the merge/dedupe happens.
 
-2. [ ] Server: remove pagination from turns snapshot and always return full history + inflight:
-   - Documentation to read:
+2. [ ] Server: remove pagination and ALWAYS return full DB history + inflight:
+   - Documentation to read (repeat even if already read):
      - Express routing: https://expressjs.com/en/guide/routing.html
+     - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `server/src/routes/conversations.ts`
      - `server/src/mongo/repo.ts`
-   - Requirements:
-     - Ignore `limit` and `cursor` in `GET /conversations/:id/turns`.
-     - Always return the full persisted history, merged with any inflight snapshot turns.
-     - Always include the `inflight` block when a run is active (no `includeInflight` parameter).
-     - Remove `nextCursor` from the response (or return `null` consistently).
+   - Concrete implementation guidance (copy‑paste targets):
+     - Replace the existing turns query schema usage so **limit/cursor are ignored**.
+       - Today you’ll see something like:
+         ```ts
+         const { limit, cursor, includeInflight } = listTurnsQuerySchema.parse(req.query);
+         ```
+       - Target change: ignore `limit`, `cursor`, and `includeInflight`.
+     - Replace `listTurns({ conversationId, limit, cursor })` with a “full history” query.
+       - If there’s no helper, add a `listAllTurns(conversationId)` in `server/src/mongo/repo.ts`.
+       - Ensure ordering matches the UI (newest-first) or explicitly sort after merge.
+     - Always attach inflight:
+       - Merge `snapshotInflightTurns(conversationId)` into `items` in all cases.
+       - Always include top-level `inflight` when one exists (remove the `includeInflight` gate).
+     - Response shape:
+       - Remove `nextCursor` entirely or set it to `null` consistently.
+   - Required acceptance check:
+     - The response must include **full DB history + inflight** for every call (no partial page).
 
-3. [ ] Client: simplify transcript hydration to replace-only:
-   - Documentation to read:
+3. [ ] Client: simplify to replace‑only full snapshot hydration:
+   - Documentation to read (repeat even if already read):
      - React hooks: https://react.dev/reference/react
+     - Testing Library (React): https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
-   - Requirements:
-     - Always request full snapshots (no `cursor`, no `limit`, no `includeInflight`).
-     - Remove replace/append branching and “load older” logic.
-     - Always replace transcript state with the full snapshot returned.
-     - Maintain inflight hydration for the in-progress run.
+   - Concrete implementation guidance:
+     - In `useConversationTurns.ts`, remove any `cursor`, `limit`, or `includeInflight` query params.
+     - Remove “load older”/prepend logic:
+       - Search for `mode === 'prepend'`, `loadOlder`, `nextCursor`, `hasMore`, or `cursor`.
+     - Ensure `refresh()` always replaces with the full snapshot from the server:
+       - `hydrateHistory(conversationId, fullItems, 'replace')` (no append path).
+     - Keep inflight hydration:
+       - Still call `hydrateInflightSnapshot(conversationId, inflight)` when present.
+   - Required UI behavior:
+     - Navigating away/back during streaming should retain all prior turns plus the current inflight.
 
-4. [ ] Update tests to reflect full snapshot behavior:
-   - Documentation to read:
+4. [ ] Update tests to reflect full-snapshot behavior (no pagination):
+   - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
+   - Files to edit (or delete if obsolete):
      - `server/src/test/integration/conversations.turns.test.ts`
      - `client/src/test/useConversationTurns.refresh.test.ts`
-     - `client/src/test/chatTurnsLazyLoad.test.tsx` (remove or rewrite if pagination removed)
-   - Requirements:
-     - Remove pagination expectations (`limit`, `nextCursor`) from snapshot tests.
-     - Add explicit coverage that snapshots always include full history + inflight.
+     - `client/src/test/chatTurnsLazyLoad.test.tsx` (remove or rewrite — pagination should be gone)
+   - Required test updates:
+     - Remove expectations for `limit`, `cursor`, `nextCursor`, and “load older”.
+     - Add explicit assertions that snapshots always include full history + inflight:
+       - DB turns count > 1 still present after refresh.
+       - Inflight data appears without needing a flag.
 
-5. [ ] Update documentation to match new snapshot contract:
-   - Documentation to read:
-     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+5. [ ] Update docs to match the new snapshot contract:
+   - Documentation to read (repeat even if already read):
+     - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md`
      - `README.md`
+   - Required edits:
+     - State that `/conversations/:id/turns` returns **full history + inflight** always.
+     - Remove all references to pagination/cursors/nextCursor for turns snapshots.
+
+6. [ ] Update `projectStructure.md` for any test additions/removals:
+   - Documentation to read (repeat even if already read):
+     - Markdown guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
    - Requirements:
-     - Document the new snapshot contract (“full history + inflight always”).
-     - Remove references to pagination/cursors for turns snapshots.
+     - Add any new tests you create.
+     - Remove any deleted pagination-related tests.
 
-6. [ ] Update `projectStructure.md` if tests are added/removed.
-
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+   - If either fails, rerun with:
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+   - Manually resolve any remaining issues.
 
 #### Testing
 

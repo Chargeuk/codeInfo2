@@ -253,7 +253,12 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
      - Add a new export in `server/src/ingest/ingestJob.ts`: `getActiveStatus(): IngestJobStatus | null`.
-       - “Active” means: an ingest run is currently in progress (lock held). If no run is active, return `null` (no last-run summary).
+       - “Active” means: any run currently in a non-terminal state (`queued` | `scanning` | `embedding`).
+       - Do **not** rely only on the ingest lock being held, because the lock has a TTL and may expire while a long ingest is still running.
+       - Implementation guidance (KISS + deterministic):
+         - If the lock is held and `currentOwner()` maps to a non-terminal status, return that first.
+         - Otherwise, scan the `jobs` map and return the first non-terminal status (Map iteration order is stable).
+       - If no run is active, return `null` (no last-run summary).
      - In `server/src/ws/server.ts`, handle `subscribe_ingest`:
        - Mark the socket as subscribed via the registry.
        - Immediately send `ingest_snapshot` using `getActiveStatus()` (can be `null`).
@@ -269,7 +274,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
      - Add a test: sending `subscribe_ingest` yields an `ingest_snapshot` message.
      - Add a test: when no run is active, the snapshot contains `status: null`.
      - Add a test: when a run is active, the snapshot contains `status.runId === <runId>`.
-       - Use existing test-only helpers in ingest (`__setStatusForTest`, `__resetIngestJobsForTest`) and the real ingest lock to simulate “active”.
+       - Use existing test-only helpers in ingest (`__setStatusForTest`, `__resetIngestJobsForTest`) to seed a non-terminal status.
+       - Do not require acquiring the ingest lock in tests (the active-run decision is based on non-terminal states).
 
 8. [ ] Run repo lint/format checks for this change:
    - `npm run lint --workspaces`
@@ -344,6 +350,13 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Assert an `ingest_update` message is received with the updated `status.state`.
      - Assert `seq` increases on subsequent updates.
 
+   - Concrete implementation guidance:
+     - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
+       - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
+       - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
+       - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper), so the test truly validates that “status changes produce WS updates”.
+     - In the WS test, call `__setStatusAndPublishForTest(...)` twice and assert that two `ingest_update` frames arrive with increasing `seq`.
+
 6. [ ] Run repo lint/format checks for this change:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
@@ -396,6 +409,7 @@ Create a dedicated client hook that connects to `/ws`, subscribes to ingest, and
       - Reconnect behavior (required to satisfy snapshot-on-resubscribe acceptance criteria):
         - If the socket closes unexpectedly (not an intentional unmount), attempt to reconnect with a small backoff (reuse the approach from `useChatWs`, keeping it simple).
         - After reconnect, automatically re-send `subscribe_ingest` and expect a fresh `ingest_snapshot`.
+        - When a new socket is created (initial connect or reconnect), reset any local `lastSeq` tracking so the first `seq` on that socket is accepted.
       - If WS cannot be established initially or drops: expose an explicit error message suitable for UI display (no polling fallback). The UI may still attempt reconnection, but the error state must be visible while disconnected.
       - Ignore unknown inbound message types safely.
       - Implement `seq` gating similar to `useChatWs` (ignore stale/out-of-order frames).

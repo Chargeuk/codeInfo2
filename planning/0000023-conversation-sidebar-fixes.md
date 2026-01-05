@@ -18,7 +18,7 @@ We want the Chat and Agents sidebars to behave identically, with consistent padd
 
 - **Feature parity:** The Agents Conversations sidebar provides the same controls and behavior as Chat: filter tabs (Active / Active & Archived / Archived), per-row Archive/Restore buttons, bulk Archive/Restore actions, and Bulk Delete **only** when the filter is set to Archived.
 - **Delete rule consistency:** Agent-scoped conversations follow the same rule as Chat: delete is only available when viewing Archived conversations.
-- **Padding/spacing:** Conversation rows and the sidebar container include clear left/right padding (at least one theme spacing unit) so text and controls are not flush against the drawer edge. The left edge of conversation text aligns with the “Conversations” header and filter controls.
+- **Padding/spacing:** Conversation rows and the sidebar header/filter area use the **same left/right padding** so content aligns. Target **12px (MUI spacing 1.5 at the default 8px grid)** on both rows and header/filter containers, matching current Chat row padding. Text and controls must not be flush against the drawer edge.
 - **No horizontal scroll:** The Drawer and its contents never show a left/right scrollbar at any viewport size (desktop or mobile), even with long titles or metadata.
 - **Access to older items:** When conversations exceed the available vertical space, the **list panel** (the bordered list area) scrolls vertically. The “Load more” button is reachable at the bottom after scrolling and loads older conversations using the existing behavior.
 - **No backend changes:** All fixes are client-side only; no server API or persistence behavior changes are required.
@@ -69,7 +69,7 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 - Make the **scroll container** explicit: the list area should scroll vertically (not the entire page), and the “Load more” control must remain reachable at the bottom of the list.
 - Reaffirm **no new pagination mechanism** (no infinite scroll)—we reuse the existing button.
-- Specify that **padding values should match Chat** once Agents is aligned (to avoid inventing new spacing).
+- Specify that **padding values should match Chat** once Agents is aligned (target 12px left/right for header + rows).
 
 ## Known Unknowns / Risks
 

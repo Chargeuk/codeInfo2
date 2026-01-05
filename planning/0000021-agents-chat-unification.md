@@ -635,6 +635,14 @@ Make agent runs follow the same run-start contract as `/chat`: create inflight s
 
 9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
+9. [x] Update `projectStructure.md` for new files added in this task:
+   - Documentation to read:
+     - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add `server/src/test/integration/agents-run-ws-stream.test.ts` after the file is created.
+
 #### Testing
 
 1. [x] `npm run build --workspace server`

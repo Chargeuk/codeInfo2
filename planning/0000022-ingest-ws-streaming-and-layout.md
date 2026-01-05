@@ -225,6 +225,9 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - `server/src/test/support/wsClient.ts` (WS client helper for tests)
 
 2. [ ] Extend WS client message parsing for ingest subscriptions:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `server/src/ws/types.ts`
    - Requirements:
@@ -252,6 +255,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        ```
 
 3. [ ] Add WS server event shapes for ingest snapshot + updates:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/types.ts`
    - Requirements:
@@ -284,6 +289,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        ```
 
 4. [ ] Add ingest subscription tracking in the WS registry:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/registry.ts`
    - Requirements:
@@ -314,6 +321,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        ```
 
 5. [ ] Add per-socket ingest `seq` and a snapshot send helper:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
@@ -346,6 +355,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        ```
 
 6. [ ] Handle `subscribe_ingest` / `unsubscribe_ingest` in the WS server:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
@@ -372,6 +383,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        ```
 
 7. [ ] Server unit test: subscribe yields placeholder snapshot:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
      - node:test unit test (server)
    - Test location:
@@ -395,6 +408,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      ```
 
 8. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -427,11 +442,15 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 #### Subtasks
 
 1. [ ] Read the ingest job state storage and lock behavior:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/ingest/ingestJob.ts` (in-memory `jobs` map + states)
      - `server/src/ingest/lock.ts` (lock owner + TTL)
 
 2. [ ] Implement `getActiveStatus()`:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -459,6 +478,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Fallback: iterate `jobs.values()` and return first active.
 
 3. [ ] Update WS subscribe handler to use `getActiveStatus()`:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
@@ -466,6 +487,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Snapshot must be sent immediately after subscribe is processed.
 
 4. [ ] Update server unit tests:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/ws-server.test.ts`
    - Requirements:
@@ -474,6 +497,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
        - Use existing helpers in `server/src/ingest/ingestJob.ts`: `__resetIngestJobsForTest()` + `__setStatusForTest()`.
 
 5. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -507,11 +532,16 @@ This task completes the server-side realtime path for ingest by wiring status up
 #### Subtasks
 
 1. [ ] Read the ingest status lifecycle to identify every status update point:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to read:
      - `server/src/ingest/ingestJob.ts` (all `jobs.set(...)` call sites)
      - `server/src/routes/ingestStart.ts` and `server/src/routes/ingestCancel.ts` (existing REST control surface)
 
 2. [ ] Implement WS broadcast helper:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ws/server.ts`
    - Requirements:
@@ -538,6 +568,8 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Keep `seq` per socket (use the same `nextIngestSeq(ws)` introduced in Task 1).
 
 3. [ ] Add a status publish helper:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -547,6 +579,8 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Keep existing REST behavior unchanged.
 
 4. [ ] Replace status writes with the publish helper:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Requirements:
@@ -571,12 +605,16 @@ This task completes the server-side realtime path for ingest by wiring status up
        ```
 
 5. [ ] Ensure cancel flows publish a final update:
+   - Documentation to read:
+     - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/ingest/ingestJob.ts` (`cancelRun`)
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
 6. [ ] Add server unit test coverage for ingest updates:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
      - node:test unit test (server)
    - Test location:
@@ -600,6 +638,8 @@ This task completes the server-side realtime path for ingest by wiring status up
     - (Optional) call `__setStatusAndPublishForTest(...)` again with `state: 'completed'` and assert `seq` increased.
 
 7. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -637,12 +677,20 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 #### Subtasks
 
 1. [ ] Read existing WS client patterns and test utilities:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React hooks `useEffect`: https://react.dev/reference/react/useEffect
+     - React Router: Context7 `/remix-run/react-router/react-router_7.9.4`
+     - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Files to read:
      - `client/src/hooks/useChatWs.ts` (connect/reconnect/subscription patterns)
      - `client/src/test/support/mockWebSocket.ts` (WS mocking)
      - `client/src/test/useChatWs.test.ts` (hook tests)
 
 2. [ ] Extend `useChatWs` outbound API for ingest:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React hooks `useEffect`: https://react.dev/reference/react/useEffect
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
@@ -691,6 +739,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Add the two functions to the returned object and to the `UseChatWsState` type.
 
 3. [ ] Add ingest event typing (do not change seq gating):
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
    - Requirements:
@@ -754,6 +804,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
        ```
 
 4. [ ] Add/adjust `useChatWs` tests:
+   - Documentation to read:
+     - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Files to edit:
      - `client/src/test/useChatWs.test.ts`
    - Requirements:
@@ -788,6 +840,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      ```
 
 5. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -795,6 +849,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Record the commit hash(es) in this task’s Git Commits.
 
 6. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -828,6 +884,9 @@ This task does not change the Ingest page layout yet; it only changes how status
 #### Subtasks
 
 1. [ ] Read current polling hook behavior:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React hooks `useEffect`: https://react.dev/reference/react/useEffect
    - Files to read:
      - `client/src/hooks/useIngestStatus.ts`
      - `client/src/components/ingest/ActiveRunCard.tsx` (data it expects)
@@ -835,6 +894,8 @@ This task does not change the Ingest page layout yet; it only changes how status
      - `client/src/test/support/mockWebSocket.ts` (WS mocking)
 
 2. [ ] Remove polling + update hook signature/state:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
@@ -843,6 +904,9 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Store status as `ChatWsIngestStatus | null` (WS-driven state).
 
 3. [ ] Wire WS subscription + event handling:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React hooks `useEffect`: https://react.dev/reference/react/useEffect
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
@@ -854,6 +918,8 @@ This task does not change the Ingest page layout yet; it only changes how status
        - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
 
 4. [ ] Expose a minimal, predictable WS-driven API:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
@@ -895,6 +961,8 @@ This task does not change the Ingest page layout yet; it only changes how status
      ```
 
 5. [ ] Keep cancel behavior via REST (server unchanged):
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Requirements:
@@ -907,6 +975,8 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Prefer not to optimistically mutate `status` on success; allow the server’s `ingest_update` to drive the final state.
 
 6. [ ] Update existing ingest status tests to WS-driven behavior:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
      - `client/src/test/ingestStatus.progress.test.tsx`
@@ -934,6 +1004,8 @@ This task does not change the Ingest page layout yet; it only changes how status
        - Percent and ETA text updates.
 
 7. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -941,6 +1013,8 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Record the commit hash(es) in this task’s Git Commits.
 
 8. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -972,12 +1046,17 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 #### Subtasks
 
 1. [ ] Read current ingest page behavior:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+     - React Router: https://reactrouter.com/start/library/routing
    - Files to read:
      - `client/src/pages/IngestPage.tsx`
      - `client/src/hooks/useIngestStatus.ts`
      - `client/src/components/ingest/ActiveRunCard.tsx`
 
 2. [ ] Remove local run tracking and derive active status from WS:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
@@ -988,6 +1067,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
 
 3. [ ] Preserve page behavior for active runs:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
@@ -1019,6 +1100,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - Use a `useRef<string | null>` to ensure refresh runs only once per `runId:state`.
 
 4. [ ] Keep start callbacks wired without local run state:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
      - `client/src/components/ingest/IngestForm.tsx`
@@ -1030,12 +1113,16 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - Do **not** re-introduce local runId tracking in the page.
 
 5. [ ] Add a stable status chip test id:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/components/ingest/ActiveRunCard.tsx`
    - Requirements:
      - Add `data-testid="ingest-status-chip"` to the status `Chip`.
 
 6. [ ] Add explicit WS connection UI states:
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
@@ -1046,6 +1133,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - `data-testid="ingest-ws-unavailable"`
 
 7. [ ] Add/update Ingest page tests (page-level):
+   - Documentation to read:
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit/add:
      - Prefer updating the existing IngestPage coverage inside `client/src/test/ingestStatus.test.tsx`.
    - Requirements:
@@ -1064,6 +1153,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - Assert `Active ingest` heading is absent when idle.
 
 8. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1071,6 +1162,8 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Record the commit hash(es) in this task’s Git Commits.
 
 9. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1102,12 +1195,16 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 #### Subtasks
 
 1. [ ] Read how other pages achieve full width:
+   - Documentation to read:
+     - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Files to read:
      - `client/src/pages/ChatPage.tsx` (Container usage)
      - `client/src/pages/AgentsPage.tsx` (Container usage)
      - `client/src/pages/IngestPage.tsx` (current constrained Container)
 
 2. [ ] Update Ingest page container width:
+   - Documentation to read:
+     - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
@@ -1122,6 +1219,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - Ensure the page-level container does **not** render the `MuiContainer-maxWidthLg` class.
 
 3. [ ] Add/update a focused UI test to prevent regression:
+   - Documentation to read:
+     - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Files to edit/add:
      - Update or add a test that asserts the Ingest page no longer uses the default `Container` maxWidth behavior.
        - Practical approach: assert the rendered container does not include the `MuiContainer-maxWidthLg` class.
@@ -1132,6 +1231,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
 4. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1139,6 +1240,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Record the commit hash(es) in this task’s Git Commits.
 
 5. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1173,6 +1276,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 #### Subtasks
 
 1. [ ] Confirm the acceptance criteria explicitly (write down results in Implementation notes):
+   - Documentation to read:
+     - Story acceptance criteria at the top of this plan.
    - Live updates via WS only (no polling timers)
    - Snapshot on subscribe
    - Page-scoped updates (unsubscribes when navigating away)
@@ -1182,12 +1287,18 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Full-width Ingest layout
 
 2. [ ] Ensure docs are up to date:
+   - Documentation to read:
+     - `README.md`
+     - `design.md`
+     - `projectStructure.md`
    - Files to edit:
      - `README.md` (only if behavior/commands changed)
      - `design.md` (add ingest WS notes/diagram if missing)
      - `projectStructure.md` (add/remove files created/deleted in this story)
 
 3. [ ] Update e2e ingest tests to reflect “no last-run summary” + WS streaming:
+   - Documentation to read:
+     - Playwright: Context7 `/microsoft/playwright`
    - Files to edit:
      - `e2e/ingest.spec.ts`
    - Requirements:
@@ -1200,6 +1311,8 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Keep the existing progress assertions (current file changes, percent/ETA changes) but ensure they happen while the Active ingest panel is visible.
 
 4. [ ] Documentation update (task-local):
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Files to edit:
      - `planning/0000022-ingest-ws-streaming-and-layout.md` (this file)
    - Requirements:
@@ -1210,10 +1323,14 @@ Run the full validation checklist, confirm every acceptance criterion, update do
      - Record the commit hash(es) in this task’s Git Commits.
 
 5. [ ] Run repo lint/format checks:
+   - Documentation to read:
+     - Root linting/formatting commands are defined in `package.json`.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
 6. [ ] Create a PR summary comment:
+   - Documentation to read:
+     - Story plan format: `planning/plan_format.md`
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.
    - Mention what was removed (polling), and what the explicit failure mode is (WS error state).
 

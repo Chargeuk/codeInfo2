@@ -2199,7 +2199,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - State that `/conversations/:id/turns` returns **full history + inflight** always.
      - Remove all references to pagination/cursors/nextCursor for turns snapshots.
 
-13. [ ] Update `projectStructure.md` for any test additions/removals:
+13. [ ] Update `projectStructure.md` for any test additions/removals **after all add/remove-file subtasks (4–11) are complete**:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:

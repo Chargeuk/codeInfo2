@@ -411,16 +411,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      assert.equal(event.status, null);
      ```
 
-8. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-9. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
+8. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -433,6 +424,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -577,16 +570,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Seed terminal statuses only; verify `null` result.
 
-10. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-11. [ ] Update `design.md` with ingest active-status selection flow:
+10. [ ] Update `design.md` with ingest active-status selection flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -599,6 +583,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -749,16 +735,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Guarded like existing helpers (`NODE_ENV === 'test'`).
        - Must call the same internal `setStatusAndPublish(...)` used in production.
 
-9. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-10. [ ] Update `design.md` with ingest update broadcast flow:
+9. [ ] Update `design.md` with ingest update broadcast flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -771,6 +748,8 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1024,16 +1003,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-10. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-11. [ ] Update `design.md` with client ingest WS subscription flow:
+10. [ ] Update `design.md` with client ingest WS subscription flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1046,6 +1016,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1259,16 +1231,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-13. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-14. [ ] Update `design.md` with ingest status hook flow:
+13. [ ] Update `design.md` with ingest status hook flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1281,6 +1244,8 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1468,16 +1433,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-13. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-14. [ ] Update `design.md` with ingest page WS-only UI flow:
+13. [ ] Update `design.md` with ingest page WS-only UI flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1490,6 +1446,12 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
+3. [ ] `npm run lint --workspaces`
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+4. [ ] `npm run format:check --workspaces`
+   - Documentation to read:
+     - Prettier CLI (Context7): `/prettier/prettier`
 
 #### Implementation notes
 
@@ -1577,19 +1539,12 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-6. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
+3. [ ] `npm run lint --workspaces`
+4. [ ] `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1697,16 +1652,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
        - and how “no last-run summary” is enforced.
      - Record the commit hash(es) in this task’s Git Commits.
 
-7. [ ] Run repo lint/format checks:
-   - Documentation to read:
-     - ESLint CLI (Context7): `/eslint/eslint`
-     - Prettier CLI (Context7): `/prettier/prettier`
-   - Files to read:
-     - `package.json` (root linting/formatting commands)
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-8. [ ] Create a PR summary comment:
+7. [ ] Create a PR summary comment:
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1720,17 +1666,23 @@ Run the full validation checklist, confirm every acceptance criterion, update do
 2. [ ] Build the client: `npm run build --workspace client`
 3. [ ] Run server tests: `npm run test --workspace server`
 4. [ ] Run client tests: `npm run test --workspace client`
-5. [ ] Perform a clean docker build: `npm run compose:build`
-6. [ ] Start docker compose: `npm run compose:up`
-7. [ ] Run e2e tests: `npm run e2e`
-8. [ ] Manual multi-tab verification:
+5. [ ] Run lint checks: `npm run lint --workspaces`
+   - Documentation to read:
+     - ESLint CLI (Context7): `/eslint/eslint`
+6. [ ] Run formatting check: `npm run format:check --workspaces`
+   - Documentation to read:
+     - Prettier CLI (Context7): `/prettier/prettier`
+7. [ ] Perform a clean docker build: `npm run compose:build`
+8. [ ] Start docker compose: `npm run compose:up`
+9. [ ] Run e2e tests: `npm run e2e`
+10. [ ] Manual multi-tab verification:
    - Open `/ingest` in two browser tabs.
    - Start an ingest run in tab A.
    - Confirm tab B immediately receives a snapshot + subsequent progress updates (no refresh required).
    - Navigate tab B away from `/ingest` and confirm it stops receiving ingest updates.
    - Return tab B to `/ingest` and confirm it receives a fresh snapshot.
    - Confirm the UI shows an explicit error if the WS connection is down (no polling fallback).
-9. [ ] Shut down compose: `npm run compose:down`
+11. [ ] Shut down compose: `npm run compose:down`
 
 #### Implementation notes
 

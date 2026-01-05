@@ -498,7 +498,21 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Add a test: when a non-terminal status is seeded, the snapshot contains that `status.runId`.
        - Use existing helpers in `server/src/ingest/ingestJob.ts`: `__resetIngestJobsForTest()` + `__setStatusForTest()`.
 
-5. [ ] Run repo lint/format checks:
+5. [ ] Add unit coverage for `getActiveStatus()` edge cases:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-status.test.ts`
+   - Requirements:
+     - Add tests for the active-run selection rules:
+       - When `currentOwner()` points to an active run, `getActiveStatus()` returns that run.
+       - When `currentOwner()` points to a terminal run but another active run exists, `getActiveStatus()` returns the non-terminal run from the jobs map.
+       - When only terminal runs exist, `getActiveStatus()` returns `null`.
+   - Concrete implementation guidance:
+     - Use `acquire(...)` / `release(...)` from `server/src/ingest/lock.ts` to control the lock owner in tests.
+     - Seed status objects via `__setStatusForTest()` and clear state with `__resetIngestJobsForTest()` between cases.
+
+6. [ ] Run repo lint/format checks:
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
@@ -615,7 +629,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
-6. [ ] Add server unit test coverage for ingest updates:
+6. [ ] Add server unit test coverage for ingest updates + unsubscribe behavior:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -624,21 +638,25 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Prefer adding a focused test in `server/src/test/unit/ws-server.test.ts`.
    - Requirements:
      - Connect a WS client, send `subscribe_ingest`, then mutate ingest status using test helpers.
-    - Assert an `ingest_update` message is received with the updated `status.state`.
-    - (Optional, only if low effort) assert `seq` increases on a second update.
+     - Assert an `ingest_update` message is received with the updated `status.state`.
+     - Assert `seq` increases on a second update from the same socket.
+     - Add a test that `unsubscribe_ingest` stops updates:
+       - Subscribe, then unsubscribe, then publish a status update.
+       - Assert no `ingest_update` arrives within a short timeout (e.g., 200–300ms).
 
    - Concrete implementation guidance:
-    - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
-      - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
-      - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
-      - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper).
-    - In the WS test, call `__setStatusAndPublishForTest(...)` at least once and assert the update arrives. Use a second call only if you decide to cover seq.
+     - Add a new test-only helper in `server/src/ingest/ingestJob.ts` to avoid coupling tests to internal functions:
+       - `__setStatusAndPublishForTest(runId: string, status: IngestJobStatus)`
+       - It should be guarded like existing helpers: only allowed when `NODE_ENV === 'test'`.
+       - It must use the same implementation path as production (i.e., call the same internal `setStatusAndPublish(...)` helper).
+     - In the WS test, call `__setStatusAndPublishForTest(...)` at least twice and assert the second event `seq` is greater than the first.
+     - For the unsubscribe test, reuse the same helper and assert no update is received after unsubscribing.
 
    - Example WS test outline:
      - Send `subscribe_ingest`.
      - Call `__setStatusAndPublishForTest('run-1', { runId: 'run-1', state: 'embedding', counts: { files: 1, chunks: 1, embedded: 0 } })`.
      - Wait for an `ingest_update` event.
-    - (Optional) call `__setStatusAndPublishForTest(...)` again with `state: 'completed'` and assert `seq` increased.
+     - Call `__setStatusAndPublishForTest(...)` again with `state: 'completed'` and assert `seq` increased.
 
 7. [ ] Run repo lint/format checks:
    - Files to read:
@@ -694,9 +712,9 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - React hooks `useEffect`: https://react.dev/reference/react/useEffect
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
-   - Requirements:
-     - Reuse the existing `useChatWs` connection/reconnect/pending queue; do **not** create a new WS hook or a second socket.
-      - Add new outbound helpers:
+  - Requirements:
+    - Reuse the existing `useChatWs` connection/reconnect/pending queue; do **not** create a new WS hook or a second socket.
+     - Add new outbound helpers:
         - `subscribeIngest(): void`
         - `unsubscribeIngest(): void`
      - Track ingest subscription state in a ref (mirrors sidebar subscription handling).
@@ -811,7 +829,9 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - `client/src/test/useChatWs.test.ts`
    - Requirements:
      - Add a test: calling `subscribeIngest()` sends an outbound `subscribe_ingest` message.
+     - Add a test: calling `unsubscribeIngest()` sends an outbound `unsubscribe_ingest` message.
      - Add a test: after a reconnect, if ingest was subscribed, a new socket re-sends `subscribe_ingest`.
+     - Add a test: after calling `unsubscribeIngest()`, a reconnect does **not** re-send `subscribe_ingest`.
      - Do not add ingest-specific seq-gating tests (we intentionally do not gate ingest events client-side).
 
    - Concrete test skeleton (do not copy blindly; match file style):
@@ -981,10 +1001,13 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
      - `client/src/test/ingestStatus.progress.test.tsx`
-   - Requirements:
+  - Requirements:
      - Remove polling assertions and fetch mocking.
      - Replace polling with WS event injection using `client/src/test/support/mockWebSocket.ts`.
      - Ensure cancel still calls the REST endpoint with the current `status.runId`.
+     - Add a test: `ingest_snapshot` with `status: null` clears the active status.
+     - Add a test: calling `cancel()` when `status === null` is a no-op (no network request).
+     - Add a test: unmounting the hook sends `unsubscribe_ingest` (page-scoped updates).
 
    - Concrete implementation guidance:
      - Reuse the global WS registry installed by `client/src/test/setupTests.ts`:
@@ -1144,7 +1167,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
       - No “Active ingest” UI is rendered when `status === null`.
       - `connectionState === 'closed'` shows the explicit error state.
       - `connectionState === 'connecting'` shows a non-error connecting state.
-    - (Optional, if low effort) add coverage that terminal state triggers a roots/models refresh once and hides the active run UI.
+    - Add coverage that terminal state triggers a roots/models refresh once and hides the active run UI.
 
    - Concrete test guidance (high-level):
      - Use the WS mock to inject `ingest_snapshot` / `ingest_update` into the mounted page.

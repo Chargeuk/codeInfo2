@@ -57,6 +57,11 @@ The experience should mirror Chat/Agents: updates only flow while the page is mo
 - DeepWiki is not indexed for this repo (no DeepWiki data available yet).
 - External confirmation: common WS server practice is to use ping/pong heartbeats, and browser WebSocket APIs do not expose ping/pong frames directly (so reconnection/heartbeat logic must be handled at the app level if needed).
 
+- Dependency versions relevant to this story (from repo `package.json` files):
+  - Client: React `^19.2.0`, React Router DOM `7.9.6`, MUI `@mui/material` `^6.4.1`, Jest `30.2.0`, TypeScript `~5.9.3`.
+  - Server: `ws` `8.18.3`, Express `^5.0.0`, Mongoose `9.0.1`.
+  - Root tooling: TypeScript `5.9.3`, Playwright `1.56.1`.
+
 ---
 
 ## Scope Assessment
@@ -197,7 +202,8 @@ This task does **not** broadcast ingest progress changes yet (that is Task 2). I
 
 #### Documentation Locations
 
-- `ws` (WebSocket server for Node): Context7 `/websockets/ws/8_18_3`
+- `ws` (WebSocket server for Node, version `8.18.3`): Context7 `/websockets/ws/8_18_3`
+- `ws` DeepWiki (noServer/handleUpgrade patterns): DeepWiki `websockets/ws`
 - Node.js test runner (node:test) (server tests use this runner): https://nodejs.org/api/test.html
 - WebSocket browser API (for understanding client expectations): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 
@@ -391,8 +397,11 @@ This task should avoid creating a brand new WebSocket implementation. The new in
 #### Documentation Locations
 
 - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- React hooks (useEffect patterns): https://react.dev/reference/react/useEffect
-- Jest fake timers (if needed in hook tests): https://jestjs.io/docs/timer-mocks
+- React hooks (cleanup/unmount semantics via `useEffect`): https://react.dev/reference/react/useEffect
+- Jest timer mocks (fake timers + advancing timers):
+  - Context7 `/websites/jestjs_io_next` (Timer Mocks)
+  - https://jestjs.io/docs/timer-mocks
+- React Testing Library (React 19 compatible): https://testing-library.com/docs/react-testing-library/intro/
 
 #### Subtasks
 
@@ -543,7 +552,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 #### Documentation Locations
 
-- MUI Container docs (use MUI MCP tool): `@mui/material` Container (pick the matching version from MUI MCP)
+- MUI Container API (repo uses `@mui/material ^6.4.1`; closest MUI MCP docs version is `6.4.12`):
+  - MUI MCP `@mui/material@6.4.12` → Container API (includes `MuiContainer-maxWidthLg` CSS class info)
 
 #### Subtasks
 
@@ -565,6 +575,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
    - Files to edit/add:
      - Update or add a test that asserts the Ingest page no longer uses the default `Container` maxWidth behavior.
        - Practical approach: assert the rendered container does not include the `MuiContainer-maxWidthLg` class.
+       - Note: `MuiContainer-maxWidthLg` is the documented global class for `maxWidth="lg"` in MUI Container API (v6.4.x).
 
 4. [ ] Run repo lint/format checks for this change:
    - `npm run lint --workspaces`

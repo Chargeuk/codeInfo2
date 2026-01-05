@@ -1537,6 +1537,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - `projectStructure.md`
    - Requirements:
      - Add the new test file (`client/src/test/ingestPage.layout.test.tsx`) if it was created.
+     - Ensure every file added or removed in this task is reflected in the tree entry (no omissions).
      - This subtask must run after all file-adding subtasks in this task.
 
 5. [ ] Documentation update (task-local):

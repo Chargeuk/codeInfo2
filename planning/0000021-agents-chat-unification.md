@@ -1871,8 +1871,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 ### 9. Final verification (acceptance criteria, clean builds, docs, and PR summary)
 
-- Task Status: **__in_progress__**
-- Git Commits:
+- Task Status: **__done__**
+- Git Commits: cd7bd8e, 2068188, 4c2e3bf
 
 #### Overview
 

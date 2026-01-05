@@ -6,7 +6,7 @@ Do you have any remaining questions about what we want to aceive in this story o
 
 Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be? If so please update all relevent planning sections to get them to where we need to be.
 
-Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Remeber to give the repository path to the code_info tool as part of your question so it uses the correct repository. Then update the plan with your findings.
+Do you feel this story is well scoped? How could it be improved? are there unknowns that need to be researched? If so, please research them using the codeInfo, deepwiki & context7 mcp tools, as well as cross referencing with internet searches to be 100% confident of the answer. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Then update the plan with your findings.
 
 Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive? If so please update all relevent planning sections to get them to where we need to be.
 

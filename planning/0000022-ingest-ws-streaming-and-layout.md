@@ -1443,7 +1443,16 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Render `IngestPage` and assert:
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
-4. [ ] Documentation update (task-local):
+4. [ ] Update `projectStructure.md` for any added/removed files:
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Requirements:
+     - Add the new test file (`client/src/test/ingestPage.layout.test.tsx`) if it was created.
+     - This subtask must run after all file-adding subtasks in this task.
+
+5. [ ] Documentation update (task-local):
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -1452,7 +1461,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-5. [ ] Run repo lint/format checks:
+6. [ ] Run repo lint/format checks:
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`

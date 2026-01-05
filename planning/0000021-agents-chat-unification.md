@@ -1686,6 +1686,8 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 
 #### Documentation Locations
 
+- Mermaid diagrams (spec + examples for design.md): Context7 `/mermaid-js/mermaid/v11_0_0`
+- Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
 - MUI MCP docs:
   - `Drawer` API (temporary/persistent variants + `ModalProps`)
     - https://llms.mui.com/material-ui/6.4.12/api/drawer.md
@@ -1702,6 +1704,15 @@ Rebuild the Agents page to match the Chat page layout exactly: left Drawer conve
 - Testing Library user events: https://testing-library.com/docs/user-event/intro/
 
 #### Subtasks
+
+0. [x] Update `design.md` if any UI flow diagrams reference Agents layout:
+   - Documentation to read:
+     - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Ensure any UI flow diagrams show the Drawer + transcript layout parity between Chat and Agents.
 
 1. [x] Read the current ChatPage layout and the current AgentsPage layout:
    - Documentation to read:
@@ -1907,6 +1918,15 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 - Markdown guide (basic syntax): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
+
+0. [x] Update `design.md` if any UI flow diagrams reference Agents layout:
+   - Documentation to read:
+     - Mermaid: Context7 `/mermaid-js/mermaid/v11_0_0`
+     - Mermaid syntax (official): https://mermaid.js.org/syntax/sequenceDiagram.html
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Ensure any UI flow diagrams show the Drawer + transcript layout parity between Chat and Agents.
 
 1. [x] Verify the story’s Acceptance Criteria line-by-line and note any gaps.
    - Documentation to read:

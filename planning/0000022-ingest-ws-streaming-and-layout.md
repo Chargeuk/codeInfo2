@@ -387,15 +387,18 @@ Create a dedicated client hook that connects to `/ws`, subscribes to ingest, and
      - `client/src/hooks/useIngestWs.ts`
    - Requirements:
      - On mount: open a WebSocket to `${VITE_API_URL}/ws` (same base rule as `useChatWs`).
-     - On open: send `{ protocolVersion: 'v1', requestId: <id>, type: 'subscribe_ingest' }`.
-     - On unmount: send `unsubscribe_ingest` and close the socket.
+      - On open: send `{ protocolVersion: 'v1', requestId: <id>, type: 'subscribe_ingest' }`.
+      - On unmount: send `unsubscribe_ingest` and close the socket.
      - Parse inbound JSON and support:
        - `ingest_snapshot` → set status (can be `null`).
        - `ingest_update` → set status (object).
-     - Track `connectionState` (`connecting` | `open` | `closed`).
-     - If WS closes or errors: expose an explicit error message suitable for UI display (no polling fallback).
-     - Ignore unknown inbound message types safely.
-     - Implement `seq` gating similar to `useChatWs` (ignore stale/out-of-order frames).
+      - Track `connectionState` (`connecting` | `open` | `closed`).
+      - Reconnect behavior (required to satisfy snapshot-on-resubscribe acceptance criteria):
+        - If the socket closes unexpectedly (not an intentional unmount), attempt to reconnect with a small backoff (reuse the approach from `useChatWs`, keeping it simple).
+        - After reconnect, automatically re-send `subscribe_ingest` and expect a fresh `ingest_snapshot`.
+      - If WS cannot be established initially or drops: expose an explicit error message suitable for UI display (no polling fallback). The UI may still attempt reconnection, but the error state must be visible while disconnected.
+      - Ignore unknown inbound message types safely.
+      - Implement `seq` gating similar to `useChatWs` (ignore stale/out-of-order frames).
 
 3. [ ] Add hook tests:
    - Files to add/edit:
@@ -405,6 +408,7 @@ Create a dedicated client hook that connects to `/ws`, subscribes to ingest, and
      - Test: receiving `ingest_snapshot` sets `status`.
      - Test: receiving `ingest_update` updates `status`.
      - Test: WS close transitions to `closed` and sets an error flag/message.
+     - Test: after an unexpected close, the hook reconnects and re-sends `subscribe_ingest`.
      - Test: out-of-order `seq` is ignored.
 
 4. [ ] Run repo lint/format checks for this change:
@@ -449,12 +453,16 @@ Make `/ingest` use WebSockets only for ingest progress and status. Remove timer 
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
      - Replace `useIngestStatus(activeRunId)` with the new `useIngestWs()`.
+     - Remove the `activeRunId` state from the page. The ingest run ID must come from WebSocket `status.runId` (global stream; no runId filters).
      - The page must render ingest progress from WS only.
      - If WS is unavailable / closes, show a clear error UI state (and do not start polling).
      - “No last run summary” rule:
        - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
        - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
      - Keep cancel functionality working using the existing REST endpoint (`POST /ingest/cancel/:runId`) using the WS status’ `runId`.
+     - Preserve existing “refresh roots/models after completion” behavior:
+       - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
+       - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
 
 3. [ ] Remove polling usage so it cannot regress:
    - Files to edit/delete:
@@ -474,6 +482,7 @@ Make `/ingest` use WebSockets only for ingest progress and status. Remove timer 
        - Snapshot renders immediately when received.
        - No “Active ingest” UI is rendered when `status === null`.
        - WS closed/error shows the explicit error state.
+       - Terminal state triggers a roots/models refresh once and then the active run UI is hidden.
 
 5. [ ] Run repo lint/format checks for this change:
    - `npm run lint --workspaces`

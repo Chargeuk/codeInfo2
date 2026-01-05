@@ -2189,15 +2189,17 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-12. [ ] Update docs to match the new snapshot contract:
+12. [ ] Update docs to match the new snapshot contract **and add/adjust Mermaid flow diagrams when architecture/flow changes**:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams (spec + examples): Context7 `/mermaid-js/mermaid/v11_0_0`
    - Files to edit:
      - `design.md`
      - `README.md`
    - Required edits:
      - State that `/conversations/:id/turns` returns **full history + inflight** always.
      - Remove all references to pagination/cursors/nextCursor for turns snapshots.
+     - Add/update a Mermaid diagram in `design.md` that reflects the new full-snapshot flow (client refresh → server full history + inflight → client replace-only hydration).
 
 13. [ ] Update `projectStructure.md` for any test additions/removals **after all add/remove-file subtasks (4–11) are complete**:
    - Documentation to read (repeat even if already read):

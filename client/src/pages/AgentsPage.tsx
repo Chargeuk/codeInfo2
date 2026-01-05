@@ -50,16 +50,16 @@ import useChatStream, {
   type ChatMessage,
   type ToolCall,
 } from '../hooks/useChatStream';
+import useChatWs, {
+  type ChatWsServerEvent,
+  type ChatWsTranscriptEvent,
+} from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
-import useChatWs, {
-  type ChatWsServerEvent,
-  type ChatWsTranscriptEvent,
-} from '../hooks/useChatWs';
 
 export default function AgentsPage() {
   const theme = useTheme();
@@ -487,8 +487,6 @@ export default function AgentsPage() {
 
   const resetConversation = useCallback(() => {
     stop();
-    setStartPending(false);
-    setRunError(null);
     setStartPending(false);
     setRunError(null);
     resetTurns();

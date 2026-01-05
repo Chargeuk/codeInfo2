@@ -2092,6 +2092,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Ensures the server snapshot contract is full-history + inflight with no pagination.
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
+     - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 5. [ ] Server integration test: inflight-only snapshot (no persisted turns):
@@ -2105,6 +2106,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Covers the corner case where the snapshot is inflight-only.
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
+     - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 6. [ ] Server integration test: no inflight, full history (multi-turn):
@@ -2118,6 +2120,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Covers the happy path for full-history snapshots without inflight.
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
+     - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 7. [ ] Server integration test: inflight + persisted dedupe/order:
@@ -2131,6 +2134,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Covers the corner case for dedupe + ordering when inflight merges into full history.
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
+     - Cucumber guides: https://cucumber.io/docs/guides/
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
 8. [ ] Client unit test update: refresh always replaces with full snapshot:

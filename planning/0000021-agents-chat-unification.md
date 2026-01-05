@@ -1922,8 +1922,8 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
     - Description:
       - Ensure every new/removed file referenced in Tasks 1–8 is reflected in the tree.
 
-5. [ ] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
-6. [ ] Write a pull request summary comment covering all tasks and major changes.
+5. [x] Capture UI verification screenshots under `test-results/screenshots/` (see `planning/plan_format.md` naming convention).
+6. [x] Write a pull request summary comment covering all tasks and major changes.
 
 7. [x] Add a final client log marker so QA can confirm the unified Agents page is running:
    - Files to read:
@@ -1939,21 +1939,21 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check:
    - Verify every Acceptance Criteria item directly in the UI (Agents layout parity, transcript parity, sidebar live updates, stop/cancel behavior).
    - Regression pass: verify Chat page still behaves identically (sidebar, transcript rendering, tool/citation accordions, stop/cancel).
    - Capture any required screenshots in `test-results/screenshots/` per `planning/plan_format.md`.
    - Open `/logs` and search for these entries (copy/paste the message text):
      - `DEV-0000021[T9] agents.unification ready`
    - Confirm the entry appears when navigating to Agents (proves the unified AgentsPage build is running).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1963,3 +1963,38 @@ De-risk the story by doing a full end-to-end verification pass once all other ta
 - (T9.4) Verified `projectStructure.md` already reflects the new Agents/WS files and server tests added in Tasks 1–8; no tree updates required for Task 9.
 - (T9.7) Added final Agents-page mount log marker `DEV-0000021[T9] agents.unification ready` (once per page load) with `selectedAgentName` + `activeConversationId` context.
 - (T9.8) Ran `npm run lint --workspaces` (warnings only in untouched files) and `npm run format:check --workspaces` (clean).
+- (T9.test.1) `npm run build --workspace server` succeeded.
+- (T9.test.2) `npm run build --workspace client` succeeded.
+- (T9.test.3) `npm run test --workspace server` succeeded (node:test + Cucumber).
+- (T9.test.4) `npm run test --workspace client` succeeded (Jest).
+- (T9.test.5) `npm run e2e` succeeded (36 Playwright specs passed via `docker-compose.e2e.yml`).
+- (T9.test.6) `npm run compose:build` succeeded (clean Compose image build).
+- (T9.test.7) `npm run compose:up` succeeded (containers healthy).
+- (T9.test.8) Manual UI verification completed and screenshots captured: `test-results/screenshots/0000021-9-agents.png`, `test-results/screenshots/0000021-9-chat.png`, `test-results/screenshots/0000021-9-logs.png`. Log marker verified via `GET /logs?text=DEV-0000021[T9] agents.unification ready` on the e2e server (browser-in-container requires `host.docker.internal` API URLs).
+- (T9.test.9) `npm run compose:down` succeeded (also stopped the e2e stack after screenshots).
+- (T9.6) PR summary comment drafted (copy/paste):
+
+  ```
+  ## Story 0000021 – Agents chat unification
+
+  ### What changed
+  - Rebuilt the Agents page to reuse the Chat page layout patterns (Drawer sidebar, shared transcript column layout) so the two surfaces look and behave consistently.
+  - Switched Agents transcript streaming to the same WebSocket-driven transcript pipeline as Chat (shared WS event handling + inflight snapshots), removing bespoke inflight aggregation.
+  - Unified the server-side agent run orchestration with the existing chat orchestration so Agents runs emit the same WS transcript event types (`user_turn`, deltas, tool events, `turn_final`) and participate in the same cancellation semantics.
+  - Implemented Stop parity for Agents: client aborts the HTTP request and also sends `cancel_inflight` so the server publishes a `turn_final` of `stopped`.
+  - Ensured Agents history behaves like Chat: sidebar updates live via `conversation_upsert` / `conversation_delete` events, scoped to the selected agent (`agentName=<agent>`).
+
+  ### Key correctness/contract changes
+  - Agents runs now accept a client-supplied `conversationId` even if it does not exist yet, enabling the UI to subscribe to WS first then start the synchronous REST run.
+  - Route error mappings were made consistent between `/agents/:agentName/run` and `/agents/:agentName/commands/run` (stable HTTP/status payloads for archived, mismatch, codex unavailable, etc.).
+
+  ### Tests / verification
+  - Added/updated server unit + integration coverage around Agents WS streaming, cancellation, and router error mapping.
+  - Updated client tests around Agents transcript status chip + parity expectations.
+  - Ran full verification: server/client builds, server/client test suites, Playwright e2e suite, compose build/up/down, and manual UI smoke check with screenshots.
+  
+  ### Screenshots
+  - `test-results/screenshots/0000021-9-agents.png`
+  - `test-results/screenshots/0000021-9-chat.png`
+  - `test-results/screenshots/0000021-9-logs.png`
+  ```

@@ -987,6 +987,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 - WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms WebSocket event semantics for ingest status updates.
 - React `useEffect` docs: https://react.dev/reference/react/useEffect — validates hook cleanup for subscribe/unsubscribe.
+- Jest docs (Context7): `/websites/jestjs_io_next` — required reference for the Jest tests added in this task.
 
 #### Subtasks
 
@@ -1204,6 +1205,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 - WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms client WebSocket lifecycle used by the ingest page state.
 - React Router (routing semantics): Context7 `/remix-run/react-router/react-router_7.9.4` — aligns with the router setup used in the app.
+- Jest docs (Context7): `/websites/jestjs_io_next` — required reference for the Jest page/component tests added in this task.
 
 #### Subtasks
 
@@ -1396,6 +1398,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 #### Documentation Locations
 
 - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md — confirms `maxWidth={false}` behavior and `MuiContainer-maxWidthLg` class for full-width layout checks.
+- Jest docs (Context7): `/websites/jestjs_io_next` — required reference for the Jest layout regression test in this task.
 
 #### Subtasks
 

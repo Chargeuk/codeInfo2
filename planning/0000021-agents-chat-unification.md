@@ -2094,7 +2094,46 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Client unit test update: refresh always replaces with full snapshot:
+5. [ ] Server integration test: inflight-only snapshot (no persisted turns):
+   - Test type:
+     - node:test integration (server)
+   - Test location:
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - Description:
+     - Add a case where there are **zero DB turns** but an inflight run exists; assert `items` contains the inflight user + assistant turns and `inflight` is present.
+   - Purpose:
+     - Covers the corner case where the snapshot is inflight-only.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+6. [ ] Server integration test: no inflight, full history (multi-turn):
+   - Test type:
+     - node:test integration (server)
+   - Test location:
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - Description:
+     - Add a case with **multiple persisted turns** and **no inflight**; assert all turns are returned and `inflight` is omitted.
+   - Purpose:
+     - Covers the happy path for full-history snapshots without inflight.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+7. [ ] Server integration test: inflight + persisted dedupe/order:
+   - Test type:
+     - node:test integration (server)
+   - Test location:
+     - `server/src/test/integration/conversations.turns.test.ts`
+   - Description:
+     - Add a case where persisted turns overlap with inflight snapshot turns; assert no duplicates and newest-first ordering.
+   - Purpose:
+     - Covers the corner case for dedupe + ordering when inflight merges into full history.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+8. [ ] Client unit test update: refresh always replaces with full snapshot:
    - Test type:
      - Jest (client)
    - Test location:
@@ -2107,7 +2146,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-6. [ ] Client test update/removal: remove pagination “load older” behavior:
+9. [ ] Client test update/removal: remove pagination “load older” behavior:
    - Test type:
      - Jest + React Testing Library (client)
    - Test location:
@@ -2120,7 +2159,33 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Update docs to match the new snapshot contract:
+10. [ ] Client RTL test: navigate away/back during inflight retains full history:
+   - Test type:
+     - Jest + React Testing Library (client)
+   - Test location:
+     - `client/src/test/chatPage.stream.test.tsx` (or create `client/src/test/chatPage.inflightNavigate.test.tsx`)
+   - Description:
+     - Simulate an inflight run, unmount/remount the page (or trigger refresh), and assert that earlier persisted turns remain visible alongside the inflight message.
+   - Purpose:
+     - Covers the original bug: re-entry mid-stream must keep full history.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+11. [ ] Client unit test: turns fetch error does not clear transcript:
+   - Test type:
+     - Jest (client)
+   - Test location:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Description:
+     - Force a turns fetch error and assert the hook reports an error without wiping existing transcript state.
+   - Purpose:
+     - Covers the error case for snapshot refresh.
+   - Documentation to read (repeat even if already read):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+12. [ ] Update docs to match the new snapshot contract:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2130,7 +2195,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - State that `/conversations/:id/turns` returns **full history + inflight** always.
      - Remove all references to pagination/cursors/nextCursor for turns snapshots.
 
-8. [ ] Update `projectStructure.md` for any test additions/removals:
+13. [ ] Update `projectStructure.md` for any test additions/removals:
    - Documentation to read (repeat even if already read):
      - Markdown guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2139,7 +2204,7 @@ Eliminate partial snapshot behavior by making the turns snapshot API return the 
      - Add any new tests you create.
      - Remove any deleted pagination-related tests.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`:
    - Documentation to read (repeat even if already read):
      - Jest: Context7 `/jestjs/jest`
    - If either fails, rerun with:

@@ -209,6 +209,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 - `ws` DeepWiki: `websockets/ws` — corroborates noServer/handleUpgrade + heartbeat guidance used in the WS server lifecycle.
 - Node.js test runner (node:test): https://nodejs.org/api/test.html — matches the unit test runner used in server WS tests.
 - WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — clarifies client message shape expectations and WebSocket event semantics.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md sequence/flow diagrams updated in this task.
 
 #### Subtasks
 
@@ -415,6 +416,15 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
+9. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
+   - Documentation to read:
+     - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Requirements:
+     - Add a Mermaid sequence diagram for `subscribe_ingest` → `ingest_snapshot` (placeholder/null status) flow.
+     - Keep diagrams minimal and aligned with existing design.md style.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -442,6 +452,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 - `ws` (WebSocket server for Node, v8.18.3): Context7 `/websockets/ws/8_18_3` — ensures the subscribe handler changes stay aligned with ws server behavior.
 - `ws` DeepWiki: `websockets/ws` — validates noServer/handleUpgrade usage already present in the WS server.
 - Node.js test runner (node:test): https://nodejs.org/api/test.html — used for the unit test updates in this task.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md ingest status selection flow diagram in this task.
 
 #### Subtasks
 
@@ -556,6 +567,15 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
+10. [ ] Update `design.md` with ingest active-status selection flow:
+    - Documentation to read:
+      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+    - Files to edit:
+      - `design.md`
+    - Requirements:
+      - Add a Mermaid flowchart or sequence showing lock owner + jobs map fallback logic for `getActiveStatus()`.
+      - Note the “no last-run summary” rule when all runs are terminal.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -583,6 +603,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 - `ws` (WebSocket server for Node, v8.18.3): Context7 `/websockets/ws/8_18_3` — provides the broadcast/send patterns and heartbeat notes that match this task’s WS updates.
 - `ws` DeepWiki: `websockets/ws` — confirms recommended ping/pong heartbeat and server patterns used in our WS server.
 - Node.js test runner (node:test): https://nodejs.org/api/test.html — used for the new WS unit test coverage.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md ingest update broadcast flow diagram in this task.
 
 #### Subtasks
 
@@ -715,6 +736,15 @@ This task completes the server-side realtime path for ingest by wiring status up
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
+10. [ ] Update `design.md` with ingest update broadcast flow:
+    - Documentation to read:
+      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+    - Files to edit:
+      - `design.md`
+    - Requirements:
+      - Add a Mermaid sequence showing `setStatusAndPublish(...)` → `broadcastIngestUpdate` → subscribed sockets.
+      - Call out per-socket `seq` behavior in diagram notes.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -743,6 +773,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 - React `useEffect` docs: https://react.dev/reference/react/useEffect — validates subscribe/unsubscribe cleanup behavior for hooks.
 - React Router v7.9.4: Context7 `/remix-run/react-router/react-router_7.9.4` — aligns with the routing APIs used in the client.
 - Jest timer mocks: Context7 `/websites/jestjs_io_next` (Timer Mocks) + https://jestjs.io/docs/timer-mocks — used for fake timer patterns in `useChatWs` tests.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md client WS subscription flow in this task.
 
 #### Subtasks
 
@@ -961,6 +992,15 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
+10. [ ] Update `design.md` with client ingest WS subscription flow:
+    - Documentation to read:
+      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+    - Files to edit:
+      - `design.md`
+    - Requirements:
+      - Add a Mermaid sequence showing `useChatWs` connect → `subscribe_ingest` → reconnect resubscribe behavior.
+      - Note that ingest events bypass chat seq gating.
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -988,6 +1028,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 - WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms WebSocket event semantics for ingest status updates.
 - React `useEffect` docs: https://react.dev/reference/react/useEffect — validates hook cleanup for subscribe/unsubscribe.
 - Jest docs (Context7): `/websites/jestjs_io_next` — required reference for the Jest tests added in this task.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md ingest hook flow diagram in this task.
 
 #### Subtasks
 
@@ -1181,6 +1222,15 @@ This task does not change the Ingest page layout yet; it only changes how status
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
+14. [ ] Update `design.md` with ingest status hook flow:
+    - Documentation to read:
+      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+    - Files to edit:
+      - `design.md`
+    - Requirements:
+      - Add a Mermaid sequence showing `useIngestStatus` subscribing and handling `ingest_snapshot` / `ingest_update` events.
+      - Note that polling was removed and WS is the only source of status.
+
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -1206,6 +1256,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 - WebSocket browser API (MDN): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API — confirms client WebSocket lifecycle used by the ingest page state.
 - React Router (routing semantics): Context7 `/remix-run/react-router/react-router_7.9.4` — aligns with the router setup used in the app.
 - Jest docs (Context7): `/websites/jestjs_io_next` — required reference for the Jest page/component tests added in this task.
+- Mermaid syntax (Context7): `/mermaid-js/mermaid` — required for the design.md ingest page WS UI flow diagram in this task.
 
 #### Subtasks
 
@@ -1374,6 +1425,15 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
+
+14. [ ] Update `design.md` with ingest page WS-only UI flow:
+    - Documentation to read:
+      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
+    - Files to edit:
+      - `design.md`
+    - Requirements:
+      - Add a Mermaid diagram showing WS connection states (connecting/open/closed) and UI rendering rules (no last-run summary).
+      - Call out the refresh-on-terminal behavior in the diagram notes.
 
 #### Testing
 

@@ -712,11 +712,11 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - React hooks `useEffect`: https://react.dev/reference/react/useEffect
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
-  - Requirements:
-    - Reuse the existing `useChatWs` connection/reconnect/pending queue; do **not** create a new WS hook or a second socket.
+   - Requirements:
+     - Reuse the existing `useChatWs` connection/reconnect/pending queue; do **not** create a new WS hook or a second socket.
      - Add new outbound helpers:
-        - `subscribeIngest(): void`
-        - `unsubscribeIngest(): void`
+       - `subscribeIngest(): void`
+       - `unsubscribeIngest(): void`
      - Track ingest subscription state in a ref (mirrors sidebar subscription handling).
      - On reconnect (socket re-open), if ingest is subscribed, automatically re-send `subscribe_ingest`.
 
@@ -1001,7 +1001,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
      - `client/src/test/ingestStatus.progress.test.tsx`
-  - Requirements:
+   - Requirements:
      - Remove polling assertions and fetch mocking.
      - Replace polling with WS event injection using `client/src/test/support/mockWebSocket.ts`.
      - Ensure cancel still calls the REST endpoint with the current `status.runId`.
@@ -1162,12 +1162,12 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Files to edit/add:
      - Prefer updating the existing IngestPage coverage inside `client/src/test/ingestStatus.test.tsx`.
    - Requirements:
-    - Add tests that assert (focus on acceptance criteria):
-      - Snapshot renders immediately when received.
-      - No “Active ingest” UI is rendered when `status === null`.
-      - `connectionState === 'closed'` shows the explicit error state.
-      - `connectionState === 'connecting'` shows a non-error connecting state.
-    - Add coverage that terminal state triggers a roots/models refresh once and hides the active run UI.
+     - Add tests that assert (focus on acceptance criteria):
+       - Snapshot renders immediately when received.
+       - No “Active ingest” UI is rendered when `status === null`.
+       - `connectionState === 'closed'` shows the explicit error state.
+       - `connectionState === 'connecting'` shows a non-error connecting state.
+     - Add coverage that terminal state triggers a roots/models refresh once and hides the active run UI.
 
    - Concrete test guidance (high-level):
      - Use the WS mock to inject `ingest_snapshot` / `ingest_update` into the mounted page.

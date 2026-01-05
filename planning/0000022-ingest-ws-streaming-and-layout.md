@@ -831,14 +831,18 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Remove polling/timers and any fetches to `/ingest/status/:runId`.
      - Remove the `runId` parameter from the hook signature.
-     - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot` / `ingest_update`.
-       - Only handle these two event types; ignore everything else.
-     - Subscribe to ingest only while the hook is mounted:
-       - Call `subscribeIngest()` in a `useEffect(..., [])`.
-       - Call `unsubscribeIngest()` in the cleanup function.
-     - Expose a minimal, predictable API for the page:
-       - `status: ChatWsIngestStatus | null`
-       - `connectionState: ChatWsConnectionState` (from `useChatWs`)
+    - Use `useChatWs` with an `onEvent` handler to capture `ingest_snapshot` / `ingest_update`.
+      - Only handle these two event types; ignore everything else.
+    - Subscribe to ingest only while the hook is mounted:
+      - Call `subscribeIngest()` in a `useEffect(..., [])`.
+      - Call `unsubscribeIngest()` in the cleanup function.
+    - Expose a minimal, predictable API for the page:
+      - `status: ChatWsIngestStatus | null`
+      - `connectionState: ChatWsConnectionState` (from `useChatWs`)
+      - Preserve existing cancel/error affordances for the UI:
+        - Keep `isCancelling` and `cancel()` (rest cancel endpoint).
+        - Keep `error` for cancel failures only (no polling error state).
+        - Derive `isLoading` from `connectionState === 'connecting'` so ActiveRunCard can disable the cancel button while WS connects.
 
    - Must-not-miss details (repeat from acceptance criteria):
      - WS-only: there is **no polling fallback**.
@@ -957,16 +961,22 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - `client/src/pages/IngestPage.tsx`
    - Requirements:
      - Remove the `activeRunId` state from the page. The ingest run ID must come from WebSocket `status.runId` (global stream; no runId filters).
-     - The page must render ingest progress from WS only.
-     - If WS is unavailable (connection state is `closed`), show a clear error UI state (and do not start polling).
-       - While the connection is `connecting`, show a non-error “Connecting…” state.
-     - “No last run summary” rule:
-       - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
-       - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
-     - Keep cancel functionality working using the existing REST endpoint (`POST /ingest/cancel/:runId`) using the WS status’ `runId`.
-     - Preserve existing “refresh roots/models after completion” behavior:
-       - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
-       - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
+      - The page must render ingest progress from WS only.
+      - If WS is unavailable (connection state is `closed`), show a clear error UI state (and do not start polling).
+        - While the connection is `connecting`, show a non-error “Connecting…” state.
+      - Preserve disabled-state behavior:
+        - Disable `IngestForm` + `RootsTable` actions while an active run is in progress, derived from the WS status (non-terminal states only).
+      - “No last run summary” rule:
+        - When there is no active run (`status === null`), hide/omit the “Active ingest / Active run” card entirely.
+        - When a terminal state is received (`completed`, `cancelled`, `error`, `skipped`), immediately treat the run as inactive for rendering (do not keep a last-run summary panel).
+      - Keep cancel functionality working using the existing REST endpoint (`POST /ingest/cancel/:runId`) using the WS status’ `runId`.
+      - Preserve existing “refresh roots/models after completion” behavior:
+        - When a terminal state is received, call `refetchRoots()` and `refresh()` (models) once.
+        - After scheduling refresh, clear/hide the active run UI (consistent with “no last run summary”).
+      - Because `activeRunId` is removed, keep component integration compiling by either:
+        - Passing a no-op `onStarted` / `onRunStarted` callback, **or**
+        - Making those callbacks optional if you adjust the component prop types.
+        - Do **not** re-introduce local runId tracking in the page.
      - Ensure page-scoped updates:
        - Only subscribe while `/ingest` is mounted (this should naturally happen if only `IngestPage` mounts `useIngestStatus()`).
 

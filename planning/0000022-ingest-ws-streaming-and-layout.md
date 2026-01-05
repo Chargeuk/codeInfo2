@@ -550,7 +550,19 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Seed two runs (one terminal, one non-terminal) and control lock ownership with `acquire(...)`.
 
-8. [ ] Unit test: `getActiveStatus()` returns null when only terminal runs exist:
+8. [ ] Unit test: `getActiveStatus()` falls back when lock owner run is missing:
+   - Documentation to read:
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Test type:
+     - node:test unit test (server)
+   - Test location:
+     - `server/src/test/unit/ingest-status.test.ts`
+   - Description & purpose:
+     - If `currentOwner()` points to a runId not present in the jobs map, `getActiveStatus()` should return the first active run found in the map.
+   - Requirements:
+     - Acquire a lock for a non-existent runId, seed a separate active run, and verify the active run is returned.
+
+9. [ ] Unit test: `getActiveStatus()` returns null when only terminal runs exist:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -562,13 +574,13 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Seed terminal statuses only; verify `null` result.
 
-9. [ ] Run repo lint/format checks:
+10. [ ] Run repo lint/format checks:
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
-10. [ ] Update `design.md` with ingest active-status selection flow:
+11. [ ] Update `design.md` with ingest active-status selection flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -978,7 +990,21 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Test constraints:
      - Do not add ingest-specific seq-gating tests (ingest events bypass chat seq logic).
 
-8. [ ] Documentation update (task-local):
+8. [ ] Client hook test: ingest events reach `onEvent` without conversationId:
+   - Documentation to read:
+     - Jest timer mocks: https://jestjs.io/docs/timer-mocks
+   - Test type:
+     - Jest hook/unit test (client)
+   - Test location:
+     - `client/src/test/useChatWs.test.ts`
+   - Description & purpose:
+     - Ensure `ingest_snapshot` / `ingest_update` events (no `conversationId`) still invoke the `onEvent` callback.
+   - Requirements:
+     - Provide an `onEvent` mock when rendering the hook.
+     - Inject a fake WS message (e.g. `ingest_snapshot`) via `lastSocket()._receive(...)`.
+     - Assert the handler receives the exact event object.
+
+9. [ ] Documentation update (task-local):
    - Files to read:
      - `planning/plan_format.md`
    - Files to edit:
@@ -987,13 +1013,13 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-9. [ ] Run repo lint/format checks:
+10. [ ] Run repo lint/format checks:
    - Files to read:
      - `package.json` (root linting/formatting commands)
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
-10. [ ] Update `design.md` with client ingest WS subscription flow:
+11. [ ] Update `design.md` with client ingest WS subscription flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:

@@ -556,23 +556,25 @@ sequenceDiagram
 
 - The client may generate a `conversationId` up front so it can subscribe to WebSocket events before starting the run.
 - The server must accept a client-supplied `conversationId` even when it does not exist yet, and create the conversation on first use (do not require pre-existence).
-- This is required because `POST /agents/:agentName/run` is synchronous: the response only returns once the run completes, but the transcript must stream over WebSocket while the run is in progress.
+- This is required because `POST /agents/:agentName/run` now returns `202` immediately and the run continues in the background; the transcript arrives only over WebSocket while the run is in progress.
 
 ```mermaid
 sequenceDiagram
   participant UI as Agents UI
   participant WS as WebSocket server
   participant API as REST route\nPOST /agents/:agentName/run
-  participant Svc as Agents service\nrunAgentInstruction()
+  participant Svc as Agents service\nstartAgentInstruction()
   participant Store as Conversation store
+  participant Bg as Background task\nrunAgentInstructionUnlocked()
 
   UI->>WS: connect
   UI->>WS: subscribe_conversation(conversationId)
   UI->>API: POST { conversationId, instruction, working_folder? }
-  API->>Svc: runAgentInstruction(...)
+  API->>Svc: startAgentInstruction(...)
   Svc->>Store: create Conversation if missing
-  Note over Svc,WS: stream transcript events over WS\n(user_turn, inflight_snapshot, assistant_delta, turn_final)
-  API-->>UI: 200 { agentName, conversationId, modelId, segments }
+  API-->>UI: 202 { status: started, conversationId, inflightId, modelId }
+  Note over Bg,WS: stream transcript events over WS\n(user_turn, inflight_snapshot, assistant_delta, tool_event, turn_final)
+  Svc->>Bg: runAgentInstructionUnlocked(...) (fire-and-forget)
 ```
 
 ### Agents run (WS start events)
@@ -582,21 +584,27 @@ sequenceDiagram
   participant UI as Agents UI
   participant WS as WebSocket server
   participant API as REST route\nPOST /agents/:agentName/run
-  participant Svc as Agents service\nrunAgentInstructionUnlocked()
+  participant Svc as Agents service\nstartAgentInstruction()
+  participant Bg as Background task\nrunAgentInstructionUnlocked()
   participant Inflight as InflightRegistry
   participant Bridge as chatStreamBridge
   participant Chat as ChatInterface\n(provider=codex)
 
   UI->>WS: subscribe_conversation(conversationId)
-  UI->>API: POST { conversationId, instruction, inflightId? }
-  API->>Svc: runAgentInstructionUnlocked(...)
-  Svc->>Inflight: createInflight(provider/model/source/userTurn)
-  Svc->>WS: publish user_turn (createdAt from inflight)
-  Svc->>Bridge: attachChatStreamBridge(conversationId, inflightId)
-  Bridge->>WS: publish inflight_snapshot
-  Svc->>Chat: chat.run(instruction, flags.inflightId)
-  Chat-->>Bridge: assistant_delta / tool events / final
-  Bridge->>WS: publish assistant_delta ... turn_final
+  UI->>API: POST { conversationId, instruction, working_folder? }
+  API->>Svc: startAgentInstruction(...)
+  API-->>UI: 202 { status: started, conversationId, inflightId, modelId }
+  par Background execution
+    Svc->>Bg: runAgentInstructionUnlocked(...)
+    Bg->>Inflight: createInflight(provider/model/source/userTurn)
+    Bg->>WS: publish user_turn (createdAt from inflight)
+    Bg->>Bridge: attachChatStreamBridge(conversationId, inflightId)
+    Bridge->>WS: publish inflight_snapshot
+    Bg->>Chat: chat.run(instruction, signal=inflight abort)
+    Chat-->>Bridge: assistant_delta / tool events / final
+    Bridge->>WS: publish assistant_delta ... turn_final
+  end
+  UI->>WS: cancel_inflight(conversationId, inflightId) (Stop)
 ```
 
 ### POST /agents/:agentName/run (REST)
@@ -612,12 +620,12 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Browser as Browser UI
-  participant Route as Express route\\nPOST /agents/:agentName/run
-  participant Svc as Agents service\\nrunAgentInstruction()
-  participant Codex as ChatInterfaceCodex
+  participant Route as Express route\nPOST /agents/:agentName/run
+  participant Svc as Agents service\nstartAgentInstruction()
+  participant Bg as Background task\nrunAgentInstructionUnlocked()
 
   Browser->>Route: POST { instruction, conversationId?, working_folder? }
-  Route->>Svc: runAgentInstruction(... working_folder?)
+  Route->>Svc: startAgentInstruction(... working_folder?)
   Svc->>Svc: resolveWorkingFolderWorkingDirectory()
   alt working_folder invalid
     Svc-->>Route: throw WORKING_FOLDER_INVALID
@@ -626,13 +634,35 @@ sequenceDiagram
     Svc-->>Route: throw WORKING_FOLDER_NOT_FOUND
     Route-->>Browser: 400 { error: invalid_request, code: WORKING_FOLDER_NOT_FOUND }
   else resolved
-    Svc->>Codex: runStreamed(... workingDirectoryOverride)
-    Codex-->>Svc: streamed events
-    Svc-->>Route: { agentName, conversationId, modelId, segments }
-    Route-->>Browser: 200 JSON
+    Route-->>Browser: 202 { status: started, conversationId, inflightId, modelId }
+    Svc->>Bg: runAgentInstructionUnlocked(...) (fire-and-forget)
+    Note over Bg: run continues even if Browser disconnects
   end
 ```
 
+
+### Agents command run (async)
+
+- `POST /agents/:agentName/commands/run` returns `202` immediately and continues executing command steps in the background.
+- Each step is executed as an agent instruction with `command` metadata (`stepIndex` / `totalSteps`) so WS transcript events stay ordered.
+- `cancel_inflight` is the only cancellation path; for command runs it aborts the current inflight step and also stops remaining steps.
+
+```mermaid
+sequenceDiagram
+  participant UI as Agents UI
+  participant WS as WebSocket server
+  participant API as REST route\nPOST /agents/:agentName/commands/run
+  participant Svc as Agents service\nstartAgentCommand()
+  participant Runner as CommandRunner
+
+  UI->>WS: subscribe_conversation(conversationId)
+  UI->>API: POST { conversationId, commandName, working_folder? }
+  API->>Svc: startAgentCommand(...)
+  API-->>UI: 202 { status: started, conversationId, modelId }
+  Note over Runner: executes steps 1..N (even if UI disconnects)
+  UI->>WS: cancel_inflight(conversationId, inflightId)
+  Note over Runner: aborts current step + stops remaining steps
+```
 ### Agent working_folder overrides
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.

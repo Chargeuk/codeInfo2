@@ -159,10 +159,11 @@ export async function runAgentInstruction(params: {
   conversationId?: string;
   signal?: AbortSignal;
 }): Promise<{
+  status: 'started';
   agentName: string;
   conversationId: string;
+  inflightId: string;
   modelId: string;
-  segments: unknown[];
 }> {
   const res = await fetch(
     new URL(
@@ -191,15 +192,22 @@ export async function runAgentInstruction(params: {
     );
   }
   const data = (await res.json()) as Record<string, unknown>;
+  const status = typeof data.status === 'string' ? data.status : '';
   const agentName = typeof data.agentName === 'string' ? data.agentName : '';
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
+  const inflightId = typeof data.inflightId === 'string' ? data.inflightId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
-  const segments = Array.isArray(data.segments) ? data.segments : [];
-  if (!agentName || !conversationId || !modelId) {
+  if (
+    status !== 'started' ||
+    !agentName ||
+    !conversationId ||
+    !inflightId ||
+    !modelId
+  ) {
     throw new Error('Invalid agent run response');
   }
-  return { agentName, conversationId, modelId, segments };
+  return { status: 'started', agentName, conversationId, inflightId, modelId };
 }
 
 export async function runAgentCommand(params: {
@@ -209,6 +217,7 @@ export async function runAgentCommand(params: {
   working_folder?: string;
   signal?: AbortSignal;
 }): Promise<{
+  status: 'started';
   agentName: string;
   commandName: string;
   conversationId: string;
@@ -243,15 +252,22 @@ export async function runAgentCommand(params: {
   }
 
   const data = (await res.json()) as Record<string, unknown>;
+  const status = typeof data.status === 'string' ? data.status : '';
   const agentName = typeof data.agentName === 'string' ? data.agentName : '';
   const commandName =
     typeof data.commandName === 'string' ? data.commandName : '';
   const conversationId =
     typeof data.conversationId === 'string' ? data.conversationId : '';
   const modelId = typeof data.modelId === 'string' ? data.modelId : '';
-  if (!agentName || !commandName || !conversationId || !modelId) {
+  if (
+    status !== 'started' ||
+    !agentName ||
+    !commandName ||
+    !conversationId ||
+    !modelId
+  ) {
     throw new Error('Invalid agent command run response');
   }
 
-  return { agentName, commandName, conversationId, modelId };
+  return { status: 'started', agentName, commandName, conversationId, modelId };
 }

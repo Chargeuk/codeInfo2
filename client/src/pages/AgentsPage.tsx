@@ -50,16 +50,16 @@ import useChatStream, {
   type ChatMessage,
   type ToolCall,
 } from '../hooks/useChatStream';
+import useChatWs, {
+  type ChatWsServerEvent,
+  type ChatWsTranscriptEvent,
+} from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
-import useChatWs, {
-  type ChatWsServerEvent,
-  type ChatWsTranscriptEvent,
-} from '../hooks/useChatWs';
 
 export default function AgentsPage() {
   const theme = useTheme();
@@ -97,6 +97,9 @@ export default function AgentsPage() {
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
   const {
     messages,
+    status,
+    isStreaming,
+    stop,
     setConversation,
     hydrateHistory,
     hydrateInflightSnapshot,
@@ -114,6 +117,9 @@ export default function AgentsPage() {
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
 
+  const [startPending, setStartPending] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
@@ -121,9 +127,6 @@ export default function AgentsPage() {
   );
 
   const citationsReadyLoggedRef = useRef<string | null>(null);
-
-  const runControllerRef = useRef<AbortController | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const chatColumnRef = useRef<HTMLDivElement | null>(null);
@@ -459,22 +462,9 @@ export default function AgentsPage() {
     unsubscribeConversation,
   ]);
 
-  const stop = useCallback(() => {
-    runControllerRef.current?.abort();
-    runControllerRef.current = null;
-    setIsRunning(false);
-  }, []);
-
   const handleStopClick = useCallback(() => {
     const inflightId = getInflightId();
     log('info', 'DEV-0000021[T6] agents.stop clicked', {
-      conversationId: activeConversationId,
-      inflightId,
-    });
-
-    stop();
-
-    log('info', 'DEV-0000021[T6] agents.http abort signaled', {
       conversationId: activeConversationId,
       inflightId,
     });
@@ -487,6 +477,7 @@ export default function AgentsPage() {
       });
     }
 
+    stop({ showStatusBubble: true });
     setInput(lastSentRef.current);
     inputRef.current?.focus();
   }, [activeConversationId, cancelInflight, getInflightId, log, stop]);
@@ -496,6 +487,8 @@ export default function AgentsPage() {
 
   const resetConversation = useCallback(() => {
     stop();
+    setStartPending(false);
+    setRunError(null);
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
@@ -650,71 +643,21 @@ export default function AgentsPage() {
     setToolErrorOpen({});
   };
 
-  const buildAgentAssistantMessage = (params: {
-    answerText: string;
-    thinkingText?: string;
-    vectorSummary?: unknown;
-  }): ChatMessage => {
-    const id = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
-    const segments: NonNullable<ChatMessage['segments']> = [];
-    if (params.vectorSummary !== undefined) {
-      const toolId = `vector-summary-${id}`;
-      const tool: ToolCall = {
-        id: toolId,
-        name: 'vector_summary',
-        status: 'done',
-        payload: params.vectorSummary,
-      };
-      segments.push({ id: `${id}-${toolId}`, kind: 'tool', tool });
-    }
-    segments.push({
-      id: `${id}-text`,
-      kind: 'text',
-      content: params.answerText,
-    });
-    return {
-      id,
-      role: 'assistant',
-      content: params.answerText,
-      think: params.thinkingText,
-      streamStatus: 'complete',
-      segments,
-      createdAt: new Date().toISOString(),
-    };
-  };
-
-  const extractSegments = (segments: unknown[]) => {
-    let thinkingText: string | undefined;
-    let answerText = '';
-    let vectorSummary: unknown | undefined;
-
-    for (const seg of segments) {
-      if (!seg || typeof seg !== 'object') continue;
-      const record = seg as Record<string, unknown>;
-      const type = record.type;
-      if (type === 'thinking' && typeof record.text === 'string') {
-        thinkingText = record.text;
-      } else if (type === 'answer' && typeof record.text === 'string') {
-        answerText = record.text;
-      } else if (type === 'vector_summary') {
-        vectorSummary = seg;
-      }
-    }
-
-    return { thinkingText, answerText, vectorSummary };
-  };
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    setRunError(null);
     const trimmed = input.trim();
-    if (!trimmed || !selectedAgentName || isRunning) return;
+    if (!trimmed || !selectedAgentName || startPending) return;
 
-    const wsAvailableForThisRun = wsTranscriptReady;
+    if (persistenceUnavailable || !wsTranscriptReady) {
+      setRunError(
+        'Realtime connection unavailable — Agents runs require WebSocket streaming.',
+      );
+      return;
+    }
 
     stop();
-    const controller = new AbortController();
-    runControllerRef.current = controller;
-    setIsRunning(true);
+    setStartPending(true);
     lastSentRef.current = trimmed;
     setInput('');
 
@@ -733,25 +676,13 @@ export default function AgentsPage() {
       setAgentModelId('unknown');
     }
 
-    let nextHistory: ChatMessage[] = isNewConversation ? [] : messages;
-    if (!wsAvailableForThisRun) {
-      const userMessage: ChatMessage = {
-        id: makeClientConversationId(),
-        role: 'user',
-        content: trimmed,
-        createdAt: new Date().toISOString(),
-      };
-      nextHistory = [...nextHistory, userMessage];
-      hydrateHistory(nextConversationId, nextHistory, 'replace');
-    } else {
-      log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
-        conversationId: nextConversationId,
-        inflightId: getInflightId(),
-        modelId: agentModelId,
-        wsConnectionState,
-      });
-      subscribeConversation(nextConversationId);
-    }
+    log('info', 'DEV-0000021[T4] agents.ws subscribe_conversation', {
+      conversationId: nextConversationId,
+      inflightId: getInflightId(),
+      modelId: agentModelId,
+      wsConnectionState,
+    });
+    subscribeConversation(nextConversationId);
 
     try {
       const result = await runAgentInstruction({
@@ -759,30 +690,13 @@ export default function AgentsPage() {
         instruction: trimmed,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
-        signal: controller.signal,
       });
       setActiveConversationId(result.conversationId);
       if (result.modelId) {
         setAgentModelId(result.modelId);
       }
-
-      if (!wsAvailableForThisRun) {
-        const extracted = extractSegments(result.segments);
-        const assistantMessage = buildAgentAssistantMessage({
-          answerText: extracted.answerText || '',
-          thinkingText: extracted.thinkingText,
-          vectorSummary: extracted.vectorSummary,
-        });
-        nextHistory = [...nextHistory, assistantMessage];
-        hydrateHistory(result.conversationId, nextHistory, 'replace');
-      }
       void refreshConversations();
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
-        setInput(lastSentRef.current);
-        return;
-      }
-
       if (
         err instanceof AgentApiError &&
         err.status === 409 &&
@@ -799,9 +713,10 @@ export default function AgentsPage() {
         };
         hydrateHistory(
           nextConversationId,
-          [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+          [...messages, errorMessage],
           'replace',
         );
+        setRunError(errorMessage.content);
         return;
       }
       const message =
@@ -816,22 +731,20 @@ export default function AgentsPage() {
       };
       hydrateHistory(
         nextConversationId,
-        [...(wsAvailableForThisRun ? messages : nextHistory), errorMessage],
+        [...messages, errorMessage],
         'replace',
       );
+      setRunError(message);
     } finally {
-      if (runControllerRef.current === controller) {
-        runControllerRef.current = null;
-      }
-      setIsRunning(false);
+      setStartPending(false);
     }
   };
-
   const handleExecuteCommand = useCallback(async () => {
+    setRunError(null);
     if (
       !selectedAgentName ||
       !selectedCommandName ||
-      isRunning ||
+      startPending ||
       persistenceUnavailable ||
       !wsTranscriptReady
     ) {
@@ -845,9 +758,7 @@ export default function AgentsPage() {
     const isNewConversation = nextConversationId !== activeConversationId;
 
     stop();
-    const controller = new AbortController();
-    runControllerRef.current = controller;
-    setIsRunning(true);
+    setStartPending(true);
 
     try {
       if (isNewConversation) {
@@ -872,7 +783,6 @@ export default function AgentsPage() {
         commandName: selectedCommandName,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
-        signal: controller.signal,
       });
 
       if (result.modelId) {
@@ -883,10 +793,6 @@ export default function AgentsPage() {
       setActiveConversationId(result.conversationId);
       lastHydratedRef.current = null;
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
-        return;
-      }
-
       if (
         err instanceof AgentApiError &&
         err.status === 409 &&
@@ -906,6 +812,7 @@ export default function AgentsPage() {
           [...messages, errorMessage],
           'replace',
         );
+        setRunError(errorMessage.content);
         return;
       }
 
@@ -923,41 +830,44 @@ export default function AgentsPage() {
         [...messages, errorMessage],
         'replace',
       );
+      setRunError(message);
     } finally {
-      if (runControllerRef.current === controller) {
-        runControllerRef.current = null;
-      }
-      setIsRunning(false);
+      setStartPending(false);
     }
   }, [
     activeConversationId,
-    isRunning,
+    agentModelId,
+    getInflightId,
+    hydrateHistory,
+    log,
+    messages,
     persistenceUnavailable,
     refreshConversations,
     selectedAgentName,
     selectedCommandName,
     setConversation,
-    log,
-    messages,
+    startPending,
+    stop,
+    subscribeConversation,
     wsConnectionState,
     wsTranscriptReady,
-    subscribeConversation,
-    getInflightId,
-    agentModelId,
-    hydrateHistory,
-    stop,
     workingFolder,
   ]);
 
+  const isSending = startPending || isStreaming || status === 'sending';
+
   const controlsDisabled =
-    agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
+    agentsLoading ||
+    !!agentsError ||
+    !selectedAgentName ||
+    persistenceLoading ||
+    isSending;
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
 
   const agentDescription = selectedAgent?.description?.trim();
 
-  const showStop = isRunning;
-
+  const showStop = isSending;
   const renderParamsAccordion = (params: unknown, accordionId: string) => (
     <Accordion
       defaultExpanded={false}
@@ -1315,6 +1225,19 @@ export default function AgentsPage() {
           </Alert>
         )}
 
+        {!persistenceUnavailable && !wsTranscriptReady && (
+          <Alert severity="warning" data-testid="agents-ws-banner">
+            Realtime connection unavailable — Agents runs require an open
+            WebSocket connection.
+          </Alert>
+        )}
+
+        {runError && (
+          <Alert severity="error" data-testid="agents-run-error">
+            {runError}
+          </Alert>
+        )}
+
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
@@ -1497,7 +1420,7 @@ export default function AgentsPage() {
                     size="small"
                     disabled={
                       controlsDisabled ||
-                      isRunning ||
+                      isSending ||
                       selectedAgent?.disabled ||
                       commandsLoading
                     }
@@ -1554,7 +1477,7 @@ export default function AgentsPage() {
                       variant="contained"
                       disabled={
                         !selectedCommandName ||
-                        isRunning ||
+                        isSending ||
                         persistenceUnavailable ||
                         !wsTranscriptReady ||
                         controlsDisabled ||
@@ -1615,7 +1538,10 @@ export default function AgentsPage() {
                     value={workingFolder}
                     onChange={(event) => setWorkingFolder(event.target.value)}
                     disabled={
-                      controlsDisabled || isRunning || selectedAgent?.disabled
+                      controlsDisabled ||
+                      isSending ||
+                      !wsTranscriptReady ||
+                      selectedAgent?.disabled
                     }
                     inputProps={{ 'data-testid': 'agent-working-folder' }}
                   />
@@ -1630,7 +1556,10 @@ export default function AgentsPage() {
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     disabled={
-                      controlsDisabled || isRunning || selectedAgent?.disabled
+                      controlsDisabled ||
+                      isSending ||
+                      !wsTranscriptReady ||
+                      selectedAgent?.disabled
                     }
                     inputProps={{ 'data-testid': 'agent-input' }}
                   />
@@ -1641,7 +1570,8 @@ export default function AgentsPage() {
                       variant="contained"
                       disabled={
                         controlsDisabled ||
-                        isRunning ||
+                        isSending ||
+                        !wsTranscriptReady ||
                         !selectedAgentName ||
                         !input.trim() ||
                         Boolean(selectedAgent?.disabled)

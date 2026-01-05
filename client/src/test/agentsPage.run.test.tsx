@@ -71,15 +71,16 @@ describe('Agents page - run', () => {
           }
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: 202,
             json: async () => ({
+              status: 'started',
               agentName: 'coding_agent',
               conversationId:
                 typeof runBodies.at(-1)?.conversationId === 'string'
                   ? runBodies.at(-1)?.conversationId
                   : 'c1',
+              inflightId: 'start-i1',
               modelId: 'gpt-5.1-codex-max',
-              segments: [{ type: 'answer', text: 'SEGMENT_SHOULD_NOT_RENDER' }],
             }),
           } as Response);
         }

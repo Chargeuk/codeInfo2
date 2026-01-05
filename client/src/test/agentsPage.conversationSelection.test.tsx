@@ -11,6 +11,9 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as { __wsMock?: { reset: () => void } }
+  ).__wsMock?.reset();
 });
 
 const { default: App } = await import('../App');
@@ -79,12 +82,13 @@ describe('Agents page - conversation selection', () => {
           }
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: 202,
             json: async () => ({
+              status: 'started',
               agentName: 'coding_agent',
               conversationId: 'c1',
+              inflightId: 'i1',
               modelId: 'gpt-5.1-codex-max',
-              segments: [{ type: 'answer', text: 'ok' }],
             }),
           } as Response);
         }
@@ -99,6 +103,15 @@ describe('Agents page - conversation selection', () => {
 
     const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
     render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
 
     const row = await screen.findByTestId('conversation-row');
     await act(async () => {

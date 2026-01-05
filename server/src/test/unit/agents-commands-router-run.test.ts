@@ -7,7 +7,7 @@ import request from 'supertest';
 import { createAgentsCommandsRouter } from '../../routes/agentsCommands.js';
 
 function buildApp(deps?: {
-  runAgentCommand?: (params: unknown) => Promise<unknown>;
+  startAgentCommand?: (params: unknown) => Promise<unknown>;
 }) {
   const app = express();
   app.use(express.json());
@@ -15,8 +15,8 @@ function buildApp(deps?: {
     '/agents',
     createAgentsCommandsRouter({
       listAgentCommands: async () => ({ commands: [] }),
-      runAgentCommand:
-        deps?.runAgentCommand ??
+      startAgentCommand:
+        deps?.startAgentCommand ??
         (async () => {
           throw new Error('not implemented');
         }),
@@ -25,10 +25,10 @@ function buildApp(deps?: {
   return app;
 }
 
-test('POST /agents/:agentName/commands/run returns a stable success payload shape', async () => {
+test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async (params: unknown) => {
+      startAgentCommand: async (params: unknown) => {
         assert.equal(
           (params as { commandName?: string }).commandName,
           'improve_plan',
@@ -45,7 +45,8 @@ test('POST /agents/:agentName/commands/run returns a stable success payload shap
     .post('/agents/planning_agent/commands/run')
     .send({ commandName: 'improve_plan' });
 
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 202);
+  assert.equal(res.body.status, 'started');
   assert.equal(res.body.agentName, 'planning_agent');
   assert.equal(res.body.commandName, 'improve_plan');
   assert.equal(res.body.conversationId, 'conv-1');
@@ -56,7 +57,7 @@ test('POST /agents/:agentName/commands/run returns a stable success payload shap
 test('POST /agents/:agentName/commands/run maps RUN_IN_PROGRESS to 409 conflict + stable payload', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'RUN_IN_PROGRESS' };
       },
     }),
@@ -72,7 +73,7 @@ test('POST /agents/:agentName/commands/run maps RUN_IN_PROGRESS to 409 conflict 
 test('POST /agents/:agentName/commands/run maps invalid commandName to 400 + COMMAND_INVALID', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'COMMAND_INVALID' };
       },
     }),
@@ -88,7 +89,7 @@ test('POST /agents/:agentName/commands/run maps invalid commandName to 400 + COM
 test("POST /agents/:agentName/commands/run maps COMMAND_NOT_FOUND to 404 { error: 'not_found' }", async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'COMMAND_NOT_FOUND' };
       },
     }),
@@ -103,7 +104,7 @@ test("POST /agents/:agentName/commands/run maps COMMAND_NOT_FOUND to 404 { error
 test("POST /agents/:agentName/commands/run maps CONVERSATION_ARCHIVED to 410 { error: 'archived' }", async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'CONVERSATION_ARCHIVED' };
       },
     }),
@@ -118,7 +119,7 @@ test("POST /agents/:agentName/commands/run maps CONVERSATION_ARCHIVED to 410 { e
 test("POST /agents/:agentName/commands/run maps AGENT_MISMATCH to 400 { error: 'agent_mismatch' }", async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'AGENT_MISMATCH' };
       },
     }),
@@ -133,7 +134,7 @@ test("POST /agents/:agentName/commands/run maps AGENT_MISMATCH to 400 { error: '
 test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'CODEX_UNAVAILABLE', reason: 'missing codex config' };
       },
     }),
@@ -151,7 +152,7 @@ test('POST /agents/:agentName/commands/run maps CODEX_UNAVAILABLE to 503', async
 test('POST /agents/:agentName/commands/run maps COMMAND_INVALID to 400 + code', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'COMMAND_INVALID', reason: 'Invalid command file' };
       },
     }),
@@ -168,7 +169,7 @@ test('POST /agents/:agentName/commands/run maps COMMAND_INVALID to 400 + code', 
 test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_INVALID to 400 + code', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'WORKING_FOLDER_INVALID' };
       },
     }),
@@ -184,7 +185,7 @@ test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_INVALID to 400 + 
 test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_NOT_FOUND to 400 + code', async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'WORKING_FOLDER_NOT_FOUND' };
       },
     }),
@@ -200,7 +201,7 @@ test('POST /agents/:agentName/commands/run maps WORKING_FOLDER_NOT_FOUND to 400 
 test("POST /agents/:agentName/commands/run maps unknown agent to 404 { error: 'not_found' }", async () => {
   const res = await request(
     buildApp({
-      runAgentCommand: async () => {
+      startAgentCommand: async () => {
         throw { code: 'AGENT_NOT_FOUND' };
       },
     }),
@@ -210,76 +211,4 @@ test("POST /agents/:agentName/commands/run maps unknown agent to 404 { error: 'n
 
   assert.equal(res.status, 404);
   assert.deepEqual(res.body, { error: 'not_found' });
-});
-
-test('POST /agents/:agentName/commands/run aborts the runner when the HTTP request is aborted', async () => {
-  let resolveStarted: (() => void) | undefined;
-  const started = new Promise<void>((resolve) => {
-    resolveStarted = resolve;
-  });
-
-  let resolveSignalObserved: (() => void) | undefined;
-  const signalObserved = new Promise<void>((resolve) => {
-    resolveSignalObserved = resolve;
-  });
-
-  const app = buildApp({
-    runAgentCommand: async (params: unknown) => {
-      resolveStarted?.();
-      const signal = (params as { signal?: AbortSignal }).signal;
-      assert.ok(signal);
-      if (signal.aborted) {
-        resolveSignalObserved?.();
-        return {
-          agentName: 'planning_agent',
-          commandName: 'improve_plan',
-          conversationId: 'conv-1',
-          modelId: 'model-from-config',
-        };
-      }
-      await new Promise<void>((resolve) => {
-        signal.addEventListener('abort', () => resolve(), { once: true });
-      });
-      resolveSignalObserved?.();
-      return {
-        agentName: 'planning_agent',
-        commandName: 'improve_plan',
-        conversationId: 'conv-1',
-        modelId: 'model-from-config',
-      };
-    },
-  });
-
-  const server = app.listen(0);
-  try {
-    const address = server.address();
-    assert.ok(address && typeof address === 'object');
-    const port = address.port;
-
-    const controller = new AbortController();
-    const fetchPromise = fetch(
-      `http://127.0.0.1:${port}/agents/planning_agent/commands/run`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ commandName: 'improve_plan' }),
-        signal: controller.signal,
-      },
-    );
-
-    await started;
-
-    controller.abort();
-
-    await fetchPromise.then(
-      async () => {
-        throw new Error('expected fetch to be aborted');
-      },
-      () => undefined,
-    );
-
-    await signalObserved;
-  } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
 });

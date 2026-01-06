@@ -1185,7 +1185,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 ### 5. Client: refactor `useIngestStatus` to be WS-driven (remove polling)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

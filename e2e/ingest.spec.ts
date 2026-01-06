@@ -104,29 +104,18 @@ async function assertNoReembedErrors() {
   }
 }
 
-const waitForCompletion = async (page: Parameters<typeof test>[0]['page']) => {
-  const headingVisible = await page
-    .getByRole('heading', { name: /Active ingest/i })
-    .isVisible()
-    .catch(() => false);
-  if (!headingVisible) return;
-  await expect
-    .poll(
-      async () => {
-        const headingVisible = await page
-          .getByRole('heading', { name: /Active ingest/i })
-          .isVisible()
-          .catch(() => false);
-        if (!headingVisible) return 'inactive';
-        const label = await page
-          .getByTestId('ingest-status-chip')
-          .textContent()
-          .catch(() => '');
-        return label?.toLowerCase() ?? '';
-      },
-      { timeout: 180_000, message: 'waiting for ingest status' },
-    )
-    .toMatch(/(completed|cancelled|error|skipped|inactive)/);
+const waitForCompletion = async (
+  page: Parameters<typeof test>[0]['page'],
+  rowMatcher: RegExp,
+) => {
+  const activeHeading = page.getByRole('heading', { name: /Active ingest/i });
+  const row = page.getByRole('row', { name: rowMatcher }).first();
+  await expect(row).toBeVisible({
+    timeout: 180_000,
+  });
+  await expect(activeHeading).toBeHidden({
+    timeout: 180_000,
+  });
 };
 
 const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
@@ -137,10 +126,10 @@ const waitForInProgress = async (page: Parameters<typeof test>[0]['page']) => {
     .poll(
       async () => {
         const label = await page
-          .locator('.MuiChip-label')
-          .first()
-          .textContent();
-        return label?.toLowerCase() ?? '';
+          .getByTestId('ingest-status-chip')
+          .textContent()
+          .catch(() => '');
+        return label?.toLowerCase().trim() ?? '';
       },
       { timeout: 30_000, message: 'waiting for ingest to start' },
     )
@@ -211,16 +200,10 @@ test.describe.serial('Ingest flows', () => {
 
     expect(firstPath).toBeTruthy();
 
-    const activeHeading = page.getByRole('heading', { name: /Active ingest/i });
-    if (await activeHeading.isVisible().catch(() => false)) {
-      await waitForCompletion(page);
-    } else {
-      await expect(
-        page.getByRole('row', {
-          name: new RegExp(`${fixtureName}-progress`, 'i'),
-        }),
-      ).toBeVisible({ timeout: 120_000 });
-    }
+    await waitForCompletion(
+      page,
+      new RegExp(`${fixtureName}-progress`, 'i'),
+    );
   });
 
   test('happy path ingest completes', async ({ page }) => {
@@ -240,17 +223,16 @@ test.describe.serial('Ingest flows', () => {
     }
 
     try {
-      await waitForCompletion(page);
+      await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     } catch (err) {
       ingestSkip = `ingest did not complete: ${(err as Error).message}`;
       test.skip(ingestSkip);
     }
-    await expect(page.getByText(/Completed/i).first()).toBeVisible({
-      timeout: 120_000,
-    });
-    await expect(
-      page.getByRole('row', { name: new RegExp(fixtureName, 'i') }),
-    ).toBeVisible({
+    const row = page
+      .getByRole('row', { name: new RegExp(fixtureName, 'i') })
+      .first();
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByText(/completed/i)).toBeVisible({
       timeout: 30_000,
     });
   });
@@ -273,6 +255,7 @@ test.describe.serial('Ingest flows', () => {
       .getByRole('row', { name: new RegExp(fixtureName, 'i') })
       .first();
     try {
+      await waitForCompletion(page, new RegExp(`${fixtureName}-cancel`, 'i'));
       await expect(cancelRow.getByText(/cancelled|completed/i)).toBeVisible({
         timeout: 120_000,
       });
@@ -294,11 +277,11 @@ test.describe.serial('Ingest flows', () => {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await waitForCompletion(page);
+    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /re-embed/i }).click();
-    await waitForCompletion(page);
+    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row.getByText(/Completed/i)).toBeVisible({
       timeout: 120_000,
     });
@@ -369,7 +352,7 @@ test.describe.serial('Ingest flows', () => {
         name: new RegExp(`^Select ${fixtureName} `, 'i'),
       })
       .first();
-    await waitForCompletion(page);
+    await waitForCompletion(page, new RegExp(fixtureName, 'i'));
     await expect(row).toBeVisible({ timeout: 30_000 });
 
     await row.getByRole('button', { name: /^Remove$/i }).click();

@@ -1539,8 +1539,8 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 ### 6. Client: switch Ingest page to WS-only run UI (no last-run summary)
 
-- Task Status: ****in_progress****
-- Git Commits: ****to_do****
+- Task Status: **__done__**
+- Git Commits: **d5d37d1, c04f817**
 
 #### Overview
 

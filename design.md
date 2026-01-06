@@ -238,6 +238,7 @@ sequenceDiagram
     Client->>Client: hydrateInflightSnapshot(inflight)
   end
 ```
+
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
@@ -642,7 +643,6 @@ sequenceDiagram
   end
 ```
 
-
 ### Agents command run (async)
 
 - `POST /agents/:agentName/commands/run` returns `202` immediately and continues executing command steps in the background.
@@ -665,6 +665,7 @@ sequenceDiagram
   UI->>WS: cancel_inflight(conversationId, inflightId)
   Note over Runner: aborts current step + stops remaining steps
 ```
+
 ### Agent working_folder overrides
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
@@ -1108,7 +1109,7 @@ sequenceDiagram
 ### Ingest cancel / re-embed / remove flows
 
 - Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
-- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root *metadata* entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
+- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root _metadata_ entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
 - Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
 - Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
@@ -1202,9 +1203,21 @@ sequenceDiagram
 - Form fields: folder path (required), display name (required), optional description, embedding model select (disabled when `lockedModelId` exists), dry-run toggle, submit button. Inline errors show “Path is required”, “Name is required”, “Select a model”.
 - Locked model: info banner “Embedding model locked to <id>” appears when the shared collection already has a model; select stays disabled in that state.
 - Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
-- Active run: when a run is started, the page polls `/ingest/status/{runId}` roughly every 2s until reaching `completed|cancelled|error`, showing a chip for the state, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. A “View logs for this run” link routes to `/logs?text=<runId>`.
+- Active run: on mount, the page subscribes to the ingest WS stream and renders the `ingest_snapshot`/`ingest_update` status in the active run card while the state is non-terminal. The card shows the state chip, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. When a terminal state arrives (`completed|cancelled|error|skipped`), the page triggers a roots/models refresh once and hides the card (no last-run summary).
+- Connection state: while the WebSocket is connecting, the page shows an info banner; if the socket closes, it shows an error banner instructing the user to refresh once the server is reachable.
 - Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
 - Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
+
+```mermaid
+flowchart TD
+  Mount[IngestPage mount] --> Subscribe[WS connect + subscribe_ingest]
+  Subscribe -->|ingest_snapshot status null| Idle[Show roots only]
+  Subscribe -->|ingest_snapshot active| Active[Show ActiveRunCard]
+  Active -->|ingest_update terminal| Refresh[Refresh roots + models once]
+  Refresh --> Idle
+  Subscribe -.->|connectionState=connecting| Connecting[Show info banner]
+  Subscribe -.->|connectionState=closed| Closed[Show error banner]
+```
 
 ## Chat run + WebSocket streaming
 
@@ -1582,7 +1595,6 @@ Assistant bubble binding invariant (Task 30):
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
-
 
 ```mermaid
 sequenceDiagram

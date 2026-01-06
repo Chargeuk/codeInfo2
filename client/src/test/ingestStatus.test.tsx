@@ -1,5 +1,12 @@
 import { jest } from '@jest/globals';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import useIngestStatus from '../hooks/useIngestStatus';
 import type {
   WebSocketMockInstance,
@@ -7,6 +14,21 @@ import type {
 } from './support/mockWebSocket';
 
 const mockFetch = jest.fn();
+
+const { default: App } = await import('../App');
+const { default: HomePage } = await import('../pages/HomePage');
+const { default: IngestPage } = await import('../pages/IngestPage');
+
+const ingestRoutes = [
+  {
+    path: '/',
+    element: <App />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'ingest', element: <IngestPage /> },
+    ],
+  },
+];
 
 function wsRegistry(): WebSocketMockRegistry {
   const registry = (
@@ -50,11 +72,28 @@ beforeAll(() => {
 beforeEach(() => {
   jest.useFakeTimers();
   mockFetch.mockReset();
-  mockFetch.mockImplementation(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({ status: 'ok' }),
-  }));
+  mockFetch.mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.includes('/ingest/models')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ models: [], lockedModelId: undefined }),
+      };
+    }
+    if (url.includes('/ingest/roots')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ roots: [], lockedModelId: undefined }),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'ok' }),
+    };
+  });
   wsRegistry().reset();
 });
 
@@ -157,5 +196,123 @@ describe('useIngestStatus', () => {
     expect(getSentTypes(socket)).toEqual(
       expect.arrayContaining(['unsubscribe_ingest']),
     );
+  });
+});
+
+describe('IngestPage realtime status UI', () => {
+  const renderPage = () => {
+    const router = createMemoryRouter(ingestRoutes, {
+      initialEntries: ['/ingest'],
+    });
+    render(<RouterProvider router={router} />);
+  };
+
+  it('renders snapshot status immediately on subscribe', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-1',
+          state: 'embedding',
+          counts: { files: 2 },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      ),
+    );
+  });
+
+  it('hides the Active ingest panel when no run is active', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: null,
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('shows an explicit error when the WS closes', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket().close();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-ws-unavailable')).toBeInTheDocument(),
+    );
+  });
+
+  it('shows a connecting alert before the socket opens', () => {
+    renderPage();
+    expect(screen.getByTestId('ingest-ws-connecting')).toBeInTheDocument();
+  });
+
+  it('refreshes roots/models on terminal status and hides the panel', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-terminal',
+          state: 'embedding',
+          counts: { files: 1 },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      ),
+    );
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 2,
+        status: {
+          runId: 'run-terminal',
+          state: 'completed',
+          counts: { files: 1, embedded: 1 },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      const modelCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/models'),
+      );
+      const rootCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/roots'),
+      );
+      expect(modelCalls.length).toBeGreaterThan(1);
+      expect(rootCalls.length).toBeGreaterThan(1);
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
+    });
   });
 });

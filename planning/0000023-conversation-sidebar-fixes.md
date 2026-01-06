@@ -2,7 +2,14 @@
 
 ## Implementation Plan Instructions
 
-This story follows `planning/plan_format.md`. Tasks are intentionally **omitted** for now while we align on scope and requirements.
+This story follows `planning/plan_format.md`.
+
+Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
+
+Story convention (important for this repo’s planning style):
+
+- Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
+- Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
 
 ---
 
@@ -88,4 +95,264 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 ## Tasks
 
-Tasks are intentionally omitted until the description, acceptance criteria, and scope are confirmed to be final.
+### 1. Client: Agents sidebar feature parity (filters + archive/restore + bulk actions)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs (Active / Active & Archived / Archived), per-row archive/restore, bulk archive/restore, and bulk delete available only when the filter is set to Archived. This task is strictly client-side wiring and UI parity; no server changes.
+
+#### Documentation Locations
+
+- MUI ToggleButton/ToggleButtonGroup (filter tabs): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+- MUI Lists (List, ListItem, ListItemButton): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Stack (alignment + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (padding layout + `sx` usage): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- Jest (client unit tests): Context7 `/jestjs/jest`
+- Testing Library (React): Context7 `/testing-library/testing-library-docs`
+
+#### Subtasks
+
+1. [ ] Read the current Chat vs Agents sidebar wiring so parity changes are scoped correctly:
+   - Files to read:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/api/conversations.ts`
+   - What to identify:
+     - Where `variant === 'chat'` hides filters/refresh/bulk UI.
+     - Which handlers Chat passes that Agents currently does not.
+
+2. [ ] Update `ConversationList` to allow Agents to use the same controls as Chat:
+   - Documentation to read:
+     - MUI ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+     - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Requirements:
+     - Show the filter ToggleButtonGroup and Refresh icon when the caller supplies the needed handlers (not only when `variant === 'chat'`).
+     - Allow per-row archive/restore actions for Agents (remove the `variant === 'agents'` short-circuit).
+     - Keep bulk delete strictly gated to `filterState === 'archived'`.
+     - Preserve existing `data-testid` values for test stability.
+
+3. [ ] Wire Agents page to pass the full set of conversation actions:
+   - Documentation to read:
+     - MUI Box/Stack: https://llms.mui.com/material-ui/6.4.12/components/box.md
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Pass `onArchive`, `onRestore`, `onBulkArchive`, `onBulkRestore`, `onBulkDelete` from `useConversations`.
+     - Use the same `filterState` + `setFilterState` as Chat.
+     - Disable actions when persistence is unavailable (match Chat’s `disabled` rule).
+
+4. [ ] Add/update unit tests for Agents sidebar parity:
+   - Documentation to read:
+     - Context7 `/jestjs/jest`
+     - Context7 `/testing-library/testing-library-docs`
+   - Files to edit/add:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
+   - Test requirements:
+     - Assert filter tabs render on Agents and toggle the filter state.
+     - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
+     - Assert bulk delete appears only when the filter is Archived.
+     - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
+
+5. [ ] Documentation updates (each in its own commit if changed):
+   - Update `projectStructure.md` if new test files are added.
+   - Update `design.md` if any UX behavior descriptions change (likely minimal for this task).
+   - Update `README.md` only if user-facing behavior needs to be documented.
+
+6. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/agents`, verify filter tabs + bulk actions match `/chat`, and bulk delete only appears when Archived is selected.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 2. Client: Sidebar layout + scroll fixes (padding, overflow, list scroll)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Fix sidebar layout issues so the header and rows align with consistent 12px padding, the list panel scrolls vertically (keeping “Load more” reachable), and no horizontal scrollbar appears at any viewport size.
+
+#### Documentation Locations
+
+- MUI Drawer (paper sizing + overflow control): https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+- MUI Lists (List + ListItem padding): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- Jest (client unit tests): Context7 `/jestjs/jest`
+- Testing Library (React): Context7 `/testing-library/testing-library-docs`
+
+#### Subtasks
+
+1. [ ] Review current sidebar layout and overflow behavior:
+   - Files to read:
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - What to identify:
+     - Where `overflow: 'hidden'` prevents vertical scrolling.
+     - Which containers need `minWidth: 0` to avoid `noWrap` overflow.
+
+2. [ ] Update Drawer paper sizing/overflow to avoid horizontal scroll:
+   - Documentation to read:
+     - MUI Drawer: https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper (use `slotProps.paper` if needed).
+     - Ensure the Drawer paper width never exceeds the 320px drawer width.
+
+3. [ ] Fix ConversationList padding and scroll container behavior:
+   - Documentation to read:
+     - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Requirements:
+     - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
+     - Move vertical scrolling to the list panel (e.g., `overflowY: 'auto'` on the list wrapper) so the “Load more” row remains inside the bordered panel.
+     - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
+
+4. [ ] Add/update layout tests to lock in scroll + overflow behavior:
+   - Documentation to read:
+     - Context7 `/jestjs/jest`
+     - Context7 `/testing-library/testing-library-docs`
+   - Files to edit/add:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+     - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, if needed for coverage parity)
+   - Test requirements:
+     - Assert the conversation list container uses vertical scrolling (`overflowY: 'auto'` or equivalent).
+     - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
+     - Validate header and row padding use the same `px` value.
+
+5. [ ] Documentation updates (each in its own commit if changed):
+   - Update `projectStructure.md` if new test files are added.
+   - Update `design.md` if layout notes/diagrams reference the sidebar spacing.
+   - Update `README.md` only if user-facing behavior changes require a note.
+
+6. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/chat` and `/agents`, verify the list panel scrolls vertically, and no horizontal scrollbar appears at any viewport size.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 3. Final verification (acceptance criteria, clean builds, docs, PR summary)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding issues are resolved, and documentation is accurate. Produce a PR-ready summary of all changes.
+
+#### Documentation Locations
+
+- Docker/Compose:
+  - Context7 `/docker/docs`
+  - https://docs.docker.com/reference/cli/docker/compose/
+- Playwright:
+  - Context7 `/microsoft/playwright`
+  - https://playwright.dev/docs/intro
+- Husky:
+  - Context7 `/typicode/husky`
+  - https://typicode.github.io/husky
+- Mermaid:
+  - Context7 `/mermaid-js/mermaid`
+  - https://mermaid.js.org/intro/syntax-reference.html
+- Jest:
+  - Context7 `/jestjs/jest`
+  - https://jestjs.io/docs/getting-started
+- Cucumber:
+  - https://cucumber.io/docs/guides/
+  - https://cucumber.io/docs/guides/10-minute-tutorial/
+  - https://cucumber.io/docs/gherkin/reference/
+- Markdown syntax (PR summary + docs edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Re-check Acceptance Criteria and confirm each bullet is demonstrably satisfied.
+
+2. [ ] Build + test validation (clean):
+   - `npm run build --workspace server`
+   - `npm run build --workspace client`
+   - `npm run test --workspace server`
+   - `npm run test --workspace client`
+   - `npm run e2e`
+   - `npm run compose:build`
+   - `npm run compose:up`
+   - `npm run compose:down`
+
+3. [ ] Manual Playwright-MCP verification:
+   - Visit `/chat` and `/agents`.
+   - Confirm filter tabs, per-row archive/restore, and bulk actions appear in both sidebars.
+   - Confirm bulk delete only appears when Archived is selected.
+   - Scroll the list panel to verify “Load more” is reachable and no horizontal scrollbar appears.
+   - Save screenshots to `./test-results/screenshots/` named `0000023-3-<short-name>.png`.
+
+4. [ ] Documentation updates:
+   - `README.md` (user-facing behavior updates, if any)
+   - `design.md` (layout/padding or flow notes, if any)
+   - `projectStructure.md` (new/changed files)
+
+5. [ ] Create a PR summary comment covering all story changes.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks).
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)

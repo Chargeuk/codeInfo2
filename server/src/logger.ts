@@ -9,6 +9,7 @@ type LogConfig = {
   level: string;
   bufferMax: number;
   maxClientBytes: number;
+  ingestWsThrottleMs: number;
   filePath: string;
   rotate: boolean;
 };
@@ -24,6 +25,10 @@ export function resolveLogConfig(): LogConfig {
     level: process.env.LOG_LEVEL ?? 'info',
     bufferMax: parseNumber(process.env.LOG_BUFFER_MAX, 5000),
     maxClientBytes: parseNumber(process.env.LOG_MAX_CLIENT_BYTES, 32768),
+    ingestWsThrottleMs: parseNumber(
+      process.env.LOG_INGEST_WS_THROTTLE_MS,
+      10_000,
+    ),
     filePath,
     rotate: process.env.LOG_FILE_ROTATE !== 'false',
   };

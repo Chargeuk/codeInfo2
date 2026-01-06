@@ -871,6 +871,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 - Test: `npm run compose:up`.
 - Manual check: Playwright MCP could not launch Chrome on Linux Arm64 (`browserType.launchPersistentContext` missing browser); unable to complete `/chat`, `/agents`, and `/logs` verification.
 - Test: `npm run compose:down`.
+- Recorded task commit hashes in the plan after completing implementation and test runs.
 - Test: `npm run test --workspace server` (initial runs timed out; completed with extended timeout).
 - Test: `npm run test --workspace client` (expected console warnings from log tests).
 - Test: `npm run e2e` (first run timed out; rerun succeeded).
@@ -884,7 +885,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 ### 4. Client: extend `useChatWs` with ingest subscription + ingest event types
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **36f073f, a6f7ab6**
 
 #### Overview
 
@@ -1129,7 +1130,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Inject a fake WS message (e.g. `ingest_snapshot`) via `lastSocket()._receive(...)`.
      - Assert the handler receives the exact event object.
 
-10. [ ] Documentation update (task-local):
+10. [x] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1149,7 +1150,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
       - Add a Mermaid sequence showing `useChatWs` connect → `subscribe_ingest` → reconnect resubscribe behavior.
       - Note that ingest events bypass chat seq gating.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`

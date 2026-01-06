@@ -1778,7 +1778,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 ### 7. Client: full-width Ingest layout
 
-- Task Status: ****to_do****
+- Task Status: **__in_progress__**
 - Git Commits: ****to_do****
 
 #### Overview

@@ -672,8 +672,8 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 
 ### 3. Server: broadcast ingest progress/status changes over WS (`ingest_update`)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **3a62740**
 
 #### Overview
 

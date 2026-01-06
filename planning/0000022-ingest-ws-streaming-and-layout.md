@@ -690,7 +690,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 #### Subtasks
 
-1. [ ] Read the ingest status lifecycle to identify every status update point:
+1. [x] Read the ingest status lifecycle to identify every status update point:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
@@ -698,7 +698,7 @@ This task completes the server-side realtime path for ingest by wiring status up
      - `server/src/ingest/ingestJob.ts` (all `jobs.set(...)` call sites)
      - `server/src/routes/ingestStart.ts` and `server/src/routes/ingestCancel.ts` (existing REST control surface)
 
-2. [ ] Implement WS broadcast helper:
+2. [x] Implement WS broadcast helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -726,7 +726,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Call `safeSend(ws, event)`.
      - Keep `seq` per socket (use the same `nextIngestSeq(ws)` introduced in Task 1).
 
-3. [ ] Add server log line for ingest update broadcasts:
+3. [x] Add server log line for ingest update broadcasts:
    - Documentation to read:
      - Server logging overview: `design.md` (Logging section)
    - Files to edit:
@@ -738,7 +738,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Purpose:
      - Confirms realtime broadcasts occur during the Task 3 manual Playwright-MCP check.
 
-4. [ ] Add a status publish helper:
+4. [x] Add a status publish helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -749,7 +749,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - It must call `broadcastIngestUpdate(nextStatus)`.
      - Keep existing REST behavior unchanged.
 
-5. [ ] Replace status writes with the publish helper:
+5. [x] Replace status writes with the publish helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -775,7 +775,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        }
        ```
 
-6. [ ] Ensure cancel flows publish a final update:
+6. [x] Ensure cancel flows publish a final update:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -783,7 +783,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
-7. [ ] Server unit test: `ingest_update` emitted on status change:
+7. [x] Server unit test: `ingest_update` emitted on status change:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -795,7 +795,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - Connect a WS client, send `subscribe_ingest`, then call `__setStatusAndPublishForTest(...)` and assert `status.state` matches.
 
-8. [ ] Server unit test: per-socket `seq` increases for subsequent updates:
+8. [x] Server unit test: per-socket `seq` increases for subsequent updates:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -807,7 +807,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - Publish two updates via `__setStatusAndPublishForTest(...)` and assert `seq` increases.
 
-9. [ ] Server unit test: `unsubscribe_ingest` stops updates:
+9. [x] Server unit test: `unsubscribe_ingest` stops updates:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -825,7 +825,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Guarded like existing helpers (`NODE_ENV === 'test'`).
        - Must call the same internal `setStatusAndPublish(...)` used in production.
 
-10. [ ] Update `design.md` with ingest update broadcast flow:
+10. [x] Update `design.md` with ingest update broadcast flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -834,7 +834,7 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Add a Mermaid sequence showing `setStatusAndPublish(...)` → `broadcastIngestUpdate` → subscribed sockets.
      - Call out per-socket `seq` behavior in diagram notes.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -843,19 +843,34 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` in two tabs and confirm no regressions while server broadcast logic is active (page renders, no JS errors). Then open `/logs` and filter for `0000022 ingest ws update broadcast` to confirm update broadcasts were logged.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `/ingest` in two tabs and confirm no regressions while server broadcast logic is active (page renders, no JS errors). Then open `/logs` and filter for `0000022 ingest ws update broadcast` to confirm update broadcasts were logged.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Reviewed ingest job lifecycle in `ingestJob.ts` plus ingest start/cancel routes to map every `jobs.set(...)` status transition that will need WS publishing.
+- Added `broadcastIngestUpdate` to the WS server to emit `ingest_update` events with per-socket sequencing and a `0000022 ingest ws update broadcast` log line.
+- Introduced `setStatusAndPublish(...)` in `ingestJob.ts` and replaced user-facing status writes (queued/scanning/embedding/progress/terminal states) to trigger WS updates.
+- Cancellation paths now publish a terminal `cancelled` update via the shared helper.
+- Added WS unit tests for ingest update delivery, per-socket seq increments, and unsubscribe suppression using the new `__setStatusAndPublishForTest` helper.
+- Documented the ingest update broadcast flow and per-socket sequencing note in `design.md`.
+- Lint completed with existing import-order warnings; ran Prettier (`format --workspaces`) after the initial `format:check` failure and revalidated successfully.
+- Test: `npm run build --workspace server`.
+- Test: `npm run build --workspace client` (Vite chunk-size warnings only).
+- Test: `npm run test --workspace server` (initial runs timed out; completed with extended timeout).
+- Test: `npm run test --workspace client` (expected console warnings from log tests).
+- Test: `npm run e2e` (first run timed out; rerun succeeded).
+- Test: `npm run compose:build`.
+- Test: `npm run compose:up`.
+- Manual check: Playwright MCP could not launch Chrome on Linux Arm64; validated `0000022 ingest ws update broadcast` entries via WS subscribe + `/logs` filter instead.
+- Test: `npm run compose:down`.
 
 ---
 

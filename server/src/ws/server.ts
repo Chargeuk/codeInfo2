@@ -17,6 +17,7 @@ import {
   isSidebarSubscribed,
   registerSocket,
   socketsSubscribedToConversation,
+  socketsSubscribedToIngest,
   subscribeIngest,
   subscribeConversation,
   subscribeSidebar,
@@ -42,6 +43,14 @@ import {
 
 export type WsServerHandle = {
   close: () => Promise<void>;
+};
+
+const ingestSeqBySocket = new WeakMap<WebSocket, number>();
+
+const nextIngestSeq = (ws: WebSocket) => {
+  const next = (ingestSeqBySocket.get(ws) ?? 0) + 1;
+  ingestSeqBySocket.set(ws, next);
+  return next;
 };
 
 function rawDataToString(raw: RawData): string {
@@ -235,12 +244,32 @@ export function publishTurnFinal(params: {
   broadcastConversation(params.conversationId, event);
 }
 
+export function broadcastIngestUpdate(status: IngestJobStatus) {
+  const sockets = socketsSubscribedToIngest();
+  const subscriberCount = sockets.length;
+  for (const ws of sockets) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    const seq = nextIngestSeq(ws);
+    safeSend(ws, {
+      protocolVersion: WS_PROTOCOL_VERSION,
+      type: 'ingest_update',
+      seq,
+      status,
+    });
+    logPublish('0000022 ingest ws update broadcast', {
+      runId: status.runId,
+      state: status.state,
+      seq,
+      subscriberCount,
+    });
+  }
+}
+
 export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
   const wss = new WebSocketServer({ noServer: true });
   const sidebarPublisher: SidebarPublisher = startSidebarPublisher();
 
   const connectionIdBySocket = new WeakMap<WebSocket, string>();
-  const ingestSeqBySocket = new WeakMap<WebSocket, number>();
 
   const isAlive = new WeakMap<WebSocket, boolean>();
   const missedPongs = new WeakMap<WebSocket, number>();
@@ -301,12 +330,6 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
       params.message,
     );
   }
-
-  const nextIngestSeq = (ws: WebSocket) => {
-    const next = (ingestSeqBySocket.get(ws) ?? 0) + 1;
-    ingestSeqBySocket.set(ws, next);
-    return next;
-  };
 
   function sendIngestSnapshot(
     ws: WebSocket,

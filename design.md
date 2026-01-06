@@ -1018,6 +1018,20 @@ sequenceDiagram
   WS-->>UI: ingest_snapshot (placeholder)
 ```
 
+#### Ingest WS update broadcast
+
+```mermaid
+sequenceDiagram
+  participant Job as Ingest job
+  participant WS as WebSocket (/ws)
+  participant UI as Ingest page
+
+  Job->>WS: setStatusAndPublish(status)
+  WS->>WS: broadcastIngestUpdate(status)
+  WS-->>UI: ingest_update {seq, status}
+  Note over WS,UI: seq increments per socket on each update
+```
+
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
 
 ### Ingest roots listing

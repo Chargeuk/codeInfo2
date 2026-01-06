@@ -5,22 +5,26 @@ import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
 import { abortAgentCommandRun } from '../agents/commandsRunner.js';
 
+import { getActiveStatus, type IngestJobStatus } from '../ingest/ingestJob.js';
 import {
   abortInflight,
   bumpSeq,
   snapshotInflight,
 } from '../chat/inflightRegistry.js';
 import { append } from '../logStore.js';
-import { baseLogger } from '../logger.js';
+import { baseLogger, resolveLogConfig } from '../logger.js';
 import {
   isSidebarSubscribed,
   registerSocket,
   socketsSubscribedToConversation,
+  socketsSubscribedToIngest,
+  subscribeIngest,
   subscribeConversation,
   subscribeSidebar,
   subscribedConversationCount,
   unregisterSocket,
   unsubscribeConversation,
+  unsubscribeIngest,
   unsubscribeSidebar,
 } from './registry.js';
 import { startSidebarPublisher, type SidebarPublisher } from './sidebar.js';
@@ -40,6 +44,38 @@ import {
 export type WsServerHandle = {
   close: () => Promise<void>;
 };
+
+const ingestSeqBySocket = new WeakMap<WebSocket, number>();
+const { ingestWsThrottleMs } = resolveLogConfig();
+const ingestTerminalStates = new Set<IngestJobStatus['state']>([
+  'completed',
+  'cancelled',
+  'error',
+  'skipped',
+]);
+let lastIngestLogAt = 0;
+let lastIngestLogState: IngestJobStatus['state'] | null = null;
+let lastIngestLogRunId: string | null = null;
+
+const nextIngestSeq = (ws: WebSocket) => {
+  const next = (ingestSeqBySocket.get(ws) ?? 0) + 1;
+  ingestSeqBySocket.set(ws, next);
+  return next;
+};
+
+function shouldLogIngestUpdate(status: IngestJobStatus, now: number) {
+  if (ingestWsThrottleMs <= 0) return true;
+  if (status.runId !== lastIngestLogRunId) return true;
+  if (status.state !== lastIngestLogState) return true;
+  if (ingestTerminalStates.has(status.state)) return true;
+  return now - lastIngestLogAt >= ingestWsThrottleMs;
+}
+
+function recordIngestLog(status: IngestJobStatus, now: number) {
+  lastIngestLogAt = now;
+  lastIngestLogState = status.state;
+  lastIngestLogRunId = status.runId;
+}
 
 function rawDataToString(raw: RawData): string {
   if (typeof raw === 'string') return raw;
@@ -232,6 +268,36 @@ export function publishTurnFinal(params: {
   broadcastConversation(params.conversationId, event);
 }
 
+export function broadcastIngestUpdate(status: IngestJobStatus) {
+  const sockets = socketsSubscribedToIngest();
+  const subscriberCount = sockets.length;
+  const now = Date.now();
+  const canLog = shouldLogIngestUpdate(status, now);
+  let firstSeq: number | null = null;
+  for (const ws of sockets) {
+    if (ws.readyState !== WebSocket.OPEN) continue;
+    const seq = nextIngestSeq(ws);
+    if (firstSeq === null) {
+      firstSeq = seq;
+    }
+    safeSend(ws, {
+      protocolVersion: WS_PROTOCOL_VERSION,
+      type: 'ingest_update',
+      seq,
+      status,
+    });
+  }
+  if (canLog && firstSeq !== null) {
+    logPublish('0000022 ingest ws update broadcast', {
+      runId: status.runId,
+      state: status.state,
+      seq: firstSeq,
+      subscriberCount,
+    });
+    recordIngestLog(status, now);
+  }
+}
+
 export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
   const wss = new WebSocketServer({ noServer: true });
   const sidebarPublisher: SidebarPublisher = startSidebarPublisher();
@@ -298,6 +364,20 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
     );
   }
 
+  function sendIngestSnapshot(
+    ws: WebSocket,
+    status: IngestJobStatus | null,
+  ): number {
+    const seq = nextIngestSeq(ws);
+    safeSend(ws, {
+      protocolVersion: WS_PROTOCOL_VERSION,
+      type: 'ingest_snapshot',
+      seq,
+      status,
+    });
+    return seq;
+  }
+
   function handleMessage(ws: WebSocket, message: WsClientMessage) {
     const connectionId = connectionIdBySocket.get(ws);
     if (!connectionId) return;
@@ -311,6 +391,20 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           connectionId,
           ws,
         });
+        return;
+      case 'subscribe_ingest': {
+        subscribeIngest(ws);
+        const status = getActiveStatus();
+        const seq = sendIngestSnapshot(ws, status);
+        logPublish('0000022 ingest ws snapshot sent', {
+          requestId: message.requestId,
+          seq,
+          status,
+        });
+        return;
+      }
+      case 'unsubscribe_ingest':
+        unsubscribeIngest(ws);
         return;
       case 'unsubscribe_sidebar':
         unsubscribeSidebar(ws);

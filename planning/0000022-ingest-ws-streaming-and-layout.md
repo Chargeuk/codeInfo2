@@ -1203,7 +1203,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 #### Subtasks
 
-1. [ ] Read current polling hook behavior:
+1. [x] Read current polling hook behavior:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - React hooks `useEffect`: https://react.dev/reference/react/useEffect
@@ -1213,7 +1213,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - `client/src/hooks/useChatWs.ts` (new ingest event types to consume)
      - `client/src/test/support/mockWebSocket.ts` (WS mocking)
 
-2. [ ] Remove polling + update hook signature/state:
+2. [x] Remove polling + update hook signature/state:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1223,7 +1223,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Remove the `runId` parameter from the hook signature.
      - Store status as `ChatWsIngestStatus | null` (WS-driven state).
 
-3. [ ] Wire WS subscription + event handling:
+3. [x] Wire WS subscription + event handling:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - React hooks `useEffect`: https://react.dev/reference/react/useEffect
@@ -1237,7 +1237,7 @@ This task does not change the Ingest page layout yet; it only changes how status
        - Call `unsubscribeIngest()` in the cleanup function.
        - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
 
-4. [ ] Add client log lines for ingest WS events:
+4. [x] Add client log lines for ingest WS events:
    - Documentation to read:
      - Client logging: `client/src/logging/logger.ts`
    - Files to edit:
@@ -1249,7 +1249,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Purpose:
      - Confirms the WS-driven hook is processing ingest events during the Task 5 manual Playwright-MCP check.
 
-5. [ ] Expose a minimal, predictable WS-driven API:
+5. [x] Expose a minimal, predictable WS-driven API:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1292,7 +1292,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      }
      ```
 
-6. [ ] Keep cancel behavior via REST (server unchanged):
+6. [x] Keep cancel behavior via REST (server unchanged):
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1306,7 +1306,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Reuse the existing `serverBase` constant for building URLs.
      - Prefer not to optimistically mutate `status` on success; allow the server’s `ingest_update` to drive the final state.
 
-7. [ ] Refactor ingest status tests to use WS mocking (shared setup):
+7. [x] Refactor ingest status tests to use WS mocking (shared setup):
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1317,7 +1317,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Use `client/src/test/support/mockWebSocket.ts` and the registry from `client/src/test/setupTests.ts`.
 
-8. [ ] Hook test: cancel uses REST endpoint with current `status.runId`:
+8. [x] Hook test: cancel uses REST endpoint with current `status.runId`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1329,7 +1329,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Seed a WS `ingest_update` with a runId and assert the fetch call uses that id.
 
-9. [ ] Hook test: `ingest_snapshot` with `status: null` clears active status:
+9. [x] Hook test: `ingest_snapshot` with `status: null` clears active status:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1341,7 +1341,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Emit `ingest_snapshot` with `status: null` and assert status becomes `null`.
 
-10. [ ] Hook test: `cancel()` is a no-op when `status === null`:
+10. [x] Hook test: `cancel()` is a no-op when `status === null`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1353,7 +1353,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Call `cancel()` before any status arrives and assert no fetch occurs.
 
-11. [ ] Hook test: unmount sends `unsubscribe_ingest`:
+11. [x] Hook test: unmount sends `unsubscribe_ingest`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1365,7 +1365,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Unmount the hook and assert an outbound `unsubscribe_ingest` frame.
 
-12. [ ] Progress test: current file + percent/ETA update from WS events:
+12. [x] Progress test: current file + percent/ETA update from WS events:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1401,7 +1401,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-14. [ ] Update `design.md` with ingest status hook flow:
+14. [x] Update `design.md` with ingest status hook flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1410,7 +1410,7 @@ This task does not change the Ingest page layout yet; it only changes how status
       - Add a Mermaid sequence showing `useIngestStatus` subscribing and handling `ingest_snapshot` / `ingest_update` events.
       - Note that polling was removed and WS is the only source of status.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -1419,19 +1419,33 @@ This task does not change the Ingest page layout yet; it only changes how status
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling. Then open `/logs` and filter for `0000022 ingest status snapshot received` and `0000022 ingest status update received` (source `client-ingest`).
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Reviewed the existing polling-based `useIngestStatus`, ActiveRunCard expectations, and WS test helpers to map the required WS-driven shape and cleanup points before refactoring.
+- Rebuilt `useIngestStatus` to subscribe via `useChatWs`, log ingest snapshot/update events, expose WS connection state, and keep cancel-only error handling while dropping polling.
+- Updated the ingest status tests to inject `ingest_snapshot`/`ingest_update` events through the shared WebSocket mock and assert cancel/unsubscribe behaviors.
+- Added a progress UI test driven by WS updates and documented the WS-only hook flow in `design.md`.
+- Ran lint and format checks; Prettier fixed `IngestPage.tsx`, and existing server import-order lint warnings remain unchanged.
+- Verified `npm run build --workspace server` completes successfully.
+- Verified `npm run build --workspace client` completes successfully (rollup chunk size warnings only).
+- Verified `npm run test --workspace server` after clearing stale testcontainers/Mongo/Chroma containers and allowing a longer timeout for the full suite.
+- Verified `npm run test --workspace client` (tests pass; existing console warnings from logging/act remain).
+- Verified `npm run e2e` (compose:e2e build/up/test/down; 36 tests passed).
+- Verified `npm run compose:build` completes successfully (client chunk size warnings only).
+- Verified `npm run compose:up` starts the stack successfully.
+- Manual Playwright-MCP check could not be completed: Playwright chrome launch failed, chromium was installed and symlinked, but the MCP transport closed after restart attempts.
+- Verified `npm run compose:down` stops the stack successfully.
+- Added a useChatWs cleanup unsubscribe for ingest to ensure unmounts emit `unsubscribe_ingest`, aligning the new hook tests with page-scoped WS behavior.
 
 ---
 

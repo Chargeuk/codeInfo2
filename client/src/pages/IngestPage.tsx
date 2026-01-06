@@ -38,7 +38,7 @@ export default function IngestPage() {
     refetch: refetchRoots,
   } = useIngestRoots();
   const [detailRoot, setDetailRoot] = useState<IngestRoot | undefined>();
-  const status = useIngestStatus(activeRunId);
+  const ingest = useIngestStatus();
 
   const terminalStates = useMemo(
     () => new Set(['completed', 'cancelled', 'error', 'skipped']),
@@ -51,9 +51,11 @@ export default function IngestPage() {
   const isRunActive = useMemo(
     () =>
       Boolean(
-        activeRunId && status.status && !terminalStates.has(status.status),
+        activeRunId &&
+          ingest.status &&
+          !terminalStates.has(ingest.status.state),
       ),
-    [activeRunId, status.status, terminalStates],
+    [activeRunId, ingest.status, terminalStates],
   );
 
   useEffect(() => {
@@ -69,15 +71,15 @@ export default function IngestPage() {
 
   useEffect(() => {
     if (!activeRunId) return;
-    if (!status.status) return;
-    if (terminalStates.has(status.status)) {
-      const key = `${activeRunId}:${status.status}`;
+    if (!ingest.status) return;
+    if (terminalStates.has(ingest.status.state)) {
+      const key = `${activeRunId}:${ingest.status.state}`;
       if (lastFinishedRef.current === key) return;
       lastFinishedRef.current = key;
 
       log('info', '0000020 ingest run finished', {
         runId: activeRunId,
-        state: status.status,
+        state: ingest.status.state,
       });
 
       log('info', '0000020 ingest run refresh triggered', {
@@ -86,7 +88,7 @@ export default function IngestPage() {
       void refetchRoots();
       void refresh();
     }
-  }, [activeRunId, status.status, refetchRoots, refresh, terminalStates, log]);
+  }, [activeRunId, ingest.status, refetchRoots, refresh, terminalStates, log]);
 
   return (
     <Container sx={{ py: 3 }}>
@@ -134,19 +136,19 @@ export default function IngestPage() {
           {activeRunId ? (
             <ActiveRunCard
               runId={activeRunId}
-              status={status.status}
-              counts={status.counts}
-              currentFile={status.currentFile}
-              fileIndex={status.fileIndex}
-              fileTotal={status.fileTotal}
-              percent={status.percent}
-              etaMs={status.etaMs}
-              lastError={status.lastError ?? undefined}
-              message={status.message ?? undefined}
-              isLoading={status.isLoading}
-              isCancelling={status.isCancelling}
-              error={status.error}
-              onCancel={status.cancel}
+              status={ingest.status?.state}
+              counts={ingest.status?.counts}
+              currentFile={ingest.status?.currentFile}
+              fileIndex={ingest.status?.fileIndex}
+              fileTotal={ingest.status?.fileTotal}
+              percent={ingest.status?.percent}
+              etaMs={ingest.status?.etaMs}
+              lastError={ingest.status?.lastError ?? undefined}
+              message={ingest.status?.message ?? undefined}
+              isLoading={ingest.isLoading}
+              isCancelling={ingest.isCancelling}
+              error={ingest.error}
+              onCancel={ingest.cancel}
             />
           ) : (
             <Stack spacing={1}>

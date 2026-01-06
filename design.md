@@ -39,6 +39,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 
+Legacy note: the REST polling flow below remains for status snapshots, but the ingest UI now relies on WS-only updates.
+
 ```mermaid
 flowchart LR
   Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
@@ -997,7 +999,7 @@ sequenceDiagram
   participant API as /ingest/status
   participant Job as Ingest job
 
-  UI->>API: poll status every ~2s
+  UI->>API: poll status every ~2s (legacy)
   API->>Job: read latest snapshot
   Job-->>API: state + counts + currentFile + fileIndex/fileTotal + percent + etaMs
   API-->>UI: JSON status
@@ -1039,6 +1041,27 @@ sequenceDiagram
     WS-->>Hook: open
     Hook->>WS: subscribe_ingest {requestId}
   end
+```
+
+#### Ingest status hook flow (WS-only)
+
+- `useIngestStatus` subscribes to ingest on mount and updates local state from `ingest_snapshot` and `ingest_update` events.
+- Polling `/ingest/status/:runId` is no longer used; WebSocket is the single source of truth for active ingest state.
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant Hook as useIngestStatus
+  participant WS as WebSocket (/ws)
+
+  UI->>Hook: mount
+  Hook->>WS: subscribe_ingest {requestId}
+  WS-->>Hook: ingest_snapshot {seq, status|null}
+  Hook-->>UI: set status from snapshot
+  WS-->>Hook: ingest_update {seq, status}
+  Hook-->>UI: update status from event
+  UI->>Hook: unmount
+  Hook->>WS: unsubscribe_ingest {requestId}
 ```
 
 #### Ingest WS update broadcast

@@ -1,165 +1,64 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createLogger } from '../logging/logger';
+import {
+  useChatWs,
+  type ChatWsConnectionState,
+  type ChatWsIngestStatus,
+} from './useChatWs';
 
 const serverBase =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta).env?.VITE_API_URL) ??
   'http://localhost:5010';
 
-type IngestState =
-  | 'queued'
-  | 'scanning'
-  | 'embedding'
-  | 'completed'
-  | 'skipped'
-  | 'cancelled'
-  | 'error';
-
-type IngestProgress = {
-  currentFile?: string | null;
-  fileIndex?: number;
-  fileTotal?: number;
-  percent?: number;
-  etaMs?: number;
-};
-
-type IngestCounts = {
-  files?: number;
-  chunks?: number;
-  embedded?: number;
-  skipped?: number;
-};
-
-type StatusResponse = {
-  runId: string;
-  state: IngestState;
-  counts?: IngestCounts;
-  lastError?: string | null;
-  message?: string | null;
-  currentFile?: string | null;
-  fileIndex?: number;
-  fileTotal?: number;
-  percent?: number;
-  etaMs?: number;
-};
-
 type Status = {
-  status?: IngestState;
-  counts?: IngestCounts;
-  lastError?: string | null;
-  message?: string | null;
-  currentFile?: string | null;
-  fileIndex?: number;
-  fileTotal?: number;
-  percent?: number;
-  etaMs?: number;
+  status: ChatWsIngestStatus | null;
+  connectionState: ChatWsConnectionState;
   isLoading: boolean;
-  isError: boolean;
   error?: string;
   isCancelling: boolean;
   cancel: () => Promise<void>;
 };
-
-const terminalStates: IngestState[] = [
-  'completed',
-  'cancelled',
-  'error',
-  'skipped',
-];
-
-export function useIngestStatus(runId?: string): Status {
-  const [status, setStatus] = useState<IngestState | undefined>();
-  const [counts, setCounts] = useState<IngestCounts | undefined>();
-  const [lastError, setLastError] = useState<string | null | undefined>();
-  const [message, setMessage] = useState<string | null | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isError, setIsError] = useState(false);
+export function useIngestStatus(): Status {
+  const log = useMemo(() => createLogger('client-ingest'), []);
+  const [status, setStatus] = useState<ChatWsIngestStatus | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [isCancelling, setIsCancelling] = useState(false);
-  const [progress, setProgress] = useState<IngestProgress | undefined>();
 
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const activeController = useRef<AbortController | null>(null);
-
-  const clearPoll = () => {
-    if (pollRef.current) {
-      clearTimeout(pollRef.current);
-      pollRef.current = null;
-    }
-  };
-
-  const fetchStatus = useCallback(async () => {
-    if (!runId) return;
-    activeController.current?.abort();
-    const controller = new AbortController();
-    activeController.current = controller;
-    setIsLoading(true);
-    try {
-      const res = await fetch(
-        new URL(
-          `/ingest/status/${encodeURIComponent(runId)}`,
-          serverBase,
-        ).toString(),
-        { signal: controller.signal },
-      );
-      if (!res.ok) {
-        throw new Error(`Status fetch failed (${res.status})`);
+  const { connectionState, subscribeIngest, unsubscribeIngest } = useChatWs({
+    onEvent: (event) => {
+      if (event.type === 'ingest_snapshot') {
+        setStatus(event.status);
+        log(
+          'info',
+          '0000022 ingest status snapshot received',
+          event.status
+            ? { runId: event.status.runId, state: event.status.state }
+            : null,
+        );
       }
-      const data = (await res.json()) as StatusResponse;
-      setStatus(data.state);
-      setCounts(data.counts);
-      setLastError(data.lastError);
-      setMessage(data.message);
-      setProgress({
-        currentFile: data.currentFile,
-        fileIndex: data.fileIndex,
-        fileTotal: data.fileTotal,
-        percent: data.percent,
-        etaMs: data.etaMs,
-      });
-      setIsError(false);
-      setError(undefined);
-      const isTerminal = terminalStates.includes(data.state);
-      if (!isTerminal) {
-        pollRef.current = setTimeout(fetchStatus, 2000);
+      if (event.type === 'ingest_update') {
+        setStatus(event.status);
+        log('info', '0000022 ingest status update received', {
+          runId: event.status.runId,
+          state: event.status.state,
+        });
       }
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      setIsError(true);
-      setError((err as Error).message);
-      pollRef.current = setTimeout(fetchStatus, 4000);
-    } finally {
-      if (activeController.current === controller) {
-        activeController.current = null;
-      }
-      setIsLoading(false);
-    }
-  }, [runId]);
+    },
+  });
 
   useEffect(() => {
-    clearPoll();
-    setStatus(undefined);
-    setCounts(undefined);
-    setLastError(undefined);
-    setMessage(undefined);
-    setProgress(undefined);
-    setIsError(false);
-    setError(undefined);
-    if (runId) {
-      void fetchStatus();
-    }
-    return () => {
-      clearPoll();
-      activeController.current?.abort();
-    };
-  }, [runId, fetchStatus]);
+    subscribeIngest();
+    return () => unsubscribeIngest();
+  }, [subscribeIngest, unsubscribeIngest]);
 
   const cancel = useCallback(async () => {
-    if (!runId) return;
+    if (!status?.runId) return;
     setIsCancelling(true);
     try {
       const res = await fetch(
         new URL(
-          `/ingest/cancel/${encodeURIComponent(runId)}`,
+          `/ingest/cancel/${encodeURIComponent(status.runId)}`,
           serverBase,
         ).toString(),
         { method: 'POST', headers: { 'content-type': 'application/json' } },
@@ -167,30 +66,26 @@ export function useIngestStatus(runId?: string): Status {
       if (!res.ok) {
         throw new Error(`Cancel failed (${res.status})`);
       }
-      setStatus('cancelled');
-      clearPoll();
     } catch (err) {
-      setIsError(true);
       setError((err as Error).message);
     } finally {
       setIsCancelling(false);
     }
-  }, [runId]);
+  }, [status?.runId]);
 
-  const flags = useMemo(
-    () => ({ isLoading, isError, error, isCancelling }),
-    [isLoading, isError, error, isCancelling],
+  const isLoading = connectionState === 'connecting';
+
+  return useMemo(
+    () => ({
+      status,
+      connectionState,
+      isLoading,
+      error,
+      isCancelling,
+      cancel,
+    }),
+    [status, connectionState, isLoading, error, isCancelling, cancel],
   );
-
-  return {
-    status,
-    counts,
-    lastError,
-    message,
-    ...flags,
-    cancel,
-    ...progress,
-  };
 }
 
 export default useIngestStatus;

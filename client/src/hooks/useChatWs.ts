@@ -573,6 +573,10 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   useEffect(() => {
     connectNow();
     return () => {
+      if (realtimeEnabled && ingestSubscribedRef.current) {
+        ingestSubscribedRef.current = false;
+        sendRaw({ type: 'unsubscribe_ingest' });
+      }
       intentionalCloseRef.current = true;
       clearReconnectTimer();
       try {

@@ -1909,8 +1909,8 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 ### 8. Final verification: acceptance criteria, full test/build matrix, docs, PR comment
 
-- Task Status: ****in_progress****
-- Git Commits: ****to_do****
+- Task Status: ****done****
+- Git Commits: **572d2e9, 1ed986e**
 
 #### Overview
 
@@ -1993,7 +1993,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
        - Continue using existing test ids: `start-ingest`, `submit-error`, and `roots-lock-chip`.
      - Keep the existing progress assertions (current file changes, percent/ETA changes) but ensure they happen while the Active ingest panel is visible.
 
-6. [ ] Documentation update (task-local):
+6. [x] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:

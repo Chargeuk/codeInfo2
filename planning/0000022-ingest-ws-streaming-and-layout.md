@@ -876,7 +876,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 
 ### 4. Client: extend `useChatWs` with ingest subscription + ingest event types
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

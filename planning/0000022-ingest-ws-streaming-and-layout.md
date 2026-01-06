@@ -384,7 +384,19 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
          return;
        ```
 
-7. [ ] Server unit test: subscribe yields placeholder snapshot:
+7. [ ] Add server log line for ingest subscribe snapshots:
+   - Documentation to read:
+     - Server logging overview: `design.md` (Logging section)
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Log line requirements:
+     - Use `logPublish(...)` (existing helper) when sending the `ingest_snapshot` in `subscribe_ingest`.
+     - Message must be exactly: `0000022 ingest ws snapshot sent`.
+     - Include context fields: `requestId`, `seq`, and `status` (`null` for Task 1).
+   - Purpose:
+     - Confirms ingest snapshot delivery during the Task 1 manual Playwright-MCP check.
+
+8. [ ] Server unit test: subscribe yields placeholder snapshot:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -411,7 +423,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      assert.equal(event.status, null);
      ```
 
-8. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
+9. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -420,7 +432,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - Add a Mermaid sequence diagram for `subscribe_ingest` → `ingest_snapshot` (placeholder/null status) flow.
      - Keep diagrams minimal and aligned with existing design.md style.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read:
      - ESLint CLI (Context7): `/eslint/eslint`
      - Prettier CLI (Context7): `/prettier/prettier`
@@ -436,7 +448,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` and `/chat`, confirm the app loads without console errors and existing pages still render after WS message-type changes.
+8. [ ] Manual Playwright-MCP check: open `/ingest` and `/chat`, confirm the app loads without console errors and existing pages still render after WS message-type changes. Then open `/logs` and filter for `0000022 ingest ws snapshot sent` to confirm the snapshot log line was emitted.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -510,7 +522,19 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - On `subscribe_ingest`, send `ingest_snapshot` with `status: getActiveStatus()`.
      - Snapshot must be sent immediately after subscribe is processed.
 
-4. [ ] Server unit test: snapshot returns null when no active run:
+4. [ ] Add server log line when resolving active ingest status:
+   - Documentation to read:
+     - Server logging overview: `design.md` (Logging section)
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Log line requirements:
+     - Inside `getActiveStatus()`, emit a `logLifecycle('info', ...)` entry.
+     - Message must be exactly: `0000022 ingest active status resolved`.
+     - Include context fields: `runId` (if any), `state` (if any), and `lockOwner` (result from `currentOwner()`).
+   - Purpose:
+     - Confirms snapshot selection logic runs during the Task 2 manual Playwright-MCP check.
+
+5. [ ] Server unit test: snapshot returns null when no active run:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -522,7 +546,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Keep (or add) the `status: null` snapshot test and use existing WS helpers in this file.
 
-5. [ ] Server unit test: snapshot returns active run when non-terminal seeded:
+6. [ ] Server unit test: snapshot returns active run when non-terminal seeded:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -534,7 +558,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Use existing helpers in `server/src/ingest/ingestJob.ts`: `__resetIngestJobsForTest()` + `__setStatusForTest()`.
 
-6. [ ] Unit test: `getActiveStatus()` prefers active lock owner:
+7. [ ] Unit test: `getActiveStatus()` prefers active lock owner:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -546,7 +570,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Use `acquire(...)` / `release(...)` from `server/src/ingest/lock.ts` and seed status via `__setStatusForTest()`.
 
-7. [ ] Unit test: `getActiveStatus()` falls back when lock owner is terminal:
+8. [ ] Unit test: `getActiveStatus()` falls back when lock owner is terminal:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -558,7 +582,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Seed two runs (one terminal, one non-terminal) and control lock ownership with `acquire(...)`.
 
-8. [ ] Unit test: `getActiveStatus()` falls back when lock owner run is missing:
+9. [ ] Unit test: `getActiveStatus()` falls back when lock owner run is missing:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -570,7 +594,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Acquire a lock for a non-existent runId, seed a separate active run, and verify the active run is returned.
 
-9. [ ] Unit test: `getActiveStatus()` returns null when only terminal runs exist:
+10. [ ] Unit test: `getActiveStatus()` returns null when only terminal runs exist:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -582,7 +606,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
    - Requirements:
      - Seed terminal statuses only; verify `null` result.
 
-10. [ ] Update `design.md` with ingest active-status selection flow:
+11. [ ] Update `design.md` with ingest active-status selection flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -591,7 +615,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
      - Add a Mermaid flowchart or sequence showing lock owner + jobs map fallback logic for `getActiveStatus()`.
      - Note the “no last-run summary” rule when all runs are terminal.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -607,7 +631,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the UI remains stable (no crashes) while the server now returns active snapshots.
+8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the UI remains stable (no crashes) while the server now returns active snapshots. Then open `/logs` and filter for `0000022 ingest active status resolved` to confirm the active-status log line appears.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -672,7 +696,19 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Call `safeSend(ws, event)`.
      - Keep `seq` per socket (use the same `nextIngestSeq(ws)` introduced in Task 1).
 
-3. [ ] Add a status publish helper:
+3. [ ] Add server log line for ingest update broadcasts:
+   - Documentation to read:
+     - Server logging overview: `design.md` (Logging section)
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Log line requirements:
+     - Inside `broadcastIngestUpdate(...)`, emit a `logPublish(...)` entry.
+     - Message must be exactly: `0000022 ingest ws update broadcast`.
+     - Include context fields: `runId`, `state`, `seq`, and `subscriberCount`.
+   - Purpose:
+     - Confirms realtime broadcasts occur during the Task 3 manual Playwright-MCP check.
+
+4. [ ] Add a status publish helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -683,7 +719,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - It must call `broadcastIngestUpdate(nextStatus)`.
      - Keep existing REST behavior unchanged.
 
-4. [ ] Replace status writes with the publish helper:
+5. [ ] Replace status writes with the publish helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -709,7 +745,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        }
        ```
 
-5. [ ] Ensure cancel flows publish a final update:
+6. [ ] Ensure cancel flows publish a final update:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -717,7 +753,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - When cancellation sets the state to `cancelled`, an `ingest_update` must be broadcast.
 
-6. [ ] Server unit test: `ingest_update` emitted on status change:
+7. [ ] Server unit test: `ingest_update` emitted on status change:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -729,7 +765,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - Connect a WS client, send `subscribe_ingest`, then call `__setStatusAndPublishForTest(...)` and assert `status.state` matches.
 
-7. [ ] Server unit test: per-socket `seq` increases for subsequent updates:
+8. [ ] Server unit test: per-socket `seq` increases for subsequent updates:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -741,7 +777,7 @@ This task completes the server-side realtime path for ingest by wiring status up
    - Requirements:
      - Publish two updates via `__setStatusAndPublishForTest(...)` and assert `seq` increases.
 
-8. [ ] Server unit test: `unsubscribe_ingest` stops updates:
+9. [ ] Server unit test: `unsubscribe_ingest` stops updates:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -759,7 +795,7 @@ This task completes the server-side realtime path for ingest by wiring status up
        - Guarded like existing helpers (`NODE_ENV === 'test'`).
        - Must call the same internal `setStatusAndPublish(...)` used in production.
 
-9. [ ] Update `design.md` with ingest update broadcast flow:
+10. [ ] Update `design.md` with ingest update broadcast flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -768,7 +804,7 @@ This task completes the server-side realtime path for ingest by wiring status up
      - Add a Mermaid sequence showing `setStatusAndPublish(...)` → `broadcastIngestUpdate` → subscribed sockets.
      - Call out per-socket `seq` behavior in diagram notes.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -784,7 +820,7 @@ This task completes the server-side realtime path for ingest by wiring status up
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` in two tabs and confirm no regressions while server broadcast logic is active (page renders, no JS errors).
+8. [ ] Manual Playwright-MCP check: open `/ingest` in two tabs and confirm no regressions while server broadcast logic is active (page renders, no JS errors). Then open `/logs` and filter for `0000022 ingest ws update broadcast` to confirm update broadcasts were logged.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -941,7 +977,20 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
        export type ChatWsIngestEvent = WsIngestSnapshotEvent | WsIngestUpdateEvent;
        ```
 
-4. [ ] Client hook test: `subscribeIngest()` sends `subscribe_ingest`:
+4. [ ] Add client log line when WS events are forwarded:
+   - Documentation to read:
+     - Client logging: `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+   - Log line requirements:
+     - Use the existing `createLogger('client')` instance.
+     - Immediately before invoking `onEventRef.current?.(msg)`, emit a log entry.
+     - Message must be exactly: `0000022 ws event forwarded`.
+     - Include context fields: `eventType` (msg.type) and `conversationId` if present.
+   - Purpose:
+     - Confirms WS event dispatch still works after adding ingest event types.
+
+5. [ ] Client hook test: `subscribeIngest()` sends `subscribe_ingest`:
    - Documentation to read:
      - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Test type:
@@ -953,7 +1002,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Requirements:
      - Use the mock WS registry helpers (`lastSocket()`, `getSentTypes(...)`).
 
-5. [ ] Client hook test: `unsubscribeIngest()` sends `unsubscribe_ingest`:
+6. [ ] Client hook test: `unsubscribeIngest()` sends `unsubscribe_ingest`:
    - Documentation to read:
      - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Test type:
@@ -965,7 +1014,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Requirements:
      - Assert outbound payload includes `type: 'unsubscribe_ingest'`.
 
-6. [ ] Client hook test: resubscribe after reconnect when ingest is subscribed:
+7. [ ] Client hook test: resubscribe after reconnect when ingest is subscribed:
    - Documentation to read:
      - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Test type:
@@ -999,7 +1048,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      });
      ```
 
-7. [ ] Client hook test: no resubscribe after `unsubscribeIngest()`:
+8. [ ] Client hook test: no resubscribe after `unsubscribeIngest()`:
    - Documentation to read:
      - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Test type:
@@ -1014,7 +1063,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
    - Test constraints:
      - Do not add ingest-specific seq-gating tests (ingest events bypass chat seq logic).
 
-8. [ ] Client hook test: ingest events reach `onEvent` without conversationId:
+9. [ ] Client hook test: ingest events reach `onEvent` without conversationId:
    - Documentation to read:
      - Jest timer mocks: https://jestjs.io/docs/timer-mocks
    - Test type:
@@ -1028,7 +1077,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Inject a fake WS message (e.g. `ingest_snapshot`) via `lastSocket()._receive(...)`.
      - Assert the handler receives the exact event object.
 
-9. [ ] Documentation update (task-local):
+10. [ ] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1039,7 +1088,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-10. [ ] Update `design.md` with client ingest WS subscription flow:
+11. [ ] Update `design.md` with client ingest WS subscription flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1048,7 +1097,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
       - Add a Mermaid sequence showing `useChatWs` connect → `subscribe_ingest` → reconnect resubscribe behavior.
       - Note that ingest events bypass chat seq gating.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -1064,7 +1113,7 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/chat` and `/agents`, send a message, and confirm WS transcripts still stream correctly after `useChatWs` changes.
+8. [ ] Manual Playwright-MCP check: open `/chat` and `/agents`, send a message, and confirm WS transcripts still stream correctly after `useChatWs` changes. Then open `/logs` and filter for `0000022 ws event forwarded` (source `client`) to confirm the dispatch log line is emitted.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1127,7 +1176,19 @@ This task does not change the Ingest page layout yet; it only changes how status
        - Call `unsubscribeIngest()` in the cleanup function.
        - This cleanup pattern mirrors the React `useEffect` guidance for subscribing/unsubscribing external resources.
 
-4. [ ] Expose a minimal, predictable WS-driven API:
+4. [ ] Add client log lines for ingest WS events:
+   - Documentation to read:
+     - Client logging: `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Log line requirements:
+     - Instantiate a logger via `createLogger('client-ingest')`.
+     - When handling `ingest_snapshot`, emit message `0000022 ingest status snapshot received` with context `{ runId, state }` (or `null` when no run).
+     - When handling `ingest_update`, emit message `0000022 ingest status update received` with context `{ runId, state }`.
+   - Purpose:
+     - Confirms the WS-driven hook is processing ingest events during the Task 5 manual Playwright-MCP check.
+
+5. [ ] Expose a minimal, predictable WS-driven API:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1170,7 +1231,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      }
      ```
 
-5. [ ] Keep cancel behavior via REST (server unchanged):
+6. [ ] Keep cancel behavior via REST (server unchanged):
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1184,7 +1245,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Reuse the existing `serverBase` constant for building URLs.
      - Prefer not to optimistically mutate `status` on success; allow the server’s `ingest_update` to drive the final state.
 
-6. [ ] Refactor ingest status tests to use WS mocking (shared setup):
+7. [ ] Refactor ingest status tests to use WS mocking (shared setup):
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1195,7 +1256,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Use `client/src/test/support/mockWebSocket.ts` and the registry from `client/src/test/setupTests.ts`.
 
-7. [ ] Hook test: cancel uses REST endpoint with current `status.runId`:
+8. [ ] Hook test: cancel uses REST endpoint with current `status.runId`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1207,7 +1268,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Seed a WS `ingest_update` with a runId and assert the fetch call uses that id.
 
-8. [ ] Hook test: `ingest_snapshot` with `status: null` clears active status:
+9. [ ] Hook test: `ingest_snapshot` with `status: null` clears active status:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1219,7 +1280,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Emit `ingest_snapshot` with `status: null` and assert status becomes `null`.
 
-9. [ ] Hook test: `cancel()` is a no-op when `status === null`:
+10. [ ] Hook test: `cancel()` is a no-op when `status === null`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1231,7 +1292,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Call `cancel()` before any status arrives and assert no fetch occurs.
 
-10. [ ] Hook test: unmount sends `unsubscribe_ingest`:
+11. [ ] Hook test: unmount sends `unsubscribe_ingest`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1243,7 +1304,7 @@ This task does not change the Ingest page layout yet; it only changes how status
    - Requirements:
      - Unmount the hook and assert an outbound `unsubscribe_ingest` frame.
 
-11. [ ] Progress test: current file + percent/ETA update from WS events:
+12. [ ] Progress test: current file + percent/ETA update from WS events:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1268,7 +1329,7 @@ This task does not change the Ingest page layout yet; it only changes how status
        });
        ```
 
-12. [ ] Documentation update (task-local):
+13. [ ] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1279,7 +1340,7 @@ This task does not change the Ingest page layout yet; it only changes how status
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-13. [ ] Update `design.md` with ingest status hook flow:
+14. [ ] Update `design.md` with ingest status hook flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1288,7 +1349,7 @@ This task does not change the Ingest page layout yet; it only changes how status
       - Add a Mermaid sequence showing `useIngestStatus` subscribing and handling `ingest_snapshot` / `ingest_update` events.
       - Note that polling was removed and WS is the only source of status.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -1304,7 +1365,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling.
+8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling. Then open `/logs` and filter for `0000022 ingest status snapshot received` and `0000022 ingest status update received` (source `client-ingest`).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1385,7 +1446,19 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Keep refresh-on-terminal logic, but trigger it off WS state transitions:
        - Use a `useRef<string | null>` to ensure refresh runs only once per `runId:state`.
 
-4. [ ] Keep start callbacks wired without local run state:
+4. [ ] Add client log line when terminal state triggers refresh/hide:
+   - Documentation to read:
+     - Client logging: `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Log line requirements:
+     - Use the page’s existing `createLogger` instance.
+     - When a terminal status triggers `refetchRoots()` / `refresh()`, emit `0000022 ingest ui terminal refresh`.
+     - Include context fields: `runId` and `state`.
+   - Purpose:
+     - Confirms terminal-state handling during the Task 6 manual Playwright-MCP check.
+
+5. [ ] Keep start callbacks wired without local run state:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1398,7 +1471,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
       - `IngestForm`’s `onStarted` is required today — either pass a no-op or make the prop optional.
       - Do **not** re-introduce local runId tracking in the page.
 
-5. [ ] Add a stable status chip test id:
+6. [ ] Add a stable status chip test id:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1406,7 +1479,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Add `data-testid="ingest-status-chip"` to the status `Chip`.
 
-6. [ ] Add explicit WS connection UI states:
+7. [ ] Add explicit WS connection UI states:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Files to edit:
@@ -1418,7 +1491,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
        - `data-testid="ingest-ws-connecting"`
        - `data-testid="ingest-ws-unavailable"`
 
-7. [ ] Page test: snapshot renders immediately on subscribe:
+8. [ ] Page test: snapshot renders immediately on subscribe:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1430,7 +1503,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Inject a snapshot and assert status UI updates (e.g. chip or run panel appears).
 
-8. [ ] Page test: no Active ingest UI when `status === null`:
+9. [ ] Page test: no Active ingest UI when `status === null`:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1442,7 +1515,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Emit `ingest_snapshot` with `status: null` and assert the Active ingest UI is absent.
 
-9. [ ] Page test: WS closed shows explicit error state:
+10. [ ] Page test: WS closed shows explicit error state:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1454,7 +1527,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Drive `connectionState === 'closed'` and assert `data-testid="ingest-ws-unavailable"` exists.
 
-10. [ ] Page test: WS connecting shows non-error state:
+11. [ ] Page test: WS connecting shows non-error state:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1466,7 +1539,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
    - Requirements:
      - Drive `connectionState === 'connecting'` and assert `data-testid="ingest-ws-connecting"` exists.
 
-11. [ ] Page test: terminal state triggers refresh + hides active panel:
+12. [ ] Page test: terminal state triggers refresh + hides active panel:
    - Documentation to read:
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Test type:
@@ -1482,7 +1555,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Use the WS mock to inject `ingest_snapshot` / `ingest_update` into the mounted page.
      - Use `data-testid="ingest-status-chip"` and absence of “Active ingest” heading as stable selectors.
 
-12. [ ] Documentation update (task-local):
+13. [ ] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1493,7 +1566,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-13. [ ] Update `design.md` with ingest page WS-only UI flow:
+14. [ ] Update `design.md` with ingest page WS-only UI flow:
     - Documentation to read:
       - Mermaid syntax (Context7): `/mermaid-js/mermaid`
     - Files to edit:
@@ -1502,7 +1575,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
       - Add a Mermaid diagram showing WS connection states (connecting/open/closed) and UI rendering rules (no last-run summary).
       - Call out the refresh-on-terminal behavior in the diagram notes.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read:
       - ESLint CLI (Context7): `/eslint/eslint`
       - Prettier CLI (Context7): `/prettier/prettier`
@@ -1518,7 +1591,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest`, verify no last-run summary when idle, and confirm WS error/connecting banners appear for closed/connecting states.
+8. [ ] Manual Playwright-MCP check: open `/ingest`, verify no last-run summary when idle, and confirm WS error/connecting banners appear for closed/connecting states. Then complete an ingest run and check `/logs` for `0000022 ingest ui terminal refresh`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1567,7 +1640,19 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - Prefer `maxWidth={false}` on the page-level `Container`.
        - Ensure the page-level container does **not** render the `MuiContainer-maxWidthLg` class.
 
-3. [ ] Add/update a focused UI test to prevent regression:
+3. [ ] Add client log line confirming full-width layout:
+   - Documentation to read:
+     - Client logging: `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Log line requirements:
+     - Use `createLogger('client-ingest')` (or existing logger in the page).
+     - Emit message `0000022 ingest layout full-width` once on mount.
+     - Include context field: `maxWidth` with the value you set on the `Container`.
+   - Purpose:
+     - Confirms the layout change during the Task 7 manual Playwright-MCP check.
+
+4. [ ] Add/update a focused UI test to prevent regression:
    - Documentation to read:
      - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Test type:
@@ -1584,7 +1669,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Render `IngestPage` and assert:
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
-4. [ ] Update `projectStructure.md` for any added/removed files:
+5. [ ] Update `projectStructure.md` for any added/removed files:
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1596,7 +1681,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Ensure every file added or removed in this task is reflected in the tree entry (no omissions).
      - This subtask must run after all file-adding subtasks in this task.
 
-5. [ ] Documentation update (task-local):
+6. [ ] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1607,7 +1692,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read:
      - ESLint CLI (Context7): `/eslint/eslint`
      - Prettier CLI (Context7): `/prettier/prettier`
@@ -1623,7 +1708,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` and confirm the page uses full-width layout (no horizontal clipping of the roots table).
+8. [ ] Manual Playwright-MCP check: open `/ingest` and confirm the page uses full-width layout (no horizontal clipping of the roots table). Then open `/logs` and filter for `0000022 ingest layout full-width`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1740,7 +1825,19 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Include server WS protocol changes, ingest WS stream behavior, and client Ingest UX changes.
    - Mention what was removed (polling), and what the explicit failure mode is (WS error state).
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add final verification log line for manual checks:
+   - Documentation to read:
+     - Client logging: `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Log line requirements:
+     - Use the page logger (`createLogger('client')`).
+     - Emit message `0000022 verification logs reviewed` when the Logs page mounts.
+     - Include context `{ story: '0000022' }`.
+   - Purpose:
+     - Confirms the Task 8 manual Playwright-MCP log review step.
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read:
      - ESLint CLI (Context7): `/eslint/eslint`
      - Prettier CLI (Context7): `/prettier/prettier`
@@ -1764,6 +1861,7 @@ Run the full validation checklist, confirm every acceptance criterion, update do
    - Return tab B to `/ingest` and confirm it receives a fresh snapshot.
    - Confirm the UI shows an explicit error if the WS connection is down (no polling fallback).
    - Capture screenshots for regressions per `plan_format.md` requirements.
+   - Open `/logs` and filter for `0000022 verification logs reviewed` to confirm the final verification log line.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

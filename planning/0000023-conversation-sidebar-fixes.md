@@ -239,7 +239,7 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (preferred; `PaperProps` is deprecated in MUI 6.4.x).
+     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (MUI 6.4.x supports both `slotProps.paper` and `PaperProps`).
      - Ensure the Drawer paper width never exceeds the 320px drawer width.
 
 3. [ ] Fix ConversationList padding and scroll container behavior:

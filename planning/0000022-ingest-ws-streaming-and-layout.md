@@ -1185,8 +1185,8 @@ This task intentionally does **not** change the Ingest page or ingest status hoo
 
 ### 5. Client: refactor `useIngestStatus` to be WS-driven (remove polling)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **908e57f, 770f167**
 
 #### Overview
 
@@ -1390,7 +1390,7 @@ This task does not change the Ingest page layout yet; it only changes how status
        });
        ```
 
-13. [ ] Documentation update (task-local):
+13. [x] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:

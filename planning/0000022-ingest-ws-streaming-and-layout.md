@@ -476,7 +476,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 ### 2. Server: determine active ingest status for snapshots (`getActiveStatus`)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

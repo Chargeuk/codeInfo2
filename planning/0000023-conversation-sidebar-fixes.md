@@ -142,6 +142,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - Allow per-row archive/restore actions for Agents (remove the `variant === 'agents'` short-circuit).
      - Keep bulk delete strictly gated to `filterState === 'archived'`.
      - Preserve existing `data-testid` values for test stability.
+     - Reuse the existing `ConversationList` bulk selection patterns used by `chatSidebar.test.tsx` (do not introduce a new bulk-selection component).
 
 3. [ ] Wire Agents page to pass the full set of conversation actions:
    - Documentation to read:
@@ -158,6 +159,8 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - Context7 `/jestjs/jest`
      - Context7 `/testing-library/testing-library-docs`
    - Files to edit/add:
+     - `client/src/test/chatSidebar.test.tsx`
+     - `client/src/test/chatPersistenceBanner.test.tsx`
      - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
    - Test requirements:
      - Assert filter tabs render on Agents and toggle the filter state.
@@ -166,6 +169,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - Assert bulk delete appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
      - Assert conversation filters/actions are disabled when persistence is unavailable.
+     - Reuse existing `chatSidebar.test.tsx` patterns for bulk selection and confirmation dialogs where possible; only add new tests when Agents-specific wiring is required.
 
 5. [ ] Documentation updates (each in its own commit if changed):
    - Update `projectStructure.md` if new test files are added.
@@ -260,6 +264,7 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
      - Assert the “Load more” button is rendered inside the bordered list panel.
      - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
      - Validate header and row padding use the same `px` value.
+     - Extend existing `chatPage.layoutWrap.test.tsx` before creating a new Agents layout test (avoid duplicate layout assertions unless necessary).
 
 5. [ ] Documentation updates (each in its own commit if changed):
    - Update `projectStructure.md` if new test files are added.

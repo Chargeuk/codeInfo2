@@ -192,8 +192,8 @@ type IngestStatusPayload = {
 
 ### 1. Server: ingest WS message types + subscribe/unsubscribe + placeholder snapshot
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **02ab83e, 1799357**
 
 #### Overview
 

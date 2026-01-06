@@ -122,9 +122,12 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useConversations.ts`
      - `client/src/api/conversations.ts`
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
    - What to identify:
      - Where `variant === 'chat'` hides filters/refresh/bulk UI.
      - Which handlers Chat passes that Agents currently does not.
+     - Confirm server list/bulk endpoints already support `agentName` and enforce archived-only delete (no server changes required).
 
 2. [ ] Update `ConversationList` to allow Agents to use the same controls as Chat:
    - Documentation to read:
@@ -135,6 +138,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
    - Requirements:
      - Show the filter ToggleButtonGroup and Refresh icon when the caller supplies the needed handlers (not only when `variant === 'chat'`).
      - Enable bulk-selection UI (checkboxes + bulk action bar) when bulk handlers are provided, regardless of variant.
+     - Compute `enableBulkUi` from handler presence (`onBulkArchive`/`onBulkRestore`/`onBulkDelete`), not `variant`.
      - Allow per-row archive/restore actions for Agents (remove the `variant === 'agents'` short-circuit).
      - Keep bulk delete strictly gated to `filterState === 'archived'`.
      - Preserve existing `data-testid` values for test stability.
@@ -147,7 +151,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
    - Requirements:
      - Pass `onArchive`, `onRestore`, `onBulkArchive`, `onBulkRestore`, `onBulkDelete` from `useConversations`.
      - Use the same `filterState` + `setFilterState` as Chat.
-     - Disable actions when persistence is unavailable (match Chat’s `disabled` rule).
+     - Disable conversation actions when persistence is unavailable (match Chat’s `disabled` rule by including `persistenceUnavailable` in the `disabled` prop).
 
 4. [ ] Add/update unit tests for Agents sidebar parity:
    - Documentation to read:
@@ -161,6 +165,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
      - Assert bulk delete appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
+     - Assert conversation filters/actions are disabled when persistence is unavailable.
 
 5. [ ] Documentation updates (each in its own commit if changed):
    - Update `projectStructure.md` if new test files are added.

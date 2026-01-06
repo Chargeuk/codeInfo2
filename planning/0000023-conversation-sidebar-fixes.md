@@ -134,6 +134,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
      - Show the filter ToggleButtonGroup and Refresh icon when the caller supplies the needed handlers (not only when `variant === 'chat'`).
+     - Enable bulk-selection UI (checkboxes + bulk action bar) when bulk handlers are provided, regardless of variant.
      - Allow per-row archive/restore actions for Agents (remove the `variant === 'agents'` short-circuit).
      - Keep bulk delete strictly gated to `filterState === 'archived'`.
      - Preserve existing `data-testid` values for test stability.
@@ -156,6 +157,7 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
    - Test requirements:
      - Assert filter tabs render on Agents and toggle the filter state.
+     - Assert row selection checkboxes render and can be toggled.
      - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
      - Assert bulk delete appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
@@ -237,7 +239,8 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
      - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
-     - Move vertical scrolling to the list panel (e.g., `overflowY: 'auto'` on the list wrapper) so the “Load more” row remains inside the bordered panel.
+     - Move the “Load more” row into the bordered list panel so it scrolls with the list.
+     - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
      - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
 
 4. [ ] Add/update layout tests to lock in scroll + overflow behavior:
@@ -249,6 +252,7 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
      - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, if needed for coverage parity)
    - Test requirements:
      - Assert the conversation list container uses vertical scrolling (`overflowY: 'auto'` or equivalent).
+     - Assert the “Load more” button is rendered inside the bordered list panel.
      - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
      - Validate header and row padding use the same `px` value.
 

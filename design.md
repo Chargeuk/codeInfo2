@@ -1018,6 +1018,29 @@ sequenceDiagram
   WS-->>UI: ingest_snapshot (placeholder)
 ```
 
+#### Client ingest WS subscription flow
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant Hook as useChatWs
+  participant WS as WebSocket (/ws)
+
+  UI->>Hook: subscribeIngest()
+  Hook->>WS: open connection (if needed)
+  WS-->>Hook: open
+  Hook->>WS: subscribe_ingest {requestId}
+  WS-->>UI: ingest_snapshot {seq, status}
+  Note over Hook,UI: ingest events bypass chat seq gating
+
+  opt reconnect
+    WS-->>Hook: close
+    Hook->>WS: reconnect
+    WS-->>Hook: open
+    Hook->>WS: subscribe_ingest {requestId}
+  end
+```
+
 #### Ingest WS update broadcast
 
 ```mermaid

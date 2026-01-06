@@ -162,6 +162,100 @@ describe('useChatWs', () => {
     expect(resubscribeCount).toBeGreaterThanOrEqual(2);
   });
 
+  it('sends subscribe_ingest when requested', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.subscribeIngest();
+    });
+
+    const socket = lastSocket();
+    expect(getSentTypes(socket)).toEqual(
+      expect.arrayContaining(['subscribe_ingest']),
+    );
+  });
+
+  it('sends unsubscribe_ingest when requested', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.unsubscribeIngest();
+    });
+
+    const socket = lastSocket();
+    expect(getSentTypes(socket)).toEqual(
+      expect.arrayContaining(['unsubscribe_ingest']),
+    );
+  });
+
+  it('re-sends subscribe_ingest after reconnect', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.subscribeIngest();
+    });
+
+    const first = lastSocket();
+    act(() => {
+      first.close();
+    });
+
+    await waitFor(() =>
+      expect(wsRegistry().instances.length).toBeGreaterThan(1),
+    );
+
+    const subscribeCount = getSentMessages().filter(
+      (msg) => msg.type === 'subscribe_ingest',
+    ).length;
+    expect(subscribeCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('does not resubscribe to ingest after unsubscribe', async () => {
+    const { result } = renderHook(() => useChatWs());
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    act(() => {
+      result.current.subscribeIngest();
+      result.current.unsubscribeIngest();
+    });
+
+    const first = lastSocket();
+    act(() => {
+      first.close();
+    });
+
+    await waitFor(() =>
+      expect(wsRegistry().instances.length).toBeGreaterThan(1),
+    );
+
+    const subscribeCount = getSentMessages().filter(
+      (msg) => msg.type === 'subscribe_ingest',
+    ).length;
+    expect(subscribeCount).toBe(1);
+  });
+
+  it('forwards ingest events without conversationId to onEvent', async () => {
+    const onEvent = jest.fn();
+    const { result } = renderHook(() => useChatWs({ onEvent }));
+    await waitFor(() => expect(result.current.connectionState).toBe('open'));
+
+    const event = {
+      protocolVersion: 'v1',
+      type: 'ingest_snapshot',
+      seq: 1,
+      status: null,
+    };
+
+    act(() => {
+      lastSocket()._receive(event);
+    });
+
+    expect(onEvent).toHaveBeenCalledWith(event);
+  });
+
   it('does not subscribe or reconnect when realtime is disabled', async () => {
     const refresh = jest.fn();
     const { result } = renderHook(() =>

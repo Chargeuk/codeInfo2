@@ -67,6 +67,44 @@ type WsToolEvent =
       errorFull?: unknown;
     };
 
+type WsIngestCounts = {
+  files?: number;
+  chunks?: number;
+  embedded?: number;
+};
+
+export type ChatWsIngestStatus = {
+  runId: string;
+  state:
+    | 'queued'
+    | 'scanning'
+    | 'embedding'
+    | 'completed'
+    | 'cancelled'
+    | 'error'
+    | 'skipped';
+  counts?: WsIngestCounts;
+  currentFile?: string;
+  fileIndex?: number;
+  fileTotal?: number;
+  percent?: number;
+  etaMs?: number;
+  message?: string;
+  lastError?: string | null;
+};
+
+type WsIngestSnapshotEvent = WsServerEventBase & {
+  type: 'ingest_snapshot';
+  seq: number;
+  status: ChatWsIngestStatus | null;
+};
+
+type WsIngestUpdateEvent = WsServerEventBase & {
+  type: 'ingest_update';
+  seq: number;
+  status: ChatWsIngestStatus;
+};
+
 type WsInflightSnapshotEvent = WsServerEventBase & {
   type: 'inflight_snapshot';
   conversationId: string;
@@ -131,7 +169,9 @@ type WsServerEvent =
   | WsAnalysisDeltaEvent
   | WsToolEventEvent
   | WsStreamWarningEvent
-  | WsTurnFinalEvent;
+  | WsTurnFinalEvent
+  | WsIngestSnapshotEvent
+  | WsIngestUpdateEvent;
 
 export type ChatWsServerEvent = WsServerEvent;
 export type ChatWsSidebarEvent =
@@ -146,6 +186,7 @@ export type ChatWsTranscriptEvent =
   | WsStreamWarningEvent
   | WsTurnFinalEvent;
 export type ChatWsToolEvent = WsToolEvent;
+export type ChatWsIngestEvent = WsIngestSnapshotEvent | WsIngestUpdateEvent;
 
 export type ChatWsConnectionState = 'connecting' | 'open' | 'closed';
 
@@ -162,6 +203,8 @@ type UseChatWsState = {
   unsubscribeSidebar: () => void;
   subscribeConversation: (conversationId: string) => void;
   unsubscribeConversation: (conversationId: string) => void;
+  subscribeIngest: () => void;
+  unsubscribeIngest: () => void;
   cancelInflight: (conversationId: string, inflightId: string) => void;
 };
 
@@ -227,6 +270,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
   const pendingMessagesRef = useRef<string[]>([]);
 
   const sidebarSubscribedRef = useRef(false);
+  const ingestSubscribedRef = useRef(false);
   const conversationSubscriptionsRef = useRef<Set<string>>(new Set());
 
   const lastSeqByKeyRef = useRef<Map<string, number>>(new Map());
@@ -320,6 +364,10 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
 
       if (sidebarSubscribedRef.current) {
         sendRaw({ type: 'subscribe_sidebar' });
+      }
+
+      if (ingestSubscribedRef.current) {
+        sendRaw({ type: 'subscribe_ingest' });
       }
 
       for (const conversationId of conversationSubscriptionsRef.current) {
@@ -469,6 +517,11 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         }
       }
 
+      log('info', '0000022 ws event forwarded', {
+        eventType: msg.type,
+        ...(conversationId ? { conversationId } : {}),
+      });
+
       onEventRef.current?.(msg);
     };
 
@@ -565,6 +618,18 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
     [realtimeEnabled, sendRaw],
   );
 
+  const subscribeIngest = useCallback(() => {
+    if (!realtimeEnabled) return;
+    ingestSubscribedRef.current = true;
+    sendRaw({ type: 'subscribe_ingest' });
+  }, [realtimeEnabled, sendRaw]);
+
+  const unsubscribeIngest = useCallback(() => {
+    if (!realtimeEnabled) return;
+    ingestSubscribedRef.current = false;
+    sendRaw({ type: 'unsubscribe_ingest' });
+  }, [realtimeEnabled, sendRaw]);
+
   const cancelInflight = useCallback(
     (conversationId: string, inflightId: string) => {
       if (!conversationId || !inflightId) return;
@@ -583,6 +648,8 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       unsubscribeSidebar,
       subscribeConversation,
       unsubscribeConversation,
+      subscribeIngest,
+      unsubscribeIngest,
       cancelInflight,
     }),
     [
@@ -591,6 +658,8 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       unsubscribeSidebar,
       subscribeConversation,
       unsubscribeConversation,
+      subscribeIngest,
+      unsubscribeIngest,
       cancelInflight,
     ],
   );

@@ -131,6 +131,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- agentsPage.commandMetadataRender.test.tsx ? Agents page renders per-turn command metadata note with step progress
 |     |     |- agentsPage.commandsRun.abort.test.tsx ? Agents page Stop sends WS cancel_inflight (does not abort HTTP start)
 |     |     |- ingestForm.test.tsx ? ingest form validation, lock banner, submit payloads
+|     |     |- ingestPage.layout.test.tsx ? ingest page stays full width (no maxWidth lg container)
 |     |     |- ingestStatus.test.tsx ? ingest status polling/cancel card tests
 |     |     |- ingestStatus.progress.test.tsx ? ingest status progress row updates with MSW stubs
 |     |     |- ingestRoots.test.tsx ? roots table + details drawer + actions coverage

@@ -19,6 +19,7 @@ import { createLogger } from '../logging/logger';
 
 export default function IngestPage() {
   const log = useMemo(() => createLogger('client'), []);
+  const containerMaxWidth = false;
   const {
     models,
     lockedModelId,
@@ -63,6 +64,12 @@ export default function IngestPage() {
   }, [locked, log]);
 
   useEffect(() => {
+    log('info', '0000022 ingest layout full-width', {
+      maxWidth: containerMaxWidth,
+    });
+  }, [containerMaxWidth, log]);
+
+  useEffect(() => {
     if (!ingest.status) return;
     if (terminalStates.has(ingest.status.state)) {
       const key = `${ingest.status.runId}:${ingest.status.state}`;
@@ -80,7 +87,7 @@ export default function IngestPage() {
   }, [ingest.status, refetchRoots, refresh, terminalStates, log]);
 
   return (
-    <Container sx={{ py: 3 }}>
+    <Container maxWidth={containerMaxWidth} sx={{ py: 3 }}>
       <Stack spacing={3}>
         <Typography variant="h4">Ingest</Typography>
 

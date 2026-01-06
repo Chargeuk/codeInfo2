@@ -1778,7 +1778,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 
 ### 7. Client: full-width Ingest layout
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: ****to_do****
 
 #### Overview
@@ -1792,7 +1792,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 #### Subtasks
 
-1. [ ] Read how other pages achieve full width:
+1. [x] Read how other pages achieve full width:
    - Documentation to read:
      - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Files to read:
@@ -1800,7 +1800,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - `client/src/pages/AgentsPage.tsx` (Container usage)
      - `client/src/pages/IngestPage.tsx` (current constrained Container)
 
-2. [ ] Update Ingest page container width:
+2. [x] Update Ingest page container width:
    - Documentation to read:
      - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Files to edit:
@@ -1816,7 +1816,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
        - Prefer `maxWidth={false}` on the page-level `Container`.
        - Ensure the page-level container does **not** render the `MuiContainer-maxWidthLg` class.
 
-3. [ ] Add client log line confirming full-width layout:
+3. [x] Add client log line confirming full-width layout:
    - Documentation to read:
      - Client logging: `client/src/logging/logger.ts`
    - Files to edit:
@@ -1828,7 +1828,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
    - Purpose:
      - Confirms the layout change during the Task 7 manual Playwright-MCP check.
 
-4. [ ] Add/update a focused UI test to prevent regression:
+4. [x] Add/update a focused UI test to prevent regression:
    - Documentation to read:
      - MUI Container API (MUI MCP `@mui/material@6.4.12`): https://llms.mui.com/material-ui/6.4.12/api/container.md
    - Test type:
@@ -1845,7 +1845,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Render `IngestPage` and assert:
        - `document.querySelector('.MuiContainer-maxWidthLg') === null`
 
-5. [ ] Update `projectStructure.md` for any added/removed files:
+5. [x] Update `projectStructure.md` for any added/removed files:
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1868,7 +1868,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Fill in this task’s Implementation notes as you implement.
      - Record the commit hash(es) in this task’s Git Commits.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read:
      - ESLint CLI (Context7): `/eslint/eslint`
      - Prettier CLI (Context7): `/prettier/prettier`
@@ -1877,19 +1877,32 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` and confirm the page uses full-width layout (no horizontal clipping of the roots table). Then open `/logs` and filter for `0000022 ingest layout full-width`.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `/ingest` and confirm the page uses full-width layout (no horizontal clipping of the roots table). Then open `/logs` and filter for `0000022 ingest layout full-width`.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Reviewed Chat/Agents/Ingest page container usage to confirm full-width patterns (`maxWidth={false}`) before making layout changes.
+- Set the Ingest page `Container` to `maxWidth={false}` and logged `0000022 ingest layout full-width` with the applied `maxWidth` value on mount.
+- Added `ingestPage.layout.test.tsx` to assert the Ingest route never renders a `MuiContainer-maxWidthLg` class.
+- Updated `projectStructure.md` to list the new ingest layout test file.
+- `npm run lint --workspaces` reported existing warnings only; `npm run format:check --workspaces` passed cleanly.
+- Testing: `npm run build --workspace server` succeeded.
+- Testing: `npm run build --workspace client` succeeded (chunk size warning only).
+- Testing: `npm run test --workspace server` succeeded after increasing the timeout (initial runs timed out during long integration output).
+- Testing: `npm run test --workspace client` succeeded; Jest reported expected console logs/act warnings from ingest hooks.
+- Testing: `npm run e2e` completed successfully (compose build/up/test/down).
+- Testing: `npm run compose:build` succeeded (client bundle size warning repeated).
+- Testing: `npm run compose:up` succeeded and services reported healthy.
+- Testing: manual `/ingest` + `/logs` check ran via a Playwright script (MCP transport was unavailable); `MuiContainer-maxWidthLg` count was 0 and the `0000022 ingest layout full-width` log entry was visible.
+- Testing: `npm run compose:down` succeeded.
 
 ---
 

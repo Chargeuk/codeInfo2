@@ -1779,7 +1779,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
 ### 7. Client: full-width Ingest layout
 
 - Task Status: **__done__**
-- Git Commits: ****to_do****
+- Git Commits: **eaaacae, 9bfc9a0**
 
 #### Overview
 
@@ -1857,7 +1857,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
      - Ensure every file added or removed in this task is reflected in the tree entry (no omissions).
      - This subtask must run after all file-adding subtasks in this task.
 
-6. [ ] Documentation update (task-local):
+6. [x] Documentation update (task-local):
    - Documentation to read:
      - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax
    - Files to read:
@@ -1903,6 +1903,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 - Testing: `npm run compose:up` succeeded and services reported healthy.
 - Testing: manual `/ingest` + `/logs` check ran via a Playwright script (MCP transport was unavailable); `MuiContainer-maxWidthLg` count was 0 and the `0000022 ingest layout full-width` log entry was visible.
 - Testing: `npm run compose:down` succeeded.
+- Recorded Task 7 commit hashes in the plan and marked documentation updates complete.
 
 ---
 

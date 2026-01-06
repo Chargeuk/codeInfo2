@@ -212,6 +212,7 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
 #### Documentation Locations
 
 - MUI Drawer (paper sizing + overflow control): https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+- MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
 - MUI Lists (List + ListItem padding): https://llms.mui.com/material-ui/6.4.12/components/lists.md
 - MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
 - MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
@@ -233,11 +234,12 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
 2. [ ] Update Drawer paper sizing/overflow to avoid horizontal scroll:
    - Documentation to read:
      - MUI Drawer: https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+     - MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper (use `slotProps.paper` if needed).
+     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (preferred; `PaperProps` is deprecated in MUI 6.4.x).
      - Ensure the Drawer paper width never exceeds the 320px drawer width.
 
 3. [ ] Fix ConversationList padding and scroll container behavior:

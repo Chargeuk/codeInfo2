@@ -5,7 +5,7 @@ import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
 import { abortAgentCommandRun } from '../agents/commandsRunner.js';
 
-import type { IngestJobStatus } from '../ingest/ingestJob.js';
+import { getActiveStatus, type IngestJobStatus } from '../ingest/ingestJob.js';
 import {
   abortInflight,
   bumpSeq,
@@ -338,11 +338,12 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
         return;
       case 'subscribe_ingest': {
         subscribeIngest(ws);
-        const seq = sendIngestSnapshot(ws, null);
+        const status = getActiveStatus();
+        const seq = sendIngestSnapshot(ws, status);
         logPublish('0000022 ingest ws snapshot sent', {
           requestId: message.requestId,
           seq,
-          status: null,
+          status,
         });
         return;
       }

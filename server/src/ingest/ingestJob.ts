@@ -64,6 +64,12 @@ const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
+const terminalStates = new Set<IngestRunState>([
+  'completed',
+  'cancelled',
+  'skipped',
+  'error',
+]);
 
 function logLifecycle(
   level: LogEntry['level'],
@@ -771,6 +777,35 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
 
 export function getStatus(runId: string): IngestJobStatus | null {
   return jobs.get(runId) ?? null;
+}
+
+export function getActiveStatus(): IngestJobStatus | null {
+  const lockOwner = ingestLock.currentOwner();
+  let active: IngestJobStatus | null = null;
+
+  if (lockOwner) {
+    const lockedStatus = jobs.get(lockOwner);
+    if (lockedStatus && !terminalStates.has(lockedStatus.state)) {
+      active = lockedStatus;
+    }
+  }
+
+  if (!active) {
+    for (const status of jobs.values()) {
+      if (!terminalStates.has(status.state)) {
+        active = status;
+        break;
+      }
+    }
+  }
+
+  logLifecycle('info', '0000022 ingest active status resolved', {
+    runId: active?.runId,
+    state: active?.state,
+    lockOwner,
+  });
+
+  return active ?? null;
 }
 
 export async function resetLocksIfEmpty() {

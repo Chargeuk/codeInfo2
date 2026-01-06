@@ -7,6 +7,10 @@ import WebSocket, { type RawData } from 'ws';
 
 import { query, resetStore } from '../../logStore.js';
 import {
+  __resetIngestJobsForTest,
+  __setStatusForTest,
+} from '../../ingest/ingestJob.js';
+import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from '../../mongo/events.js';
@@ -17,6 +21,8 @@ import {
   waitForEvent,
 } from '../support/wsClient.js';
 import { attachWs } from '../../ws/server.js';
+
+const ORIGINAL_ENV = process.env.NODE_ENV;
 
 async function startServer() {
   const app = express();
@@ -94,6 +100,13 @@ function waitForClose(ws: WebSocket) {
 
 test.beforeEach(() => {
   resetStore();
+  process.env.NODE_ENV = 'test';
+  __resetIngestJobsForTest();
+});
+
+test.afterEach(() => {
+  __resetIngestJobsForTest();
+  process.env.NODE_ENV = ORIGINAL_ENV;
 });
 
 test('WS accepts connection on /ws and processes JSON message (happy path)', async () => {
@@ -282,6 +295,36 @@ test('WS subscribe_ingest sends placeholder ingest_snapshot', async () => {
     });
 
     assert.equal(event.status, null);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS subscribe_ingest sends active ingest snapshot', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-active';
+  __setStatusForTest(runId, {
+    runId,
+    state: 'embedding',
+    counts: { files: 2, chunks: 4, embedded: 1 },
+    message: 'Embedding',
+    lastError: null,
+  });
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    const event = await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; status: { runId: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    assert.equal(event.status.runId, runId);
   } finally {
     await closeWs(ws);
     await stopServer(server);

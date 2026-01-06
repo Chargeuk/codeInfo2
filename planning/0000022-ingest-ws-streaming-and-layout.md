@@ -1909,7 +1909,7 @@ Make the Ingest page layout full-width (matching Chat/Agents) by removing the co
 
 ### 8. Final verification: acceptance criteria, full test/build matrix, docs, PR comment
 
-- Task Status: ****to_do****
+- Task Status: ****in_progress****
 - Git Commits: ****to_do****
 
 #### Overview

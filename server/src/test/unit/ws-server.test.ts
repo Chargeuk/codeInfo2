@@ -10,6 +10,12 @@ import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from '../../mongo/events.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 import { attachWs } from '../../ws/server.js';
 
 async function startServer() {
@@ -256,6 +262,28 @@ test('WS subscribe_conversation missing conversationId is rejected', async () =>
     const closed = await waitForClose(ws);
     assert.equal(closed.code, 1008);
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('WS subscribe_ingest sends placeholder ingest_snapshot', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    const event = await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; status: null } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    assert.equal(event.status, null);
+  } finally {
+    await closeWs(ws);
     await stopServer(server);
   }
 });

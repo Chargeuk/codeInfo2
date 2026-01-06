@@ -1004,6 +1004,20 @@ sequenceDiagram
   UI-->>UI: render file path, index/total, percent, ETA
 ```
 
+#### Ingest WS subscribe snapshot (placeholder)
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant WS as WebSocket (/ws)
+  participant Server
+
+  UI->>WS: subscribe_ingest {requestId}
+  WS->>Server: handle subscribe_ingest
+  Server-->>WS: ingest_snapshot {seq, status: null}
+  WS-->>UI: ingest_snapshot (placeholder)
+```
+
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
 
 ### Ingest roots listing

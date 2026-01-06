@@ -213,7 +213,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 #### Subtasks
 
-1. [ ] Read existing WS server patterns so changes mirror Chat/Agents:
+1. [x] Read existing WS server patterns so changes mirror Chat/Agents:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
        - Confirm `WebSocketServer({ noServer: true })` + `handleUpgrade(...)` is the supported pattern, and ping/pong heartbeats are recommended for dead-connection detection.
@@ -225,7 +225,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - `server/src/test/unit/ws-server.test.ts` (existing WS unit tests)
      - `server/src/test/support/wsClient.ts` (WS client helper for tests)
 
-2. [ ] Extend WS client message parsing for ingest subscriptions:
+2. [x] Extend WS client message parsing for ingest subscriptions:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
@@ -255,7 +255,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        export type WsClientUnsubscribeIngest = WsClientBase & { type: 'unsubscribe_ingest' };
        ```
 
-3. [ ] Add WS server event shapes for ingest snapshot + updates:
+3. [x] Add WS server event shapes for ingest snapshot + updates:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -290,7 +290,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        };
        ```
 
-4. [ ] Add ingest subscription tracking in the WS registry:
+4. [x] Add ingest subscription tracking in the WS registry:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -322,7 +322,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        }
        ```
 
-5. [ ] Add per-socket ingest `seq` and a snapshot send helper:
+5. [x] Add per-socket ingest `seq` and a snapshot send helper:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -356,7 +356,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
        }
        ```
 
-6. [ ] Handle `subscribe_ingest` / `unsubscribe_ingest` in the WS server:
+6. [x] Handle `subscribe_ingest` / `unsubscribe_ingest` in the WS server:
    - Documentation to read:
      - `ws` docs: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
@@ -384,7 +384,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
          return;
        ```
 
-7. [ ] Add server log line for ingest subscribe snapshots:
+7. [x] Add server log line for ingest subscribe snapshots:
    - Documentation to read:
      - Server logging overview: `design.md` (Logging section)
    - Files to edit:
@@ -396,7 +396,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
    - Purpose:
      - Confirms ingest snapshot delivery during the Task 1 manual Playwright-MCP check.
 
-8. [ ] Server unit test: subscribe yields placeholder snapshot:
+8. [x] Server unit test: subscribe yields placeholder snapshot:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Test type:
@@ -423,7 +423,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      assert.equal(event.status, null);
      ```
 
-9. [ ] Update `design.md` with ingest WS subscribe/snapshot flow:
+9. [x] Update `design.md` with ingest WS subscribe/snapshot flow:
    - Documentation to read:
      - Mermaid syntax (Context7): `/mermaid-js/mermaid`
    - Files to edit:
@@ -432,7 +432,7 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
      - Add a Mermaid sequence diagram for `subscribe_ingest` → `ingest_snapshot` (placeholder/null status) flow.
      - Keep diagrams minimal and aligned with existing design.md style.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read:
      - ESLint CLI (Context7): `/eslint/eslint`
      - Prettier CLI (Context7): `/prettier/prettier`
@@ -441,19 +441,36 @@ This task does **not** broadcast ingest progress changes yet (that is Task 3).
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest` and `/chat`, confirm the app loads without console errors and existing pages still render after WS message-type changes. Then open `/logs` and filter for `0000022 ingest ws snapshot sent` to confirm the snapshot log line was emitted.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `/ingest` and `/chat`, confirm the app loads without console errors and existing pages still render after WS message-type changes. Then open `/logs` and filter for `0000022 ingest ws snapshot sent` to confirm the snapshot log line was emitted.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Reviewed WS server types/registry/server flow and current unit test helpers to mirror existing chat subscription patterns before adding ingest handling.
+- Lint/format pass required a small cleanup in `client/src/test/agentsPage.commandsRun.abort.test.tsx` (unused mock params removed, Prettier applied).
+- Added ingest subscribe/unsubscribe client message types and parsing cases in `server/src/ws/types.ts`.
+- Added ingest snapshot/update event type definitions in `server/src/ws/types.ts` wired to the shared `IngestJobStatus` shape.
+- Extended `server/src/ws/registry.ts` with ingest subscription state plus subscribe/unsubscribe helpers and a sockets selector.
+- Added per-socket ingest sequencing + snapshot helper in `server/src/ws/server.ts`, plus subscribe/unsubscribe handling that emits a placeholder snapshot and the required log line.
+- Added a WS unit test for `subscribe_ingest` to confirm placeholder snapshot delivery (`server/src/test/unit/ws-server.test.ts`).
+- Added a design diagram for the `subscribe_ingest` → placeholder `ingest_snapshot` flow in `design.md`.
+- Re-ran workspace lint + format checks after each change; ESLint continues to emit pre-existing import-order warnings but no errors.
+- Test: `npm run build --workspace server`.
+- Test: `npm run build --workspace client` (Vite build succeeded; chunk-size warnings only).
+- Test: `npm run test --workspace server` (initial runs timed out; completed with extended timeout).
+- Test: `npm run test --workspace client` (fixed abort test mock to pass fetch init; rerun succeeded with expected console warnings).
+- Test: `npm run e2e` (first run timed out; second run completed successfully).
+- Test: `npm run compose:build`.
+- Test: `npm run compose:up`.
+- Manual check: Playwright MCP could not launch Chrome on Linux Arm64; verified `subscribe_ingest` snapshot log via WS + `/logs` API (`0000022 ingest ws snapshot sent`).
+- Test: `npm run compose:down`.
 
 ---
 

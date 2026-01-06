@@ -39,6 +39,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 
+Legacy note: the REST polling flow below remains for status snapshots, but the ingest UI now relies on WS-only updates.
+
 ```mermaid
 flowchart LR
   Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
@@ -236,6 +238,7 @@ sequenceDiagram
     Client->>Client: hydrateInflightSnapshot(inflight)
   end
 ```
+
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
@@ -640,7 +643,6 @@ sequenceDiagram
   end
 ```
 
-
 ### Agents command run (async)
 
 - `POST /agents/:agentName/commands/run` returns `202` immediately and continues executing command steps in the background.
@@ -663,6 +665,7 @@ sequenceDiagram
   UI->>WS: cancel_inflight(conversationId, inflightId)
   Note over Runner: aborts current step + stops remaining steps
 ```
+
 ### Agent working_folder overrides
 
 - Callers may optionally provide `working_folder` (absolute path). When present, the server resolves a per-call Codex `workingDirectory` override before starting/resuming the Codex thread.
@@ -997,11 +1000,83 @@ sequenceDiagram
   participant API as /ingest/status
   participant Job as Ingest job
 
-  UI->>API: poll status every ~2s
+  UI->>API: poll status every ~2s (legacy)
   API->>Job: read latest snapshot
   Job-->>API: state + counts + currentFile + fileIndex/fileTotal + percent + etaMs
   API-->>UI: JSON status
   UI-->>UI: render file path, index/total, percent, ETA
+```
+
+#### Ingest WS subscribe snapshot (placeholder)
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant WS as WebSocket (/ws)
+  participant Server
+
+  UI->>WS: subscribe_ingest {requestId}
+  WS->>Server: handle subscribe_ingest
+  Server-->>WS: ingest_snapshot {seq, status: null}
+  WS-->>UI: ingest_snapshot (placeholder)
+```
+
+#### Client ingest WS subscription flow
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant Hook as useChatWs
+  participant WS as WebSocket (/ws)
+
+  UI->>Hook: subscribeIngest()
+  Hook->>WS: open connection (if needed)
+  WS-->>Hook: open
+  Hook->>WS: subscribe_ingest {requestId}
+  WS-->>UI: ingest_snapshot {seq, status}
+  Note over Hook,UI: ingest events bypass chat seq gating
+
+  opt reconnect
+    WS-->>Hook: close
+    Hook->>WS: reconnect
+    WS-->>Hook: open
+    Hook->>WS: subscribe_ingest {requestId}
+  end
+```
+
+#### Ingest status hook flow (WS-only)
+
+- `useIngestStatus` subscribes to ingest on mount and updates local state from `ingest_snapshot` and `ingest_update` events.
+- Polling `/ingest/status/:runId` is no longer used; WebSocket is the single source of truth for active ingest state.
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest page
+  participant Hook as useIngestStatus
+  participant WS as WebSocket (/ws)
+
+  UI->>Hook: mount
+  Hook->>WS: subscribe_ingest {requestId}
+  WS-->>Hook: ingest_snapshot {seq, status|null}
+  Hook-->>UI: set status from snapshot
+  WS-->>Hook: ingest_update {seq, status}
+  Hook-->>UI: update status from event
+  UI->>Hook: unmount
+  Hook->>WS: unsubscribe_ingest {requestId}
+```
+
+#### Ingest WS update broadcast
+
+```mermaid
+sequenceDiagram
+  participant Job as Ingest job
+  participant WS as WebSocket (/ws)
+  participant UI as Ingest page
+
+  Job->>WS: setStatusAndPublish(status)
+  WS->>WS: broadcastIngestUpdate(status)
+  WS-->>UI: ingest_update {seq, status}
+  Note over WS,UI: seq increments per socket on each update
 ```
 
 - Model lock: first successful ingest sets `lockedModelId`; subsequent ingests must match unless the vectors collection is emptied.
@@ -1034,7 +1109,7 @@ sequenceDiagram
 ### Ingest cancel / re-embed / remove flows
 
 - Cancel: `POST /ingest/cancel/:runId` sets a cancel flag, stops further work, deletes vectors tagged with the runId, updates the roots entry to `cancelled`, and frees the single-flight lock. Response `{status:'ok', cleanup:'complete'}`.
-- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root *metadata* entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
+- Re-embed: `POST /ingest/reembed/:root` selects the most recent root metadata (prefers `lastIngestAt`, then `runId`) to reuse `name/description/model`, deletes only the root _metadata_ entries (not vectors), then starts a new ingest run with `operation: 'reembed'`.
 - Remove: `POST /ingest/remove/:root` purges vectors and root metadata; when the vectors collection is empty the locked model is cleared, returning `{status:'ok', unlocked:true|false}`.
 - Single-flight lock: a TTL-backed lock (30m) prevents overlapping ingest/re-embed/remove; requests during an active run return `429 BUSY`. Cancel is permitted to release the lock.
 - Dry run: skips Chroma writes/embeddings but still reports discovered file/chunk counts.
@@ -1128,9 +1203,21 @@ sequenceDiagram
 - Form fields: folder path (required), display name (required), optional description, embedding model select (disabled when `lockedModelId` exists), dry-run toggle, submit button. Inline errors show “Path is required”, “Name is required”, “Select a model”.
 - Locked model: info banner “Embedding model locked to <id>” appears when the shared collection already has a model; select stays disabled in that state.
 - Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
-- Active run: when a run is started, the page polls `/ingest/status/{runId}` roughly every 2s until reaching `completed|cancelled|error`, showing a chip for the state, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. A “View logs for this run” link routes to `/logs?text=<runId>`.
+- Active run: on mount, the page subscribes to the ingest WS stream and renders the `ingest_snapshot`/`ingest_update` status in the active run card while the state is non-terminal. The card shows the state chip, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. When a terminal state arrives (`completed|cancelled|error|skipped`), the page triggers a roots/models refresh once and hides the card (no last-run summary).
+- Connection state: while the WebSocket is connecting, the page shows an info banner; if the socket closes, it shows an error banner instructing the user to refresh once the server is reachable.
 - Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
 - Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
+
+```mermaid
+flowchart TD
+  Mount[IngestPage mount] --> Subscribe[WS connect + subscribe_ingest]
+  Subscribe -->|ingest_snapshot status null| Idle[Show roots only]
+  Subscribe -->|ingest_snapshot active| Active[Show ActiveRunCard]
+  Active -->|ingest_update terminal| Refresh[Refresh roots + models once]
+  Refresh --> Idle
+  Subscribe -.->|connectionState=connecting| Connecting[Show info banner]
+  Subscribe -.->|connectionState=closed| Closed[Show error banner]
+```
 
 ## Chat run + WebSocket streaming
 
@@ -1508,7 +1595,6 @@ Assistant bubble binding invariant (Task 30):
 - The client binds each assistant bubble to a specific `inflightId` (so late-arriving events cannot overwrite a newer run).
 - The `send()` path forces creation of a new assistant bubble even when the previous assistant bubble is still `processing` (for example after pressing **Stop**).
 - When a `turn_final` arrives for a non-current `inflightId` while a new run is `sending`, the UI updates only that older bubble’s status (no global streaming state changes and no content overwrite).
-
 
 ```mermaid
 sequenceDiagram

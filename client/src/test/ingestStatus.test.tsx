@@ -1,11 +1,69 @@
 import { jest } from '@jest/globals';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import useIngestStatus from '../hooks/useIngestStatus';
-import IngestPage from '../pages/IngestPage';
+import type {
+  WebSocketMockInstance,
+  WebSocketMockRegistry,
+} from './support/mockWebSocket';
 
 const mockFetch = jest.fn();
+
+const { default: App } = await import('../App');
+const { default: HomePage } = await import('../pages/HomePage');
+const { default: IngestPage } = await import('../pages/IngestPage');
+
+const ingestRoutes = [
+  {
+    path: '/',
+    element: <App />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: 'ingest', element: <IngestPage /> },
+    ],
+  },
+];
+
+function wsRegistry(): WebSocketMockRegistry {
+  const registry = (
+    globalThis as unknown as { __wsMock?: WebSocketMockRegistry }
+  ).__wsMock;
+  if (!registry) {
+    throw new Error('Missing __wsMock registry; is setupTests.ts running?');
+  }
+  return registry;
+}
+
+function lastSocket(): WebSocketMockInstance {
+  const socket = wsRegistry().last();
+  if (!socket) throw new Error('No WebSocket instance created');
+  return socket;
+}
+
+function getSentTypes(socket: WebSocketMockInstance): string[] {
+  return socket.sent
+    .map((payload) => {
+      try {
+        return (JSON.parse(payload) as { type?: string }).type;
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((value): value is string => typeof value === 'string');
+}
+
+async function openSocket() {
+  act(() => {
+    jest.runOnlyPendingTimers();
+  });
+  await waitFor(() => expect(lastSocket().readyState).toBe(1));
+}
 
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
@@ -14,6 +72,29 @@ beforeAll(() => {
 beforeEach(() => {
   jest.useFakeTimers();
   mockFetch.mockReset();
+  mockFetch.mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.includes('/ingest/models')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ models: [], lockedModelId: undefined }),
+      };
+    }
+    if (url.includes('/ingest/roots')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ roots: [], lockedModelId: undefined }),
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'ok' }),
+    };
+  });
+  wsRegistry().reset();
 });
 
 afterEach(() => {
@@ -21,534 +102,217 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-function Harness({ initialRunId }: { initialRunId: string }) {
-  const status = useIngestStatus(initialRunId);
-  return (
-    <ActiveRunCard
-      runId={initialRunId}
-      status={status.status}
-      counts={status.counts}
-      lastError={status.lastError ?? undefined}
-      message={status.message ?? undefined}
-      isLoading={status.isLoading}
-      isCancelling={status.isCancelling}
-      error={status.error}
-      onCancel={status.cancel}
-    />
-  );
-}
+describe('useIngestStatus', () => {
+  it('posts cancel with the current runId', async () => {
+    const { result } = renderHook(() => useIngestStatus());
+    await openSocket();
 
-describe('useIngestStatus + ActiveRunCard', () => {
-  it('polls until completed then stops', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'completed', counts: { files: 2 } }),
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 1,
+        status: {
+          runId: 'run-1',
+          state: 'embedding',
+          counts: { files: 1 },
+        },
       });
+    });
 
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <Harness initialRunId="run-1" />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
+    await act(async () => {
+      await result.current.cancel();
+    });
+
+    const cancelCalls = mockFetch.mock.calls.filter(([input]) =>
+      String(input).includes('/ingest/cancel/run-1'),
     );
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText(/completed/i)).toBeInTheDocument();
-    expect(screen.getByText(/files/i).nextSibling?.textContent).toBe('2');
+    expect(cancelCalls).toHaveLength(1);
+    expect(cancelCalls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
   });
 
-  it('polls until skipped then stops', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'skipped', counts: { files: 1 } }),
+  it('clears status when ingest_snapshot reports no run', async () => {
+    const { result } = renderHook(() => useIngestStatus());
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 1,
+        status: {
+          runId: 'run-2',
+          state: 'embedding',
+          counts: { files: 1 },
+        },
       });
-
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <Harness initialRunId="run-skip" />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
-    );
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
     });
 
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
+    expect(result.current.status?.runId).toBe('run-2');
 
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText('skipped')).toBeInTheDocument();
-  });
-
-  it('renders a skipped status label', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ state: 'skipped', counts: { files: 0 } }),
-    });
-
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <Harness initialRunId="run-skip-label" />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
-    );
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    expect(await screen.findByText('skipped')).toBeInTheDocument();
-  });
-
-  it('cancels run via cancel button', async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ state: 'embedding', counts: { files: 1 } }),
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 2,
+        status: null,
       });
-
-    // cancel call response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ status: 'ok' }),
     });
 
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <Harness initialRunId="run-2" />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
-    );
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    const cancelButton = await screen.findByRole('button', {
-      name: /cancel ingest/i,
-    });
-
-    await act(async () => {
-      cancelButton.click();
-      await Promise.resolve();
-    });
-
-    expect(mockFetch).toHaveBeenCalled();
-    expect(await screen.findByText(/cancelled/i)).toBeInTheDocument();
+    expect(result.current.status).toBeNull();
   });
 
-  it('renders logs link with runId', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ state: 'completed', counts: { files: 1 } }),
-    });
-
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <Harness initialRunId="run-logs" />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
-    );
+  it('does not call cancel when no run is active', async () => {
+    const { result } = renderHook(() => useIngestStatus());
+    await openSocket();
 
     await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await result.current.cancel();
     });
 
-    const link = await screen.findByRole('link', {
-      name: /view logs for this run/i,
-    });
-    expect(link).toHaveAttribute('href', '/logs?text=run-logs');
+    const cancelCalls = mockFetch.mock.calls.filter(([input]) =>
+      String(input).includes('/ingest/cancel/'),
+    );
+    expect(cancelCalls).toHaveLength(0);
+  });
+
+  it('sends unsubscribe_ingest on unmount', async () => {
+    const { unmount } = renderHook(() => useIngestStatus());
+    await openSocket();
+
+    const socket = lastSocket();
+    await waitFor(() =>
+      expect(getSentTypes(socket)).toEqual(
+        expect.arrayContaining(['subscribe_ingest']),
+      ),
+    );
+    unmount();
+
+    expect(getSentTypes(socket)).toEqual(
+      expect.arrayContaining(['unsubscribe_ingest']),
+    );
   });
 });
 
-describe('IngestPage skipped terminal behaviour', () => {
-  function setupFetchForSkippedRun() {
-    const calls = { models: 0, roots: 0, start: 0, status: 0 };
+describe('IngestPage realtime status UI', () => {
+  const renderPage = () => {
+    const router = createMemoryRouter(ingestRoutes, {
+      initialEntries: ['/ingest'],
+    });
+    render(<RouterProvider router={router} />);
+  };
 
-    mockFetch.mockImplementation(async (input, init) => {
-      const url = String(input);
-      const { pathname } = new URL(url);
+  it('renders snapshot status immediately on subscribe', async () => {
+    renderPage();
+    await openSocket();
 
-      if (pathname === '/ingest/models') {
-        calls.models += 1;
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            models: [{ id: 'embed-1', displayName: 'Embed 1' }],
-            lockedModelId: null,
-          }),
-        };
-      }
-
-      if (pathname === '/ingest/roots') {
-        calls.roots += 1;
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ roots: [], lockedModelId: null }),
-        };
-      }
-
-      if (pathname === '/ingest/start' && (init?.method ?? 'GET') === 'POST') {
-        calls.start += 1;
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ runId: 'run-1' }),
-        };
-      }
-
-      if (pathname === '/ingest/status/run-1') {
-        calls.status += 1;
-        const state = calls.status === 1 ? 'embedding' : 'skipped';
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ runId: 'run-1', state, counts: { files: 1 } }),
-        };
-      }
-
-      throw new Error(`Unhandled fetch in test: ${url}`);
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-1',
+          state: 'embedding',
+          counts: { files: 2 },
+        },
+      });
     });
 
-    return calls;
-  }
-
-  it('re-enables actions after a skipped terminal state', async () => {
-    setupFetchForSkippedRun();
-
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <IngestPage />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      ),
     );
-
-    await screen.findByText(/Start a new ingest/i);
-
-    fireEvent.change(screen.getByLabelText(/Folder path/i), {
-      target: { value: '/data/test' },
-    });
-    fireEvent.change(screen.getByLabelText(/Display name/i), {
-      target: { value: 'test-root' },
-    });
-
-    const startButton = screen.getByRole('button', { name: /start ingest/i });
-    fireEvent.click(startButton);
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(await screen.findByText('embedding')).toBeInTheDocument();
-    expect(startButton).toBeDisabled();
-
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-
-    expect(await screen.findByText('skipped')).toBeInTheDocument();
-    expect(startButton).toBeEnabled();
   });
 
-  it('triggers roots + models refresh exactly once when the terminal state is skipped', async () => {
-    const calls = setupFetchForSkippedRun();
+  it('hides the Active ingest panel when no run is active', async () => {
+    renderPage();
+    await openSocket();
 
-    render(
-      <RouterProvider
-        router={createMemoryRouter(
-          [
-            {
-              path: '/',
-              element: <IngestPage />,
-            },
-          ],
-          { initialEntries: ['/'] },
-        )}
-      />,
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: null,
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('shows an explicit error when the WS closes', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket().close();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-ws-unavailable')).toBeInTheDocument(),
+    );
+  });
+
+  it('shows a connecting alert before the socket opens', () => {
+    renderPage();
+    expect(screen.getByTestId('ingest-ws-connecting')).toBeInTheDocument();
+  });
+
+  it('refreshes roots/models on terminal status and hides the panel', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-terminal',
+          state: 'embedding',
+          counts: { files: 1 },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ingest-status-chip')).toHaveTextContent(
+        'embedding',
+      ),
     );
 
-    await screen.findByText(/Start a new ingest/i);
-
-    fireEvent.change(screen.getByLabelText(/Folder path/i), {
-      target: { value: '/data/test' },
-    });
-    fireEvent.change(screen.getByLabelText(/Display name/i), {
-      target: { value: 'test-root' },
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
-
-    await act(async () => {
-      await Promise.resolve();
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_update',
+        seq: 2,
+        status: {
+          runId: 'run-terminal',
+          state: 'completed',
+          counts: { files: 1, embedded: 1 },
+        },
+      });
     });
 
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
+    await waitFor(() => {
+      const modelCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/models'),
+      );
+      const rootCalls = mockFetch.mock.calls.filter(([input]) =>
+        String(input).includes('/ingest/roots'),
+      );
+      expect(modelCalls.length).toBeGreaterThan(1);
+      expect(rootCalls.length).toBeGreaterThan(1);
+      expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
     });
-
-    expect(await screen.findByText('skipped')).toBeInTheDocument();
-    expect(calls.roots).toBe(2);
-    expect(calls.models).toBe(2);
   });
 });

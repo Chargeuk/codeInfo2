@@ -7,10 +7,23 @@ import WebSocket, { type RawData } from 'ws';
 
 import { query, resetStore } from '../../logStore.js';
 import {
+  __resetIngestJobsForTest,
+  __setStatusAndPublishForTest,
+  __setStatusForTest,
+} from '../../ingest/ingestJob.js';
+import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from '../../mongo/events.js';
+import {
+  closeWs,
+  connectWs,
+  sendJson,
+  waitForEvent,
+} from '../support/wsClient.js';
 import { attachWs } from '../../ws/server.js';
+
+const ORIGINAL_ENV = process.env.NODE_ENV;
 
 async function startServer() {
   const app = express();
@@ -88,6 +101,13 @@ function waitForClose(ws: WebSocket) {
 
 test.beforeEach(() => {
   resetStore();
+  process.env.NODE_ENV = 'test';
+  __resetIngestJobsForTest();
+});
+
+test.afterEach(() => {
+  __resetIngestJobsForTest();
+  process.env.NODE_ENV = ORIGINAL_ENV;
 });
 
 test('WS accepts connection on /ws and processes JSON message (happy path)', async () => {
@@ -256,6 +276,203 @@ test('WS subscribe_conversation missing conversationId is rejected', async () =>
     const closed = await waitForClose(ws);
     assert.equal(closed.code, 1008);
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('WS subscribe_ingest sends placeholder ingest_snapshot', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    const event = await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; status: null } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    assert.equal(event.status, null);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS subscribe_ingest sends active ingest snapshot', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-active';
+  __setStatusForTest(runId, {
+    runId,
+    state: 'embedding',
+    counts: { files: 2, chunks: 4, embedded: 1 },
+    message: 'Embedding',
+    lastError: null,
+  });
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    const event = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; status: { runId: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    assert.equal(event.status.runId, runId);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS ingest_update emitted on status change', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-update';
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'embedding',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      message: 'Embedding',
+      lastError: null,
+    });
+
+    const event = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; status: { state: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_update',
+    });
+
+    assert.equal(event.status.state, 'embedding');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS ingest_update seq increases on subsequent updates', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-seq';
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'scanning',
+      counts: { files: 2, chunks: 0, embedded: 0 },
+      message: 'Scanning',
+      lastError: null,
+    });
+
+    const first = await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; seq: number } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_update',
+    });
+
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'embedding',
+      counts: { files: 2, chunks: 4, embedded: 1 },
+      message: 'Embedding',
+      lastError: null,
+    });
+
+    const second = await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string; seq: number } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_update',
+    });
+
+    assert.ok(second.seq > first.seq);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS unsubscribe_ingest stops ingest_update events', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const runId = 'run-unsubscribe';
+
+  try {
+    sendJson(ws, { type: 'subscribe_ingest' });
+    await waitForEvent({
+      ws,
+      predicate: (payload): payload is { type: string } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'ingest_snapshot',
+    });
+
+    sendJson(ws, { type: 'unsubscribe_ingest' });
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    let updateReceived = false;
+    const onMessage = (raw: RawData) => {
+      const payload = JSON.parse(rawDataToString(raw)) as { type?: string };
+      if (payload.type === 'ingest_update') {
+        updateReceived = true;
+      }
+    };
+
+    ws.on('message', onMessage);
+    __setStatusAndPublishForTest(runId, {
+      runId,
+      state: 'embedding',
+      counts: { files: 1, chunks: 1, embedded: 0 },
+      message: 'Embedding',
+      lastError: null,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    ws.off('message', onMessage);
+
+    assert.equal(updateReceived, false);
+  } finally {
+    await closeWs(ws);
     await stopServer(server);
   }
 });

@@ -2,6 +2,7 @@ import type WebSocket from 'ws';
 
 type SocketState = {
   subscribedSidebar: boolean;
+  subscribedIngest: boolean;
   conversationIds: Set<string>;
 };
 
@@ -10,6 +11,7 @@ const stateBySocket = new Map<WebSocket, SocketState>();
 export function registerSocket(ws: WebSocket) {
   stateBySocket.set(ws, {
     subscribedSidebar: false,
+    subscribedIngest: false,
     conversationIds: new Set(),
   });
 }
@@ -23,6 +25,7 @@ export function getSocketState(ws: WebSocket): SocketState {
   if (!state) {
     const fresh: SocketState = {
       subscribedSidebar: false,
+      subscribedIngest: false,
       conversationIds: new Set(),
     };
     stateBySocket.set(ws, fresh);
@@ -39,6 +42,16 @@ export function subscribeSidebar(ws: WebSocket) {
 export function unsubscribeSidebar(ws: WebSocket) {
   const state = getSocketState(ws);
   state.subscribedSidebar = false;
+}
+
+export function subscribeIngest(ws: WebSocket) {
+  const state = getSocketState(ws);
+  state.subscribedIngest = true;
+}
+
+export function unsubscribeIngest(ws: WebSocket) {
+  const state = getSocketState(ws);
+  state.subscribedIngest = false;
 }
 
 export function subscribeConversation(ws: WebSocket, conversationId: string) {
@@ -62,6 +75,12 @@ export function subscribedConversationCount(ws: WebSocket) {
 export function socketsSubscribedToSidebar(): WebSocket[] {
   return Array.from(stateBySocket.entries())
     .filter(([, state]) => state.subscribedSidebar)
+    .map(([ws]) => ws);
+}
+
+export function socketsSubscribedToIngest(): WebSocket[] {
+  return Array.from(stateBySocket.entries())
+    .filter(([, state]) => state.subscribedIngest)
     .map(([ws]) => ws);
 }
 

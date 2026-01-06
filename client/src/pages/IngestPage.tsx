@@ -19,6 +19,7 @@ import { createLogger } from '../logging/logger';
 
 export default function IngestPage() {
   const log = useMemo(() => createLogger('client'), []);
+  const containerMaxWidth = false;
   const {
     models,
     lockedModelId,
@@ -28,7 +29,6 @@ export default function IngestPage() {
     error,
     refresh,
   } = useIngestModels();
-  const [activeRunId, setActiveRunId] = useState<string | undefined>();
   const {
     roots,
     lockedModelId: rootsLockedModelId,
@@ -38,7 +38,7 @@ export default function IngestPage() {
     refetch: refetchRoots,
   } = useIngestRoots();
   const [detailRoot, setDetailRoot] = useState<IngestRoot | undefined>();
-  const status = useIngestStatus(activeRunId);
+  const ingest = useIngestStatus();
 
   const terminalStates = useMemo(
     () => new Set(['completed', 'cancelled', 'error', 'skipped']),
@@ -48,17 +48,13 @@ export default function IngestPage() {
 
   const locked = lockedModelId ?? rootsLockedModelId;
 
-  const isRunActive = useMemo(
-    () =>
-      Boolean(
-        activeRunId && status.status && !terminalStates.has(status.status),
-      ),
-    [activeRunId, status.status, terminalStates],
-  );
+  const active = useMemo(() => {
+    if (!ingest.status) return null;
+    if (terminalStates.has(ingest.status.state)) return null;
+    return ingest.status;
+  }, [ingest.status, terminalStates]);
 
-  useEffect(() => {
-    lastFinishedRef.current = null;
-  }, [activeRunId]);
+  const isRunActive = Boolean(active);
 
   useEffect(() => {
     if (!locked) return;
@@ -68,28 +64,30 @@ export default function IngestPage() {
   }, [locked, log]);
 
   useEffect(() => {
-    if (!activeRunId) return;
-    if (!status.status) return;
-    if (terminalStates.has(status.status)) {
-      const key = `${activeRunId}:${status.status}`;
+    log('info', '0000022 ingest layout full-width', {
+      maxWidth: containerMaxWidth,
+    });
+  }, [containerMaxWidth, log]);
+
+  useEffect(() => {
+    if (!ingest.status) return;
+    if (terminalStates.has(ingest.status.state)) {
+      const key = `${ingest.status.runId}:${ingest.status.state}`;
       if (lastFinishedRef.current === key) return;
       lastFinishedRef.current = key;
 
-      log('info', '0000020 ingest run finished', {
-        runId: activeRunId,
-        state: status.status,
+      log('info', '0000022 ingest ui terminal refresh', {
+        runId: ingest.status.runId,
+        state: ingest.status.state,
       });
 
-      log('info', '0000020 ingest run refresh triggered', {
-        runId: activeRunId,
-      });
       void refetchRoots();
       void refresh();
     }
-  }, [activeRunId, status.status, refetchRoots, refresh, terminalStates, log]);
+  }, [ingest.status, refetchRoots, refresh, terminalStates, log]);
 
   return (
-    <Container sx={{ py: 3 }}>
+    <Container maxWidth={containerMaxWidth} sx={{ py: 3 }}>
       <Stack spacing={3}>
         <Typography variant="h4">Ingest</Typography>
 
@@ -105,6 +103,16 @@ export default function IngestPage() {
         {isError && error ? <Alert severity="error">{error}</Alert> : null}
         {rootsIsError && rootsError ? (
           <Alert severity="error">{rootsError}</Alert>
+        ) : null}
+        {ingest.connectionState === 'connecting' ? (
+          <Alert severity="info" data-testid="ingest-ws-connecting">
+            Connecting to realtime updates…
+          </Alert>
+        ) : null}
+        {ingest.connectionState === 'closed' ? (
+          <Alert severity="error" data-testid="ingest-ws-unavailable">
+            Realtime updates unavailable. Refresh once the server is reachable.
+          </Alert>
         ) : null}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
@@ -125,40 +133,30 @@ export default function IngestPage() {
             models={models}
             lockedModelId={locked}
             defaultModelId={defaultModelId}
-            onStarted={(runId) => setActiveRunId(runId)}
             disabled={isRunActive}
           />
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: 3 }}>
-          {activeRunId ? (
+        {active ? (
+          <Paper variant="outlined" sx={{ p: 3 }}>
             <ActiveRunCard
-              runId={activeRunId}
-              status={status.status}
-              counts={status.counts}
-              currentFile={status.currentFile}
-              fileIndex={status.fileIndex}
-              fileTotal={status.fileTotal}
-              percent={status.percent}
-              etaMs={status.etaMs}
-              lastError={status.lastError ?? undefined}
-              message={status.message ?? undefined}
-              isLoading={status.isLoading}
-              isCancelling={status.isCancelling}
-              error={status.error}
-              onCancel={status.cancel}
+              runId={active.runId}
+              status={active.state}
+              counts={active.counts}
+              currentFile={active.currentFile}
+              fileIndex={active.fileIndex}
+              fileTotal={active.fileTotal}
+              percent={active.percent}
+              etaMs={active.etaMs}
+              lastError={active.lastError ?? undefined}
+              message={active.message ?? undefined}
+              isLoading={ingest.isLoading}
+              isCancelling={ingest.isCancelling}
+              error={ingest.error}
+              onCancel={ingest.cancel}
             />
-          ) : (
-            <Stack spacing={1}>
-              <Typography variant="h6" gutterBottom>
-                Active ingest
-              </Typography>
-              <Typography color="text.secondary">
-                No active ingest. Start a run to see status here.
-              </Typography>
-            </Stack>
-          )}
-        </Paper>
+          </Paper>
+        ) : null}
 
         <Paper variant="outlined" sx={{ p: 3 }}>
           <RootsTable
@@ -168,7 +166,6 @@ export default function IngestPage() {
             error={rootsError}
             disabled={isRunActive}
             onRefresh={refetchRoots}
-            onRunStarted={(runId) => setActiveRunId(runId)}
             onShowDetails={(root) => setDetailRoot(root)}
             onRefreshModels={refresh}
           />

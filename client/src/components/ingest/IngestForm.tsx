@@ -28,7 +28,7 @@ export type IngestFormProps = {
   models: IngestModel[];
   lockedModelId?: string;
   defaultModelId?: string;
-  onStarted: (runId: string) => void;
+  onStarted?: (runId: string) => void;
   disabled?: boolean;
 };
 
@@ -121,7 +121,7 @@ export default function IngestForm({
       }
       const data = (await res.json()) as { runId?: string };
       if (!data.runId) throw new Error('Missing runId in response');
-      onStarted(data.runId);
+      onStarted?.(data.runId);
     } catch (err) {
       setSubmitError((err as Error).message);
     } finally {

@@ -85,6 +85,7 @@ export default function ActiveRunCard({
           label={status ?? 'Loading…'}
           color={status ? statusColor[status] : 'default'}
           size="small"
+          data-testid="ingest-status-chip"
         />
       </Stack>
 

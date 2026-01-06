@@ -1,4 +1,5 @@
 import type { ToolEvent } from '../chat/inflightRegistry.js';
+import type { IngestJobStatus } from '../ingest/ingestJob.js';
 
 export const WS_PROTOCOL_VERSION = 'v1' as const;
 
@@ -15,6 +16,14 @@ export type WsClientSubscribeSidebar = WsClientBase & {
 
 export type WsClientUnsubscribeSidebar = WsClientBase & {
   type: 'unsubscribe_sidebar';
+};
+
+export type WsClientSubscribeIngest = WsClientBase & {
+  type: 'subscribe_ingest';
+};
+
+export type WsClientUnsubscribeIngest = WsClientBase & {
+  type: 'unsubscribe_ingest';
 };
 
 export type WsClientSubscribeConversation = WsClientBase & {
@@ -36,6 +45,8 @@ export type WsClientCancelInflight = WsClientBase & {
 export type WsClientKnownMessage =
   | WsClientSubscribeSidebar
   | WsClientUnsubscribeSidebar
+  | WsClientSubscribeIngest
+  | WsClientUnsubscribeIngest
   | WsClientSubscribeConversation
   | WsClientUnsubscribeConversation
   | WsClientCancelInflight;
@@ -128,6 +139,12 @@ export function parseClientMessage(payload: unknown): WsParseResult {
 
     case 'unsubscribe_sidebar':
       return { ok: true, message: { ...base, type: 'unsubscribe_sidebar' } };
+
+    case 'subscribe_ingest':
+      return { ok: true, message: { ...base, type: 'subscribe_ingest' } };
+
+    case 'unsubscribe_ingest':
+      return { ok: true, message: { ...base, type: 'unsubscribe_ingest' } };
 
     case 'subscribe_conversation': {
       if (!nonEmptyString(parsed.conversationId)) {
@@ -229,6 +246,20 @@ export type WsSidebarConversationDeleteEvent = {
   conversationId: string;
 };
 
+export type WsIngestSnapshotEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'ingest_snapshot';
+  seq: number;
+  status: IngestJobStatus | null;
+};
+
+export type WsIngestUpdateEvent = {
+  protocolVersion: WsProtocolVersion;
+  type: 'ingest_update';
+  seq: number;
+  status: IngestJobStatus | null;
+};
+
 export type WsUserTurnEvent = {
   protocolVersion: WsProtocolVersion;
   type: 'user_turn';
@@ -303,6 +334,8 @@ export type WsTurnFinalEvent = {
 export type WsServerEvent =
   | WsSidebarConversationUpsertEvent
   | WsSidebarConversationDeleteEvent
+  | WsIngestSnapshotEvent
+  | WsIngestUpdateEvent
   | WsUserTurnEvent
   | WsInflightSnapshotEvent
   | WsAssistantDeltaEvent

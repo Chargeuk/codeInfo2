@@ -206,6 +206,7 @@ describe('Agents page - abort command execute', () => {
 
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
+        void init;
         const target = typeof url === 'string' ? url : url.toString();
 
         if (target.includes('/health')) {

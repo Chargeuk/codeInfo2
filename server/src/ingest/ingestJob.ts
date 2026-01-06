@@ -32,6 +32,7 @@ import {
   listIngestFilesByRoot,
   upsertIngestFiles,
 } from '../mongo/repo.js';
+import { broadcastIngestUpdate } from '../ws/server.js';
 
 export type IngestJobInput = {
   path: string;
@@ -64,6 +65,17 @@ const jobs = new Map<string, IngestJobStatus>();
 let deps: Deps | null = null;
 const jobInputs = new Map<string, IngestJobInput & { root?: string }>();
 const cancelledRuns = new Set<string>();
+const terminalStates = new Set<IngestRunState>([
+  'completed',
+  'cancelled',
+  'skipped',
+  'error',
+]);
+
+function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
+  jobs.set(runId, nextStatus);
+  broadcastIngestUpdate(nextStatus);
+}
 
 function logLifecycle(
   level: LogEntry['level'],
@@ -165,7 +177,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       model,
       state: 'start',
     });
-    jobs.set(runId, {
+    setStatusAndPublish(runId, {
       ...status,
       state: 'scanning',
       message: 'Discovering files',
@@ -175,7 +187,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     jobInputs.set(runId, { ...input, root });
     if (files.length === 0 && operation !== 'reembed') {
       const errorMsg = `No eligible files found in ${startPath}`;
-      jobs.set(runId, {
+      setStatusAndPublish(runId, {
         runId,
         state: 'error',
         counts: { files: 0, chunks: 0, embedded: 0 },
@@ -259,7 +271,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     const fileTotal = workFiles.length;
     const startedAt = Date.now();
     let lastFileRelPath: string | undefined;
-    jobs.set(runId, {
+    setStatusAndPublish(runId, {
       ...status,
       state: 'embedding',
       counts,
@@ -340,7 +352,7 @@ async function processRun(runId: string, input: IngestJobInput) {
 
       const currentStatus = jobs.get(runId);
       if (!currentStatus) return;
-      jobs.set(runId, {
+      setStatusAndPublish(runId, {
         ...currentStatus,
         currentFile,
         fileIndex,
@@ -363,7 +375,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           deltaPlan.deleted.length;
         if (workCount === 0) {
           const skipMessage = `No changes detected for ${root}`;
-          jobs.set(runId, {
+          setStatusAndPublish(runId, {
             runId,
             state: 'skipped',
             counts,
@@ -433,7 +445,7 @@ async function processRun(runId: string, input: IngestJobInput) {
             relPaths: deltaPlan.deleted.map((f) => f.relPath),
           });
 
-          jobs.set(runId, {
+          setStatusAndPublish(runId, {
             runId,
             state: 'skipped',
             counts,
@@ -482,7 +494,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       progressSnapshot(fileIndex, file.relPath);
       if (cancelledRuns.has(runId)) {
         clearBatch();
-        jobs.set(runId, {
+        setStatusAndPublish(runId, {
           runId,
           state: 'cancelled',
           counts,
@@ -680,7 +692,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
-    jobs.set(runId, {
+    setStatusAndPublish(runId, {
       runId,
       state: resultState,
       counts,
@@ -717,7 +729,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       },
       '[ingestJob] run failed',
     );
-    jobs.set(runId, {
+    setStatusAndPublish(runId, {
       runId,
       state: 'error',
       counts: { files: 0, chunks: 0, embedded: 0 },
@@ -755,7 +767,7 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
     (error as { code?: string }).code = 'BUSY';
     throw error;
   }
-  jobs.set(runId, {
+  setStatusAndPublish(runId, {
     runId,
     state: 'queued',
     counts: { files: 0, chunks: 0, embedded: 0 },
@@ -773,6 +785,35 @@ export function getStatus(runId: string): IngestJobStatus | null {
   return jobs.get(runId) ?? null;
 }
 
+export function getActiveStatus(): IngestJobStatus | null {
+  const lockOwner = ingestLock.currentOwner();
+  let active: IngestJobStatus | null = null;
+
+  if (lockOwner) {
+    const lockedStatus = jobs.get(lockOwner);
+    if (lockedStatus && !terminalStates.has(lockedStatus.state)) {
+      active = lockedStatus;
+    }
+  }
+
+  if (!active) {
+    for (const status of jobs.values()) {
+      if (!terminalStates.has(status.state)) {
+        active = status;
+        break;
+      }
+    }
+  }
+
+  logLifecycle('info', '0000022 ingest active status resolved', {
+    runId: active?.runId,
+    state: active?.state,
+    lockOwner,
+  });
+
+  return active ?? null;
+}
+
 export async function resetLocksIfEmpty() {
   if (await collectionIsEmpty()) {
     await clearLockedModel();
@@ -784,6 +825,18 @@ export function __setStatusForTest(runId: string, status: IngestJobStatus) {
     throw new Error('__setStatusForTest is only available in test mode');
   }
   jobs.set(runId, status);
+}
+
+export function __setStatusAndPublishForTest(
+  runId: string,
+  status: IngestJobStatus,
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      '__setStatusAndPublishForTest is only available in test mode',
+    );
+  }
+  setStatusAndPublish(runId, status);
 }
 
 export function __resetIngestJobsForTest() {
@@ -848,7 +901,7 @@ export async function cancelRun(runId: string) {
     });
   }
 
-  jobs.set(runId, {
+  setStatusAndPublish(runId, {
     runId,
     state: 'cancelled',
     counts: status?.counts ?? { files: 0, chunks: 0, embedded: 0 },

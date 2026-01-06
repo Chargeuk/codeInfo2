@@ -20,7 +20,7 @@ type Status = {
   cancel: () => Promise<void>;
 };
 export function useIngestStatus(): Status {
-  const log = useMemo(() => createLogger('client-ingest'), []);
+  const log = useMemo(() => createLogger('client'), []);
   const [status, setStatus] = useState<ChatWsIngestStatus | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [isCancelling, setIsCancelling] = useState(false);

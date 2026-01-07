@@ -171,7 +171,17 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      const showRowActions = Boolean(onArchive && onRestore);
      ```
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [ ] Add a client log line confirming ConversationList control gating state:
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Log line requirements:
+     - Use the existing client logger.
+     - Message: `0000023 conversationlist controls visible`
+     - Include context fields: `variant`, `showFilters`, `enableBulkUi`, `showRowActions`
+   - Purpose:
+     - Manual Playwright-MCP check will assert this log line appears after opening the sidebar.
+
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -182,7 +192,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm ConversationList control gating (filters/refresh/bulk UI), archive/restore actions, and no regressions in Chat sidebar behavior.
+8. [ ] Manual Playwright-MCP check to confirm ConversationList control gating (filters/refresh/bulk UI), archive/restore actions, and no regressions in Chat sidebar behavior. Then open `/logs` and filter for `0000023 conversationlist controls visible` and confirm at least one entry with `showFilters=true` and `enableBulkUi=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -251,7 +261,17 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
      />
      ```
 
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [ ] Add a client log line confirming Agents sidebar handlers are wired:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Log line requirements:
+     - Use the existing client logger.
+     - Message: `0000023 agents sidebar handlers wired`
+     - Include context fields: `agentName`, `hasFilters`, `hasBulkActions`, `hasRowActions`, `persistenceEnabled`
+   - Purpose:
+     - Manual Playwright-MCP check will verify wiring via `/logs`.
+
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -262,7 +282,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm Agents sidebar wiring (filters, bulk actions, archive/restore) and persistence-disabled gating behaves the same as Chat.
+8. [ ] Manual Playwright-MCP check to confirm Agents sidebar wiring (filters, bulk actions, archive/restore) and persistence-disabled gating behaves the same as Chat. Then open `/logs` and filter for `0000023 agents sidebar handlers wired` and confirm at least one entry for the selected agent with `hasBulkActions=true` (when persistence enabled) and `persistenceEnabled=false` when persistence is disabled.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -580,7 +600,18 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      expect(screen.getByText('No more')).toBeInTheDocument();
      ```
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add a client log line confirming sidebar parity test fixtures are rendered:
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+     - `client/src/test/agentsPage.sidebarActions.test.tsx`
+   - Log line requirements:
+     - Use the test logger or existing log helpers (no new logger wiring).
+     - Message: `0000023 sidebar parity tests rendered`
+     - Include context fields: `variant`, `filtersVisible`, `bulkEnabled`
+   - Purpose:
+     - Manual Playwright-MCP check will validate parity by confirming both variants emit the log line.
+
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -591,7 +622,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm new/updated sidebar tests pass visually (Agents parity, bulk actions, and persistence-disabled states).
+8. [ ] Manual Playwright-MCP check to confirm new/updated sidebar tests pass visually (Agents parity, bulk actions, and persistence-disabled states). Then open `/logs` and filter for `0000023 sidebar parity tests rendered` and confirm entries for both `variant=chat` and `variant=agents`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -649,7 +680,18 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
      }}
      ```
 
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [ ] Add a client log line confirming Drawer paper overflow guard applied:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Log line requirements:
+     - Use the existing client logger.
+     - Message: `0000023 drawer overflow guard applied`
+     - Include context fields: `page`, `drawerWidth`, `overflowX`, `boxSizing`
+   - Purpose:
+     - Manual Playwright-MCP check will assert the layout guard is active in both pages via `/logs`.
+
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -660,7 +702,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment.
+8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment. Then open `/logs` and filter for `0000023 drawer overflow guard applied` and confirm entries for both `page=chat` and `page=agents`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -714,13 +756,23 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      ```tsx
      <Box sx={{ border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
        <Stack sx={{ px: 1.5 }}>{/* header + filters */}</Stack>
-       <Box sx={{ flex: 1, overflowY: 'auto' }}>
-         <List disablePadding>{/* rows + load more */}</List>
-       </Box>
+     <Box sx={{ flex: 1, overflowY: 'auto' }}>
+       <List disablePadding>{/* rows + load more */}</List>
+     </Box>
      </Box>
      ```
 
-2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+2. [ ] Add a client log line confirming list panel padding/scroll layout:
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Log line requirements:
+     - Use the existing client logger.
+     - Message: `0000023 sidebar list panel layout`
+     - Include context fields: `paddingPx`, `scrollContainer`, `loadMoreInside`
+   - Purpose:
+     - Manual Playwright-MCP check will confirm the list panel layout is active.
+
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -731,7 +783,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly.
+8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly. Then open `/logs` and filter for `0000023 sidebar list panel layout` and confirm `scrollContainer=true` and `loadMoreInside=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -857,7 +909,17 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Purpose:
      - Keep the repository map in sync when adding the optional Agents layout test.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a client log line confirming layout test configuration:
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Log line requirements:
+     - Use the test logger or existing log helpers (no new logger wiring).
+     - Message: `0000023 sidebar layout tests configured`
+     - Include context fields: `scrollContainer`, `loadMoreInside`, `overflowGuarded`
+   - Purpose:
+     - Manual Playwright-MCP check will confirm layout state is exercised.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -868,7 +930,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm layout test changes (scroll container, Load more placement, padding parity) match expected behavior.
+8. [ ] Manual Playwright-MCP check to confirm layout test changes (scroll container, Load more placement, padding parity) match expected behavior. Then open `/logs` and filter for `0000023 sidebar layout tests configured` and confirm `scrollContainer=true`, `loadMoreInside=true`, and `overflowGuarded=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -928,9 +990,24 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Confirm filter tabs, per-row archive/restore, and bulk actions appear in both sidebars.
    - Confirm bulk delete only appears when Archived is selected.
    - Scroll the list panel to verify “Load more” is reachable and no horizontal scrollbar appears.
+   - Open `/logs` and filter for:
+     - `0000023 conversationlist controls visible` (expect `showFilters=true`, `enableBulkUi=true`)
+     - `0000023 agents sidebar handlers wired` (expect `hasBulkActions=true` when persistence enabled)
+     - `0000023 sidebar list panel layout` (expect `scrollContainer=true`, `loadMoreInside=true`)
+     - `0000023 drawer overflow guard applied` (expect entries for `page=chat` and `page=agents`)
    - Save screenshots to `./test-results/screenshots/` named `0000023-3-<short-name>.png`.
 
-4. [ ] Documentation update - `README.md`:
+4. [ ] Add a client log line for final verification:
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Log line requirements:
+     - Use the existing client logger.
+     - Message: `0000023 verification logs reviewed`
+     - Include context fields: `story`, `logChecksComplete`
+   - Purpose:
+     - Manual Playwright-MCP check will confirm verification logs were reviewed.
+
+5. [ ] Documentation update - `README.md`:
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
@@ -944,7 +1021,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
      - Conversations sidebar now includes identical filters and bulk actions in Chat and Agents.
      ```
 
-5. [ ] Documentation update - `design.md` (Mermaid required if flows/architecture change):
+6. [ ] Documentation update - `design.md` (Mermaid required if flows/architecture change):
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
@@ -962,7 +1039,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
        AgentsSidebar -->|shared component| ConversationList
      ```
 
-6. [ ] Documentation update - `projectStructure.md`:
+7. [ ] Documentation update - `projectStructure.md`:
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
@@ -976,7 +1053,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
      |  |- agentsPage.sidebarActions.test.tsx — Agents sidebar parity tests
      ```
 
-7. [ ] Create a PR summary comment covering all story changes.
+8. [ ] Create a PR summary comment covering all story changes.
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Output location:
@@ -984,7 +1061,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Purpose:
      - Summarize changes for reviewers with a clear, copy-ready summary.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -995,7 +1072,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks).
+8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks). Ensure `/logs` contains `0000023 verification logs reviewed` with `logChecksComplete=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

@@ -171,6 +171,8 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      const showRowActions = Boolean(onArchive && onRestore);
      ```
 
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -181,9 +183,6 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -251,6 +250,8 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
      />
      ```
 
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -261,9 +262,6 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -580,6 +578,8 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      expect(screen.getByText('No more')).toBeInTheDocument();
      ```
 
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -590,9 +590,6 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -649,6 +646,8 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
      }}
      ```
 
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -659,9 +658,6 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -720,6 +716,8 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      </Box>
      ```
 
+2. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -730,9 +728,6 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -857,6 +852,8 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Purpose:
      - Keep the repository map in sync when adding the optional Agents layout test.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -867,9 +864,6 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
-11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -984,6 +978,8 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Purpose:
      - Summarize changes for reviewers with a clear, copy-ready summary.
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -995,9 +991,6 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks).
 9. [ ] `npm run compose:down`
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
-12. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 

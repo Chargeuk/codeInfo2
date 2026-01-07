@@ -116,6 +116,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 - React Testing Library (component testing APIs + queries used in sidebar tests): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -204,6 +205,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 - React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -267,6 +269,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 - Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -454,6 +457,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 - React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -516,6 +520,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 - React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -580,6 +585,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 - Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
 - Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
 - Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
@@ -683,7 +689,9 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 - Husky (git hooks behavior when validating final checks): https://typicode.github.io/husky
 - Mermaid (diagram syntax used in `design.md` updates): https://mermaid.js.org/intro/
 - Mermaid flowchart syntax reference (common diagrams in design notes): https://mermaid.js.org/syntax/flowchart.html
+- Jest (test runner for client verification): Context7 `/jestjs/jest`
 - Jest (test runner for client verification): https://jestjs.io/docs/getting-started
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/
 - Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/10-minute-tutorial
 - Gherkin reference (keyword syntax for `.feature` files): https://cucumber.io/docs/gherkin/reference
 - Markdown syntax (PR summary + docs edits): https://www.markdownguide.org/basic-syntax/

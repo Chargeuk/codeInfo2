@@ -215,8 +215,8 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 
 ### 2. Client: Agents sidebar wiring for archive/restore + bulk actions
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 7cdbce6, 0cdbe17
 
 #### Overview
 

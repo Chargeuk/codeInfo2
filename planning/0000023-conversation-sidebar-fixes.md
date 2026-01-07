@@ -707,6 +707,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 - Docker/Compose (CLI reference for build/up/down commands): https://docs.docker.com/reference/cli/docker/compose/
 - Playwright Test (manual verification flow + locators): https://playwright.dev/docs/next/writing-tests
 - Husky (git hooks behavior when validating final checks): https://typicode.github.io/husky
+- Mermaid (diagram syntax for design updates): Context7 `/mermaid-js/mermaid`
 - Mermaid (diagram syntax used in `design.md` updates): https://mermaid.js.org/intro/
 - Mermaid flowchart syntax reference (common diagrams in design notes): https://mermaid.js.org/syntax/flowchart.html
 - Jest (test runner for client verification): Context7 `/jestjs/jest`
@@ -748,9 +749,10 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 4. [ ] Documentation updates:
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-     - Mermaid syntax: https://mermaid.js.org/intro/syntax-reference.html
+     - Mermaid syntax: Context7 `/mermaid-js/mermaid`
+     - Mermaid syntax (web reference): https://mermaid.js.org/intro/syntax-reference.html
    - `README.md` (user-facing behavior updates, if any)
-   - `design.md` (layout/padding or flow notes, if any)
+   - `design.md` (layout/padding or flow notes, if any; include Mermaid diagrams when flows/architecture change)
    - `projectStructure.md` (new/changed files)
 
 5. [ ] Create a PR summary comment covering all story changes.

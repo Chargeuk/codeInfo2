@@ -157,8 +157,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/chat`, ensure ConversationList controls still render and behave as before.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -206,8 +205,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/agents`, verify filter tabs + bulk actions match `/chat`, and bulk delete only appears when Archived is selected.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -270,8 +268,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: run the new Agents sidebar test and confirm it passes locally.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -318,8 +315,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/chat` and `/agents`, ensure no horizontal scrollbar appears.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -368,8 +364,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/chat` and `/agents`, verify the list panel scrolls vertically and “Load more” is reachable.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -421,8 +416,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: resize viewport and confirm no horizontal scrollbar in the drawer.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

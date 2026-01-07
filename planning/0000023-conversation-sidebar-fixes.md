@@ -114,6 +114,9 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 #### Subtasks
 
 1. [ ] Read current ConversationList usage and server constraints:
+   - Documentation to read (repeat for standalone subtask context):
+     - MUI ToggleButton/ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+     - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
    - Files to read:
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -126,11 +129,13 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      - Where `variant === 'chat'` hides filters/refresh/bulk UI.
      - Which handlers Chat passes that Agents currently does not.
      - Confirm server list/bulk endpoints already support `agentName` and enforce archived-only delete (no server changes required).
+     - Current `data-testid` values used by tests (e.g., `conversation-filter-active`, `conversation-bulk-archive`, `conversation-archive`, `conversation-restore`, `conversation-select`, `conversation-select-all`).
 
 2. [ ] Update `ConversationList` control gating:
    - Documentation to read:
      - MUI ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
      - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+     - MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
@@ -141,8 +146,16 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      - Keep bulk delete strictly gated to `filterState === 'archived'`.
      - Preserve existing `data-testid` values for test stability.
      - Reuse existing bulk-selection logic (no new component).
+   - Expected UI elements to keep intact (use existing test IDs):
+     - Filter tabs: `conversation-filter-active`, `conversation-filter-all`, `conversation-filter-archived`
+     - Row actions: `conversation-archive`, `conversation-restore`
+     - Bulk controls: `conversation-bulk-archive`, `conversation-bulk-restore`, `conversation-bulk-delete`
+     - Selection: `conversation-select`, `conversation-select-all`
 
 3. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -182,6 +195,9 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 #### Subtasks
 
 1. [ ] Update AgentsPage conversation props:
+   - Documentation to read (repeat for standalone subtask context):
+     - MUI Box: https://llms.mui.com/material-ui/6.4.12/components/box.md
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
@@ -189,8 +205,14 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
      - Keep `filterState` + `setFilterState` wired (same as Chat).
      - Disable conversation actions when persistence is unavailable (match Chat’s `disabled` rule).
      - Keep `variant` as-is unless required for styling; controls should appear via handler presence.
+   - Concrete props to verify on `<ConversationList />`:
+     - `disabled` should include `persistenceUnavailable` (not just `controlsDisabled`).
+     - `onLoadMore`, `onRefresh`, and `onRetry` should still point to `refreshConversations`/`loadMoreConversations`.
 
 2. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -230,13 +252,22 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 #### Subtasks
 
 1. [ ] Extend ConversationList tests:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: Context7 `/testing-library/testing-library-docs`
    - Files to edit:
      - `client/src/test/chatSidebar.test.tsx`
    - Requirements:
      - Reuse existing bulk-selection and delete confirmation patterns.
      - Add any missing assertions needed for new control gating.
+   - Test IDs to assert against (from ConversationList):
+     - Filters: `conversation-filter-active`, `conversation-filter-all`, `conversation-filter-archived`
+     - Bulk: `conversation-bulk-archive`, `conversation-bulk-restore`, `conversation-bulk-delete`
 
 2. [ ] Add Agents sidebar parity tests:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: Context7 `/testing-library/testing-library-docs`
    - Files to edit/add:
      - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
    - Requirements:
@@ -246,14 +277,24 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Assert bulk delete appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
      - Assert conversation filters/actions are disabled when persistence is unavailable.
+   - Mocking requirements:
+     - Mock `/health` to return `mongoConnected` true/false for enabled/disabled assertions.
+     - Mock `/conversations` to return a mix of archived + active rows for filter tests.
 
 3. [ ] Update persistence banner test if needed:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: Context7 `/testing-library/testing-library-docs`
    - Files to edit:
      - `client/src/test/chatPersistenceBanner.test.tsx`
    - Requirements:
      - Ensure persistence-disabled behavior still disables conversation controls when mongo is down.
+     - Assert `conversation-filter-active` is disabled when `mongoConnected === false`.
 
 4. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -293,14 +334,21 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 #### Subtasks
 
 1. [ ] Apply Drawer paper overflow guard:
+   - Documentation to read (repeat for standalone subtask context):
+     - MUI Drawer: https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+     - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (MUI 6.4.x supports both `slotProps.paper` and `PaperProps`).
      - Ensure the Drawer paper width never exceeds the 320px drawer width.
+     - Keep the existing `mt` and `height` calculations that align the drawer with the chat column.
 
 2. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -341,6 +389,10 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 #### Subtasks
 
 1. [ ] Adjust ConversationList padding + scroll container:
+   - Documentation to read (repeat for standalone subtask context):
+     - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
+     - MUI Box: https://llms.mui.com/material-ui/6.4.12/components/box.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
@@ -348,8 +400,14 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      - Move the “Load more” row into the bordered list panel so it scrolls with the list.
      - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
      - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
+   - UI elements to verify after change:
+     - `conversation-load-more` remains visible inside the bordered panel.
+     - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
 
 2. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -389,6 +447,9 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 #### Subtasks
 
 1. [ ] Update Chat layout tests:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: Context7 `/testing-library/testing-library-docs`
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -396,12 +457,24 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
      - Assert the “Load more” button is rendered inside the bordered list panel.
      - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
      - Validate header and row padding use the same `px` value.
+   - Suggested selectors:
+     - `conversation-list` for the drawer list container.
+     - `conversation-load-more` for the load more button.
 
 2. [ ] Add Agents layout test only if needed:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: Context7 `/testing-library/testing-library-docs`
    - Files to edit/add:
      - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, only if Chat tests can’t cover Agents-specific layout)
+   - Requirements:
+     - Only add this file if Chat layout assertions cannot prove Agents layout parity.
+     - Reuse the same data-testid selectors from the Chat tests to avoid divergence.
 
 3. [ ] Run formatting/linting and resolve any failures:
+   - Documentation to read:
+     - ESLint CLI: Context7 `/eslint/eslint`
+     - Prettier CLI: Context7 `/prettier/prettier`
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -459,8 +532,14 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 #### Subtasks
 
 1. [ ] Re-check Acceptance Criteria and confirm each bullet is demonstrably satisfied.
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
 2. [ ] Build + test validation (clean):
+   - Documentation to read (repeat for standalone subtask context):
+     - Docker/Compose: https://docs.docker.com/reference/cli/docker/compose/
+     - Jest: https://jestjs.io/docs/getting-started
+     - Cucumber: https://cucumber.io/docs/guides/
    - `npm run build --workspace server`
    - `npm run build --workspace client`
    - `npm run test --workspace server`
@@ -471,6 +550,8 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - `npm run compose:down`
 
 3. [ ] Manual Playwright-MCP verification:
+   - Documentation to read (repeat for standalone subtask context):
+     - Playwright: https://playwright.dev/docs/intro
    - Visit `/chat` and `/agents`.
    - Confirm filter tabs, per-row archive/restore, and bulk actions appear in both sidebars.
    - Confirm bulk delete only appears when Archived is selected.
@@ -478,11 +559,16 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Save screenshots to `./test-results/screenshots/` named `0000023-3-<short-name>.png`.
 
 4. [ ] Documentation updates:
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid syntax: https://mermaid.js.org/intro/syntax-reference.html
    - `README.md` (user-facing behavior updates, if any)
    - `design.md` (layout/padding or flow notes, if any)
    - `projectStructure.md` (new/changed files)
 
 5. [ ] Create a PR summary comment covering all story changes.
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 

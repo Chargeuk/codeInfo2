@@ -846,7 +846,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 ### 6. Client: Layout tests for scroll + overflow
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

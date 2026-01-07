@@ -1009,8 +1009,8 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 ### 7. Final verification (acceptance criteria, clean builds, docs, PR summary)
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: b3ef81a, c13036c
 
 #### Overview
 
@@ -1178,3 +1178,5 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
   ```
 - Ran `npm run compose:down`.
 - Ran `npm run lint --workspaces` (warnings only, pre-existing) and `npm run format:check --workspaces` (clean).
+- Re-ran `npm run format:check --workspaces` after documentation/log updates (clean).
+- `git push` failed (missing GitHub credentials in this environment).

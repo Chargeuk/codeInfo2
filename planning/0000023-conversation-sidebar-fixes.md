@@ -313,7 +313,19 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Ensure persistence-disabled behavior still disables conversation controls when mongo is down.
      - Assert `conversation-filter-active` is disabled when `mongoConnected === false`.
 
-4. [ ] Run formatting/linting and resolve any failures:
+4. [ ] Add ConversationList error + pagination edge case tests:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Files to edit:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Requirements:
+     - Error state: render `ConversationList` with `isError: true` and `error` set; assert `conversation-error` appears and clicking the retry action calls `onRetry`.
+     - Pagination: with `hasMore: true` + `onLoadMore`, assert `conversation-load-more` is visible and invokes `onLoadMore` on click.
+     - Corner case: with `hasMore: false` or `onLoadMore` missing, assert `conversation-load-more` is not rendered.
+
+5. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`

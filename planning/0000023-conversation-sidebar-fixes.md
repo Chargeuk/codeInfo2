@@ -298,7 +298,43 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Ensures bulk UI only appears when bulk handlers are supplied.
 
-3. [ ] Integration test (RTL) - Agents sidebar filter tabs:
+3. [ ] Unit test (RTL) - ConversationList refresh action:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Description:
+     - Click `conversation-refresh` and assert `onRefresh` is invoked.
+   - Purpose:
+     - Covers the refresh happy path now that Agents shows the control.
+
+4. [ ] Unit test (RTL) - ConversationList row archive action:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Description:
+     - Render an active row and click `conversation-archive`, asserting `onArchive` is called with the conversation id.
+   - Purpose:
+     - Ensures per-row archive works for the happy path.
+
+5. [ ] Unit test (RTL) - ConversationList row restore action:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Description:
+     - Render an archived row and click `conversation-restore`, asserting `onRestore` is called with the conversation id.
+   - Purpose:
+     - Ensures per-row restore works for the happy path.
+
+6. [ ] Integration test (RTL) - Agents sidebar filter tabs:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -315,7 +351,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Mock `/conversations` with active + archived items for filter toggling.
      - Reuse existing AgentsPage test harness patterns from `agentsPage.sidebarWs.test.tsx`.
 
-4. [ ] Integration test (RTL) - Agents bulk selection + archive/restore:
+7. [ ] Integration test (RTL) - Agents bulk selection + archive/restore:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -331,7 +367,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Mock `/health` with `mongoConnected: true` and `/conversations` with mixed archived/active rows.
      - Reuse existing AgentsPage test harness patterns from `agentsPage.sidebarWs.test.tsx`.
 
-5. [ ] Integration test (RTL) - Agents bulk delete archived-only:
+8. [ ] Integration test (RTL) - Agents bulk delete archived-only:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -343,7 +379,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Confirms delete visibility rules match Chat (archived-only).
 
-6. [ ] Integration test (RTL) - Agents row archive/restore actions:
+9. [ ] Integration test (RTL) - Agents row archive/restore actions:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -355,7 +391,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Ensures per-row actions are available in Agents.
 
-7. [ ] Integration test (RTL) - Agents persistence disabled state:
+10. [ ] Integration test (RTL) - Agents persistence disabled state:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -366,7 +402,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Verifies persistence-disabled state matches Chat behavior.
 
-8. [ ] Documentation update - projectStructure.md (new test file):
+11. [ ] Documentation update - projectStructure.md (new test file):
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -376,7 +412,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Keep the repository map in sync after adding a new test file.
 
-9. [ ] Unit test (RTL) - Chat persistence banner disables sidebar controls:
+12. [ ] Unit test (RTL) - Chat persistence banner disables sidebar controls:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -387,7 +423,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Keeps Chat persistence behavior explicit after sidebar changes.
 
-10. [ ] Unit test (RTL) - ConversationList error state + retry:
+13. [ ] Unit test (RTL) - ConversationList error state + retry:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -399,7 +435,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Covers sidebar error handling path.
 
-11. [ ] Unit test (RTL) - ConversationList pagination happy path:
+14. [ ] Unit test (RTL) - ConversationList pagination happy path:
     - Documentation to read (repeat for standalone subtask context):
       - Jest: Context7 `/jestjs/jest`
       - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -411,7 +447,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
     - Purpose:
       - Confirms paging control appears and functions.
 
-12. [ ] Unit test (RTL) - ConversationList pagination disabled when exhausted:
+15. [ ] Unit test (RTL) - ConversationList pagination disabled when exhausted:
     - Documentation to read (repeat for standalone subtask context):
       - Jest: Context7 `/jestjs/jest`
       - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -422,7 +458,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
     - Purpose:
       - Matches current UI behavior (Load more remains visible but disabled when exhausted).
 
-13. [ ] Run formatting/linting and resolve any failures:
+16. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`

@@ -171,15 +171,6 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
      const showRowActions = Boolean(onArchive && onRestore);
      ```
 
-3. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -190,6 +181,9 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -257,15 +251,6 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
      />
      ```
 
-2. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -276,6 +261,9 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -592,15 +580,6 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      expect(screen.getByText('No more')).toBeInTheDocument();
      ```
 
-16. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -611,6 +590,9 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -667,15 +649,6 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
      }}
      ```
 
-2. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -686,6 +659,9 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -744,15 +720,6 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      </Box>
      ```
 
-2. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -763,6 +730,9 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -887,15 +857,6 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Purpose:
      - Keep the repository map in sync when adding the optional Agents layout test.
 
-7. [ ] Run formatting/linting and resolve any failures:
-   - Documentation to read:
-     - ESLint CLI: Context7 `/eslint/eslint`
-     - Prettier CLI: Context7 `/prettier/prettier`
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -906,6 +867,9 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
+11. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 
@@ -1015,6 +979,10 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 7. [ ] Create a PR summary comment covering all story changes.
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Output location:
+     - Add to the PR comment in GitHub (or paste into the PR description if comments are not available).
+   - Purpose:
+     - Summarize changes for reviewers with a clear, copy-ready summary.
 
 #### Testing
 
@@ -1027,6 +995,9 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks).
 9. [ ] `npm run compose:down`
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
+12. [ ] If needed, run `npm run lint:fix` and/or `npm run format --workspaces`.
 
 #### Implementation notes
 

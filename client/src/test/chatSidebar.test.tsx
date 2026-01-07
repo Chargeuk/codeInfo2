@@ -7,6 +7,7 @@ import ConversationList, {
   type ConversationListItem,
 } from '../components/chat/ConversationList';
 import type { ConversationFilterState } from '../hooks/useConversations';
+import { createLogger } from '../logging/logger';
 import { setupChatWsHarness } from './support/mockChatWs';
 
 const mockFetch = jest.fn();
@@ -37,6 +38,61 @@ const chatRoutes = [
   },
 ];
 
+type ConversationListProps = Parameters<typeof ConversationList>[0];
+
+const baseConversations: ConversationListItem[] = [
+  {
+    conversationId: 'c1',
+    title: 'First conversation',
+    provider: 'lmstudio',
+    model: 'm1',
+    lastMessageAt: '2025-01-02T00:00:00Z',
+    archived: false,
+  },
+  {
+    conversationId: 'c2',
+    title: 'Archived conversation',
+    provider: 'lmstudio',
+    model: 'm1',
+    lastMessageAt: '2025-01-01T00:00:00Z',
+    archived: true,
+  },
+];
+
+const logSidebarParityRendered = (params: {
+  variant: 'chat' | 'agents';
+  filtersVisible: boolean;
+  bulkEnabled: boolean;
+}) => {
+  const log = createLogger('client-test', () => '/test');
+  log('info', '0000023 sidebar parity tests rendered', params);
+};
+
+const createBaseProps = (
+  overrides: Partial<ConversationListProps> = {},
+): ConversationListProps => ({
+  conversations: baseConversations,
+  selectedId: undefined,
+  isLoading: false,
+  isError: false,
+  error: undefined,
+  hasMore: false,
+  filterState: 'active',
+  mongoConnected: true,
+  disabled: false,
+  onSelect: jest.fn(),
+  onFilterChange: jest.fn(),
+  onArchive: jest.fn(),
+  onRestore: jest.fn(),
+  onBulkArchive: async (ids) => ({ updatedCount: ids.length }),
+  onBulkRestore: async (ids) => ({ updatedCount: ids.length }),
+  onBulkDelete: async (ids) => ({ deletedCount: ids.length }),
+  onLoadMore: jest.fn(),
+  onRefresh: jest.fn(),
+  onRetry: jest.fn(),
+  ...overrides,
+});
+
 function rowByTitle(title: string) {
   const titleNode = screen.getByText(title);
   const row = titleNode.closest('[data-testid="conversation-row"]');
@@ -54,6 +110,135 @@ function filterConversations(
     return !c.archived;
   });
 }
+
+describe('ConversationList control gating', () => {
+  it('renders filters and refresh for agents when handlers are provided', () => {
+    render(
+      <ConversationList
+        {...createBaseProps({
+          variant: 'agents',
+          onFilterChange: jest.fn(),
+          onRefresh: jest.fn(),
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('conversation-filter-active'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-refresh')).toBeInTheDocument();
+  });
+
+  it('hides bulk UI when bulk handlers are not supplied', () => {
+    logSidebarParityRendered({
+      variant: 'chat',
+      filtersVisible: true,
+      bulkEnabled: false,
+    });
+
+    render(
+      <ConversationList
+        {...createBaseProps({
+          onBulkArchive: undefined,
+          onBulkRestore: undefined,
+          onBulkDelete: undefined,
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('conversation-select-all')).toBeNull();
+    expect(screen.queryByTestId('conversation-bulk-archive')).toBeNull();
+    expect(screen.queryByTestId('conversation-bulk-restore')).toBeNull();
+  });
+
+  it('invokes refresh when the refresh button is clicked', async () => {
+    const user = userEvent.setup();
+    const onRefresh = jest.fn();
+
+    render(
+      <ConversationList
+        {...createBaseProps({ onRefresh, onFilterChange: jest.fn() })}
+      />,
+    );
+
+    await user.click(screen.getByTestId('conversation-refresh'));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onArchive when the archive action is clicked', async () => {
+    const user = userEvent.setup();
+    const onArchive = jest.fn();
+
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: [baseConversations[0]],
+          onArchive,
+          onRestore: jest.fn(),
+        })}
+      />,
+    );
+
+    await user.click(screen.getByTestId('conversation-archive'));
+    expect(onArchive).toHaveBeenCalledWith('c1');
+  });
+
+  it('calls onRestore when the restore action is clicked', async () => {
+    const user = userEvent.setup();
+    const onRestore = jest.fn();
+
+    render(
+      <ConversationList
+        {...createBaseProps({
+          conversations: [baseConversations[1]],
+          onArchive: jest.fn(),
+          onRestore,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByTestId('conversation-restore'));
+    expect(onRestore).toHaveBeenCalledWith('c2');
+  });
+
+  it('shows the error state and invokes retry', async () => {
+    const user = userEvent.setup();
+    const onRetry = jest.fn();
+
+    render(
+      <ConversationList
+        {...createBaseProps({
+          isError: true,
+          error: 'Boom',
+          onRetry,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('conversation-error')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads more conversations when pagination is available', async () => {
+    const user = userEvent.setup();
+    const onLoadMore = jest.fn();
+
+    render(
+      <ConversationList {...createBaseProps({ hasMore: true, onLoadMore })} />,
+    );
+
+    await user.click(screen.getByTestId('conversation-load-more'));
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables pagination when there are no more results', () => {
+    render(<ConversationList {...createBaseProps({ hasMore: false })} />);
+
+    expect(screen.getByTestId('conversation-load-more')).toBeDisabled();
+    expect(screen.getByText('No more')).toBeInTheDocument();
+  });
+});
 
 describe('Chat sidebar bulk selection (ConversationList)', () => {
   it('clears selection when the user changes the filter', async () => {

@@ -98,7 +98,9 @@ export function ConversationList({
   onRetry,
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
-  const enableBulkUi = variant === 'chat';
+  const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
+  const showFilters = Boolean(onFilterChange && onRefresh);
+  const showRowActions = Boolean(onArchive && onRestore);
   const bulkDisabled = Boolean(disabled || mongoConnected === false);
   const sorted = useMemo(
     () =>
@@ -151,6 +153,15 @@ export function ConversationList({
       selectedCount: selectedIds.size,
     });
   }, [enableBulkUi, filterState, log, selectedIds.size, selectedKey]);
+
+  useEffect(() => {
+    log('info', '0000023 conversationlist controls visible', {
+      variant,
+      showFilters,
+      enableBulkUi,
+      showRowActions,
+    });
+  }, [enableBulkUi, log, showFilters, showRowActions, variant]);
 
   const allConversationIds = useMemo(
     () => sorted.map((c) => c.conversationId),
@@ -268,7 +279,7 @@ export function ConversationList({
           <Typography variant="subtitle1" fontWeight={700}>
             Conversations
           </Typography>
-          {variant === 'chat' && (
+          {showFilters && (
             <Tooltip title="Refresh list">
               <span>
                 <IconButton
@@ -285,7 +296,7 @@ export function ConversationList({
           )}
         </Stack>
 
-        {variant === 'chat' && (
+        {showFilters && (
           <ToggleButtonGroup
             size="small"
             exclusive
@@ -452,73 +463,75 @@ export function ConversationList({
                   key={conversation.conversationId}
                   disableGutters
                   secondaryAction={
-                    variant === 'agents' ? null : conversation.archived ? (
-                      <Tooltip title="Restore conversation">
-                        <span>
-                          <IconButton
-                            edge="end"
-                            size="small"
-                            onClick={() => {
-                              void Promise.resolve(
-                                onRestore(conversation.conversationId),
-                              )
-                                .then(() => {
-                                  setToast({
-                                    severity: 'success',
-                                    message: 'Conversation restored',
+                    showRowActions ? (
+                      conversation.archived ? (
+                        <Tooltip title="Restore conversation">
+                          <span>
+                            <IconButton
+                              edge="end"
+                              size="small"
+                              onClick={() => {
+                                void Promise.resolve(
+                                  onRestore(conversation.conversationId),
+                                )
+                                  .then(() => {
+                                    setToast({
+                                      severity: 'success',
+                                      message: 'Conversation restored',
+                                    });
+                                  })
+                                  .catch((err) => {
+                                    setToast({
+                                      severity: 'error',
+                                      message:
+                                        (err as Error).message ||
+                                        'Restore failed',
+                                    });
                                   });
-                                })
-                                .catch((err) => {
-                                  setToast({
-                                    severity: 'error',
-                                    message:
-                                      (err as Error).message ||
-                                      'Restore failed',
+                              }}
+                              disabled={disabled}
+                              data-testid="conversation-restore"
+                              aria-label="Restore conversation"
+                            >
+                              <RestoreIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="Archive conversation">
+                          <span>
+                            <IconButton
+                              edge="end"
+                              size="small"
+                              onClick={() => {
+                                void Promise.resolve(
+                                  onArchive(conversation.conversationId),
+                                )
+                                  .then(() => {
+                                    setToast({
+                                      severity: 'success',
+                                      message: 'Conversation archived',
+                                    });
+                                  })
+                                  .catch((err) => {
+                                    setToast({
+                                      severity: 'error',
+                                      message:
+                                        (err as Error).message ||
+                                        'Archive failed',
+                                    });
                                   });
-                                });
-                            }}
-                            disabled={disabled}
-                            data-testid="conversation-restore"
-                            aria-label="Restore conversation"
-                          >
-                            <RestoreIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title="Archive conversation">
-                        <span>
-                          <IconButton
-                            edge="end"
-                            size="small"
-                            onClick={() => {
-                              void Promise.resolve(
-                                onArchive(conversation.conversationId),
-                              )
-                                .then(() => {
-                                  setToast({
-                                    severity: 'success',
-                                    message: 'Conversation archived',
-                                  });
-                                })
-                                .catch((err) => {
-                                  setToast({
-                                    severity: 'error',
-                                    message:
-                                      (err as Error).message ||
-                                      'Archive failed',
-                                  });
-                                });
-                            }}
-                            disabled={disabled}
-                            data-testid="conversation-archive"
-                            aria-label="Archive conversation"
-                          >
-                            <ArchiveIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    )
+                              }}
+                              disabled={disabled}
+                              data-testid="conversation-archive"
+                              aria-label="Archive conversation"
+                            >
+                              <ArchiveIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      )
+                    ) : null
                   }
                 >
                   <ListItemButton

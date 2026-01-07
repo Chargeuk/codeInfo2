@@ -408,7 +408,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add `client/src/test/agentsPage.sidebarActions.test.tsx` to the tree with a short description.
+     - Add `client/src/test/agentsPage.sidebarActions.test.tsx` to the tree with a short description and include any other files added/removed in this task.
    - Purpose:
      - Keep the repository map in sync after adding a new test file.
 
@@ -700,7 +700,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add `client/src/test/agentsPage.layoutWrap.test.tsx` to the tree with a short description.
+     - Add `client/src/test/agentsPage.layoutWrap.test.tsx` to the tree with a short description and include any other files added/removed in this task.
    - Purpose:
      - Keep the repository map in sync when adding the optional Agents layout test.
 

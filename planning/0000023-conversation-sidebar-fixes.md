@@ -95,14 +95,14 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 ## Tasks
 
-### 1. Client: Agents sidebar feature parity (filters + archive/restore + bulk actions)
+### 1. Client: ConversationList control parity (filters, row actions, bulk UI)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs (Active / Active & Archived / Archived), per-row archive/restore, bulk archive/restore, and bulk delete available only when the filter is set to Archived. This task is strictly client-side wiring and UI parity; no server changes.
+Update the shared `ConversationList` component so filter tabs, refresh, row-level archive/restore, and bulk actions are enabled based on available handlers rather than the `variant` prop. This keeps the UI reusable for both Chat and Agents without duplicating components.
 
 #### Documentation Locations
 
@@ -110,12 +110,10 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
 - MUI Lists (List, ListItem, ListItemButton): https://llms.mui.com/material-ui/6.4.12/components/lists.md
 - MUI Stack (alignment + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
 - MUI Box (padding layout + `sx` usage): https://llms.mui.com/material-ui/6.4.12/components/box.md
-- Jest (client unit tests): Context7 `/jestjs/jest`
-- Testing Library (React): Context7 `/testing-library/testing-library-docs`
 
 #### Subtasks
 
-1. [ ] Read the current Chat vs Agents sidebar wiring so parity changes are scoped correctly:
+1. [ ] Read current ConversationList usage and server constraints:
    - Files to read:
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -129,54 +127,71 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
      - Which handlers Chat passes that Agents currently does not.
      - Confirm server list/bulk endpoints already support `agentName` and enforce archived-only delete (no server changes required).
 
-2. [ ] Update `ConversationList` to allow Agents to use the same controls as Chat:
+2. [ ] Update `ConversationList` control gating:
    - Documentation to read:
      - MUI ToggleButtonGroup: https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
      - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
-     - Show the filter ToggleButtonGroup and Refresh icon when the caller supplies the needed handlers (not only when `variant === 'chat'`).
-     - Enable bulk-selection UI (checkboxes + bulk action bar) when bulk handlers are provided, regardless of variant.
-     - Compute `enableBulkUi` from handler presence (`onBulkArchive`/`onBulkRestore`/`onBulkDelete`), not `variant`.
-     - Allow per-row archive/restore actions for Agents (remove the `variant === 'agents'` short-circuit).
+     - Show filter ToggleButtonGroup and Refresh when handlers are supplied (not only when `variant === 'chat'`).
+     - Enable bulk-selection UI when bulk handlers are supplied, regardless of variant.
+     - Compute `enableBulkUi` from handler presence (`onBulkArchive`/`onBulkRestore`/`onBulkDelete`).
+     - Allow per-row archive/restore actions for Agents (remove `variant === 'agents'` short-circuit).
      - Keep bulk delete strictly gated to `filterState === 'archived'`.
      - Preserve existing `data-testid` values for test stability.
-     - Reuse the existing `ConversationList` bulk selection patterns used by `chatSidebar.test.tsx` (do not introduce a new bulk-selection component).
+     - Reuse existing bulk-selection logic (no new component).
 
-3. [ ] Wire Agents page to pass the full set of conversation actions:
-   - Documentation to read:
-     - MUI Box/Stack: https://llms.mui.com/material-ui/6.4.12/components/box.md
+3. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/chat`, ensure ConversationList controls still render and behave as before.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 2. Client: Agents sidebar wiring for archive/restore + bulk actions
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Wire AgentsPage to pass the full set of conversation handlers so the shared ConversationList renders filters and archive/bulk controls. Ensure persistence-disabled states mirror Chat.
+
+#### Documentation Locations
+
+- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- MUI Stack (layout + spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+
+#### Subtasks
+
+1. [ ] Update AgentsPage conversation props:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
      - Pass `onArchive`, `onRestore`, `onBulkArchive`, `onBulkRestore`, `onBulkDelete` from `useConversations`.
-     - Use the same `filterState` + `setFilterState` as Chat.
-     - Disable conversation actions when persistence is unavailable (match Chat’s `disabled` rule by including `persistenceUnavailable` in the `disabled` prop).
+     - Keep `filterState` + `setFilterState` wired (same as Chat).
+     - Disable conversation actions when persistence is unavailable (match Chat’s `disabled` rule).
+     - Keep `variant` as-is unless required for styling; controls should appear via handler presence.
 
-4. [ ] Add/update unit tests for Agents sidebar parity:
-   - Documentation to read:
-     - Context7 `/jestjs/jest`
-     - Context7 `/testing-library/testing-library-docs`
-   - Files to edit/add:
-     - `client/src/test/chatSidebar.test.tsx`
-     - `client/src/test/chatPersistenceBanner.test.tsx`
-     - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
-   - Test requirements:
-     - Assert filter tabs render on Agents and toggle the filter state.
-     - Assert row selection checkboxes render and can be toggled.
-     - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
-     - Assert bulk delete appears only when the filter is Archived.
-     - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
-     - Assert conversation filters/actions are disabled when persistence is unavailable.
-     - Reuse existing `chatSidebar.test.tsx` patterns for bulk selection and confirmation dialogs where possible; only add new tests when Agents-specific wiring is required.
-
-5. [ ] Documentation updates (each in its own commit if changed):
-   - Update `projectStructure.md` if new test files are added.
-   - Update `design.md` if any UX behavior descriptions change (likely minimal for this task).
-   - Update `README.md` only if user-facing behavior needs to be documented.
-
-6. [ ] Run formatting/linting and resolve any failures:
+2. [ ] Run formatting/linting and resolve any failures:
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -200,80 +215,47 @@ Enable the Agents conversation sidebar to behave exactly like Chat: filter tabs 
 
 ---
 
-### 2. Client: Sidebar layout + scroll fixes (padding, overflow, list scroll)
+### 3. Client: Sidebar parity tests (ConversationList + Agents)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Fix sidebar layout issues so the header and rows align with consistent 12px padding, the list panel scrolls vertically (keeping “Load more” reachable), and no horizontal scrollbar appears at any viewport size.
+Extend existing conversation sidebar tests and add Agents-specific coverage to ensure filter tabs, bulk actions, and persistence-disabled states work in both Chat and Agents.
 
 #### Documentation Locations
 
-- MUI Drawer (paper sizing + overflow control): https://llms.mui.com/material-ui/6.4.12/components/drawers.md
-- MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
-- MUI Lists (List + ListItem padding): https://llms.mui.com/material-ui/6.4.12/components/lists.md
-- MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
 - Jest (client unit tests): Context7 `/jestjs/jest`
 - Testing Library (React): Context7 `/testing-library/testing-library-docs`
 
 #### Subtasks
 
-1. [ ] Review current sidebar layout and overflow behavior:
-   - Files to read:
-     - `client/src/components/chat/ConversationList.tsx`
-     - `client/src/pages/ChatPage.tsx`
-     - `client/src/pages/AgentsPage.tsx`
-     - `client/src/test/chatPage.layoutWrap.test.tsx`
-   - What to identify:
-     - Where `overflow: 'hidden'` prevents vertical scrolling.
-     - Which containers need `minWidth: 0` to avoid `noWrap` overflow.
-
-2. [ ] Update Drawer paper sizing/overflow to avoid horizontal scroll:
-   - Documentation to read:
-     - MUI Drawer: https://llms.mui.com/material-ui/6.4.12/components/drawers.md
-     - MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+1. [ ] Extend ConversationList tests:
    - Files to edit:
-     - `client/src/pages/ChatPage.tsx`
-     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/test/chatSidebar.test.tsx`
    - Requirements:
-     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (MUI 6.4.x supports both `slotProps.paper` and `PaperProps`).
-     - Ensure the Drawer paper width never exceeds the 320px drawer width.
+     - Reuse existing bulk-selection and delete confirmation patterns.
+     - Add any missing assertions needed for new control gating.
 
-3. [ ] Fix ConversationList padding and scroll container behavior:
-   - Documentation to read:
-     - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
-     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
-   - Files to edit:
-     - `client/src/components/chat/ConversationList.tsx`
-   - Requirements:
-     - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
-     - Move the “Load more” row into the bordered list panel so it scrolls with the list.
-     - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
-     - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
-
-4. [ ] Add/update layout tests to lock in scroll + overflow behavior:
-   - Documentation to read:
-     - Context7 `/jestjs/jest`
-     - Context7 `/testing-library/testing-library-docs`
+2. [ ] Add Agents sidebar parity tests:
    - Files to edit/add:
-     - `client/src/test/chatPage.layoutWrap.test.tsx`
-     - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, if needed for coverage parity)
-   - Test requirements:
-     - Assert the conversation list container uses vertical scrolling (`overflowY: 'auto'` or equivalent).
-     - Assert the “Load more” button is rendered inside the bordered list panel.
-     - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
-     - Validate header and row padding use the same `px` value.
-     - Extend existing `chatPage.layoutWrap.test.tsx` before creating a new Agents layout test (avoid duplicate layout assertions unless necessary).
+     - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
+   - Requirements:
+     - Assert filter tabs render on Agents and toggle filter state.
+     - Assert row selection checkboxes render and can be toggled.
+     - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
+     - Assert bulk delete appears only when the filter is Archived.
+     - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
+     - Assert conversation filters/actions are disabled when persistence is unavailable.
 
-5. [ ] Documentation updates (each in its own commit if changed):
-   - Update `projectStructure.md` if new test files are added.
-   - Update `design.md` if layout notes/diagrams reference the sidebar spacing.
-   - Update `README.md` only if user-facing behavior changes require a note.
+3. [ ] Update persistence banner test if needed:
+   - Files to edit:
+     - `client/src/test/chatPersistenceBanner.test.tsx`
+   - Requirements:
+     - Ensure persistence-disabled behavior still disables conversation controls when mongo is down.
 
-6. [ ] Run formatting/linting and resolve any failures:
+4. [ ] Run formatting/linting and resolve any failures:
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -288,7 +270,7 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/chat` and `/agents`, verify the list panel scrolls vertically, and no horizontal scrollbar appears at any viewport size.
+8. [ ] Manual check: run the new Agents sidebar test and confirm it passes locally.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -297,7 +279,158 @@ Fix sidebar layout issues so the header and rows align with consistent 12px padd
 
 ---
 
-### 3. Final verification (acceptance criteria, clean builds, docs, PR summary)
+### 4. Client: Drawer paper overflow guard (Chat + Agents)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Update Drawer paper styling to prevent horizontal scrollbars and ensure the Drawer width does not exceed 320px in both Chat and Agents.
+
+#### Documentation Locations
+
+- MUI Drawer (paper sizing + overflow control): https://llms.mui.com/material-ui/6.4.12/components/drawers.md
+- MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+
+#### Subtasks
+
+1. [ ] Apply Drawer paper overflow guard:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Apply `boxSizing: 'border-box'` and `overflowX: 'hidden'` to the Drawer paper using `slotProps.paper` (MUI 6.4.x supports both `slotProps.paper` and `PaperProps`).
+     - Ensure the Drawer paper width never exceeds the 320px drawer width.
+
+2. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/chat` and `/agents`, ensure no horizontal scrollbar appears.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 5. Client: List panel padding + vertical scroll behavior
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Align header/row padding to 12px and move vertical scrolling into the list panel, with “Load more” inside the bordered panel for both Chat and Agents.
+
+#### Documentation Locations
+
+- MUI Lists (List + ListItem padding): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
+
+#### Subtasks
+
+1. [ ] Adjust ConversationList padding + scroll container:
+   - Files to edit:
+     - `client/src/components/chat/ConversationList.tsx`
+   - Requirements:
+     - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
+     - Move the “Load more” row into the bordered list panel so it scrolls with the list.
+     - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
+     - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
+
+2. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/chat` and `/agents`, verify the list panel scrolls vertically and “Load more” is reachable.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 6. Client: Layout tests for scroll + overflow
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Extend layout tests to assert vertical scrolling in the list panel, “Load more” placement, and Drawer overflow guards without duplicating coverage unnecessarily.
+
+#### Documentation Locations
+
+- Jest (client unit tests): Context7 `/jestjs/jest`
+- Testing Library (React): Context7 `/testing-library/testing-library-docs`
+
+#### Subtasks
+
+1. [ ] Update Chat layout tests:
+   - Files to edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Requirements:
+     - Assert the conversation list container uses vertical scrolling (`overflowY: 'auto'` or equivalent).
+     - Assert the “Load more” button is rendered inside the bordered list panel.
+     - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
+     - Validate header and row padding use the same `px` value.
+
+2. [ ] Add Agents layout test only if needed:
+   - Files to edit/add:
+     - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, only if Chat tests can’t cover Agents-specific layout)
+
+3. [ ] Run formatting/linting and resolve any failures:
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+   - If needed, apply fixes with `npm run lint:fix` and/or `npm run format --workspaces`.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: resize viewport and confirm no horizontal scrollbar in the drawer.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- (fill in after implementation)
+
+---
+
+### 7. Final verification (acceptance criteria, clean builds, docs, PR summary)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**

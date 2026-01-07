@@ -411,16 +411,16 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
     - Purpose:
       - Confirms paging control appears and functions.
 
-12. [ ] Unit test (RTL) - ConversationList pagination hidden when inactive:
+12. [ ] Unit test (RTL) - ConversationList pagination disabled when exhausted:
     - Documentation to read (repeat for standalone subtask context):
       - Jest: Context7 `/jestjs/jest`
       - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
     - Test location:
       - `client/src/test/chatSidebar.test.tsx`
     - Description:
-      - With `hasMore: false` **or** missing `onLoadMore`, assert `conversation-load-more` is not rendered.
+      - With `hasMore: false`, assert `conversation-load-more` is disabled and shows the "No more" label.
     - Purpose:
-      - Covers pagination corner case (no load-more state).
+      - Matches current UI behavior (Load more remains visible but disabled when exhausted).
 
 13. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
@@ -544,12 +544,13 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
      - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
-     - Move the “Load more” row into the bordered list panel so it scrolls with the list.
+    - Keep the “Load more” row inside the bordered list panel so it scrolls with the list once the scroll container is added.
      - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
      - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
-   - UI elements to verify after change:
-     - `conversation-load-more` remains visible inside the bordered panel.
-     - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
+  - UI elements to verify after change:
+    - `conversation-load-more` remains visible inside the bordered panel.
+    - When `hasMore` is false, the button shows “No more” and stays disabled.
+    - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
 
 2. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
